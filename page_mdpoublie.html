@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MangaHub – Mot de passe oublié</title>
+    <link rel="stylesheet" href="/assets/css/page_mdpoublie.css">
+</head>
+<body>
+    <div class="auth-page">
+        <!-- Left Showcase -->
+        <section class="auth-showcase">
+            <div class="animated-dot"></div>
+            
+            <header class="auth-logo-row">
+                <div class="auth-logo-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/>
+                    </svg>
+                </div>
+                <div class="auth-logo-text">MangaHub</div>
+            </header>
+
+            <div class="auth-showcase-main">
+                <div class="auth-hero-copy">
+                    <div class="auth-eyebrow">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            <path d="M9 12l2 2 4-4"/>
+                        </svg>
+                        Compte sécurisé
+                    </div>
+                    <h1 class="auth-title">
+                        Ne perdez jamais<br />votre progression.
+                    </h1>
+                    <p class="auth-subtitle">
+                        Récupérez l'accès à votre compte en quelques secondes et
+                        reprenez votre lecture exactement là où vous l'avez laissée.
+                    </p>
+                </div>
+
+                <div class="auth-hero-card">
+                    <div class="auth-hero-row">
+                        <div class="auth-hero-cover">
+                            <img src="https://images.unsplash.com/photo-1618519764620-7403abdbdfe9?w=150&h=200&fit=crop" alt="The Beginning After The End">
+                        </div>
+                        <div class="auth-hero-meta">
+                            <small>RECOMMANDÉ</small>
+                            <h3>The Beginning After The End</h3>
+                            <div class="auth-chapter-info">Chapitre 128 • Nouvelle saison</div>
+                            <div class="auth-hero-progress">
+                                <div class="auth-hero-progress-fill" style="width: 15%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="auth-hero-footer">
+                        <span>Ajouté à la liste</span>
+                        <span class="resume-link">Découvrir →</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="auth-orbit">
+                <div class="auth-orbit-dashed">
+                    <div class="auth-orbit-dot"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Form -->
+        <section class="auth-form-pane">
+            <div class="auth-form-container">
+                <div class="auth-header">
+                    <div class="icon-container">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                        </svg>
+                    </div>
+                    <h2>Mot de passe oublié ?</h2>
+                    <p>
+                        Pas de panique, cela arrive aux meilleurs. Entrez l'adresse
+                        email associée à votre compte pour recevoir les instructions de
+                        réinitialisation.
+                    </p>
+                </div>
+
+                <form class="forgot-form" id="forgotForm">
+                    <div class="form-group">
+                        <label class="form-label">Adresse email</label>
+                        <div class="form-input-wrapper">
+                            <svg class="form-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                <polyline points="22,6 12,13 2,6"/>
+                            </svg>
+                            <input type="email" class="form-input" placeholder="ex: thomas@manga.com" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="submit-btn">
+                        Envoyer le lien de récupération
+                    </button>
+
+                    <a href="login.html" class="back-link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"/>
+                            <polyline points="12 19 5 12 12 5"/>
+                        </svg>
+                        Retour à la connexion
+                    </a>
+                </form>
+            </div>
+        </section>
+    </div>
+
+    <script src="/assets/js/page_mdpoublie.js"></script>
+</body>
+</html>
