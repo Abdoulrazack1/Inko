@@ -24,8 +24,8 @@ if (loginForm) {
             return;
         }
         
-        // Simulate login
-        alert('Connexion réussie ! Bienvenue sur MangaHub 🎉');
+        // Simulate login 
+        alert('Connexion réussie ! Bienvenue sur MangaHub');
         // Here you would normally send the login data to your server
     });
 }
