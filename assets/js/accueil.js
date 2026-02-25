@@ -1,4 +1,4 @@
-// index.js — Page d'accueil
+// accueil.js — Page d'accueil
 (function () {
     'use strict';
     document.addEventListener('DOMContentLoaded', () => {
@@ -10,6 +10,20 @@
         renderCollectionBanners();
         renderLatest();
         renderSidebar();
+
+        // ── Bouton "Charger plus" ── (doit être dans DOMContentLoaded)
+        document.getElementById('btnMore')?.addEventListener('click', () => {
+            latestCount += 4;
+            renderLatest();
+        });
+
+        // ── Filtres dernières sorties ──
+        MH.$('#latestFilters')?.addEventListener('click', e => {
+            const btn = e.target.closest('[data-filter]');
+            if (!btn) return;
+            MH.$$('#latestFilters [data-filter]').forEach(b => b.classList.remove('tag-orange', 'active'));
+            btn.classList.add('tag-orange', 'active');
+        });
     });
 
     // ── Hero carousel ────────────────────────────────────────
@@ -17,9 +31,9 @@
     const heroMangas = DB.mangas.filter(m => m.isFeatured || m.trendingRank <= 3).slice(0, 4);
 
     function renderHero() {
-        const bg = document.getElementById('heroBg');
+        const bg      = document.getElementById('heroBg');
         const content = document.getElementById('heroContent');
-        const dots = document.getElementById('heroDots');
+        const dots    = document.getElementById('heroDots');
         if (!bg || !content) return;
 
         function showHero(idx) {
@@ -72,7 +86,7 @@
                 <div class="resume-info">
                     <div class="resume-title">${MH.esc(m.title)}</div>
                     <div class="resume-chap">
-                        ${h.page ? `Chapitre ${h.chapter} · Page ${h.page}` : h.chapter}
+                        ${h.page ? `Chapitre ${h.chapter} · Page ${h.page}` : `Chapitre ${h.chapter}`}
                     </div>
                     <div class="resume-progress">
                         <div class="resume-progress-fill" style="width:${pct}%"></div>
@@ -111,10 +125,11 @@
             updateTrendScroll();
         });
     }
+
     function updateTrendScroll() {
         const track = document.getElementById('trendingTrack');
         if (!track) return;
-        const cardW = track.firstChild?.offsetWidth + 12 || 0;
+        const cardW = (track.firstElementChild?.offsetWidth || 0) + 12;
         track.style.transform = `translateX(-${trendOffset * cardW}px)`;
     }
 
@@ -155,18 +170,6 @@
         const latest = DB.getLatest().slice(0, latestCount);
         el.innerHTML = latest.map(m => mangaCardHTML(m)).join('');
     }
-
-    document.getElementById('btnMore')?.addEventListener('click', () => {
-        latestCount += 4;
-        renderLatest();
-    });
-
-    MH.$('#latestFilters')?.addEventListener('click', e => {
-        const btn = e.target.closest('[data-filter]');
-        if (!btn) return;
-        MH.$$('#latestFilters [data-filter]').forEach(b => b.classList.remove('tag-orange', 'active'));
-        btn.classList.add('tag-orange', 'active');
-    });
 
     // ── Sidebar ──────────────────────────────────────────────
     function renderSidebar() {
@@ -241,8 +244,8 @@
                      onerror="this.src='${m.coverFallback}'">
                 <div class="manga-card-badges">
                     ${matchPct ? `<span class="badge badge-orange">${matchPct}% MATCH</span>` : ''}
-                    ${m.isHot ? '<span class="badge badge-hot">HOT</span>' : ''}
-                    ${m.isNew ? '<span class="badge badge-new">NEW</span>' : ''}
+                    ${m.isHot  ? '<span class="badge badge-hot">HOT</span>'                    : ''}
+                    ${m.isNew  ? '<span class="badge badge-new">NEW</span>'                    : ''}
                 </div>
                 <div class="manga-card-overlay">
                     <div class="btn-read-overlay">▶ Lire</div>
@@ -254,7 +257,9 @@
                 <div class="manga-card-author">${MH.esc(m.author)}</div>
                 <div class="manga-card-meta">
                     <span class="manga-card-rating">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="#f59e0b"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="#f59e0b">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
                         ${m.rating}
                     </span>
                     <span class="manga-card-chapter">Chap. ${m.chapters}</span>

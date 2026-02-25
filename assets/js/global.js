@@ -19,8 +19,16 @@
         const el = document.createElement('div');
         el.className = 'toast';
         el.textContent = msg;
+        Object.assign(el.style, {
+            position: 'fixed', bottom: '24px', right: '24px', zIndex: '9999',
+            background: '#ff6b1a', color: '#fff', padding: '10px 18px',
+            borderRadius: '8px', fontSize: '13.5px', fontWeight: '500',
+            boxShadow: '0 4px 16px rgba(255,107,26,.4)', opacity: '1',
+            transition: 'opacity .3s', pointerEvents: 'none',
+            fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+        });
         document.body.appendChild(el);
-        setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, duration);
+        setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, duration);
     };
 
     /* ── Cover image fallback ────────────────────────────── */
@@ -53,29 +61,29 @@
     /* ── Header HTML ─────────────────────────────────────── */
     const headerHTML = (activePage) => `
     <header class="site-header">
-      <a href="index.html" class="header-logo">
+      <a href="accueil.html" class="header-logo">
         <div class="logo-icon">⚡</div>
         MangaHub
       </a>
       <nav class="header-nav">
-        <a href="index.html" class="${activePage === 'accueil' ? 'active' : ''}">Accueil</a>
-        <a href="catalogue.html" class="${activePage === 'catalogue' ? 'active' : ''}">Catalogue</a>
-        <a href="#" class="${activePage === 'aleatoire' ? 'active' : ''}">Lecture aléatoire</a>
-        <a href="collections.html" class="${activePage === 'collections' ? 'active' : ''}">Collection</a>
-        <a href="#" class="nav-mes-listes ${activePage === 'listes' ? 'active' : ''}">Mes listes</a>
+        <a href="accueil.html" class="${activePage === 'accueil' ? 'active' : ''}">Accueil</a>
+        <a href="catalogue.html" class="${['catalogue','serie','chapitre'].includes(activePage) ? 'active' : ''}">Catalogue</a>
+        <a href="#" id="navRandom" class="${activePage === 'aleatoire' ? 'active' : ''}">Lecture aléatoire</a>
+        <a href="collections.html" class="${['collections','collection-detail'].includes(activePage) ? 'active' : ''}">Collections</a>
+        <a href="profil.html" class="nav-mes-listes ${activePage === 'profil' ? 'active' : ''}">Mes listes</a>
       </nav>
       <div class="header-search">
         <span class="header-search-icon">🔍</span>
-        <input type="text" id="headerSearch" placeholder="Rechercher...">
+        <input type="text" id="headerSearch" placeholder="Rechercher un manga, un auteur…" autocomplete="off">
         <div class="search-dropdown" id="searchDropdown"></div>
       </div>
       <div class="header-actions">
         <button class="header-icon-btn notif-dot" title="Notifications">🔔</button>
-        <a href="#" class="header-user">
+        <a href="profil.html" class="header-user">
           <div class="header-avatar">K</div>
           <div class="user-label">Kaito<span class="user-sublabel">Pro</span></div>
         </a>
-        <button class="btn-connect btn">Se connecter</button>
+        <a href="page_login.html" class="btn-connect btn">Se connecter</a>
       </div>
     </header>`;
 
@@ -145,42 +153,51 @@
 
     /* ── Live search ─────────────────────────────────────── */
     function initSearch() {
-        const input = document.getElementById('headerSearch');
+        const input    = document.getElementById('headerSearch');
         const dropdown = document.getElementById('searchDropdown');
         if (!input || !dropdown) return;
 
+        function renderDropdown(results, q) {
+            if (!results.length) {
+                dropdown.innerHTML = `<div style="padding:14px;text-align:center;color:var(--text3);font-size:13px">Aucun résultat pour « ${esc(q)} »</div>`;
+            } else {
+                dropdown.innerHTML = results.map(m => `
+                <a href="serie.html?id=${m.id}" class="search-result-item">
+                    <img src="${m.coverFallback}" alt="" loading="lazy">
+                    <div class="search-result-info">
+                        <div class="title">${esc(m.title)}</div>
+                        <div class="meta">${esc(m.author)} · ${m.chapters} chap. · ⭐ ${m.rating}</div>
+                    </div>
+                </a>`).join('');
+            }
+            if (q.length > 0) {
+                dropdown.innerHTML += `<a href="catalogue.html?q=${encodeURIComponent(q)}" class="search-result-item" style="justify-content:center;color:var(--orange);font-size:12.5px;font-weight:500;border-top:1px solid var(--border);padding:10px">Voir tous les résultats pour « ${esc(q)} » →</a>`;
+            } else {
+                dropdown.innerHTML = `<div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.07em">TENDANCES</div>` + dropdown.innerHTML;
+            }
+            dropdown.classList.add('open');
+        }
+
+        function showResults(q) {
+            if (!window.DB) { setTimeout(() => showResults(q), 100); return; }
+            const results = q.length === 0 ? DB.getTrending(6) : DB.searchMangas(q).slice(0, 7);
+            renderDropdown(results, q);
+        }
+
         let timeout;
+        input.addEventListener('focus', () => { showResults(input.value.trim()); });
         input.addEventListener('input', () => {
             clearTimeout(timeout);
-            timeout = setTimeout(() => {
-                const q = input.value.trim();
-                if (q.length < 2) { dropdown.classList.remove('open'); return; }
-                if (!window.DB) return;
-                const results = DB.searchMangas(q).slice(0, 5);
-                if (!results.length) { dropdown.classList.remove('open'); return; }
-                dropdown.innerHTML = results.map(m => `
-                    <a href="serie.html?id=${m.id}" class="search-result-item">
-                        <img src="${m.cover || m.coverFallback}"
-                             onerror="this.src='${m.coverFallback}'"
-                             alt="">
-                        <div class="search-result-info">
-                            <div class="title">${esc(m.title)}</div>
-                            <div class="meta">${m.author} · ${m.chapters} chap.</div>
-                        </div>
-                    </a>`).join('');
-                dropdown.classList.add('open');
-            }, 200);
+            const q = input.value.trim();
+            if (q.length <= 1) { showResults(q); }
+            else { timeout = setTimeout(() => showResults(q), 80); }
         });
-
         document.addEventListener('click', e => {
-            if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-                dropdown.classList.remove('open');
-            }
+            if (!input.closest('.header-search').contains(e.target)) dropdown.classList.remove('open');
         });
-
         input.addEventListener('keydown', e => {
-            if (e.key === 'Escape') dropdown.classList.remove('open');
-            if (e.key === 'Enter') {
+            if (e.key === 'Escape') { dropdown.classList.remove('open'); input.blur(); }
+            if (e.key === 'Enter' && input.value.trim()) {
                 dropdown.classList.remove('open');
                 window.location.href = `catalogue.html?q=${encodeURIComponent(input.value.trim())}`;
             }
@@ -188,14 +205,23 @@
     }
 
     /* ── Random lecture ──────────────────────────────────── */
+    // Utilise la délégation sur document pour capturer le bouton même après injection HTML
     document.addEventListener('click', e => {
-        if (e.target.textContent === 'Lecture aléatoire') {
-            e.preventDefault();
-            if (!window.DB) return;
-            const all = DB.mangas;
-            const m = all[Math.floor(Math.random() * all.length)];
-            window.location.href = `serie.html?id=${m.id}`;
+        const btn = e.target.closest('#navRandom');
+        if (!btn) return;
+        e.preventDefault();
+
+        // Attendre que DB soit disponible (data.js chargé après global.js)
+        function tryRandom() {
+            if (!window.DB || !DB.mangas || !DB.mangas.length) {
+                setTimeout(tryRandom, 50);
+                return;
+            }
+            const m = DB.mangas[Math.floor(Math.random() * DB.mangas.length)];
+            MH.toast(`Lecture aléatoire : ${m.title} 🎲`);
+            setTimeout(() => { window.location.href = `serie.html?id=${m.id}`; }, 600);
         }
+        tryRandom();
     });
 
 })();

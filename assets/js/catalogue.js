@@ -4,7 +4,7 @@
     const PER_PAGE = 10;
     let currentPage = 1;
     let currentView = 'grid';
-    let filters = { status: null, genre: null, demographic: null, minRating: 3.5, lang: null, isWebtoon: undefined, sort: 'popularity' };
+    let filters = { status: null, genre: null, demographic: null, minRating: 0, lang: null, isWebtoon: undefined, sort: 'reads' };
     let searchQuery = '';
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -117,7 +117,7 @@
 
         // Calendar
         const cal = document.getElementById('weekCalendar');
-        if (cal) {
+        if (cal && DB.calendarReleases) {
             cal.innerHTML = DB.calendarReleases.map(r => {
                 const m = DB.getManga(r.mangaId);
                 if (!m) return '';
@@ -142,9 +142,8 @@
         if (slider) {
             slider.value = filters.minRating;
             slider.addEventListener('input', () => {
-                slider.previousElementSibling && (slider.previousElementSibling.textContent = slider.value);
-                const vals = slider.parentElement.querySelector('.rating-vals span');
-                if (vals) vals.textContent = slider.value;
+                const ratingDisplay = document.getElementById('ratingDisplay');
+                if (ratingDisplay) ratingDisplay.textContent = slider.value;
                 filters.minRating = parseFloat(slider.value);
                 currentPage = 1; renderResults();
             });
@@ -190,7 +189,7 @@
         });
 
         document.getElementById('filtersReset')?.addEventListener('click', () => {
-            filters = { status: null, genre: null, demographic: null, minRating: 0, lang: null, isWebtoon: undefined, sort: 'popularity' };
+            filters = { status: null, genre: null, demographic: null, minRating: 0, lang: null, isWebtoon: undefined, sort: 'reads' };
             searchQuery = '';
             currentPage = 1;
             renderFilterSidebar();
@@ -430,7 +429,8 @@
         });
 
         document.getElementById('sortSelect')?.addEventListener('change', e => {
-            filters.sort = e.target.value;
+            const map = { 'popularity': 'reads', 'rating': 'rating', 'new': 'year', 'chapters': 'chapters' };
+            filters.sort = map[e.target.value] || e.target.value;
             currentPage = 1; renderResults();
         });
 

@@ -3,7 +3,7 @@ const toggleLoginPassword = document.getElementById('toggleLoginPassword');
 const loginPassword = document.getElementById('loginPassword');
 
 if (toggleLoginPassword && loginPassword) {
-    toggleLoginPassword.addEventListener('click', function() {
+    toggleLoginPassword.addEventListener('click', function () {
         const type = loginPassword.getAttribute('type') === 'password' ? 'text' : 'password';
         loginPassword.setAttribute('type', type);
         this.textContent = type === 'password' ? 'Voir' : 'Masquer';
@@ -13,34 +13,36 @@ if (toggleLoginPassword && loginPassword) {
 // Form Submission
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
-    loginForm.addEventListener('submit', function(e) {
+    loginForm.addEventListener('submit', function (e) {
         e.preventDefault();
-        
+
         const email = this.querySelector('input[type="email"]').value;
         const password = loginPassword.value;
-        
+
         if (!email || !password) {
-            alert('Veuillez remplir tous les champs.');
+            window.MH?.toast('Veuillez remplir tous les champs.');
             return;
         }
-        
-        // Simulate login 
-        alert('Connexion réussie ! Bienvenue sur MangaHub');
-        // Here you would normally send the login data to your server
+
+        window.MH?.toast('Connexion réussie ! Bienvenue sur MangaHub 👋');
+        setTimeout(() => { window.location.href = 'accueil.html'; }, 1200);
     });
 }
 
-// Email validation
+// Email validation on blur
 const emailInput = document.querySelector('input[type="email"]');
 if (emailInput) {
-    emailInput.addEventListener('blur', function(e) {
-        const email = e.target.value;
+    emailInput.addEventListener('blur', function () {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        
-        if (email && !emailRegex.test(email)) {
-            this.style.borderColor = '#ef4444';
-        } else {
-            this.style.borderColor = '';
-        }
+        this.style.borderColor = (this.value && !emailRegex.test(this.value)) ? '#ef4444' : '';
+    });
+}
+
+// Lien "Mot de passe oublié"
+const forgotLink = document.querySelector('.forgot-link');
+if (forgotLink) {
+    forgotLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        window.location.href = 'page_mdpoublie.html';
     });
 }

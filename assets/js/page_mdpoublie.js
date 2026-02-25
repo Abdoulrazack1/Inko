@@ -2,29 +2,25 @@
 const forgotForm = document.getElementById('forgotForm');
 
 if (forgotForm) {
-    forgotForm.addEventListener('submit', function(e) {
+    forgotForm.addEventListener('submit', function (e) {
         e.preventDefault();
-        
+
         const emailInput = this.querySelector('input[type="email"]');
         const email = emailInput.value;
-        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
         if (!email) {
-            alert('Veuillez entrer votre adresse email.');
+            window.MH?.toast('Veuillez entrer votre adresse email.');
             return;
         }
-        
-        // Email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
         if (!emailRegex.test(email)) {
-            alert('Veuillez entrer une adresse email valide.');
+            window.MH?.toast('Veuillez entrer une adresse email valide.');
             emailInput.style.borderColor = '#ef4444';
             return;
         }
-        
-        // Simulate sending recovery email
-        alert(`Un lien de récupération a été envoyé à ${email} 📧`);
-        
-        // Reset form
+
+        window.MH?.toast(`Lien envoyé à ${email} 📧`);
         this.reset();
         emailInput.style.borderColor = '';
     });
@@ -33,19 +29,12 @@ if (forgotForm) {
 // Email validation on blur
 const emailInput = document.querySelector('input[type="email"]');
 if (emailInput) {
-    emailInput.addEventListener('blur', function(e) {
-        const email = e.target.value;
+    emailInput.addEventListener('blur', function () {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        
-        if (email && !emailRegex.test(email)) {
-            this.style.borderColor = '#ef4444';
-        } else {
-            this.style.borderColor = '';
-        }
+        this.style.borderColor = (this.value && !emailRegex.test(this.value)) ? '#ef4444' : '';
     });
-    
-    // Clear error on input
-    emailInput.addEventListener('input', function() {
+
+    emailInput.addEventListener('input', function () {
         this.style.borderColor = '';
     });
 }
