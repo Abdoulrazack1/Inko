@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MangaHub — Accueil</title>
+  <link rel="stylesheet" href="global.css">
+  <link rel="stylesheet" href="index.css">
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+
+  <!-- ══ HERO ══════════════════════════════════════════════ -->
+  <section class="hero" id="hero">
+    <div class="hero-bg" id="heroBg"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content" id="heroContent"></div>
+    <div class="hero-dots" id="heroDots"></div>
+  </section>
+
+  <!-- ══ REPRENDRE LECTURE ══════════════════════════════════ -->
+  <section class="section-resume container">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Reprendre la lecture</div>
+      </div>
+      <a href="#" class="section-link">Voir l'historique →</a>
+    </div>
+    <div class="resume-list" id="resumeList"></div>
+  </section>
+
+  <!-- ══ TENDANCES ══════════════════════════════════════════ -->
+  <section class="section-trending container">
+    <div class="section-header">
+      <div>
+        <div class="section-title"><span class="section-title-icon">●</span> Tendances de la semaine</div>
+        <div class="section-subtitle">Les séries les plus lues par la communauté</div>
+      </div>
+      <div class="arrow-nav">
+        <button class="arrow-btn" id="trendPrev">‹</button>
+        <button class="arrow-btn" id="trendNext">›</button>
+      </div>
+    </div>
+    <div class="trending-track-wrap">
+      <div class="trending-track" id="trendingTrack"></div>
+    </div>
+  </section>
+
+  <!-- ══ MAIN SPLIT : recommandé + sidebar ══════════════════ -->
+  <div class="main-split container">
+    <div class="main-left">
+
+      <!-- Recommandé pour vous -->
+      <section class="section-reco">
+        <div class="section-header">
+          <div>
+            <div class="section-title"><span class="section-title-icon">●</span> Recommandé pour vous</div>
+            <div class="section-subtitle">Basé sur votre historique de lecture</div>
+          </div>
+          <a href="catalogue.html" class="section-link">Voir tout →</a>
+        </div>
+        <div class="reco-grid" id="recoGrid"></div>
+        <div class="collection-banners" id="collectionBanners"></div>
+      </section>
+
+      <!-- Dernières sorties -->
+      <section class="section-latest">
+        <div class="section-header">
+          <div>
+            <div class="section-title"><span class="section-title-icon">●</span> Dernières sorties</div>
+            <div class="section-subtitle">Chapitres fraîchement publiés</div>
+          </div>
+          <div class="latest-filters" id="latestFilters">
+            <button class="tag tag-orange active" data-filter="all">Tout</button>
+            <button class="tag" data-filter="suivis">Suivis</button>
+            <button class="tag" data-filter="populaire">Populaire</button>
+          </div>
+        </div>
+        <div class="manga-grid-4" id="latestGrid"></div>
+        <button class="btn-more" id="btnMore">Charger plus</button>
+      </section>
+    </div>
+
+    <!-- ══ SIDEBAR ════════════════════════════════════════ -->
+    <aside class="main-sidebar">
+
+      <!-- Top Manga -->
+      <div class="sidebar-block card">
+        <div class="sidebar-block-header">
+          <span class="sidebar-block-title">Top Manga</span>
+          <a href="catalogue.html" class="section-link" style="font-size:11px">Voir tout →</a>
+        </div>
+        <div id="topMangaList"></div>
+      </div>
+
+      <!-- Sondage -->
+      <div class="sidebar-block card" id="pollBlock"></div>
+
+      <!-- Commentaires récents -->
+      <div class="sidebar-block card">
+        <div class="sidebar-block-header">
+          <span class="sidebar-block-title">Commentaires récents</span>
+        </div>
+        <div id="recentComments"></div>
+      </div>
+
+      <!-- Genres populaires -->
+      <div class="sidebar-block card">
+        <div class="sidebar-block-header">
+          <span class="sidebar-block-title">Genres populaires</span>
+        </div>
+        <div class="genre-cloud" id="genreCloud"></div>
+      </div>
+
+      <!-- Premium -->
+      <div class="sidebar-premium card">
+        <div class="premium-icon">⚡</div>
+        <div>
+          <div class="premium-title">MangaHub Premium</div>
+          <div class="premium-sub">Sans pub · lecture illimitée</div>
+        </div>
+        <button class="btn btn-primary btn-sm" style="margin-top:12px;width:100%;justify-content:center">Essayer gratuitement</button>
+      </div>
+
+    </aside>
+  </div>
+
+  <div id="footer-slot"></div>
+
+  <script src="data.js"></script>
+  <script src="global.js"></script>
+  <script src="index.js"></script>
+</body>
+</html>

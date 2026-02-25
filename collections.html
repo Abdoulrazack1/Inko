@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MangaHub — Collections</title>
+  <link rel="stylesheet" href="global.css">
+  <link rel="stylesheet" href="collections.css">
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+
+  <!-- Hero -->
+  <div class="collections-hero">
+    <div class="collections-hero-bg"></div>
+    <div class="collections-hero-overlay"></div>
+    <div class="container collections-hero-content">
+      <h1 class="collections-hero-title">Découvrez des Mondes<br>Inoubliables</h1>
+      <p class="collections-hero-desc">Explorez plus de 5,000 collections thématiques créées par notre communauté passionnée. De l'action frénétique aux romances douces-amères.</p>
+      <div class="collections-hero-tags" id="heroTags"></div>
+      <div class="collections-hero-stats">
+        <div class="hero-stat"><div class="hero-stat-num">5.2k</div><div class="hero-stat-label">COLLECTIONS</div></div>
+        <div class="hero-stat"><div class="hero-stat-num">128k</div><div class="hero-stat-label">SÉRIES</div></div>
+        <div class="hero-stat"><div class="hero-stat-num">42k</div><div class="hero-stat-label">CURATEURS</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" style="padding-top:36px">
+
+    <!-- Catégories icônes -->
+    <div class="genre-icons-bar" id="genreIconsBar"></div>
+
+    <!-- À la Une -->
+    <div class="featured-section">
+      <div class="section-header">
+        <div class="section-title">🔥 À la Une cette semaine</div>
+      </div>
+      <div class="featured-grid" id="featuredGrid"></div>
+    </div>
+
+    <!-- Top curateurs -->
+    <div class="curators-section">
+      <div class="section-header">
+        <div class="section-title">⭐ Top Curateurs</div>
+        <a href="#" class="section-link">Voir le classement complet →</a>
+      </div>
+      <p style="font-size:12.5px;color:var(--text2);margin-bottom:16px">Les architectes de vos prochaines lectures</p>
+      <div class="curators-strip" id="curatorsStrip"></div>
+    </div>
+
+    <!-- Filtres + grille -->
+    <div class="collections-filters" id="collectionsFilters"></div>
+
+    <div class="collections-grid" id="collectionsGrid"></div>
+
+    <!-- CTA créer -->
+    <div class="create-cta">
+      <h2 class="create-cta-title">Créez votre propre collection</h2>
+      <p class="create-cta-desc">Partagez vos coups de cœur avec la communauté et devenez un curateur reconnu sur MangaHub. Gagnez des badges exclusifs.</p>
+      <button class="btn btn-primary" style="padding:0 24px">Commencer maintenant →</button>
+    </div>
+
+  </div>
+
+  <div id="footer-slot"></div>
+
+  <script src="data.js"></script>
+  <script src="global.js"></script>
+  <script src="collections.js"></script>
+</body>
+</html>
