@@ -1,5 +1,5 @@
 // ============================================================
-// covers.js — v7 — Covers AniList avec vérification des résultats
+// covers.js — v7 — Covers AniList (graphql.anilist.co direct)
 // ============================================================
 // Bugs corrigés vs v4 :
 //   1. observeDOM() lancé EN PREMIER (avant tout chargement)
@@ -141,9 +141,7 @@
 
         const tryQuery = async (searchTerm, attempt = 0) => {
             try {
-                const ANILIST_URL = window.location.hostname === 'localhost'
-                    ? 'http://localhost:8080/anilist'
-                    : 'https://graphql.anilist.co';
+                const ANILIST_URL = 'https://graphql.anilist.co';
                 const res = await fetch(ANILIST_URL, {
                     method:  'POST',
                     headers: { 'Content-Type': 'application/json' },
