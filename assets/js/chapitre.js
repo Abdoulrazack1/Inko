@@ -1,11 +1,11 @@
-// chapitre.js — Lecteur de chapitre MangaHub
-// Charge les vraies pages via ChaptersDB (MangaDex API)
+// chapitre.js — Lecteur de chapitre MangaHub v4.2
+// Charge les vraies pages via ChaptersDB (MangaDex + Comick fallback)
 (function () {
     'use strict';
 
     let manga       = null;
-    let chapter     = null;   // objet minimal, mis à jour après chargement async
-    let pages       = [];     // { pageNumber, src, srcFallback }[]
+    let chapter     = null;
+    let pages       = [];
     let currentPage = 1;
     let totalPages  = 0;
     let zoom        = 100;
@@ -15,21 +15,17 @@
         MH.initPage('chapitre');
 
         const params     = new URLSearchParams(location.search);
-        const mangaId    = parseInt(params.get('manga'))   || 1;
+        const mangaId    = parseInt(params.get('manga'))    || 1;
         const chapterNum = parseFloat(params.get('chapter')) || 1;
 
         manga = DB.getManga(mangaId) || DB.mangas[0];
 
-        // Initialisation synchrone : objet chapitre minimal pour l'affichage immédiat.
-        // ChaptersDB.getChapterSync() cherche dans le cache mémoire (si déjà chargé),
-        // sinon retourne un objet générique sans appel réseau.
         chapter = window.ChaptersDB
             ? ChaptersDB.getChapterSync(manga.id, chapterNum)
             : { number: chapterNum, title: `Chapitre ${chapterNum}`, pages: 20, readTime: 12 };
 
         document.getElementById('pageTitle').textContent = `${manga.title} — Chap. ${chapter.number}`;
 
-        // Rendu des éléments statiques (sans les chapitres de la barre de navigation)
         renderToolbarBasic();
         renderModebar();
         renderTranslatorNote();
@@ -37,7 +33,6 @@
         renderPanel();
         bindKeyboard();
 
-        // Affichage du loader
         showLoader();
 
         // ── Chargement async des pages ────────────────────────
@@ -52,8 +47,10 @@
         totalPages = pages.length || chapter.pages || 20;
 
         if (!pages.length) {
-            showNoChapter();
-            // Même sans pages, charger la liste des chapitres pour la toolbar
+            const availableChaps = window.ChaptersDB
+                ? ChaptersDB._getChaptersCache(manga.id)
+                : [];
+            showNoChapter(availableChaps);
             loadChaptersForToolbar();
             return;
         }
@@ -62,30 +59,25 @@
         renderThumbnails();
         renderNavigation();
         renderNextChapter();
-
-        // Charger la liste des chapitres en arrière-plan pour la toolbar
         loadChaptersForToolbar();
     });
 
-    // ── Charger la liste des chapitres et mettre à jour la toolbar ──
+    // ── Charger la liste des chapitres pour la toolbar ────────
     async function loadChaptersForToolbar() {
         try {
             const chaps = window.ChaptersDB
                 ? await ChaptersDB.getChapters(manga.id)
                 : [];
 
-            // Mettre à jour le chapitre courant avec les vraies métadonnées
             if (chaps.length) {
                 const real = chaps.find(c => Math.abs(c.number - chapter.number) < 0.01);
                 if (real) {
                     chapter = real;
-                    // Rafraîchir le titre de la page
                     const titleEl = document.getElementById('pageTitle');
                     if (titleEl) titleEl.textContent = `${manga.title} — Chap. ${chapter.number}`;
                 }
             }
 
-            // Rendre la toolbar complète avec la liste des chapitres
             renderToolbarFull(chaps);
         } catch(e) {
             console.warn('[chapitre.js] loadChaptersForToolbar error:', e);
@@ -105,20 +97,52 @@
     }
 
     // ── Pas de chapitre dispo ─────────────────────────────────
-    function showNoChapter() {
+    function showNoChapter(availableChaps = []) {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
+
+        let nearest = null;
+        if (availableChaps.length) {
+            nearest = availableChaps.reduce((best, c) => {
+                const d = Math.abs(c.number - chapter.number);
+                return (!best || d < Math.abs(best.number - chapter.number)) ? c : best;
+            }, null);
+        }
+
+        let chapLinks = '';
+        if (availableChaps.length) {
+            const asc = [...availableChaps].sort((a, b) => a.number - b.number);
+            const nearIdx = nearest ? asc.findIndex(c => c.number === nearest.number) : 0;
+            const start = Math.max(0, nearIdx - 2);
+            const slice = asc.slice(start, start + 5);
+            chapLinks = `
+            <div class="reader-unavail-available">
+                <div class="reader-unavail-available-label">Chapitres disponibles :</div>
+                <div class="reader-unavail-chap-list">
+                    ${slice.map(c => `
+                    <a href="chapitre.html?manga=${manga.id}&chapter=${c.number}"
+                       class="btn btn-ghost btn-sm ${Math.abs(c.number - (nearest?.number ?? -1)) < 0.01 ? 'btn-primary' : ''}">
+                        ${c.number}
+                    </a>`).join('')}
+                    ${availableChaps.length > 5 ? `<span style="color:var(--text3);font-size:11px">… ${availableChaps.length} au total</span>` : ''}
+                </div>
+            </div>`;
+        }
+
         el.innerHTML = `
         <div class="reader-unavailable">
             <div class="reader-unavail-icon">📚</div>
             <div class="reader-unavail-title">${MH.esc(manga.title)}</div>
-            <div class="reader-unavail-chapter">Chapitre ${chapter.number} · ${MH.esc(chapter.title)}</div>
+            <div class="reader-unavail-chapter">Chapitre ${chapter.number} — non disponible</div>
             <div class="reader-unavail-msg">
-                Ce chapitre n'est pas encore disponible en lecture en ligne.<br>
-                Essayez un autre chapitre ou consultez les sources officielles.
+                ${availableChaps.length
+                    ? `Ce chapitre n'est pas disponible (ni sur MangaDex ni sur Comick). ${availableChaps.length} chapitre${availableChaps.length > 1 ? 's' : ''} accessible${availableChaps.length > 1 ? 's' : ''} pour ce manga.`
+                    : `Aucun chapitre disponible pour ce manga sur aucune de nos sources.`
+                }
             </div>
+            ${chapLinks}
             <div class="reader-unavail-actions">
-                ${chapter.number > 1 ? `<a href="chapitre.html?manga=${manga.id}&chapter=${chapter.number - 1}" class="btn btn-primary btn-sm">← Chapitre précédent</a>` : ''}
+                ${nearest ? `<a href="chapitre.html?manga=${manga.id}&chapter=${nearest.number}" class="btn btn-primary btn-sm">→ Chapitre ${nearest.number} (le plus proche)</a>` : ''}
                 <a href="serie.html?id=${manga.id}" class="btn btn-ghost btn-sm">↩ Retour à la série</a>
             </div>
         </div>`;
@@ -155,6 +179,7 @@
         </div>
         <div class="page-counter-badge">
             Page <strong>${pageNum}</strong> / ${totalPages}
+            ${chapter.source === 'comick' ? '<span style="font-size:10px;opacity:.5;margin-left:6px">Comick</span>' : ''}
         </div>`;
 
         document.querySelectorAll('.reader-thumb').forEach((t, i) => {
@@ -207,19 +232,41 @@
         const select = document.getElementById('chapSelect');
         if (!select || !chaps.length) return;
 
-        const chapLabel = (c) => c.title === `Chapitre ${c.number}`
-            ? `Chap. ${c.number}`
-            : `Chap. ${c.number} — ${MH.esc(c.title)}`;
+        const sourceIcon = (c) => c.source === 'comick' ? ' ⚡' : '';
+        const chapLabel  = (c) => {
+            const base = c.title === `Chapter ${c.number}` || c.title === `Chapitre ${c.number}`
+                ? `Chap. ${c.number}`
+                : `Chap. ${c.number} — ${MH.esc(c.title)}`;
+            return base + sourceIcon(c);
+        };
 
         select.innerHTML = chaps.map(c =>
             `<option value="${c.number}" ${c.number === chapter.number ? 'selected' : ''}>${chapLabel(c)}</option>`
         ).join('');
 
-        // Mettre à jour aussi le titre dans la toolbar
         const chapSpan = document.querySelector('.toolbar-chap');
         if (chapSpan) {
             const cur = chaps.find(c => c.number === chapter.number);
-            if (cur) chapSpan.textContent = chapLabel(cur);
+            if (cur) chapSpan.textContent = `Chap. ${cur.number}`;
+        }
+
+        // Mettre à jour les boutons prev/next avec les vrais chapitres adjacents
+        const asc     = [...chaps].sort((a, b) => a.number - b.number);
+        const curIdx  = asc.findIndex(c => Math.abs(c.number - chapter.number) < 0.01);
+        const prevNum = curIdx > 0 ? asc[curIdx - 1].number : null;
+        const nextNum = curIdx < asc.length - 1 ? asc[curIdx + 1].number : null;
+
+        const center = document.getElementById('toolbarCenter');
+        if (center) {
+            const [prevBtn, , nextBtn] = center.querySelectorAll('.reader-icon-btn');
+            if (prevBtn) {
+                prevBtn.disabled = !prevNum;
+                if (prevNum) prevBtn.onclick = () => window.location.href = `chapitre.html?manga=${manga.id}&chapter=${prevNum}`;
+            }
+            if (nextBtn) {
+                nextBtn.disabled = !nextNum;
+                if (nextNum) nextBtn.onclick = () => window.location.href = `chapitre.html?manga=${manga.id}&chapter=${nextNum}`;
+            }
         }
     }
 
@@ -301,9 +348,18 @@
     function renderNextChapter() {
         const el = document.getElementById('readerNextChapter');
         if (!el) return;
-        const nextNum = chapter.number + 1;
-        const hasNext = nextNum <= manga.chapters;
-        if (!hasNext) { el.innerHTML = ''; return; }
+
+        const cached = window.ChaptersDB?._getChaptersCache?.(manga.id) || [];
+        let nextChap = null;
+        if (cached.length) {
+            const asc = [...cached].sort((a, b) => a.number - b.number);
+            nextChap = asc.find(c => c.number > chapter.number + 0.001) || null;
+        } else {
+            const nextNum = Math.floor(chapter.number) + 1;
+            if (nextNum <= manga.chapters) nextChap = { number: nextNum };
+        }
+
+        if (!nextChap) { el.innerHTML = ''; return; }
 
         el.innerHTML = `
         <div class="reader-next-chapter">
@@ -312,10 +368,10 @@
             </div>
             <div class="next-chapter-info">
                 <div class="next-chapter-label">À suivre</div>
-                <div class="next-chapter-title">Chapitre ${nextNum}</div>
+                <div class="next-chapter-title">Chapitre ${nextChap.number}</div>
                 <div class="next-chapter-meta">Appuyez pour lire la suite</div>
             </div>
-            <a href="chapitre.html?manga=${manga.id}&chapter=${nextNum}" class="btn btn-primary">Lire →</a>
+            <a href="chapitre.html?manga=${manga.id}&chapter=${nextChap.number}" class="btn btn-primary">Lire →</a>
         </div>`;
     }
 
@@ -323,11 +379,16 @@
     function renderDetails() {
         const el = document.getElementById('readerDetails');
         if (!el) return;
+
+        const sourceLabel = chapter.source === 'comick'
+            ? '<span style="color:var(--orange)">Comick</span>'
+            : '<span style="color:var(--orange)">MangaDex</span>';
+
         el.innerHTML = `
         <div class="reader-details-block">
             <div class="reader-block-title">Détails & Statistiques</div>
             <div style="font-size:11px;color:var(--text3);margin-bottom:10px">
-                Publié via <span style="color:var(--orange)">MangaDex</span>
+                Publié via ${sourceLabel}
             </div>
             <div class="detail-stats">
                 ${[[MH.fmt(chapter.views || 245000),'VUES'],['12.4k','LIKES'],[manga.rating,'NOTE'],['8.9k','FAVORIS']].map(([n,l]) => `
@@ -396,7 +457,7 @@
                 <div>
                     <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Prochain</div>
                     <div style="font-size:13px;font-weight:600">Chap. ${chapter.number + 1}</div>
-                    <button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="MH.toast('Rappel activé !')">⏰ M'alerter</button>
+                    <button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="MH.toast('Rappel activé !')">⏰ M\'alerter</button>
                 </div>
             </div>
         </div>
@@ -410,7 +471,7 @@
         </div>`;
     }
 
-    // ── Contrôles exposés globalement ────────────────────────
+    // ── Contrôles globaux ─────────────────────────────────────
     window.goToPage = function (p) {
         if (!pages.length) return;
         if (p < 1 || p > totalPages) return;
@@ -437,7 +498,7 @@
 
     function bindKeyboard() {
         document.addEventListener('keydown', e => {
-            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+            if (['TEXTAREA','INPUT','SELECT'].includes(e.target.tagName)) return;
             if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goToPage(currentPage + 1);
             if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goToPage(currentPage - 1);
             if (e.key === 'f' || e.key === 'F')                  toggleFullscreen();

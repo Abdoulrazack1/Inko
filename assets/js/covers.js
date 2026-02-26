@@ -139,13 +139,24 @@
                 }
             }`;
 
-        const tryQuery = async (searchTerm) => {
+        const tryQuery = async (searchTerm, attempt = 0) => {
             try {
-                const res = await fetch('https://graphql.anilist.co', {
+                const ANILIST_URL = window.location.hostname === 'localhost'
+                    ? 'http://localhost:8080/anilist'
+                    : 'https://graphql.anilist.co';
+                const res = await fetch(ANILIST_URL, {
                     method:  'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body:    JSON.stringify({ query: gql, variables: { search: searchTerm } }),
                 });
+                // 429 : rate limit → attendre et réessayer (max 3 fois)
+                if (res.status === 429) {
+                    if (attempt >= 3) return null;
+                    const wait = (attempt + 1) * 2000; // 2s, 4s, 6s
+                    console.warn(`[Covers] AniList 429 — retry dans ${wait}ms`);
+                    await new Promise(r => setTimeout(r, wait));
+                    return tryQuery(searchTerm, attempt + 1);
+                }
                 if (!res.ok) return null;
                 const data = await res.json();
                 const items = data?.data?.Page?.media || [];
@@ -237,35 +248,24 @@
         return [...missing];
     }
 
-    // ── Chargement en batches parallèles ─────────────────────
-    // 5 requêtes simultanées, 750ms entre batches
-    // → bien sous le rate limit AniList (90 req/min)
-    const BATCH_SIZE = 5;
-    const DELAY_MS   = 750;
+    // ── Chargement séquentiel avec délai ─────────────────────
+    // 1 requête à la fois, 800ms entre chaque → jamais de 429
+    const DELAY_MS = 800;
 
     async function loadCovers(seeds) {
         const missing = seeds.filter(s => MANGA_MAP[s] && !coverCache[s]);
         if (!missing.length) return;
 
-        console.log(`[Covers] ${missing.length} covers à charger (batches de ${BATCH_SIZE})…`);
+        console.log(`[Covers] ${missing.length} covers à charger (séquentiel)…`);
 
-        for (let i = 0; i < missing.length; i += BATCH_SIZE) {
-            const batch = missing.slice(i, i + BATCH_SIZE);
-
-            const results = await Promise.all(
-                batch.map(async seed => {
-                    const url = await fetchCover(seed);
-                    return url ? { seed, url } : null;
-                })
-            );
-
-            for (const r of results) {
-                if (!r) continue;
-                coverCache[r.seed] = r.url;
-                applyToImages(r.seed, r.url);
+        for (let i = 0; i < missing.length; i++) {
+            const seed = missing[i];
+            const url  = await fetchCover(seed);
+            if (url) {
+                coverCache[seed] = url;
+                applyToImages(seed, url);
             }
-
-            if (i + BATCH_SIZE < missing.length) {
+            if (i < missing.length - 1) {
                 await new Promise(resolve => setTimeout(resolve, DELAY_MS));
             }
         }

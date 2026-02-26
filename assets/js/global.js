@@ -97,8 +97,8 @@
           <div class="footer-stay">
             <h4>Restez informé</h4>
             <div class="footer-email-form">
-              <input type="email" placeholder="Votre email...">
-              <button>S'inscrire</button>
+              <input type="email" id="footerEmailInput" placeholder="Votre email...">
+              <button id="footerEmailBtn">S'inscrire</button>
             </div>
           </div>
         </div>
@@ -106,38 +106,38 @@
           <h4>Explorer</h4>
           <ul>
             <li><a href="catalogue.html">Catalogue</a></li>
-            <li><a href="#">Nouveautés</a></li>
-            <li><a href="#">Calendrier</a></li>
+            <li><a href="catalogue.html?sort=latest">Nouveautés</a></li>
+            <li><a href="catalogue.html?view=calendar">Calendrier</a></li>
             <li><a href="collections.html">Collections</a></li>
-            <li><a href="#">Top 100</a></li>
+            <li><a href="catalogue.html?sort=rating">Top 100</a></li>
           </ul>
         </div>
         <div class="footer-col">
           <h4>Communauté</h4>
           <ul>
-            <li><a href="#">Forum</a></li>
-            <li><a href="#">Discord</a></li>
-            <li><a href="#">Événements</a></li>
-            <li><a href="#">Devenir Modérateur</a></li>
-            <li><a href="#">Guide Curateur</a></li>
+            <li><a href="#" class="footer-coming">Forum</a></li>
+            <li><a href="#" class="footer-coming">Discord</a></li>
+            <li><a href="#" class="footer-coming">Événements</a></li>
+            <li><a href="#" class="footer-coming">Devenir Modérateur</a></li>
+            <li><a href="#" class="footer-coming">Guide Curateur</a></li>
           </ul>
         </div>
         <div class="footer-col">
           <h4>Légal</h4>
           <ul>
-            <li><a href="#">Confidentialité</a></li>
-            <li><a href="#">Conditions</a></li>
-            <li><a href="#">DMCA</a></li>
-            <li><a href="#">Contact</a></li>
+            <li><a href="#" class="footer-coming">Confidentialité</a></li>
+            <li><a href="#" class="footer-coming">Conditions</a></li>
+            <li><a href="#" class="footer-coming">DMCA</a></li>
+            <li><a href="#" class="footer-coming">Contact</a></li>
           </ul>
         </div>
       </div>
       <div class="footer-bottom">
-        <p>© 2024 MangaHub. Tous droits réservés.</p>
+        <p>© 2025 MangaHub. Tous droits réservés.</p>
         <div class="footer-socials">
-          <a href="#" title="Twitter">𝕏</a>
-          <a href="#" title="Instagram">📷</a>
-          <a href="#" title="YouTube">▶</a>
+          <a href="#" class="footer-coming" title="Twitter">𝕏</a>
+          <a href="#" class="footer-coming" title="Instagram">📷</a>
+          <a href="#" class="footer-coming" title="YouTube">▶</a>
         </div>
       </div>
     </footer>`;
@@ -149,6 +149,8 @@
         if (headerSlot) headerSlot.outerHTML = headerHTML(activePage);
         if (footerSlot) footerSlot.innerHTML = footerHTML;
         initSearch();
+        initFooterButtons();
+        initHeaderButtons();
     };
 
     /* ── Live search ─────────────────────────────────────── */
@@ -203,6 +205,66 @@
             }
         });
     }
+
+    /* ── Footer buttons ──────────────────────────────────── */
+    function initFooterButtons() {
+        // Email newsletter
+        const emailBtn = document.getElementById('footerEmailBtn');
+        const emailInput = document.getElementById('footerEmailInput');
+        if (emailBtn && emailInput) {
+            emailBtn.addEventListener('click', () => {
+                const v = emailInput.value.trim();
+                const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!v) { MH.toast('Entrez votre adresse email.'); return; }
+                if (!re.test(v)) { MH.toast('Email invalide.'); emailInput.style.borderColor = '#ef4444'; return; }
+                emailInput.style.borderColor = '';
+                MH.toast('Inscription confirmée ! 🎉');
+                emailInput.value = '';
+            });
+        }
+
+        // Liens "bientôt disponible" dans footer
+        document.addEventListener('click', e => {
+            const link = e.target.closest('.footer-coming');
+            if (!link) return;
+            e.preventDefault();
+            MH.toast('Bientôt disponible !');
+        });
+    }
+
+    /* ── Header buttons ──────────────────────────────────── */
+    function initHeaderButtons() {
+        // Bouton notifications
+        document.addEventListener('click', e => {
+            const btn = e.target.closest('.notif-dot');
+            if (!btn) return;
+            MH.toast('Aucune nouvelle notification 🔔');
+        });
+
+        // Bouton "Se connecter" → page login
+        document.addEventListener('click', e => {
+            const btn = e.target.closest('.btn-connect');
+            if (!btn) return;
+            // laisse le href fonctionner normalement
+        });
+    }
+
+    /* ── Premium button (délégation globale) ─────────────── */
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('.btn-premium, [data-premium]');
+        if (btn) {
+            e.preventDefault();
+            MH.toast('MangaHub Premium — Bientôt disponible ! ⚡');
+        }
+        // Bouton "Essayer gratuitement" dans sidebar premium
+        if (e.target.closest('.sidebar-premium .btn-primary')) {
+            MH.toast('MangaHub Premium — Bientôt disponible ! ⚡');
+        }
+        // Bouton "Commencer maintenant" CTA collections
+        if (e.target.closest('.create-cta .btn-primary')) {
+            MH.toast('Créateur de collections — Bientôt disponible !');
+        }
+    });
 
     /* ── Random lecture ──────────────────────────────────── */
     // Utilise la délégation sur document pour capturer le bouton même après injection HTML
