@@ -714,3 +714,56 @@
 .discover-list-name { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
 .discover-list-desc { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin-bottom: 10px; }
 .discover-list-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+/* ╔══════════════════════════════════════════════════════════╗
+   ║  RESPONSIVE — profil.css                                 ║
+   ╚══════════════════════════════════════════════════════════╝ */
+
+/* ── Tablet (≤ 1024px) ──────────────────────────────────── */
+@media (max-width: 1024px) {
+  .profil-body { grid-template-columns: 1fr; }
+  .profil-sidebar-col { display: none; }
+  .overview-stats-row { grid-template-columns: repeat(2, 1fr); }
+  .overview-top-row,
+  .overview-bottom-row,
+  .overview-history-row { grid-template-columns: 1fr; }
+  .overview-footer-cards { grid-template-columns: repeat(2, 1fr); }
+  .lib-grid { grid-template-columns: repeat(3, 1fr); }
+  .lib-bottom-row { grid-template-columns: 1fr; }
+  .history-main-row,
+  .history-options-row { grid-template-columns: 1fr; }
+  .history-summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .lists-layout { grid-template-columns: 1fr; }
+  .discover-lists-grid { grid-template-columns: repeat(2, 1fr); }
+  .prefs-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Mobile landscape (≤ 768px) ─────────────────────────── */
+@media (max-width: 768px) {
+  .profil-hero-inner { padding: 24px 16px 20px; gap: 16px; }
+  .profil-avatar { width: 72px; height: 72px; font-size: 22px; }
+  .profil-name { font-size: 20px; }
+  .profil-stats-bar { gap: 16px; flex-wrap: wrap; }
+  .profil-tabs { overflow-x: auto; scrollbar-width: none; }
+  .profil-tab { white-space: nowrap; flex-shrink: 0; padding: 10px 14px; }
+  .overview-stats-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .overview-footer-cards { grid-template-columns: 1fr; }
+  .overview-settings-row { grid-template-columns: 1fr; }
+  .lib-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .history-summary-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .discover-lists-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Mobile portrait (≤ 480px) ──────────────────────────── */
+@media (max-width: 480px) {
+  .profil-hero-inner { padding: 20px 14px 16px; flex-direction: column; align-items: flex-start; }
+  .profil-avatar { width: 64px; height: 64px; font-size: 20px; }
+  .profil-name { font-size: 18px; }
+  .profil-name-row { flex-wrap: wrap; gap: 8px; }
+  .profil-meta { font-size: 12px; }
+  .profil-stats-bar { gap: 12px; }
+  .profil-hero-actions { flex-wrap: wrap; gap: 8px; }
+  .overview-stats-row { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .lib-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .overview-activity-heatmap { overflow-x: auto; }
+}

@@ -747,3 +747,20 @@
     .reader-shortcuts { display: none; }
     .detail-stats { grid-template-columns: repeat(2,1fr); }
 }
+/* ── Additional responsive fixes ─────────────────────────── */
+@media (max-width: 480px) {
+  .reader-toolbar { padding: 0 8px; gap: 6px; height: 46px; }
+  .toolbar-back { padding: 3px 8px; font-size: 11px; }
+  .toolbar-sep { display: none; }
+  .toolbar-chap { display: none; }
+  .reader-chap-select { max-width: 130px; font-size: 11px; }
+  .reader-zoom-label { display: none; }
+  .reader-modebar { height: 34px; padding: 0 12px; }
+  .modebar-info { display: none; }
+  .reader-nav-row { padding: 10px 12px; gap: 8px; }
+  .reader-nav-btn { height: 34px; padding: 0 12px; font-size: 11.5px; }
+  .reader-page-wrapper { padding: 8px; min-height: 400px; }
+  .reader-next-chapter { flex-wrap: wrap; gap: 10px; }
+  .page-zone-arrow { width: 32px; height: 32px; font-size: 15px; }
+  .translator-note { padding: 0 12px; }
+}

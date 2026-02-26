@@ -261,3 +261,58 @@
 .premium-icon { font-size: 24px; margin-bottom: 6px; }
 .premium-title { font-family: var(--font-head); font-size: 13px; font-weight: 700; }
 .premium-sub { font-size: 11.5px; color: var(--text2); margin-top: 2px; }
+
+/* ╔══════════════════════════════════════════════════════════╗
+   ║  RESPONSIVE — accueil.css                                ║
+   ╚══════════════════════════════════════════════════════════╝ */
+
+/* ── Tablet (≤ 1024px) ──────────────────────────────────── */
+@media (max-width: 1024px) {
+  .main-split {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .main-sidebar {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .trending-card { flex: 0 0 calc(25% - 9px); }
+  .reco-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Mobile landscape (≤ 768px) ─────────────────────────── */
+@media (max-width: 768px) {
+  .hero { height: 380px; }
+  .hero-content { padding: 0 16px 32px; }
+  .hero-title { font-size: clamp(22px, 5vw, 32px); }
+  .hero-desc { display: none; }
+  .hero-actions { gap: 8px; }
+  .resume-list { grid-template-columns: 1fr; }
+  .trending-card { flex: 0 0 calc(33.33% - 8px); }
+  .reco-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .collection-banners { grid-template-columns: 1fr; }
+  .main-sidebar {
+    grid-template-columns: 1fr;
+  }
+  .section-resume { padding-top: 20px; }
+  .section-trending { padding-top: 24px; }
+}
+
+/* ── Mobile portrait (≤ 480px) ──────────────────────────── */
+@media (max-width: 480px) {
+  .hero { height: 320px; }
+  .hero-content { padding: 0 14px 24px; max-width: 100%; }
+  .hero-badges { flex-wrap: wrap; }
+  .hero-meta { flex-wrap: wrap; gap: 8px; }
+  .hero-actions .btn { flex: 1; justify-content: center; }
+  .hero-dots { bottom: 10px; right: 14px; }
+  .resume-list { grid-template-columns: 1fr; gap: 8px; }
+  .trending-card { flex: 0 0 calc(50% - 6px); }
+  .reco-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .main-split { padding-top: 20px; gap: 16px; }
+  .section-latest { margin-top: 20px; }
+  .latest-filters { flex-wrap: wrap; gap: 4px; }
+  .sidebar-premium { padding: 12px; }
+}

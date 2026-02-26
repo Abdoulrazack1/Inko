@@ -772,3 +772,35 @@
   .manga-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .character-card--lg { flex: 0 1 calc(50% - 7px); }
 }
+/* ── Additional responsive fixes ─────────────────────────── */
+@media (max-width: 1024px) {
+  .serie-body {
+    grid-template-columns: 1fr;
+  }
+  .serie-fiche { display: none; }
+}
+
+@media (max-width: 768px) {
+  .serie-hero-inner { padding: 20px 16px; gap: 14px; }
+  .serie-actions { flex-wrap: wrap; gap: 8px; }
+  .serie-stats-row { flex-wrap: wrap; gap: 10px; }
+  .serie-desc { font-size: 13px; }
+  .chap-header { flex-wrap: wrap; gap: 8px; }
+  .chap-tools { flex-wrap: wrap; gap: 6px; }
+  .chap-search-input { width: 140px; }
+  .tabs-bar { overflow-x: auto; scrollbar-width: none; }
+  .tab-btn { white-space: nowrap; flex-shrink: 0; }
+}
+
+@media (max-width: 480px) {
+  .serie-hero-inner { padding: 14px; gap: 12px; }
+  .serie-cover { width: 100px; }
+  .serie-title { font-size: 18px; }
+  .serie-meta-row { flex-wrap: wrap; gap: 8px; font-size: 11.5px; }
+  .serie-actions .btn { flex: 1; justify-content: center; }
+  .similar-grid,
+  .manga-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .chap-row { padding: 10px 12px; }
+  .chap-info { flex-wrap: wrap; gap: 4px; }
+  .chap-search-input { width: 110px; }
+}

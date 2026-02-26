@@ -129,3 +129,60 @@
 .discussion-poll-label { display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 2px; }
 .discussion-bar-wrap { height: 4px; background: var(--bg4); border-radius: 2px; }
 .discussion-bar { height: 100%; background: var(--orange); border-radius: 2px; }
+
+/* ╔══════════════════════════════════════════════════════════╗
+   ║  RESPONSIVE — collection-detail.css                      ║
+   ╚══════════════════════════════════════════════════════════╝ */
+
+/* ── Tablet (≤ 1024px) ──────────────────────────────────── */
+@media (max-width: 1024px) {
+  .cd-hero-inner {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .cd-curator-card { min-width: auto; }
+  .cd-body {
+    grid-template-columns: 1fr;
+  }
+  .cd-sidebar {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .cd-title { font-size: clamp(20px, 3.5vw, 28px); }
+}
+
+/* ── Mobile landscape (≤ 768px) ─────────────────────────── */
+@media (max-width: 768px) {
+  .cd-hero { padding: 20px 0; }
+  .cd-hero-inner { padding: 0 16px; }
+  .cd-stats-row { gap: 14px; flex-wrap: wrap; }
+  .cd-actions { flex-wrap: wrap; gap: 8px; }
+  .cd-serie-item {
+    grid-template-columns: 80px 1fr;
+    gap: 12px;
+  }
+  .cd-serie-actions {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .cd-sidebar { grid-template-columns: 1fr; }
+  .cd-tabs { overflow-x: auto; scrollbar-width: none; }
+  .cd-tab { white-space: nowrap; flex-shrink: 0; }
+  .cd-curator-stats { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── Mobile portrait (≤ 480px) ──────────────────────────── */
+@media (max-width: 480px) {
+  .cd-hero-inner { padding: 0 14px; }
+  .cd-serie-item { grid-template-columns: 70px 1fr; gap: 10px; padding: 12px 0; }
+  .cd-serie-cover { aspect-ratio: 3/4; }
+  .cd-serie-title { font-size: 14px; }
+  .cd-serie-meta { flex-wrap: wrap; gap: 6px; }
+  .cd-title { font-size: 20px; }
+  .cd-desc { font-size: 13px; }
+  .cd-actions .btn { flex: 1; justify-content: center; }
+  .cd-curator-header { flex-wrap: wrap; }
+}
