@@ -16,7 +16,7 @@
 
         const params     = new URLSearchParams(location.search);
         const mangaId    = parseInt(params.get('manga'))   || 1;
-        const chapterNum = parseInt(params.get('chapter')) || 1;
+        const chapterNum = parseFloat(params.get('chapter')) || 1;
 
         manga = DB.getManga(mangaId) || DB.mangas[0];
 

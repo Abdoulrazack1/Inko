@@ -167,7 +167,7 @@
     function renderLatest() {
         const el = document.getElementById('latestGrid');
         if (!el) return;
-        const latest = DB.getLatest().slice(0, latestCount);
+        const latest = DB.getLatest(latestCount);
         el.innerHTML = latest.map(m => mangaCardHTML(m)).join('');
     }
 

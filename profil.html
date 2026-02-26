@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MangaHub — Profil Kaito Tanaka</title>
-  <link rel="stylesheet" href="/assets/css/global.css">
-  <link rel="stylesheet" href="/assets/css/profil.css">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <link rel="stylesheet" href="assets/css/profil.css">
 </head>
 <body class="page-body">
 
@@ -109,7 +109,7 @@
           <a href="#" class="sidebar-nav-item">
             <span class="sidebar-nav-icon">⚙️</span> Paramètres
           </a>
-          <a href="#" class="sidebar-nav-item sidebar-nav-danger">
+          <a href="page_login.html" class="sidebar-nav-item sidebar-nav-danger">
             <span class="sidebar-nav-icon">↩</span> Déconnexion
           </a>
         </nav>
@@ -141,7 +141,7 @@
                   </div>
                   <span>82%</span>
                 </div>
-                <button class="btn btn-primary btn-sm" style="margin-top:10px">▶ Reprendre</button>
+                <a href="chapitre.html?manga=48&chapter=242" class="btn btn-primary btn-sm" style="margin-top:10px">▶ Reprendre</a>
               </div>
             </div>
           </div>
@@ -258,7 +258,7 @@
         <div class="card favs-card">
           <div class="card-title-row">
             <span class="card-title">⭐ Favoris récents</span>
-            <a href="#" class="card-link">Voir toute la collection</a>
+            <a href="#" class="card-link" data-goto="library">Voir toute la collection</a>
           </div>
           <div class="favs-grid" id="favsGrid"></div>
         </div>
@@ -296,7 +296,7 @@
               <div class="review-preview">
                 <div class="review-preview-manga">Blue Lock</div>
                 <div style="color:#f59e0b;font-size:13px;margin:4px 0">★★★★☆</div>
-                <div class="review-preview-text">"L'intensité des matchs est incroyable en soi, les dessins sont sublimes…"</div>
+                <div class="review-preview-text">«&nbsp;L'intensité des matchs est incroyable en soi, les dessins sont sublimes…&nbsp;»</div>
               </div>
             </div>
           </div>
@@ -376,7 +376,7 @@
           <div class="card prefs-card">
             <div class="card-title-row">
               <span class="card-title">📖 Préférences de lecture</span>
-              <a href="#" class="card-link">Ouvrir le lecteur</a>
+              <a href="chapitre.html?manga=1&chapter=1" class="card-link">Ouvrir le lecteur</a>
             </div>
             <div class="prefs-grid">
               <div class="pref-item">
@@ -820,7 +820,7 @@
         <div class="discover-lists-section">
           <div class="discover-lists-header">
             <span class="section-title">✨ Découvrir des listes populaires</span>
-            <a href="#" class="card-link">Voir tout →</a>
+            <a href="collections.html" class="card-link">Voir tout →</a>
           </div>
           <div class="discover-lists-grid">
             <div class="card discover-list-card">
@@ -877,8 +877,8 @@
 
   <div id="footer-slot"></div>
 
-  <script src="/assets/js/data.js"></script>
-  <script src="/assets/js/global.js"></script>
-  <script src="/assets/js/profil.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/profil.js"></script>
 </body>
 </html>

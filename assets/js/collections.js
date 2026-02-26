@@ -61,7 +61,7 @@
                     <div class="featured-meta">
                         <span>Par ${c.curator.name}</span>
                         <span>${c.seriesCount} Séries</span>
-                        <span>❤️ ${MH.fmt(c.likes)}k Likes</span>
+                        <span>❤️ ${MH.fmt(c.likes)} Likes</span>
                     </div>
                 </div>
             </a>`;
