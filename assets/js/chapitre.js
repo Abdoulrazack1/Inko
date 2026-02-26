@@ -4,12 +4,12 @@
     'use strict';
 
     let manga       = null;
-    let chapter     = null;
-    let pages       = [];      // tableau des objets page { pageNumber, src, srcFallback }
+    let chapter     = null;   // objet minimal, mis à jour après chargement async
+    let pages       = [];     // { pageNumber, src, srcFallback }[]
     let currentPage = 1;
     let totalPages  = 0;
     let zoom        = 100;
-    let readMode    = 'page';  // 'page' | 'scroll' | 'double'
+    let readMode    = 'page'; // 'page' | 'scroll' | 'double'
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('chapitre');
@@ -18,24 +18,29 @@
         const mangaId    = parseInt(params.get('manga'))   || 1;
         const chapterNum = parseInt(params.get('chapter')) || 1;
 
-        manga   = DB.getManga(mangaId) || DB.mangas[0];
+        manga = DB.getManga(mangaId) || DB.mangas[0];
+
+        // Initialisation synchrone : objet chapitre minimal pour l'affichage immédiat.
+        // ChaptersDB.getChapterSync() cherche dans le cache mémoire (si déjà chargé),
+        // sinon retourne un objet générique sans appel réseau.
         chapter = window.ChaptersDB
-            ? ChaptersDB.getChapter(manga.id, chapterNum)
+            ? ChaptersDB.getChapterSync(manga.id, chapterNum)
             : { number: chapterNum, title: `Chapitre ${chapterNum}`, pages: 20, readTime: 12 };
 
         document.getElementById('pageTitle').textContent = `${manga.title} — Chap. ${chapter.number}`;
 
-        // Rendu des éléments statiques
-        renderToolbar();
+        // Rendu des éléments statiques (sans les chapitres de la barre de navigation)
+        renderToolbarBasic();
         renderModebar();
         renderTranslatorNote();
-        renderNextChapter();
         renderDetails();
         renderPanel();
         bindKeyboard();
 
-        // Affichage du loader puis chargement async des pages
+        // Affichage du loader
         showLoader();
+
+        // ── Chargement async des pages ────────────────────────
         try {
             if (window.ChaptersDB) {
                 pages = await ChaptersDB.getPages(manga.id, chapter.number);
@@ -46,16 +51,46 @@
 
         totalPages = pages.length || chapter.pages || 20;
 
-        // Si aucune page valide, créer des pages placeholder
-        if (!pages.length || pages.every(p => !p.src)) {
+        if (!pages.length) {
             showNoChapter();
+            // Même sans pages, charger la liste des chapitres pour la toolbar
+            loadChaptersForToolbar();
             return;
         }
 
         renderPage(currentPage);
         renderThumbnails();
         renderNavigation();
+        renderNextChapter();
+
+        // Charger la liste des chapitres en arrière-plan pour la toolbar
+        loadChaptersForToolbar();
     });
+
+    // ── Charger la liste des chapitres et mettre à jour la toolbar ──
+    async function loadChaptersForToolbar() {
+        try {
+            const chaps = window.ChaptersDB
+                ? await ChaptersDB.getChapters(manga.id)
+                : [];
+
+            // Mettre à jour le chapitre courant avec les vraies métadonnées
+            if (chaps.length) {
+                const real = chaps.find(c => Math.abs(c.number - chapter.number) < 0.01);
+                if (real) {
+                    chapter = real;
+                    // Rafraîchir le titre de la page
+                    const titleEl = document.getElementById('pageTitle');
+                    if (titleEl) titleEl.textContent = `${manga.title} — Chap. ${chapter.number}`;
+                }
+            }
+
+            // Rendre la toolbar complète avec la liste des chapitres
+            renderToolbarFull(chaps);
+        } catch(e) {
+            console.warn('[chapitre.js] loadChaptersForToolbar error:', e);
+        }
+    }
 
     // ── Loader ────────────────────────────────────────────────
     function showLoader() {
@@ -88,16 +123,16 @@
             </div>
         </div>`;
 
-        // Thumbnails vides, nav désactivée
-        document.getElementById('readerThumbnails').innerHTML = '';
-        document.getElementById('readerNavigation').innerHTML = '';
+        if (document.getElementById('readerThumbnails'))
+            document.getElementById('readerThumbnails').innerHTML = '';
+        if (document.getElementById('readerNavigation'))
+            document.getElementById('readerNavigation').innerHTML = '';
     }
 
     // ── Rendu d'une page ──────────────────────────────────────
     function renderPage(pageNum) {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
-
         const pageObj = pages[pageNum - 1];
         if (!pageObj) return;
 
@@ -122,47 +157,38 @@
             Page <strong>${pageNum}</strong> / ${totalPages}
         </div>`;
 
-        // Mettre à jour les classes actives sur les thumbs
         document.querySelectorAll('.reader-thumb').forEach((t, i) => {
             t.classList.toggle('active', i + 1 === pageNum);
         });
 
-        // Scroll thumb actif en vue
         const activeThumb = document.querySelector('.reader-thumb.active');
         activeThumb?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 
-        // Mettre à jour le % dans la modebar
         const pctEl = document.querySelector('.modebar-pct');
         if (pctEl) pctEl.textContent = `${Math.round((pageNum / totalPages) * 100)}% lu`;
 
         renderNavigation();
     }
 
-    // ── Toolbar ───────────────────────────────────────────────
-    function renderToolbar() {
+    // ── Toolbar initiale (sans liste de chapitres) ────────────
+    function renderToolbarBasic() {
         const el = document.getElementById('readerToolbar');
         if (!el) return;
-        const chaps    = window.ChaptersDB ? ChaptersDB.getChapters(manga.id) : [];
         const prevChap = chapter.number > 1 ? chapter.number - 1 : null;
         const nextChap = chapter.number < manga.chapters ? chapter.number + 1 : null;
-
-        const chapLabel = (c) => c.title === `Chapitre ${c.number}`
-            ? `Chap. ${c.number}`
-            : `Chap. ${c.number} — ${MH.esc(c.title)}`;
 
         el.innerHTML = `
         <div class="toolbar-left">
             <a href="serie.html?id=${manga.id}" class="toolbar-back">← ${MH.esc(manga.title)}</a>
             <span class="toolbar-sep">/</span>
-            <span class="toolbar-chap">${chapLabel(chapter)}</span>
+            <span class="toolbar-chap">Chap. ${chapter.number}</span>
         </div>
-        <div class="toolbar-center">
+        <div class="toolbar-center" id="toolbarCenter">
             <button class="reader-icon-btn" ${!prevChap ? 'disabled' : ''}
                 onclick="window.location.href='chapitre.html?manga=${manga.id}&chapter=${prevChap}'">‹</button>
-            <select class="reader-chap-select" onchange="window.location.href='chapitre.html?manga=${manga.id}&chapter='+this.value">
-                ${chaps.length
-                    ? chaps.map(c => `<option value="${c.number}" ${c.number === chapter.number ? 'selected' : ''}>${chapLabel(c)}</option>`).join('')
-                    : `<option value="${chapter.number}" selected>Chapitre ${chapter.number}</option>`}
+            <select class="reader-chap-select" id="chapSelect"
+                onchange="window.location.href='chapitre.html?manga=${manga.id}&chapter='+this.value">
+                <option value="${chapter.number}" selected>Chapitre ${chapter.number}</option>
             </select>
             <button class="reader-icon-btn" ${!nextChap ? 'disabled' : ''}
                 onclick="window.location.href='chapitre.html?manga=${manga.id}&chapter=${nextChap}'">›</button>
@@ -174,6 +200,27 @@
             <button class="reader-icon-btn" onclick="toggleFullscreen()" title="Plein écran">⛶</button>
             <button class="reader-icon-btn" onclick="MH.toast('Paramètres bientôt disponibles')" title="Paramètres">⚙</button>
         </div>`;
+    }
+
+    // ── Toolbar complète (avec liste de chapitres chargée) ────
+    function renderToolbarFull(chaps) {
+        const select = document.getElementById('chapSelect');
+        if (!select || !chaps.length) return;
+
+        const chapLabel = (c) => c.title === `Chapitre ${c.number}`
+            ? `Chap. ${c.number}`
+            : `Chap. ${c.number} — ${MH.esc(c.title)}`;
+
+        select.innerHTML = chaps.map(c =>
+            `<option value="${c.number}" ${c.number === chapter.number ? 'selected' : ''}>${chapLabel(c)}</option>`
+        ).join('');
+
+        // Mettre à jour aussi le titre dans la toolbar
+        const chapSpan = document.querySelector('.toolbar-chap');
+        if (chapSpan) {
+            const cur = chaps.find(c => c.number === chapter.number);
+            if (cur) chapSpan.textContent = chapLabel(cur);
+        }
     }
 
     // ── Barre de mode ─────────────────────────────────────────
@@ -189,8 +236,8 @@
             <button class="modebar-btn ${m.id === readMode ? 'active' : ''}" data-mode="${m.id}">${m.label}</button>`
         ).join('') +
         `<span class="modebar-info">
-            ${chapter.readTime} min · ${chapter.pages || '?'} pages ·
-            <span class="modebar-pct">${Math.round((currentPage / (chapter.pages || 20)) * 100)}% lu</span>
+            ${chapter.readTime || 12} min · ${chapter.pages || '?'} pages ·
+            <span class="modebar-pct">0% lu</span>
         </span>`;
 
         el.addEventListener('click', e => {
@@ -254,10 +301,10 @@
     function renderNextChapter() {
         const el = document.getElementById('readerNextChapter');
         if (!el) return;
-        const nextNum  = chapter.number + 1;
-        const hasNext  = nextNum <= manga.chapters;
+        const nextNum = chapter.number + 1;
+        const hasNext = nextNum <= manga.chapters;
         if (!hasNext) { el.innerHTML = ''; return; }
-        const nextChap = window.ChaptersDB ? ChaptersDB.getChapter(manga.id, nextNum) : { number: nextNum, title: `Chapitre ${nextNum}` };
+
         el.innerHTML = `
         <div class="reader-next-chapter">
             <div class="next-chapter-cover">
@@ -265,7 +312,7 @@
             </div>
             <div class="next-chapter-info">
                 <div class="next-chapter-label">À suivre</div>
-                <div class="next-chapter-title">Chapitre ${nextChap.number} : ${MH.esc(nextChap.title)}</div>
+                <div class="next-chapter-title">Chapitre ${nextNum}</div>
                 <div class="next-chapter-meta">Appuyez pour lire la suite</div>
             </div>
             <a href="chapitre.html?manga=${manga.id}&chapter=${nextNum}" class="btn btn-primary">Lire →</a>

@@ -1,256 +1,341 @@
 // ============================================================
-// chaptersdb.js — MangaHub v8 (multi-proxy + fallback)
+// chaptersdb.js — MangaHub v10 — Définitif
+// ============================================================
+// Stratégie UUID :
+//   1. Seul Berserk a un UUID hardcodé confirmé
+//   2. Tous les autres : recherche MangaDex par titre optimisé
+//   3. Cache localStorage → la recherche ne se fait qu'une fois par manga
+//
+// Stratégie chapitres :
+//   1. Fetch direct (MangaDex supporte CORS nativement)
+//   2. Proxy allorigins en backup si fetch direct échoue
+//   3. Tente FR → EN → fallback local
 // ============================================================
 (function () {
     'use strict';
 
-    const PROXIES = [
-        'https://corsproxy.io/?url=',
-        'https://api.allorigins.win/raw?url=',
-        'https://cors-anywhere.herokuapp.com/'
-    ];
-    const MD = 'https://api.mangadex.org';
-    const TIMEOUT = 8000;
-    const MAX_RETRIES = 2;
+    const MD      = 'https://api.mangadex.org';
+    const TIMEOUT = 12000;
+    const LS_KEY  = 'mangahub_uuids_v10';
 
+    // ── Cache mémoire session ─────────────────────────────────
     const _cache = {
-        mangaUUID: {},
-        chaptersList: {},
-        chapterUUID: {},
-        pages: {},
-        cover: {}
+        uuid:     {},
+        chapters: {},
+        pages:    {},
     };
 
-    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    // ── UUID confirmé fonctionnel ─────────────────────────────
+    const UUID_CONFIRMED = {
+        1: '801513ba-a712-498c-8f57-cae55b38cc92', // Berserk ✓
+    };
 
-    async function fetchWithProxy(url, proxyIndex = 0, retry = 0) {
-        if (proxyIndex >= PROXIES.length) return null;
-        const proxyUrl = PROXIES[proxyIndex] + encodeURIComponent(url);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
-        try {
-            const res = await fetch(proxyUrl, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            if (!res.ok) {
-                if (res.status === 429 && retry < MAX_RETRIES) {
-                    await sleep(2000 * (retry + 1));
-                    return fetchWithProxy(url, proxyIndex, retry + 1);
-                }
-                throw new Error(`HTTP ${res.status}`);
-            }
-            return await res.json();
-        } catch (err) {
-            clearTimeout(timeoutId);
-            console.warn(`[ChaptersDB] Proxy ${proxyIndex} failed:`, err.message);
-            return fetchWithProxy(url, proxyIndex + 1, 0);
-        }
+    // ── Termes de recherche optimisés pour chaque manga ───────
+    // Titres choisis pour maximiser la précision sur MangaDex.
+    // Même principe que covers.js : titres JP quand plus précis.
+    const SEARCH_QUERIES = {
+        1:  'Berserk',
+        2:  'Vagabond',
+        3:  'Vinland Saga',
+        4:  'Monster Naoki Urasawa',
+        5:  'Pluto Naoki Urasawa',
+        6:  'Dorohedoro',
+        7:  'Dungeon Meshi',
+        8:  'Mushishi',
+        9:  'Blame Nihei',
+        10: 'Biomega',
+        11: 'Oyasumi Punpun',
+        12: 'Solanin',
+        13: 'Blue Period',
+        14: 'Houseki no Kuni',
+        15: 'Slam Dunk',
+        16: 'Hajime no Ippo',
+        17: 'Haikyuu',
+        18: '20th Century Boys',
+        19: 'Devilman',
+        20: 'Gantz',
+        21: 'Yotsuba',
+        22: 'Parasyte',
+        23: 'Ashita no Joe',
+        24: 'Hellsing',
+        25: 'Beck',
+        26: 'Fullmetal Alchemist',
+        27: 'Hunter x Hunter',
+        28: 'Dragon Ball',
+        29: 'Naruto',
+        30: 'Shingeki no Kyojin',
+        31: 'One Piece',
+        32: 'Kimetsu no Yaiba',
+        33: 'Fairy Tail',
+        34: 'Death Note',
+        35: 'Bleach',
+        36: 'Great Teacher Onizuka',
+        37: 'Magi',
+        38: 'Boku no Hero Academia',
+        39: 'Nana Ai Yazawa',
+        40: 'Fruits Basket',
+        41: 'Cardcaptor Sakura',
+        42: 'Bishoujo Senshi Sailor Moon',
+        43: 'Baki',
+        44: 'Yokohama Kaidashi Kikou',
+        45: 'Golden Kamuy',
+        46: 'Fire Punch',
+        47: 'Chainsaw Man',
+        48: 'Jujutsu Kaisen',
+        49: 'Spy x Family',
+        50: 'Tokyo Ghoul',
+        51: 'Made in Abyss',
+        52: 'Dr Stone',
+        53: 'Yakusoku no Neverland',
+        54: 'One Punch Man',
+        55: 'Mob Psycho 100',
+        56: 'Akira',
+        57: 'Kaze no Tani no Nausicaa',
+        58: 'Initial D',
+        59: 'Claymore',
+        60: 'Rurouni Kenshin',
+    };
+
+    // ── UUIDs persistés en localStorage ──────────────────────
+    let _lsUUIDs = {};
+    try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) _lsUUIDs = JSON.parse(raw);
+    } catch(e) {}
+
+    function saveLS() {
+        try { localStorage.setItem(LS_KEY, JSON.stringify(_lsUUIDs)); } catch(e) {}
     }
 
-    // UUIDs connus (vérifiés)
-    const MANGA_UUIDS = {
-        1: 'b14a2b38-c9f2-4b5e-9c63-4af8f7ffe33f',
-        2: 'd1a9f4f1-fcd7-4436-aae7-9d1a6f8f6a22',
-        3: 'c0ee4a59-8f46-4c17-a2d3-e0baeae0a8f8',
-        4: 'a96676e5-8ae2-425e-b549-7f15f28e6916',
-        5: '2001a840-d0e3-4f1a-b5b4-7d9e4f8f2b3a',
-        6: '1f456785-ed90-4b6e-a862-49f30c4c87ba',
-        7: '295210e0-c4a6-4f41-8c5a-5b9c9e8c7e8b',
-        8: 'a1a9a0c4-b5c6-4d7e-8f9a-0b1c2d3e4f5a',
-        9: 'f98660a1-d2e3-4f5a-6b7c-8d9e0f1a2b3c',
-        11: 'a77742f1-4f5a-3b6b-c7c8-9d0e1f2a3b4c',
-        14: 'f1e2d3c4-b5a6-7788-d9e0-f1a2b3c4d5e6',
-        15: 'c0a45a9a-4d7e-8f9a-0b1c-2d3e4f5a6b7c',
-        16: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
-        17: 'a1c2b3a4-d5e6-f7a8-b9c0-d1e2f3a4b5c6',
-        18: 'f1a2b3c4-d5e6-f7a8-b9c0-d1e2f3a4b5c6',
-        22: 'b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e',
-        26: 'c2923ad5-6f03-4bb6-8c86-ce3fb8d33ecf',
-        27: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
-        29: 'b6d57c44-f1a2-3b4c-5d6e-7f8a9b0c1d2e',
-        30: 'cab54bb1-6cf4-4fee-b2ef-1eb42c66a45f',
-        31: 'a1a2a3a4-b5b6-c7c8-d9d0-e1e2e3e4e5e6',
-        32: 'a24a0458-6fe7-4f28-bd04-ac3bd9007f08',
-        34: 'a77742f1-4f5a-3b6b-c7c8-9d0e1f2a3b4c',
-        35: 'a1f2b3c4-d5e6-f7a8-b9c0-d1e2f3a4b5c6',
-        38: 'a8b9c0d1-e2f3-a4b5-c6d7-e8f9a0b1c2d3',
-        39: 'b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e',
-        40: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
-        47: '801513ba-a712-498c-8f57-cae55b38cc92',
-        48: 'b9797c5b-642e-4d8b-a4b1-a6bf47e66f67',
-        49: 'a7ae7fe6-0f78-4c25-a4c1-45f95d1fcd98',
-        54: 'd8a19615-d2c2-4e2d-b3e8-7ea5a9c77e55',
-        55: 'a4c4ce73-14e5-4b91-9b04-7ac9c2e8c90e',
-    };
-
-    async function getMangaUUID(mangaId) {
-        if (_cache.mangaUUID[mangaId]) return _cache.mangaUUID[mangaId];
-        const uuid = MANGA_UUIDS[mangaId];
-        if (!uuid) return null;
-        const data = await fetchWithProxy(MD + '/manga/' + uuid);
-        if (data && data.data) {
-            _cache.mangaUUID[mangaId] = uuid;
-            return uuid;
+    // ── Fetch MangaDex (direct + fallback proxy) ─────────────
+    async function fetchMD(url) {
+        // 1. Fetch direct — MangaDex supporte CORS nativement
+        try {
+            const ctrl = new AbortController();
+            const tid  = setTimeout(() => ctrl.abort(), TIMEOUT);
+            const res  = await fetch(url, {
+                signal: ctrl.signal,
+                headers: { 'Accept': 'application/json' },
+            });
+            clearTimeout(tid);
+            if (res.ok) return await res.json();
+        } catch(e) {
+            console.warn('[ChaptersDB] Fetch direct échoué:', e.message);
         }
+
+        // 2. Proxy allorigins (retourne { contents: "..." })
+        try {
+            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+            const ctrl = new AbortController();
+            const tid  = setTimeout(() => ctrl.abort(), TIMEOUT);
+            const res  = await fetch(proxyUrl, { signal: ctrl.signal });
+            clearTimeout(tid);
+            if (res.ok) {
+                const wrapper = await res.json();
+                if (wrapper?.contents) return JSON.parse(wrapper.contents);
+            }
+        } catch(e) {
+            console.warn('[ChaptersDB] Proxy allorigins échoué:', e.message);
+        }
+
+        // 3. Proxy corsproxy.io (retourne le JSON brut)
+        try {
+            const proxyUrl = 'https://corsproxy.io/?url=' + encodeURIComponent(url);
+            const ctrl = new AbortController();
+            const tid  = setTimeout(() => ctrl.abort(), TIMEOUT);
+            const res  = await fetch(proxyUrl, { signal: ctrl.signal });
+            clearTimeout(tid);
+            if (res.ok) {
+                const text = await res.text();
+                if (text.trim().startsWith('{') || text.trim().startsWith('[')) {
+                    return JSON.parse(text);
+                }
+            }
+        } catch(e) {
+            console.warn('[ChaptersDB] Proxy corsproxy.io échoué:', e.message);
+        }
+
         return null;
     }
 
-    async function fetchChaptersList(mangaId, lang = 'fr') {
-        const cacheKey = mangaId + '-' + lang;
-        const cached = _cache.chaptersList[cacheKey];
-        if (cached && Date.now() - cached.timestamp < 3600000) return cached.chapters;
-
-        const uuid = await getMangaUUID(mangaId);
-        if (!uuid) return [];
-
-        let allChapters = [];
-        let offset = 0;
-        const limit = 100;
-        while (true) {
-            const path = `/manga/${uuid}/feed?translatedLanguage[]=${lang}&limit=${limit}&offset=${offset}&order[chapter]=asc`;
-            const data = await fetchWithProxy(MD + path);
-            if (!data || !data.data || data.data.length === 0) break;
-            allChapters = allChapters.concat(data.data);
-            if (data.data.length < limit) break;
-            offset += limit;
+    // ── Résolution UUID ───────────────────────────────────────
+    async function resolveUUID(mangaId) {
+        if (_cache.uuid[mangaId])    return _cache.uuid[mangaId];
+        if (UUID_CONFIRMED[mangaId]) {
+            _cache.uuid[mangaId] = UUID_CONFIRMED[mangaId];
+            return _cache.uuid[mangaId];
+        }
+        if (_lsUUIDs[mangaId]) {
+            _cache.uuid[mangaId] = _lsUUIDs[mangaId];
+            return _cache.uuid[mangaId];
         }
 
-        const chapters = allChapters.map(c => ({
-            id: c.id,
-            number: parseFloat(c.attributes.chapter) || 0,
-            title: c.attributes.title || `Chapitre ${c.attributes.chapter}`,
-            lang: lang,
-        })).filter(c => c.number > 0).sort((a,b) => a.number - b.number);
+        const query = SEARCH_QUERIES[mangaId];
+        if (!query) return null;
 
-        _cache.chaptersList[cacheKey] = { chapters, timestamp: Date.now() };
+        console.log(`[ChaptersDB] Recherche UUID id:${mangaId} → "${query}"`);
+
+        const url  = `${MD}/manga?title=${encodeURIComponent(query)}&limit=5&order[relevance]=desc`;
+        const data = await fetchMD(url);
+        const uuid = data?.data?.[0]?.id || null;
+
+        if (uuid) {
+            console.log(`[ChaptersDB] UUID id:${mangaId} → ${uuid}`);
+            _lsUUIDs[mangaId] = uuid;
+            _cache.uuid[mangaId] = uuid;
+            saveLS();
+        } else {
+            console.warn(`[ChaptersDB] UUID introuvable pour id:${mangaId} ("${query}")`);
+        }
+
+        return uuid;
+    }
+
+    // ── Chargement des chapitres ──────────────────────────────
+    async function loadChapters(mangaId, lang) {
+        const key = `${mangaId}-${lang}`;
+        if (_cache.chapters[key]) return _cache.chapters[key];
+
+        const uuid = await resolveUUID(mangaId);
+        if (!uuid) return [];
+
+        let all    = [];
+        let offset = 0;
+        const limit = 100;
+
+        try {
+            while (true) {
+                const url  = `${MD}/manga/${uuid}/feed`
+                    + `?translatedLanguage[]=${lang}`
+                    + `&limit=${limit}&offset=${offset}`
+                    + `&order[chapter]=desc`
+                    + `&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic`;
+                const data = await fetchMD(url);
+                if (!data?.data?.length) break;
+                all = all.concat(data.data);
+                if (data.data.length < limit) break;
+                offset += limit;
+            }
+        } catch(e) {
+            console.error('[ChaptersDB] Erreur loadChapters:', e);
+            return [];
+        }
+
+        if (!all.length) return [];
+
+        // Dédupliquer par numéro de chapitre
+        const seen     = new Set();
+        const chapters = [];
+        for (const c of all) {
+            const num = parseFloat(c.attributes.chapter);
+            if (!num || num <= 0) continue;
+            if (seen.has(num)) continue;
+            seen.add(num);
+            chapters.push({
+                id:          c.id,
+                mangaId:     mangaId,
+                number:      num,
+                title:       c.attributes.title || `Chapitre ${c.attributes.chapter}`,
+                publishDate: c.attributes.publishAt
+                    ? new Date(c.attributes.publishAt).toLocaleDateString('fr-FR')
+                    : 'N/A',
+                pages:       c.attributes.pages || 0,
+                lang:        lang,
+                readTime:    Math.max(5, Math.round((c.attributes.pages || 20) * 0.6)),
+            });
+        }
+
+        chapters.sort((a, b) => b.number - a.number);
+        _cache.chapters[key] = chapters;
         return chapters;
     }
 
-    async function getChapterUUID(mangaId, chapterNum) {
-        const key = mangaId + '-' + chapterNum;
-        if (_cache.chapterUUID[key]) return _cache.chapterUUID[key];
-
-        for (const lang of ['fr', 'en']) {
-            const chapters = await fetchChaptersList(mangaId, lang);
-            const chap = chapters.find(c => Math.abs(c.number - chapterNum) < 0.01);
-            if (chap) {
-                _cache.chapterUUID[key] = chap.id;
-                return chap.id;
-            }
-        }
-        return null;
-    }
-
-    async function getChapterPages(chapUUID) {
-        const data = await fetchWithProxy(MD + '/at-home/server/' + chapUUID);
-        if (!data || !data.baseUrl || !data.chapter) return null;
-        const { baseUrl, chapter: { hash, data: files = [] } } = data;
-        if (!files.length) return null;
-        return files.map((f, i) => ({
-            pageNumber: i + 1,
-            src: baseUrl + '/data/' + hash + '/' + f,
-            srcFallback: baseUrl + '/data-saver/' + hash + '/' + f,
-        }));
-    }
-
-    async function getPages(mangaId, chapterNum) {
-        const key = mangaId + '-' + chapterNum;
-        if (_cache.pages[key]) return _cache.pages[key];
-
-        console.log(`[ChaptersDB] Loading manga=${mangaId} chap=${chapterNum}`);
-        const chapUUID = await getChapterUUID(mangaId, chapterNum);
-        if (!chapUUID) {
-            console.warn('[ChaptersDB] Chapter UUID not found');
-            return [];
-        }
-
-        const pages = await getChapterPages(chapUUID);
-        if (!pages) {
-            console.warn('[ChaptersDB] Pages not found');
-            return [];
-        }
-
-        _cache.pages[key] = pages;
-        console.log(`[ChaptersDB] Loaded ${pages.length} pages`);
-        return pages;
-    }
-
-    async function getCoverUrl(mangaId, size = 256) {
-        if (_cache.cover[mangaId]) return _cache.cover[mangaId];
-        const uuid = await getMangaUUID(mangaId);
-        if (!uuid) return null;
-        const data = await fetchWithProxy(MD + `/cover?manga=${uuid}&limit=1&order[volume]=desc`);
-        if (!data || !data.data || !data.data.length) return null;
-        const cover = data.data[0];
-        const filename = cover.attributes.fileName;
-        const url = `https://uploads.mangadex.org/covers/${uuid}/${filename}.${size}.jpg`;
-        _cache.cover[mangaId] = url;
-        return url;
-    }
-
-    async function preloadCovers(mangaIds, size = 256) {
-        const uniqueIds = [...new Set(mangaIds)];
-        await Promise.all(uniqueIds.map(id => getCoverUrl(id, size).catch(() => null)));
-    }
-
-    async function updateCoverImages(selector = '[data-manga-id]', size = 256) {
-        const images = document.querySelectorAll(selector);
-        const ids = [...images].map(img => parseInt(img.dataset.mangaId)).filter(id => !isNaN(id));
-        await preloadCovers(ids, size);
-        images.forEach(img => {
-            const id = parseInt(img.dataset.mangaId);
-            const coverUrl = _cache.cover[id];
-            if (coverUrl) img.src = coverUrl;
-        });
-    }
-
-    // Fallback local si l'API échoue
-    function getChapters(mangaId) {
-        const manga = window.DB?.getManga(mangaId);
-        if (!manga) return [];
-        return Array.from({ length: Math.min(manga.chapters, 200) }, (_, i) => {
-            const n = manga.chapters - i;
-            return {
-                id: mangaId * 10000 + n,
-                mangaId,
-                number: n,
-                title: `Chapitre ${n}`,
-                publishDate: i === 0 ? '2 jours' : i < 4 ? (i * 7 + ' jours') : (Math.round(i * 1.5) + ' semaines'),
-                readTime: Math.floor(Math.random() * 10) + 8,
-                isRead: false,
-                pages: 20,
-                isNew: i === 0,
-            };
-        });
-    }
-
-    function getChapter(mangaId, chapterNum) {
-        const chaps = getChapters(mangaId);
-        return chaps.find(c => c.number === chapterNum) || {
-            id: mangaId * 10000 + chapterNum,
-            mangaId,
-            number: chapterNum,
-            title: 'Chapitre ' + chapterNum,
-            publishDate: 'récemment',
-            readTime: 12,
-            isRead: false,
-            pages: 20,
-            isNew: false,
-        };
-    }
-
+    // ── API publique ──────────────────────────────────────────
     window.ChaptersDB = {
-        getChapters,
-        getChapter,
-        getPages,
-        getCoverUrl,
-        preloadCovers,
-        updateCoverImages,
+
+        getChapters: async function(mangaId) {
+            console.log(`[ChaptersDB] getChapters(${mangaId})`);
+
+            let list = await loadChapters(mangaId, 'fr');
+
+            if (!list.length) {
+                console.log(`[ChaptersDB] id:${mangaId} — FR vide, tentative EN`);
+                list = await loadChapters(mangaId, 'en');
+            }
+
+            if (!list.length) {
+                console.warn(`[ChaptersDB] id:${mangaId} — fallback local`);
+                return this._fallback(mangaId);
+            }
+
+            return list;
+        },
+
+        // Synchrone — ne fait pas d'appel réseau
+        getChapterSync: function(mangaId, chapterNum) {
+            const fr    = _cache.chapters[`${mangaId}-fr`] || [];
+            const en    = _cache.chapters[`${mangaId}-en`] || [];
+            const found = [...fr, ...en].find(c => Math.abs(c.number - chapterNum) < 0.01);
+            if (found) return found;
+            return {
+                id: null, mangaId, number: chapterNum,
+                title: `Chapitre ${chapterNum}`,
+                publishDate: 'N/A', pages: 20, readTime: 12,
+            };
+        },
+
+        getPages: async function(mangaId, chapterNum) {
+            const key = `${mangaId}-${chapterNum}`;
+            if (_cache.pages[key]) return _cache.pages[key];
+
+            const chapters = await this.getChapters(mangaId);
+            const chap     = chapters.find(c => Math.abs(c.number - chapterNum) < 0.01);
+
+            if (!chap?.id) {
+                console.warn(`[ChaptersDB] Chapitre ${chapterNum} introuvable pour id:${mangaId}`);
+                return [];
+            }
+
+            const data = await fetchMD(`${MD}/at-home/server/${chap.id}`);
+            if (!data?.baseUrl || !data?.chapter) return [];
+
+            const { baseUrl, chapter: { hash, data: files = [] } } = data;
+            const pages = files.map((f, i) => ({
+                pageNumber:  i + 1,
+                src:         `${baseUrl}/data/${hash}/${f}`,
+                srcFallback: `${baseUrl}/data-saver/${hash}/${f}`,
+            }));
+
+            _cache.pages[key] = pages;
+            return pages;
+        },
+
+        _fallback: function(mangaId) {
+            const manga = window.DB?.getManga(mangaId);
+            if (!manga) return [];
+            const total = manga.chapters || 10;
+            return Array.from({ length: Math.min(total, 50) }, (_, i) => ({
+                id: null, mangaId,
+                number:      total - i,
+                title:       `Chapitre ${total - i}`,
+                publishDate: i === 0 ? 'Récent' : `Il y a ${i + 1} semaine${i > 0 ? 's' : ''}`,
+                pages: 20, readTime: 12, lang: 'local',
+            }));
+        },
+
+        clearCache: function() {
+            Object.keys(_cache).forEach(k => { _cache[k] = {}; });
+            _lsUUIDs = {};
+            try { localStorage.removeItem(LS_KEY); } catch(e) {}
+            console.log('[ChaptersDB] Cache vidé');
+        },
     };
 
-    // Patch DB.getChapters
-    const patchDB = () => {
-        if (window.DB) DB.getChapters = id => ChaptersDB.getChapters(id);
-    };
-    patchDB();
-    document.addEventListener('DOMContentLoaded', patchDB);
+    // Patch DB.getChapters → async
+    if (window.DB) {
+        window.DB.getChapters = (id) => window.ChaptersDB.getChapters(id);
+    }
+
+    console.log('[ChaptersDB] v10 chargé');
+
 })();

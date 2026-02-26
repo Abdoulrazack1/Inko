@@ -1,4 +1,4 @@
-// serie.js — MangaHub  (version complète avec tous les éléments cliquables)
+// serie.js — MangaHub  (version complète avec gestion async des chapitres)
 (function () {
     'use strict';
     let manga = null;
@@ -87,7 +87,7 @@
 
     // ══ TABS ══════════════════════════════════════════════════
     function renderTabs() {
-        const tabs = document.getElementById('serieTabs');
+        const tabs  = document.getElementById('serieTabs');
         const right = document.getElementById('serieTabsRight');
         if (!tabs) return;
 
@@ -110,12 +110,18 @@
             renderTab(activeTab);
         });
 
+        // Mise à jour asynchrone du header droit (dernière lecture)
         if (right) {
-            const chaps = DB.getChapters(manga.id);
-            const lastRead = chaps.find(c => c.isRead);
-            right.innerHTML = lastRead
-                ? `Dernière lecture : <a href="chapitre.html?manga=${manga.id}&chapter=${lastRead.number}" class="link-orange">Chap. ${lastRead.number}</a> · Màj ${manga.lastUpdate}`
-                : `${manga.chapters} chapitres · Màj ${manga.lastUpdate}`;
+            right.textContent = `${manga.chapters} chapitres · Màj ${manga.lastUpdate}`;
+            (async () => {
+                try {
+                    const chaps   = await DB.getChapters(manga.id);
+                    const lastRead = chaps.find(c => c.isRead);
+                    if (lastRead) {
+                        right.innerHTML = `Dernière lecture : <a href="chapitre.html?manga=${manga.id}&chapter=${lastRead.number}" class="link-orange">Chap. ${lastRead.number}</a> · Màj ${manga.lastUpdate}`;
+                    }
+                } catch(e) {}
+            })();
         }
     }
 
@@ -123,19 +129,20 @@
         const main = document.getElementById('serieMain');
         if (!main) return;
         const map = {
-            apercu: renderApercu,
-            chapitres: renderChapitres,
-            personnages: renderPersonnages,
-            similaires: renderSimilaires,
+            apercu:       renderApercu,
+            chapitres:    renderChapitres,
+            personnages:  renderPersonnages,
+            similaires:   renderSimilaires,
         };
         (map[tab] || renderApercu)(main);
     }
 
     // ══ APERÇU ════════════════════════════════════════════════
     function renderApercu(el) {
-        const chaps = DB.getChapters(manga.id);
-        const recent = chaps.slice(0, 5);
-        const similar = DB.getSimilar(manga.id).slice(0, 3);
+        const similar  = DB.getSimilar(manga.id).slice(0, 3);
+
+        // Rendu immédiat avec des chapitres factices (évite l'écran vide)
+        const fakeFive = generateSomeChapters(5);
 
         el.innerHTML = `
         <div class="synopsis-block">
@@ -150,8 +157,8 @@
                 <div class="chapters-block-title">Derniers chapitres</div>
                 <button class="section-link" data-goto="chapitres">Voir tous →</button>
             </div>
-            <div class="chapters-list">
-                ${recent.map(c => renderChapterRow(c)).join('') || renderFakeChapters()}
+            <div class="chapters-list" id="apercuChapsList">
+                ${renderChaptersLoading()}
             </div>
             <div class="chapters-see-all">
                 <a class="link-orange" data-goto="chapitres" href="#">Voir tous les ${manga.chapters} chapitres</a>
@@ -186,83 +193,125 @@
                 document.getElementById('serieTabsBar')?.scrollIntoView({ behavior: 'smooth' });
             });
         });
+
+        // Chargement async des vrais chapitres
+        (async () => {
+            try {
+                const chaps = await DB.getChapters(manga.id);
+                const listEl = document.getElementById('apercuChapsList');
+                if (!listEl) return;
+                const recent = chaps.slice(0, 5);
+                listEl.innerHTML = recent.length
+                    ? recent.map(c => renderChapterRow(c)).join('')
+                    : fakeFive.map(c => renderChapterRow(c)).join('');
+            } catch(e) {
+                const listEl = document.getElementById('apercuChapsList');
+                if (listEl) listEl.innerHTML = generateSomeChapters(5).map(c => renderChapterRow(c)).join('');
+            }
+        })();
+    }
+
+    function renderChaptersLoading() {
+        return `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">
+            <div style="display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--orange);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:8px"></div>
+            <div>Chargement des chapitres…</div>
+        </div>`;
     }
 
     function renderChapterRow(c) {
         return `
         <a href="chapitre.html?manga=${manga.id}&chapter=${c.number}" class="chapter-row${c.isNew ? ' chapter-row--new' : ''}${c.isRead ? ' chapter-row--read' : ''}">
             <div class="chapter-num">Chap. ${c.number}</div>
-            <div class="chapter-title-text">${MH.esc(c.title)}</div>
+            <div class="chapter-title-text">${MH.esc(c.title || 'Chapitre ' + c.number)}</div>
             <div class="chapter-meta">
                 ${c.isNew ? '<span class="badge-new">NOUVEAU</span>' : ''}
-                <span class="chapter-date">Il y a ${c.publishDate}</span>
-                <span class="chapter-time">${c.readTime} min</span>
+                <span class="chapter-date">${c.publishDate || ''}</span>
+                <span class="chapter-time">${c.readTime ? c.readTime + ' min' : ''}</span>
                 <span class="chapter-read-dot ${c.isRead ? 'is-read' : ''}" title="${c.isRead ? 'Lu' : 'Non lu'}"></span>
             </div>
         </a>`;
     }
 
-    function renderFakeChapters() {
-        return Array.from({ length: 5 }, (_, i) => {
-            const n = manga.chapters - i;
-            return `<a href="chapitre.html?manga=${manga.id}&chapter=${n}" class="chapter-row">
-                <div class="chapter-num">Chap. ${n}</div>
-                <div class="chapter-title-text">Chapitre ${n}</div>
-                <div class="chapter-meta">
-                    <span class="chapter-date">Il y a ${i + 1} semaine${i ? 's' : ''}</span>
-                    <span class="chapter-time">~15 min</span>
-                </div>
-            </a>`;
-        }).join('');
+    function generateSomeChapters(n) {
+        const total = manga.chapters;
+        return Array.from({ length: Math.min(n, total) }, (_, i) => ({
+            mangaId:     manga.id,
+            number:      total - i,
+            title:       `Chapitre ${total - i}`,
+            publishDate: i === 0 ? 'Il y a 2 jours' : `Il y a ${i * 7} jours`,
+            readTime:    Math.floor(Math.random() * 10) + 8,
+            isRead:      false,
+            isNew:       i === 0,
+            pages:       20,
+        }));
     }
 
     // ══ LISTE COMPLÈTE DES CHAPITRES ══════════════════════════
     function renderChapitres(el) {
-        const allChaps = DB.getChapters(manga.id);
-
-        // Générer des chapitres fictifs si la DB en a trop peu
-        let chaps = allChaps.length ? allChaps : generateAllChapters();
-
+        // Affichage immédiat du squelette avec loader
         el.innerHTML = `
         <div class="chapters-block">
             <div class="chapters-block-header">
-                <div class="chapters-block-title">Tous les chapitres · <span id="chapCount">${chaps.length}</span></div>
+                <div class="chapters-block-title">Tous les chapitres · <span id="chapCount">…</span></div>
                 <div class="chapters-controls">
-                    <input type="text" id="chapSearch" class="chap-search-input" placeholder="Chercher un chapitre…">
-                    <button class="chap-sort-btn" id="chapSortBtn" title="Inverser l'ordre">
+                    <input type="text" id="chapSearch" class="chap-search-input" placeholder="Chercher un chapitre…" disabled>
+                    <button class="chap-sort-btn" id="chapSortBtn" disabled>
                         ${chapSortAsc ? '↑ Ancien' : '↓ Récent'}
                     </button>
                 </div>
             </div>
-            <div class="chapters-list" id="chapsList"></div>
+            <div class="chapters-list" id="chapsList">${renderChaptersLoading()}</div>
         </div>`;
 
-        // Bind recherche & tri
-        const input = el.querySelector('#chapSearch');
-        const sortBtn = el.querySelector('#chapSortBtn');
-        const list = el.querySelector('#chapsList');
-        const countEl = el.querySelector('#chapCount');
+        // Chargement async
+        (async () => {
+            let chaps;
+            try {
+                chaps = await DB.getChapters(manga.id);
+            } catch(e) {
+                chaps = [];
+            }
+            if (!chaps.length) chaps = generateAllChapters();
 
-        function renderList() {
-            let filtered = chaps.filter(c =>
-                !chapFilter ||
-                c.number.toString().includes(chapFilter) ||
-                c.title.toLowerCase().includes(chapFilter.toLowerCase())
-            );
-            if (chapSortAsc) filtered = [...filtered].reverse();
-            countEl.textContent = filtered.length;
-            list.innerHTML = filtered.map(c => renderChapterRow(c)).join('') || '<div class="chapters-empty">Aucun chapitre trouvé</div>';
-        }
+            const input   = el.querySelector('#chapSearch');
+            const sortBtn = el.querySelector('#chapSortBtn');
+            const list    = el.querySelector('#chapsList');
+            const countEl = el.querySelector('#chapCount');
 
-        input.value = chapFilter;
-        input.addEventListener('input', () => { chapFilter = input.value; renderList(); });
-        sortBtn.addEventListener('click', () => {
-            chapSortAsc = !chapSortAsc;
-            sortBtn.textContent = chapSortAsc ? '↑ Ancien' : '↓ Récent';
+            if (!list) return; // L'utilisateur a changé d'onglet
+
+            // Activer les contrôles
+            if (input)  input.disabled  = false;
+            if (sortBtn) sortBtn.disabled = false;
+            if (countEl) countEl.textContent = chaps.length;
+
+            function renderList() {
+                const q = chapFilter.toLowerCase();
+                let filtered = chaps.filter(c =>
+                    !q ||
+                    c.number.toString().includes(q) ||
+                    (c.title || '').toLowerCase().includes(q)
+                );
+                if (chapSortAsc) filtered = [...filtered].reverse();
+                if (countEl) countEl.textContent = filtered.length;
+                list.innerHTML = filtered.map(c => renderChapterRow(c)).join('')
+                    || '<div class="chapters-empty">Aucun chapitre trouvé</div>';
+            }
+
+            if (input) {
+                input.value = chapFilter;
+                input.addEventListener('input', () => { chapFilter = input.value; renderList(); });
+            }
+            if (sortBtn) {
+                sortBtn.addEventListener('click', () => {
+                    chapSortAsc = !chapSortAsc;
+                    sortBtn.textContent = chapSortAsc ? '↑ Ancien' : '↓ Récent';
+                    renderList();
+                });
+            }
+
             renderList();
-        });
-
-        renderList();
+        })();
     }
 
     function generateAllChapters() {
@@ -270,12 +319,15 @@
         return Array.from({ length: Math.min(total, 200) }, (_, i) => {
             const n = total - i;
             return {
-                id: manga.id * 10000 + n, mangaId: manga.id, number: n,
-                title: 'Chapitre ' + n,
-                publishDate: i === 0 ? '2 jours' : i < 4 ? (i * 7 + ' jours') : (Math.round(i * 1.5) + ' semaines'),
-                readTime: Math.floor(Math.random() * 10) + 8,
-                isRead: n <= Math.floor(total * 0.3),
-                pages: 20, isNew: i === 0,
+                id:          manga.id * 10000 + n,
+                mangaId:     manga.id,
+                number:      n,
+                title:       'Chapitre ' + n,
+                publishDate: i === 0 ? 'Il y a 2 jours' : i < 4 ? `Il y a ${i * 7} jours` : `Il y a ${Math.round(i * 1.5)} semaines`,
+                readTime:    Math.floor(Math.random() * 10) + 8,
+                isRead:      n <= Math.floor(total * 0.3),
+                pages:       20,
+                isNew:       i === 0,
             };
         });
     }
@@ -348,8 +400,8 @@
     function renderSidebar() {
         const el = document.getElementById('serieSidebar');
         if (!el) return;
-        const readPct = manga.progress || 0;
-        const chapRead = Math.round((readPct / 100) * manga.chapters);
+        const readPct    = manga.progress || 0;
+        const chapRead   = Math.round((readPct / 100) * manga.chapters);
         const resumeChap = Math.min(chapRead + 1, manga.chapters);
 
         el.innerHTML = `
