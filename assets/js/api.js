@@ -102,15 +102,33 @@
             validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email || ''); },
         },
 
-        // ── Mangas (public) ──
+        // ── Sources (extensions installées) ──
+        sources: {
+            list:    ()             => get('/sources'),
+            // Source active : préférence locale, défaut = première installée
+            get current() {
+                try { return localStorage.getItem('mh_source') || ''; } catch(e) { return ''; }
+            },
+            set current(id) {
+                try {
+                    if (id) localStorage.setItem('mh_source', id);
+                    else    localStorage.removeItem('mh_source');
+                    window.dispatchEvent(new CustomEvent('source:change', { detail: { id } }));
+                } catch(e) {}
+            },
+        },
+
+        // ── Mangas (public, route automatiquement selon la source courante) ──
         mangas: {
-            search:   (params = {}) => get('/mangas/search?' + new URLSearchParams(params).toString()),
-            popular:  (params = {}) => get('/mangas/popular?'+ new URLSearchParams(params).toString()),
-            latest:   (params = {}) => get('/mangas/latest?' + new URLSearchParams(params).toString()),
-            tags:     ()            => get('/mangas/tags'),
-            get:      (id)          => get(`/mangas/${id}`),
-            chapters: (id, params={}) => get(`/mangas/${id}/chapters?` + new URLSearchParams(params).toString()),
-            pages:    (chapterId)   => get(`/chapters/${chapterId}/pages`),
+            _qs(params)        { const s = new URLSearchParams(params).toString(); return s ? '?' + s : ''; },
+            _prefix()          { const id = API.sources.current; return id ? `/sources/${encodeURIComponent(id)}` : ''; },
+            search:   (params = {}) => get(API.mangas._prefix() + '/mangas/search'  + API.mangas._qs(params)),
+            popular:  (params = {}) => get(API.mangas._prefix() + '/mangas/popular' + API.mangas._qs(params)),
+            latest:   (params = {}) => get(API.mangas._prefix() + '/mangas/latest'  + API.mangas._qs(params)),
+            tags:     ()            => get(API.mangas._prefix() + '/mangas/tags'),
+            get:      (id)          => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}`),
+            chapters: (id, params={}) => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
+            pages:    (chapterId)   => get(API.mangas._prefix() + `/chapters/${encodeURIComponent(chapterId)}/pages`),
         },
 
         // ── User data (auth required) ──

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Sources</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#ff6b1a">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <style>
+    .sources-wrap { max-width: 980px; margin: 0 auto; padding: 28px 20px 60px; }
+    .sources-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 28px; }
+    .sources-head h1 { font-family: var(--font-head); font-size: 28px; font-weight: 700; }
+    .sources-head p { color: var(--text2); font-size: 13.5px; max-width: 700px; }
+    .sources-warning {
+      margin: 18px 0 28px; padding: 14px 18px;
+      background: rgba(255,107,26,.08); border: 1px solid rgba(255,107,26,.25);
+      border-radius: 10px; font-size: 12.5px; color: var(--text2); line-height: 1.55;
+    }
+    .sources-warning strong { color: var(--orange); }
+    .sources-grid { display: grid; gap: 12px; }
+    .source-card {
+      display: flex; align-items: center; gap: 16px;
+      padding: 16px 20px; background: var(--bg2);
+      border: 1px solid var(--border); border-radius: 10px;
+      transition: border-color .18s ease;
+    }
+    .source-card.active { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange) inset; }
+    .source-icon {
+      width: 48px; height: 48px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 800;
+      background: linear-gradient(135deg, #ff8c42, #ff6b1a); color: #fff;
+      flex-shrink: 0;
+    }
+    .source-meta { flex: 1; min-width: 0; }
+    .source-name { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .source-version { font-size: 10.5px; color: var(--text3); background: var(--bg4); padding: 2px 6px; border-radius: 4px; }
+    .source-lang { font-size: 11px; color: var(--text3); background: var(--bg4); padding: 2px 6px; border-radius: 4px; }
+    .source-nsfw { font-size: 10px; color: #ef4444; background: rgba(239,68,68,.15); padding: 2px 6px; border-radius: 4px; }
+    .source-desc { font-size: 12.5px; color: var(--text2); margin-top: 4px; line-height: 1.45; }
+    .source-caps { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+    .source-cap { font-size: 10px; padding: 1px 6px; background: var(--bg3); border-radius: 4px; color: var(--text3); }
+    .source-actions { flex-shrink: 0; display: flex; gap: 8px; align-items: center; }
+    .source-active-badge { font-size: 11px; color: var(--orange); font-weight: 600; }
+    .install-help {
+      margin-top: 28px; padding: 18px 20px;
+      background: var(--bg2); border: 1px dashed var(--border);
+      border-radius: 10px; font-size: 13px; color: var(--text2); line-height: 1.55;
+    }
+    .install-help code { background: var(--bg4); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
+  </style>
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+
+  <div class="sources-wrap">
+    <div class="sources-head">
+      <h1>📚 Sources</h1>
+      <p>Inko fonctionne avec des extensions de sources. Chaque extension ajoute un site
+         comme catalogue de mangas. Active la source que tu souhaites utiliser ; les
+         autres pages utiliseront automatiquement cette source.</p>
+    </div>
+
+    <div class="sources-warning">
+      <strong>⚠ Usage personnel uniquement.</strong> Inko ne fournit aucune source par défaut.
+      Les extensions tierces accèdent à des sites qui peuvent héberger du contenu sous
+      copyright — tu en es seul·e responsable. Vérifie la légalité dans ton pays
+      avant d'installer une extension.
+    </div>
+
+    <div class="sources-grid" id="sourcesGrid">
+      <div class="empty-state"><div class="spinner-inline"></div><div style="margin-top:10px">Chargement…</div></div>
+    </div>
+
+    <div class="install-help">
+      <strong>➕ Installer une nouvelle source</strong><br>
+      Ajoute un dossier dans <code>server/extensions/&lt;id&gt;/</code> contenant un
+      <code>index.js</code> qui exporte un objet conforme à
+      <code>server/lib/source-interface.js</code>. Le serveur charge automatiquement
+      toutes les extensions valides au démarrage.
+      <br><br>
+      Voir <code>server/extensions/README.md</code> pour un modèle complet.
+    </div>
+  </div>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/sources.js"></script>
+  <script src="assets/js/eula.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>

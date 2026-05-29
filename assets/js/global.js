@@ -96,6 +96,7 @@
             <a href="accueil.html" class="${activePage === 'accueil' ? 'active' : ''}">Accueil</a>
             <a href="catalogue.html" class="${['catalogue','serie','chapitre'].includes(activePage) ? 'active' : ''}">Catalogue</a>
             <a href="#" id="navRandom">Lecture aléatoire</a>
+            <a href="sources.html" class="${activePage === 'sources' ? 'active' : ''}">Sources</a>
             <a href="profil.html" class="nav-mes-listes ${activePage === 'profil' ? 'active' : ''}">Mes listes</a>
           </nav>
           <div class="header-search">
