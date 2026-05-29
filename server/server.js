@@ -6,6 +6,7 @@ const cookieParser = require('cookie-parser');
 const cors         = require('cors');
 const { ping }     = require('./config/db');
 const routes       = require('./routes');
+const extensions   = require('./extensions/loader');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app  = express();
@@ -50,6 +51,16 @@ app.use(errorHandler);
         console.error('❌ MySQL inaccessible — vérifiez Laragon et lancez `npm run init-db`');
         console.error('   ' + e.message);
     }
+
+    // Chargement des extensions de sources
+    extensions.loadAll();
+    const count = extensions.getAll().length;
+    if (count === 0) {
+        console.warn('⚠  Aucune extension chargée. Place une source dans server/extensions/<id>/index.js');
+    } else {
+        console.log(`✅ ${count} extension(s) chargée(s)`);
+    }
+
     app.listen(PORT, () => {
         console.log(`🚀 Inko backend → http://localhost:${PORT}`);
         console.log(`   API base  → http://localhost:${PORT}/api`);

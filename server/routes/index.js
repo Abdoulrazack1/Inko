@@ -16,7 +16,10 @@ router.get ('/auth/me', auth.authRequired, Auth.me);
 router.post('/auth/forgot',         Auth.requestReset);
 router.post('/auth/reset',          Auth.resetPassword);
 
-// ── Mangas (MangaDex proxy, public) ─────────────
+// ── Sources (extensions installées) ───────────────
+router.get('/sources',              Manga.listSources);
+
+// ── Mangas (relais vers source active, ?source=<id> pour cibler) ──
 router.get('/mangas/search',        Manga.search);
 router.get('/mangas/popular',       Manga.popular);
 router.get('/mangas/latest',        Manga.latest);
@@ -24,6 +27,15 @@ router.get('/mangas/tags',          Manga.tags);
 router.get('/mangas/:id',           Manga.getOne);
 router.get('/mangas/:id/chapters',  Manga.chapters);
 router.get('/chapters/:id/pages',   Manga.pages);
+
+// ── Routes scoping par source : /sources/:sourceId/mangas/* ──
+router.get('/sources/:sourceId/mangas/search',       Manga.search);
+router.get('/sources/:sourceId/mangas/popular',      Manga.popular);
+router.get('/sources/:sourceId/mangas/latest',       Manga.latest);
+router.get('/sources/:sourceId/mangas/tags',         Manga.tags);
+router.get('/sources/:sourceId/mangas/:id',          Manga.getOne);
+router.get('/sources/:sourceId/mangas/:id/chapters', Manga.chapters);
+router.get('/sources/:sourceId/chapters/:id/pages',  Manga.pages);
 
 // ── User data (auth required) ───────────────────
 router.get   ('/me/favorites',            auth.authRequired, User.getFavorites);
