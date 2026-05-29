@@ -1,0 +1,87 @@
+{
+  "name": "inko-desktop",
+  "version": "1.0.0",
+  "description": "Inko — Lecteur de mangas (app desktop Electron)",
+  "main": "main.js",
+  "private": true,
+  "author": "Abdoulrazack Abdillahi",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "node ../server/node_modules/.bin/electron-builder install-app-deps || true",
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "app.inko.reader",
+    "productName": "Inko",
+    "copyright": "© 2026 Abdoulrazack Abdillahi",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "build/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!.env",
+          "!.env.*"
+        ]
+      },
+      {
+        "from": "..",
+        "to": "frontend",
+        "filter": [
+          "*.html",
+          "manifest.webmanifest",
+          "service-worker.js",
+          "LICENSE",
+          "NOTICE.md",
+          "README.md",
+          "assets/**"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Inko-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Inko",
+      "installerLanguages": ["en_US", "fr_FR"]
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.entertainment",
+      "icon": "build/icon.icns"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Graphics",
+      "icon": "build/icon.png"
+    }
+  }
+}
