@@ -1,0 +1,24 @@
+# Backend
+server/node_modules/
+server/.env
+server/.env.local
+server/uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build / Capacitor
+android/
+ios/
+dist/
+build/
