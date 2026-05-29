@@ -1,48 +1,75 @@
-// Password Toggle
-const toggleLoginPassword = document.getElementById('toggleLoginPassword');
-const loginPassword = document.getElementById('loginPassword');
+// page_login.js — Connexion via API backend
+(function () {
+    'use strict';
 
-if (toggleLoginPassword && loginPassword) {
-    toggleLoginPassword.addEventListener('click', function () {
-        const type = loginPassword.getAttribute('type') === 'password' ? 'text' : 'password';
-        loginPassword.setAttribute('type', type);
-        this.textContent = type === 'password' ? 'Voir' : 'Masquer';
+    const toast = (msg) => window.MH?.toast(msg) || alert(msg);
+
+    if (window.API?.isLoggedIn?.()) {
+        toast('Déjà connecté !');
+        setTimeout(() => { window.location.href = 'accueil.html'; }, 600);
+    }
+
+    // ── Toggle password ──
+    const togglePwd = document.getElementById('toggleLoginPassword');
+    const pwdInput  = document.getElementById('loginPassword');
+    if (togglePwd && pwdInput) {
+        togglePwd.addEventListener('click', () => {
+            const t = pwdInput.type === 'password' ? 'text' : 'password';
+            pwdInput.type = t;
+            togglePwd.textContent = t === 'password' ? 'Voir' : 'Masquer';
+        });
+    }
+
+    // ── Form ──
+    const form = document.getElementById('loginForm');
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email    = form.querySelector('input[type="email"]').value.trim();
+            const password = pwdInput.value;
+
+            if (!email || !password) { toast('Veuillez remplir tous les champs.'); return; }
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
+
+            try {
+                const r = await API.auth.login({ email, password });
+                toast(`Bienvenue ${r.user.username} ! 👋`);
+                setTimeout(() => { window.location.href = 'accueil.html'; }, 600);
+            } catch (err) {
+                toast(err.message || 'Erreur de connexion');
+                if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+            }
+        });
+    }
+
+    // ── Email blur ──
+    const emailIn = document.querySelector('input[type="email"]');
+    if (emailIn) {
+        emailIn.addEventListener('blur', () => {
+            const valid = API.auth.validateEmail(emailIn.value);
+            emailIn.style.borderColor = (emailIn.value && !valid) ? '#ef4444' : '';
+        });
+        emailIn.addEventListener('input', () => { emailIn.style.borderColor = ''; });
+    }
+
+    // ── SSO mock ──
+    document.querySelectorAll('.social-btn').forEach(b => {
+        b.addEventListener('click', (e) => { e.preventDefault(); toast('Connexion SSO bientôt disponible'); });
     });
-}
 
-// Form Submission
-const loginForm = document.getElementById('loginForm');
-if (loginForm) {
-    loginForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-
-        const email = this.querySelector('input[type="email"]').value;
-        const password = loginPassword.value;
-
-        if (!email || !password) {
-            window.MH?.toast('Veuillez remplir tous les champs.');
-            return;
-        }
-
-        window.MH?.toast('Connexion réussie ! Bienvenue sur MangaHub 👋');
-        setTimeout(() => { window.location.href = 'accueil.html'; }, 1200);
-    });
-}
-
-// Email validation on blur
-const emailInput = document.querySelector('input[type="email"]');
-if (emailInput) {
-    emailInput.addEventListener('blur', function () {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        this.style.borderColor = (this.value && !emailRegex.test(this.value)) ? '#ef4444' : '';
-    });
-}
-
-// Lien "Mot de passe oublié"
-const forgotLink = document.querySelector('.forgot-link');
-if (forgotLink) {
-    forgotLink.addEventListener('click', function (e) {
-        e.preventDefault();
-        window.location.href = 'page_mdpoublie.html';
-    });
-}
+    // ── Compte démo ──
+    if (form) {
+        const demoHint = document.createElement('button');
+        demoHint.type = 'button';
+        demoHint.className = 'btn btn-ghost btn-sm';
+        demoHint.style.cssText = 'width:100%;margin-top:10px;font-size:11.5px;opacity:.7';
+        demoHint.textContent = '🎭 Tester avec le compte démo';
+        demoHint.addEventListener('click', () => {
+            form.querySelector('input[type="email"]').value = 'demo@mangahub.app';
+            pwdInput.value = 'demo1234';
+            toast('Compte démo pré-rempli');
+        });
+        form.appendChild(demoHint);
+    }
+})();

@@ -72,7 +72,6 @@ window.ChaptersDB = (function () {
 
         clearCache() {
             Object.keys(_cache).forEach(k => { _cache[k] = {}; });
-            console.log('[ChaptersDB] Cache vidé');
         },
 
         get cacheInfo() {

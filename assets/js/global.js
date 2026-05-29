@@ -1,18 +1,16 @@
 // ============================================================
-// global.js — Fonctions partagées MangaHub
-// Header, footer injection, search, toast, helpers
+// global.js — Header, footer, search, toast, helpers
 // ============================================================
 (function () {
     'use strict';
 
     /* ── Helpers ─────────────────────────────────────────── */
-    const $ = (sel, ctx = document) => ctx.querySelector(sel);
-    const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+    const $   = (sel, ctx = document) => ctx.querySelector(sel);
+    const $$  = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     const fmt = n => n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : n;
-    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const slugParam = () => new URLSearchParams(location.search).get('id') || new URLSearchParams(location.search).get('slug');
+    const esc = s => (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-    window.MH = { $, $$, fmt, esc, slugParam };
+    window.MH = { $, $$, fmt, esc };
 
     /* ── Toast ───────────────────────────────────────────── */
     window.MH.toast = function (msg, duration = 2500) {
@@ -31,14 +29,7 @@
         setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, duration);
     };
 
-    /* ── Cover image fallback ────────────────────────────── */
-    window.MH.coverImg = function (manga, w = 300, h = 420) {
-        return `<img src="${manga.cover || manga.coverFallback}" alt="${esc(manga.title)}"
-            onerror="this.src='${manga.coverFallback || `https://picsum.photos/seed/${manga.slug}/${w}/${h}`}'"
-            loading="lazy">`;
-    };
-
-    /* ── Stars renderer ──────────────────────────────────── */
+    /* ── Star renderer ───────────────────────────────────── */
     window.MH.stars = function (rating) {
         const full = Math.floor(rating);
         const half = (rating % 1) >= 0.5;
@@ -51,41 +42,60 @@
         return html + '</span>';
     };
 
-    /* ── Render badge (statut) ───────────────────────────── */
     window.MH.statusBadge = function (status) {
-        const map = { en_cours: ['badge-cours', 'En cours'], termine: ['badge-termine', 'Terminé'], pause: ['badge-pause', 'Pause'] };
-        const [cls, label] = map[status] || ['badge-termine', status];
+        const map = {
+            ongoing:   ['badge-cours', 'En cours'],
+            completed: ['badge-termine', 'Terminé'],
+            hiatus:    ['badge-pause', 'Pause'],
+            cancelled: ['badge-pause', 'Annulé'],
+            // Legacy / fr
+            en_cours:  ['badge-cours', 'En cours'],
+            termine:   ['badge-termine', 'Terminé'],
+            pause:     ['badge-pause', 'Pause'],
+        };
+        const [cls, label] = map[status] || ['badge-termine', status || '—'];
         return `<span class="badge ${cls}">${label}</span>`;
     };
 
+    window.MH.placeholderCover = function (seed) {
+        return `https://picsum.photos/seed/${encodeURIComponent(seed || 'manga')}/300/420`;
+    };
+
     /* ── Header HTML ─────────────────────────────────────── */
-    const headerHTML = (activePage) => `
-    <header class="site-header">
-      <a href="accueil.html" class="header-logo">
-        <div class="logo-icon">⚡</div>
-        MangaHub
-      </a>
-      <nav class="header-nav">
-        <a href="accueil.html" class="${activePage === 'accueil' ? 'active' : ''}">Accueil</a>
-        <a href="catalogue.html" class="${['catalogue','serie','chapitre'].includes(activePage) ? 'active' : ''}">Catalogue</a>
-        <a href="#" id="navRandom" class="${activePage === 'aleatoire' ? 'active' : ''}">Lecture aléatoire</a>
-        <a href="collections.html" class="${['collections','collection-detail'].includes(activePage) ? 'active' : ''}">Collections</a>
-        <a href="profil.html" class="nav-mes-listes ${activePage === 'profil' ? 'active' : ''}">Mes listes</a>
-      </nav>
-      <div class="header-search">
-        <span class="header-search-icon">🔍</span>
-        <input type="text" id="headerSearch" placeholder="Rechercher un manga, un auteur…" autocomplete="off">
-        <div class="search-dropdown" id="searchDropdown"></div>
-      </div>
-      <div class="header-actions">
-        <button class="header-icon-btn notif-dot" title="Notifications">🔔</button>
-        <a href="profil.html" class="header-user">
-          <div class="header-avatar">K</div>
-          <div class="user-label">Kaito<span class="user-sublabel">Pro</span></div>
-        </a>
-        <a href="page_login.html" class="btn-connect btn">Se connecter</a>
-      </div>
-    </header>`;
+    const headerHTML = (activePage) => {
+        const u = window.API?.user;
+        const userBlock = u ? `
+          <a href="profil.html" class="header-user" title="${esc(u.username)}">
+            <div class="header-avatar">${esc(u.avatar || u.username[0].toUpperCase())}</div>
+            <div class="user-label">${esc(u.username)}<span class="user-sublabel">Connecté</span></div>
+          </a>
+          <button class="btn-connect btn" id="btnLogout" title="Se déconnecter">↩ Déconnexion</button>` : `
+          <a href="page_login.html" class="btn-connect btn">Se connecter</a>
+          <a href="page_signup.html" class="btn btn-primary btn-sm" style="margin-left:6px">Inscription</a>`;
+
+        return `
+        <header class="site-header">
+          <a href="accueil.html" class="header-logo">
+            <div class="logo-icon">⚡</div>
+            MangaHub
+          </a>
+          <nav class="header-nav">
+            <a href="accueil.html" class="${activePage === 'accueil' ? 'active' : ''}">Accueil</a>
+            <a href="catalogue.html" class="${['catalogue','serie','chapitre'].includes(activePage) ? 'active' : ''}">Catalogue</a>
+            <a href="#" id="navRandom">Lecture aléatoire</a>
+            <a href="profil.html" class="nav-mes-listes ${activePage === 'profil' ? 'active' : ''}">Mes listes</a>
+          </nav>
+          <div class="header-search">
+            <span class="header-search-icon">🔍</span>
+            <input type="text" id="headerSearch" placeholder="Rechercher un manga…" autocomplete="off">
+            <div class="search-dropdown" id="searchDropdown"></div>
+          </div>
+          <div class="header-actions">
+            <button class="header-icon-btn notif-dot" title="Notifications">🔔</button>
+            ${userBlock}
+          </div>
+        </header>`;
+    };
 
     /* ── Footer HTML ─────────────────────────────────────── */
     const footerHTML = `
@@ -93,11 +103,11 @@
       <div class="footer-inner">
         <div class="footer-brand">
           <div class="footer-logo"><div class="logo-icon">⚡</div>MangaHub</div>
-          <p class="footer-desc">La plateforme ultime pour découvrir, lire et partager votre passion du manga. Rejoignez notre communauté grandissante.</p>
+          <p class="footer-desc">La plateforme ultime pour découvrir, lire et partager votre passion du manga. Propulsé par MangaDex.</p>
           <div class="footer-stay">
             <h4>Restez informé</h4>
             <div class="footer-email-form">
-              <input type="email" id="footerEmailInput" placeholder="Votre email...">
+              <input type="email" id="footerEmailInput" placeholder="Votre email…">
               <button id="footerEmailBtn">S'inscrire</button>
             </div>
           </div>
@@ -107,9 +117,7 @@
           <ul>
             <li><a href="catalogue.html">Catalogue</a></li>
             <li><a href="catalogue.html?sort=latest">Nouveautés</a></li>
-            <li><a href="catalogue.html?view=calendar">Calendrier</a></li>
-            <li><a href="collections.html">Collections</a></li>
-            <li><a href="catalogue.html?sort=rating">Top 100</a></li>
+            <li><a href="catalogue.html?sort=rating">Top</a></li>
           </ul>
         </div>
         <div class="footer-col">
@@ -117,9 +125,7 @@
           <ul>
             <li><a href="#" class="footer-coming">Forum</a></li>
             <li><a href="#" class="footer-coming">Discord</a></li>
-            <li><a href="#" class="footer-coming">Événements</a></li>
-            <li><a href="#" class="footer-coming">Devenir Modérateur</a></li>
-            <li><a href="#" class="footer-coming">Guide Curateur</a></li>
+            <li><a href="#" class="footer-coming">Contact</a></li>
           </ul>
         </div>
         <div class="footer-col">
@@ -127,18 +133,11 @@
           <ul>
             <li><a href="#" class="footer-coming">Confidentialité</a></li>
             <li><a href="#" class="footer-coming">Conditions</a></li>
-            <li><a href="#" class="footer-coming">DMCA</a></li>
-            <li><a href="#" class="footer-coming">Contact</a></li>
           </ul>
         </div>
       </div>
       <div class="footer-bottom">
-        <p>© 2025 MangaHub. Tous droits réservés.</p>
-        <div class="footer-socials">
-          <a href="#" class="footer-coming" title="Twitter">𝕏</a>
-          <a href="#" class="footer-coming" title="Instagram">📷</a>
-          <a href="#" class="footer-coming" title="YouTube">▶</a>
-        </div>
+        <p>© 2026 MangaHub. Tous droits réservés. Données issues de MangaDex.</p>
       </div>
     </footer>`;
 
@@ -151,6 +150,16 @@
         initSearch();
         initFooterButtons();
         initHeaderButtons();
+
+        // Re-render header au login/logout
+        window.addEventListener('auth:change', () => {
+            const oldHeader = document.querySelector('.site-header');
+            if (!oldHeader) return;
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = headerHTML(activePage);
+            oldHeader.replaceWith(wrapper.firstElementChild);
+            initSearch();
+        });
     };
 
     /* ── Live search ─────────────────────────────────────── */
@@ -159,40 +168,44 @@
         const dropdown = document.getElementById('searchDropdown');
         if (!input || !dropdown) return;
 
-        function renderDropdown(results, q) {
+        function render(results, q) {
             if (!results.length) {
-                dropdown.innerHTML = `<div style="padding:14px;text-align:center;color:var(--text3);font-size:13px">Aucun résultat pour « ${esc(q)} »</div>`;
+                dropdown.innerHTML = `<div style="padding:14px;text-align:center;color:var(--text3);font-size:13px">Aucun résultat${q ? ` pour « ${esc(q)} »` : ''}</div>`;
             } else {
                 dropdown.innerHTML = results.map(m => `
-                <a href="serie.html?id=${m.id}" class="search-result-item">
-                    <img src="${m.coverFallback}" alt="" loading="lazy">
-                    <div class="search-result-info">
-                        <div class="title">${esc(m.title)}</div>
-                        <div class="meta">${esc(m.author)} · ${m.chapters} chap. · ⭐ ${m.rating}</div>
-                    </div>
-                </a>`).join('');
+                  <a href="serie.html?id=${encodeURIComponent(m.id)}" class="search-result-item">
+                      <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" onerror="this.style.display='none'">
+                      <div class="search-result-info">
+                          <div class="title">${esc(m.title)}</div>
+                          <div class="meta">${esc(m.author || '')} ${m.year ? `· ${m.year}` : ''}</div>
+                      </div>
+                  </a>`).join('');
             }
-            if (q.length > 0) {
-                dropdown.innerHTML += `<a href="catalogue.html?q=${encodeURIComponent(q)}" class="search-result-item" style="justify-content:center;color:var(--orange);font-size:12.5px;font-weight:500;border-top:1px solid var(--border);padding:10px">Voir tous les résultats pour « ${esc(q)} » →</a>`;
-            } else {
-                dropdown.innerHTML = `<div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.07em">TENDANCES</div>` + dropdown.innerHTML;
+            if (q && q.length > 0) {
+                dropdown.innerHTML += `<a href="catalogue.html?q=${encodeURIComponent(q)}" class="search-result-item" style="justify-content:center;color:var(--orange);font-size:12.5px;font-weight:500;border-top:1px solid var(--border);padding:10px">Voir tous les résultats →</a>`;
             }
             dropdown.classList.add('open');
         }
 
-        function showResults(q) {
-            if (!window.DB) { setTimeout(() => showResults(q), 100); return; }
-            const results = q.length === 0 ? DB.getTrending(6) : DB.searchMangas(q).slice(0, 7);
-            renderDropdown(results, q);
+        let timeout, lastQ;
+        async function go(q) {
+            lastQ = q;
+            try {
+                const data = q
+                    ? await API.mangas.search({ q, limit: 6 })
+                    : await API.mangas.popular({ limit: 6 });
+                if (q === lastQ) render(data.results || [], q);
+            } catch(e) {
+                dropdown.innerHTML = `<div style="padding:14px;text-align:center;color:#ef4444;font-size:12.5px">Erreur de recherche</div>`;
+                dropdown.classList.add('open');
+            }
         }
 
-        let timeout;
-        input.addEventListener('focus', () => { showResults(input.value.trim()); });
+        input.addEventListener('focus', () => go(input.value.trim()));
         input.addEventListener('input', () => {
             clearTimeout(timeout);
             const q = input.value.trim();
-            if (q.length <= 1) { showResults(q); }
-            else { timeout = setTimeout(() => showResults(q), 80); }
+            timeout = setTimeout(() => go(q), 250);
         });
         document.addEventListener('click', e => {
             if (!input.closest('.header-search').contains(e.target)) dropdown.classList.remove('open');
@@ -206,24 +219,19 @@
         });
     }
 
-    /* ── Footer buttons ──────────────────────────────────── */
+    /* ── Footer ──────────────────────────────────────────── */
     function initFooterButtons() {
-        // Email newsletter
-        const emailBtn = document.getElementById('footerEmailBtn');
+        const emailBtn   = document.getElementById('footerEmailBtn');
         const emailInput = document.getElementById('footerEmailInput');
         if (emailBtn && emailInput) {
             emailBtn.addEventListener('click', () => {
                 const v = emailInput.value.trim();
-                const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!v) { MH.toast('Entrez votre adresse email.'); return; }
-                if (!re.test(v)) { MH.toast('Email invalide.'); emailInput.style.borderColor = '#ef4444'; return; }
-                emailInput.style.borderColor = '';
+                if (!API.auth.validateEmail(v)) { MH.toast('Email invalide.'); return; }
                 MH.toast('Inscription confirmée ! 🎉');
                 emailInput.value = '';
             });
         }
-
-        // Liens "bientôt disponible" dans footer
         document.addEventListener('click', e => {
             const link = e.target.closest('.footer-coming');
             if (!link) return;
@@ -233,57 +241,38 @@
     }
 
     /* ── Header buttons ──────────────────────────────────── */
+    let headerButtonsBound = false;
     function initHeaderButtons() {
-        // Bouton notifications
+        if (headerButtonsBound) return;
+        headerButtonsBound = true;
+
         document.addEventListener('click', e => {
             const btn = e.target.closest('.notif-dot');
-            if (!btn) return;
-            MH.toast('Aucune nouvelle notification 🔔');
+            if (btn) MH.toast('Aucune nouvelle notification 🔔');
         });
 
-        // Bouton "Se connecter" → page login
-        document.addEventListener('click', e => {
-            const btn = e.target.closest('.btn-connect');
+        document.addEventListener('click', async e => {
+            const btn = e.target.closest('#btnLogout');
             if (!btn) return;
-            // laisse le href fonctionner normalement
+            e.preventDefault();
+            await API.auth.logout();
+            MH.toast('Déconnecté avec succès');
+            setTimeout(() => { window.location.href = 'accueil.html'; }, 400);
+        });
+
+        document.addEventListener('click', async e => {
+            const btn = e.target.closest('#navRandom');
+            if (!btn) return;
+            e.preventDefault();
+            try {
+                const data = await API.mangas.popular({ limit: 50 });
+                const list = data.results || [];
+                if (!list.length) return;
+                const m = list[Math.floor(Math.random() * list.length)];
+                MH.toast(`Lecture aléatoire : ${m.title} 🎲`);
+                setTimeout(() => { window.location.href = `serie.html?id=${encodeURIComponent(m.id)}`; }, 500);
+            } catch(e) { MH.toast('Erreur de chargement'); }
         });
     }
-
-    /* ── Premium button (délégation globale) ─────────────── */
-    document.addEventListener('click', e => {
-        const btn = e.target.closest('.btn-premium, [data-premium]');
-        if (btn) {
-            e.preventDefault();
-            MH.toast('MangaHub Premium — Bientôt disponible ! ⚡');
-        }
-        // Bouton "Essayer gratuitement" dans sidebar premium
-        if (e.target.closest('.sidebar-premium .btn-primary')) {
-            MH.toast('MangaHub Premium — Bientôt disponible ! ⚡');
-        }
-        // Bouton "Commencer maintenant" CTA collections
-        if (e.target.closest('.create-cta .btn-primary')) {
-            MH.toast('Créateur de collections — Bientôt disponible !');
-        }
-    });
-
-    /* ── Random lecture ──────────────────────────────────── */
-    // Utilise la délégation sur document pour capturer le bouton même après injection HTML
-    document.addEventListener('click', e => {
-        const btn = e.target.closest('#navRandom');
-        if (!btn) return;
-        e.preventDefault();
-
-        // Attendre que DB soit disponible (data.js chargé après global.js)
-        function tryRandom() {
-            if (!window.DB || !DB.mangas || !DB.mangas.length) {
-                setTimeout(tryRandom, 50);
-                return;
-            }
-            const m = DB.mangas[Math.floor(Math.random() * DB.mangas.length)];
-            MH.toast(`Lecture aléatoire : ${m.title} 🎲`);
-            setTimeout(() => { window.location.href = `serie.html?id=${m.id}`; }, 600);
-        }
-        tryRandom();
-    });
 
 })();

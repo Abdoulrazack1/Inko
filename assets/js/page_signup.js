@@ -1,67 +1,75 @@
-// Password Toggle
-const togglePassword = document.getElementById('togglePassword');
-const passwordInput = document.getElementById('password');
+// page_signup.js — Inscription via API
+(function () {
+    'use strict';
+    const toast = (msg) => window.MH?.toast(msg) || alert(msg);
 
-if (togglePassword && passwordInput) {
-    togglePassword.addEventListener('click', function () {
-        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-        passwordInput.setAttribute('type', type);
-        this.textContent = type === 'password' ? 'Voir' : 'Masquer';
+    if (window.API?.isLoggedIn?.()) {
+        toast('Vous êtes déjà connecté.');
+        setTimeout(() => { window.location.href = 'accueil.html'; }, 600);
+    }
+
+    const togglePwd = document.getElementById('togglePassword');
+    const pwdInput  = document.getElementById('password');
+    if (togglePwd && pwdInput) {
+        togglePwd.addEventListener('click', () => {
+            const t = pwdInput.type === 'password' ? 'text' : 'password';
+            pwdInput.type = t;
+            togglePwd.textContent = t === 'password' ? 'Voir' : 'Masquer';
+        });
+    }
+
+    // Strength
+    if (pwdInput && window.PasswordStrength) {
+        const bars  = document.querySelectorAll('.strength-bars .bar');
+        const label = document.getElementById('strengthText');
+        pwdInput.addEventListener('input', () => {
+            const r = window.PasswordStrength.evaluate(pwdInput.value);
+            bars.forEach((b, i) => b.classList.toggle('active', i < Math.ceil(r.score * (bars.length / 5))));
+            if (label) label.textContent = r.label;
+        });
+    }
+
+    const form = document.getElementById('signupForm');
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const inputs = form.querySelectorAll('input');
+            const firstName = inputs[0]?.value.trim();
+            const lastName  = inputs[1]?.value.trim();
+            const email     = document.getElementById('email').value.trim();
+            const username  = inputs[3]?.value.trim() || firstName;
+            const password  = pwdInput.value;
+            const confirm   = document.getElementById('confirmPassword').value;
+
+            if (!firstName || !lastName || !email || !username || !password) {
+                toast('Veuillez remplir tous les champs.'); return;
+            }
+            if (password !== confirm) { toast('Les mots de passe ne correspondent pas.'); return; }
+
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
+
+            try {
+                const r = await API.auth.register({ username, email, password });
+                toast(`Bienvenue ${r.user.username} ! 🎉`);
+                setTimeout(() => { window.location.href = 'accueil.html'; }, 800);
+            } catch (err) {
+                toast(err.message || "Erreur lors de l'inscription");
+                if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+            }
+        });
+    }
+
+    const emailIn = document.getElementById('email');
+    if (emailIn) {
+        emailIn.addEventListener('blur', () => {
+            const valid = API.auth.validateEmail(emailIn.value);
+            emailIn.style.borderColor = (emailIn.value && !valid) ? '#ef4444' : '';
+        });
+        emailIn.addEventListener('input', () => { emailIn.style.borderColor = ''; });
+    }
+
+    document.querySelectorAll('.social-btn').forEach(b => {
+        b.addEventListener('click', (e) => { e.preventDefault(); toast('Inscription SSO bientôt disponible'); });
     });
-}
-
-// Password Strength Indicator
-if (passwordInput) {
-    passwordInput.addEventListener('input', function () {
-        const password = this.value;
-        const strengthText = document.getElementById('strengthText');
-        const bars = document.querySelectorAll('.strength-bars .bar');
-
-        if (!strengthText || !bars.length) return;
-
-        bars.forEach(b => b.classList.remove('active'));
-
-        if (!password.length) { strengthText.textContent = ''; return; }
-
-        const checks = [/[A-Z]/, /[a-z]/, /\d/, /[!@#$%^&*(),.?":{}|<>]/].filter(r => r.test(password)).length;
-        let label = 'Faible', active = 1;
-
-        if (checks >= 3 && password.length >= 12)     { label = 'Fort';  active = 4; }
-        else if (checks >= 2 && password.length >= 8) { label = 'Moyen'; active = 2; }
-
-        strengthText.textContent = label;
-        bars.forEach((b, i) => { if (i < active) b.classList.add('active'); });
-    });
-}
-
-// Form Validation & Submit
-const signupForm = document.getElementById('signupForm');
-if (signupForm) {
-    signupForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-
-        const password = document.getElementById('password').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
-
-        if (password.length < 8) {
-            window.MH?.toast('Le mot de passe doit contenir au moins 8 caractères.');
-            return;
-        }
-        if (password !== confirmPassword) {
-            window.MH?.toast('Les mots de passe ne correspondent pas.');
-            return;
-        }
-
-        window.MH?.toast('Compte créé avec succès ! Bienvenue sur MangaHub 🎉');
-        setTimeout(() => { window.location.href = 'accueil.html'; }, 1200);
-    });
-}
-
-// Email validation on blur
-const emailInput = document.getElementById('email');
-if (emailInput) {
-    emailInput.addEventListener('blur', function () {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        this.style.borderColor = (this.value && !emailRegex.test(this.value)) ? '#ef4444' : '';
-    });
-}
+})();

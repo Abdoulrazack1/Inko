@@ -248,35 +248,59 @@
 
     // ── Chargement séquentiel avec délai ─────────────────────
     // 1 requête à la fois, 800ms entre chaque → jamais de 429
-    const DELAY_MS = 800;
+    const DELAY_MS    = 800;
+    const inFlight    = new Set();   // seeds en cours de fetch
+    const failedSeeds = new Set();   // seeds qui ont déjà raté (on n'insiste pas)
+    const queue       = [];          // seeds en attente
+    let   running     = false;       // worker actif ?
 
-    async function loadCovers(seeds) {
-        const missing = seeds.filter(s => MANGA_MAP[s] && !coverCache[s]);
-        if (!missing.length) return;
-
-        console.log(`[Covers] ${missing.length} covers à charger (séquentiel)…`);
-
-        for (let i = 0; i < missing.length; i++) {
-            const seed = missing[i];
-            const url  = await fetchCover(seed);
+    async function processQueue() {
+        if (running) return;
+        running = true;
+        while (queue.length) {
+            const seed = queue.shift();
+            if (!MANGA_MAP[seed] || coverCache[seed] || failedSeeds.has(seed)) continue;
+            inFlight.add(seed);
+            const url = await fetchCover(seed);
+            inFlight.delete(seed);
             if (url) {
                 coverCache[seed] = url;
                 applyToImages(seed, url);
+                saveCache();
+            } else {
+                failedSeeds.add(seed);
             }
-            if (i < missing.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, DELAY_MS));
-            }
+            if (queue.length) await new Promise(r => setTimeout(r, DELAY_MS));
         }
+        running = false;
+    }
 
-        saveCache();
-        console.log(`[Covers] Terminé — ${Object.keys(coverCache).length} covers en cache`);
+    function loadCovers(seeds) {
+        seeds.forEach(s => {
+            if (!MANGA_MAP[s])            return;
+            if (coverCache[s])            return;
+            if (inFlight.has(s))          return;
+            if (failedSeeds.has(s))       return;
+            if (queue.includes(s))        return;
+            queue.push(s);
+        });
+        processQueue();
     }
 
     // ── Observer les nouvelles images (ajouts dynamiques) ────
     // DOIT être actif AVANT tout chargement
+    let pendingNewSeeds = new Set();
+    let flushTimer      = null;
+
+    function flushPending() {
+        if (!pendingNewSeeds.size) return;
+        const seeds = [...pendingNewSeeds];
+        pendingNewSeeds.clear();
+        loadCovers(seeds);
+    }
+
     function observeDOM() {
         new MutationObserver(mutations => {
-            const newSeeds = new Set();
             mutations.forEach(m => {
                 m.addedNodes.forEach(node => {
                     if (node.nodeType !== 1) return;
@@ -288,7 +312,6 @@
                         const seed = seedFromUrl(img.getAttribute('src'));
                         if (!seed || !MANGA_MAP[seed]) return;
 
-                        // Mémoriser seed + picsum original dès que l'image apparaît
                         img.dataset.seed     = seed;
                         img.dataset.picsumSrc = img.getAttribute('src');
 
@@ -298,13 +321,17 @@
                                 this.onerror = null;
                                 this.src = this.dataset.picsumSrc || '';
                             };
-                        } else {
-                            newSeeds.add(seed);
+                        } else if (!inFlight.has(seed) && !failedSeeds.has(seed)) {
+                            pendingNewSeeds.add(seed);
                         }
                     });
                 });
             });
-            if (newSeeds.size) loadCovers([...newSeeds]);
+            // Debounce les ajouts : on regroupe les mutations d'un même tick
+            if (pendingNewSeeds.size) {
+                clearTimeout(flushTimer);
+                flushTimer = setTimeout(flushPending, 150);
+            }
         }).observe(document.body, { childList: true, subtree: true });
     }
 
@@ -349,7 +376,6 @@
         clearCache: () => {
             coverCache = {};
             try { localStorage.removeItem(LS_KEY); } catch(e) {}
-            console.log('[Covers] Cache vidé');
         },
         get cache() { return { ...coverCache }; },
     };

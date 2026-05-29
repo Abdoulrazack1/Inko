@@ -1,59 +1,116 @@
-// serie.js — MangaHub  (version complète avec gestion async des chapitres)
+// serie.js — Page série dynamique (backend + MangaDex metadata)
 (function () {
     'use strict';
-    let manga = null;
-    let activeTab = 'apercu';
-    let chapSortAsc = false;
-    let chapFilter = '';
 
-    document.addEventListener('DOMContentLoaded', () => {
+    let manga       = null;
+    let chapters    = [];
+    let readChapsSet= new Set();
+    let progress    = null;
+    let activeTab   = 'apercu';
+    let chapSortAsc = false;
+    let chapFilter  = '';
+    let favorited   = false;
+
+    document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('serie');
-        const id = parseInt(new URLSearchParams(location.search).get('id'));
-        manga = DB.getManga(id) || DB.mangas[0];
-        document.getElementById('pageTitle').textContent = 'MangaHub — ' + manga.title;
-        renderHero();
-        renderTabs();
-        renderTab('apercu');
-        renderSidebar();
+        const id = new URLSearchParams(location.search).get('id');
+        if (!id) { showError('ID manquant.'); return; }
+
+        showSkeleton();
+
+        try {
+            manga = await API.mangas.get(id);
+            document.getElementById('pageTitle').textContent = 'MangaHub — ' + manga.title;
+
+            // Données user (si connecté)
+            if (API.isLoggedIn()) {
+                const [favs, allRead, allProg] = await Promise.all([
+                    API.me.favorites(),
+                    API.me.readChapters(),
+                    API.me.progress(),
+                ]);
+                favorited   = favs.some(f => f.mangaId === manga.id);
+                readChapsSet = new Set((allRead[manga.id] || []).map(r => r.chapterId));
+                progress    = allProg[manga.id] || null;
+            }
+
+            renderHero();
+            renderTabs();
+            renderTab('apercu');
+            renderSidebar();
+
+            // Chargement des chapitres async (pour ne pas bloquer l'affichage du hero)
+            loadChapters();
+        } catch (e) {
+            showError("Manga introuvable : " + e.message);
+        }
     });
 
-    // ══ HERO ══════════════════════════════════════════════════
+    function showSkeleton() {
+        const el = document.getElementById('serieHero');
+        if (el) el.innerHTML = `<div style="padding:60px;text-align:center;color:var(--text3)">
+            <div class="spinner-inline"></div>
+            <div style="margin-top:12px;font-size:13px">Chargement de la fiche…</div>
+        </div>`;
+    }
+    function showError(msg) {
+        const el = document.getElementById('serieHero');
+        if (el) el.innerHTML = `<div style="padding:40px;text-align:center;color:#ef4444">${MH.esc(msg)}</div>`;
+    }
+
+    async function loadChapters() {
+        try {
+            const data = await API.mangas.chapters(manga.id, { lang: 'fr,en', limit: 200 });
+            chapters = data.results || [];
+            if (activeTab === 'chapitres' || activeTab === 'apercu') renderTab(activeTab);
+            renderSidebar();
+            updateTabsLabels();
+        } catch(e) {
+            chapters = [];
+            if (activeTab === 'chapitres') renderTab('chapitres');
+        }
+    }
+
+    // ── HERO ──
     function renderHero() {
         const el = document.getElementById('serieHero');
         if (!el) return;
-        const statusLabel = { en_cours:'En cours', termine:'Terminé', pause:'En pause' }[manga.status] || manga.status;
+        const statusLabel = { ongoing:'En cours', completed:'Terminé', hiatus:'En pause', cancelled:'Annulé' }[manga.status] || manga.status;
+        const resumeChap = progress?.chapterId;
+
         el.innerHTML = `
         <div class="serie-hero-inner">
             <div class="serie-cover-wrap">
                 <div class="serie-cover-status">${MH.statusBadge(manga.status)}</div>
                 <div class="serie-cover">
-                    <img src="${manga.coverFallback}" alt="${MH.esc(manga.title)}"
-                         onerror="this.src='${manga.coverFallback}'">
+                    <img src="${manga.coverLarge || manga.cover || ''}" alt="${MH.esc(manga.title)}"
+                         onerror="this.src='${MH.placeholderCover(manga.id)}'">
                 </div>
-                <div class="serie-cover-rating">⭐ ${manga.rating} · ${MH.fmt(manga.reviewCount)} avis</div>
+                ${manga.rating?.bayesian ? `<div class="serie-cover-rating">⭐ ${manga.rating.bayesian.toFixed(2)}</div>` : ''}
             </div>
             <div class="serie-info">
                 <div class="serie-title-tags">
-                    ${manga.genres.map(g => `<a href="catalogue.html?genre=${encodeURIComponent(g)}" class="tag tag-link">${g}</a>`).join('')}
+                    ${(manga.tags || []).slice(0, 4).map(g => `<a href="catalogue.html?q=${encodeURIComponent(g)}" class="tag tag-link">${MH.esc(g)}</a>`).join('')}
                 </div>
                 <h1 class="serie-title">${MH.esc(manga.title)}</h1>
-                <div class="serie-title-jp">${MH.esc(manga.titleJP)} · ${MH.esc(manga.title)}</div>
+                ${manga.titleAlt ? `<div class="serie-title-jp">${MH.esc(manga.titleAlt)}</div>` : ''}
                 <div class="serie-meta-row">
-                    <span class="serie-meta-item"><span class="serie-meta-icon">✍️</span> ${MH.esc(manga.author)}</span>
-                    <span class="serie-meta-item"><span class="serie-meta-icon">📖</span> ${manga.chapters} chapitres</span>
-                    <span class="serie-meta-item"><span class="serie-meta-icon">⏱️</span> ~${Math.round(manga.chapters * 0.35)}h</span>
-                    <span class="serie-meta-item"><span class="serie-meta-icon">📅</span> ${manga.firstYear}</span>
+                    ${manga.author ? `<span class="serie-meta-item"><span class="serie-meta-icon">✍️</span> ${MH.esc(manga.author)}</span>` : ''}
+                    <span class="serie-meta-item" id="chapCountMeta"><span class="serie-meta-icon">📖</span> <span class="spinner-inline" style="width:10px;height:10px;border-width:1px"></span> chapitres</span>
+                    ${manga.year ? `<span class="serie-meta-item"><span class="serie-meta-icon">📅</span> ${manga.year}</span>` : ''}
                     <span class="serie-meta-item">
                         <span class="serie-meta-icon">🔵</span>
                         <span class="status-badge status-${manga.status}">${statusLabel}</span>
                     </span>
                 </div>
-                <p class="serie-desc-short">${MH.esc(manga.description)}</p>
+                <p class="serie-desc-short">${MH.esc((manga.description || '').slice(0, 400))}${manga.description?.length > 400 ? '…' : ''}</p>
                 <div class="serie-actions">
-                    <a href="chapitre.html?manga=${manga.id}&chapter=1" class="btn btn-primary">▶ Lire depuis le début</a>
-                    ${manga.progress > 0 ? `<a href="chapitre.html?manga=${manga.id}&chapter=${Math.round((manga.progress/100)*manga.chapters)||1}" class="btn btn-secondary">↻ Reprendre</a>` : ''}
-                    <button class="btn btn-ghost" onclick="toggleFavorite(this)">♡ Ajouter à ma liste</button>
-                    <button class="btn btn-ghost btn-icon" onclick="MH.toast('Lien copié !')" title="Partager">↗</button>
+                    <button class="btn btn-primary" id="btnReadStart">▶ Lire depuis le début</button>
+                    ${resumeChap ? `<button class="btn btn-secondary" id="btnResume">↻ Reprendre Ch.${progress.chapter}</button>` : ''}
+                    <button class="btn btn-ghost ${favorited ? 'is-fav' : ''}" id="btnFavorite">
+                        ${favorited ? '❤ Dans ma liste' : '♡ Ajouter à ma liste'}
+                    </button>
+                    <button class="btn btn-ghost btn-icon" id="btnShare" title="Partager">↗</button>
                 </div>
             </div>
             <div class="serie-fiche">
@@ -61,43 +118,70 @@
                 <div class="fiche-subtitle">Informations principales</div>
                 ${[
                     ['Statut', statusLabel],
-                    ['Type', manga.type || 'Manga'],
-                    ['Plateforme', manga.platform],
-                    ['Fréquence', manga.frequency],
-                    ['1er chapitre', manga.firstYear],
-                    ['Démographie', manga.demographic],
-                    ['Mise à jour', manga.lastUpdate],
+                    ['Démographie', manga.demographic || '—'],
+                    ['1er chapitre', manga.year || '—'],
+                    ['Dernier chap.', manga.lastChapter || '—'],
+                    ['Note moyenne', manga.rating?.bayesian ? manga.rating.bayesian.toFixed(2) : '—'],
                 ].map(([k, v]) => `
                     <div class="fiche-row">
                         <span class="fiche-key">${k}</span>
-                        <span class="fiche-val">${v}</span>
+                        <span class="fiche-val">${MH.esc(v)}</span>
                     </div>`).join('')}
                 <div class="fiche-langs">
-                    ${(manga.language || []).map(l => `<span class="lang-badge">${l}</span>`).join('')}
+                    ${(manga.langs || []).slice(0, 5).map(l => `<span class="lang-badge">${l.toUpperCase()}</span>`).join('')}
                 </div>
             </div>
         </div>`;
+
+        // Bouton "Lire depuis le début" — attendre le chargement des chapitres
+        document.getElementById('btnReadStart')?.addEventListener('click', async () => {
+            if (!chapters.length) {
+                MH.toast('Chargement des chapitres en cours…');
+                return;
+            }
+            const first = [...chapters].sort((a, b) => a.chapter - b.chapter)[0];
+            if (!first) return;
+            window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(first.id)}`;
+        });
+
+        document.getElementById('btnResume')?.addEventListener('click', () => {
+            if (progress?.chapterId) {
+                window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(progress.chapterId)}`;
+            }
+        });
+
+        document.getElementById('btnFavorite')?.addEventListener('click', async () => {
+            if (!API.isLoggedIn()) { MH.toast('Connectez-vous pour ajouter des favoris'); return; }
+            const btn = document.getElementById('btnFavorite');
+            try {
+                if (favorited) { await API.me.removeFavorite(manga.id); favorited = false; }
+                else           { await API.me.addFavorite(manga.id); favorited = true; }
+                btn.classList.toggle('is-fav', favorited);
+                btn.textContent = favorited ? '❤ Dans ma liste' : '♡ Ajouter à ma liste';
+                MH.toast(favorited ? 'Ajouté à votre liste !' : 'Retiré de votre liste');
+            } catch(err) { MH.toast('Erreur : ' + err.message); }
+        });
+
+        document.getElementById('btnShare')?.addEventListener('click', async () => {
+            const url = window.location.href;
+            try {
+                if (navigator.share) { await navigator.share({ title: manga.title, url }); return; }
+                await navigator.clipboard.writeText(url);
+                MH.toast('Lien copié !');
+            } catch(e) { MH.toast(url); }
+        });
     }
 
-    window.toggleFavorite = function(btn) {
-        const isFav = btn.classList.toggle('is-fav');
-        btn.textContent = isFav ? '❤ Dans ma liste' : '♡ Ajouter à ma liste';
-        MH.toast(isFav ? 'Ajouté à votre liste !' : 'Retiré de votre liste');
-    };
-
-    // ══ TABS ══════════════════════════════════════════════════
+    // ── TABS ──
     function renderTabs() {
-        const tabs  = document.getElementById('serieTabs');
+        const tabs = document.getElementById('serieTabs');
         const right = document.getElementById('serieTabsRight');
         if (!tabs) return;
 
         const tabDefs = [
-            { key: 'apercu',      label: 'Aperçu' },
-            { key: 'chapitres',   label: `Chapitres (${manga.chapters})` },
-            { key: 'personnages', label: 'Personnages' },
-            { key: 'similaires',  label: 'Similaires' },
+            { key: 'apercu',    label: 'Aperçu' },
+            { key: 'chapitres', label: `Chapitres` },
         ];
-
         tabs.innerHTML = tabDefs.map(t =>
             `<button class="serie-tab ${activeTab === t.key ? 'active' : ''}" data-tab="${t.key}">${t.label}</button>`
         ).join('');
@@ -106,364 +190,161 @@
             const btn = e.target.closest('[data-tab]');
             if (!btn) return;
             activeTab = btn.dataset.tab;
-            MH.$$('.serie-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === activeTab));
+            document.querySelectorAll('.serie-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === activeTab));
             renderTab(activeTab);
         });
 
-        // Mise à jour asynchrone du header droit (dernière lecture)
-        if (right) {
-            right.textContent = `${manga.chapters} chapitres · Màj ${manga.lastUpdate}`;
-            (async () => {
-                try {
-                    const chaps   = await DB.getChapters(manga.id);
-                    const lastRead = chaps.find(c => c.isRead);
-                    if (lastRead) {
-                        right.innerHTML = `Dernière lecture : <a href="chapitre.html?manga=${manga.id}&chapter=${lastRead.number}" class="link-orange">Chap. ${lastRead.number}</a> · Màj ${manga.lastUpdate}`;
-                    }
-                } catch(e) {}
-            })();
-        }
+        if (right) right.textContent = manga.lastChapter ? `Dernier chap. : ${manga.lastChapter}` : '';
+    }
+
+    function updateTabsLabels() {
+        const meta = document.getElementById('chapCountMeta');
+        if (meta) meta.innerHTML = `<span class="serie-meta-icon">📖</span> ${chapters.length} chapitres`;
+        document.querySelectorAll('.serie-tab[data-tab="chapitres"]').forEach(b => {
+            b.textContent = `Chapitres (${chapters.length})`;
+        });
     }
 
     function renderTab(tab) {
         const main = document.getElementById('serieMain');
         if (!main) return;
-        const map = {
-            apercu:       renderApercu,
-            chapitres:    renderChapitres,
-            personnages:  renderPersonnages,
-            similaires:   renderSimilaires,
-        };
-        (map[tab] || renderApercu)(main);
+        if (tab === 'chapitres') return renderChapitres(main);
+        renderApercu(main);
     }
 
-    // ══ APERÇU ════════════════════════════════════════════════
+    // ── APERÇU ──
     function renderApercu(el) {
-        const similar  = DB.getSimilar(manga.id).slice(0, 3);
-
-        // Rendu immédiat avec des chapitres factices (évite l'écran vide)
-        const fakeFive = generateSomeChapters(5);
-
         el.innerHTML = `
         <div class="synopsis-block">
-            <div class="synopsis-block-header">
-                <div class="synopsis-block-title">Synopsis</div>
-            </div>
-            <div class="synopsis-text">${MH.esc(manga.synopsis || manga.description)}</div>
+            <div class="synopsis-block-header"><div class="synopsis-block-title">Synopsis</div></div>
+            <div class="synopsis-text">${MH.esc(manga.description || 'Aucun synopsis disponible.')}</div>
         </div>
-
         <div class="chapters-block">
             <div class="chapters-block-header">
                 <div class="chapters-block-title">Derniers chapitres</div>
                 <button class="section-link" data-goto="chapitres">Voir tous →</button>
             </div>
             <div class="chapters-list" id="apercuChapsList">
-                ${renderChaptersLoading()}
-            </div>
-            <div class="chapters-see-all">
-                <a class="link-orange" data-goto="chapitres" href="#">Voir tous les ${manga.chapters} chapitres</a>
-            </div>
-        </div>
-
-        <div class="characters-block">
-            <div class="synopsis-block-header">
-                <div class="synopsis-block-title">Personnages principaux</div>
-            </div>
-            <div class="characters-grid">
-                ${(manga.characters || []).map(c => renderCharCard(c)).join('')}
-            </div>
-        </div>
-
-        <div class="similar-block">
-            <div class="synopsis-block-header">
-                <div class="synopsis-block-title">Similaires</div>
-            </div>
-            <div class="similar-grid">
-                ${similar.map(m => renderSimilarCard(m)).join('')}
+                ${chapters.length ? chapters.slice(0, 5).map(c => renderChapterRow(c)).join('') : `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">
+                    <div class="spinner-inline"></div>
+                    <div style="margin-top:8px">Chargement des chapitres…</div>
+                </div>`}
             </div>
         </div>`;
-
-        // Déléguer les clics "Voir tous"
         el.querySelectorAll('[data-goto="chapitres"]').forEach(btn => {
             btn.addEventListener('click', e => {
                 e.preventDefault();
                 activeTab = 'chapitres';
-                MH.$$('.serie-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'chapitres'));
+                document.querySelectorAll('.serie-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'chapitres'));
                 renderTab('chapitres');
-                document.getElementById('serieTabsBar')?.scrollIntoView({ behavior: 'smooth' });
             });
         });
-
-        // Chargement async des vrais chapitres
-        (async () => {
-            try {
-                const chaps = await DB.getChapters(manga.id);
-                const listEl = document.getElementById('apercuChapsList');
-                if (!listEl) return;
-                const recent = chaps.slice(0, 5);
-                listEl.innerHTML = recent.length
-                    ? recent.map(c => renderChapterRow(c)).join('')
-                    : fakeFive.map(c => renderChapterRow(c)).join('');
-            } catch(e) {
-                const listEl = document.getElementById('apercuChapsList');
-                if (listEl) listEl.innerHTML = generateSomeChapters(5).map(c => renderChapterRow(c)).join('');
-            }
-        })();
-    }
-
-    function renderChaptersLoading() {
-        return `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">
-            <div style="display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--orange);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:8px"></div>
-            <div>Chargement des chapitres…</div>
-        </div>`;
     }
 
     function renderChapterRow(c) {
+        const isRead = readChapsSet.has(c.id);
         return `
-        <a href="chapitre.html?manga=${manga.id}&chapter=${c.number}" class="chapter-row${c.isNew ? ' chapter-row--new' : ''}${c.isRead ? ' chapter-row--read' : ''}">
-            <div class="chapter-num">Chap. ${c.number}</div>
-            <div class="chapter-title-text">${MH.esc(c.title || 'Chapitre ' + c.number)}</div>
+        <a href="chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(c.id)}" class="chapter-row${isRead ? ' chapter-row--read' : ''}">
+            <div class="chapter-num">Chap. ${c.chapter}</div>
+            <div class="chapter-title-text">${MH.esc(c.title || 'Chapitre ' + c.chapter)}</div>
             <div class="chapter-meta">
-                ${c.isNew ? '<span class="badge-new">NOUVEAU</span>' : ''}
-                <span class="chapter-date">${c.publishDate || ''}</span>
-                <span class="chapter-time">${c.readTime ? c.readTime + ' min' : ''}</span>
-                <span class="chapter-read-dot ${c.isRead ? 'is-read' : ''}" title="${c.isRead ? 'Lu' : 'Non lu'}"></span>
+                <span class="chapter-date">${c.publishedAt ? new Date(c.publishedAt).toLocaleDateString('fr-FR') : ''}</span>
+                <span class="chapter-time">${c.pages ? c.pages + ' p.' : ''}</span>
+                <span class="chapter-time">${(c.lang || '').toUpperCase()}</span>
+                <span class="chapter-read-dot ${isRead ? 'is-read' : ''}" title="${isRead ? 'Lu' : 'Non lu'}"></span>
             </div>
         </a>`;
     }
 
-    function generateSomeChapters(n) {
-        const total = manga.chapters;
-        return Array.from({ length: Math.min(n, total) }, (_, i) => ({
-            mangaId:     manga.id,
-            number:      total - i,
-            title:       `Chapitre ${total - i}`,
-            publishDate: i === 0 ? 'Il y a 2 jours' : `Il y a ${i * 7} jours`,
-            readTime:    Math.floor(Math.random() * 10) + 8,
-            isRead:      false,
-            isNew:       i === 0,
-            pages:       20,
-        }));
-    }
-
-    // ══ LISTE COMPLÈTE DES CHAPITRES ══════════════════════════
+    // ── CHAPITRES ──
     function renderChapitres(el) {
-        // Affichage immédiat du squelette avec loader
+        if (!chapters.length) {
+            el.innerHTML = `
+            <div class="chapters-block">
+                <div class="chapters-block-header"><div class="chapters-block-title">Tous les chapitres</div></div>
+                <div class="chapters-list">
+                    <div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">
+                        <div class="spinner-inline"></div>
+                        <div style="margin-top:8px">Chargement des chapitres…</div>
+                    </div>
+                </div>
+            </div>`;
+            return;
+        }
+
         el.innerHTML = `
         <div class="chapters-block">
             <div class="chapters-block-header">
-                <div class="chapters-block-title">Tous les chapitres · <span id="chapCount">…</span></div>
+                <div class="chapters-block-title">Tous les chapitres · <span id="chapCount">${chapters.length}</span></div>
                 <div class="chapters-controls">
-                    <input type="text" id="chapSearch" class="chap-search-input" placeholder="Chercher un chapitre…" disabled>
-                    <button class="chap-sort-btn" id="chapSortBtn" disabled>
-                        ${chapSortAsc ? '↑ Ancien' : '↓ Récent'}
-                    </button>
+                    <input type="text" id="chapSearch" class="chap-search-input" placeholder="Chercher un chapitre…">
+                    <button class="chap-sort-btn" id="chapSortBtn">${chapSortAsc ? '↑ Ancien' : '↓ Récent'}</button>
                 </div>
             </div>
-            <div class="chapters-list" id="chapsList">${renderChaptersLoading()}</div>
+            <div class="chapters-list" id="chapsList"></div>
         </div>`;
 
-        // Chargement async
-        (async () => {
-            let chaps;
-            try {
-                chaps = await DB.getChapters(manga.id);
-            } catch(e) {
-                chaps = [];
-            }
-            if (!chaps.length) chaps = generateAllChapters();
+        const input   = el.querySelector('#chapSearch');
+        const sortBtn = el.querySelector('#chapSortBtn');
+        const list    = el.querySelector('#chapsList');
+        const countEl = el.querySelector('#chapCount');
 
-            const input   = el.querySelector('#chapSearch');
-            const sortBtn = el.querySelector('#chapSortBtn');
-            const list    = el.querySelector('#chapsList');
-            const countEl = el.querySelector('#chapCount');
+        function render() {
+            const q = chapFilter.toLowerCase();
+            let filtered = chapters.filter(c =>
+                !q || String(c.chapter).includes(q) || (c.title || '').toLowerCase().includes(q)
+            );
+            if (chapSortAsc) filtered = [...filtered].reverse();
+            if (countEl) countEl.textContent = filtered.length;
+            list.innerHTML = filtered.map(c => renderChapterRow(c)).join('') || '<div class="chapters-empty">Aucun chapitre trouvé</div>';
+        }
 
-            if (!list) return; // L'utilisateur a changé d'onglet
-
-            // Activer les contrôles
-            if (input)  input.disabled  = false;
-            if (sortBtn) sortBtn.disabled = false;
-            if (countEl) countEl.textContent = chaps.length;
-
-            function renderList() {
-                const q = chapFilter.toLowerCase();
-                let filtered = chaps.filter(c =>
-                    !q ||
-                    c.number.toString().includes(q) ||
-                    (c.title || '').toLowerCase().includes(q)
-                );
-                if (chapSortAsc) filtered = [...filtered].reverse();
-                if (countEl) countEl.textContent = filtered.length;
-                list.innerHTML = filtered.map(c => renderChapterRow(c)).join('')
-                    || '<div class="chapters-empty">Aucun chapitre trouvé</div>';
-            }
-
-            if (input) {
-                input.value = chapFilter;
-                input.addEventListener('input', () => { chapFilter = input.value; renderList(); });
-            }
-            if (sortBtn) {
-                sortBtn.addEventListener('click', () => {
-                    chapSortAsc = !chapSortAsc;
-                    sortBtn.textContent = chapSortAsc ? '↑ Ancien' : '↓ Récent';
-                    renderList();
-                });
-            }
-
-            renderList();
-        })();
+        if (input) {
+            input.value = chapFilter;
+            input.addEventListener('input', () => { chapFilter = input.value; render(); });
+        }
+        if (sortBtn) {
+            sortBtn.addEventListener('click', () => {
+                chapSortAsc = !chapSortAsc;
+                sortBtn.textContent = chapSortAsc ? '↑ Ancien' : '↓ Récent';
+                render();
+            });
+        }
+        render();
     }
 
-    function generateAllChapters() {
-        const total = manga.chapters;
-        return Array.from({ length: Math.min(total, 200) }, (_, i) => {
-            const n = total - i;
-            return {
-                id:          manga.id * 10000 + n,
-                mangaId:     manga.id,
-                number:      n,
-                title:       'Chapitre ' + n,
-                publishDate: i === 0 ? 'Il y a 2 jours' : i < 4 ? `Il y a ${i * 7} jours` : `Il y a ${Math.round(i * 1.5)} semaines`,
-                readTime:    Math.floor(Math.random() * 10) + 8,
-                isRead:      n <= Math.floor(total * 0.3),
-                pages:       20,
-                isNew:       i === 0,
-            };
-        });
-    }
-
-    // ══ PERSONNAGES ═══════════════════════════════════════════
-    function renderPersonnages(el) {
-        el.innerHTML = `
-        <div class="characters-block">
-            <div class="synopsis-block-header">
-                <div class="synopsis-block-title">Personnages principaux</div>
-            </div>
-            <div class="characters-grid characters-grid--full">
-                ${(manga.characters || []).map(c => renderCharCard(c, true)).join('')}
-            </div>
-        </div>`;
-    }
-
-    function renderCharCard(c, large) {
-        return `
-        <div class="character-card${large ? ' character-card--lg' : ''}">
-            <div class="character-avatar${large ? ' character-avatar--lg' : ''}">${c.name[0]}</div>
-            <div>
-                <div class="character-name">${MH.esc(c.name)}</div>
-                <div class="character-role">${MH.esc(c.role)}</div>
-            </div>
-        </div>`;
-    }
-
-    // ══ SIMILAIRES ════════════════════════════════════════════
-    function renderSimilaires(el) {
-        const similar = DB.getSimilar(manga.id);
-        el.innerHTML = `
-        <div class="similar-block">
-            <div class="synopsis-block-header">
-                <div class="synopsis-block-title">Séries similaires</div>
-            </div>
-            <div class="manga-grid-3">
-                ${similar.map(m => `
-                <a href="serie.html?id=${m.id}" class="manga-card">
-                    <div class="manga-card-cover">
-                        <img src="${m.coverFallback}" alt="${MH.esc(m.title)}"
-                             onerror="this.src='${m.coverFallback}'">
-                        <div class="manga-card-overlay"><div class="btn-read-overlay">▶ Lire</div></div>
-                    </div>
-                    <div class="manga-card-info">
-                        <div class="manga-card-title">${MH.esc(m.title)}</div>
-                        <div class="manga-card-author">${MH.esc(m.author)}</div>
-                        <div class="manga-card-meta">
-                            <span class="manga-card-rating">⭐ ${m.rating}</span>
-                            <span>${m.chapters} chap.</span>
-                        </div>
-                    </div>
-                </a>`).join('')}
-            </div>
-        </div>`;
-    }
-
-    function renderSimilarCard(m) {
-        return `
-        <a href="serie.html?id=${m.id}" class="similar-card">
-            <div class="similar-cover">
-                <img src="${m.coverFallback}" alt="${MH.esc(m.title)}" onerror="this.src='${m.coverFallback}'">
-            </div>
-            <div class="similar-title">${MH.esc(m.title)}</div>
-            <div class="similar-meta">${(m.genres || []).slice(0,2).join(' · ')}</div>
-        </a>`;
-    }
-
-    // ══ SIDEBAR ═══════════════════════════════════════════════
+    // ── SIDEBAR ──
     function renderSidebar() {
         const el = document.getElementById('serieSidebar');
         if (!el) return;
-        const readPct    = manga.progress || 0;
-        const chapRead   = Math.round((readPct / 100) * manga.chapters);
-        const resumeChap = Math.min(chapRead + 1, manga.chapters);
+        const chapRead = readChapsSet.size;
+        const total = chapters.length || parseInt(manga.lastChapter) || 1;
+        const pct = Math.min(100, Math.round((chapRead / total) * 100));
+        const resumeChap = progress?.chapterId || chapters[chapters.length - 1]?.id;
 
         el.innerHTML = `
-        <!-- Progression -->
         <div class="sidebar-progress">
-            <div class="sidebar-progress-header">
-                <div class="sidebar-progress-title">Ma progression</div>
-            </div>
+            <div class="sidebar-progress-header"><div class="sidebar-progress-title">Ma progression</div></div>
             <div class="progress-stat">
                 <span class="progress-label">Chapitres lus</span>
-                <span class="progress-val">${chapRead} / ${manga.chapters}</span>
+                <span class="progress-val">${chapRead} / ${total}</span>
             </div>
-            <div class="progress-bar-big"><div class="progress-fill" style="width:${readPct}%"></div></div>
-            <div class="progress-stat">
-                <span class="progress-label">Temps estimé</span>
-                <span class="progress-val">~${Math.round(chapRead * 0.35)}h</span>
-            </div>
-            <a href="chapitre.html?manga=${manga.id}&chapter=${resumeChap}" class="btn btn-primary sidebar-resume-btn">
-                ${chapRead > 0 ? '↻ Reprendre — Chap. ' + resumeChap : '▶ Commencer — Chap. 1'}
-            </a>
+            <div class="progress-bar-big"><div class="progress-fill" style="width:${pct}%"></div></div>
+            ${resumeChap ? `<button class="btn btn-primary sidebar-resume-btn" id="sidebarResumeBtn">
+                ${chapRead > 0 ? '↻ Reprendre' : '▶ Commencer'}
+            </button>` : ''}
         </div>
-
-        <!-- Stats globales -->
-        <div class="sidebar-stats card" style="padding:14px">
-            <div class="sidebar-block-header">
-                <span class="sidebar-block-title">Statistiques</span>
-            </div>
-            ${[
-                ['Abonnés', MH.fmt(manga.subscribers)],
-                ['Lectures totales', MH.fmt(manga.totalReads)],
-                ['Note', manga.rating + ' / 5 ⭐'],
-                ['Recommandation', manga.completionRate + '%'],
-            ].map(([l, v]) => `
-                <div class="progress-stat">
-                    <span class="progress-label">${l}</span>
-                    <span class="progress-val">${v}</span>
-                </div>`).join('')}
-        </div>
-
-        <!-- Tags -->
         <div class="sidebar-tags card" style="padding:14px">
-            <div class="sidebar-block-header">
-                <span class="sidebar-block-title">Tags</span>
-            </div>
+            <div class="sidebar-block-header"><span class="sidebar-block-title">Tags</span></div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-                ${(manga.tags2 || manga.tags || []).map(t =>
-                    `<a href="catalogue.html?q=${encodeURIComponent(t.replace('#',''))}" class="tag tag-link">${t}</a>`
+                ${(manga.tags || []).map(t =>
+                    `<a href="catalogue.html?q=${encodeURIComponent(t)}" class="tag tag-link">${MH.esc(t)}</a>`
                 ).join('')}
             </div>
-        </div>
+        </div>`;
 
-        <!-- Avis rapides -->
-        ${manga.quickReviews && manga.quickReviews.length ? `
-        <div class="sidebar-reviews card" style="padding:14px">
-            <div class="sidebar-block-header">
-                <span class="sidebar-block-title">Avis de la communauté</span>
-            </div>
-            ${manga.quickReviews.map(r => `
-                <div class="quick-review">
-                    ${MH.esc(r.text)}
-                    <div class="quick-review-user">— ${r.user}</div>
-                </div>`).join('')}
-        </div>` : ''}`;
+        document.getElementById('sidebarResumeBtn')?.addEventListener('click', () => {
+            if (resumeChap) window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(resumeChap)}`;
+        });
     }
 })();

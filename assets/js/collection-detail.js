@@ -93,16 +93,12 @@
 
     function renderSeries(el) {
         const mangas = col.mangaIds.map(id => DB.getManga(id)).filter(Boolean);
-        const notes = [
-            'La pièce de collection. C\'est l\'œuvre qui définit le trope "Dungeon System". Le style artistique évolue de manière spectaculaire à partir du chapitre 60.',
-            'C\'est l\'avis d\'Elena. À lire avant ou après Shadow Monarch. Attention, certaines scènes sont très graphiques. La fin est un chef-d\'œuvre de narration.',
-            'Top construction de monde (world building) incroyable. Les règles de chaque étage sont fascinantes. Idéal pour les fans de stratégie.',
-            'L\'originalité absolue. Si tu y arrives à la fin tu le mérites. Shōnen. Attention : le roman peut te faire douter si tu y la vie et le mort. Shōnen...',
-            'Il ne parle pas, mais il est incroyable. Il ne parle pas, mais il est incroyable. Il ne parle pas mais il vaut 3 mois de niveau pour protéger un inoffensif.',
-            'Un mercenaire solitaire contre tous les démons décidées. La seule arme contre ses démons qui la traquent chaque jour.',
-            'Aussi bien valorisé par le temps des derniers décideurs. Il s\'est révolté dans un monde qui a changé, mais son cœur reste vrai.',
-            'Aussi bien valorisé par le temps des derniers décideurs. Il s\'est révolté dans un monde qui a changé, mais son cœur reste vrai.',
-        ];
+        // Note d'Elena : utilise quickReviews du manga ou son synopsis comme curation
+        const noteFor = (m) => {
+            if (m.quickReviews?.length) return m.quickReviews[0].text;
+            if (m.synopsis) return m.synopsis.split('\n')[0];
+            return m.description;
+        };
         el.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
             <div style="font-size:13px;color:var(--text2)">Affichage de <strong style="color:var(--text)">${mangas.length}</strong> séries</div>
@@ -138,11 +134,10 @@
                 <div class="cd-serie-tags">
                     ${m.tags.map(t => `<span class="tag" style="font-size:10.5px;padding:2px 8px">${t}</span>`).join('')}
                 </div>
-                ${notes[i] ? `
                 <div class="cd-serie-note">
-                    <div class="cd-serie-note-icon">💬 Note d'Elena :</div>
-                    ${MH.esc(notes[i])}
-                </div>` : ''}
+                    <div class="cd-serie-note-icon">💬 Note du curateur :</div>
+                    ${MH.esc(noteFor(m))}
+                </div>
                 <div style="display:flex;gap:8px;margin-top:10px">
                     <a href="chapitre.html?manga=${m.id}&chapter=1" class="btn btn-primary btn-sm">▶ Lire le chapitre 1</a>
                     <a href="serie.html?id=${m.id}" class="btn btn-ghost btn-sm">› Détails</a>
@@ -157,8 +152,12 @@
 
     function renderDiscussions(el) {
         const polls = [
-            { q: 'Quel système de pouvoir préférez-vous ?', opts: [['Incrémentale (Solo Leveling)', 45], ['Constellations (Omniscient)', 30], ['Tour / Étimo (Tower of God)', 25]] },
-            { q: 'Théorie sur la fin des Ombres', text: 'Je pense que l\'histoire se résout mais la véritable finale représente la monarque... finit plus !' },
+            { q: 'Quelle série de cette collection est la plus marquante ?', opts: [
+                [DB.getManga(col.mangaIds[0])?.title || 'Première série', 45],
+                [DB.getManga(col.mangaIds[1])?.title || 'Deuxième série', 30],
+                [DB.getManga(col.mangaIds[2])?.title || 'Troisième série', 25],
+            ]},
+            { q: 'Discussion ouverte', text: 'Partagez vos réflexions sur cette collection avec la communauté.' },
         ];
         el.innerHTML = polls.map(p => `
         <div class="discussion-item">
