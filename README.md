@@ -1,27 +1,72 @@
-# Inko — Lecteur de mangas
+# 📖 Inko — Lecteur de Mangas en ligne
 
-Front HTML/CSS/JS, backend Node/Express/MySQL et données MangaDex.
+> **Lis tes mangas dans une PWA installable, avec reprise de lecture, collections et favoris synchronisés.**
+> Frontend Vanilla JS modulaire (séparation logique/vue), backend Node/Express/MySQL, données MangaDex, build mobile Capacitor.
 
-## Stack
+[![Node](https://img.shields.io/badge/node-%E2%89%A518-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-000000?logo=express&logoColor=white)](https://expressjs.com/)
+[![MySQL](https://img.shields.io/badge/MySQL-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![PWA](https://img.shields.io/badge/PWA-Installable-5A0FC8?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
+[![Capacitor](https://img.shields.io/badge/Capacitor-119EFF?logo=capacitor&logoColor=white)](https://capacitorjs.com/)
+[![MangaDex](https://img.shields.io/badge/Data-MangaDex-FF6740)](https://mangadex.org/)
 
-- **Frontend** : Vanilla HTML/CSS/JS + PWA installable
-- **Backend** : Node.js + Express + MySQL (mysql2)
-- **Auth** : JWT (cookie httpOnly) + bcrypt
-- **Données mangas** : API MangaDex (catalogue + chapitres + pages)
-- **Mobile** : Capacitor (Android/iOS)
+<!-- 📽️ GIF à ajouter ici : 15s montrant 
+     1) recherche manga
+     2) ouverture chapitre + scroll fluide
+     3) reprise auto à la prochaine ouverture
+     4) installation PWA sur mobile -->
 
-## Démarrage rapide
+---
+
+## 💡 À quoi ça sert
+
+| Fonctionnalité | Pour quoi |
+|---|---|
+| **Reprise de lecture** | Reviens exactement où tu t'es arrêté, sur n'importe quel device |
+| **Collections personnalisées** | Organise tes mangas : « Lecture en cours », « À lire », tags custom |
+| **Favoris synchronisés** | Étoile un manga, retrouve-le sur tous tes écrans |
+| **PWA installable** | Marche hors-ligne, s'installe comme une app native (iOS + Android + desktop) |
+| **Build mobile Capacitor** | Génère un APK Android / app iOS depuis la même base de code |
+
+---
+
+## 🎯 Fonctionnalités
+
+### Frontend
+- **Navigation fluide** chapitre par chapitre, page par page
+- **Reprise automatique** de la lecture (`/me/progress`)
+- **Listes personnalisées** avec ajout/retrait drag-and-drop
+- **Favoris** + **commentaires** par manga
+- **Recherche live** avec autocomplete via MangaDex
+- **Dark mode** par défaut (les mangas se lisent mieux en sombre)
+
+### Backend
+- **Proxy MangaDex** avec cache intelligent (pas de re-fetch inutile)
+- **JWT cookie httpOnly** + bcrypt (auth solide)
+- **Reset password** par email
+- **Stats utilisateur** : chapitres lus, mangas commencés, événements
+- **API REST** clean — voir section API plus bas
+
+### Architecture
+- **JS Vanilla modulaire** — chaque page = 1 module, séparation `api.js` / `storage.js` / `global.js` / `{page}.js`
+- **PWA** avec service worker (network-first API, cache-first covers, stale-while-revalidate assets)
+- **Capacitor** — même codebase pour le web et le mobile natif
+
+---
+
+## 📦 Quick Start
 
 ### Prérequis
 - Node.js ≥ 18
 - MySQL 5.7+ (Laragon est nickel sur Windows)
 
-### Installation
+### Installation (4 commandes)
 
 ```bash
-cd server
+git clone https://github.com/Abdoulrazack1/Inko.git
+cd Inko/server
 npm install
-npm run init-db   # crée la base + un compte démo
+npm run init-db   # crée la base + compte démo
 npm start         # démarre sur :8088
 ```
 
@@ -29,14 +74,17 @@ Ouvre `http://localhost:8088/accueil.html`.
 
 ### Compte démo
 
-- email : `demo@mangahub.app`
-- mot de passe : `demo1234`
+| Email | Mot de passe |
+|---|---|
+| `demo@mangahub.app` | `demo1234` |
 
-## Architecture
+---
+
+## 🏗️ Architecture
 
 ```
 inko/
-├── *.html                  # pages
+├── *.html                  # pages (modules indépendants)
 ├── assets/
 │   ├── css/                # styles par page
 │   ├── js/
@@ -45,7 +93,7 @@ inko/
 │   │   ├── global.js       # header/footer/search/toast
 │   │   ├── pwa.js          # service worker register
 │   │   ├── password-strength.js
-│   │   └── {page}.js       # logique de chaque page
+│   │   └── {page}.js       # logique de chaque page (vue)
 │   └── img/icon.svg        # logo PWA
 ├── manifest.webmanifest    # PWA manifest
 ├── service-worker.js       # cache stratégies
@@ -63,7 +111,11 @@ inko/
         └── init.js         # bootstrap DB
 ```
 
-## API
+**Séparation logique/vue** : chaque page a son `{page}.js` qui ne fait QUE de la vue (DOM, événements UI). Toute la logique métier (fetch, cache, état) est dans `api.js` + `storage.js` + le backend.
+
+---
+
+## 🔌 API
 
 Base : `/api`
 
@@ -95,7 +147,9 @@ Base : `/api`
 - `GET              /me/events`
 - `GET              /me/stats`
 
-## Build mobile (Capacitor)
+---
+
+## 📱 Build mobile (Capacitor)
 
 ```bash
 # Premier setup
@@ -108,11 +162,13 @@ npx cap sync android
 npx cap open android   # ouvre Android Studio
 ```
 
-Puis dans Android Studio : Build → Generate Signed Bundle / APK.
+Puis dans Android Studio : **Build → Generate Signed Bundle / APK**.
 
 Pour iOS : `npx cap add ios` + Xcode.
 
-## PWA
+---
+
+## ⚡ PWA
 
 Le service worker gère :
 - **Network-first** pour `/api/*` (jamais de cache stale)
@@ -121,9 +177,38 @@ Le service worker gère :
 
 L'app est installable depuis Chrome/Edge desktop, et iOS Safari (« Ajouter à l'écran d'accueil »).
 
-## Légalité
+---
+
+## ⚖️ Légalité
 
 Le backend agit comme un **client personnel** vers l'API publique MangaDex
 (équivalent serveur de Tachiyomi/Paperback). Les images de pages ne sont
 **jamais stockées** côté serveur, elles transitent via les URLs
 MangaDex@Home. Réservé à un usage strictement personnel.
+
+---
+
+## 🆚 Pourquoi pas un autre lecteur ?
+
+| Solution | Vanilla JS | Self-host | Build mobile | PWA |
+|---|---|---|---|---|
+| **Inko** | ✅ Modulaire | ✅ Node/MySQL | ✅ Capacitor | ✅ |
+| Tachiyomi | ❌ Kotlin | ❌ Local | ✅ Android only | ❌ |
+| Paperback | ❌ Swift | ❌ Local | ✅ iOS only | ❌ |
+| Mangadex Web | ❌ React | ❌ SaaS | ❌ | ⚠️ |
+
+Inko vise l'**auto-hébergement multi-plateforme** sans framework lourd, pour les devs qui veulent comprendre/forker la base.
+
+---
+
+## 🤝 Contribuer
+
+Issues et PRs bienvenues — nouvelles sources de données, amélioration du cache, support EPUB/CBZ, traductions.
+
+## 📜 Licence
+
+MIT — usage strictement personnel pour la partie MangaDex.
+
+## 🔗 Auteur
+
+[@Abdoulrazack1](https://github.com/Abdoulrazack1) — projet DWWM
