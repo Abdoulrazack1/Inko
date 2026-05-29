@@ -57,8 +57,21 @@
         return `<span class="badge ${cls}">${label}</span>`;
     };
 
+    // Placeholder local (SVG data URL) — pas de requête réseau, déterministe par seed
     window.MH.placeholderCover = function (seed) {
-        return `https://picsum.photos/seed/${encodeURIComponent(seed || 'manga')}/300/420`;
+        const s = String(seed || 'manga');
+        let h = 0;
+        for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i);
+        const hue = Math.abs(h) % 360;
+        const c1 = `hsl(${hue}, 35%, 12%)`;
+        const c2 = `hsl(${(hue + 40) % 360}, 60%, 28%)`;
+        const initial = s[0].toUpperCase();
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420">
+            <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs>
+            <rect width="300" height="420" fill="url(#g)"/>
+            <text x="150" y="225" font-family="-apple-system,sans-serif" font-size="120" font-weight="800" fill="rgba(255,255,255,.85)" text-anchor="middle" dominant-baseline="middle">${initial}</text>
+        </svg>`;
+        return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     };
 
     /* ── Header HTML ─────────────────────────────────────── */
