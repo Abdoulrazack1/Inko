@@ -10,11 +10,13 @@
 [![Capacitor](https://img.shields.io/badge/Capacitor-119EFF?logo=capacitor&logoColor=white)](https://capacitorjs.com/)
 [![MangaDex](https://img.shields.io/badge/Data-MangaDex-FF6740)](https://mangadex.org/)
 
-<!-- 📽️ GIF à ajouter ici : 15s montrant 
-     1) recherche manga
-     2) ouverture chapitre + scroll fluide
-     3) reprise auto à la prochaine ouverture
-     4) installation PWA sur mobile -->
+## 🌐 Démo en direct (UI sans backend)
+
+**→ [https://abdoulrazack1.github.io/Inko/accueil.html](https://abdoulrazack1.github.io/Inko/accueil.html)**
+
+[![Inko — MangaHub home](assets/screenshots/home.png)](https://abdoulrazack1.github.io/Inko/accueil.html)
+
+> ⚠️ La version live sur GitHub Pages charge le layout complet (header, navigation, dark mode, footer) mais **les données mangas restent vides** — le backend Node/Express/MySQL et le proxy MangaDex ne sont pas déployés. Pour la version complète avec catalogue de 83k+ mangas, suis l'installation ci-dessous.
 
 ---
 
