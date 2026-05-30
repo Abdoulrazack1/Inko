@@ -12,6 +12,21 @@ const path = require('path');
 const fs   = require('fs');
 const http = require('http');
 
+// ── Single instance lock ─────────────────────────────────
+// Si une autre Inko tourne déjà, on focus sa fenêtre et on quitte.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+    app.quit();
+    process.exit(0);
+}
+app.on('second-instance', () => {
+    if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+    }
+});
+
 const IS_DEV  = process.argv.includes('--dev');
 const PORT    = 8088;
 const ROOT    = app.isPackaged
@@ -43,40 +58,91 @@ function ensureEnv() {
     } catch (e) {}
 }
 
+// ── Check si un backend Inko répond déjà sur le port ──
+function probeExisting() {
+    return new Promise(resolve => {
+        const req = http.get(`http://127.0.0.1:${PORT}/api/health`, res => {
+            resolve(res.statusCode === 200);
+        });
+        req.on('error', () => resolve(false));
+        req.setTimeout(800, () => { req.destroy(); resolve(false); });
+    });
+}
+
 // ── Backend lifecycle (in-process via require) ──────────
 async function startBackend() {
+    // Si un backend Inko écoute déjà → on le réutilise (cas multi-fenêtres
+    // ou ancienne instance pas tout à fait nettoyée).
+    if (await probeExisting()) {
+        return; // ok, on continue avec le backend existant
+    }
+
     if (!fs.existsSync(SERVER_ENTRY)) {
         throw new Error(`Backend introuvable : ${SERVER_ENTRY}`);
     }
     ensureEnv();
     process.env.PORT = String(PORT);
 
-    // Le server.js a une IIFE qui démarre l'app au require — on l'utilise.
-    // Si le serveur plante au démarrage, l'erreur sera attrapée par le catch global.
+    // Intercepte EADDRINUSE proprement (sinon Electron crash sur l'exception)
+    let listenError = null;
+    const origUncaught = process.listeners('uncaughtException').slice();
+    const captureErr = (err) => {
+        if (err && err.code === 'EADDRINUSE') {
+            listenError = err;
+        } else {
+            // Re-throw vers les autres handlers (Electron par défaut)
+            origUncaught.forEach(h => { try { h(err); } catch(e) {} });
+        }
+    };
+    process.removeAllListeners('uncaughtException');
+    process.on('uncaughtException', captureErr);
+
+    // Le server.js a une IIFE qui démarre l'app au require.
     try {
         require(SERVER_ENTRY);
     } catch (e) {
+        process.removeAllListeners('uncaughtException');
+        origUncaught.forEach(h => process.on('uncaughtException', h));
         throw new Error(`Échec require backend : ${e.message}`);
     }
 
     // Poll healthcheck pour confirmer que le serveur écoute
     const deadline = Date.now() + 20_000;
-    return new Promise((resolve, reject) => {
+    const ok = await new Promise(resolve => {
         const tick = () => {
+            if (listenError) return resolve(false);
             const req = http.get(`http://127.0.0.1:${PORT}/api/health`, res => {
-                if (res.statusCode === 200) return resolve();
+                if (res.statusCode === 200) return resolve(true);
                 retry();
             });
             req.on('error', retry);
             req.setTimeout(1500, () => req.destroy());
             function retry() {
-                if (Date.now() > deadline)
-                    return reject(new Error('Backend timeout (20s) — MySQL est-il lancé sur 127.0.0.1:3306 ?'));
+                if (Date.now() > deadline) return resolve(false);
                 setTimeout(tick, 400);
             }
         };
         tick();
     });
+
+    // Restore les handlers d'origine
+    process.removeAllListeners('uncaughtException');
+    origUncaught.forEach(h => process.on('uncaughtException', h));
+
+    if (listenError) {
+        throw new Error(
+            `Le port ${PORT} est déjà utilisé par un autre programme.\n\n` +
+            'Soit une autre instance d\'Inko tourne (vérifier la barre des tâches),\n' +
+            'soit un autre logiciel occupe ce port. Ferme-le puis relance Inko.'
+        );
+    }
+    if (!ok) {
+        throw new Error(
+            `Backend timeout (20s).\n\n` +
+            '✓ Vérifie que MySQL tourne (Laragon, MAMP, etc.) sur 127.0.0.1:3306\n' +
+            '✓ Vérifie qu\'aucun firewall ne bloque le port ' + PORT
+        );
+    }
 }
 
 function stopBackend() {
