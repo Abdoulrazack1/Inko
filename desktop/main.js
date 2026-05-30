@@ -35,6 +35,10 @@ const ROOT    = app.isPackaged
 
 const SERVER_DIR = path.join(ROOT, 'server');
 const SERVER_ENTRY = path.join(SERVER_DIR, 'server.js');
+// En prod : resources/frontend/. En dev : ../ (dossier inko/ avec les HTML).
+const FRONTEND_DIR = app.isPackaged
+    ? path.join(ROOT, 'frontend')
+    : path.join(__dirname, '..');
 const USER_DATA = app.getPath('userData');
 
 let mainWindow = null;
@@ -81,7 +85,8 @@ async function startBackend() {
         throw new Error(`Backend introuvable : ${SERVER_ENTRY}`);
     }
     ensureEnv();
-    process.env.PORT = String(PORT);
+    process.env.PORT         = String(PORT);
+    process.env.FRONTEND_DIR = FRONTEND_DIR;
 
     // Intercepte EADDRINUSE proprement (sinon Electron crash sur l'exception)
     let listenError = null;

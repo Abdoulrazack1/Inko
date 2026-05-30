@@ -30,13 +30,16 @@ app.use((req, _res, next) => {
 // API
 app.use('/api', routes);
 
-// Static frontend (sert tout sauf /api/*)
-app.use(express.static(path.join(__dirname, '..'), { extensions: ['html'], index: 'accueil.html' }));
+// Static frontend (sert tout sauf /api/*).
+// FRONTEND_DIR est défini par Electron en prod (resources/frontend/).
+// Sinon fallback dev : dossier parent du server (inko/).
+const FRONTEND_DIR = process.env.FRONTEND_DIR || path.join(__dirname, '..');
+app.use(express.static(FRONTEND_DIR, { extensions: ['html'], index: 'accueil.html' }));
 
 // Fallback : si la requête n'est pas /api/* et que le fichier n'existe pas → accueil
 app.get(/^(?!\/api).*$/, (req, res, next) => {
     if (req.path.includes('.')) return next(); // laisse passer les 404 sur fichiers
-    res.sendFile(path.join(__dirname, '..', 'accueil.html'));
+    res.sendFile(path.join(FRONTEND_DIR, 'accueil.html'));
 });
 
 // 404 + erreur globale (pour /api/*)
