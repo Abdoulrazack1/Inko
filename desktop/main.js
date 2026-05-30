@@ -10,7 +10,6 @@
 const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
 const path = require('path');
 const fs   = require('fs');
-const { spawn } = require('child_process');
 const http = require('http');
 
 const IS_DEV  = process.argv.includes('--dev');
@@ -19,53 +18,61 @@ const ROOT    = app.isPackaged
     ? path.join(process.resourcesPath)             // resources/server, resources/frontend
     : path.join(__dirname, '..');                  // dev : ../server, ../
 
-const SERVER_DIR = app.isPackaged
-    ? path.join(ROOT, 'server')
-    : path.join(ROOT, 'server');
+const SERVER_DIR = path.join(ROOT, 'server');
 const SERVER_ENTRY = path.join(SERVER_DIR, 'server.js');
+const USER_DATA = app.getPath('userData');
 
 let mainWindow = null;
-let backendProc = null;
 
-// ── Backend lifecycle ─────────────────────────────────────
-function startBackend() {
+// ── Crée un .env minimal dans userData si absent ──
+function ensureEnv() {
+    const envPath = path.join(SERVER_DIR, '.env');
+    if (fs.existsSync(envPath)) return;
+    try {
+        // On NE peut PAS écrire dans resources/ (lecture seule en prod).
+        // Mais dotenv lira aussi process.env, donc on les set juste ici.
+        process.env.PORT          = process.env.PORT          || String(PORT);
+        process.env.DB_HOST       = process.env.DB_HOST       || '127.0.0.1';
+        process.env.DB_PORT       = process.env.DB_PORT       || '3306';
+        process.env.DB_USER       = process.env.DB_USER       || 'root';
+        process.env.DB_PASSWORD   = process.env.DB_PASSWORD   || '';
+        process.env.DB_NAME       = process.env.DB_NAME       || 'inko';
+        process.env.JWT_SECRET    = process.env.JWT_SECRET    || `inko-${USER_DATA.slice(-12)}-secret`;
+        process.env.JWT_EXPIRES   = process.env.JWT_EXPIRES   || '30d';
+        process.env.NODE_ENV      = 'production';
+    } catch (e) {}
+}
+
+// ── Backend lifecycle (in-process via require) ──────────
+async function startBackend() {
+    if (!fs.existsSync(SERVER_ENTRY)) {
+        throw new Error(`Backend introuvable : ${SERVER_ENTRY}`);
+    }
+    ensureEnv();
+    process.env.PORT = String(PORT);
+
+    // Le server.js a une IIFE qui démarre l'app au require — on l'utilise.
+    // Si le serveur plante au démarrage, l'erreur sera attrapée par le catch global.
+    try {
+        require(SERVER_ENTRY);
+    } catch (e) {
+        throw new Error(`Échec require backend : ${e.message}`);
+    }
+
+    // Poll healthcheck pour confirmer que le serveur écoute
+    const deadline = Date.now() + 20_000;
     return new Promise((resolve, reject) => {
-        if (!fs.existsSync(SERVER_ENTRY)) {
-            return reject(new Error(`Backend introuvable : ${SERVER_ENTRY}`));
-        }
-
-        const env = {
-            ...process.env,
-            PORT: String(PORT),
-            NODE_ENV: 'production',
-        };
-
-        backendProc = spawn(process.execPath, [SERVER_ENTRY], {
-            cwd: SERVER_DIR,
-            env,
-            stdio: ['ignore', 'pipe', 'pipe'],
-        });
-
-        backendProc.stdout?.on('data', d => process.stdout.write(`[backend] ${d}`));
-        backendProc.stderr?.on('data', d => process.stderr.write(`[backend] ${d}`));
-        backendProc.on('exit', (code, sig) => {
-            console.log(`[backend] exit code=${code} sig=${sig}`);
-            backendProc = null;
-        });
-        backendProc.on('error', reject);
-
-        // Poll healthcheck
-        const deadline = Date.now() + 15_000;
         const tick = () => {
             const req = http.get(`http://127.0.0.1:${PORT}/api/health`, res => {
                 if (res.statusCode === 200) return resolve();
                 retry();
             });
             req.on('error', retry);
-            req.setTimeout(1000, () => req.destroy());
+            req.setTimeout(1500, () => req.destroy());
             function retry() {
-                if (Date.now() > deadline) return reject(new Error('Backend timeout (15s)'));
-                setTimeout(tick, 350);
+                if (Date.now() > deadline)
+                    return reject(new Error('Backend timeout (20s) — MySQL est-il lancé sur 127.0.0.1:3306 ?'));
+                setTimeout(tick, 400);
             }
         };
         tick();
@@ -73,10 +80,7 @@ function startBackend() {
 }
 
 function stopBackend() {
-    if (backendProc && !backendProc.killed) {
-        try { backendProc.kill(); } catch (e) {}
-        backendProc = null;
-    }
+    // Backend in-process : il sera tué avec le main process Electron.
 }
 
 // ── Window ──────────────────────────────────────────────
