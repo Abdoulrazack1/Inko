@@ -346,6 +346,126 @@ async function getStats(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ──────────────────────────────────────────────────────────────
+// RATINGS (note + review)
+// ──────────────────────────────────────────────────────────────
+async function getMangaRating(req, res, next) {
+    try {
+        const mangaId = req.params.mangaId;
+        // Moyenne + nombre + note de l'user courant
+        const [[agg]] = await pool.query(
+            'SELECT AVG(rating) AS avg, COUNT(*) AS count FROM ratings WHERE manga_id = ?',
+            [mangaId]
+        );
+        let mine = null;
+        const uid = req.user?.id || req.userId;
+        if (uid) {
+            const [[r]] = await pool.query(
+                'SELECT rating, review FROM ratings WHERE user_id = ? AND manga_id = ?',
+                [uid, mangaId]
+            );
+            if (r) mine = { rating: r.rating, review: r.review };
+        }
+        res.json({
+            average: agg.avg ? Math.round(agg.avg * 10) / 10 : null,
+            count:   agg.count || 0,
+            mine,
+        });
+    } catch (e) { next(e); }
+}
+
+async function setMangaRating(req, res, next) {
+    try {
+        const mangaId = req.params.mangaId;
+        const { rating, review } = req.body || {};
+        const r = parseInt(rating, 10);
+        if (!r || r < 1 || r > 5)
+            return res.status(400).json({ error: 'Note entre 1 et 5 requise' });
+        await pool.query(
+            `INSERT INTO ratings (user_id, manga_id, rating, review)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE rating = VALUES(rating), review = VALUES(review)`,
+            [req.user.id, mangaId, r, review || null]
+        );
+        await pushEvent(req.user.id, 'rating', { mangaId, metadata: { rating: r } });
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+async function deleteMangaRating(req, res, next) {
+    try {
+        await pool.query('DELETE FROM ratings WHERE user_id = ? AND manga_id = ?',
+            [req.user.id, req.params.mangaId]);
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+// Mes notes (pour profil)
+async function getMyRatings(req, res, next) {
+    try {
+        const [rows] = await pool.query(
+            'SELECT manga_id, rating, review, updated_at FROM ratings WHERE user_id = ? ORDER BY updated_at DESC',
+            [req.user.id]
+        );
+        res.json(rows.map(r => ({ mangaId: r.manga_id, rating: r.rating, review: r.review, updatedAt: r.updated_at })));
+    } catch (e) { next(e); }
+}
+
+// ──────────────────────────────────────────────────────────────
+// SETTINGS (préférences synchronisées)
+// ──────────────────────────────────────────────────────────────
+async function getSettings(req, res, next) {
+    try {
+        const [[row]] = await pool.query('SELECT data FROM user_settings WHERE user_id = ?', [req.user.id]);
+        const data = row ? (typeof row.data === 'string' ? JSON.parse(row.data) : row.data) : {};
+        res.json(data || {});
+    } catch (e) { next(e); }
+}
+
+async function setSettings(req, res, next) {
+    try {
+        const incoming = req.body || {};
+        const [[row]] = await pool.query('SELECT data FROM user_settings WHERE user_id = ?', [req.user.id]);
+        const current = row ? (typeof row.data === 'string' ? JSON.parse(row.data) : row.data) : {};
+        const merged = { ...current, ...incoming };
+        await pool.query(
+            `INSERT INTO user_settings (user_id, data) VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE data = VALUES(data)`,
+            [req.user.id, JSON.stringify(merged)]
+        );
+        res.json(merged);
+    } catch (e) { next(e); }
+}
+
+// ──────────────────────────────────────────────────────────────
+// EXPORT / RESET data
+// ──────────────────────────────────────────────────────────────
+async function exportData(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const [favorites]    = await pool.query('SELECT manga_id, added_at FROM favorites WHERE user_id = ?', [uid]);
+        const [library]      = await pool.query('SELECT manga_id, status, rating FROM library WHERE user_id = ?', [uid]);
+        const [progress]     = await pool.query('SELECT manga_id, chapter_id, chapter_number, page FROM progress WHERE user_id = ?', [uid]);
+        const [readChapters] = await pool.query('SELECT manga_id, chapter_id, chapter_number FROM read_chapters WHERE user_id = ?', [uid]);
+        const [ratings]      = await pool.query('SELECT manga_id, rating, review FROM ratings WHERE user_id = ?', [uid]);
+        res.json({
+            exportedAt: new Date().toISOString(),
+            user: { username: req.user.username, email: req.user.email },
+            favorites, library, progress, readChapters, ratings,
+        });
+    } catch (e) { next(e); }
+}
+
+async function clearHistory(req, res, next) {
+    try {
+        const uid = req.user.id;
+        await pool.query('DELETE FROM events WHERE user_id = ?', [uid]);
+        await pool.query('DELETE FROM progress WHERE user_id = ?', [uid]);
+        await pool.query('DELETE FROM read_chapters WHERE user_id = ?', [uid]);
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
 module.exports = {
     getFavorites, addFavorite, removeFavorite,
     getLibrary, setLibraryStatus,
@@ -354,4 +474,7 @@ module.exports = {
     getLists, createList, updateList, deleteList, addToList, removeFromList,
     getComments, addComment,
     getEvents, getStats,
+    getMangaRating, setMangaRating, deleteMangaRating, getMyRatings,
+    getSettings, setSettings,
+    exportData, clearHistory,
 };

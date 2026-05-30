@@ -86,6 +86,10 @@
           <a href="page_login.html" class="btn-connect btn">Se connecter</a>
           <a href="page_signup.html" class="btn btn-primary btn-sm" style="margin-left:6px">Inscription</a>`;
 
+        // Accès discret +18 : visible uniquement si l'espace est activé
+        const nsfwLink = (window.NSFW?.isEnabled?.())
+            ? `<a href="secret.html" title="Espace +18" style="color:#ec4899">🔞</a>` : '';
+
         return `
         <header class="site-header">
           <a href="accueil.html" class="header-logo">
@@ -98,6 +102,7 @@
             <a href="#" id="navRandom">Lecture aléatoire</a>
             <a href="sources.html" class="${activePage === 'sources' ? 'active' : ''}">Sources</a>
             <a href="profil.html" class="nav-mes-listes ${activePage === 'profil' ? 'active' : ''}">Mes listes</a>
+            ${nsfwLink}
           </nav>
           <div class="header-search">
             <span class="header-search-icon">🔍</span>
@@ -105,7 +110,7 @@
             <div class="search-dropdown" id="searchDropdown"></div>
           </div>
           <div class="header-actions">
-            <button class="header-icon-btn notif-dot" title="Notifications">🔔</button>
+            <a href="parametres.html" class="header-icon-btn ${activePage === 'parametres' ? 'active' : ''}" title="Paramètres" style="text-decoration:none">⚙️</a>
             ${userBlock}
           </div>
         </header>`;

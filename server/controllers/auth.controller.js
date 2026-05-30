@@ -115,4 +115,64 @@ async function resetPassword(req, res, next) {
     } catch (e) { next(e); }
 }
 
-module.exports = { register, login, me, logout, requestReset, resetPassword };
+// ── Changer le mot de passe (connecté) ──
+async function changePassword(req, res, next) {
+    try {
+        const { currentPassword, newPassword } = req.body || {};
+        if (!currentPassword || !newPassword)
+            return res.status(400).json({ error: 'Champs requis' });
+        if (newPassword.length < 6)
+            return res.status(400).json({ error: 'Nouveau mot de passe trop court (6 caractères min)' });
+
+        const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+        if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
+        const ok = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!ok) return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+
+        const hash = await bcrypt.hash(newPassword, 10);
+        await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.user.id]);
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+// ── Mettre à jour le profil (username / avatar) ──
+async function updateProfile(req, res, next) {
+    try {
+        const { username, avatar } = req.body || {};
+        if (username !== undefined) {
+            if (!username || username.trim().length < 2)
+                return res.status(400).json({ error: "Nom d'utilisateur trop court" });
+            await pool.query('UPDATE users SET username = ?, avatar = ? WHERE id = ?',
+                [username.trim(), (avatar || username.trim()[0]).toUpperCase().slice(0, 2), req.user.id]);
+        }
+        const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+        res.json({ user: publicUser(user) });
+    } catch (e) { next(e); }
+}
+
+// ── Supprimer le compte ──
+async function deleteAccount(req, res, next) {
+    try {
+        const { password } = req.body || {};
+        const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+        if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
+        // Le compte démo ne peut pas être supprimé
+        if (user.email === 'demo@mangahub.app')
+            return res.status(403).json({ error: 'Le compte démo ne peut pas être supprimé' });
+
+        if (!password) return res.status(400).json({ error: 'Mot de passe requis pour confirmer' });
+        const ok = await bcrypt.compare(password, user.password_hash);
+        if (!ok) return res.status(401).json({ error: 'Mot de passe incorrect' });
+
+        await pool.query('DELETE FROM users WHERE id = ?', [req.user.id]); // CASCADE nettoie le reste
+        res.clearCookie('token', { path: '/' });
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+module.exports = {
+    register, login, me, logout, requestReset, resetPassword,
+    changePassword, updateProfile, deleteAccount,
+};

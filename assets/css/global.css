@@ -30,6 +30,22 @@
   --transition:  0.18s ease;
 }
 
+/* ── Thème clair ───────────────────────────────────────────── */
+html[data-theme="light"] {
+  --bg:          #f6f6f8;
+  --bg2:         #ffffff;
+  --bg3:         #f0f0f3;
+  --bg4:         #e6e6ec;
+  --border:      rgba(0,0,0,0.08);
+  --border2:     rgba(0,0,0,0.14);
+  --text:        #1a1a1f;
+  --text2:       #55555f;
+  --text3:       #9090a0;
+}
+html[data-theme="light"] body { background: var(--bg); color: var(--text); }
+html[data-theme="light"] ::-webkit-scrollbar-track { background: var(--bg3); }
+html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #cfcfda; }
+
 /* ── Reset ─────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }

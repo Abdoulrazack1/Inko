@@ -89,25 +89,48 @@ module.exports = {
     description: 'Source officielle MangaDex API (scanlations communautaires, 80 000+ titres)',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],
 
-    async popular({ limit = 20, offset = 0 } = {}) {
-        const data = await call('/manga', {
+    // UUIDs MangaDex des tags adultes à masquer hors espace +18
+    _ADULT_TAGS: [
+        '9ab53f92-3eed-4e9b-903a-917c86035ee3', // Ecchi
+        '5920b825-4181-4a17-beeb-9918b0ff7a30', // Boys' Love (optionnel — sensible)
+    ],
+    _ECCHI: '9ab53f92-3eed-4e9b-903a-917c86035ee3',
+
+    // Niveau de contenu selon le flag adult :
+    //   adult absent / '0'   → SFW (safe, suggestive) + Ecchi exclu
+    //   adult === 'only'     → +18 uniquement  (erotica, pornographic)
+    //   adult === '1'/'all'  → tout
+    _ratings(adult) {
+        if (adult === 'only')             return ['erotica', 'pornographic'];
+        if (adult === '1' || adult === 'all' || adult === true) return ['safe', 'suggestive', 'erotica', 'pornographic'];
+        return ['safe', 'suggestive'];
+    },
+    _isAdult(adult) { return adult === 'only' || adult === '1' || adult === 'all' || adult === true; },
+
+    async popular({ limit = 20, offset = 0, adult } = {}) {
+        const params = {
             limit: Math.min(+limit || 20, 100),
             offset: +offset || 0,
             'includes[]': ['cover_art', 'author', 'artist'],
             'order[followedCount]': 'desc',
-            'contentRating[]': ['safe', 'suggestive'],
-        }, 600_000);
+            'contentRating[]': this._ratings(adult),
+        };
+        if (!this._isAdult(adult)) params['excludedTags[]'] = [this._ECCHI];
+        if (adult === 'only')      params['includedTags[]'] = [this._ECCHI], delete params['excludedTags[]'];
+        const data = await call('/manga', params, 600_000);
         return { total: data.total, results: (data.data || []).map(mapManga) };
     },
 
-    async latest({ limit = 20, offset = 0 } = {}) {
-        const data = await call('/manga', {
+    async latest({ limit = 20, offset = 0, adult } = {}) {
+        const params = {
             limit: Math.min(+limit || 20, 100),
             offset: +offset || 0,
             'includes[]': ['cover_art', 'author', 'artist'],
             'order[latestUploadedChapter]': 'desc',
-            'contentRating[]': ['safe', 'suggestive'],
-        }, 300_000);
+            'contentRating[]': this._ratings(adult),
+        };
+        if (!this._isAdult(adult)) params['excludedTags[]'] = [this._ECCHI];
+        const data = await call('/manga', params, 300_000);
         return { total: data.total, results: (data.data || []).map(mapManga) };
     },
 
@@ -117,12 +140,16 @@ module.exports = {
             offset: +offset || 0,
             'includes[]': ['cover_art', 'author', 'artist'],
             'order[followedCount]': 'desc',
-            'contentRating[]': filters.contentRating || ['safe', 'suggestive'],
+            'contentRating[]': filters.contentRating || this._ratings(filters.adult),
         };
         if (q) params.title = q;
         if (filters.demographic) params['publicationDemographic[]'] = [filters.demographic];
         if (filters.status)      params['status[]']                = [filters.status];
-        if (filters.includedTags?.length) params['includedTags[]'] = filters.includedTags;
+        if (filters.year)        params.year                       = filters.year;
+        const inc = filters.includedTags || filters['includedTags[]'];
+        if (inc) params['includedTags[]'] = Array.isArray(inc) ? inc : [inc];
+        // Hors +18 : on masque l'Ecchi
+        if (!this._isAdult(filters.adult)) params['excludedTags[]'] = [this._ECCHI];
 
         const data = await call('/manga', params, 120_000);
         return { total: data.total, results: (data.data || []).map(mapManga) };

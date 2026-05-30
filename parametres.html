@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Paramètres</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0d0d0f">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <style>
+    .set-wrap { max-width: 820px; margin: 0 auto; padding: 28px 20px 80px; }
+    .set-head h1 { font-family: var(--font-head); font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+    .set-head p  { color: var(--text2); font-size: 13.5px; margin-bottom: 26px; }
+    .set-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 22px 24px; margin-bottom: 18px;
+    }
+    .set-card h2 {
+      font-size: 15px; font-weight: 600; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .set-card .sub { color: var(--text3); font-size: 12px; margin-bottom: 18px; }
+    .set-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; padding: 12px 0; border-top: 1px solid var(--border);
+    }
+    .set-row:first-of-type { border-top: none; }
+    .set-row-label { font-size: 13.5px; font-weight: 500; }
+    .set-row-desc  { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+    .set-input {
+      background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+      padding: 9px 12px; border-radius: 8px; font-size: 13px; width: 100%;
+      transition: border-color .15s;
+    }
+    .set-input:focus { outline: none; border-color: var(--orange); }
+    .set-field { margin-bottom: 14px; }
+    .set-field label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+    .seg { display: inline-flex; background: var(--bg3); border-radius: 8px; padding: 3px; gap: 2px; }
+    .seg button {
+      padding: 7px 14px; border-radius: 6px; font-size: 12.5px; color: var(--text2);
+      background: transparent; transition: all .15s;
+    }
+    .seg button.active { background: var(--orange); color: #fff; font-weight: 600; }
+    .danger-zone { border-color: rgba(239,68,68,.3); }
+    .danger-zone h2 { color: var(--red); }
+    .btn-danger {
+      background: rgba(239,68,68,.12); color: var(--red); border: 1px solid rgba(239,68,68,.3);
+      padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    }
+    .btn-danger:hover { background: rgba(239,68,68,.2); }
+    .nsfw-card { border-color: rgba(236,72,153,.25); }
+    .nsfw-card h2 { color: #ec4899; }
+    .pill { font-size: 10px; padding: 2px 8px; border-radius: 5px; font-weight: 600; }
+    .pill-on  { background: rgba(34,197,94,.15); color: var(--green); }
+    .pill-off { background: var(--bg4); color: var(--text3); }
+  </style>
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+
+  <div class="set-wrap">
+    <div class="set-head">
+      <h1>⚙️ Paramètres</h1>
+      <p>Personnalise ton expérience de lecture. Les réglages du compte sont synchronisés.</p>
+    </div>
+
+    <!-- COMPTE -->
+    <div class="set-card" id="accountCard">
+      <h2>👤 Compte</h2>
+      <div class="sub">Gère tes informations personnelles.</div>
+      <div id="accountBody">
+        <div style="color:var(--text3);font-size:13px;padding:8px 0">Chargement…</div>
+      </div>
+    </div>
+
+    <!-- LECTEUR -->
+    <div class="set-card">
+      <h2>📖 Lecture</h2>
+      <div class="sub">Réglages par défaut du lecteur de chapitres.</div>
+
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Sens de lecture</div>
+          <div class="set-row-desc">Droite→gauche pour les mangas japonais</div>
+        </div>
+        <div class="seg" id="segDir">
+          <button data-val="rtl">← RTL</button>
+          <button data-val="ltr">LTR →</button>
+          <button data-val="webtoon">↕ Webtoon</button>
+        </div>
+      </div>
+
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Mode d'affichage</div>
+          <div class="set-row-desc">Page unique, double page ou défilement</div>
+        </div>
+        <div class="seg" id="segMode">
+          <button data-val="page">Page</button>
+          <button data-val="double">Double</button>
+          <button data-val="scroll">Défilement</button>
+        </div>
+      </div>
+
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Qualité des images</div>
+          <div class="set-row-desc">« Éco » consomme moins de données</div>
+        </div>
+        <div class="seg" id="segQuality">
+          <button data-val="high">Haute</button>
+          <button data-val="saver">Éco</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- APPARENCE -->
+    <div class="set-card">
+      <h2>🎨 Apparence</h2>
+      <div class="sub">Thème de l'interface.</div>
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Thème</div>
+          <div class="set-row-desc">« Auto » suit ton système d'exploitation</div>
+        </div>
+        <div class="seg" id="segTheme">
+          <button data-val="dark">🌙 Sombre</button>
+          <button data-val="light">☀️ Clair</button>
+          <button data-val="auto">🖥 Auto</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESPACE +18 -->
+    <div class="set-card nsfw-card">
+      <h2>🔞 Espace +18 <span id="nsfwPill" class="pill pill-off">Désactivé</span></h2>
+      <div class="sub">Section adulte cachée, protégée par un code. Le contenu sensible
+        reste invisible partout ailleurs dans l'application.</div>
+      <div id="nsfwBody"></div>
+    </div>
+
+    <!-- DONNÉES -->
+    <div class="set-card">
+      <h2>💾 Données</h2>
+      <div class="sub">Exporte ou réinitialise tes données.</div>
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Exporter mes données</div>
+          <div class="set-row-desc">Favoris, progression, notes au format JSON</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnExport">📥 Exporter</button>
+      </div>
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Effacer l'historique de lecture</div>
+          <div class="set-row-desc">Progression et activité (favoris conservés)</div>
+        </div>
+        <button class="btn-danger" id="btnClearHistory">Effacer</button>
+      </div>
+    </div>
+
+    <!-- ZONE DANGER -->
+    <div class="set-card danger-zone" id="dangerCard" style="display:none">
+      <h2>⚠️ Zone de danger</h2>
+      <div class="sub">Actions irréversibles.</div>
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Supprimer mon compte</div>
+          <div class="set-row-desc">Efface définitivement le compte et toutes les données</div>
+        </div>
+        <button class="btn-danger" id="btnDeleteAccount">Supprimer le compte</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/nsfw.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/parametres.js"></script>
+  <script src="assets/js/eula.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>

@@ -15,6 +15,9 @@ router.post('/auth/logout',         Auth.logout);
 router.get ('/auth/me', auth.authRequired, Auth.me);
 router.post('/auth/forgot',         Auth.requestReset);
 router.post('/auth/reset',          Auth.resetPassword);
+router.put ('/auth/password', auth.authRequired, Auth.changePassword);
+router.put ('/auth/profile',  auth.authRequired, Auth.updateProfile);
+router.post('/auth/delete',   auth.authRequired, Auth.deleteAccount);
 
 // ── Sources (extensions installées) ───────────────
 router.get('/sources',              Manga.listSources);
@@ -60,6 +63,20 @@ router.delete('/me/lists/:id/items/:mangaId',       auth.authRequired, User.remo
 
 router.get   ('/comments/:mangaId',                 User.getComments);
 router.post  ('/comments/:mangaId',       auth.authRequired, User.addComment);
+
+// ── Ratings ─────────────────────────────────────
+router.get   ('/ratings/:mangaId',        auth.authOptional, User.getMangaRating);
+router.put   ('/ratings/:mangaId',        auth.authRequired, User.setMangaRating);
+router.delete('/ratings/:mangaId',        auth.authRequired, User.deleteMangaRating);
+router.get   ('/me/ratings',              auth.authRequired, User.getMyRatings);
+
+// ── Settings synchronisés ───────────────────────
+router.get   ('/me/settings',             auth.authRequired, User.getSettings);
+router.put   ('/me/settings',             auth.authRequired, User.setSettings);
+
+// ── Données ─────────────────────────────────────
+router.get   ('/me/export',               auth.authRequired, User.exportData);
+router.post  ('/me/clear-history',        auth.authRequired, User.clearHistory);
 
 router.get   ('/me/events',               auth.authRequired, User.getEvents);
 router.get   ('/me/stats',                auth.authRequired, User.getStats);

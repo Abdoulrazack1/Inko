@@ -99,6 +99,17 @@
             },
             async requestReset(email)   { return post('/auth/forgot', { email }); },
             async resetPassword(payload){ return post('/auth/reset',  payload); },
+            async changePassword(payload){ return put('/auth/password', payload); },
+            async updateProfile(payload) {
+                const r = await put('/auth/profile', payload);
+                if (r.user) { _user = r.user; persist(); }
+                return r;
+            },
+            async deleteAccount(password) {
+                const r = await post('/auth/delete', { password });
+                _user = null; _token = null; persist();
+                return r;
+            },
             validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email || ''); },
         },
 
@@ -157,11 +168,28 @@
 
             events:           (limit=200)  => get('/me/events?limit=' + limit),
             stats:            ()           => get('/me/stats'),
+
+            // Ratings
+            myRatings:        ()           => get('/me/ratings'),
+
+            // Settings synchronisés
+            settings:         ()           => get('/me/settings'),
+            saveSettings:     (data)       => put('/me/settings', data),
+
+            // Données
+            exportData:       ()           => get('/me/export'),
+            clearHistory:     ()           => post('/me/clear-history'),
         },
 
         comments: {
             list:  (mangaId)         => get('/comments/' + encodeURIComponent(mangaId)),
             add:   (mangaId, payload)=> post('/comments/' + encodeURIComponent(mangaId), payload),
+        },
+
+        ratings: {
+            get:    (mangaId)          => get('/ratings/' + encodeURIComponent(mangaId)),
+            set:    (mangaId, payload) => put('/ratings/' + encodeURIComponent(mangaId), payload),
+            remove: (mangaId)          => del('/ratings/' + encodeURIComponent(mangaId)),
         },
     };
 

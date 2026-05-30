@@ -135,3 +135,30 @@ CREATE TABLE IF NOT EXISTS password_resets (
   used       BOOLEAN NOT NULL DEFAULT FALSE,
   PRIMARY KEY (email, token)
 ) ENGINE=InnoDB;
+
+-- ──────────────────────────────────────────────────────────────
+-- Ratings (note d'un user sur un manga, 1..5)
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS ratings (
+  user_id    INT NOT NULL,
+  manga_id   VARCHAR(64) NOT NULL,
+  rating     TINYINT NOT NULL,
+  review     TEXT DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, manga_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_manga (manga_id)
+) ENGINE=InnoDB;
+
+-- ──────────────────────────────────────────────────────────────
+-- User settings (préférences synchronisées : thème, lecteur, NSFW…)
+-- Stockage clé/valeur JSON par utilisateur.
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_settings (
+  user_id    INT NOT NULL,
+  data       JSON NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

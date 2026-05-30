@@ -334,6 +334,13 @@
                 ${chapRead > 0 ? '↻ Reprendre' : '▶ Commencer'}
             </button>` : ''}
         </div>
+
+        <!-- Notes -->
+        <div class="sidebar-rating card" id="ratingCard" style="padding:14px">
+            <div class="sidebar-block-header"><span class="sidebar-block-title">Note</span></div>
+            <div id="ratingBody" style="margin-top:8px;color:var(--text3);font-size:12.5px">Chargement…</div>
+        </div>
+
         <div class="sidebar-tags card" style="padding:14px">
             <div class="sidebar-block-header"><span class="sidebar-block-title">Tags</span></div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
@@ -345,6 +352,45 @@
 
         document.getElementById('sidebarResumeBtn')?.addEventListener('click', () => {
             if (resumeChap) window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(resumeChap)}`;
+        });
+
+        renderRating();
+    }
+
+    // ── NOTES / RATINGS ──
+    async function renderRating() {
+        const body = document.getElementById('ratingBody');
+        if (!body) return;
+        let data = { average: null, count: 0, mine: null };
+        try { data = await API.ratings.get(manga.id); } catch (e) {}
+
+        const myStars = data.mine?.rating || 0;
+        const avgTxt = data.average != null
+            ? `<strong style="color:var(--text);font-size:15px">${data.average.toFixed(1)}</strong>/5 · ${MH.fmt(data.count)} note${data.count > 1 ? 's' : ''}`
+            : 'Aucune note pour l\'instant';
+
+        body.innerHTML = `
+            <div style="margin-bottom:10px">${avgTxt}</div>
+            <div class="rate-stars" style="display:flex;gap:4px;font-size:24px;line-height:1">
+                ${[1,2,3,4,5].map(n => `<span class="rate-star" data-n="${n}" style="cursor:pointer;color:${n <= myStars ? '#f59e0b' : 'var(--bg4)'}">★</span>`).join('')}
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px">${API.isLoggedIn() ? (myStars ? 'Ta note · clique pour changer' : 'Clique une étoile pour noter') : 'Connecte-toi pour noter'}</div>`;
+
+        if (!API.isLoggedIn()) return;
+
+        const stars = [...body.querySelectorAll('.rate-star')];
+        const paint = (n) => stars.forEach(s => s.style.color = (+s.dataset.n <= n) ? '#f59e0b' : 'var(--bg4)');
+        stars.forEach(s => {
+            s.addEventListener('mouseenter', () => paint(+s.dataset.n));
+            s.addEventListener('mouseleave', () => paint(myStars));
+            s.addEventListener('click', async () => {
+                const n = +s.dataset.n;
+                try {
+                    await API.ratings.set(manga.id, { rating: n });
+                    MH.toast(`Noté ${n}/5 ⭐`);
+                    renderRating();
+                } catch (e) { MH.toast('Erreur : ' + e.message); }
+            });
         });
     }
 })();
