@@ -29,23 +29,38 @@ npm run dist:linux    # Linux .AppImage + .deb
 
 Les artefacts sortent dans `desktop/dist/`.
 
-### ⚠ Windows : activer Developer Mode
+### ⚠ Windows : erreur « Cannot create symbolic link »
 
-Sur Windows, `npm run dist` échoue avec « Cannot create symbolic link »
-si Developer Mode n'est pas activé. Le cache `winCodeSign` d'electron-builder
-contient des symlinks Mac que 7za ne peut pas extraire sans privilège.
+Sur Windows, `npm run dist` peut échouer pendant l'extraction du cache
+`winCodeSign` parce que l'archive contient 2 symlinks Mac
+(`darwin/10.12/lib/libcrypto.dylib` et `libssl.dylib`) que 7za refuse
+d'extraire sans le privilège `SeCreateSymbolicLinkPrivilege`.
 
-**Activer Developer Mode** (Win 10/11) :
+**Solutions (du plus simple au plus pro) :**
 
-1. `Settings → System → For developers` (ou `Paramètres → Système → Pour les développeurs`)
-2. Activer **Developer Mode**
-3. Relancer `npm run dist`
+1. **Workaround sans admin** (testé OK) — remplacer les symlinks par
+   des copies des fichiers cibles déjà présents :
 
-Alternatives :
-- Lancer un terminal **en tant qu'administrateur** puis `npm run dist`
-- Builder depuis un Mac ou Linux (sans souci de symlinks)
-- Pour un package minimal sans installeur : `npm run pack` (produit
-  juste le dossier `dist/win-unpacked/` avec `Inko.exe`)
+   ```bash
+   CACHE="$LOCALAPPDATA/electron-builder/Cache/winCodeSign"
+   for d in $CACHE/*/; do
+     LIB="$d/darwin/10.12/lib"
+     [ -d "$LIB" ] && cp -f "$LIB/libcrypto.1.0.0.dylib" "$LIB/libcrypto.dylib"
+     [ -d "$LIB" ] && cp -f "$LIB/libssl.1.0.0.dylib" "$LIB/libssl.dylib"
+   done
+   npm run dist
+   ```
+
+2. **Developer Mode + reboot** (Win 10/11) : `Settings → System →
+   For developers → Developer Mode ON`, **redémarrer**, relancer.
+
+3. **Terminal admin** : clic droit cmd/PowerShell → Exécuter en tant
+   qu'administrateur → `cd …/desktop && npm run dist`.
+
+4. **Builder depuis Mac/Linux** (CI/CD recommandé pour les releases).
+
+5. **Pack minimal** : `npm run pack` produit `dist/win-unpacked/Inko.exe`
+   directement exécutable (pas d'installeur).
 
 ## Icônes
 
