@@ -9,7 +9,8 @@ const axios = require('axios');
 
 const BASE        = 'https://api.mangadex.org';
 const COVERS_BASE = 'https://uploads.mangadex.org/covers';
-const UA          = 'Inko/1.0 (personal-reader; +https://github.com/Abdoulrazack1/Inko)';
+// User-Agent neutre : on n'identifie pas Inko côté serveur tiers
+const UA          = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 // ── Cache mémoire avec TTL ──
 const cache = new Map();

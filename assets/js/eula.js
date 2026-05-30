@@ -7,7 +7,7 @@
 (function () {
     'use strict';
 
-    const KEY = 'mh_eula_v1';
+    const KEY = 'mh_eula_v2';
     try { if (localStorage.getItem(KEY)) return; }
     catch (e) { return; }
 
@@ -30,27 +30,37 @@
             </div>
 
             <p style="font-size:13.5px;line-height:1.55;color:#a8a8b3;margin-bottom:14px">
-                <strong style="color:#ff6b1a">Inko est un framework de lecture.</strong>
-                Le core ne contient aucune source de contenu par défaut. Les
-                extensions que tu installes accèdent à des sites tiers et sont
-                <em>sous ta responsabilité</em>.
+                <strong style="color:#ff6b1a">Inko est un framework de lecture neutre.</strong>
+                Le projet ne distribue <strong>aucune source de contenu</strong>. Les extensions
+                que tu choisis d'installer accèdent à des sites tiers et sont
+                <em>entièrement sous ta responsabilité</em>.
             </p>
 
-            <ul style="font-size:12.5px;line-height:1.7;color:#a8a8b3;margin:0 0 16px 18px;padding:0">
-                <li>Usage <strong>strictement personnel</strong>.</li>
-                <li>Vérifie la <strong>légalité dans ton pays</strong> avant d'activer une source.</li>
+            <ul style="font-size:12.5px;line-height:1.7;color:#a8a8b3;margin:0 0 12px 18px;padding:0">
+                <li>Usage <strong>strictement personnel</strong>, jamais commercial.</li>
+                <li>Tu dois <strong>vérifier la légalité dans ton pays</strong> avant d'installer une source.</li>
+                <li>Tu dois respecter les <strong>CGU des sites tiers</strong> accédés par les extensions.</li>
                 <li>Inko ne stocke <strong>aucune image</strong> de contenu côté serveur.</li>
-                <li>Aucune <strong>télémétrie</strong> : tes lectures restent privées.</li>
-                <li>Voir <a href="NOTICE.md" target="_blank" style="color:#ff6b1a;text-decoration:underline">NOTICE.md</a> pour le détail complet.</li>
+                <li>Aucune <strong>télémétrie</strong>, aucun envoi d'analytics, aucun tracker.</li>
+                <li>Les auteurs déclinent <strong>toute responsabilité</strong> liée à ton usage.</li>
+                <li>Voir <a href="LICENSE" target="_blank" style="color:#ff6b1a;text-decoration:underline">LICENSE</a> (Apache 2.0) et <a href="NOTICE.md" target="_blank" style="color:#ff6b1a;text-decoration:underline">NOTICE.md</a>.</li>
             </ul>
+
+            <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);
+                        border-radius:8px;padding:10px 12px;font-size:11.5px;color:#a8a8b3;line-height:1.5;margin-bottom:14px">
+                ⚠ <strong style="color:#ef4444">Avertissement</strong> — Certaines extensions communautaires accèdent
+                à des sites qui peuvent héberger du contenu protégé par le droit d'auteur sans
+                autorisation. L'utilisation de telles extensions peut violer la loi de ton pays.
+                <strong>Tu seras tenu·e seul·e responsable.</strong>
+            </div>
 
             <label style="display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:#a8a8b3;
                           padding:10px 12px;background:rgba(255,255,255,.03);border-radius:8px;
                           border:1px solid rgba(255,255,255,.08);cursor:pointer;user-select:none">
                 <input type="checkbox" id="mh-eula-check" style="margin-top:2px;flex-shrink:0">
-                <span>J'ai lu, je comprends et j'accepte ces conditions. Je suis seul·e
-                      responsable de l'usage que je fais de Inko et des extensions tierces
-                      que j'installe.</span>
+                <span>J'ai lu, je comprends et j'accepte ces conditions. Je suis majeur·e selon la loi
+                      de mon pays et je suis <strong>seul·e responsable</strong> de l'usage que je fais de
+                      Inko et de toute extension tierce que je choisis d'installer.</span>
             </label>
 
             <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">

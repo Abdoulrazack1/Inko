@@ -4,6 +4,16 @@ server/.env
 server/.env.local
 server/uploads/
 
+# Extensions installées par l'utilisateur (modèle Mihon : aucune source en défaut)
+# Les sources de référence sont dans extensions-community/.
+server/extensions/*/
+!server/extensions/loader.js
+!server/extensions/README.md
+
+# Desktop
+desktop/node_modules/
+desktop/dist/
+
 # Logs
 *.log
 npm-debug.log*
