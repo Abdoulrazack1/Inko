@@ -7,7 +7,6 @@
   "author": "Abdoulrazack Abdillahi",
   "license": "MIT",
   "scripts": {
-    "postinstall": "node ../server/node_modules/.bin/electron-builder install-app-deps || true",
     "start": "electron .",
     "dev": "electron . --dev",
     "pack": "electron-builder --dir",

@@ -29,6 +29,24 @@ npm run dist:linux    # Linux .AppImage + .deb
 
 Les artefacts sortent dans `desktop/dist/`.
 
+### ⚠ Windows : activer Developer Mode
+
+Sur Windows, `npm run dist` échoue avec « Cannot create symbolic link »
+si Developer Mode n'est pas activé. Le cache `winCodeSign` d'electron-builder
+contient des symlinks Mac que 7za ne peut pas extraire sans privilège.
+
+**Activer Developer Mode** (Win 10/11) :
+
+1. `Settings → System → For developers` (ou `Paramètres → Système → Pour les développeurs`)
+2. Activer **Developer Mode**
+3. Relancer `npm run dist`
+
+Alternatives :
+- Lancer un terminal **en tant qu'administrateur** puis `npm run dist`
+- Builder depuis un Mac ou Linux (sans souci de symlinks)
+- Pour un package minimal sans installeur : `npm run pack` (produit
+  juste le dossier `dist/win-unpacked/` avec `Inko.exe`)
+
 ## Icônes
 
 Place dans `desktop/build/` :
