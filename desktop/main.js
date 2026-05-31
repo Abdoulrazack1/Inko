@@ -109,19 +109,27 @@ async function ensureMySQL() {
     return await tcpOpen(host, port);
 }
 
-// Scanne C:\laragon\bin\mysql\* pour trouver mysqld + le datadir associé
+// Scanne C:\laragon\bin\mysql\* pour trouver mysqld + sa config
 function scanLaragon() {
     const out = [];
     try {
         const binRoot = 'C:\\laragon\\bin\\mysql';
         if (!fs.existsSync(binRoot)) return out;
         for (const dir of fs.readdirSync(binRoot)) {
-            const bin = path.join(binRoot, dir, 'bin', 'mysqld.exe');
+            const baseDir = path.join(binRoot, dir);
+            const bin = path.join(baseDir, 'bin', 'mysqld.exe');
             if (!fs.existsSync(bin)) continue;
-            // datadir : C:\laragon\data\<version courte> ou data interne
+
+            // Préfère un démarrage via my.ini (exactement comme Laragon) :
+            // évite l'erreur de composant manquant liée au lancement bare-args.
+            const myIni = path.join(baseDir, 'my.ini');
+            if (fs.existsSync(myIni)) {
+                out.push({ bin, args: [`--defaults-file=${myIni}`] });
+                continue;
+            }
+
+            // Fallback : datadir explicite si pas de my.ini
             const args = [];
-            const dataGuess = path.join('C:\\laragon\\data', dir.replace(/^mysql-?/, 'mysql-').replace(/-winx64$/, '').replace(/\.\d+$/, ''));
-            // Cherche le 1er dossier data existant
             const dataRoot = 'C:\\laragon\\data';
             if (fs.existsSync(dataRoot)) {
                 const dd = fs.readdirSync(dataRoot).find(d => d.startsWith('mysql'));
