@@ -119,6 +119,66 @@ function parseMangaList($) {
     return [...byId.values()];
 }
 
+// ── Index des slugs adultes ──
+// Tous les genres clairement adultes de SushiScan. Construit en scrapant
+// TOUTES les pages de chaque genre (en parallèle), mis en cache 6h.
+// Sert à la fois à masquer l'adulte du catalogue normal et à alimenter
+// l'espace +18.
+const ADULT_GENRES = [
+    'smut', 'erotique', 'pornhwa', 'hentai', 'adulte', 'mature', 'ecchi',
+];
+const MAX_PAGES = 12;     // garde-fou
+let _adultCache = { set: null, list: null, expires: 0 };
+let _building   = null;   // promesse de build en cours (évite les builds concurrents)
+
+async function fetchGenrePage(g, p) {
+    const url = p === 1 ? `/genres/${g}/` : `/genres/${g}/page/${p}/`;
+    try {
+        const html = await fetchHtml(url, 6 * 3600_000);
+        return parseMangaList(cheerio.load(html));
+    } catch (e) { return null; } // 404 → fin du genre
+}
+
+async function buildAdultIndex() {
+    if (_adultCache.set && _adultCache.expires > Date.now()) return _adultCache;
+    if (_building) return _building;
+
+    _building = (async () => {
+        const set  = new Set();
+        const list = [];
+        const seen = new Set();
+        const add = (items) => items.forEach(m => {
+            set.add(m.id);
+            if (!seen.has(m.id)) { seen.add(m.id); m.contentRating = 'pornographic'; list.push(m); }
+        });
+
+        for (const g of ADULT_GENRES) {
+            // Page 1 d'abord (pour savoir si le genre existe)
+            const first = await fetchGenrePage(g, 1);
+            if (!first || !first.length) continue;
+            add(first);
+            // Pages 2..MAX en parallèle, on s'arrête à la 1re page vide
+            for (let base = 2; base <= MAX_PAGES; base += 4) {
+                const batch = await Promise.all(
+                    [0, 1, 2, 3].map(i => base + i <= MAX_PAGES ? fetchGenrePage(g, base + i) : Promise.resolve(null))
+                );
+                let stop = false;
+                batch.forEach(items => {
+                    if (!items || !items.length) { stop = true; return; }
+                    add(items);
+                });
+                if (stop) break;
+            }
+        }
+        _adultCache = { set, list, expires: Date.now() + 6 * 3600_000 };
+        _building = null;
+        return _adultCache;
+    })();
+    return _building;
+}
+
+const isAdultFlag = (a) => a === 'only' || a === '1' || a === 'all' || a === true;
+
 // ── Source export ──
 module.exports = {
     id:           'sushiscan',
@@ -126,38 +186,67 @@ module.exports = {
     lang:         'fr',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '0.1.0-experimental',
-    description:  '⚠ Expérimental — scrape sushiscan.fr (Madara). Peut casser à tout moment, Cloudflare actif.',
+    version:      '0.2.0-experimental',
+    description:  '⚠ Expérimental — scrape sushiscan.fr (Madara). Contenu adulte filtré (smut/erotique/pornhwa/hentai…) hors espace +18.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
 
-    async popular({ limit = 20, offset = 0 } = {}) {
-        requireCheerio();
-        const page = Math.floor((+offset || 0) / 20) + 1;
-        const url  = page > 1 ? `/catalogue/page/${page}/?order=popular` : '/catalogue/?order=popular';
-        const html = await fetchHtml(url, 600_000);
-        const $    = cheerio.load(html);
-        const list = parseMangaList($).slice(0, +limit || 20);
-        return { total: list.length, results: list };
+    // Récupère N items SFW depuis le catalogue trié, en filtrant l'adulte.
+    // Sur-échantillonne pour compenser les items retirés.
+    async _browseSFW(order, limit, offset) {
+        const adult = await buildAdultIndex();
+        const startPage = Math.floor((+offset || 0) / 20) + 1;
+        const out = [];
+        const want = +limit || 20;
+        for (let p = startPage; p < startPage + 5 && out.length < want; p++) {
+            const url = p > 1 ? `/catalogue/page/${p}/?order=${order}` : `/catalogue/?order=${order}`;
+            let html;
+            try { html = await fetchHtml(url, order === 'popular' ? 600_000 : 300_000); }
+            catch (e) { break; }
+            const items = parseMangaList(cheerio.load(html));
+            if (!items.length) break;
+            items.forEach(m => { if (!adult.set.has(m.id)) out.push(m); });
+        }
+        return { total: out.length, results: out.slice(0, want) };
     },
 
-    async latest({ limit = 20, offset = 0 } = {}) {
+    async popular({ limit = 20, offset = 0, adult } = {}) {
         requireCheerio();
-        const page = Math.floor((+offset || 0) / 20) + 1;
-        const url  = page > 1 ? `/catalogue/page/${page}/?order=latest` : '/catalogue/?order=latest';
-        const html = await fetchHtml(url, 300_000);
-        const $    = cheerio.load(html);
-        const list = parseMangaList($).slice(0, +limit || 20);
-        return { total: list.length, results: list };
+        if (isAdultFlag(adult)) {
+            const idx = await buildAdultIndex();
+            const off = +offset || 0;
+            return { total: idx.list.length, results: idx.list.slice(off, off + (+limit || 20)) };
+        }
+        return this._browseSFW('popular', limit, offset);
     },
 
-    async search({ q, limit = 20, offset = 0 } = {}) {
+    async latest({ limit = 20, offset = 0, adult } = {}) {
         requireCheerio();
-        if (!q) return this.popular({ limit, offset });
+        if (isAdultFlag(adult)) {
+            const idx = await buildAdultIndex();
+            const off = +offset || 0;
+            return { total: idx.list.length, results: idx.list.slice(off, off + (+limit || 20)) };
+        }
+        return this._browseSFW('latest', limit, offset);
+    },
+
+    async search({ q, limit = 20, offset = 0, filters = {} } = {}) {
+        requireCheerio();
+        const adult = filters.adult;
+        if (!q) return this.popular({ limit, offset, adult });
         const url  = `/?s=${encodeURIComponent(q)}`;
         const html = await fetchHtml(url, 120_000);
-        const $    = cheerio.load(html);
-        const list = parseMangaList($).slice(+offset || 0, (+offset || 0) + (+limit || 20));
-        return { total: list.length, results: list };
+        let list   = parseMangaList(cheerio.load(html));
+
+        const idx = await buildAdultIndex();
+        if (isAdultFlag(adult)) {
+            // +18 : ne garder QUE l'adulte
+            list = list.filter(m => idx.set.has(m.id)).map(m => ({ ...m, contentRating: 'pornographic' }));
+        } else {
+            // SFW : retirer l'adulte
+            list = list.filter(m => !idx.set.has(m.id));
+        }
+        const off = +offset || 0;
+        return { total: list.length, results: list.slice(off, off + (+limit || 20)) };
     },
 
     async getManga(id) {
@@ -257,3 +346,11 @@ module.exports = {
         return { baseUrl: '', hash: '', pages };
     },
 };
+
+// ── Warm-up : construit l'index adulte en arrière-plan au démarrage ──
+// Ainsi le filtrage est prêt avant la 1re navigation de l'utilisateur.
+if (cheerio) {
+    buildAdultIndex()
+        .then(idx => console.log(`[sushiscan] index adulte prêt : ${idx.set.size} titres masqués`))
+        .catch(() => {});
+}
