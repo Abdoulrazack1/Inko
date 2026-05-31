@@ -11,6 +11,8 @@ const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 const http = require('http');
+const net  = require('net');
+const { spawn } = require('child_process');
 
 // ── Single instance lock ─────────────────────────────────
 // Si une autre Inko tourne déjà, on focus sa fenêtre et on quitte.
@@ -62,6 +64,76 @@ function ensureEnv() {
     } catch (e) {}
 }
 
+// ── Vérifie qu'un port TCP répond ──
+function tcpOpen(host, port, timeout = 800) {
+    return new Promise(resolve => {
+        const sock = new net.Socket();
+        sock.setTimeout(timeout);
+        sock.once('connect', () => { sock.destroy(); resolve(true); });
+        sock.once('timeout', () => { sock.destroy(); resolve(false); });
+        sock.once('error',   () => { sock.destroy(); resolve(false); });
+        sock.connect(port, host);
+    });
+}
+
+// ── Démarre MySQL si nécessaire (best-effort, multi-installs) ──
+// L'app dépend d'un MySQL local. S'il est éteint, on tente de le
+// lancer depuis les emplacements courants (Laragon, MAMP, XAMPP, WAMP).
+async function ensureMySQL() {
+    const host = process.env.DB_HOST || '127.0.0.1';
+    const port = parseInt(process.env.DB_PORT || '3306', 10);
+    if (await tcpOpen(host, port)) return true; // déjà up
+
+    // Cherche un binaire mysqld + son datadir
+    const candidates = [
+        // Laragon (versions variables → on scanne le dossier bin/mysql)
+        ...scanLaragon(),
+        // MAMP / XAMPP / WAMP classiques
+        { bin: 'C:\\xampp\\mysql\\bin\\mysqld.exe',                 args: [] },
+        { bin: 'C:\\wamp64\\bin\\mysql\\mysql8.0.31\\bin\\mysqld.exe', args: [] },
+        { bin: 'C:\\MAMP\\bin\\mysql\\bin\\mysqld.exe',            args: [] },
+    ];
+
+    for (const c of candidates) {
+        if (!c.bin || !fs.existsSync(c.bin)) continue;
+        try {
+            spawn(c.bin, c.args, { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+            // Attend que le port s'ouvre (max 12s)
+            const deadline = Date.now() + 12_000;
+            while (Date.now() < deadline) {
+                if (await tcpOpen(host, port, 600)) return true;
+                await new Promise(r => setTimeout(r, 500));
+            }
+        } catch (e) { /* essaie le suivant */ }
+    }
+    return await tcpOpen(host, port);
+}
+
+// Scanne C:\laragon\bin\mysql\* pour trouver mysqld + le datadir associé
+function scanLaragon() {
+    const out = [];
+    try {
+        const binRoot = 'C:\\laragon\\bin\\mysql';
+        if (!fs.existsSync(binRoot)) return out;
+        for (const dir of fs.readdirSync(binRoot)) {
+            const bin = path.join(binRoot, dir, 'bin', 'mysqld.exe');
+            if (!fs.existsSync(bin)) continue;
+            // datadir : C:\laragon\data\<version courte> ou data interne
+            const args = [];
+            const dataGuess = path.join('C:\\laragon\\data', dir.replace(/^mysql-?/, 'mysql-').replace(/-winx64$/, '').replace(/\.\d+$/, ''));
+            // Cherche le 1er dossier data existant
+            const dataRoot = 'C:\\laragon\\data';
+            if (fs.existsSync(dataRoot)) {
+                const dd = fs.readdirSync(dataRoot).find(d => d.startsWith('mysql'));
+                if (dd) args.push(`--datadir=${path.join(dataRoot, dd)}`);
+            }
+            args.push('--port=3306');
+            out.push({ bin, args });
+        }
+    } catch (e) {}
+    return out;
+}
+
 // ── Check si un backend Inko répond déjà sur le port ──
 function probeExisting() {
     return new Promise(resolve => {
@@ -87,6 +159,9 @@ async function startBackend() {
     ensureEnv();
     process.env.PORT         = String(PORT);
     process.env.FRONTEND_DIR = FRONTEND_DIR;
+
+    // S'assure que MySQL est démarré (le lance si besoin)
+    await ensureMySQL();
 
     // Intercepte EADDRINUSE proprement (sinon Electron crash sur l'exception)
     let listenError = null;
