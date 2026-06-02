@@ -1,5 +1,5 @@
 // ============================================================
-// chaptersdb.js — MangaHub
+// chaptersdb.js — Inko
 // ============================================================
 // Gestion des chapitres et pages.
 // Les données de chapitres sont fournies directement (pas de fetch

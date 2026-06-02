@@ -93,8 +93,8 @@
         return `
         <header class="site-header">
           <a href="accueil.html" class="header-logo">
-            <div class="logo-icon">⚡</div>
-            MangaHub
+            <img src="/assets/img/icon.svg" alt="Inko" class="logo-icon" style="width:28px;height:28px;border-radius:7px">
+            Inko
           </a>
           <nav class="header-nav">
             <a href="accueil.html" class="${activePage === 'accueil' ? 'active' : ''}">Accueil</a>
@@ -121,8 +121,8 @@
     <footer class="site-footer">
       <div class="footer-inner">
         <div class="footer-brand">
-          <div class="footer-logo"><div class="logo-icon">⚡</div>MangaHub</div>
-          <p class="footer-desc">La plateforme ultime pour découvrir, lire et partager votre passion du manga. Propulsé par MangaDex.</p>
+          <div class="footer-logo"><img src="/assets/img/icon.svg" alt="Inko" style="width:24px;height:24px;border-radius:6px;vertical-align:middle;margin-right:6px">Inko</div>
+          <p class="footer-desc">Lecteur de mangas open-source. Découvre, lis et organise ta bibliothèque, sur toutes tes plateformes.</p>
           <div class="footer-stay">
             <h4>Restez informé</h4>
             <div class="footer-email-form">
@@ -156,7 +156,7 @@
         </div>
       </div>
       <div class="footer-bottom">
-        <p>© 2026 MangaHub. Tous droits réservés. Données issues de MangaDex.</p>
+        <p>© 2026 Inko. Tous droits réservés. Données issues de MangaDex.</p>
       </div>
     </footer>`;
 

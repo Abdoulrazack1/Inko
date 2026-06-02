@@ -20,7 +20,7 @@
 
         try {
             manga = await API.mangas.get(id);
-            document.getElementById('pageTitle').textContent = 'MangaHub — ' + manga.title;
+            document.getElementById('pageTitle').textContent = 'Inko — ' + manga.title;
 
             // Données user (si connecté)
             if (API.isLoggedIn()) {

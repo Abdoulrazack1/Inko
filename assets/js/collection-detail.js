@@ -7,7 +7,7 @@
         MH.initPage('collections');
         const id = parseInt(new URLSearchParams(location.search).get('id'));
         col = DB.getCollection(id) || DB.collections[0];
-        document.getElementById('pageTitle').textContent = `MangaHub — ${col.title}`;
+        document.getElementById('pageTitle').textContent = `Inko — ${col.title}`;
         renderHero(); renderTabs(); renderContent(); renderSidebar();
     });
 

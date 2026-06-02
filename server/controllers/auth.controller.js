@@ -5,10 +5,13 @@ const { pool } = require('../config/db');
 const { sign } = require('../middleware/auth');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// App locale / self-hostée : pas de HTTPS public → cookie non-Secure
+// (sinon le cookie n'est jamais posé sur http://localhost en prod).
+// L'auth repose de toute façon aussi sur le token Bearer (localStorage).
 const COOKIE_OPTS = {
     httpOnly: true,
     sameSite: 'lax',
-    secure:   process.env.NODE_ENV === 'production',
+    secure:   false,
     maxAge:   30 * 24 * 3600 * 1000,
     path:     '/',
 };

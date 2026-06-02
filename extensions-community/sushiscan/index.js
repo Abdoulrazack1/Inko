@@ -132,6 +132,7 @@ let _adultCache = { set: null, list: null, expires: 0 };
 let _building   = null;   // promesse de build en cours (évite les builds concurrents)
 
 async function fetchGenrePage(g, p) {
+    // Les pages de taxonomie (genres) paginent via /page/N/ (≠ catalogue ?page=N)
     const url = p === 1 ? `/genres/${g}/` : `/genres/${g}/page/${p}/`;
     try {
         const html = await fetchHtml(url, 6 * 3600_000);
@@ -186,48 +187,36 @@ module.exports = {
     lang:         'fr',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '0.2.0-experimental',
-    description:  '⚠ Expérimental — scrape sushiscan.fr (Madara). Contenu adulte filtré (smut/erotique/pornhwa/hentai…) hors espace +18.',
+    version:      '0.3.0-experimental',
+    description:  '⚠ Expérimental — scrape sushiscan.fr (Madara). Catalogue paginé complet, contenu adulte filtré hors espace +18.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
 
-    // Récupère N items SFW depuis le catalogue trié, en filtrant l'adulte.
-    // Sur-échantillonne pour compenser les items retirés.
-    async _browseSFW(order, limit, offset) {
-        const adult = await buildAdultIndex();
-        const startPage = Math.floor((+offset || 0) / 20) + 1;
-        const out = [];
-        const want = +limit || 20;
-        for (let p = startPage; p < startPage + 5 && out.length < want; p++) {
-            const url = p > 1 ? `/catalogue/page/${p}/?order=${order}` : `/catalogue/?order=${order}`;
-            let html;
-            try { html = await fetchHtml(url, order === 'popular' ? 600_000 : 300_000); }
-            catch (e) { break; }
-            const items = parseMangaList(cheerio.load(html));
-            if (!items.length) break;
-            items.forEach(m => { if (!adult.set.has(m.id)) out.push(m); });
-        }
-        return { total: out.length, results: out.slice(0, want) };
-    },
-
-    async popular({ limit = 20, offset = 0, adult } = {}) {
-        requireCheerio();
+    // Catalogue paginé : on mappe (offset/limit) sur la page native SushiScan
+    // (~30 items/page). On retourne un total généreux pour permettre une
+    // navigation profonde dans tout le catalogue.
+    async _browse(order, { limit = 24, offset = 0, adult } = {}) {
+        // +18 : on sert l'index adulte
         if (isAdultFlag(adult)) {
             const idx = await buildAdultIndex();
             const off = +offset || 0;
-            return { total: idx.list.length, results: idx.list.slice(off, off + (+limit || 20)) };
+            return { total: idx.list.length, results: idx.list.slice(off, off + (+limit || 24)) };
         }
-        return this._browseSFW('popular', limit, offset);
+        const idx  = await buildAdultIndex();
+        const page = Math.floor((+offset || 0) / (+limit || 24)) + 1;
+        // SushiScan pagine via ?page=N (PAS /page/N/ qui renvoie toujours la 1re).
+        const url  = page > 1 ? `/catalogue/?page=${page}` : `/catalogue/`;
+        let items  = [];
+        try { items = parseMangaList(cheerio.load(await fetchHtml(url, 300_000))); }
+        catch (e) {}
+        const sfw = items.filter(m => !idx.set.has(m.id));
+        // Pas d'items → on est au-delà de la dernière page : total = position réelle.
+        // Sinon : total généreux pour garder le bouton "page suivante" actif.
+        const total = items.length ? Math.max((+offset || 0) + 480, 1000) : (+offset || 0);
+        return { total, results: sfw };
     },
 
-    async latest({ limit = 20, offset = 0, adult } = {}) {
-        requireCheerio();
-        if (isAdultFlag(adult)) {
-            const idx = await buildAdultIndex();
-            const off = +offset || 0;
-            return { total: idx.list.length, results: idx.list.slice(off, off + (+limit || 20)) };
-        }
-        return this._browseSFW('latest', limit, offset);
-    },
+    async popular(opts = {}) { requireCheerio(); return this._browse('popular', opts); },
+    async latest(opts = {})  { requireCheerio(); return this._browse('latest', opts); },
 
     async search({ q, limit = 20, offset = 0, filters = {} } = {}) {
         requireCheerio();
