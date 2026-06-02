@@ -145,8 +145,14 @@
         // ── User data (auth required) ──
         me: {
             favorites:        ()           => get('/me/favorites'),
-            addFavorite:      (mangaId)    => post('/me/favorites', { mangaId }),
+            addFavorite:      (mangaId, meta = {}) => post('/me/favorites', {
+                mangaId,
+                source: meta.source || API.sources.current || 'mangadex',
+                title:  meta.title || null,
+                cover:  meta.cover || null,
+            }),
             removeFavorite:   (mangaId)    => del('/me/favorites/' + encodeURIComponent(mangaId)),
+            updates:          (lang)       => get('/me/updates' + (lang ? '?lang=' + encodeURIComponent(lang) : '')),
 
             library:          ()           => get('/me/library'),
             setLibrary:       (mangaId, status, rating) =>

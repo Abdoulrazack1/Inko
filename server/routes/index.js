@@ -80,5 +80,6 @@ router.post  ('/me/clear-history',        auth.authRequired, User.clearHistory);
 
 router.get   ('/me/events',               auth.authRequired, User.getEvents);
 router.get   ('/me/stats',                auth.authRequired, User.getStats);
+router.get   ('/me/updates',              auth.authRequired, User.checkUpdates);
 
 module.exports = router;

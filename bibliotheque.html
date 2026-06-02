@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Bibliothèque</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0d0d0f">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <style>
+    .lib2-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
+    .lib2-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
+    .lib2-head h1 { font-family: var(--font-head); font-size: 26px; font-weight: 700; }
+    .lib2-tabs { display:flex; gap:4px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:4px; }
+    .lib2-tab { padding:8px 16px; border-radius:7px; font-size:13px; color:var(--text2); font-weight:500; }
+    .lib2-tab.active { background:var(--orange); color:#fff; }
+    .lib2-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
+    .lib2-search { flex:1; min-width:200px; background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:9px 14px; border-radius:9px; font-size:13px; }
+    .lib2-search:focus { outline:none; border-color:var(--orange); }
+    .lib2-sort { background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:9px 12px; border-radius:9px; font-size:12.5px; }
+    .lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:16px; }
+    .lib2-card { position:relative; cursor:pointer; }
+    .lib2-cover { aspect-ratio:3/4; border-radius:10px; overflow:hidden; background:var(--bg4); position:relative; }
+    .lib2-cover img { width:100%; height:100%; object-fit:cover; }
+    .lib2-badge { position:absolute; top:8px; right:8px; background:var(--orange); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.4); }
+    .lib2-title { font-size:12.5px; font-weight:500; margin-top:7px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .lib2-sub { font-size:11px; color:var(--text3); margin-top:2px; }
+    .lib2-empty { text-align:center; padding:70px 20px; color:var(--text3); }
+    .lib2-empty .ico { font-size:48px; margin-bottom:10px; }
+    /* Updates list */
+    .upd-row { display:flex; align-items:center; gap:14px; padding:12px; background:var(--bg2); border:1px solid var(--border); border-radius:11px; margin-bottom:10px; transition:border-color .15s; }
+    .upd-row:hover { border-color:var(--orange); }
+    .upd-cover { width:52px; height:70px; border-radius:7px; overflow:hidden; flex-shrink:0; background:var(--bg4); }
+    .upd-cover img { width:100%; height:100%; object-fit:cover; }
+    .upd-info { flex:1; min-width:0; }
+    .upd-name { font-size:14px; font-weight:600; }
+    .upd-meta { font-size:12px; color:var(--text2); margin-top:3px; }
+    .upd-new { background:rgba(34,197,94,.15); color:var(--green); font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:5px; }
+  </style>
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+
+  <div class="lib2-wrap">
+    <div class="lib2-head">
+      <h1>📚 Ma bibliothèque</h1>
+      <div class="lib2-tabs">
+        <button class="lib2-tab active" data-tab="library">Bibliothèque</button>
+        <button class="lib2-tab" data-tab="updates">🔄 Mises à jour</button>
+      </div>
+    </div>
+
+    <!-- TAB BIBLIOTHÈQUE -->
+    <div id="tabLibrary">
+      <div class="lib2-toolbar">
+        <input type="text" class="lib2-search" id="libSearch" placeholder="🔍 Filtrer ma bibliothèque…">
+        <select class="lib2-sort" id="libSort">
+          <option value="recent">Récemment ajoutés</option>
+          <option value="title">Titre A→Z</option>
+          <option value="unread">Non-lus d'abord</option>
+        </select>
+      </div>
+      <div class="lib2-grid" id="libGrid">
+        <div class="lib2-empty" style="grid-column:1/-1"><div class="spinner-inline"></div></div>
+      </div>
+    </div>
+
+    <!-- TAB MISES À JOUR -->
+    <div id="tabUpdates" style="display:none">
+      <div class="lib2-toolbar">
+        <button class="btn btn-primary btn-sm" id="btnCheckUpdates">🔄 Vérifier les nouveaux chapitres</button>
+        <span id="updStatus" style="font-size:12.5px;color:var(--text3)"></span>
+      </div>
+      <div id="updList"></div>
+    </div>
+  </div>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/nsfw.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/bibliotheque.js"></script>
+  <script src="assets/js/eula.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>

@@ -155,7 +155,7 @@
             const btn = document.getElementById('btnFavorite');
             try {
                 if (favorited) { await API.me.removeFavorite(manga.id); favorited = false; }
-                else           { await API.me.addFavorite(manga.id); favorited = true; }
+                else           { await API.me.addFavorite(manga.id, { title: manga.title, cover: manga.cover || manga.coverThumb }); favorited = true; }
                 btn.classList.toggle('is-fav', favorited);
                 btn.textContent = favorited ? '❤ Dans ma liste' : '♡ Ajouter à ma liste';
                 MH.toast(favorited ? 'Ajouté à votre liste !' : 'Retiré de votre liste');

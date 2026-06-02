@@ -1,5 +1,21 @@
 // controllers/user.controller.js — user data : favoris, library, progress, lists, comments, events
 const { pool } = require('../config/db');
+const extensions = require('../extensions/loader');
+
+// Limiteur de concurrence simple (pour les checks de MAJ multi-mangas)
+async function mapLimit(arr, limit, fn) {
+    const out = [];
+    let i = 0;
+    const workers = Array.from({ length: Math.min(limit, arr.length) }, async () => {
+        while (i < arr.length) {
+            const idx = i++;
+            try { out[idx] = await fn(arr[idx], idx); }
+            catch (e) { out[idx] = null; }
+        }
+    });
+    await Promise.all(workers);
+    return out;
+}
 
 // ── helper events ───────────────────────────────────────────────
 async function pushEvent(userId, type, payload = {}) {
@@ -16,20 +32,28 @@ async function pushEvent(userId, type, payload = {}) {
 async function getFavorites(req, res, next) {
     try {
         const [rows] = await pool.query(
-            'SELECT manga_id, added_at FROM favorites WHERE user_id = ? ORDER BY added_at DESC',
+            'SELECT manga_id, source, title, cover, last_chapter, added_at FROM favorites WHERE user_id = ? ORDER BY added_at DESC',
             [req.user.id]
         );
-        res.json(rows.map(r => ({ mangaId: r.manga_id, addedAt: r.added_at })));
+        res.json(rows.map(r => ({
+            mangaId: r.manga_id, source: r.source || 'mangadex',
+            title: r.title, cover: r.cover, lastChapter: r.last_chapter,
+            addedAt: r.added_at,
+        })));
     } catch (e) { next(e); }
 }
 
 async function addFavorite(req, res, next) {
     try {
-        const { mangaId } = req.body;
+        const { mangaId, source, title, cover } = req.body;
         if (!mangaId) return res.status(400).json({ error: 'mangaId requis' });
         await pool.query(
-            'INSERT IGNORE INTO favorites (user_id, manga_id) VALUES (?, ?)',
-            [req.user.id, mangaId]
+            `INSERT INTO favorites (user_id, manga_id, source, title, cover)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE source = VALUES(source),
+                title = COALESCE(VALUES(title), title),
+                cover = COALESCE(VALUES(cover), cover)`,
+            [req.user.id, mangaId, source || 'mangadex', title || null, cover || null]
         );
         await pushEvent(req.user.id, 'favorite', { mangaId });
         res.json({ ok: true });
@@ -466,6 +490,68 @@ async function clearHistory(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ──────────────────────────────────────────────────────────────
+// UPDATES — nouveaux chapitres des mangas suivis (façon Mihon)
+// ──────────────────────────────────────────────────────────────
+async function checkUpdates(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const [favs] = await pool.query(
+            'SELECT manga_id, source, title, cover, last_chapter FROM favorites WHERE user_id = ?',
+            [uid]
+        );
+        if (!favs.length) return res.json({ updates: [], checkedAt: Date.now() });
+
+        // Chapitres déjà lus (par manga)
+        const [readRows] = await pool.query(
+            'SELECT manga_id, chapter_number FROM read_chapters WHERE user_id = ?', [uid]
+        );
+        const readByManga = {};
+        readRows.forEach(r => {
+            (readByManga[r.manga_id] = readByManga[r.manga_id] || new Set()).add(r.chapter_number);
+        });
+
+        const lang = (req.query.lang || 'fr,en');
+
+        const results = await mapLimit(favs, 4, async (f) => {
+            const src = extensions.get(f.source || 'mangadex') || extensions.defaultSource();
+            if (!src || typeof src.getChapters !== 'function') return null;
+            let chaps = [];
+            try {
+                const data = await src.getChapters(f.manga_id, { lang, limit: 200 });
+                chaps = data.results || [];
+            } catch (e) { return null; }
+            if (!chaps.length) return null;
+
+            const readSet = readByManga[f.manga_id] || new Set();
+            const latest  = chaps[0]; // déjà trié desc par les extensions
+            const unread  = chaps.filter(c => !readSet.has(c.chapter));
+
+            // Mémorise le dernier chapitre connu
+            if (latest?.chapter != null && latest.chapter !== f.last_chapter) {
+                pool.query('UPDATE favorites SET last_chapter = ? WHERE user_id = ? AND manga_id = ?',
+                    [latest.chapter, uid, f.manga_id]).catch(() => {});
+            }
+
+            return {
+                mangaId:    f.manga_id,
+                source:     f.source || 'mangadex',
+                title:      f.title || f.manga_id,
+                cover:      f.cover || null,
+                latest:     latest ? { id: latest.id, chapter: latest.chapter, title: latest.title, publishedAt: latest.publishedAt } : null,
+                unreadCount: unread.length,
+                hasNew:     latest && f.last_chapter != null && latest.chapter > f.last_chapter,
+            };
+        });
+
+        // Trie : nouveautés d'abord, puis par nb de non-lus
+        const updates = results.filter(Boolean)
+            .sort((a, b) => (b.hasNew - a.hasNew) || (b.unreadCount - a.unreadCount));
+
+        res.json({ updates, checkedAt: Date.now() });
+    } catch (e) { next(e); }
+}
+
 module.exports = {
     getFavorites, addFavorite, removeFavorite,
     getLibrary, setLibraryStatus,
@@ -477,4 +563,5 @@ module.exports = {
     getMangaRating, setMangaRating, deleteMangaRating, getMyRatings,
     getSettings, setSettings,
     exportData, clearHistory,
+    checkUpdates,
 };

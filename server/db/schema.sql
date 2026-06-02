@@ -28,10 +28,36 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS favorites (
   user_id    INT NOT NULL,
   manga_id   VARCHAR(64) NOT NULL,
+  source     VARCHAR(64) DEFAULT 'mangadex',
+  title      VARCHAR(512) DEFAULT NULL,
+  cover      VARCHAR(512) DEFAULT NULL,
+  last_chapter FLOAT DEFAULT NULL,    -- dernier chapitre connu (pour détecter les MAJ)
   added_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, manga_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- Migration douce pour les bases existantes (colonnes ajoutées si absentes)
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE favorites ADD COLUMN source VARCHAR(64) DEFAULT ''mangadex''',
+  'SELECT 1') FROM information_schema.columns
+  WHERE table_schema=DATABASE() AND table_name='favorites' AND column_name='source');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE favorites ADD COLUMN title VARCHAR(512) DEFAULT NULL',
+  'SELECT 1') FROM information_schema.columns
+  WHERE table_schema=DATABASE() AND table_name='favorites' AND column_name='title');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE favorites ADD COLUMN cover VARCHAR(512) DEFAULT NULL',
+  'SELECT 1') FROM information_schema.columns
+  WHERE table_schema=DATABASE() AND table_name='favorites' AND column_name='cover');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE favorites ADD COLUMN last_chapter FLOAT DEFAULT NULL',
+  'SELECT 1') FROM information_schema.columns
+  WHERE table_schema=DATABASE() AND table_name='favorites' AND column_name='last_chapter');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
 
 CREATE TABLE IF NOT EXISTS library (
   user_id    INT NOT NULL,

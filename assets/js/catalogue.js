@@ -263,10 +263,15 @@
             e.stopPropagation();
             if (!API.isLoggedIn()) { MH.toast('Connectez-vous pour ajouter des favoris'); return; }
             const id = btn.dataset.fav;
+            const card = btn.closest('.manga-card');
+            const meta = {
+                title: card?.querySelector('.manga-card-title')?.textContent?.trim(),
+                cover: card?.querySelector('img')?.src,
+            };
             const isFav = btn.classList.toggle('is-fav');
             btn.innerHTML = isFav ? '❤' : '♡';
             try {
-                if (isFav) await API.me.addFavorite(id);
+                if (isFav) await API.me.addFavorite(id, meta);
                 else       await API.me.removeFavorite(id);
                 MH.toast(isFav ? 'Ajouté aux favoris' : 'Retiré');
             } catch(err) { MH.toast('Erreur : ' + err.message); }

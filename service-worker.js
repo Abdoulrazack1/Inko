@@ -3,7 +3,7 @@
 //             stale-while-revalidate pour assets statiques
 //             cache des couvertures mangadex (bande passante)
 
-const CACHE_VERSION = 'inko-v1';
+const CACHE_VERSION = 'inko-v2';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -15,6 +15,9 @@ const STATIC_ASSETS = [
     '/serie.html',
     '/chapitre.html',
     '/profil.html',
+    '/bibliotheque.html',
+    '/parametres.html',
+    '/sources.html',
     '/page_login.html',
     '/page_signup.html',
     '/page_mdpoublie.html',
@@ -73,22 +76,29 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 2) Covers MangaDex : cache-first (économise bande passante)
+    // 2) Covers / pages MangaDex : cache-first (économise bande passante)
     if (url.hostname === 'uploads.mangadex.org' || url.hostname.endsWith('mangadex.network')) {
         event.respondWith(cacheFirst(req, COVERS_CACHE));
         return;
     }
 
-    // 3) Same origin : stale-while-revalidate
+    // 3) Code de l'app (HTML/JS/CSS) : network-first → toujours à jour,
+    //    cache uniquement en secours hors-ligne. Évite le code périmé.
     if (url.origin === self.location.origin) {
-        event.respondWith(staleWhileRevalidate(req));
+        const isCode = /\.(html|js|css|webmanifest)$/.test(url.pathname) || url.pathname === '/';
+        event.respondWith(isCode ? networkFirst(req, RUNTIME_CACHE) : staleWhileRevalidate(req));
         return;
     }
 });
 
-async function networkFirst(req) {
+async function networkFirst(req, cacheName) {
     try {
         const res = await fetch(req);
+        // Met en cache la version fraîche pour le mode hors-ligne
+        if (cacheName && res.ok && req.url.startsWith('http')) {
+            const c = await caches.open(cacheName);
+            c.put(req, res.clone()).catch(() => {});
+        }
         return res;
     } catch (e) {
         const cached = await caches.match(req);
