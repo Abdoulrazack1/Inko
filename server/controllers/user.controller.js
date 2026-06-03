@@ -153,6 +153,15 @@ async function setProgress(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// Retire une œuvre de "reprendre la lecture" (efface sa progression)
+async function deleteProgress(req, res, next) {
+    try {
+        await pool.query('DELETE FROM progress WHERE user_id = ? AND manga_id = ?',
+            [req.user.id, req.params.mangaId]);
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
 // ──────────────────────────────────────────────────────────────
 // READ CHAPTERS
 // ──────────────────────────────────────────────────────────────
@@ -555,7 +564,7 @@ async function checkUpdates(req, res, next) {
 module.exports = {
     getFavorites, addFavorite, removeFavorite,
     getLibrary, setLibraryStatus,
-    getAllProgress, setProgress,
+    getAllProgress, setProgress, deleteProgress,
     getReadChapters, markChapter,
     getLists, createList, updateList, deleteList, addToList, removeFromList,
     getComments, addComment,

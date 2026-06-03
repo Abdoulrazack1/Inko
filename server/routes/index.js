@@ -50,6 +50,7 @@ router.put   ('/me/library/:mangaId',     auth.authRequired, User.setLibraryStat
 
 router.get   ('/me/progress',             auth.authRequired, User.getAllProgress);
 router.put   ('/me/progress/:mangaId',    auth.authRequired, User.setProgress);
+router.delete('/me/progress/:mangaId',    auth.authRequired, User.deleteProgress);
 
 router.get   ('/me/read-chapters',        auth.authRequired, User.getReadChapters);
 router.post  ('/me/read-chapters',        auth.authRequired, User.markChapter);

@@ -110,7 +110,7 @@
                 ? `chapitre.html?manga=${encodeURIComponent(f.mangaId)}&chapter=${encodeURIComponent(prog.chapterId)}`
                 : `serie.html?id=${encodeURIComponent(f.mangaId)}`;
             return `
-            <a class="lib2-card" href="${href}">
+            <a class="lib2-card" href="${href}" data-manga-id="${f.mangaId}">
                 <div class="lib2-cover">
                     <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy"
                          onerror="this.src='${MH.placeholderCover(f.mangaId)}'">

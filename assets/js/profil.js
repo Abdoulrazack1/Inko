@@ -30,6 +30,7 @@
         initViewToggles();
         initListNav();
         bindDangerActions();
+        wireExtraButtons();
     });
 
     function redirectGuest() {
@@ -451,12 +452,92 @@
         });
     }
     function initPrefBtns() {
-        document.querySelectorAll('.pref-options').forEach(group => {
-            group.querySelectorAll('.pref-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    group.querySelectorAll('.pref-btn').forEach(b => b.classList.remove('active'));
+        // Mappe chaque groupe de préférences vers une vraie clé de réglage
+        const prefMap = [
+            { label: 'Sens de lecture', key: 'readingDir', vals: { 'Droite → Gauche': 'rtl', 'Gauche → Droite': 'ltr' } },
+            { label: 'Thème du lecteur', key: 'theme',      vals: { 'Sombre': 'dark', 'Clair': 'light' } },
+            { label: 'Mode de défilement', key: 'readMode', vals: { 'Vertical': 'scroll', 'Horizontal': 'page' } },
+        ];
+        document.querySelectorAll('.pref-item').forEach(item => {
+            const label = item.querySelector('.pref-label')?.textContent?.trim();
+            const cfg = prefMap.find(p => label && label.includes(p.label.split(' ')[0]));
+            item.querySelectorAll('.pref-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    item.querySelectorAll('.pref-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
+                    if (cfg) {
+                        const val = cfg.vals[btn.textContent.trim()];
+                        if (val) {
+                            window.Storage?.setPref(cfg.key, val);
+                            if (cfg.key === 'theme') window.Theme?.apply(val);
+                            if (API.isLoggedIn()) { try { await API.me.saveSettings({ [cfg.key]: val }); } catch(e){} }
+                            MH.toast('Préférence enregistrée ✓', 1200);
+                        }
+                    }
                 });
+            });
+        });
+    }
+
+    // ── Wire tous les boutons restants (edit/share/social/connect) ──
+    function wireExtraButtons() {
+        // Hero : Éditer + Partager
+        const actions = document.querySelectorAll('.profil-actions .btn-ghost');
+        actions.forEach(btn => {
+            const txt = btn.textContent;
+            if (/Éditer|Editer/.test(txt)) {
+                btn.addEventListener('click', () => {
+                    const u = API.user; if (!u) { MH.toast('Connecte-toi'); return; }
+                    const name = prompt('Nouveau pseudo :', u.username);
+                    if (name && name.trim()) API.auth.updateProfile({ username: name.trim() })
+                        .then(() => { MH.toast('Profil mis à jour ✓'); renderHeroAndStats(); })
+                        .catch(e => MH.toast('Erreur : ' + e.message));
+                });
+            } else if (/Partager/.test(txt)) {
+                btn.addEventListener('click', async () => {
+                    const url = location.origin + '/profil.html';
+                    try { await navigator.clipboard.writeText(url); MH.toast('Lien du profil copié ✓'); }
+                    catch(e) { MH.toast(url); }
+                });
+            }
+        });
+
+        // Boutons sociaux : enregistrer une URL
+        document.querySelectorAll('.profil-social-btn').forEach(a => {
+            a.addEventListener('click', (e) => {
+                e.preventDefault();
+                const key = 'social_' + (a.title || 'link');
+                const cur = window.Storage?.getPref(key) || '';
+                const url = prompt(`Lien ${a.title || ''} :`, cur);
+                if (url === null) return;
+                if (url) { window.Storage?.setPref(key, url); window.open(url, '_blank'); }
+            });
+        });
+
+        // Comptes connectés : Spotify → ouvre le lecteur de musique ; autres → site officiel
+        document.querySelectorAll('.connected-item').forEach(item => {
+            const name = item.querySelector('.connected-name')?.textContent?.trim() || '';
+            const btn = item.querySelector('button, .connected-status');
+            const toggle = item.querySelector('.toggle');
+            const act = () => {
+                if (/Spotify/i.test(name)) { MH.openMusic(); MH.toast('Lecteur de musique ouvert 🎵'); }
+                else if (/Discord/i.test(name)) window.open('https://discord.com/app', '_blank');
+                else if (/Crunchyroll/i.test(name)) window.open('https://www.crunchyroll.com', '_blank');
+            };
+            btn?.addEventListener('click', act);
+            toggle?.addEventListener('click', () => { if (/Spotify/i.test(name)) MH.openMusic(); });
+        });
+
+        // "Ouvrir le lecteur" dans les préférences → lecteur de chapitre démo déjà un lien
+        // Boutons "Voir tout", "Gérer", etc. avec data-goto déjà gérés par initTabs.
+
+        // Boutons génériques restants sans handler → feedback honnête
+        document.querySelectorAll('.card-link, .sort-btn, .badges-grid .badge-item').forEach(el => {
+            if (el.dataset.wired || el.dataset.goto || el.getAttribute('href')) return;
+            el.dataset.wired = '1';
+            el.addEventListener('click', (e) => {
+                if (el.closest('a')) return;
+                MH.toast('Fonctionnalité à venir');
             });
         });
     }

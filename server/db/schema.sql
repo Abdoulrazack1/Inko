@@ -58,6 +58,11 @@ SET @ddl := (SELECT IF(COUNT(*)=0,
   'SELECT 1') FROM information_schema.columns
   WHERE table_schema=DATABASE() AND table_name='favorites' AND column_name='last_chapter');
 PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE favorites ADD COLUMN category VARCHAR(64) DEFAULT NULL',
+  'SELECT 1') FROM information_schema.columns
+  WHERE table_schema=DATABASE() AND table_name='favorites' AND column_name='category');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
 
 CREATE TABLE IF NOT EXISTS library (
   user_id    INT NOT NULL,

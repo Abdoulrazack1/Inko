@@ -161,6 +161,7 @@
             progress:         ()           => get('/me/progress'),
             setProgress:      (mangaId, payload) =>
                 put('/me/progress/' + encodeURIComponent(mangaId), payload),
+            removeProgress:   (mangaId)    => del('/me/progress/' + encodeURIComponent(mangaId)),
 
             readChapters:     ()           => get('/me/read-chapters'),
             markChapter:      (payload)    => post('/me/read-chapters', payload),

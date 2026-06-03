@@ -12,6 +12,15 @@
 
     window.MH = { $, $$, fmt, esc };
 
+    /* ── Lecteur musique (fenêtre popout persistante) ─────── */
+    window.MH.openMusic = function () {
+        // Réutilise la fenêtre si déjà ouverte (le nom 'inkoMusic' la garde unique)
+        const w = window.open('/player.html', 'inkoMusic',
+            'width=380,height=560,menubar=no,toolbar=no,location=no,status=no,resizable=yes');
+        try { if (w) w.focus(); } catch (e) {}
+        if (!w) MH.toast('Autorise les pop-ups pour ouvrir le lecteur de musique');
+    };
+
     /* ── Toast ───────────────────────────────────────────── */
     window.MH.toast = function (msg, duration = 2500) {
         const el = document.createElement('div');
@@ -110,6 +119,7 @@
             <div class="search-dropdown" id="searchDropdown"></div>
           </div>
           <div class="header-actions">
+            <button class="header-icon-btn" id="btnMusic" title="Musique (s'ouvre dans une fenêtre qui reste en lecture)">🎵</button>
             <a href="parametres.html" class="header-icon-btn ${activePage === 'parametres' ? 'active' : ''}" title="Paramètres" style="text-decoration:none">⚙️</a>
             ${userBlock}
           </div>
@@ -268,6 +278,14 @@
         document.addEventListener('click', e => {
             const btn = e.target.closest('.notif-dot');
             if (btn) MH.toast('Aucune nouvelle notification 🔔');
+        });
+
+        // Bouton musique : ouvre/refocus la fenêtre popout (reste en lecture pendant la nav)
+        document.addEventListener('click', e => {
+            const btn = e.target.closest('#btnMusic');
+            if (!btn) return;
+            e.preventDefault();
+            window.MH.openMusic();
         });
 
         document.addEventListener('click', async e => {

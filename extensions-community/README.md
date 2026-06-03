@@ -43,6 +43,7 @@ Pour la désactiver : supprime le dossier `server/extensions/<id>/`.
 |---|---|---|---|---|
 | `mangadex` | mangadex.org (API) | multi | ✅ Stable | API officielle, scanlations communautaires |
 | `sushiscan` | sushiscan.fr | fr | ⚠️ Expérimental | Scraping HTML, peut casser à tout moment |
+| `weebcentral` | weebcentral.com | en | ✅ Stable | Grand catalogue anglais (HTMX) |
 
 ## Développer ta propre extension
 

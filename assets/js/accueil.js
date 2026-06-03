@@ -73,7 +73,7 @@
         const track = document.getElementById('trendingTrack');
         if (!track) return;
         track.innerHTML = mangas.map((m, i) => `
-            <a href="serie.html?id=${encodeURIComponent(m.id)}" class="trending-card">
+            <a href="serie.html?id=${encodeURIComponent(m.id)}" class="trending-card" data-manga-id="${m.id}">
                 <div class="trending-rank">${i + 1}</div>
                 <div class="trending-cover">
                     <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" onerror="this.src='${MH.placeholderCover(m.id)}'">
@@ -166,18 +166,38 @@
                 if (r.status !== 'fulfilled') return '';
                 const m = r.value;
                 return `
-                <a href="chapitre.html?manga=${encodeURIComponent(m.id)}&chapter=${encodeURIComponent(e.chapterId)}" class="resume-item">
-                    <div class="resume-cover">
-                        <img src="${m.coverThumb || m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy">
-                    </div>
-                    <div class="resume-info">
-                        <div class="resume-title">${MH.esc(m.title)}</div>
-                        <div class="resume-chap">Chapitre ${e.chapter} · Page ${e.page}</div>
-                        <div class="resume-progress"><div class="resume-progress-fill" style="width:${Math.round((e.page / 20) * 100)}%"></div></div>
-                    </div>
-                    <div class="resume-action">▶</div>
-                </a>`;
+                <div class="resume-item" data-resume="${MH.esc(m.id)}" style="position:relative">
+                    <a href="chapitre.html?manga=${encodeURIComponent(m.id)}&chapter=${encodeURIComponent(e.chapterId)}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
+                        <div class="resume-cover">
+                            <img src="${m.coverThumb || m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy">
+                        </div>
+                        <div class="resume-info">
+                            <div class="resume-title">${MH.esc(m.title)}</div>
+                            <div class="resume-chap">Chapitre ${e.chapter} · Page ${e.page}</div>
+                            <div class="resume-progress"><div class="resume-progress-fill" style="width:${Math.round((e.page / 20) * 100)}%"></div></div>
+                        </div>
+                    </a>
+                    <button class="resume-remove" data-remove="${MH.esc(m.id)}" title="Retirer de la liste"
+                        style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:6px;flex-shrink:0">✕</button>
+                </div>`;
             }).join('');
+
+            // Suppression d'une œuvre de "reprendre la lecture"
+            el.querySelectorAll('[data-remove]').forEach(btn => {
+                btn.addEventListener('click', async (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    const id = btn.dataset.remove;
+                    try {
+                        await API.me.removeProgress(id);
+                        btn.closest('[data-resume]')?.remove();
+                        MH.toast('Retiré de « Reprendre la lecture »');
+                        if (!el.querySelector('[data-resume]')) {
+                            el.innerHTML = `<div style="color:var(--text3);padding:14px;font-size:13px">Aucune lecture en cours. <a href="catalogue.html" class="link-orange">Découvrir →</a></div>`;
+                        }
+                    } catch (e2) { MH.toast('Erreur : ' + e2.message); }
+                });
+            });
         } catch(err) {
             el.innerHTML = `<div style="color:var(--text3);padding:14px;font-size:13px">Erreur de chargement</div>`;
         }
@@ -189,7 +209,7 @@
         if (topEl && popularCache) {
             const ranks = ['top-rank-1', 'top-rank-2', 'top-rank-3'];
             topEl.innerHTML = popularCache.slice(0, 10).map((m, i) => `
-                <a href="serie.html?id=${encodeURIComponent(m.id)}" class="top-manga-item">
+                <a href="serie.html?id=${encodeURIComponent(m.id)}" class="top-manga-item" data-manga-id="${m.id}">
                     <div class="top-rank ${ranks[i] || ''}">${i + 1}</div>
                     <div class="top-cover">
                         <img src="${m.coverThumb || m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy">
