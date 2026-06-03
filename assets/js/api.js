@@ -116,9 +116,11 @@
         // ── Sources (extensions installées) ──
         sources: {
             list:    ()             => get('/sources'),
-            // Source active : préférence locale, défaut = première installée
+            // Source active : préférence locale, défaut = WeebCentral
+            // (pages des titres populaires lisibles, contrairement à MangaDex
+            //  qui en licencie beaucoup en externalUrl). Modifiable via /sources.
             get current() {
-                try { return localStorage.getItem('mh_source') || ''; } catch(e) { return ''; }
+                try { return localStorage.getItem('mh_source') || 'weebcentral'; } catch(e) { return 'weebcentral'; }
             },
             set current(id) {
                 try {
@@ -197,6 +199,18 @@
             get:    (mangaId)          => get('/ratings/' + encodeURIComponent(mangaId)),
             set:    (mangaId, payload) => put('/ratings/' + encodeURIComponent(mangaId), payload),
             remove: (mangaId)          => del('/ratings/' + encodeURIComponent(mangaId)),
+        },
+
+        // ── Spotify (linking de compte OAuth) ──
+        spotify: {
+            // URL d'autorisation (navigation top-level requise : window.open / location)
+            loginUrl() {
+                const t = _token ? ('?token=' + encodeURIComponent(_token)) : '';
+                return API_BASE + '/spotify/login' + t;
+            },
+            status:     ()  => get('/spotify/status'),
+            playlists:  ()  => get('/spotify/playlists'),
+            disconnect: ()  => post('/spotify/disconnect'),
         },
     };
 

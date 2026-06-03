@@ -125,7 +125,7 @@
                     <span style="font-size:12px;color:var(--text2)">${m.rating}</span>
                 </div>
                 <div class="cd-serie-meta">
-                    <span>✍️ ${MH.esc(m.author)}</span>
+                    <span>${MH.esc(m.author)}</span>
                     <span>•</span>
                     <span>${MH.statusBadge(m.status)}</span>
                     <span>•</span>
@@ -135,7 +135,7 @@
                     ${m.tags.map(t => `<span class="tag" style="font-size:10.5px;padding:2px 8px">${t}</span>`).join('')}
                 </div>
                 <div class="cd-serie-note">
-                    <div class="cd-serie-note-icon">💬 Note du curateur :</div>
+                    <div class="cd-serie-note-icon">Note du curateur :</div>
                     ${MH.esc(noteFor(m))}
                 </div>
                 <div style="display:flex;gap:8px;margin-top:10px">
@@ -162,7 +162,7 @@
         el.innerHTML = polls.map(p => `
         <div class="discussion-item">
             ${p.opts ? `
-                <div class="discussion-type">🗳️ SONDAGE DE LA SEMAINE</div>
+                <div class="discussion-type">SONDAGE DE LA SEMAINE</div>
                 <div class="discussion-question">${MH.esc(p.q)}</div>
                 ${p.opts.map(([l, pct]) => `
                     <div class="discussion-poll-option">
@@ -170,7 +170,7 @@
                         <div class="discussion-bar-wrap"><div class="discussion-bar" style="width:${pct}%"></div></div>
                     </div>`).join('')}
             ` : `
-                <div class="discussion-type">💬 DISCUSSION</div>
+                <div class="discussion-type">DISCUSSION</div>
                 <div class="discussion-question">${MH.esc(p.q)}</div>
                 <div style="font-size:12.5px;color:var(--text2);margin-top:6px">${MH.esc(p.text)}</div>
             `}
@@ -183,7 +183,7 @@
         el.innerHTML = `
         <!-- Challenge -->
         <div class="cd-sidebar-block challenge-block">
-            <div class="challenge-title">🏆 Challenge Commandaurios</div>
+            <div class="challenge-title">Challenge Commandaurios</div>
             <div class="challenge-desc">Lisez les 5 premiers titres de la collection pour débloquer le badge exclusif "Donjon Expert".</div>
             <div class="progress-bar"><div class="progress-fill" style="width:40%"></div></div>
             <div class="challenge-progress-text">2 / 5 terminés · En répondre</div>
@@ -191,7 +191,7 @@
 
         <!-- Critères de sélection -->
         <div class="cd-sidebar-block">
-            <div class="cd-sidebar-title">🎯 Critères de sélection</div>
+            <div class="cd-sidebar-title">Critères de sélection</div>
             ${[['Progression donjons', 4.9], ['World-building', 4.8], ['Puissance', 4.6], ['Système', 4.3], ['Completed', 4.2]].map(([l, s]) => `
                 <div class="criteria-item">
                     <span class="criteria-label">${l}</span>
@@ -201,7 +201,7 @@
 
         <!-- Tags -->
         <div class="cd-sidebar-block">
-            <div class="cd-sidebar-title">🏷️ Tags associés</div>
+            <div class="cd-sidebar-title">Tags associés</div>
             <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
                 ${col.tags.map(t => `<span class="tag" style="font-size:10.5px">${t}</span>`).join('')}
             </div>
@@ -209,7 +209,7 @@
 
         <!-- Collections similaires -->
         <div class="cd-sidebar-block">
-            <div class="cd-sidebar-title">📚 Collections similaires</div>
+            <div class="cd-sidebar-title">Collections similaires</div>
             ${DB.collections.filter(c => c.id !== col.id).slice(0, 3).map(c => {
                 const m = DB.getManga(c.mangaIds[0]);
                 return `
@@ -219,7 +219,7 @@
                     </div>
                     <div class="similar-col-info">
                         <div class="similar-col-title">${MH.esc(c.title)}</div>
-                        <div class="similar-col-meta">⭐ ${c.avgRating} · ${c.seriesCount} séries</div>
+                        <div class="similar-col-meta">${c.avgRating} · ${c.seriesCount} séries</div>
                     </div>
                 </a>`;
             }).join('')}

@@ -16,6 +16,8 @@
         const params    = new URLSearchParams(location.search);
         const mangaId   = params.get('manga');
         const chapterId = params.get('chapter');
+        const src       = params.get('source');
+        if (src && API.sources.current !== src) API.sources.current = src; // contexte multi-sources
 
         if (!mangaId || !chapterId) {
             showError('Lien invalide.');
@@ -87,7 +89,7 @@
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
         el.innerHTML = `<div class="reader-unavailable">
-            <div class="reader-unavail-icon">⚠️</div>
+            <div class="reader-unavail-icon"></div>
             <div class="reader-unavail-msg">${MH.esc(msg)}</div>
             <div class="reader-unavail-actions">
                 <a href="javascript:history.back()" class="btn btn-ghost btn-sm">↩ Retour</a>
@@ -124,7 +126,7 @@
             <button class="reader-icon-btn" onclick="window.changeZoom(-10)" title="Zoom −">−</button>
             <span class="reader-zoom-label" id="zoomLabel">${zoom}%</span>
             <button class="reader-icon-btn" onclick="window.changeZoom(10)" title="Zoom +">+</button>
-            <button class="reader-icon-btn" onclick="window.toggleFullscreen()" title="Plein écran">⛶</button>
+            <button class="reader-icon-btn" onclick="window.toggleFullscreen()" title="Plein écran"></button>
         </div>`;
 
         document.getElementById('chapSelect')?.addEventListener('change', e => {
@@ -143,9 +145,9 @@
         const el = document.getElementById('readerModebar');
         if (!el) return;
         const modes = [
-            { id: 'page',   label: '📄 Page/page' },
+            { id: 'page',   label: 'Page/page' },
             { id: 'scroll', label: '↕ Défilement' },
-            { id: 'double', label: '📰 Double' },
+            { id: 'double', label: 'Double' },
         ];
         el.innerHTML = modes.map(m => `
             <button class="modebar-btn ${m.id === readMode ? 'active' : ''}" data-mode="${m.id}">${m.label}</button>`

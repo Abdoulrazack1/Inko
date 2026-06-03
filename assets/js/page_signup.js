@@ -51,7 +51,7 @@
 
             try {
                 const r = await API.auth.register({ username, email, password });
-                toast(`Bienvenue ${r.user.username} ! 🎉`);
+                toast(`Bienvenue ${r.user.username} ! `);
                 setTimeout(() => { window.location.href = 'accueil.html'; }, 800);
             } catch (err) {
                 toast(err.message || "Erreur lors de l'inscription");

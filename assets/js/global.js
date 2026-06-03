@@ -97,7 +97,7 @@
 
         // Accès discret +18 : visible uniquement si l'espace est activé
         const nsfwLink = (window.NSFW?.isEnabled?.())
-            ? `<a href="secret.html" title="Espace +18" style="color:#ec4899">🔞</a>` : '';
+            ? `<a href="secret.html" title="Espace +18" style="color:#ec4899;font-weight:700;font-size:12px">+18</a>` : '';
 
         return `
         <header class="site-header">
@@ -114,13 +114,13 @@
             ${nsfwLink}
           </nav>
           <div class="header-search">
-            <span class="header-search-icon">🔍</span>
+            <span class="header-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align:middle"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
             <input type="text" id="headerSearch" placeholder="Rechercher un manga…" autocomplete="off">
             <div class="search-dropdown" id="searchDropdown"></div>
           </div>
           <div class="header-actions">
-            <button class="header-icon-btn" id="btnMusic" title="Musique (s'ouvre dans une fenêtre qui reste en lecture)">🎵</button>
-            <a href="parametres.html" class="header-icon-btn ${activePage === 'parametres' ? 'active' : ''}" title="Paramètres" style="text-decoration:none">⚙️</a>
+            <button class="header-icon-btn" id="btnMusic" title="Musique (s'ouvre dans une fenêtre qui reste en lecture)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+            <a href="parametres.html" class="header-icon-btn ${activePage === 'parametres' ? 'active' : ''}" title="Paramètres" style="text-decoration:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
             ${userBlock}
           </div>
         </header>`;
@@ -257,7 +257,7 @@
                 const v = emailInput.value.trim();
                 if (!v) { MH.toast('Entrez votre adresse email.'); return; }
                 if (!API.auth.validateEmail(v)) { MH.toast('Email invalide.'); return; }
-                MH.toast('Inscription confirmée ! 🎉');
+                MH.toast('Inscription confirmée ! ');
                 emailInput.value = '';
             });
         }
@@ -277,7 +277,7 @@
 
         document.addEventListener('click', e => {
             const btn = e.target.closest('.notif-dot');
-            if (btn) MH.toast('Aucune nouvelle notification 🔔');
+            if (btn) MH.toast('Aucune nouvelle notification ');
         });
 
         // Bouton musique : ouvre/refocus la fenêtre popout (reste en lecture pendant la nav)
@@ -306,7 +306,7 @@
                 const list = data.results || [];
                 if (!list.length) return;
                 const m = list[Math.floor(Math.random() * list.length)];
-                MH.toast(`Lecture aléatoire : ${m.title} 🎲`);
+                MH.toast(`Lecture aléatoire : ${m.title} `);
                 setTimeout(() => { window.location.href = `serie.html?id=${encodeURIComponent(m.id)}`; }, 500);
             } catch(e) { MH.toast('Erreur de chargement'); }
         });

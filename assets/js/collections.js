@@ -27,9 +27,9 @@
         const el = document.getElementById('genreIconsBar');
         if (!el) return;
         const items = [
-            ['⚔️', 'Action'], ['❤️', 'Romance'], ['🐉', 'Fantastique'],
-            ['🩸', 'Horreur'], ['🚀', 'Sci-Fi'], ['🏆', 'Sports'],
-            ['😄', 'Comédie'], ['🔍', 'Mystère'],
+            ['', 'Action'], ['', 'Romance'], ['', 'Fantastique'],
+            ['', 'Horreur'], ['', 'Sci-Fi'], ['', 'Sports'],
+            ['', 'Comédie'], ['', 'Mystère'],
         ];
         el.innerHTML = items.map(([icon, label]) => `
             <div class="genre-icon-card" onclick="window.location.href='catalogue.html?genre=${encodeURIComponent(label)}'">
@@ -61,7 +61,7 @@
                     <div class="featured-meta">
                         <span>Par ${c.curator.name}</span>
                         <span>${c.seriesCount} Séries</span>
-                        <span>❤️ ${MH.fmt(c.likes)} Likes</span>
+                        <span>${MH.fmt(c.likes)} Likes</span>
                     </div>
                 </div>
             </a>`;
@@ -125,17 +125,17 @@
                             `<img src="${m.coverFallback}" alt="" onerror="this.src='${m.coverFallback}'">`
                         ).join('')}
                     </div>
-                    <span class="collection-card-cover-count">📚 ${c.seriesCount}</span>
+                    <span class="collection-card-cover-count">${c.seriesCount}</span>
                 </div>
                 <div class="collection-card-body">
                     <div class="collection-card-title">${MH.esc(c.title)}</div>
-                    <div class="collection-card-meta">${c.seriesCount} séries · ⭐ Moy. ${c.avgRating}</div>
+                    <div class="collection-card-meta">${c.seriesCount} séries · Moy. ${c.avgRating}</div>
                     <div class="collection-card-tags">
                         ${c.tags.slice(0,3).map(t => `<span class="collection-card-tag">${t}</span>`).join('')}
                     </div>
                     <div class="collection-card-footer">
-                        <span>👤 ${MH.fmt(c.readers)}</span>
-                        <span class="collection-card-likes">❤️ ${MH.fmt(c.likes)}</span>
+                        <span>${MH.fmt(c.readers)}</span>
+                        <span class="collection-card-likes">${MH.fmt(c.likes)}</span>
                     </div>
                 </div>
             </a>`;

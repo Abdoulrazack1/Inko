@@ -64,6 +64,28 @@ function ensureEnv() {
     } catch (e) {}
 }
 
+// ── Config utilisateur éditable (clés Spotify, etc.) ────────────
+// Fichier : <userData>/inko-config.json — survit aux mises à jour et
+// n'est PAS dans le dossier d'installation (lecture seule en prod).
+const USER_CONFIG = path.join(USER_DATA, 'inko-config.json');
+function loadUserConfig() {
+    try {
+        if (!fs.existsSync(USER_CONFIG)) {
+            fs.mkdirSync(USER_DATA, { recursive: true });
+            fs.writeFileSync(USER_CONFIG, JSON.stringify({
+                "//": "Pour lier Spotify : crée une app sur https://developer.spotify.com/dashboard, " +
+                      "ajoute le Redirect URI http://127.0.0.1:8088/api/spotify/callback, puis colle Client ID et Secret ci-dessous. Redémarre Inko.",
+                spotify: { clientId: "", clientSecret: "" }
+            }, null, 2));
+        }
+        const cfg = JSON.parse(fs.readFileSync(USER_CONFIG, 'utf8'));
+        if (cfg.spotify?.clientId)     process.env.SPOTIFY_CLIENT_ID     = cfg.spotify.clientId;
+        if (cfg.spotify?.clientSecret) process.env.SPOTIFY_CLIENT_SECRET = cfg.spotify.clientSecret;
+        if (!process.env.SPOTIFY_REDIRECT_URI)
+            process.env.SPOTIFY_REDIRECT_URI = `http://127.0.0.1:${PORT}/api/spotify/callback`;
+    } catch (e) { /* config optionnelle */ }
+}
+
 // ── Vérifie qu'un port TCP répond ──
 function tcpOpen(host, port, timeout = 800) {
     return new Promise(resolve => {
@@ -165,6 +187,7 @@ async function startBackend() {
         throw new Error(`Backend introuvable : ${SERVER_ENTRY}`);
     }
     ensureEnv();
+    loadUserConfig();   // injecte les clés Spotify depuis inko-config.json
     process.env.PORT         = String(PORT);
     process.env.FRONTEND_DIR = FRONTEND_DIR;
 
@@ -258,17 +281,8 @@ function createWindow() {
 
     mainWindow.loadURL(`http://127.0.0.1:${PORT}/accueil.html`);
 
-    // Liens externes → navigateur système
-    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-        try {
-            const u = new URL(url);
-            if (u.origin !== `http://127.0.0.1:${PORT}` && u.origin !== `http://localhost:${PORT}`) {
-                shell.openExternal(url);
-                return { action: 'deny' };
-            }
-        } catch (e) {}
-        return { action: 'allow' };
-    });
+    // (La politique d'ouverture de fenêtres est posée globalement via
+    //  app.on('web-contents-created') dans whenReady — couvre les popups.)
 
     if (IS_DEV) mainWindow.webContents.openDevTools({ mode: 'detach' });
     mainWindow.on('closed', () => { mainWindow = null; });
@@ -309,6 +323,23 @@ function setMenu() {
                 }) },
                 { label: 'GitHub', click: () => shell.openExternal('https://github.com/Abdoulrazack1/Inko') },
                 { label: 'Issues', click: () => shell.openExternal('https://github.com/Abdoulrazack1/Inko/issues') },
+                { type: 'separator' },
+                { label: 'Configurer Spotify (clés API)…', click: async () => {
+                    try {
+                        if (!fs.existsSync(USER_CONFIG)) loadUserConfig(); // crée le fichier par défaut
+                        await shell.openPath(USER_CONFIG);
+                        dialog.showMessageBox(mainWindow, {
+                            type: 'info', title: 'Configurer Spotify',
+                            message: 'Lier ton compte Spotify',
+                            detail: '1. Va sur https://developer.spotify.com/dashboard et crée une app.\n' +
+                                    '2. Dans ses réglages, ajoute le Redirect URI :\n   http://127.0.0.1:8088/api/spotify/callback\n' +
+                                    '3. Copie le Client ID et le Client Secret dans le fichier qui vient de s\'ouvrir.\n' +
+                                    '4. Enregistre, puis redémarre Inko.\n\n' +
+                                    'Ensuite : Paramètres → Musique → Connecter Spotify.',
+                            buttons: ['Ouvrir le dashboard', 'OK'],
+                        }).then(r => { if (r.response === 0) shell.openExternal('https://developer.spotify.com/dashboard'); });
+                    } catch (e) {}
+                } },
             ],
         },
     ];
@@ -318,6 +349,23 @@ function setMenu() {
 // ── Lifecycle ───────────────────────────────────────────
 app.whenReady().then(async () => {
     setMenu();
+
+    // Politique d'ouverture de fenêtres appliquée à TOUTES les webContents
+    // (fenêtre principale + popups : lecteur de musique, auth Spotify…).
+    // Même origine → fenêtre enfant autorisée ; externe → navigateur système.
+    app.on('web-contents-created', (_e, contents) => {
+        contents.setWindowOpenHandler(({ url }) => {
+            try {
+                const u = new URL(url);
+                const sameApp = u.origin === `http://127.0.0.1:${PORT}` || u.origin === `http://localhost:${PORT}`;
+                // Spotify s'ouvre dans une fenêtre enfant Inko (puis revient sur notre origine)
+                const isSpotify = u.hostname.endsWith('spotify.com');
+                if (!sameApp && !isSpotify) { shell.openExternal(url); return { action: 'deny' }; }
+            } catch (e) {}
+            return { action: 'allow', overrideBrowserWindowOptions: { autoHideMenuBar: true } };
+        });
+    });
+
     try {
         await startBackend();
     } catch (err) {

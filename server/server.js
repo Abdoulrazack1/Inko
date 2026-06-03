@@ -49,9 +49,9 @@ app.use(errorHandler);
 (async () => {
     try {
         await ping();
-        console.log('✅ MySQL OK');
+        console.log('MySQL OK');
     } catch (e) {
-        console.error('❌ MySQL inaccessible — vérifiez Laragon et lancez `npm run init-db`');
+        console.error('MySQL inaccessible — vérifiez Laragon et lancez `npm run init-db`');
         console.error('   ' + e.message);
     }
 
@@ -59,13 +59,13 @@ app.use(errorHandler);
     extensions.loadAll();
     const count = extensions.getAll().length;
     if (count === 0) {
-        console.warn('⚠  Aucune extension chargée. Place une source dans server/extensions/<id>/index.js');
+        console.warn(' Aucune extension chargée. Place une source dans server/extensions/<id>/index.js');
     } else {
-        console.log(`✅ ${count} extension(s) chargée(s)`);
+        console.log(`${count} extension(s) chargée(s)`);
     }
 
     app.listen(PORT, () => {
-        console.log(`🚀 Inko backend → http://localhost:${PORT}`);
+        console.log(`Inko backend → http://localhost:${PORT}`);
         console.log(`   API base  → http://localhost:${PORT}/api`);
         console.log(`   Frontend  → http://localhost:${PORT}/accueil.html`);
     });

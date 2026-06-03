@@ -34,7 +34,7 @@
 
             try {
                 const r = await API.auth.login({ email, password });
-                toast(`Bienvenue ${r.user.username} ! 👋`);
+                toast(`Bienvenue ${r.user.username} ! `);
                 setTimeout(() => { window.location.href = 'accueil.html'; }, 600);
             } catch (err) {
                 toast(err.message || 'Erreur de connexion');
@@ -64,7 +64,7 @@
         demoHint.type = 'button';
         demoHint.className = 'btn btn-ghost btn-sm';
         demoHint.style.cssText = 'width:100%;margin-top:10px;font-size:11.5px;opacity:.7';
-        demoHint.textContent = '🎭 Tester avec le compte démo';
+        demoHint.textContent = 'Tester avec le compte démo';
         demoHint.addEventListener('click', () => {
             form.querySelector('input[type="email"]').value = 'demo@mangahub.app';
             pwdInput.value = 'demo1234';

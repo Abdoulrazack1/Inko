@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🎵 Inko Music</title>
+  <title>Inko Music</title>
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
   <style>
     :root{ --bg:#0d0d0f; --bg2:#16161a; --bg3:#1f1f26; --or:#ff6b1a; --tx:#f0f0f2; --tx2:#a8a8b3; --bd:rgba(255,255,255,.1); }
@@ -13,7 +13,8 @@
     .ph .logo{width:22px;height:22px;border-radius:6px}
     .ph h1{font-size:14px;font-weight:700}
     .tabs{display:flex;gap:3px;padding:8px;background:var(--bg2);border-bottom:1px solid var(--bd)}
-    .tab{flex:1;padding:7px;border:none;background:var(--bg3);color:var(--tx2);border-radius:7px;font-size:12px;cursor:pointer;font-weight:500}
+    .tab{flex:1;padding:7px 4px;border:none;background:var(--bg3);color:var(--tx2);border-radius:7px;font-size:12px;cursor:pointer;font-weight:500;display:flex;align-items:center;justify-content:center;gap:5px}
+    .tab svg{width:15px;height:15px;flex-shrink:0}
     .tab.active{background:var(--or);color:#fff}
     .body{flex:1;overflow:auto;padding:14px}
     .panel{display:none}
@@ -30,8 +31,17 @@
     .np-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .np-sub{font-size:11px;color:var(--tx2);margin-top:2px}
     .ctrls{display:flex;align-items:center;justify-content:center;gap:14px;margin:12px 0}
-    .ctrls button{background:none;border:none;color:var(--tx);font-size:22px;cursor:pointer;width:40px;height:40px;border-radius:50%}
-    .ctrls .play{background:var(--or);color:#fff;font-size:18px}
+    .ctrls button{background:none;border:none;color:var(--tx);cursor:pointer;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s}
+    .ctrls button:hover{background:var(--bg3)}
+    .ctrls button svg{width:22px;height:22px;display:block}
+    .ctrls .play{background:var(--or);color:#fff}
+    .ctrls .play:hover{background:#ff7d33}
+    .ctrls .play svg{width:20px;height:20px}
+    .ctrls #loop.on{color:var(--or)}
+    /* Presets de musique (quick-play) */
+    .presets{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
+    .preset{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);color:var(--tx);border-radius:20px;font-size:11.5px;cursor:pointer;font-weight:500}
+    .preset:hover{border-color:var(--or);color:var(--or)}
     .seek{width:100%;accent-color:var(--or)}
     .times{display:flex;justify-content:space-between;font-size:10.5px;color:var(--tx2);margin-top:2px}
     .pl{margin-top:12px;max-height:200px;overflow:auto}
@@ -40,6 +50,12 @@
     .pl-item.cur{background:var(--bg3);color:var(--or);font-weight:600}
     .pl-item .n{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .vol{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px}
+    /* Spotify linking */
+    .sp-profile{display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;margin-bottom:12px}
+    .sp-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--bg3)}
+    .pl-cover{width:34px;height:34px;border-radius:5px;object-fit:cover;background:var(--bg3);flex-shrink:0}
+    .sp-badge{display:inline-block;font-size:9.5px;padding:1px 6px;border-radius:20px;background:#1db954;color:#fff;font-weight:700;margin-left:6px;vertical-align:middle}
+    details summary::-webkit-details-marker{display:none}
   </style>
 </head>
 <body>
@@ -50,9 +66,18 @@
   </div>
 
   <div class="tabs">
-    <button class="tab active" data-tab="local">📁 Mes fichiers</button>
-    <button class="tab" data-tab="spotify">🟢 Spotify</button>
-    <button class="tab" data-tab="youtube">▶️ YouTube</button>
+    <button class="tab active" data-tab="local">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      <span>Fichiers</span>
+    </button>
+    <button class="tab" data-tab="spotify">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+      <span>Spotify</span>
+    </button>
+    <button class="tab" data-tab="youtube">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      <span>YouTube</span>
+    </button>
   </div>
 
   <div class="body">
@@ -68,34 +93,84 @@
         <input type="range" class="seek" id="seek" value="0" min="0" max="100" step="0.1">
         <div class="times"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
         <div class="ctrls">
-          <button id="prev">⏮</button>
-          <button class="play" id="play">▶</button>
-          <button id="next">⏭</button>
-          <button id="loop" title="Répéter">🔁</button>
+          <button id="prev" title="Précédent"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM9.5 12l8.5 6V6z"/></svg></button>
+          <button class="play" id="play" title="Lecture/Pause"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+          <button id="next" title="Suivant"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6v12l8.5-6z"/></svg></button>
+          <button id="loop" title="Répéter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
         </div>
-        <div class="vol">🔉<input type="range" class="seek" id="vol" min="0" max="1" step="0.01" value="0.8"></div>
+        <div class="vol">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12z"/></svg>
+          <input type="range" class="seek" id="vol" min="0" max="1" step="0.01" value="0.8">
+        </div>
         <div class="pl" id="playlist"></div>
       </div>
     </div>
 
     <!-- SPOTIFY -->
     <div class="panel" id="p-spotify">
-      <div class="hint">Colle un lien Spotify (playlist, album, titre ou podcast). Le lecteur s'intègre directement.</div>
-      <input class="inp" id="spotifyUrl" placeholder="https://open.spotify.com/playlist/...">
-      <button class="btn" id="spotifyLoad">Charger</button>
+      <!-- Pas configuré côté serveur -->
+      <div id="spotifyNotConfig" style="display:none">
+        <div class="hint">Le linking Spotify n'est pas encore activé sur ce serveur (clés API manquantes). Tu peux quand même coller un lien plus bas.</div>
+      </div>
+
+      <!-- Configuré mais compte non lié -->
+      <div id="spotifyConnect" style="display:none">
+        <div class="hint">Lie ton compte Spotify pour retrouver tes playlists directement dans Inko et les écouter en lisant.</div>
+        <button class="btn" id="spotifyLoginBtn" style="background:#1db954;display:flex;align-items:center;justify-content:center;gap:7px">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+          Connecter mon compte Spotify
+        </button>
+        <div class="hint" id="spotifyConnectStatus" style="margin-top:8px"></div>
+      </div>
+
+      <!-- Compte lié -->
+      <div id="spotifyLinked" style="display:none">
+        <div class="sp-profile">
+          <img id="spAvatar" class="sp-avatar" alt="">
+          <div style="min-width:0">
+            <div id="spName" style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+            <div id="spProduct" class="np-sub"></div>
+          </div>
+          <button class="btn sec" id="spotifyLogout" style="width:auto;margin-left:auto;padding:6px 10px">Délier</button>
+        </div>
+        <div id="spPlaylists" class="pl" style="max-height:260px"></div>
+      </div>
+
+      <!-- Écoute immédiate sans connexion -->
+      <div class="hint" style="margin-top:4px">Écoute immédiate (sans connexion) :</div>
+      <div class="presets" id="spPresets">
+        <button class="preset" data-sp="37i9dQZF1DWWQRwui0ExPn">Lofi beats</button>
+        <button class="preset" data-sp="37i9dQZF1DWYoYGBbGKurt">Lofi chill</button>
+        <button class="preset" data-sp="37i9dQZF1DX4sWSpwq3LiO">Piano</button>
+        <button class="preset" data-sp="37i9dQZF1DWZeKCadgRdKQ">Deep focus</button>
+      </div>
+
+      <!-- Lien manuel (toujours dispo) -->
+      <details style="margin-top:12px">
+        <summary style="cursor:pointer;font-size:11px;color:var(--tx2)">Ou colle un lien Spotify (playlist, album, titre…)</summary>
+        <input class="inp" id="spotifyUrl" placeholder="https://open.spotify.com/playlist/..." style="margin-top:8px">
+        <button class="btn sec" id="spotifyLoad">Charger ce lien</button>
+      </details>
       <div id="spotifyEmbed" style="margin-top:12px"></div>
     </div>
 
     <!-- YOUTUBE -->
     <div class="panel" id="p-youtube">
-      <div class="hint">Colle un lien YouTube (vidéo ou playlist) pour écouter en fond.</div>
+      <div class="hint">Lecture instantanée, ou colle un lien (vidéo / playlist).</div>
+      <div class="presets" id="ytPresets">
+        <button class="preset" data-yt="jfKfPfyJRdk">Lofi hip hop</button>
+        <button class="preset" data-yt="Na0w3Mz46GA">Asian lofi</button>
+        <button class="preset" data-yt="5yx6BWlEVcY">Chillhop</button>
+        <button class="preset" data-yt="4xDzrJKXOOY">Synthwave</button>
+      </div>
       <input class="inp" id="ytUrl" placeholder="https://youtube.com/watch?v=...">
-      <button class="btn" id="ytLoad">Charger</button>
+      <button class="btn" id="ytLoad">Charger ce lien</button>
       <div id="ytEmbed" style="margin-top:12px"></div>
     </div>
   </div>
 
   <audio id="audio"></audio>
+  <script src="assets/js/api.js"></script>
   <script src="assets/js/player.js"></script>
 </body>
 </html>

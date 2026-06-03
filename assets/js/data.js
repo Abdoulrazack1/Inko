@@ -112,9 +112,9 @@ const DB = (function () {
     ];
 
     const genreIcons = {
-        Action: '⚔️', Fantasy: '🐉', Romance: '❤️', Thriller: '🔪',
-        'Sci-Fi': '🚀', Horreur: '🩸', Comédie: '😄', Sport: '🏆',
-        Historique: '📜', Psychologique: '🧠',
+        Action: '', Fantasy: '', Romance: '', Thriller: '',
+        'Sci-Fi': '', Horreur: '', Comédie: '', Sport: '',
+        Historique: '', Psychologique: '',
     };
 
     const curators = [

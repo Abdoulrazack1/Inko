@@ -1,7 +1,7 @@
 // ============================================================
 // SushiScan — extension Inko (modèle Mihon)
 // ============================================================
-// ⚠ Extension communautaire, fournie sans garantie. Scrape l'HTML
+// Extension communautaire, fournie sans garantie. Scrape l'HTML
 // de sushiscan.fr (thème Madara). Le site change régulièrement,
 // utilise Cloudflare et peut bloquer les requêtes serveur.
 //
@@ -188,7 +188,7 @@ module.exports = {
     baseUrl:      BASE,
     nsfw:         false,
     version:      '0.3.0-experimental',
-    description:  '⚠ Expérimental — scrape sushiscan.fr (Madara). Catalogue paginé complet, contenu adulte filtré hors espace +18.',
+    description:  'Expérimental — scrape sushiscan.fr (Madara). Catalogue paginé complet, contenu adulte filtré hors espace +18.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
 
     // Catalogue paginé : on mappe (offset/limit) sur la page native SushiScan

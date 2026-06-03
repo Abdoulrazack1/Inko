@@ -61,7 +61,7 @@
         const el = document.getElementById('quickFilters');
         if (!el) return;
         el.innerHTML = `
-            <input type="text" id="secSearch" class="set-input" placeholder="🔍 Rechercher…"
+            <input type="text" id="secSearch" class="set-input" placeholder="Rechercher…"
                    style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:9px 12px;border-radius:8px;font-size:13px;max-width:320px;width:100%">`;
         const inp = document.getElementById('secSearch');
         let t;

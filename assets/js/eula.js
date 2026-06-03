@@ -25,7 +25,7 @@
                     box-shadow:0 24px 80px rgba(0,0,0,.6)">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
                 <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#ff8c42,#ff6b1a);
-                            display:flex;align-items:center;justify-content:center;font-size:18px">⚡</div>
+                            display:flex;align-items:center;justify-content:center;font-size:18px"></div>
                 <h2 style="font-size:18px;font-weight:700;margin:0">Bienvenue dans Inko</h2>
             </div>
 
@@ -48,7 +48,7 @@
 
             <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);
                         border-radius:8px;padding:10px 12px;font-size:11.5px;color:#a8a8b3;line-height:1.5;margin-bottom:14px">
-                ⚠ <strong style="color:#ef4444">Avertissement</strong> — Certaines extensions communautaires accèdent
+                <strong style="color:#ef4444">Avertissement</strong> — Certaines extensions communautaires accèdent
                 à des sites qui peuvent héberger du contenu protégé par le droit d'auteur sans
                 autorisation. L'utilisation de telles extensions peut violer la loi de ton pays.
                 <strong>Tu seras tenu·e seul·e responsable.</strong>

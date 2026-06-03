@@ -21,7 +21,7 @@
         if (!sources.length) {
             el.innerHTML = `
             <div class="empty-state">
-                <div style="font-size:36px;margin-bottom:8px">📭</div>
+                <div style="font-size:36px;margin-bottom:8px"></div>
                 <div style="font-size:15px;color:var(--text);font-weight:500;margin-bottom:6px">Aucune extension installée</div>
                 <div style="font-size:12.5px">Place une source dans <code>server/extensions/&lt;id&gt;/index.js</code> et redémarre le backend.</div>
             </div>`;

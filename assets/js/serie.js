@@ -13,7 +13,10 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('serie');
-        const id = new URLSearchParams(location.search).get('id');
+        const params = new URLSearchParams(location.search);
+        const id = params.get('id');
+        const src = params.get('source');
+        if (src && API.sources.current !== src) API.sources.current = src; // contexte multi-sources
         if (!id) { showError('ID manquant.'); return; }
 
         showSkeleton();
@@ -86,7 +89,7 @@
                     <img src="${manga.coverLarge || manga.cover || ''}" alt="${MH.esc(manga.title)}"
                          onerror="this.src='${MH.placeholderCover(manga.id)}'">
                 </div>
-                ${manga.rating?.bayesian ? `<div class="serie-cover-rating">⭐ ${manga.rating.bayesian.toFixed(2)}</div>` : ''}
+                ${manga.rating?.bayesian ? `<div class="serie-cover-rating">${manga.rating.bayesian.toFixed(2)}</div>` : ''}
             </div>
             <div class="serie-info">
                 <div class="serie-title-tags">
@@ -95,11 +98,11 @@
                 <h1 class="serie-title">${MH.esc(manga.title)}</h1>
                 ${manga.titleAlt ? `<div class="serie-title-jp">${MH.esc(manga.titleAlt)}</div>` : ''}
                 <div class="serie-meta-row">
-                    ${manga.author ? `<span class="serie-meta-item"><span class="serie-meta-icon">✍️</span> ${MH.esc(manga.author)}</span>` : ''}
-                    <span class="serie-meta-item" id="chapCountMeta"><span class="serie-meta-icon">📖</span> <span class="spinner-inline" style="width:10px;height:10px;border-width:1px"></span> chapitres</span>
-                    ${manga.year ? `<span class="serie-meta-item"><span class="serie-meta-icon">📅</span> ${manga.year}</span>` : ''}
+                    ${manga.author ? `<span class="serie-meta-item"><span class="serie-meta-icon"></span> ${MH.esc(manga.author)}</span>` : ''}
+                    <span class="serie-meta-item" id="chapCountMeta"><span class="serie-meta-icon"></span> <span class="spinner-inline" style="width:10px;height:10px;border-width:1px"></span> chapitres</span>
+                    ${manga.year ? `<span class="serie-meta-item"><span class="serie-meta-icon"></span> ${manga.year}</span>` : ''}
                     <span class="serie-meta-item">
-                        <span class="serie-meta-icon">🔵</span>
+                        <span class="serie-meta-icon"></span>
                         <span class="status-badge status-${manga.status}">${statusLabel}</span>
                     </span>
                 </div>
@@ -108,7 +111,7 @@
                     <button class="btn btn-primary" id="btnReadStart">▶ Lire depuis le début</button>
                     ${resumeChap ? `<button class="btn btn-secondary" id="btnResume">↻ Reprendre Ch.${progress.chapter}</button>` : ''}
                     <button class="btn btn-ghost ${favorited ? 'is-fav' : ''}" id="btnFavorite">
-                        ${favorited ? '❤ Dans ma liste' : '♡ Ajouter à ma liste'}
+                        ${favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste'}
                     </button>
                     <button class="btn btn-ghost btn-icon" id="btnShare" title="Partager">↗</button>
                 </div>
@@ -141,12 +144,12 @@
             }
             const first = [...chapters].sort((a, b) => a.chapter - b.chapter)[0];
             if (!first) return;
-            window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(first.id)}`;
+            window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(first.id)}&source=${encodeURIComponent(API.sources.current)}`;
         });
 
         document.getElementById('btnResume')?.addEventListener('click', () => {
             if (progress?.chapterId) {
-                window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(progress.chapterId)}`;
+                window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(progress.chapterId)}&source=${encodeURIComponent(API.sources.current)}`;
             }
         });
 
@@ -157,7 +160,7 @@
                 if (favorited) { await API.me.removeFavorite(manga.id); favorited = false; }
                 else           { await API.me.addFavorite(manga.id, { title: manga.title, cover: manga.cover || manga.coverThumb }); favorited = true; }
                 btn.classList.toggle('is-fav', favorited);
-                btn.textContent = favorited ? '❤ Dans ma liste' : '♡ Ajouter à ma liste';
+                btn.textContent = favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste';
                 MH.toast(favorited ? 'Ajouté à votre liste !' : 'Retiré de votre liste');
             } catch(err) { MH.toast('Erreur : ' + err.message); }
         });
@@ -199,7 +202,7 @@
 
     function updateTabsLabels() {
         const meta = document.getElementById('chapCountMeta');
-        if (meta) meta.innerHTML = `<span class="serie-meta-icon">📖</span> ${chapters.length} chapitres`;
+        if (meta) meta.innerHTML = `<span class="serie-meta-icon"></span> ${chapters.length} chapitres`;
         document.querySelectorAll('.serie-tab[data-tab="chapitres"]').forEach(b => {
             b.textContent = `Chapitres (${chapters.length})`;
         });
@@ -244,7 +247,7 @@
     function renderChapterRow(c) {
         const isRead = readChapsSet.has(c.id);
         return `
-        <a href="chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(c.id)}" class="chapter-row${isRead ? ' chapter-row--read' : ''}">
+        <a href="chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(c.id)}&source=${encodeURIComponent(API.sources.current)}" class="chapter-row${isRead ? ' chapter-row--read' : ''}">
             <div class="chapter-num">Chap. ${c.chapter}</div>
             <div class="chapter-title-text">${MH.esc(c.title || 'Chapitre ' + c.chapter)}</div>
             <div class="chapter-meta">
@@ -351,7 +354,7 @@
         </div>`;
 
         document.getElementById('sidebarResumeBtn')?.addEventListener('click', () => {
-            if (resumeChap) window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(resumeChap)}`;
+            if (resumeChap) window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(resumeChap)}&source=${encodeURIComponent(API.sources.current)}`;
         });
 
         renderRating();
@@ -387,7 +390,7 @@
                 const n = +s.dataset.n;
                 try {
                     await API.ratings.set(manga.id, { rating: n });
-                    MH.toast(`Noté ${n}/5 ⭐`);
+                    MH.toast(`Noté ${n}/5 `);
                     renderRating();
                 } catch (e) { MH.toast('Erreur : ' + e.message); }
             });

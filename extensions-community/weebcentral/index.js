@@ -1,7 +1,7 @@
 // ============================================================
 // WeebCentral — extension Inko (modèle Mihon)
 // ============================================================
-// ⚠ Extension communautaire. Scrape weebcentral.com (HTMX).
+// Extension communautaire. Scrape weebcentral.com (HTMX).
 // Structure :
 //   - recherche : /search/data?text=…&sort=…&order=…
 //   - série     : /series/<ID>/<slug>            (titre, tags, desc)

@@ -73,6 +73,13 @@ function manifest() {
  */
 function defaultSource() {
     const all = getAll();
+    // WeebCentral héberge les pages des titres populaires (MangaDex en licencie
+    // beaucoup en "externalUrl" → illisibles). On le privilégie par défaut.
+    const preferred = ['weebcentral', 'sushiscan'];
+    for (const id of preferred) {
+        const s = all.find(x => x.id === id);
+        if (s) return s;
+    }
     return all[0] || null;
 }
 

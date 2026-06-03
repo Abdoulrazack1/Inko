@@ -12,7 +12,7 @@
         if (!API.isLoggedIn()) {
             document.querySelector('.lib2-wrap').innerHTML = `
                 <div class="lib2-empty">
-                    <div class="ico">🔒</div>
+                    <div class="ico"></div>
                     <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">Connexion requise</div>
                     <div style="margin-bottom:18px">Connecte-toi pour retrouver ta bibliothèque synchronisée.</div>
                     <a href="page_login.html" class="btn btn-primary">Se connecter</a>
@@ -56,7 +56,7 @@
 
         if (!favs.length) {
             grid.innerHTML = `<div class="lib2-empty" style="grid-column:1/-1">
-                <div class="ico">📭</div>
+                <div class="ico"></div>
                 <div style="font-size:15px;color:var(--text);font-weight:500;margin-bottom:6px">Ta bibliothèque est vide</div>
                 <div style="margin-bottom:16px">Ajoute des mangas en favoris (♡) depuis le catalogue.</div>
                 <a href="catalogue.html" class="btn btn-primary btn-sm">Explorer le catalogue →</a>
@@ -142,7 +142,7 @@
                 status.textContent = `${ups.length} série(s) suivie(s) · ${ups.filter(u => u.unreadCount > 0).length} avec des chapitres non lus`;
 
                 if (!ups.length) {
-                    listEl.innerHTML = `<div class="lib2-empty"><div class="ico">📭</div>Aucune série suivie. Ajoute des favoris pour suivre leurs mises à jour.</div>`;
+                    listEl.innerHTML = `<div class="lib2-empty"><div class="ico"></div>Aucune série suivie. Ajoute des favoris pour suivre leurs mises à jour.</div>`;
                     return;
                 }
                 listEl.innerHTML = ups.map(u => `

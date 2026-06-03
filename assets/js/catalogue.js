@@ -39,10 +39,10 @@
         const el = document.getElementById('catalogueChips');
         if (!el) return;
         el.innerHTML = [
-            ['📚', 'Catalogue MangaDex en direct'],
-            ['🌐', 'FR · EN · JP'],
-            ['🔄', 'Mises à jour temps réel'],
-            ['📥', 'Lecture intégrée'],
+            ['', 'Catalogue MangaDex en direct'],
+            ['', 'FR · EN · JP'],
+            ['', 'Mises à jour temps réel'],
+            ['', 'Lecture intégrée'],
         ].map(([i, t]) =>
             `<div class="catalogue-chip"><span class="catalogue-chip-icon">${i}</span> ${t}</div>`
         ).join('');
@@ -269,7 +269,7 @@
                 cover: card?.querySelector('img')?.src,
             };
             const isFav = btn.classList.toggle('is-fav');
-            btn.innerHTML = isFav ? '❤' : '♡';
+            btn.innerHTML = isFav ? '' : '♡';
             try {
                 if (isFav) await API.me.addFavorite(id, meta);
                 else       await API.me.removeFavorite(id);

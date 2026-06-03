@@ -38,7 +38,7 @@
         const main = document.querySelector('.profil-main');
         if (main) main.innerHTML = `
             <div class="card" style="padding:60px;text-align:center">
-                <div style="font-size:48px;margin-bottom:16px">🔒</div>
+                <div style="font-size:48px;margin-bottom:16px"></div>
                 <div style="font-size:18px;font-weight:600;margin-bottom:8px">Connexion requise</div>
                 <div style="color:var(--text3);margin-bottom:24px">Connectez-vous pour accéder à votre profil, vos favoris et votre historique.</div>
                 <a href="page_login.html" class="btn btn-primary">Se connecter</a>
@@ -375,7 +375,7 @@
                 }
                 const html = lists.length ? lists.map(l => `
                     <div class="list-nav-item" data-list="${l.id}">
-                        <span class="list-nav-icon">📚</span>
+                        <span class="list-nav-icon"></span>
                         <div>
                             <div class="list-nav-name">${MH.esc(l.name)}</div>
                             <div class="list-nav-count">${l.mangaIds.length} manga${l.mangaIds.length > 1 ? 's' : ''}</div>
@@ -520,7 +520,7 @@
             const btn = item.querySelector('button, .connected-status');
             const toggle = item.querySelector('.toggle');
             const act = () => {
-                if (/Spotify/i.test(name)) { MH.openMusic(); MH.toast('Lecteur de musique ouvert 🎵'); }
+                if (/Spotify/i.test(name)) { MH.openMusic(); MH.toast('Lecteur de musique ouvert '); }
                 else if (/Discord/i.test(name)) window.open('https://discord.com/app', '_blank');
                 else if (/Crunchyroll/i.test(name)) window.open('https://www.crunchyroll.com', '_blank');
             };

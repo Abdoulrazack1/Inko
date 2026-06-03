@@ -25,22 +25,22 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
     const dbName = process.env.DB_NAME;
     await conn.query(`USE \`${dbName}\``);
 
-    const [rows] = await conn.query('SELECT id FROM users WHERE email = ?', ['demo@mangahub.app']);
+    const [rows] = await conn.query('SELECT id FROM users WHERE email = ?', ['demo@inko.app']);
     if (!rows.length) {
         const hash = await bcrypt.hash('demo1234', 10);
         await conn.query(
             'INSERT INTO users (username, email, password_hash, avatar) VALUES (?, ?, ?, ?)',
-            ['Kaito', 'demo@mangahub.app', hash, 'K']
+            ['Kaito', 'demo@inko.app', hash, 'K']
         );
-        console.log('  ✓ Compte démo créé : demo@mangahub.app / demo1234');
+        console.log('  Compte demo cree : demo@inko.app / demo1234');
     } else {
         console.log('  ↻ Compte démo déjà présent.');
     }
 
     await conn.end();
-    console.log('✅ Base de données prête.');
+    console.log('Base de données prête.');
     process.exit(0);
 })().catch(err => {
-    console.error('❌ Erreur init :', err.message);
+    console.error('Erreur init :', err.message);
     process.exit(1);
 });

@@ -54,7 +54,7 @@
             }
             try {
                 await API.auth.resetPassword({ email, token, newPassword: pwd });
-                toast('Mot de passe réinitialisé ! 🎉');
+                toast('Mot de passe réinitialisé ! ');
                 setTimeout(() => { window.location.href = 'page_login.html'; }, 800);
             } catch(err) {
                 toast(err.message || 'Erreur lors de la réinitialisation');

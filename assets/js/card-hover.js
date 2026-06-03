@@ -62,7 +62,7 @@
                      onerror="this.style.visibility='hidden'">
                 <div style="padding:12px 14px;min-width:0">
                     <div style="font-weight:700;font-size:14.5px;line-height:1.25;margin-bottom:5px">${esc(m.title)}</div>
-                    ${m.author ? `<div style="font-size:11.5px;color:var(--text2,#a8a8b3);margin-bottom:6px">✍️ ${esc(m.author)}</div>` : ''}
+                    ${m.author ? `<div style="font-size:11.5px;color:var(--text2,#a8a8b3);margin-bottom:6px">${esc(m.author)}</div>` : ''}
                     <div style="display:flex;gap:8px;align-items:center;font-size:11px;color:var(--text3,#6b6b78);margin-bottom:7px">
                         <span style="color:${col};font-weight:600">● ${esc(label)}</span>
                         ${m.year ? `<span>${m.year}</span>` : ''}

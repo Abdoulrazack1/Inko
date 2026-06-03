@@ -4,6 +4,7 @@ const auth    = require('../middleware/auth');
 const Auth    = require('../controllers/auth.controller');
 const Manga   = require('../controllers/manga.controller');
 const User    = require('../controllers/user.controller');
+const Spotify = require('../controllers/spotify.controller');
 
 // ── Healthcheck ─────────────────────────────────
 router.get('/health', (_req, res) => res.json({ ok: true, time: Date.now() }));
@@ -82,5 +83,12 @@ router.post  ('/me/clear-history',        auth.authRequired, User.clearHistory);
 router.get   ('/me/events',               auth.authRequired, User.getEvents);
 router.get   ('/me/stats',                auth.authRequired, User.getStats);
 router.get   ('/me/updates',              auth.authRequired, User.checkUpdates);
+
+// ── Spotify (linking de compte OAuth) ───────────
+router.get   ('/spotify/login',           auth.authOptional, Spotify.login);     // ?token=<jwt>
+router.get   ('/spotify/callback',        Spotify.callback);                     // public (redir Spotify)
+router.get   ('/spotify/status',          auth.authRequired, Spotify.status);
+router.get   ('/spotify/playlists',       auth.authRequired, Spotify.playlists);
+router.post  ('/spotify/disconnect',      auth.authRequired, Spotify.disconnect);
 
 module.exports = router;

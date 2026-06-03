@@ -47,8 +47,8 @@
                     </div>
                     <h1 class="hero-title">${MH.esc(m.title)}</h1>
                     <div class="hero-meta">
-                        ${m.author ? `<span class="hero-meta-item">✍️ ${MH.esc(m.author)}</span>` : ''}
-                        ${m.year ? `<span class="hero-meta-item">📅 ${m.year}</span>` : ''}
+                        ${m.author ? `<span class="hero-meta-item">${MH.esc(m.author)}</span>` : ''}
+                        ${m.year ? `<span class="hero-meta-item">${m.year}</span>` : ''}
                         ${m.status ? `<span class="hero-meta-item">${MH.statusBadge(m.status)}</span>` : ''}
                     </div>
                     <p class="hero-desc">${MH.esc((m.description || '').slice(0, 240))}${m.description?.length > 240 ? '…' : ''}</p>
@@ -295,7 +295,7 @@
             cover: card?.querySelector('img')?.src,
         };
         const isFav = btn.classList.toggle('is-fav');
-        btn.innerHTML = isFav ? '❤' : '♡';
+        btn.innerHTML = isFav ? '' : '♡';
         try {
             if (isFav) await API.me.addFavorite(id, meta);
             else       await API.me.removeFavorite(id);

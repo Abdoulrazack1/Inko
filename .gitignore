@@ -32,3 +32,6 @@ android/
 ios/
 dist/
 build/
+
+# Outils de prod vidéo (ffmpeg, puppeteer, frames) — lourds, hors repo
+tools/
