@@ -201,6 +201,11 @@
             remove: (mangaId)          => del('/ratings/' + encodeURIComponent(mangaId)),
         },
 
+        // ── Artwork officiel (AniList) ──
+        art: {
+            get: (title) => get('/artwork?title=' + encodeURIComponent(title || '')),
+        },
+
         // ── Spotify (linking de compte OAuth) ──
         spotify: {
             // URL d'autorisation (navigation top-level requise : window.open / location)

@@ -4,6 +4,8 @@
 
     let heroMangas = [];
     let heroIdx = 0;
+    let heroTimer = null;
+    let heroShow = null;        // référence module vers show() (pour rafraîchir après enrichissement)
     let latestCount = 8;
     let popularCache = null;
     let latestCache = null;
@@ -25,6 +27,15 @@
             renderHero();
             renderTrending(popularCache.slice(0, 10));
             renderReco(popularCache.slice(4, 7));
+            // Illustration officielle (banner AniList) pour chaque série du hero
+            heroMangas.forEach((m, i) => {
+                API.art.get(m.title).then(a => {
+                    if (a && a.banner) {
+                        heroMangas[i] = Object.assign({}, heroMangas[i], { banner: a.banner });
+                        if (heroIdx === i && heroShow) heroShow(i);   // révèle le banner sur le slide visible
+                    }
+                }).catch(() => {});
+            });
         } catch(e) {
             showError('hero', "Impossible de charger les tendances. Le backend est-il lancé ?");
         }
@@ -34,13 +45,13 @@
         const bg      = document.getElementById('heroBg');
         const content = document.getElementById('heroContent');
         const dots    = document.getElementById('heroDots');
-        if (!bg || !content || !heroMangas.length) return;
+        const hero    = document.getElementById('hero');
+        if (!bg || !content || !hero || !heroMangas.length) return;
 
-        function show(idx) {
-            const m = heroMangas[idx];
-            if (!m) return;
-            bg.style.backgroundImage = `url('${m.coverLarge || m.cover || ''}')`;
-            content.innerHTML = `
+        clearInterval(heroTimer);   // évite les intervalles cumulés sur re-render
+
+        function slideHTML(m) {
+            return `
                 <div class="hero-inner">
                     <div class="hero-badges">
                         ${(m.tags || []).slice(0, 3).map(g => `<span class="hero-badge">${MH.esc(g.toUpperCase())}</span>`).join('')}
@@ -53,20 +64,87 @@
                     </div>
                     <p class="hero-desc">${MH.esc((m.description || '').slice(0, 240))}${m.description?.length > 240 ? '…' : ''}</p>
                     <div class="hero-actions">
-                        <a href="serie.html?id=${encodeURIComponent(m.id)}" class="btn btn-primary">▶ Voir la fiche</a>
+                        <a href="serie.html?id=${encodeURIComponent(m.id)}" class="btn btn-primary">Voir la fiche</a>
                         <button class="btn btn-secondary" data-fav="${m.id}">+ Suivre</button>
                     </div>
                 </div>`;
-            dots.innerHTML = heroMangas.map((_, i) =>
-                `<div class="hero-dot ${i === idx ? 'active' : ''}" data-i="${i}"></div>`
-            ).join('');
-            dots.querySelectorAll('.hero-dot').forEach(d =>
-                d.addEventListener('click', () => { heroIdx = +d.dataset.i; show(heroIdx); })
-            );
         }
 
-        show(0);
-        setInterval(() => { heroIdx = (heroIdx + 1) % heroMangas.length; show(heroIdx); }, 6500);
+        // Crossfade de l'arrière-plan via une couche temporaire
+        function crossfadeBg(url) {
+            const layer = document.createElement('div');
+            layer.className = 'hero-bg hero-bg-fade';
+            layer.style.backgroundImage = `url('${url}')`;
+            bg.insertAdjacentElement('afterend', layer);
+            requestAnimationFrame(() => layer.classList.add('show'));
+            setTimeout(() => { bg.style.backgroundImage = `url('${url}')`; layer.remove(); }, 760);
+        }
+
+        // Poster net (cover en portrait, à droite) — créé une fois
+        let poster = document.getElementById('heroPoster');
+        if (!poster) {
+            poster = document.createElement('img');
+            poster.id = 'heroPoster'; poster.className = 'hero-poster'; poster.alt = '';
+            poster.onerror = () => { poster.style.visibility = 'hidden'; };
+            poster.onload  = () => { poster.style.visibility = 'visible'; };
+            hero.appendChild(poster);
+        }
+
+        function show(idx, instant) {
+            const m = heroMangas[idx]; if (!m) return;
+            heroIdx = idx;
+            const banner = m.banner || null;             // illustration large officielle
+            const cover  = m.coverLarge || m.cover || '';
+            const bgUrl  = banner || cover;
+            hero.classList.toggle('has-banner', !!banner);
+            poster.style.display = banner ? 'none' : '';  // banner = pas de poster ; sinon cover nette
+            if (instant) {
+                bg.style.backgroundImage = `url('${bgUrl}')`;
+                if (!banner) poster.src = cover;
+            } else {
+                crossfadeBg(bgUrl);
+                if (!banner) { poster.classList.add('swapping'); setTimeout(() => { poster.src = cover; poster.classList.remove('swapping'); }, 240); }
+            }
+            content.classList.add('hero-fading');
+            setTimeout(() => {
+                content.innerHTML = slideHTML(m);
+                content.classList.remove('hero-fading');
+            }, instant ? 0 : 260);
+            dots.querySelectorAll('.hero-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+        }
+
+        function go(idx)   { show((idx + heroMangas.length) % heroMangas.length); restart(); }
+        function start()   { heroTimer = setInterval(() => show((heroIdx + 1) % heroMangas.length), 6000); }
+        function restart() { clearInterval(heroTimer); start(); }
+
+        // Points de navigation
+        dots.innerHTML = heroMangas.map((_, i) => `<div class="hero-dot ${i === 0 ? 'active' : ''}" data-i="${i}"></div>`).join('');
+        dots.querySelectorAll('.hero-dot').forEach(d => d.addEventListener('click', () => go(+d.dataset.i)));
+
+        // Flèches précédent / suivant
+        if (!document.getElementById('heroPrev')) {
+            const arrow = (id, side, d) => {
+                const b = document.createElement('button');
+                b.id = id; b.className = 'hero-arrow'; b.style[side] = '14px';
+                b.setAttribute('aria-label', id === 'heroPrev' ? 'Précédent' : 'Suivant');
+                b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+                return b;
+            };
+            const prev = arrow('heroPrev', 'left',  'M15 18l-6-6 6-6');
+            const next = arrow('heroNext', 'right', 'M9 18l6-6-6-6');
+            prev.addEventListener('click', () => go(heroIdx - 1));
+            next.addEventListener('click', () => go(heroIdx + 1));
+            hero.append(prev, next);
+        }
+
+        heroShow = show;
+        show(0, true);
+        start();
+        if (!hero.dataset.heroBound) {
+            hero.dataset.heroBound = '1';
+            hero.addEventListener('mouseenter', () => clearInterval(heroTimer));
+            hero.addEventListener('mouseleave', restart);
+        }
     }
 
     function renderTrending(mangas) {
