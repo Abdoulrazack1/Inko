@@ -127,6 +127,17 @@
     cursor: not-allowed;
     pointer-events: none;
 }
+.reader-icon-btn.on {
+    background: var(--orange);
+    border-color: var(--orange);
+    color: #fff;
+}
+.reader-icon-btn.on:hover:not([disabled]) {
+    background: var(--orange);
+    color: #fff;
+}
+@keyframes autoPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+.reader-icon-btn.on svg { animation: autoPulse 1.4s ease-in-out infinite; }
 
 /* ══════════════════════════════════════════════════════════
    BARRE DE MODE

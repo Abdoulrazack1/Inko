@@ -1,144 +1,148 @@
-// collections.js
+// collections.js — Gestionnaire de listes de lecture (réel, via API)
 (function () {
     'use strict';
-    let activeFilter = 'all';
+
+    let lists = [];
+    let editId = null;   // id de la liste en cours d'édition (null = création)
 
     document.addEventListener('DOMContentLoaded', () => {
         MH.initPage('collections');
-        renderHeroTags();
-        renderGenreIcons();
-        renderFeatured();
-        renderCurators();
-        renderFilters();
-        renderGrid();
+        wireModal();
+        document.getElementById('btnNewList')?.addEventListener('click', () => openModal());
+        load();
+        window.addEventListener('auth:change', load);
     });
 
-    function renderHeroTags() {
-        const el = document.getElementById('heroTags');
-        if (!el) return;
-        ['#Isekai', '#DarkFantasy', '#Cyberpunk', '#RomCom'].forEach(t => {
-            const a = document.createElement('a');
-            a.href = '#'; a.className = 'hero-tag'; a.textContent = t;
-            el.appendChild(a);
-        });
-    }
+    async function load() {
+        const state = document.getElementById('listsState');
+        const grid = document.getElementById('listsGrid');
+        if (!grid || !state) return;
 
-    function renderGenreIcons() {
-        const el = document.getElementById('genreIconsBar');
-        if (!el) return;
-        const items = [
-            ['', 'Action'], ['', 'Romance'], ['', 'Fantastique'],
-            ['', 'Horreur'], ['', 'Sci-Fi'], ['', 'Sports'],
-            ['', 'Comédie'], ['', 'Mystère'],
-        ];
-        el.innerHTML = items.map(([icon, label]) => `
-            <div class="genre-icon-card" onclick="window.location.href='catalogue.html?genre=${encodeURIComponent(label)}'">
-                <div class="genre-icon">${icon}</div>
-                <div class="genre-icon-label">${label}</div>
-            </div>`).join('');
-    }
+        if (!API.isLoggedIn()) {
+            grid.innerHTML = '';
+            state.innerHTML = `
+                <div class="lists-empty">
+                    <div class="lists-empty-title">Connecte-toi pour créer tes listes</div>
+                    <div class="lists-empty-desc">Garde tes séries organisées en collections personnalisées, synchronisées sur tous tes appareils.</div>
+                    <a href="connexion.html" class="btn btn-primary" style="padding:0 22px;margin-top:14px">Se connecter</a>
+                </div>`;
+            return;
+        }
 
-    function renderFeatured() {
-        const el = document.getElementById('featuredGrid');
-        if (!el) return;
-        const picks = [
-            { colId: 1, badge: 'TENDANCE', color: '#ff6b1a', mangaId: 1 },
-            { colId: 3, badge: 'CHOIX DE L\'ÉDITEUR', color: '#3b82f6', mangaId: 12 },
-        ];
-        el.innerHTML = picks.map(p => {
-            const c = DB.getCollection(p.colId);
-            const m = DB.getManga(p.mangaId);
-            if (!c || !m) return '';
-            return `
-            <a href="collection-detail.html?id=${c.id}" class="featured-card">
-                <div class="featured-card-bg" style="background-image:url('${m.bannerFallback}')"></div>
-                <div class="featured-card-overlay"></div>
-                <div class="featured-card-content">
-                    <div class="featured-badge">
-                        <span class="badge" style="background:${p.color};color:#fff">${p.badge}</span>
-                    </div>
-                    <div class="featured-title">${MH.esc(c.title)}</div>
-                    <div class="featured-meta">
-                        <span>Par ${c.curator.name}</span>
-                        <span>${c.seriesCount} Séries</span>
-                        <span>${MH.fmt(c.likes)} Likes</span>
-                    </div>
-                </div>
-            </a>`;
-        }).join('');
-    }
+        state.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner-inline"></div></div>';
+        grid.innerHTML = '';
+        try {
+            lists = await API.me.lists();
+        } catch (e) {
+            state.innerHTML = `<div class="lists-empty"><div class="lists-empty-title">Erreur de chargement</div><div class="lists-empty-desc">${MH.esc(e.message)}</div></div>`;
+            return;
+        }
 
-    function renderCurators() {
-        const el = document.getElementById('curatorsStrip');
-        if (!el) return;
-        el.innerHTML = DB.curators.map(c => `
-            <div class="curator-card">
-                <div class="curator-avatar">${c.name[0]}</div>
-                <div class="curator-name">${c.name}</div>
-                <div class="curator-count">${c.collections} Collections</div>
-                <button class="curator-follow" onclick="MH.toast('Vous suivez ${c.name} !')">Suivre</button>
-            </div>`).join('');
-    }
+        if (!lists.length) {
+            state.innerHTML = `
+                <div class="lists-empty">
+                    <div class="lists-empty-title">Aucune liste pour l'instant</div>
+                    <div class="lists-empty-desc">Crée ta première collection pour ranger tes séries comme tu veux.</div>
+                    <button class="btn btn-primary" id="emptyCreate" style="padding:0 22px;margin-top:14px">+ Créer une liste</button>
+                </div>`;
+            document.getElementById('emptyCreate')?.addEventListener('click', () => openModal());
+            return;
+        }
 
-    function renderFilters() {
-        const el = document.getElementById('collectionsFilters');
-        if (!el) return;
-        const filters = [
-            { v: 'all', l: 'Tout' }, { v: 'trending', l: 'Tendances' },
-            { v: 'new', l: 'Nouvelles' }, { v: 'lowrated', l: 'Les mieux notées' },
-            { v: 'staff', l: 'Staff Picks' }, { v: 'webtoon', l: 'Webtoons' },
-            { v: 'termine', l: 'Terminées' },
-        ];
-        el.innerHTML = filters.map(f =>
-            `<button class="collections-filter-btn ${f.v === activeFilter ? 'active' : ''}" data-filter="${f.v}">${f.l}</button>`
-        ).join('') + `
-        <div class="filter-spacer"></div>
-        <select class="sort-dropdown-mini" id="colSort">
-            <option>Trier par : Popularité</option>
-            <option>Trier par : Note</option>
-            <option>Trier par : Récent</option>
-        </select>`;
-        el.addEventListener('click', e => {
-            const btn = e.target.closest('[data-filter]');
-            if (!btn) return;
-            activeFilter = btn.dataset.filter;
-            el.querySelectorAll('[data-filter]').forEach(b => b.classList.toggle('active', b.dataset.filter === activeFilter));
-            renderGrid();
-        });
+        state.innerHTML = '';
+        renderGrid();
     }
 
     function renderGrid() {
-        const el = document.getElementById('collectionsGrid');
-        if (!el) return;
-        let cols = [...DB.collections];
-        if (activeFilter === 'trending') cols = cols.filter(c => c.isTrending);
-        else if (activeFilter === 'staff') cols = cols.filter(c => c.isStaffPick);
-        if (!cols.length) cols = DB.collections;
-
-        el.innerHTML = cols.map(c => {
-            const covers = c.mangaIds.slice(0, 4).map(id => DB.getManga(id)).filter(Boolean);
+        const grid = document.getElementById('listsGrid');
+        if (!grid) return;
+        grid.innerHTML = lists.map(l => {
+            const items = l.items || [];
+            const covers = items.filter(it => it.cover).slice(0, 4);
+            const mosaic = covers.length
+                ? covers.map(it => `<img src="${MH.esc(it.cover)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`).join('')
+                : `<div class="list-cover-empty">Liste vide</div>`;
             return `
-            <a href="collection-detail.html?id=${c.id}" class="collection-card">
-                <div class="collection-card-cover">
-                    <div class="collection-card-cover-mosaic">
-                        ${covers.slice(0, 4).map(m =>
-                            `<img src="${m.coverFallback}" alt="" onerror="this.src='${m.coverFallback}'">`
-                        ).join('')}
+            <div class="list-card">
+                <a href="collection-detail.html?id=${l.id}" class="list-card-cover ${covers.length ? 'has-' + covers.length : 'is-empty'}">
+                    ${mosaic}
+                    <span class="list-card-count">${items.length}</span>
+                </a>
+                <div class="list-card-body">
+                    <a href="collection-detail.html?id=${l.id}" class="list-card-title">${MH.esc(l.name)}</a>
+                    ${l.description ? `<div class="list-card-desc">${MH.esc(l.description)}</div>` : ''}
+                    <div class="list-card-footer">
+                        <span class="list-card-vis">${l.isPublic ? 'Publique' : 'Privée'}</span>
+                        <div class="list-card-actions">
+                            <button class="list-icon-btn" data-edit="${l.id}" title="Modifier">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                            </button>
+                            <button class="list-icon-btn" data-del="${l.id}" title="Supprimer">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                        </div>
                     </div>
-                    <span class="collection-card-cover-count">${c.seriesCount}</span>
                 </div>
-                <div class="collection-card-body">
-                    <div class="collection-card-title">${MH.esc(c.title)}</div>
-                    <div class="collection-card-meta">${c.seriesCount} séries · Moy. ${c.avgRating}</div>
-                    <div class="collection-card-tags">
-                        ${c.tags.slice(0,3).map(t => `<span class="collection-card-tag">${t}</span>`).join('')}
-                    </div>
-                    <div class="collection-card-footer">
-                        <span>${MH.fmt(c.readers)}</span>
-                        <span class="collection-card-likes">${MH.fmt(c.likes)}</span>
-                    </div>
-                </div>
-            </a>`;
+            </div>`;
         }).join('');
+
+        grid.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => {
+            const l = lists.find(x => String(x.id) === b.dataset.edit);
+            if (l) openModal(l);
+        }));
+        grid.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => deleteList(b.dataset.del)));
+    }
+
+    async function deleteList(id) {
+        const l = lists.find(x => String(x.id) === String(id));
+        if (!l) return;
+        if (!confirm(`Supprimer la liste « ${l.name} » ? Cette action est définitive.`)) return;
+        try {
+            await API.me.deleteList(id);
+            MH.toast?.('Liste supprimée');
+            load();
+        } catch (e) { MH.toast?.('Erreur : ' + e.message); }
+    }
+
+    // ── Modale ──
+    function openModal(list) {
+        editId = list ? list.id : null;
+        document.getElementById('listModalTitle').textContent = list ? 'Modifier la liste' : 'Nouvelle liste';
+        document.getElementById('listName').value = list ? (list.name || '') : '';
+        document.getElementById('listDesc').value = list ? (list.description || '') : '';
+        document.getElementById('listPublic').checked = list ? !!list.isPublic : false;
+        const modal = document.getElementById('listModal');
+        modal.style.display = 'flex';
+        setTimeout(() => document.getElementById('listName')?.focus(), 50);
+    }
+    function closeModal() {
+        document.getElementById('listModal').style.display = 'none';
+        editId = null;
+    }
+    function wireModal() {
+        document.getElementById('listModalClose')?.addEventListener('click', closeModal);
+        document.getElementById('listCancel')?.addEventListener('click', closeModal);
+        document.getElementById('listModal')?.addEventListener('click', e => {
+            if (e.target.id === 'listModal') closeModal();
+        });
+        document.getElementById('listSave')?.addEventListener('click', save);
+    }
+    async function save() {
+        const name = document.getElementById('listName').value.trim();
+        if (!name) { MH.toast?.('Donne un nom à ta liste'); return; }
+        const payload = {
+            name,
+            description: document.getElementById('listDesc').value.trim() || null,
+            isPublic: document.getElementById('listPublic').checked,
+        };
+        const btn = document.getElementById('listSave');
+        btn.disabled = true;
+        try {
+            if (editId) { await API.me.updateList(editId, payload); MH.toast?.('Liste mise à jour'); }
+            else        { await API.me.createList(payload);        MH.toast?.('Liste créée'); }
+            closeModal();
+            load();
+        } catch (e) { MH.toast?.('Erreur : ' + e.message); }
+        finally { btn.disabled = false; }
     }
 })();

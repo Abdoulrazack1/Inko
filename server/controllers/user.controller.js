@@ -250,18 +250,19 @@ async function getLists(req, res, next) {
         if (!lists.length) return res.json([]);
         const ids = lists.map(l => l.id);
         const [items] = await pool.query(
-            'SELECT list_id, manga_id, position FROM list_items WHERE list_id IN (?) ORDER BY position',
+            'SELECT list_id, manga_id, source, title, cover, position FROM list_items WHERE list_id IN (?) ORDER BY position, added_at',
             [ids]
         );
         const byList = {};
         items.forEach(it => {
             byList[it.list_id] = byList[it.list_id] || [];
-            byList[it.list_id].push(it.manga_id);
+            byList[it.list_id].push({ id: it.manga_id, source: it.source, title: it.title, cover: it.cover });
         });
         res.json(lists.map(l => ({
             id: l.id, name: l.name, description: l.description,
             isPublic: !!l.is_public, createdAt: l.created_at,
-            mangaIds: byList[l.id] || [],
+            items: byList[l.id] || [],
+            mangaIds: (byList[l.id] || []).map(it => it.id),
         })));
     } catch (e) { next(e); }
 }
@@ -304,15 +305,16 @@ async function deleteList(req, res, next) {
 
 async function addToList(req, res, next) {
     try {
-        const { mangaId } = req.body;
+        const { mangaId, source, title, cover } = req.body;
         if (!mangaId) return res.status(400).json({ error: 'mangaId requis' });
         // Check ownership
         const [[list]] = await pool.query('SELECT id FROM lists WHERE id = ? AND user_id = ?',
             [req.params.id, req.user.id]);
         if (!list) return res.status(404).json({ error: 'Liste introuvable' });
         await pool.query(
-            'INSERT IGNORE INTO list_items (list_id, manga_id) VALUES (?, ?)',
-            [req.params.id, mangaId]
+            `INSERT INTO list_items (list_id, manga_id, source, title, cover) VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE source=VALUES(source), title=VALUES(title), cover=VALUES(cover)`,
+            [req.params.id, mangaId, source || null, title || null, cover || null]
         );
         res.json({ ok: true });
     } catch (e) { next(e); }

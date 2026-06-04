@@ -3,67 +3,50 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inko — Collections</title>
+  <title>Inko — Mes listes</title>
   <link rel="stylesheet" href="assets/css/global.css">
   <link rel="stylesheet" href="assets/css/collections.css">
 </head>
 <body class="page-body">
   <div id="header-slot"></div>
 
-  <!-- Hero -->
-  <div class="collections-hero">
-    <div class="collections-hero-bg"></div>
-    <div class="collections-hero-overlay"></div>
-    <div class="container collections-hero-content">
-      <h1 class="collections-hero-title">Découvrez des Mondes<br>Inoubliables</h1>
-      <p class="collections-hero-desc">Explorez plus de 5,000 collections thématiques créées par notre communauté passionnée. De l'action frénétique aux romances douces-amères.</p>
-      <div class="collections-hero-tags" id="heroTags"></div>
-      <div class="collections-hero-stats">
-        <div class="hero-stat"><div class="hero-stat-num">5.2k</div><div class="hero-stat-label">COLLECTIONS</div></div>
-        <div class="hero-stat"><div class="hero-stat-num">128k</div><div class="hero-stat-label">SÉRIES</div></div>
-        <div class="hero-stat"><div class="hero-stat-num">42k</div><div class="hero-stat-label">CURATEURS</div></div>
+  <div class="container" style="padding-top:28px">
+
+    <div class="lists-head">
+      <div>
+        <h1 class="lists-title">Mes listes</h1>
+        <p class="lists-subtitle">Organise tes séries en collections : à lire, favoris, pépites, ce que tu veux.</p>
       </div>
-    </div>
-  </div>
-
-  <div class="container" style="padding-top:36px">
-
-    <!-- Catégories icônes -->
-    <div class="genre-icons-bar" id="genreIconsBar"></div>
-
-    <!-- À la Une -->
-    <div class="featured-section">
-      <div class="section-header">
-        <div class="section-title">À la Une cette semaine</div>
-      </div>
-      <div class="featured-grid" id="featuredGrid"></div>
+      <button class="btn btn-primary" id="btnNewList" style="padding:0 20px">+ Nouvelle liste</button>
     </div>
 
-    <!-- Top curateurs -->
-    <div class="curators-section">
-      <div class="section-header">
-        <div class="section-title">Top Curateurs</div>
-        <a href="#" class="section-link">Voir le classement complet →</a>
-      </div>
-      <p style="font-size:12.5px;color:var(--text2);margin-bottom:16px">Les architectes de vos prochaines lectures</p>
-      <div class="curators-strip" id="curatorsStrip"></div>
-    </div>
-
-    <!-- Filtres + grille -->
-    <div class="collections-filters" id="collectionsFilters"></div>
-
-    <div class="collections-grid" id="collectionsGrid"></div>
-
-    <!-- CTA créer -->
-    <div class="create-cta">
-      <h2 class="create-cta-title">Créez votre propre collection</h2>
-      <p class="create-cta-desc">Partagez vos coups de cœur avec la communauté et devenez un curateur reconnu sur Inko. Gagnez des badges exclusifs.</p>
-      <button class="btn btn-primary" style="padding:0 24px">Commencer maintenant →</button>
-    </div>
+    <div id="listsState"></div>
+    <div class="lists-grid" id="listsGrid"></div>
 
   </div>
 
   <div id="footer-slot"></div>
+
+  <!-- Modale création / édition de liste -->
+  <div class="list-modal-backdrop" id="listModal" style="display:none">
+    <div class="list-modal">
+      <div class="list-modal-head">
+        <span id="listModalTitle">Nouvelle liste</span>
+        <button class="list-modal-close" id="listModalClose">✕</button>
+      </div>
+      <label class="list-modal-label">Nom</label>
+      <input type="text" id="listName" class="list-modal-input" maxlength="100" placeholder="Ex : À lire absolument">
+      <label class="list-modal-label">Description <span style="color:var(--text3)">(optionnel)</span></label>
+      <textarea id="listDesc" class="list-modal-input" rows="2" maxlength="500" placeholder="Une courte description…"></textarea>
+      <label class="list-modal-check">
+        <input type="checkbox" id="listPublic"> <span>Liste publique</span>
+      </label>
+      <div class="list-modal-foot">
+        <button class="btn btn-secondary btn-sm" id="listCancel">Annuler</button>
+        <button class="btn btn-primary btn-sm" id="listSave">Enregistrer</button>
+      </div>
+    </div>
+  </div>
 
   <script src="assets/js/api.js"></script>
   <script src="assets/js/storage.js"></script>

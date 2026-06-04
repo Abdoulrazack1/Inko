@@ -12,15 +12,17 @@
     let readMode     = 'page';
 
     // ── Réglages lecteur (persistés) ──
-    const rs = { bg: 'dark', brightness: 100, gap: 8, fit: 'original', direction: 'rtl' };
+    const rs = { bg: 'dark', brightness: 100, gap: 8, fit: 'original', direction: 'rtl', autospeed: 1.4 };
     function loadReaderSettings() {
-        ['bg', 'brightness', 'gap', 'fit', 'direction'].forEach(k => {
+        ['bg', 'brightness', 'gap', 'fit', 'direction', 'autospeed'].forEach(k => {
             const v = window.Storage?.getPref('reader_' + k);
             if (v !== undefined && v !== null && v !== '') rs[k] = v;
         });
         rs.brightness = +rs.brightness || 100;
         rs.gap = +rs.gap; if (isNaN(rs.gap)) rs.gap = 8;
+        rs.autospeed = +rs.autospeed || 1.4;
     }
+    let autoTimer = null;
     const READER_BG = { dark: '#0d0d0f', black: '#000000', gray: '#26262b', sepia: '#f1e7d0', light: '#ffffff' };
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -159,14 +161,19 @@
             <button class="reader-icon-btn" onclick="window.toggleFullscreen()" title="Plein écran">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
             </button>
+            <button class="reader-icon-btn" id="btnAutoScroll" title="Défilement automatique (A)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></svg>
+            </button>
             <button class="reader-icon-btn" id="btnReaderSettings" title="Réglages du lecteur">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
         </div>`;
 
         document.getElementById('btnReaderSettings')?.addEventListener('click', toggleReaderSettings);
+        document.getElementById('btnAutoScroll')?.addEventListener('click', toggleAutoScroll);
         document.getElementById('btnMarkRead')?.addEventListener('click', markUpToHere);
         wireDownloadBtn();
+        updateAutoBtn();
         document.getElementById('chapSelect')?.addEventListener('change', e => {
             window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(e.target.value)}`;
         });
@@ -430,7 +437,10 @@
                 case '+': case '=': window.changeZoom(10); return;
                 case '-': window.changeZoom(-10); return;
                 case 's': case 'S': case '?': case 'h': case 'H': toggleReaderSettings(); return;
-                case 'Escape': if (document.getElementById('readerSettings')) toggleReaderSettings(); return;
+                case 'a': case 'A': toggleAutoScroll(); return;
+                case '[': bumpAutoSpeed(-0.2); return;
+                case ']': bumpAutoSpeed(0.2); return;
+                case 'Escape': if (autoTimer) { stopAutoScroll(); return; } if (document.getElementById('readerSettings')) toggleReaderSettings(); return;
             }
             // En défilement : on laisse le scroll natif
             if (readMode === 'scroll') return;
@@ -443,6 +453,47 @@
                 case 'End':  window.goToPage(totalPages); break;
             }
         });
+    }
+
+    // ── Défilement automatique (webtoon) ──
+    function setMode(mode) {
+        readMode = mode;
+        window.Storage?.setPref('readMode', mode);
+        renderModebar();
+        renderPage(currentPage);
+    }
+    function updateAutoBtn() {
+        const b = document.getElementById('btnAutoScroll');
+        if (b) b.classList.toggle('on', !!autoTimer);
+    }
+    function stopAutoScroll() {
+        if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+        updateAutoBtn();
+    }
+    function toggleAutoScroll() {
+        if (autoTimer) { stopAutoScroll(); MH.toast?.('Défilement auto arrêté'); return; }
+        if (readMode !== 'scroll') setMode('scroll');
+        let acc = 0;
+        autoTimer = setInterval(() => {
+            acc += (+rs.autospeed || 1.4);
+            const step = Math.floor(acc);
+            if (step >= 1) { window.scrollBy(0, step); acc -= step; }
+            if (window.innerHeight + Math.ceil(window.scrollY) >= document.body.scrollHeight - 2) {
+                stopAutoScroll();
+                if (neighborChapter(1)) setTimeout(() => goChapter(1), 700);
+            }
+        }, 16);
+        updateAutoBtn();
+        MH.toast?.('Défilement auto · A pour arrêter, [ ] vitesse');
+    }
+    function bumpAutoSpeed(delta) {
+        let v = Math.round(((+rs.autospeed || 1.4) + delta) * 10) / 10;
+        v = Math.max(0.4, Math.min(8, v));
+        rs.autospeed = v;
+        window.Storage?.setPref('reader_autospeed', v);
+        const lbl = document.getElementById('rsAutoVal'); if (lbl) lbl.textContent = v.toFixed(1) + '×';
+        const rng = document.getElementById('rsAuto');    if (rng) rng.value = v;
+        if (autoTimer) MH.toast?.('Vitesse : ' + v.toFixed(1) + '×');
     }
 
     // ── Réglages lecteur : application + panneau ──
@@ -492,11 +543,13 @@
             <input type="range" id="rsBright" min="40" max="100" value="${rs.brightness}" class="rs-range">
             <label class="rs-label">Écart entre pages <span id="rsGapVal">${rs.gap}px</span></label>
             <input type="range" id="rsGap" min="0" max="40" value="${rs.gap}" class="rs-range">
+            <label class="rs-label">Vitesse défilement auto <span id="rsAutoVal">${(+rs.autospeed || 1.4).toFixed(1)}×</span></label>
+            <input type="range" id="rsAuto" min="0.4" max="6" step="0.2" value="${rs.autospeed}" class="rs-range">
             <label class="rs-label">Qualité des images</label>
             ${seg('quality', [{v:'high',l:'Haute'},{v:'saver',l:'Éco'}], q)}
             <div class="rs-foot">
                 <button class="btn btn-secondary btn-sm" id="rsMarkAll" style="width:100%">Marquer tout le manga comme lu</button>
-                <div class="rs-shortcuts">← → pages · N/P chapitre · F plein écran · Espace page suivante · S réglages</div>
+                <div class="rs-shortcuts">← → pages · N/P chapitre · F plein écran · A défilement auto · [ ] vitesse · S réglages</div>
             </div>`;
         document.body.appendChild(panel);
 
@@ -517,6 +570,10 @@
         panel.querySelector('#rsGap').addEventListener('input', e => {
             document.getElementById('rsGapVal').textContent = e.target.value + 'px';
             saveReaderSetting('gap', +e.target.value, true);
+        });
+        panel.querySelector('#rsAuto').addEventListener('input', e => {
+            document.getElementById('rsAutoVal').textContent = (+e.target.value).toFixed(1) + '×';
+            saveReaderSetting('autospeed', +e.target.value, false);
         });
         panel.querySelector('#rsClose').addEventListener('click', toggleReaderSettings);
         panel.querySelector('#rsMarkAll').addEventListener('click', markAllManga);

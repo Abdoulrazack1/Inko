@@ -186,3 +186,40 @@
   .cd-actions .btn { flex: 1; justify-content: center; }
   .cd-curator-header { flex-wrap: wrap; }
 }
+/* ══════════════════════════════════════════════════════════
+   GRILLE DE SÉRIES (réécriture — vraies listes)
+══════════════════════════════════════════════════════════ */
+.cd-series-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+}
+.cd-serie-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.cd-serie-card-cover {
+  display: block;
+  aspect-ratio: 3 / 4;
+  background: var(--bg4);
+  overflow: hidden;
+}
+.cd-serie-card-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform .25s ease; }
+.cd-serie-card:hover .cd-serie-card-cover img { transform: scale(1.04); }
+.cd-serie-card-noimg { width: 100%; height: 100%; background: linear-gradient(135deg, var(--bg3), var(--bg4)); }
+.cd-serie-card-title {
+  font-size: 13px; font-weight: 600;
+  padding: 10px 10px 4px;
+  line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  min-height: 38px;
+}
+.cd-serie-card-actions { display: flex; gap: 6px; padding: 6px 10px 12px; margin-top: auto; }
+
+@media (max-width: 600px) {
+  .cd-series-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+}

@@ -70,7 +70,20 @@
         try {
             const data = await API.mangas.chapters(manga.id, { lang: 'fr,en', limit: 200 });
             chapters = data.results || [];
-            if (activeTab === 'chapitres' || activeTab === 'apercu') renderTab(activeTab);
+            if (activeTab === 'chapitres') {
+                renderTab('chapitres');
+            } else if (activeTab === 'apercu') {
+                // Mise à jour ciblée : ne reconstruit que la liste de chapitres,
+                // pour préserver les commentaires en cours de saisie et les similaires.
+                const cl = document.getElementById('apercuChapsList');
+                if (cl) {
+                    cl.innerHTML = chapters.length
+                        ? chapters.slice(0, 5).map(c => renderChapterRow(c)).join('')
+                        : `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Aucun chapitre disponible.</div>`;
+                } else {
+                    renderTab('apercu');
+                }
+            }
             renderSidebar();
             updateTabsLabels();
         } catch(e) {
@@ -127,6 +140,7 @@
                         <option value="dropped"   ${libStatus==='dropped'  ?'selected':''}>Abandonné</option>
                     </select>
                     <button class="btn btn-ghost btn-sm" id="btnCategory">${libCategory ? MH.esc(libCategory) : '+ Catégorie'}</button>
+                    <button class="btn btn-ghost btn-sm" id="btnAddList">+ Liste</button>
                     <button class="btn btn-ghost btn-icon" id="btnShare" title="Partager">↗</button>
                 </div>
             </div>
@@ -220,6 +234,63 @@
                 MH.toast('Lien copié !');
             } catch(e) { MH.toast(url); }
         });
+
+        document.getElementById('btnAddList')?.addEventListener('click', openListPicker);
+    }
+
+    // ── Sélecteur "Ajouter à une liste" ──
+    async function openListPicker() {
+        if (!API.isLoggedIn()) { MH.toast('Connecte-toi pour utiliser les listes'); return; }
+        let lists = [];
+        try { lists = await API.me.lists(); } catch (e) { MH.toast('Erreur : ' + e.message); return; }
+        const meta = { title: manga.title, cover: manga.cover || manga.coverThumb, source: API.sources.current };
+        const inSet = new Set(lists.filter(l => (l.mangaIds || []).map(String).includes(String(manga.id))).map(l => l.id));
+        document.getElementById('listPicker')?.remove();
+        const wrap = document.createElement('div');
+        wrap.id = 'listPicker';
+        wrap.className = 'list-modal-backdrop';
+        wrap.style.display = 'flex';
+        wrap.innerHTML = `
+            <div class="list-modal">
+                <div class="list-modal-head"><span>Ajouter à une liste</span><button class="list-modal-close" id="lpClose">✕</button></div>
+                <div class="lp-lists" id="lpLists">
+                    ${lists.length ? lists.map(l => `
+                        <label class="lp-row">
+                            <input type="checkbox" data-list="${l.id}" ${inSet.has(l.id) ? 'checked' : ''}>
+                            <span class="lp-name">${MH.esc(l.name)}</span>
+                            <span class="lp-count">${(l.mangaIds || []).length}</span>
+                        </label>`).join('') : '<div class="lp-empty">Aucune liste pour l’instant. Crée-en une ci-dessous.</div>'}
+                </div>
+                <div class="lp-new">
+                    <input type="text" id="lpNewName" class="list-modal-input" maxlength="100" placeholder="Créer une nouvelle liste…">
+                    <button class="btn btn-primary btn-sm" id="lpCreate">Créer</button>
+                </div>
+            </div>`;
+        document.body.appendChild(wrap);
+        const close = () => wrap.remove();
+        wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+        wrap.querySelector('#lpClose').addEventListener('click', close);
+        wrap.querySelectorAll('input[data-list]').forEach(cb => cb.addEventListener('change', async () => {
+            const id = cb.dataset.list;
+            cb.disabled = true;
+            try {
+                if (cb.checked) await API.me.addToList(id, manga.id, meta);
+                else            await API.me.removeFromList(id, manga.id);
+                MH.toast(cb.checked ? 'Ajouté à la liste' : 'Retiré de la liste');
+            } catch (e) { MH.toast('Erreur : ' + e.message); cb.checked = !cb.checked; }
+            finally { cb.disabled = false; }
+        }));
+        wrap.querySelector('#lpCreate').addEventListener('click', async () => {
+            const name = wrap.querySelector('#lpNewName').value.trim();
+            if (!name) { MH.toast('Donne un nom à la liste'); return; }
+            try {
+                const r = await API.me.createList({ name });
+                await API.me.addToList(r.id, manga.id, meta);
+                MH.toast(`Ajouté à « ${name} »`);
+                close();
+            } catch (e) { MH.toast('Erreur : ' + e.message); }
+        });
+        wrap.querySelector('#lpNewName')?.addEventListener('keydown', e => { if (e.key === 'Enter') wrap.querySelector('#lpCreate').click(); });
     }
 
     // ── TABS ──
@@ -284,6 +355,13 @@
         <div class="chapters-block" id="similarBlock" style="display:none">
             <div class="chapters-block-header"><div class="chapters-block-title">Tu aimeras aussi</div></div>
             <div id="similarRow" style="display:flex;gap:12px;overflow-x:auto;padding:4px 2px 8px"></div>
+        </div>
+        <div class="chapters-block" id="commentsBlock">
+            <div class="chapters-block-header">
+                <div class="chapters-block-title">Commentaires <span id="commentCount" class="comment-count-badge"></span></div>
+            </div>
+            <div id="commentForm"></div>
+            <div id="commentsList" class="comments-list"></div>
         </div>`;
         el.querySelectorAll('[data-goto="chapitres"]').forEach(btn => {
             btn.addEventListener('click', e => {
@@ -294,6 +372,75 @@
             });
         });
         loadSimilar();
+        loadComments();
+    }
+
+    // ── Commentaires ──
+    function commentTimeAgo(d) {
+        const t = new Date(d).getTime();
+        if (isNaN(t)) return '';
+        const s = Math.floor((Date.now() - t) / 1000);
+        if (s < 60) return "à l'instant";
+        const m = Math.floor(s / 60); if (m < 60) return `il y a ${m} min`;
+        const h = Math.floor(m / 60); if (h < 24) return `il y a ${h} h`;
+        const j = Math.floor(h / 24); if (j < 30) return `il y a ${j} j`;
+        return new Date(d).toLocaleDateString('fr-FR');
+    }
+    async function loadComments() {
+        const listEl = document.getElementById('commentsList');
+        const formEl = document.getElementById('commentForm');
+        const countEl = document.getElementById('commentCount');
+        if (!listEl) return;
+        if (formEl) {
+            if (API.isLoggedIn()) {
+                formEl.innerHTML = `
+                    <div class="comment-compose">
+                        <textarea id="commentInput" class="comment-textarea" rows="2" maxlength="1000" placeholder="Partage ton avis sur ${MH.esc(manga.title || 'cette série')}…"></textarea>
+                        <div class="comment-compose-foot">
+                            <span class="comment-len" id="commentLen">0 / 1000</span>
+                            <button class="btn btn-primary btn-sm" id="commentSend">Publier</button>
+                        </div>
+                    </div>`;
+                const ta = formEl.querySelector('#commentInput');
+                const len = formEl.querySelector('#commentLen');
+                ta.addEventListener('input', () => { len.textContent = `${ta.value.length} / 1000`; });
+                const send = async () => {
+                    const text = ta.value.trim();
+                    if (!text) return;
+                    const btn = formEl.querySelector('#commentSend');
+                    btn.disabled = true;
+                    try {
+                        await API.comments.add(manga.id, { text });
+                        ta.value = ''; len.textContent = '0 / 1000';
+                        await loadComments();
+                        MH.toast?.('Commentaire publié');
+                    } catch (e) { MH.toast?.('Erreur : ' + e.message); }
+                    finally { btn.disabled = false; }
+                };
+                formEl.querySelector('#commentSend').addEventListener('click', send);
+                ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } });
+            } else {
+                formEl.innerHTML = `<div class="comment-login-hint">Connecte-toi pour laisser un commentaire.</div>`;
+            }
+        }
+        let comments = [];
+        try { comments = await API.comments.list(manga.id); } catch (e) { comments = []; }
+        if (countEl) countEl.textContent = comments.length ? `· ${comments.length}` : '';
+        if (!comments.length) {
+            listEl.innerHTML = `<div class="comment-empty">Aucun commentaire pour l'instant. Sois le premier à donner ton avis.</div>`;
+            return;
+        }
+        listEl.innerHTML = comments.map(c => `
+            <div class="comment-item">
+                <div class="comment-avatar">${MH.esc((c.user || '?').slice(0, 1).toUpperCase())}</div>
+                <div class="comment-body">
+                    <div class="comment-head">
+                        <span class="comment-user">${MH.esc(c.user || 'Anonyme')}</span>
+                        <span class="comment-date">${commentTimeAgo(c.createdAt)}</span>
+                    </div>
+                    <div class="comment-text">${MH.esc(c.text || '')}</div>
+                </div>
+            </div>`).join('');
     }
 
     // ── Similaires (AniList) ──

@@ -175,7 +175,12 @@
             createList:       (data)       => post('/me/lists', data),
             updateList:       (id, data)   => put('/me/lists/' + id, data),
             deleteList:       (id)         => del('/me/lists/' + id),
-            addToList:        (id, mangaId)=> post(`/me/lists/${id}/items`, { mangaId }),
+            addToList:        (id, mangaId, meta = {}) => post(`/me/lists/${id}/items`, {
+                mangaId,
+                source: meta.source || API.sources.current || null,
+                title:  meta.title  || null,
+                cover:  meta.cover  || null,
+            }),
             removeFromList:   (id, mangaId)=> del(`/me/lists/${id}/items/${encodeURIComponent(mangaId)}`),
 
             events:           (limit=200)  => get('/me/events?limit=' + limit),

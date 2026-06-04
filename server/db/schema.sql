@@ -121,11 +121,31 @@ CREATE TABLE IF NOT EXISTS lists (
 CREATE TABLE IF NOT EXISTS list_items (
   list_id    INT NOT NULL,
   manga_id   VARCHAR(64) NOT NULL,
+  source     VARCHAR(64)  DEFAULT NULL,
+  title      VARCHAR(512) DEFAULT NULL,
+  cover      VARCHAR(512) DEFAULT NULL,
   position   INT NOT NULL DEFAULT 0,
   added_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (list_id, manga_id),
   FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- Migration douce : enrichit list_items avec titre/cover/source
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE list_items ADD COLUMN source VARCHAR(64) DEFAULT NULL',
+  'SELECT 1') FROM information_schema.columns
+  WHERE table_schema=DATABASE() AND table_name='list_items' AND column_name='source');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE list_items ADD COLUMN title VARCHAR(512) DEFAULT NULL',
+  'SELECT 1') FROM information_schema.columns
+  WHERE table_schema=DATABASE() AND table_name='list_items' AND column_name='title');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE list_items ADD COLUMN cover VARCHAR(512) DEFAULT NULL',
+  'SELECT 1') FROM information_schema.columns
+  WHERE table_schema=DATABASE() AND table_name='list_items' AND column_name='cover');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
 
 -- ──────────────────────────────────────────────────────────────
 -- Comments

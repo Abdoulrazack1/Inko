@@ -313,7 +313,7 @@
                 if (!list.length) return;
                 const m = list[Math.floor(Math.random() * list.length)];
                 MH.toast(`Lecture aléatoire : ${m.title} `);
-                setTimeout(() => { window.location.href = `serie.html?id=${encodeURIComponent(m.id)}`; }, 500);
+                setTimeout(() => { window.location.href = `serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}`; }, 500);
             } catch(e) { MH.toast('Erreur de chargement'); }
         });
     }

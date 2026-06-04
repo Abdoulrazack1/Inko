@@ -217,3 +217,143 @@
   .create-cta-title { font-size: 18px; }
   .curator-avatar { width: 52px; height: 52px; font-size: 18px; }
 }
+/* ══════════════════════════════════════════════════════════
+   MES LISTES (réécriture — vraies listes via API)
+══════════════════════════════════════════════════════════ */
+.lists-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.lists-title { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+.lists-subtitle { font-size: 13.5px; color: var(--text2); margin-top: 6px; max-width: 540px; }
+
+.lists-empty {
+  text-align: center;
+  padding: 56px 20px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.lists-empty-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+.lists-empty-desc { font-size: 13.5px; color: var(--text2); max-width: 420px; margin: 0 auto; line-height: 1.6; }
+
+.lists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 18px;
+  padding-bottom: 48px;
+}
+.list-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.list-card:hover { border-color: var(--orange); transform: translateY(-2px); }
+.list-card-cover {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  aspect-ratio: 16 / 10;
+  position: relative;
+  background: var(--bg4);
+}
+.list-card-cover img { width: 100%; height: 100%; object-fit: cover; }
+.list-card-cover.has-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+.list-card-cover.has-1 img { grid-column: 1; }
+.list-card-cover.has-2 { grid-template-rows: 1fr; }
+.list-card-cover.has-3 img:first-child { grid-row: span 2; }
+.list-card-cover.is-empty { display: flex; align-items: center; justify-content: center; }
+.list-cover-empty { color: var(--text3); font-size: 12px; }
+.list-card-count {
+  position: absolute;
+  bottom: 8px; right: 8px;
+  background: rgba(0,0,0,.72);
+  color: #fff;
+  font-size: 11.5px; font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+.list-card-body { padding: 12px 14px 14px; }
+.list-card-title {
+  display: block;
+  font-size: 15px; font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  margin-bottom: 4px;
+}
+.list-card-title:hover { color: var(--orange); }
+.list-card-desc {
+  font-size: 12.5px; color: var(--text2);
+  line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.list-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.list-card-vis { font-size: 11.5px; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; }
+.list-card-actions { display: flex; gap: 6px; }
+.list-icon-btn {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.list-icon-btn:hover { background: rgba(255,107,26,.12); border-color: rgba(255,107,26,.3); color: var(--orange); }
+
+/* Modale */
+.list-modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  backdrop-filter: blur(2px);
+}
+.list-modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%; max-width: 440px;
+  padding: 22px;
+}
+.list-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 17px; font-weight: 700;
+  margin-bottom: 16px;
+}
+.list-modal-close {
+  background: none; border: none; color: var(--text3);
+  font-size: 18px; cursor: pointer; line-height: 1;
+}
+.list-modal-close:hover { color: var(--text); }
+.list-modal-label { display: block; font-size: 12.5px; color: var(--text2); margin: 12px 0 6px; }
+.list-modal-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius2);
+  padding: 10px 12px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  resize: vertical;
+}
+.list-modal-input:focus { border-color: var(--orange); }
+.list-modal-check { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13.5px; color: var(--text2); cursor: pointer; }
+.list-modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+@media (max-width: 600px) {
+  .lists-title { font-size: 23px; }
+  .lists-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+}
