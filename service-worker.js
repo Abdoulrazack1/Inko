@@ -3,7 +3,7 @@
 //             stale-while-revalidate pour assets statiques
 //             cache des couvertures mangadex (bande passante)
 
-const CACHE_VERSION = 'inko-v5';
+const CACHE_VERSION = 'inko-v6';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -37,6 +37,7 @@ const STATIC_ASSETS = [
     '/assets/js/api.js',
     '/assets/js/storage.js',
     '/assets/js/global.js',
+    '/assets/js/music.js',
     '/assets/js/downloads.js',
     '/assets/js/password-strength.js',
     '/assets/js/accueil.js',

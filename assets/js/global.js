@@ -12,14 +12,20 @@
 
     window.MH = { $, $$, fmt, esc };
 
-    /* ── Lecteur musique (fenêtre popout persistante) ─────── */
+    /* ── Lecteur musique intégré (dock en bas de page) ────── */
     window.MH.openMusic = function () {
-        // Réutilise la fenêtre si déjà ouverte (le nom 'inkoMusic' la garde unique)
-        const w = window.open('/player.html', 'inkoMusic',
-            'width=380,height=560,menubar=no,toolbar=no,location=no,status=no,resizable=yes');
-        try { if (w) w.focus(); } catch (e) {}
-        if (!w) MH.toast('Autorise les pop-ups pour ouvrir le lecteur de musique');
+        if (window.Music) { window.Music.toggle(); return; }
+        // music.js pas encore chargé : on réessaie brièvement
+        let n = 0;
+        const iv = setInterval(() => { n++; if (window.Music) { clearInterval(iv); window.Music.open(); } if (n > 20) clearInterval(iv); }, 100);
     };
+    // Injecte le lecteur de musique sur toutes les pages
+    (function loadMusicDock() {
+        if (document.getElementById('inko-music-js')) return;
+        const s = document.createElement('script');
+        s.id = 'inko-music-js'; s.src = '/assets/js/music.js'; s.defer = true;
+        (document.body || document.documentElement).appendChild(s);
+    })();
 
     /* ── Toast ───────────────────────────────────────────── */
     window.MH.toast = function (msg, duration = 2500) {
