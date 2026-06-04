@@ -35,3 +35,7 @@ build/
 
 # Outils de prod vidéo (ffmpeg, puppeteer, frames) — lourds, hors repo
 tools/
+
+# Ressources d'icone desktop (source, a versionner)
+!desktop/build/
+!desktop/build/icon.*
