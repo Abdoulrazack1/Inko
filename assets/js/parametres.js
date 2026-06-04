@@ -11,6 +11,7 @@
         renderNsfw();
         bindData();
         bindSpotify();
+        bindAniList();
         // Charge les settings serveur si connecté (override le local)
         if (API.isLoggedIn()) {
             try {
@@ -317,5 +318,75 @@
         if (!actions) return;
         // Retire tout sauf le bouton "Ouvrir le lecteur"
         [...actions.children].forEach(c => { if (c.id !== 'btnOpenMusic') c.remove(); });
+    }
+
+    // ── SUIVI ANILIST ──
+    async function bindAniList() {
+        const params = new URLSearchParams(location.search);
+        if (params.get('anilist') === 'linked') {
+            toast('Compte AniList lié ✓');
+            history.replaceState({}, '', location.pathname);
+        }
+        renderAniListStatus();
+    }
+
+    async function renderAniListStatus() {
+        const txt = document.getElementById('anilistStatusText');
+        const actions = document.getElementById('anilistActions');
+        if (!txt || !actions || !window.AniList) return;
+        actions.innerHTML = '';
+
+        const cfg = await AniList.getConfig();
+        if (!cfg.configured) {
+            txt.innerHTML = 'Suivi non configuré sur le serveur. ' +
+                '<span style="color:var(--text3)">(ANILIST_CLIENT_ID manquant dans .env)</span>';
+            return;
+        }
+        if (AniList.isLinked()) {
+            const u = AniList.user();
+            txt.innerHTML = 'Lié à <strong>' + MH.esc(u?.name || 'AniList') + '</strong>';
+            const sync = document.createElement('button');
+            sync.className = 'btn btn-secondary btn-sm';
+            sync.textContent = 'Synchroniser ma bibliothèque';
+            sync.addEventListener('click', () => syncLibraryToAniList(sync));
+            const unlink = document.createElement('button');
+            unlink.className = 'btn-danger';
+            unlink.textContent = 'Délier';
+            unlink.addEventListener('click', () => { AniList.disconnect(); toast('Compte AniList délié'); renderAniListStatus(); });
+            actions.append(sync, unlink);
+        } else {
+            txt.textContent = 'Aucun compte lié.';
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-sm';
+            btn.style.cssText = 'background:#02a9ff;color:#fff';
+            btn.textContent = 'Connecter AniList';
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                try { await AniList.connect(); toast('Compte AniList lié ✓'); renderAniListStatus(); }
+                catch (e) { toast('Erreur : ' + e.message); btn.disabled = false; }
+            });
+            actions.appendChild(btn);
+        }
+    }
+
+    // Pousse la progression de la bibliothèque vers AniList (best-effort)
+    async function syncLibraryToAniList(btn) {
+        if (!API.isLoggedIn()) { toast('Connecte-toi à Inko'); return; }
+        btn.disabled = true; const orig = btn.textContent;
+        try {
+            const [favs, prog] = await Promise.all([API.me.favorites(), API.me.progress()]);
+            let ok = 0;
+            for (const f of favs) {
+                const p = prog[f.mangaId];
+                const opts = {};
+                if (p?.chapter) opts.progress = Math.floor(p.chapter);
+                if (f.status) opts.status = f.status;
+                if (!opts.progress && !opts.status) continue;
+                btn.textContent = `Sync… ${ok + 1}/${favs.length}`;
+                if (await AniList.syncByTitle(f.title, opts)) ok++;
+            }
+            toast(`${ok} série(s) synchronisée(s) sur AniList`);
+        } catch (e) { toast('Erreur : ' + e.message); }
+        finally { btn.disabled = false; btn.textContent = orig; }
     }
 })();

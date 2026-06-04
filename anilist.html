@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Connexion AniList</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <style>
+    body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;
+      background:#0d0d0f;color:#f0f0f2;font-family:'Segoe UI',sans-serif;text-align:center}
+    .box{max-width:340px;padding:24px}
+    .logo{width:56px;height:56px;margin-bottom:16px}
+    h1{font-size:18px;margin:0 0 8px}
+    p{color:#a8a8b3;font-size:13.5px;line-height:1.5}
+    .ok{color:#22c55e}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <img class="logo" src="/assets/img/icon.svg" alt="">
+    <h1 id="t">Connexion à AniList…</h1>
+    <p id="m">Un instant, on récupère ton autorisation.</p>
+  </div>
+  <script>
+    (function () {
+      var t = document.getElementById('t'), m = document.getElementById('m');
+      var hash = location.hash.replace(/^#/, '');
+      var params = new URLSearchParams(hash);
+      var token = params.get('access_token');
+      if (token) {
+        try { localStorage.setItem('anilist_token', token); } catch (e) {}
+        t.textContent = 'Compte AniList lié';
+        t.className = 'ok';
+        m.textContent = 'Tu peux fermer cette fenêtre.';
+        // Si ouverte en popup, on se ferme ; sinon on revient aux paramètres
+        setTimeout(function () {
+          if (window.opener) { try { window.close(); } catch (e) {} }
+          else { location.href = '/parametres.html?anilist=linked'; }
+        }, 900);
+      } else {
+        var err = params.get('error_description') || new URLSearchParams(location.search).get('error') || 'Autorisation annulée';
+        t.textContent = 'Connexion échouée';
+        m.textContent = err;
+      }
+    })();
+  </script>
+</body>
+</html>

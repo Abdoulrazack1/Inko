@@ -316,6 +316,11 @@
                 read:      true,
             });
         } catch(e) {}
+        // Synchro AniList (best-effort, silencieux)
+        try {
+            const n = parseFloat(currentChap.chapter);
+            window.AniList?.syncByTitle(manga.title, { progress: isNaN(n) ? undefined : n, status: 'reading' });
+        } catch (e) {}
     }
 
     // ── Miniatures ──

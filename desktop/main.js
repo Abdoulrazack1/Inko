@@ -73,9 +73,11 @@ function loadUserConfig() {
         if (!fs.existsSync(USER_CONFIG)) {
             fs.mkdirSync(USER_DATA, { recursive: true });
             fs.writeFileSync(USER_CONFIG, JSON.stringify({
-                "//": "Pour lier Spotify : crée une app sur https://developer.spotify.com/dashboard, " +
-                      "ajoute le Redirect URI http://127.0.0.1:8088/api/spotify/callback, puis colle Client ID et Secret ci-dessous. Redémarre Inko.",
-                spotify: { clientId: "", clientSecret: "" }
+                "//": "Spotify : app sur https://developer.spotify.com/dashboard, Redirect URI " +
+                      "http://127.0.0.1:8088/api/spotify/callback. AniList : client sur " +
+                      "https://anilist.co/settings/developer, Redirect URL http://127.0.0.1:8088/anilist.html. Redémarre Inko après modification.",
+                spotify: { clientId: "", clientSecret: "" },
+                anilist: { clientId: "" }
             }, null, 2));
         }
         const cfg = JSON.parse(fs.readFileSync(USER_CONFIG, 'utf8'));
@@ -83,6 +85,9 @@ function loadUserConfig() {
         if (cfg.spotify?.clientSecret) process.env.SPOTIFY_CLIENT_SECRET = cfg.spotify.clientSecret;
         if (!process.env.SPOTIFY_REDIRECT_URI)
             process.env.SPOTIFY_REDIRECT_URI = `http://127.0.0.1:${PORT}/api/spotify/callback`;
+        if (cfg.anilist?.clientId)     process.env.ANILIST_CLIENT_ID     = cfg.anilist.clientId;
+        if (!process.env.ANILIST_REDIRECT_URI)
+            process.env.ANILIST_REDIRECT_URI = `http://127.0.0.1:${PORT}/anilist.html`;
     } catch (e) { /* config optionnelle */ }
 }
 
@@ -358,9 +363,9 @@ app.whenReady().then(async () => {
             try {
                 const u = new URL(url);
                 const sameApp = u.origin === `http://127.0.0.1:${PORT}` || u.origin === `http://localhost:${PORT}`;
-                // Spotify s'ouvre dans une fenêtre enfant Inko (puis revient sur notre origine)
-                const isSpotify = u.hostname.endsWith('spotify.com');
-                if (!sameApp && !isSpotify) { shell.openExternal(url); return { action: 'deny' }; }
+                // OAuth (Spotify, AniList) s'ouvre dans une fenêtre enfant Inko (puis revient sur notre origine)
+                const isAuth = u.hostname.endsWith('spotify.com') || u.hostname.endsWith('anilist.co');
+                if (!sameApp && !isAuth) { shell.openExternal(url); return { action: 'deny' }; }
             } catch (e) {}
             return { action: 'allow', overrideBrowserWindowOptions: { autoHideMenuBar: true } };
         });

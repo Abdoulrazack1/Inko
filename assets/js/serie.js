@@ -194,6 +194,7 @@
                 }
                 await API.me.setLibrary(manga.id, status || null);
                 libStatus = status || null;
+                if (status) { try { window.AniList?.syncByTitle(manga.title, { status }); } catch (e) {} }
                 MH.toast(status ? 'Statut : ' + e.target.options[e.target.selectedIndex].text : 'Statut retiré');
             } catch (err) { MH.toast('Erreur : ' + err.message); }
         });

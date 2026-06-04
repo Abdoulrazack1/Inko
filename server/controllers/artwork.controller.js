@@ -11,6 +11,7 @@ const cache = new Map();           // titre (lower) -> { data, exp }
 const TTL = 24 * 3600 * 1000;
 const QUERY = `query ($s: String) {
   Media(search: $s, type: MANGA, sort: SEARCH_MATCH) {
+    id
     title { romaji english }
     bannerImage
     coverImage { extraLarge large }
@@ -33,6 +34,7 @@ async function artwork(req, res, next) {
                 { headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, timeout: 12000 });
             const m = r.data?.data?.Media;
             if (m) data = {
+                id:     m.id || null,
                 banner: m.bannerImage || null,
                 cover:  m.coverImage?.extraLarge || m.coverImage?.large || null,
                 title:  m.title?.romaji || m.title?.english || null,

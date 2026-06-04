@@ -20,6 +20,8 @@ const STATIC_ASSETS = [
     '/parametres.html',
     '/sources.html',
     '/player.html',
+    '/anilist.html',
+    '/assets/js/anilist.js',
     '/page_login.html',
     '/page_signup.html',
     '/page_mdpoublie.html',
