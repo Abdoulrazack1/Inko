@@ -3,10 +3,11 @@
 //             stale-while-revalidate pour assets statiques
 //             cache des couvertures mangadex (bande passante)
 
-const CACHE_VERSION = 'inko-v4';
+const CACHE_VERSION = 'inko-v5';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
+const OFFLINE_CACHE = 'inko-offline';   // chapitres téléchargés (non versionné : persiste)
 
 const STATIC_ASSETS = [
     '/',
@@ -34,6 +35,7 @@ const STATIC_ASSETS = [
     '/assets/js/api.js',
     '/assets/js/storage.js',
     '/assets/js/global.js',
+    '/assets/js/downloads.js',
     '/assets/js/password-strength.js',
     '/assets/js/accueil.js',
     '/assets/js/catalogue.js',
@@ -59,7 +61,7 @@ self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
         const keys = await caches.keys();
         await Promise.all(keys
-            .filter(k => !k.startsWith(CACHE_VERSION))
+            .filter(k => !k.startsWith(CACHE_VERSION) && k !== OFFLINE_CACHE)
             .map(k => caches.delete(k))
         );
         await self.clients.claim();
@@ -70,6 +72,12 @@ self.addEventListener('fetch', (event) => {
     const req = event.request;
     if (req.method !== 'GET') return;
     const url = new URL(req.url);
+
+    // 0) Images : sert depuis le cache hors-ligne si téléchargées
+    if (req.destination === 'image') {
+        event.respondWith(offlineImage(req, url));
+        return;
+    }
 
     // 1) API : network-first (jamais cache stale)
     if (url.pathname.startsWith('/api/')) {
@@ -91,6 +99,19 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 });
+
+async function offlineImage(req, url) {
+    try {
+        const off = await caches.open(OFFLINE_CACHE);
+        const hit = await off.match(req, { ignoreVary: true });
+        if (hit) return hit;
+    } catch (e) {}
+    if (url.hostname === 'uploads.mangadex.org' || url.hostname.endsWith('mangadex.network')) {
+        return cacheFirst(req, COVERS_CACHE);
+    }
+    try { return await fetch(req); }
+    catch (e) { const c = await caches.match(req); return c || new Response('', { status: 504 }); }
+}
 
 async function networkFirst(req, cacheName) {
     try {

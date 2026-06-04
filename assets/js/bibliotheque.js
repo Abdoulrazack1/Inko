@@ -35,15 +35,51 @@
     });
 
     function initTabs() {
+        const panels = { library: 'tabLibrary', updates: 'tabUpdates', downloads: 'tabDownloads' };
         document.querySelectorAll('.lib2-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.lib2-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 const t = tab.dataset.tab;
-                document.getElementById('tabLibrary').style.display = t === 'library' ? '' : 'none';
-                document.getElementById('tabUpdates').style.display = t === 'updates' ? '' : 'none';
+                Object.entries(panels).forEach(([k, id]) => {
+                    const el = document.getElementById(id); if (el) el.style.display = (k === t) ? '' : 'none';
+                });
+                if (t === 'downloads') renderDownloads();
             });
         });
+    }
+
+    async function renderDownloads() {
+        const listEl = document.getElementById('dlList');
+        const storEl = document.getElementById('dlStorage');
+        if (!window.Downloads) { listEl.innerHTML = '<div class="lib2-empty">Téléchargement hors-ligne non disponible sur ce navigateur.</div>'; return; }
+        const groups = await window.Downloads.byManga();
+        const st = await window.Downloads.storage();
+        const fmtMB = b => (b / 1048576).toFixed(1) + ' Mo';
+        storEl.textContent = groups.length
+            ? `${groups.reduce((n, g) => n + g.chapters.length, 0)} chapitre(s) téléchargé(s) · ${fmtMB(st.usage)} utilisés`
+            : '';
+        if (!groups.length) {
+            listEl.innerHTML = `<div class="lib2-empty"><div class="ico"></div>
+                <div style="font-size:14px;color:var(--text);font-weight:500;margin-bottom:6px">Aucun chapitre téléchargé</div>
+                Ouvre un chapitre et appuie sur l'icône de téléchargement pour le lire hors-ligne.</div>`;
+            return;
+        }
+        listEl.innerHTML = groups.map(g => `
+            <div class="upd-row">
+                <a class="upd-cover" href="serie.html?id=${encodeURIComponent(g.mangaId)}&source=${encodeURIComponent(g.source || '')}">
+                    <img src="${g.cover || MH.placeholderCover(g.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(g.mangaId)}'">
+                </a>
+                <div class="upd-info">
+                    <div class="upd-name">${MH.esc(g.title || g.mangaId)}</div>
+                    <div class="upd-meta">${g.chapters.length} chapitre(s) · ${g.chapters.slice(0, 5).map(c => 'Ch.' + c.chapterNum).join(', ')}${g.chapters.length > 5 ? '…' : ''}</div>
+                </div>
+                <button class="btn btn-sm" style="background:rgba(239,68,68,.12);color:#ef4444" data-dlmanga="${g.mangaId}">Supprimer</button>
+            </div>`).join('');
+        listEl.querySelectorAll('[data-dlmanga]').forEach(b => b.addEventListener('click', async () => {
+            await window.Downloads.removeManga(b.dataset.dlmanga);
+            renderDownloads();
+        }));
     }
 
     // ── BIBLIOTHÈQUE ──

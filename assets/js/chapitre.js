@@ -46,12 +46,22 @@
         showLoader('Chargement…');
 
         try {
-            // Récupère manga + chapitres + pages en parallèle
-            const [m, chapsData, pagesData] = await Promise.all([
-                API.mangas.get(mangaId),
-                API.mangas.chapters(mangaId, { lang: 'fr,en', limit: 500 }),
-                API.mangas.pages(chapterId),
-            ]);
+            // Récupère manga + chapitres + pages en parallèle (repli hors-ligne si échec)
+            let m, chapsData, pagesData;
+            try {
+                [m, chapsData, pagesData] = await Promise.all([
+                    API.mangas.get(mangaId),
+                    API.mangas.chapters(mangaId, { lang: 'fr,en', limit: 500 }),
+                    API.mangas.pages(chapterId),
+                ]);
+            } catch (netErr) {
+                const dl = window.Downloads ? await window.Downloads.get(chapterId) : null;
+                if (!dl) throw netErr;
+                m = { id: mangaId, title: dl.mangaTitle || 'Chapitre', cover: dl.cover, coverThumb: dl.cover, tags: [], description: '', status: null, langs: [] };
+                chapsData = { results: [{ id: chapterId, chapter: dl.chapterNum }] };
+                pagesData = { pages: (dl.pages || []).map(u => ({ url: u })) };
+                MH.toast?.('Lecture hors-ligne');
+            }
             manga    = m;
             chapters = chapsData.results || [];
             currentChap = chapters.find(c => c.id === chapterId);
@@ -142,6 +152,7 @@
             <button class="reader-icon-btn" id="btnMarkRead" title="Marquer ce chapitre (et les précédents) comme lus">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M20 6 9 17l-5-5"/></svg>
             </button>
+            <button class="reader-icon-btn" id="btnDownload" title="Télécharger pour lire hors-ligne"></button>
             <button class="reader-icon-btn" onclick="window.changeZoom(-10)" title="Zoom −">−</button>
             <span class="reader-zoom-label" id="zoomLabel">${zoom}%</span>
             <button class="reader-icon-btn" onclick="window.changeZoom(10)" title="Zoom +">+</button>
@@ -155,6 +166,7 @@
 
         document.getElementById('btnReaderSettings')?.addEventListener('click', toggleReaderSettings);
         document.getElementById('btnMarkRead')?.addEventListener('click', markUpToHere);
+        wireDownloadBtn();
         document.getElementById('chapSelect')?.addEventListener('change', e => {
             window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(e.target.value)}`;
         });
@@ -522,6 +534,41 @@
     function markAllManga() {
         const items = chapters.map(c => ({ chapterId: c.id, chapter: c.chapter }));
         bulkMark(items, 'Tout le manga marqué comme lu');
+    }
+
+    // ── Téléchargement hors-ligne ──
+    function setDlIcon(done) {
+        const btn = document.getElementById('btnDownload');
+        if (!btn) return;
+        btn.innerHTML = done
+            ? '<svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21.8 10A10 10 0 1 1 17 3.3"/><path d="m9 11 3 3L22 4"/></svg>'
+            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>';
+        btn.title = done ? 'Téléchargé — cliquer pour supprimer' : 'Télécharger pour lire hors-ligne';
+    }
+    async function wireDownloadBtn() {
+        const btn = document.getElementById('btnDownload');
+        if (!btn) return;
+        if (!window.Downloads) { btn.style.display = 'none'; return; }
+        setDlIcon(await window.Downloads.has(currentChap.id));
+        btn.onclick = async () => {
+            if (await window.Downloads.has(currentChap.id)) {
+                await window.Downloads.remove(currentChap.id);
+                setDlIcon(false); MH.toast?.('Téléchargement supprimé');
+                return;
+            }
+            if (!pages.length) { MH.toast?.('Aucune page à télécharger'); return; }
+            btn.disabled = true;
+            try {
+                await window.Downloads.download(
+                    { mangaId: manga.id, chapterId: currentChap.id, chapterNum: currentChap.chapter,
+                      mangaTitle: manga.title, cover: manga.cover || manga.coverThumb, source: API.sources.current },
+                    pages,
+                    (d, n) => { btn.innerHTML = `<span style="font-size:10px;font-weight:700">${Math.round(d / n * 100)}%</span>`; }
+                );
+                setDlIcon(true); MH.toast?.('Chapitre téléchargé pour le hors-ligne');
+            } catch (e) { setDlIcon(false); MH.toast?.('Erreur : ' + e.message); }
+            finally { btn.disabled = false; }
+        };
     }
 
     // ── Préchargement ──
