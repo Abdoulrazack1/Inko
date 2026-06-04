@@ -50,6 +50,8 @@ const STATIC_ASSETS = [
     '/assets/js/page_mdpoublie.js',
     '/assets/js/page_nouveaumdp.js',
     '/assets/img/icon.svg',
+    '/assets/img/icon-192.png',
+    '/assets/img/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {

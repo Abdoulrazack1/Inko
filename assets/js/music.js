@@ -19,6 +19,7 @@
         next:  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6v12l8.5-6z"/></svg>',
         vol:   '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12z"/></svg>',
         chevron:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+        minus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 18h14"/></svg>',
         close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
         note:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
         folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>',
@@ -40,7 +41,7 @@
     ];
 
     // ── État ──
-    let S = { mode: null, ytId: null, spId: null, label: '', sub: '', art: null, vol: 0.7, expanded: false, tab: 'stations', visible: false };
+    let S = { mode: null, ytId: null, spId: null, label: '', sub: '', art: null, vol: 0.7, expanded: false, tab: 'stations', visible: false, min: false };
     try { Object.assign(S, JSON.parse(localStorage.getItem(SKEY) || '{}')); } catch (e) {}
     S.expanded = false; // toujours replié au chargement
     function save() { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} }
@@ -106,6 +107,15 @@
     .im-progress{position:absolute;left:14px;right:14px;bottom:4px;height:3px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
     .im-progress i{display:block;height:100%;width:0;background:var(--orange,#ff6b1a)}
     @media(max-width:640px){ .im-vol{display:none} .im-bar{height:60px} }
+    /* Pastille minimale */
+    .im-pill{pointer-events:auto;position:fixed;right:18px;bottom:18px;width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;color:#fff;display:none;align-items:center;justify-content:center;background:linear-gradient(135deg,#ff6b1a,#ff9a3c);box-shadow:0 10px 30px rgba(255,107,26,.45);transition:transform .15s}
+    .im-pill:hover{transform:scale(1.07)}
+    .im-pill svg{width:24px;height:24px}
+    .im-pill .peq{position:absolute;bottom:8px;display:flex;gap:2px;align-items:flex-end;height:9px}
+    .im-pill .peq i{width:2.5px;background:#fff;border-radius:2px;animation:imEq .9s ease-in-out infinite}
+    .im-pill .peq i:nth-child(2){animation-delay:.2s}.im-pill .peq i:nth-child(3){animation-delay:.4s}
+    #inko-music.min .im-bar,#inko-music.min .im-panel{display:none}
+    #inko-music.min .im-pill{display:flex}
     `;
 
     function injectCSS() { const s = document.createElement('style'); s.id = 'im-css'; s.textContent = css; document.head.appendChild(s); }
@@ -134,15 +144,19 @@
                 </div>
                 <div class="im-vol">${ICON.vol}<input type="range" id="im-vol" min="0" max="1" step="0.01" value="${S.vol}"></div>
                 <button class="im-ico im-chev" id="im-exp" title="Agrandir">${ICON.chevron}</button>
-                <button class="im-ico im-x" id="im-close" title="Fermer">${ICON.close}</button>
+                <button class="im-ico" id="im-min" title="Réduire en pastille">${ICON.minus}</button>
+                <button class="im-ico im-x" id="im-close" title="Fermer et arrêter">${ICON.close}</button>
                 <div class="im-progress" id="im-prog" style="display:none"><i></i></div>
-            </div>`;
+            </div>
+            <button class="im-pill" id="im-pill" title="Rouvrir le lecteur">${ICON.note}<span class="peq" style="display:none"><i></i><i></i><i></i></span></button>`;
         document.body.appendChild(root);
         bar = root.querySelector('.im-bar');
         panel = root.querySelector('.im-panel');
         mediaHost = null; // créé à la volée dans le contenu
 
         root.querySelector('#im-exp').onclick = () => setExpanded(!root.classList.contains('open'));
+        root.querySelector('#im-min').onclick = minimize;
+        root.querySelector('#im-pill').onclick = restore;
         root.querySelector('#im-close').onclick = close;
         root.querySelector('#im-pp').onclick = togglePlay;
         root.querySelector('#im-prev').onclick = () => skip(-1);
@@ -162,10 +176,14 @@
         root.querySelector('#im-exp').title = v ? 'Réduire' : 'Agrandir';
         if (v) renderContent();
     }
-    function open()  { S.visible = true; root.style.display = 'flex'; setExpanded(true); save(); }
-    function show()  { S.visible = true; root.style.display = 'flex'; save(); }
-    function close() { stopAll(); S.visible = false; root.style.display = 'none'; save(); }
-    function toggle() { if (root.style.display === 'none') open(); else setExpanded(!root.classList.contains('open')); }
+    function open()  { S.visible = true; S.min = false; root.classList.remove('min'); root.style.display = 'flex'; setExpanded(true); save(); }
+    function show()  { S.visible = true; if (!S.min) root.style.display = 'flex'; save(); }
+    function close() { stopAll(); S.visible = false; S.min = false; root.classList.remove('min'); root.style.display = 'none'; save(); }
+    function toggle() { if (root.style.display === 'none') open(); else if (root.classList.contains('min')) restore(); else setExpanded(!root.classList.contains('open')); }
+    // Réduit en pastille (la musique continue) ↔ rouvre la barre
+    function minimize() { root.classList.add('min'); root.classList.remove('open'); S.min = true; updatePill(); save(); }
+    function restore()  { root.classList.remove('min'); S.min = false; S.visible = true; root.style.display = 'flex'; save(); }
+    function updatePill() { const eq = root.querySelector('#im-pill .peq'); if (eq) eq.style.display = playing ? 'flex' : 'none'; }
 
     function setMeta(t, s, artHtml) {
         root.querySelector('#im-t').textContent = t || '';
@@ -173,7 +191,7 @@
         const art = root.querySelector('#im-art');
         if (artHtml) art.innerHTML = artHtml;
     }
-    function setPlaying(v) { playing = v; root.querySelector('#im-pp').innerHTML = v ? ICON.pause : ICON.play; markStation(); }
+    function setPlaying(v) { playing = v; root.querySelector('#im-pp').innerHTML = v ? ICON.pause : ICON.play; markStation(); updatePill(); }
     function markStation() {
         document.querySelectorAll('.im-station').forEach(el => {
             const on = (S.mode === 'yt' && el.dataset.yt === S.ytId) || (S.mode === 'sp' && el.dataset.sp === S.spId);
@@ -341,14 +359,14 @@
         S.mode = 'sp'; S.spId = id; S.label = label; S.sub = sub; save();
         setMeta(label, sub, ICON.spotify);
         if (g) root.querySelector('#im-art').style.background = `linear-gradient(135deg,${g[0]},${g[1]})`;
-        setExpanded(true);
         const uri = `spotify:${type}:${id}`;
         ensureSpotify(api => {
-            // Monte le contrôleur dans le panneau (embed visible avec ses contrôles)
-            const c = root.querySelector('#im-content');
-            let slot = c.querySelector('.im-embed'); if (!slot) { slot = document.createElement('div'); slot.className = 'im-embed'; c.appendChild(slot); }
-            slot.innerHTML = '<div id="im-spembed"></div>';
-            api.createController(document.getElementById('im-spembed'), { uri, width: '100%', height: 352 }, ctrl => {
+            // Contrôleur monté hors-écran : la musique continue même barre réduite
+            const host = mediaContainer();
+            let slot = document.getElementById('im-spembed');
+            if (!slot) { slot = document.createElement('div'); slot.id = 'im-spembed'; host.appendChild(slot); }
+            slot.innerHTML = '';
+            api.createController(slot, { uri, width: '300', height: '80' }, ctrl => {
                 spCtrl = ctrl;
                 ctrl.addListener('playback_update', e => { if (e.data) setPlaying(!e.data.isPaused); });
                 ctrl.play();
@@ -403,6 +421,7 @@
     function init() {
         injectCSS(); build();
         root.style.display = S.visible ? 'flex' : 'none';
+        if (S.visible && S.min) root.classList.add('min');
         // Reprise inter-pages : recharge la dernière station (les flux live reprennent)
         if (S.visible && S.mode === 'yt' && S.ytId) playYouTube(S.ytId, S.label, S.sub);
         else if (S.visible && S.mode === 'sp' && S.spId) playSpotify('playlist', S.spId, S.label, S.sub);
