@@ -297,16 +297,18 @@
     }
 
     // ── Similaires (AniList) ──
-    let similarLoaded = false;
+    let similarItems = null;   // null = pas encore chargé
     async function loadSimilar() {
-        if (similarLoaded || !manga?.title) return;
-        similarLoaded = true;
+        const block = document.getElementById('similarBlock');
+        const row = document.getElementById('similarRow');
+        if (!block || !row || !manga?.title) return;
+        if (similarItems === null) {
+            try { similarItems = (await API.art.similar(manga.title)).items || []; }
+            catch (e) { similarItems = []; }
+        }
+        if (!similarItems.length) return;
         try {
-            const { items } = await API.art.similar(manga.title);
-            const block = document.getElementById('similarBlock');
-            const row = document.getElementById('similarRow');
-            if (!block || !row || !items || !items.length) return;
-            row.innerHTML = items.slice(0, 12).map(m => `
+            row.innerHTML = similarItems.slice(0, 12).map(m => `
                 <a href="recherche.html?q=${encodeURIComponent(m.title)}" style="flex:0 0 116px;text-decoration:none;color:inherit">
                     <div style="aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--bg4)">
                         <img src="${MH.esc(m.cover || '')}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.style.visibility='hidden'">
