@@ -206,7 +206,8 @@
 
         // ── Artwork officiel (AniList) ──
         art: {
-            get: (title) => get('/artwork?title=' + encodeURIComponent(title || '')),
+            get:     (title) => get('/artwork?title=' + encodeURIComponent(title || '')),
+            similar: (title) => get('/anilist/similar?title=' + encodeURIComponent(title || '')),
         },
 
         // ── Spotify (linking de compte OAuth) ──

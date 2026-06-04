@@ -280,6 +280,10 @@
                     <div style="margin-top:8px">Chargement des chapitres…</div>
                 </div>`}
             </div>
+        </div>
+        <div class="chapters-block" id="similarBlock" style="display:none">
+            <div class="chapters-block-header"><div class="chapters-block-title">Tu aimeras aussi</div></div>
+            <div id="similarRow" style="display:flex;gap:12px;overflow-x:auto;padding:4px 2px 8px"></div>
         </div>`;
         el.querySelectorAll('[data-goto="chapitres"]').forEach(btn => {
             btn.addEventListener('click', e => {
@@ -289,6 +293,28 @@
                 renderTab('chapitres');
             });
         });
+        loadSimilar();
+    }
+
+    // ── Similaires (AniList) ──
+    let similarLoaded = false;
+    async function loadSimilar() {
+        if (similarLoaded || !manga?.title) return;
+        similarLoaded = true;
+        try {
+            const { items } = await API.art.similar(manga.title);
+            const block = document.getElementById('similarBlock');
+            const row = document.getElementById('similarRow');
+            if (!block || !row || !items || !items.length) return;
+            row.innerHTML = items.slice(0, 12).map(m => `
+                <a href="recherche.html?q=${encodeURIComponent(m.title)}" style="flex:0 0 116px;text-decoration:none;color:inherit">
+                    <div style="aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--bg4)">
+                        <img src="${MH.esc(m.cover || '')}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.style.visibility='hidden'">
+                    </div>
+                    <div style="font-size:11.5px;margin-top:6px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${MH.esc(m.title)}</div>
+                </a>`).join('');
+            block.style.display = '';
+        } catch (e) { /* silencieux */ }
     }
 
     function renderChapterRow(c) {
