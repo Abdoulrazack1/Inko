@@ -60,6 +60,28 @@ async function search(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// Recherche agrégée sur TOUTES les sources installées (façon Mihon)
+async function searchAll(req, res, next) {
+    try {
+        const { q, limit = 12 } = req.query;
+        if (!q || !q.trim()) return res.json({ query: '', groups: [] });
+        const sources = extensions.getAll().filter(s => supports(s, 'search'));
+        const groups = await Promise.all(sources.map(async s => {
+            const base = { source: s.id, sourceName: s.name, lang: s.lang || '' };
+            try {
+                const r = await Promise.race([
+                    s.search({ q: q.trim(), limit: +limit }),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('délai dépassé')), 15000)),
+                ]);
+                return { ...base, items: (r.results || []).slice(0, +limit), total: r.total };
+            } catch (e) {
+                return { ...base, items: [], error: e.message };
+            }
+        }));
+        res.json({ query: q.trim(), groups });
+    } catch (e) { next(e); }
+}
+
 async function getOne(req, res, next) {
     try {
         const src = resolveSource(req);
@@ -92,4 +114,4 @@ async function tags(req, res, next) {
     } catch (e) { next(e); }
 }
 
-module.exports = { listSources, popular, latest, search, getOne, chapters, pages, tags };
+module.exports = { listSources, popular, latest, search, searchAll, getOne, chapters, pages, tags };

@@ -204,11 +204,12 @@ async function markChapter(req, res, next) {
         const { mangaId, chapterId, chapter, read = true } = req.body;
         if (!mangaId || !chapterId) return res.status(400).json({ error: 'mangaId et chapterId requis' });
         if (read) {
-            await pool.query(
+            const [r] = await pool.query(
                 `INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number)
                  VALUES (?, ?, ?, ?)`,
                 [req.user.id, mangaId, chapterId, chapter || null]
             );
+            if (r.affectedRows) await pushEvent(req.user.id, 'read', { mangaId, chapterId, chapter });
         } else {
             await pool.query(
                 'DELETE FROM read_chapters WHERE user_id = ? AND chapter_id = ?',
@@ -393,26 +394,40 @@ async function getEvents(req, res, next) {
 
 async function getStats(req, res, next) {
     try {
+        const uid = req.user.id;
         const [[totals]] = await pool.query(
             `SELECT
-                (SELECT COUNT(*) FROM favorites    WHERE user_id = ?) AS favorites,
-                (SELECT COUNT(*) FROM library      WHERE user_id = ?) AS library,
+                (SELECT COUNT(*) FROM favorites WHERE user_id = ?) AS favorites,
+                (SELECT COUNT(*) FROM library WHERE user_id = ?) AS library,
                 (SELECT COUNT(*) FROM read_chapters WHERE user_id = ?) AS chapters_read,
-                (SELECT COUNT(*) FROM events       WHERE user_id = ? AND type='read' AND created_at > NOW() - INTERVAL 30 DAY) AS chapters_this_month`,
-            [req.user.id, req.user.id, req.user.id, req.user.id]
+                (SELECT COUNT(*) FROM read_chapters WHERE user_id = ? AND read_at > NOW() - INTERVAL 30 DAY) AS chapters_this_month,
+                (SELECT COUNT(DISTINCT manga_id) FROM read_chapters WHERE user_id = ?) AS series_read`,
+            [uid, uid, uid, uid, uid]
         );
 
         const [days] = await pool.query(
-            `SELECT DATE(created_at) AS day, COUNT(*) AS c
-             FROM events WHERE user_id = ? AND type = 'read'
-             AND created_at > NOW() - INTERVAL 365 DAY
-             GROUP BY DATE(created_at)`,
-            [req.user.id]
+            `SELECT DATE(read_at) AS day, COUNT(*) AS c
+             FROM read_chapters WHERE user_id = ? AND read_at > NOW() - INTERVAL 365 DAY
+             GROUP BY DATE(read_at)`,
+            [uid]
         );
         const heatmap = {};
-        days.forEach(d => { heatmap[d.day.toISOString().slice(0,10)] = d.c; });
+        days.forEach(d => { heatmap[d.day.toISOString().slice(0, 10)] = d.c; });
 
-        res.json({ totals, heatmap });
+        // Séries de lecture (streak)
+        const set = new Set(Object.keys(heatmap));
+        const iso = d => d.toISOString().slice(0, 10);
+        let current = 0; const cur = new Date();
+        if (!set.has(iso(cur))) cur.setDate(cur.getDate() - 1);
+        while (set.has(iso(cur))) { current++; cur.setDate(cur.getDate() - 1); }
+        const sorted = [...set].sort();
+        let longest = 0, run = 0, prev = null;
+        sorted.forEach(d => {
+            if (prev && (new Date(d) - new Date(prev)) / 86400000 === 1) run++; else run = 1;
+            longest = Math.max(longest, run); prev = d;
+        });
+
+        res.json({ totals, heatmap, streak: { current, longest } });
     } catch (e) { next(e); }
 }
 

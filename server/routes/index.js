@@ -33,6 +33,7 @@ router.get('/anilist/config',       AniList.config);
 
 // ── Mangas (relais vers source active, ?source=<id> pour cibler) ──
 router.get('/mangas/search',        Manga.search);
+router.get('/search-all',           Manga.searchAll);   // recherche multi-sources
 router.get('/mangas/popular',       Manga.popular);
 router.get('/mangas/latest',        Manga.latest);
 router.get('/mangas/tags',          Manga.tags);

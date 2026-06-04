@@ -249,7 +249,7 @@
             if (e.key === 'Escape') { dropdown.classList.remove('open'); input.blur(); }
             if (e.key === 'Enter' && input.value.trim()) {
                 dropdown.classList.remove('open');
-                window.location.href = `catalogue.html?q=${encodeURIComponent(input.value.trim())}`;
+                window.location.href = `recherche.html?q=${encodeURIComponent(input.value.trim())}`;
             }
         });
     }

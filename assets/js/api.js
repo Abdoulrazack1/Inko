@@ -136,6 +136,7 @@
             _qs(params)        { const s = new URLSearchParams(params).toString(); return s ? '?' + s : ''; },
             _prefix()          { const id = API.sources.current; return id ? `/sources/${encodeURIComponent(id)}` : ''; },
             search:   (params = {}) => get(API.mangas._prefix() + '/mangas/search'  + API.mangas._qs(params)),
+            searchAll:(q)           => get('/search-all?q=' + encodeURIComponent(q || '')),
             popular:  (params = {}) => get(API.mangas._prefix() + '/mangas/popular' + API.mangas._qs(params)),
             latest:   (params = {}) => get(API.mangas._prefix() + '/mangas/latest'  + API.mangas._qs(params)),
             tags:     ()            => get(API.mangas._prefix() + '/mangas/tags'),
