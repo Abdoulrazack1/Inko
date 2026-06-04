@@ -49,6 +49,7 @@ router.get('/sources/:sourceId/chapters/:id/pages',  Manga.pages);
 router.get   ('/me/favorites',            auth.authRequired, User.getFavorites);
 router.post  ('/me/favorites',            auth.authRequired, User.addFavorite);
 router.delete('/me/favorites/:mangaId',   auth.authRequired, User.removeFavorite);
+router.put   ('/me/favorites/:mangaId/category', auth.authRequired, User.setFavoriteCategory);
 
 router.get   ('/me/library',              auth.authRequired, User.getLibrary);
 router.put   ('/me/library/:mangaId',     auth.authRequired, User.setLibraryStatus);

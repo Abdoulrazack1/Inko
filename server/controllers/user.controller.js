@@ -32,12 +32,16 @@ async function pushEvent(userId, type, payload = {}) {
 async function getFavorites(req, res, next) {
     try {
         const [rows] = await pool.query(
-            'SELECT manga_id, source, title, cover, last_chapter, added_at FROM favorites WHERE user_id = ? ORDER BY added_at DESC',
+            `SELECT f.manga_id, f.source, f.title, f.cover, f.last_chapter, f.category, f.added_at, l.status
+             FROM favorites f
+             LEFT JOIN library l ON l.user_id = f.user_id AND l.manga_id = f.manga_id
+             WHERE f.user_id = ? ORDER BY f.added_at DESC`,
             [req.user.id]
         );
         res.json(rows.map(r => ({
             mangaId: r.manga_id, source: r.source || 'mangadex',
             title: r.title, cover: r.cover, lastChapter: r.last_chapter,
+            category: r.category || null, status: r.status || null,
             addedAt: r.added_at,
         })));
     } catch (e) { next(e); }
@@ -67,6 +71,21 @@ async function removeFavorite(req, res, next) {
             [req.user.id, req.params.mangaId]
         );
         await pushEvent(req.user.id, 'unfavorite', { mangaId: req.params.mangaId });
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+// Assigne une catégorie à un favori (crée le favori s'il n'existe pas)
+async function setFavoriteCategory(req, res, next) {
+    try {
+        const { category, title, cover, source } = req.body;
+        await pool.query(
+            `INSERT INTO favorites (user_id, manga_id, category, title, cover, source)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE category = VALUES(category),
+                title = COALESCE(title, VALUES(title)), cover = COALESCE(cover, VALUES(cover))`,
+            [req.user.id, req.params.mangaId, category || null, title || null, cover || null, source || 'mangadex']
+        );
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -580,7 +599,7 @@ async function checkUpdates(req, res, next) {
 }
 
 module.exports = {
-    getFavorites, addFavorite, removeFavorite,
+    getFavorites, addFavorite, removeFavorite, setFavoriteCategory,
     getLibrary, setLibraryStatus,
     getAllProgress, setProgress, deleteProgress,
     getReadChapters, markChapter, markChaptersBulk,

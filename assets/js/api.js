@@ -154,6 +154,7 @@
                 cover:  meta.cover || null,
             }),
             removeFavorite:   (mangaId)    => del('/me/favorites/' + encodeURIComponent(mangaId)),
+            setCategory:      (mangaId, payload) => put('/me/favorites/' + encodeURIComponent(mangaId) + '/category', payload),
             updates:          (lang)       => get('/me/updates' + (lang ? '?lang=' + encodeURIComponent(lang) : '')),
 
             library:          ()           => get('/me/library'),

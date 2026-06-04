@@ -28,6 +28,15 @@
     .lib2-sub { font-size:11px; color:var(--text3); margin-top:2px; }
     .lib2-empty { text-align:center; padding:70px 20px; color:var(--text3); }
     .lib2-empty .ico { font-size:48px; margin-bottom:10px; }
+    /* Filtres (statuts / catégories) */
+    .lib2-filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+    .lib2-chip { padding:6px 13px; border-radius:20px; font-size:12.5px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; font-weight:500; transition:all .12s; }
+    .lib2-chip:hover { color:var(--text); border-color:var(--border); }
+    .lib2-chip.on { background:var(--orange); border-color:var(--orange); color:#fff; }
+    .lib2-chip .cnt { opacity:.65; margin-left:5px; font-size:11px; }
+    .lib2-chip-add { color:var(--text3); border-style:dashed; }
+    .lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; color:#fff; }
+    .lib2-cat { font-size:10px; color:var(--text3); margin-top:1px; }
     /* Updates list */
     .upd-row { display:flex; align-items:center; gap:14px; padding:12px; background:var(--bg2); border:1px solid var(--border); border-radius:11px; margin-bottom:10px; transition:border-color .15s; }
     .upd-row:hover { border-color:var(--orange); }
@@ -59,8 +68,10 @@
           <option value="recent">Récemment ajoutés</option>
           <option value="title">Titre A→Z</option>
           <option value="unread">Non-lus d'abord</option>
+          <option value="progress">Progression</option>
         </select>
       </div>
+      <div class="lib2-filters" id="libFilters"></div>
       <div class="lib2-grid" id="libGrid">
         <div class="lib2-empty" style="grid-column:1/-1"><div class="spinner-inline"></div></div>
       </div>

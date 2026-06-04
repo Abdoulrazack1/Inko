@@ -10,6 +10,8 @@
     let chapSortAsc = false;
     let chapFilter  = '';
     let favorited   = false;
+    let libStatus   = null;     // statut de lecture (library)
+    let libCategory = null;     // catégorie (favorites.category)
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('serie');
@@ -32,7 +34,10 @@
                     API.me.readChapters(),
                     API.me.progress(),
                 ]);
-                favorited   = favs.some(f => f.mangaId === manga.id);
+                const myFav = favs.find(f => f.mangaId === manga.id);
+                favorited   = !!myFav;
+                libStatus   = myFav?.status || null;
+                libCategory = myFav?.category || null;
                 readChapsSet = new Set((allRead[manga.id] || []).map(r => r.chapterId));
                 progress    = allProg[manga.id] || null;
             }
@@ -113,6 +118,15 @@
                     <button class="btn btn-ghost ${favorited ? 'is-fav' : ''}" id="btnFavorite">
                         ${favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste'}
                     </button>
+                    <select id="serieStatus" title="Statut de lecture" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:9px 12px;border-radius:9px;font-size:13px;cursor:pointer">
+                        <option value="">Sans statut</option>
+                        <option value="reading"   ${libStatus==='reading'  ?'selected':''}>En cours</option>
+                        <option value="completed" ${libStatus==='completed'?'selected':''}>Terminé</option>
+                        <option value="planned"   ${libStatus==='planned'  ?'selected':''}>À lire</option>
+                        <option value="paused"    ${libStatus==='paused'   ?'selected':''}>En pause</option>
+                        <option value="dropped"   ${libStatus==='dropped'  ?'selected':''}>Abandonné</option>
+                    </select>
+                    <button class="btn btn-ghost btn-sm" id="btnCategory">${libCategory ? MH.esc(libCategory) : '+ Catégorie'}</button>
                     <button class="btn btn-ghost btn-icon" id="btnShare" title="Partager">↗</button>
                 </div>
             </div>
@@ -163,6 +177,38 @@
                 btn.textContent = favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste';
                 MH.toast(favorited ? 'Ajouté à votre liste !' : 'Retiré de votre liste');
             } catch(err) { MH.toast('Erreur : ' + err.message); }
+        });
+
+        function updateFavBtn() {
+            const b = document.getElementById('btnFavorite');
+            if (b) { b.classList.toggle('is-fav', favorited); b.textContent = favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste'; }
+        }
+
+        document.getElementById('serieStatus')?.addEventListener('change', async (e) => {
+            if (!API.isLoggedIn()) { MH.toast('Connecte-toi pour suivre ta lecture'); e.target.value = libStatus || ''; return; }
+            const status = e.target.value;
+            try {
+                if (status && !favorited) {
+                    await API.me.addFavorite(manga.id, { title: manga.title, cover: manga.cover || manga.coverThumb });
+                    favorited = true; updateFavBtn();
+                }
+                await API.me.setLibrary(manga.id, status || null);
+                libStatus = status || null;
+                MH.toast(status ? 'Statut : ' + e.target.options[e.target.selectedIndex].text : 'Statut retiré');
+            } catch (err) { MH.toast('Erreur : ' + err.message); }
+        });
+
+        document.getElementById('btnCategory')?.addEventListener('click', async () => {
+            if (!API.isLoggedIn()) { MH.toast('Connecte-toi'); return; }
+            const name = prompt('Catégorie (laisse vide pour aucune) :', libCategory || '');
+            if (name === null) return;
+            const cat = name.trim();
+            try {
+                await API.me.setCategory(manga.id, { category: cat || null, title: manga.title, cover: manga.cover || manga.coverThumb, source: API.sources.current });
+                libCategory = cat || null; favorited = true; updateFavBtn();
+                const b = document.getElementById('btnCategory'); if (b) b.textContent = libCategory || '+ Catégorie';
+                MH.toast(libCategory ? 'Catégorie : ' + libCategory : 'Catégorie retirée');
+            } catch (err) { MH.toast('Erreur : ' + err.message); }
         });
 
         document.getElementById('btnShare')?.addEventListener('click', async () => {

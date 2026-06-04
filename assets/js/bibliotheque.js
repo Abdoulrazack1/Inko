@@ -5,6 +5,15 @@
     let favs = [];
     let readByManga = {};
     let progressByManga = {};
+    let filter = { type: 'all', value: null };
+
+    const STATUS = {
+        reading:   ['En cours',  '#22c55e'],
+        completed: ['Terminé',   '#3b82f6'],
+        planned:   ['À lire',    '#a855f7'],
+        paused:    ['En pause',  '#f59e0b'],
+        dropped:   ['Abandonné', '#ef4444'],
+    };
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('bibliotheque');
@@ -77,6 +86,7 @@
             }));
         }
 
+        renderFilters();
         render();
     }
 
@@ -87,15 +97,39 @@
         return Math.max(0, Math.round(last) - read);
     }
 
+    function renderFilters() {
+        const el = document.getElementById('libFilters');
+        if (!el) return;
+        const sc = {}, cc = {};
+        favs.forEach(f => { if (f.status) sc[f.status] = (sc[f.status] || 0) + 1; });
+        favs.forEach(f => { if (f.category) cc[f.category] = (cc[f.category] || 0) + 1; });
+
+        const chip = (type, val, label, count, on) =>
+            `<button class="lib2-chip ${on ? 'on' : ''}" data-ftype="${type}" data-fval="${MH.esc(val == null ? '' : val)}">${MH.esc(label)}${count != null ? `<span class="cnt">${count}</span>` : ''}</button>`;
+
+        let html = chip('all', '', 'Tout', favs.length, filter.type === 'all');
+        Object.keys(STATUS).forEach(s => { if (sc[s]) html += chip('status', s, STATUS[s][0], sc[s], filter.type === 'status' && filter.value === s); });
+        Object.keys(cc).sort().forEach(c => { html += chip('category', c, c, cc[c], filter.type === 'category' && filter.value === c); });
+        el.innerHTML = html;
+
+        el.querySelectorAll('.lib2-chip').forEach(ch => ch.addEventListener('click', () => {
+            filter = { type: ch.dataset.ftype, value: ch.dataset.fval || null };
+            renderFilters(); render();
+        }));
+    }
+
     function render() {
         const grid = document.getElementById('libGrid');
         const q = (document.getElementById('libSearch').value || '').toLowerCase();
         const sort = document.getElementById('libSort').value;
 
         let list = favs.filter(f => !q || (f.title || '').toLowerCase().includes(q));
+        if (filter.type === 'status')   list = list.filter(f => f.status === filter.value);
+        if (filter.type === 'category') list = list.filter(f => f.category === filter.value);
 
-        if (sort === 'title')  list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-        if (sort === 'unread') list.sort((a, b) => unreadCount(b) - unreadCount(a));
+        if (sort === 'title')    list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+        if (sort === 'unread')   list.sort((a, b) => unreadCount(b) - unreadCount(a));
+        if (sort === 'progress') list.sort((a, b) => (progressByManga[b.mangaId]?.chapter || 0) - (progressByManga[a.mangaId]?.chapter || 0));
         // 'recent' = ordre par défaut (added_at desc)
 
         if (!list.length) {
@@ -106,18 +140,22 @@
         grid.innerHTML = list.map(f => {
             const prog = progressByManga[f.mangaId];
             const u = unreadCount(f);
+            const st = f.status && STATUS[f.status]
+                ? `<div class="lib2-status" style="background:${STATUS[f.status][1]}">${STATUS[f.status][0]}</div>` : '';
             const href = prog?.chapterId
-                ? `chapitre.html?manga=${encodeURIComponent(f.mangaId)}&chapter=${encodeURIComponent(prog.chapterId)}`
-                : `serie.html?id=${encodeURIComponent(f.mangaId)}`;
+                ? `chapitre.html?manga=${encodeURIComponent(f.mangaId)}&chapter=${encodeURIComponent(prog.chapterId)}&source=${encodeURIComponent(f.source || '')}`
+                : `serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}`;
             return `
             <a class="lib2-card" href="${href}" data-manga-id="${f.mangaId}">
                 <div class="lib2-cover">
                     <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy"
                          onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
+                    ${st}
                     ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
                 </div>
                 <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
                 <div class="lib2-sub">${prog ? 'Ch. ' + prog.chapter : 'Pas commencé'} · ${f.source || 'mangadex'}</div>
+                ${f.category ? `<div class="lib2-cat">${MH.esc(f.category)}</div>` : ''}
             </a>`;
         }).join('');
     }
