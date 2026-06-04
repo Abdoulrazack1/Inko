@@ -167,6 +167,7 @@
 
             readChapters:     ()           => get('/me/read-chapters'),
             markChapter:      (payload)    => post('/me/read-chapters', payload),
+            markChaptersBulk: (mangaId, chapters) => post('/me/read-chapters/bulk', { mangaId, chapters }),
 
             lists:            ()           => get('/me/lists'),
             createList:       (data)       => post('/me/lists', data),

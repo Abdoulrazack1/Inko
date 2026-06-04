@@ -200,6 +200,24 @@ async function markChapter(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// Marque plusieurs chapitres lus en un seul appel (ex. "marquer jusqu'ici")
+async function markChaptersBulk(req, res, next) {
+    try {
+        const { mangaId, chapters } = req.body;
+        if (!mangaId || !Array.isArray(chapters) || !chapters.length)
+            return res.status(400).json({ error: 'mangaId et chapters[] requis' });
+        const values = chapters
+            .filter(c => c && c.chapterId)
+            .map(c => [req.user.id, mangaId, c.chapterId, (c.chapter ?? null)]);
+        if (!values.length) return res.json({ ok: true, count: 0 });
+        await pool.query(
+            'INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES ?',
+            [values]
+        );
+        res.json({ ok: true, count: values.length });
+    } catch (e) { next(e); }
+}
+
 // ──────────────────────────────────────────────────────────────
 // LISTS
 // ──────────────────────────────────────────────────────────────
@@ -565,7 +583,7 @@ module.exports = {
     getFavorites, addFavorite, removeFavorite,
     getLibrary, setLibraryStatus,
     getAllProgress, setProgress, deleteProgress,
-    getReadChapters, markChapter,
+    getReadChapters, markChapter, markChaptersBulk,
     getLists, createList, updateList, deleteList, addToList, removeFromList,
     getComments, addComment,
     getEvents, getStats,

@@ -763,4 +763,35 @@
   .reader-next-chapter { flex-wrap: wrap; gap: 10px; }
   .page-zone-arrow { width: 32px; height: 32px; font-size: 15px; }
   .translator-note { padding: 0 12px; }
+  .reader-settings-pop { top: 56px; right: 8px; width: 280px; }
 }
+
+/* ── Lecteur pro : ajustement des images ── */
+.fit-width  .reader-page-img { width: 100% !important; height: auto !important; max-width: 100% !important; }
+.fit-height .reader-page-img { max-height: calc(100vh - 120px) !important; width: auto !important; }
+.reader-onlight .page-counter-badge,
+.reader-onlight .modebar-info { color: #15151a; }
+
+/* ── Panneau de réglages du lecteur ── */
+.reader-settings-pop {
+  position: fixed; top: 64px; right: 16px; z-index: 1000;
+  width: 300px; max-width: calc(100vw - 32px); max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  background: var(--bg2, #141417); border: 1px solid var(--border2, rgba(255,255,255,.12));
+  border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  padding: 14px 16px 16px; color: var(--text, #f0f0f2);
+  font-family: var(--font-body, -apple-system, sans-serif);
+  animation: rsPop .16s ease;
+}
+@keyframes rsPop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.rs-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 14.5px; margin-bottom: 10px; }
+.rs-close { background: none; border: none; color: var(--text3, #9a9aa6); font-size: 15px; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.rs-close:hover { background: var(--bg3, #1f1f26); color: var(--text, #fff); }
+.rs-label { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text2, #a8a8b3); margin: 12px 2px 6px; font-weight: 500; }
+.rs-seg { display: flex; gap: 4px; flex-wrap: wrap; background: var(--bg3, #1f1f26); padding: 4px; border-radius: 9px; }
+.rs-seg button { flex: 1; min-width: 52px; padding: 7px 6px; border: none; background: transparent; color: var(--text2, #a8a8b3); border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500; transition: all .12s; }
+.rs-seg button:hover { color: var(--text, #fff); }
+.rs-seg button.on { background: var(--orange, #ff6b1a); color: #fff; font-weight: 600; }
+.rs-range { width: 100%; accent-color: var(--orange, #ff6b1a); margin-top: 2px; }
+.rs-foot { margin-top: 16px; border-top: 1px solid var(--border, rgba(255,255,255,.08)); padding-top: 12px; }
+.rs-shortcuts { font-size: 10.5px; color: var(--text3, #6b6b78); line-height: 1.6; margin-top: 10px; }

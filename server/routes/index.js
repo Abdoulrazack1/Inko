@@ -59,6 +59,7 @@ router.delete('/me/progress/:mangaId',    auth.authRequired, User.deleteProgress
 
 router.get   ('/me/read-chapters',        auth.authRequired, User.getReadChapters);
 router.post  ('/me/read-chapters',        auth.authRequired, User.markChapter);
+router.post  ('/me/read-chapters/bulk',   auth.authRequired, User.markChaptersBulk);
 
 router.get   ('/me/lists',                auth.authRequired, User.getLists);
 router.post  ('/me/lists',                auth.authRequired, User.createList);
