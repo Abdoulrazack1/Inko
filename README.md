@@ -59,32 +59,43 @@ tu peux étendre toi-même.
 
 ## Fonctionnalités
 
-**Lecture**
+**Lecteur**
 - Trois modes : page, double page et webtoon (défilement vertical)
-- Sens de lecture RTL ou LTR au choix
-- Reprise exacte à la page où tu t'es arrêté
-- Zoom, plein écran, préchargement et mode économie de données
+- Panneau de réglages : fond (sombre / noir / gris / sépia / clair), ajustement
+  (original / largeur / hauteur), sens RTL ou LTR, luminosité, écart entre pages
+- Reprise exacte à la page où tu t'es arrêté, préchargement du chapitre suivant
+- Raccourcis clavier (pages, chapitre suivant/précédent, plein écran, réglages)
+- Marquer un chapitre, les précédents, ou tout le manga comme lus
 
 **Bibliothèque**
 - Favoris synchronisés sur ton compte
+- Statuts de lecture (en cours, terminé, à lire, en pause, abandonné) et catégories
+- Filtres par statut / catégorie, tri et recherche
 - Détection automatique des nouveaux chapitres des séries suivies
-- Listes personnelles, statuts de lecture, notes et avis
-- Historique de lecture
+- Historique de lecture, notes et avis
+
+**Hors-ligne**
+- Téléchargement des chapitres pour les lire sans connexion
+- Onglet dédié : liste par série, taille utilisée, suppression
+- PWA installable, coquille de l'app utilisable hors-ligne
 
 **Découverte**
-- Recherche instantanée avec autocomplétion
-- Aperçu riche au survol d'une carte : couverture, statut, genres, résumé
+- Carrousel d'accueil avec les illustrations officielles (AniList)
+- Recherche instantanée, aperçu riche au survol d'une carte
 - Plusieurs sources interchangeables (voir Extensions)
 
-**Musique pendant la lecture**
-- Lecteur en fenêtre détachée qui reste actif pendant la navigation
-- Fichiers audio locaux, embeds YouTube et Spotify
-- Liaison de compte Spotify (OAuth) pour retrouver tes playlists, plus une
-  écoute immédiate via des playlists publiques sans connexion
+**Musique intégrée**
+- Lecteur en dock en bas de page (pas de fenêtre séparée), persistant entre les pages
+- Stations un-clic pour lire : Lofi, Anime, Chillhop, Jazz, Synthwave, Pluie, Focus, Piano
+- Fichiers audio locaux, YouTube (vrai contrôle via l'IFrame API), et Spotify
+- Liaison de compte Spotify (OAuth) pour retrouver tes playlists
+
+**Suivi**
+- Liaison de compte AniList : synchronisation automatique de ta progression et
+  de tes statuts pendant que tu lis
 
 **Confort et compte**
 - Thème clair, sombre ou automatique
-- PWA installable et utilisable hors-ligne
 - Export de tes données au format JSON
 - Espace adulte masqué, protégé par un code
 - Compte sécurisé (JWT + bcrypt), aucune télémétrie
@@ -164,12 +175,16 @@ npm install -g @capacitor/cli
 npx cap add android && npx cap sync android && npx cap open android
 ```
 
-## Lier un compte Spotify
+## Comptes liés (Spotify, AniList)
 
-La liaison de compte utilise l'OAuth officiel de Spotify et nécessite une
-application développeur (gratuite). Les étapes détaillées sont dans
-[`SPOTIFY_SETUP.md`](SPOTIFY_SETUP.md). Sans configuration, le lecteur reste
-utilisable via les playlists publiques et YouTube.
+- **Spotify** (playlists dans le lecteur) : OAuth officiel, nécessite une app
+  développeur gratuite. Étapes dans [`SPOTIFY_SETUP.md`](SPOTIFY_SETUP.md). Sans
+  configuration, le lecteur reste utilisable via les stations, YouTube et les
+  playlists publiques.
+- **AniList** (suivi de lecture) : crée un client sur
+  `anilist.co/settings/developer` avec l'URL de redirection
+  `http://127.0.0.1:8088/anilist.html`, puis renseigne le Client ID
+  (`ANILIST_CLIENT_ID` dans `server/.env`, ou via le menu Aide de l'app desktop).
 
 ---
 
@@ -183,9 +198,11 @@ inko/
     theme.js, nsfw.js        thème, espace +18
     storage.js               préférences locales
     card-hover.js            aperçu au survol
-    player.js                lecteur de musique
+    music.js                 lecteur de musique intégré (dock)
+    downloads.js             téléchargement hors-ligne (IndexedDB + Cache)
+    anilist.js               suivi AniList (OAuth implicite + sync)
     {page}.js                logique de chaque page (vue pure)
-  service-worker.js          PWA : cache des couvertures, hors-ligne
+  service-worker.js          PWA : cache des couvertures et des chapitres hors-ligne
   desktop/                   application Electron
   extensions-community/      sources de référence
   server/
@@ -209,7 +226,10 @@ Auth      POST /auth/register, /auth/login    PUT /auth/password    POST /auth/d
 Sources   GET  /sources    /sources/:id/mangas/*
 Mangas    GET  /mangas/{search,popular,latest,:id,:id/chapters}    /chapters/:id/pages
 Compte    GET/PUT /me/{favorites,library,progress,lists,settings,ratings,updates}    /me/export
-Spotify   GET /spotify/{login,callback,status,playlists}    POST /spotify/disconnect
+Lecture   POST /me/read-chapters    /me/read-chapters/bulk    PUT /me/favorites/:id/category
+Artwork   GET  /artwork?title=...   (illustrations officielles AniList)
+Spotify   GET  /spotify/{login,callback,status,playlists}    POST /spotify/disconnect
+AniList   GET  /anilist/config
 Social    GET/POST /comments/:id    /ratings/:id    GET /me/stats
 ```
 
