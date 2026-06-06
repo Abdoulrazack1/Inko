@@ -89,6 +89,34 @@
         return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     };
 
+    /* ── Favoris : icône cœur SVG + état partagé ─────────── */
+    window.MH.heartIcon = function (filled) {
+        const d = 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z';
+        return `<svg viewBox="0 0 24 24" width="17" height="17" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+    };
+
+    // Cache du jeu d'IDs favoris de l'utilisateur connecté
+    window.MH._favSet = null;
+    window.MH.getFavSet = async function (force) {
+        if (!window.API?.isLoggedIn()) return new Set();
+        if (window.MH._favSet && !force) return window.MH._favSet;
+        try {
+            const favs = await API.me.favorites();
+            window.MH._favSet = new Set((favs || []).map(f => String(f.mangaId)));
+        } catch (e) { window.MH._favSet = new Set(); }
+        return window.MH._favSet;
+    };
+    // Marque dans le DOM les cœurs déjà en favori (état initial)
+    window.MH.markFavorites = async function (root) {
+        if (!window.API?.isLoggedIn()) return;
+        const set = await window.MH.getFavSet();
+        (root || document).querySelectorAll('.card-fav-btn[data-fav]').forEach(btn => {
+            const fav = set.has(String(btn.dataset.fav));
+            btn.classList.toggle('is-fav', fav);
+            btn.innerHTML = window.MH.heartIcon(fav);
+        });
+    };
+
     /* ── Header HTML ─────────────────────────────────────── */
     const headerHTML = (activePage) => {
         const u = window.API?.user;
@@ -315,6 +343,41 @@
                 MH.toast(`Lecture aléatoire : ${m.title} `);
                 setTimeout(() => { window.location.href = `serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}`; }, 500);
             } catch(e) { MH.toast('Erreur de chargement'); }
+        });
+
+        // ── Favoris : handler délégué unique (cœurs de cartes + bouton « + Suivre ») ──
+        document.addEventListener('click', async e => {
+            const btn = e.target.closest('[data-fav]');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (!window.API?.isLoggedIn()) { MH.toast('Connecte-toi pour ajouter des favoris'); return; }
+            const id = btn.dataset.fav;
+            const isCard = btn.classList.contains('card-fav-btn');
+            const card = btn.closest('.manga-card');
+            const meta = {
+                title: card?.querySelector('.manga-card-title')?.textContent?.trim() || null,
+                cover: card?.querySelector('img')?.src || null,
+                source: API.sources.current,
+            };
+            const willFav = !btn.classList.contains('is-fav');
+            btn.classList.toggle('is-fav', willFav);
+            if (isCard) btn.innerHTML = MH.heartIcon(willFav);
+            else        btn.textContent = willFav ? 'Suivi' : '+ Suivre';
+            try {
+                if (willFav) await API.me.addFavorite(id, meta);
+                else         await API.me.removeFavorite(id);
+                // Met à jour le cache partagé
+                const set = await MH.getFavSet();
+                if (willFav) set.add(String(id)); else set.delete(String(id));
+                MH.toast(willFav ? 'Ajouté aux favoris' : 'Retiré des favoris');
+            } catch (err) {
+                // Rollback visuel en cas d'échec
+                btn.classList.toggle('is-fav', !willFav);
+                if (isCard) btn.innerHTML = MH.heartIcon(!willFav);
+                else        btn.textContent = !willFav ? 'Suivi' : '+ Suivre';
+                MH.toast('Erreur : ' + err.message);
+            }
         });
     }
 

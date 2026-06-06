@@ -186,6 +186,7 @@
                 grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2)">Aucune série correspondante. Modifiez les filtres.</div>';
             } else {
                 grid.innerHTML = lastResults.map(m => mangaCardHTML(m)).join('');
+                MH.markFavorites(grid);
             }
             renderPagination();
         } catch(err) {
@@ -203,9 +204,9 @@
                     ${m.status === 'completed' ? '<span class="badge badge-termine">TERMINÉ</span>' : ''}
                     ${m.status === 'hiatus' ? '<span class="badge badge-pause">PAUSE</span>' : ''}
                 </div>
-                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">♡</button>
+                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">${MH.heartIcon(false)}</button>
                 <div class="manga-card-overlay">
-                    <div class="btn-read-overlay">▶ Lire</div>
+                    <div class="btn-read-overlay">Lire</div>
                 </div>
             </div>
             <div class="manga-card-info">
@@ -255,27 +256,7 @@
             window.location.href = `serie.html?id=${encodeURIComponent(m.id)}`;
         });
 
-        // Toggle fav sur cards
-        document.addEventListener('click', async e => {
-            const btn = e.target.closest('.card-fav-btn');
-            if (!btn) return;
-            e.preventDefault();
-            e.stopPropagation();
-            if (!API.isLoggedIn()) { MH.toast('Connectez-vous pour ajouter des favoris'); return; }
-            const id = btn.dataset.fav;
-            const card = btn.closest('.manga-card');
-            const meta = {
-                title: card?.querySelector('.manga-card-title')?.textContent?.trim(),
-                cover: card?.querySelector('img')?.src,
-            };
-            const isFav = btn.classList.toggle('is-fav');
-            btn.innerHTML = isFav ? '' : '♡';
-            try {
-                if (isFav) await API.me.addFavorite(id, meta);
-                else       await API.me.removeFavorite(id);
-                MH.toast(isFav ? 'Ajouté aux favoris' : 'Retiré');
-            } catch(err) { MH.toast('Erreur : ' + err.message); }
-        });
+        // Le toggle des favoris (cœurs de cartes) est géré globalement dans global.js.
 
         // URL query (entrée via header search)
         if (lastQuery) {

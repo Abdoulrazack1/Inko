@@ -180,6 +180,7 @@
         const el = document.getElementById('recoGrid');
         if (!el) return;
         el.innerHTML = mangas.map((m, i) => mangaCardHTML(m, [98, 94, 91][i])).join('');
+        MH.markFavorites(el);
     }
 
     // ── Dernières sorties ────────────────────────────────
@@ -197,6 +198,7 @@
         const el = document.getElementById('latestGrid');
         if (!el || !latestCache) return;
         el.innerHTML = latestCache.slice(0, latestCount).map(m => mangaCardHTML(m)).join('');
+        MH.markFavorites(el);
     }
 
     function bindLatestControls() {
@@ -340,9 +342,9 @@
                     ${matchPct ? `<span class="badge badge-orange">${matchPct}% MATCH</span>` : ''}
                     ${m.status === 'completed' ? '<span class="badge badge-termine">TERMINÉ</span>' : ''}
                 </div>
-                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">♡</button>
+                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">${MH.heartIcon(false)}</button>
                 <div class="manga-card-overlay">
-                    <div class="btn-read-overlay">▶ Lire</div>
+                    <div class="btn-read-overlay">Lire</div>
                 </div>
             </div>
             <div class="manga-card-info">
@@ -356,32 +358,7 @@
         </a>`;
     }
 
-    // ── Toggle favoris global (délégué) ────────────────────
-    document.addEventListener('click', async e => {
-        const btn = e.target.closest('[data-fav]');
-        if (!btn) return;
-        e.preventDefault();
-        e.stopPropagation();
-        if (!API.isLoggedIn()) {
-            MH.toast('Connectez-vous pour ajouter des favoris');
-            return;
-        }
-        const id = btn.dataset.fav;
-        const card = btn.closest('.manga-card');
-        const meta = {
-            title: card?.querySelector('.manga-card-title')?.textContent?.trim(),
-            cover: card?.querySelector('img')?.src,
-        };
-        const isFav = btn.classList.toggle('is-fav');
-        btn.innerHTML = isFav ? '' : '♡';
-        try {
-            if (isFav) await API.me.addFavorite(id, meta);
-            else       await API.me.removeFavorite(id);
-            MH.toast(isFav ? 'Ajouté aux favoris' : 'Retiré des favoris');
-        } catch(err) {
-            MH.toast('Erreur : ' + err.message);
-        }
-    });
+    // Le toggle des favoris (cœurs de cartes) est géré globalement dans global.js.
 
     // ── Helpers ──
     function showError(zone, msg) {
