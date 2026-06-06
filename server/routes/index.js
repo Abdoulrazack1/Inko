@@ -101,6 +101,8 @@ router.get   ('/spotify/login',           auth.authOptional, Spotify.login);    
 router.get   ('/spotify/callback',        Spotify.callback);                     // public (redir Spotify)
 router.get   ('/spotify/status',          auth.authRequired, Spotify.status);
 router.get   ('/spotify/playlists',       auth.authRequired, Spotify.playlists);
+router.get   ('/spotify/search',          auth.authRequired, Spotify.search);
+router.get   ('/spotify/recent',          auth.authRequired, Spotify.recent);
 router.post  ('/spotify/disconnect',      auth.authRequired, Spotify.disconnect);
 
 module.exports = router;

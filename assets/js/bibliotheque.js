@@ -5,6 +5,7 @@
     let favs = [];
     let readByManga = {};
     let progressByManga = {};
+    let updatesByManga = {};   // mangaId -> { unreadCount, latest, hasNew } (depuis /me/updates)
     let filter = { type: 'all', value: null };
 
     const STATUS = {
@@ -32,7 +33,40 @@
         initTabs();
         await loadLibrary();
         bindUpdates();
+        wireLibRefresh();
     });
+
+    // ── Mise à jour des chapitres depuis l'onglet Bibliothèque ──
+    async function fetchUpdates() {
+        const data = await API.me.updates(window.Storage?.getPref('readingLang') || 'fr,en');
+        (data.updates || []).forEach(u => {
+            updatesByManga[u.mangaId] = { unreadCount: u.unreadCount, latest: u.latest, hasNew: u.hasNew };
+            const f = favs.find(x => x.mangaId === u.mangaId);
+            if (f && u.latest) f.lastChapter = u.latest.chapter;
+        });
+        return data;
+    }
+    function wireLibRefresh() {
+        const btn = document.getElementById('btnLibRefresh');
+        const status = document.getElementById('libRefreshStatus');
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            if (status) status.innerHTML = '<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span> Vérification…';
+            try {
+                const data = await fetchUpdates();
+                const ups = data.updates || [];
+                const totalNew = ups.reduce((n, u) => n + (u.hasNew ? 1 : 0), 0);
+                const totalUnread = ups.reduce((n, u) => n + (u.unreadCount || 0), 0);
+                render();
+                if (status) status.textContent = `À jour · ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                MH.toast(totalNew ? `${totalNew} série(s) avec de nouveaux chapitres` : (totalUnread ? `${totalUnread} chapitre(s) non lu(s)` : 'Bibliothèque à jour'));
+            } catch (e) {
+                if (status) status.textContent = '';
+                MH.toast('Erreur : ' + e.message);
+            } finally { btn.disabled = false; }
+        });
+    }
 
     function initTabs() {
         const panels = { library: 'tabLibrary', updates: 'tabUpdates', downloads: 'tabDownloads' };
@@ -127,7 +161,10 @@
     }
 
     function unreadCount(f) {
-        // approximation : dernier chapitre connu - nb de chapitres lus
+        // Données serveur précises (après « Mettre à jour ») si dispo
+        const srv = updatesByManga[f.mangaId];
+        if (srv && typeof srv.unreadCount === 'number') return srv.unreadCount;
+        // sinon approximation : dernier chapitre connu - nb de chapitres lus
         const read = (readByManga[f.mangaId] || []).length;
         const last = f.lastChapter || 0;
         return Math.max(0, Math.round(last) - read);
@@ -211,17 +248,20 @@
             status.innerHTML = '<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span> Vérification en cours…';
             listEl.innerHTML = '';
             try {
-                const data = await API.me.updates(window.Storage?.getPref('readingLang') || 'fr,en');
+                const data = await fetchUpdates();
                 const ups = data.updates || [];
                 status.textContent = `${ups.length} série(s) suivie(s) · ${ups.filter(u => u.unreadCount > 0).length} avec des chapitres non lus`;
+                render(); // rafraîchit aussi les badges de l'onglet Bibliothèque
 
                 if (!ups.length) {
                     listEl.innerHTML = `<div class="lib2-empty"><div class="ico"></div>Aucune série suivie. Ajoute des favoris pour suivre leurs mises à jour.</div>`;
                     return;
                 }
-                listEl.innerHTML = ups.map(u => `
+                listEl.innerHTML = ups.map(u => {
+                    const src = encodeURIComponent(u.source || '');
+                    return `
                     <div class="upd-row">
-                        <a class="upd-cover" href="serie.html?id=${encodeURIComponent(u.mangaId)}">
+                        <a class="upd-cover" href="serie.html?id=${encodeURIComponent(u.mangaId)}&source=${src}">
                             <img src="${u.cover || MH.placeholderCover(u.mangaId)}" alt="" loading="lazy"
                                  onerror="this.src='${MH.placeholderCover(u.mangaId)}'">
                         </a>
@@ -229,11 +269,12 @@
                             <div class="upd-name">${MH.esc(u.title)} ${u.hasNew ? '<span class="upd-new">NOUVEAU</span>' : ''}</div>
                             <div class="upd-meta">
                                 ${u.latest ? `Dernier : Ch. ${u.latest.chapter}` : ''}
-                                ${u.unreadCount > 0 ? ` · <strong style="color:var(--orange)">${u.unreadCount} non lu(s)</strong>` : ' · à jour ✓'}
+                                ${u.unreadCount > 0 ? ` · <strong style="color:var(--orange)">${u.unreadCount} non lu(s)</strong>` : ' · à jour'}
                             </div>
                         </div>
-                        ${u.latest ? `<a class="btn btn-primary btn-sm" href="chapitre.html?manga=${encodeURIComponent(u.mangaId)}&chapter=${encodeURIComponent(u.latest.id)}">Lire →</a>` : ''}
-                    </div>`).join('');
+                        ${u.latest ? `<a class="btn btn-primary btn-sm" href="chapitre.html?manga=${encodeURIComponent(u.mangaId)}&chapter=${encodeURIComponent(u.latest.id)}&source=${src}">Lire</a>` : ''}
+                    </div>`;
+                }).join('');
             } catch (e) {
                 status.textContent = '';
                 listEl.innerHTML = `<div class="lib2-empty" style="color:#ef4444">Erreur : ${MH.esc(e.message)}</div>`;

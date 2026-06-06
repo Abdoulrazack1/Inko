@@ -111,6 +111,7 @@
         if (!window.API?.isLoggedIn()) return;
         const set = await window.MH.getFavSet();
         (root || document).querySelectorAll('.card-fav-btn[data-fav]').forEach(btn => {
+            if (btn.dataset.favTouched) return; // ne pas écraser une action en cours de l'utilisateur
             const fav = set.has(String(btn.dataset.fav));
             btn.classList.toggle('is-fav', fav);
             btn.innerHTML = window.MH.heartIcon(fav);
@@ -361,6 +362,7 @@
                 source: API.sources.current,
             };
             const willFav = !btn.classList.contains('is-fav');
+            btn.dataset.favTouched = '1';
             btn.classList.toggle('is-fav', willFav);
             if (isCard) btn.innerHTML = MH.heartIcon(willFav);
             else        btn.textContent = willFav ? 'Suivi' : '+ Suivre';

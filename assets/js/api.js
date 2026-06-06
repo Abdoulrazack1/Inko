@@ -224,6 +224,8 @@
             },
             status:     ()  => get('/spotify/status'),
             playlists:  ()  => get('/spotify/playlists'),
+            search:     (q) => get('/spotify/search?q=' + encodeURIComponent(q || '')),
+            recent:     ()  => get('/spotify/recent'),
             disconnect: ()  => post('/spotify/disconnect'),
         },
     };

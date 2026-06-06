@@ -26,6 +26,8 @@
         spotify:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/></svg>',
         youtube:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.5 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>',
         radio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1A10 10 0 0 1 4.9 4.9M19.1 4.9a10 10 0 0 1 0 14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4"/><circle cx="12" cy="12" r="2"/></svg>',
+        timer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M9 2h6"/></svg>',
+        shuffle:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>',
     };
 
     // Stations (live, un clic). yt = YouTube IFrame API ; sp = embed Spotify.
@@ -83,6 +85,15 @@
     .im-li.cur{background:rgba(255,107,26,.14);color:var(--orange,#ff6b1a);font-weight:600}
     .im-li img{width:34px;height:34px;border-radius:6px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.06)}
     .im-li .n{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .im-spprof{display:flex;align-items:center;gap:10px;padding:8px 4px 12px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08)}
+    .im-spprof img{width:40px;height:40px;border-radius:50%;object-fit:cover}
+    .im-spprof-ph{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#1db954;color:#fff}
+    .im-spprof-ph svg{width:22px;height:22px}
+    .im-spprof-meta{flex:1;min-width:0}
+    .im-spprof-meta .nm{font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .im-spprof-meta .sb{font-size:11px;color:#1db954;font-weight:600}
+    .im-spprof-x{background:rgba(255,255,255,.08);border:none;color:#cfcfd6;font-size:11.5px;padding:6px 11px;border-radius:8px;cursor:pointer}
+    .im-spprof-x:hover{background:rgba(255,255,255,.16);color:#fff}
     /* Barre */
     .im-bar{pointer-events:auto;width:min(960px,calc(100vw - 24px));height:64px;display:flex;align-items:center;gap:12px;padding:0 14px;background:rgba(18,18,22,.92);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.1);border-radius:14px;margin:0 0 12px;box-shadow:0 8px 40px rgba(0,0,0,.5)}
     #inko-music.open .im-bar{border-radius:0 0 14px 14px;margin-top:0}
@@ -95,6 +106,7 @@
     .im-ctr{display:flex;align-items:center;gap:4px}
     .im-ico{background:none;border:none;color:#e8e8ee;cursor:pointer;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s}
     .im-ico:hover{background:rgba(255,255,255,.1)}
+    .im-ico.on{color:var(--orange,#ff6b1a)}
     .im-ico svg{width:18px;height:18px}
     .im-ico.pp{background:#fff;color:#111;width:40px;height:40px}
     .im-ico.pp:hover{background:#fff;transform:scale(1.05)}
@@ -143,6 +155,7 @@
                     <button class="im-ico" id="im-next" title="Suivant">${ICON.next}</button>
                 </div>
                 <div class="im-vol">${ICON.vol}<input type="range" id="im-vol" min="0" max="1" step="0.01" value="${S.vol}"></div>
+                <button class="im-ico" id="im-timer" title="Minuterie de sommeil">${ICON.timer}</button>
                 <button class="im-ico im-chev" id="im-exp" title="Agrandir">${ICON.chevron}</button>
                 <button class="im-ico" id="im-min" title="Réduire en pastille">${ICON.minus}</button>
                 <button class="im-ico im-x" id="im-close" title="Fermer et arrêter">${ICON.close}</button>
@@ -162,6 +175,7 @@
         root.querySelector('#im-prev').onclick = () => skip(-1);
         root.querySelector('#im-next').onclick = () => skip(1);
         root.querySelector('#im-vol').oninput = e => setVolume(+e.target.value);
+        root.querySelector('#im-timer').onclick = cycleSleep;
         root.querySelectorAll('.im-tab').forEach(t => t.onclick = () => { S.tab = t.dataset.tab; save(); renderContent(); });
         localAudio = new Audio(); localAudio.volume = S.vol;
         localAudio.addEventListener('timeupdate', updateProgress);
@@ -244,7 +258,10 @@
 
     function renderLocal(c) {
         c.innerHTML = `
-            <div class="im-row"><button class="im-btn" id="im-pick" style="width:100%">${ICON.folder} Choisir des fichiers audio</button></div>
+            <div class="im-row">
+                <button class="im-btn" id="im-pick" style="flex:1">${ICON.folder} Choisir des fichiers audio</button>
+                <button class="im-btn" id="im-shuffle" title="Mélanger" style="background:rgba(255,255,255,.1)">${ICON.shuffle}</button>
+            </div>
             <input type="file" id="im-file" accept="audio/*" multiple style="display:none">
             <div class="im-list" id="im-queue"></div>`;
         c.querySelector('#im-pick').onclick = () => c.querySelector('#im-file').click();
@@ -252,6 +269,13 @@
             const files = [...e.target.files]; if (!files.length) return;
             localQueue = files.map(f => ({ name: f.name.replace(/\.[^.]+$/, ''), url: URL.createObjectURL(f) }));
             playLocal(0); renderQueue();
+        };
+        c.querySelector('#im-shuffle').onclick = () => {
+            if (!localQueue.length) { window.MH?.toast?.('Aucun fichier à mélanger'); return; }
+            const cur = localQueue[localIdx];
+            for (let i = localQueue.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [localQueue[i], localQueue[j]] = [localQueue[j], localQueue[i]]; }
+            localIdx = cur ? localQueue.indexOf(cur) : -1;
+            renderQueue(); window.MH?.toast?.('File mélangée');
         };
         renderQueue();
     }
@@ -264,9 +288,11 @@
     }
 
     function renderSpotify(c) {
-        c.innerHTML = `<div class="im-hint">Écoute immédiate (sans connexion) :</div>
+        c.innerHTML = `
+            <div id="im-spprofile"></div>
+            <div class="im-hint">Écoute immédiate (sans connexion) :</div>
             <div class="im-grid" id="im-sppre"></div>
-            <div id="im-spauth" style="margin-top:12px"></div>`;
+            <div id="im-spconnected" style="margin-top:12px"></div>`;
         const pres = [
             ['37i9dQZF1DWWQRwui0ExPn', 'Lo-Fi Beats', ['#1db954', '#1ed760']],
             ['37i9dQZF1DWYoYGBbGKurt', 'Lofi Chill', ['#643cc6', '#a445b2']],
@@ -278,28 +304,101 @@
                 <span class="nm">${nm}</span><span class="sb">Spotify</span></button>`).join('');
         c.querySelectorAll('#im-sppre .im-station').forEach(el => el.onclick = () =>
             playSpotify('playlist', el.dataset.sp, el.querySelector('.nm').textContent, 'Spotify', ['#1db954', '#1ed760']));
-        renderSpotifyAuth(c.querySelector('#im-spauth'));
+        renderSpotifyConnected();
     }
-    async function renderSpotifyAuth(box) {
-        if (!window.API || !API.spotify) return;
+
+    function connectSpotify() {
+        window.open(API.spotify.loginUrl(), 'inkoSpotifyAuth', 'width=480,height=760');
+        let n = 0; const iv = setInterval(async () => { n++; try { const s = await API.spotify.status(); if (s.linked) { clearInterval(iv); renderSpotify(root.querySelector('#im-content')); } } catch (e) {} if (n > 90) clearInterval(iv); }, 2000);
+    }
+    function spTrackRows(tracks) {
+        return (tracks || []).map(t =>
+            `<div class="im-li" data-sp="${t.id}" data-sptype="track" data-nm="${esc(t.name)}">
+                <img src="${t.image || ''}" alt="" onerror="this.style.visibility='hidden'">
+                <span class="n">${esc(t.name)}${t.artists ? ` · <span style="color:var(--text3,#7a7a86)">${esc(t.artists)}</span>` : ''}</span>
+            </div>`).join('');
+    }
+    function spPlRows(pls) {
+        return (pls || []).map(p =>
+            `<div class="im-li" data-sp="${p.id}" data-sptype="playlist" data-nm="${esc(p.name)}">
+                <img src="${p.image || ''}" alt="" onerror="this.style.visibility='hidden'">
+                <span class="n">${esc(p.name)}</span><span style="font-size:10.5px;color:var(--text3,#7a7a86)">${p.tracks || ''}</span>
+            </div>`).join('');
+    }
+    function bindSpRows(scope) {
+        if (!scope) return;
+        scope.querySelectorAll('.im-li[data-sp]').forEach(el => el.onclick = () =>
+            playSpotify(el.dataset.sptype, el.dataset.sp, el.dataset.nm,
+                el.dataset.sptype === 'track' ? 'Titre Spotify' : 'Playlist Spotify', ['#1db954', '#1ed760']));
+    }
+    async function renderSpotifyConnected() {
+        const box = root.querySelector('#im-spconnected');
+        const prof = root.querySelector('#im-spprofile');
+        if (!box || !window.API || !API.spotify) return;
+        let st;
+        try { st = await API.spotify.status(); } catch (e) { return; }
+        if (!st.configured) {
+            if (prof) prof.innerHTML = '';
+            box.innerHTML = `<div class="im-hint">Pour lier ton compte Spotify, configure SPOTIFY_CLIENT_ID/SECRET côté serveur puis reviens ici.</div>`;
+            return;
+        }
+        if (!st.linked) {
+            if (prof) prof.innerHTML = '';
+            box.innerHTML = `<button class="im-btn green" id="im-splink" style="width:100%">${ICON.spotify} Connecter mon compte Spotify</button>
+                <div class="im-hint" style="margin-top:8px">Accède à tes playlists, ta recherche et tes écoutes récentes.</div>`;
+            box.querySelector('#im-splink').onclick = connectSpotify;
+            return;
+        }
+        // Bandeau profil
+        if (prof) {
+            prof.innerHTML = `
+                <div class="im-spprof">
+                    ${st.profile?.avatar ? `<img src="${st.profile.avatar}" alt="">` : `<div class="im-spprof-ph">${ICON.spotify}</div>`}
+                    <div class="im-spprof-meta"><div class="nm">${esc(st.profile?.name || 'Spotify')}</div><div class="sb">${st.profile?.product === 'premium' ? 'Premium' : 'Connecté'}</div></div>
+                    <button class="im-spprof-x" id="im-spunlink">Déconnecter</button>
+                </div>`;
+            prof.querySelector('#im-spunlink').onclick = async () => {
+                try { await API.spotify.disconnect(); } catch (e) {}
+                renderSpotify(root.querySelector('#im-content'));
+            };
+        }
+        // Recherche + sections
+        box.innerHTML = `
+            <div class="im-row"><input class="im-input" id="im-spq" placeholder="Rechercher un titre, une playlist…"><button class="im-btn green" id="im-spgo">Chercher</button></div>
+            <div id="im-spresults"></div>
+            <div class="im-hint" style="margin-top:10px">Écoutés récemment</div>
+            <div class="im-list" id="im-sprecent"><div class="im-hint">Chargement…</div></div>
+            <div class="im-hint" style="margin-top:8px">Tes playlists</div>
+            <div class="im-list" id="im-sppl"><div class="im-hint">Chargement…</div></div>`;
+        const doSearch = async () => {
+            const q = box.querySelector('#im-spq').value.trim();
+            const res = box.querySelector('#im-spresults');
+            if (!q) { res.innerHTML = ''; return; }
+            res.innerHTML = `<div class="im-hint">Recherche…</div>`;
+            try {
+                const { tracks, playlists } = await API.spotify.search(q);
+                res.innerHTML = (tracks.length || playlists.length)
+                    ? spTrackRows(tracks) + spPlRows(playlists)
+                    : `<div class="im-hint">Aucun résultat.</div>`;
+                bindSpRows(res);
+            } catch (e) { res.innerHTML = `<div class="im-hint">Erreur de recherche.</div>`; }
+        };
+        box.querySelector('#im-spgo').onclick = doSearch;
+        box.querySelector('#im-spq').onkeydown = e => { if (e.key === 'Enter') doSearch(); };
+        // Écoutés récemment
         try {
-            const st = await API.spotify.status();
-            if (!st.configured) { box.innerHTML = `<div class="im-hint">Lie ton compte Spotify depuis Paramètres → Musique pour voir tes playlists ici.</div>`; return; }
-            if (!st.linked) {
-                box.innerHTML = `<button class="im-btn green" id="im-splink" style="width:100%">${ICON.spotify} Connecter mon compte Spotify</button>`;
-                box.querySelector('#im-splink').onclick = () => {
-                    window.open(API.spotify.loginUrl(), 'inkoSpotifyAuth', 'width=480,height=760');
-                    let n = 0; const iv = setInterval(async () => { n++; try { const s = await API.spotify.status(); if (s.linked) { clearInterval(iv); renderSpotifyAuth(box); } } catch (e) {} if (n > 90) clearInterval(iv); }, 2000);
-                };
-                return;
-            }
+            const { tracks } = await API.spotify.recent();
+            const el = box.querySelector('#im-sprecent');
+            el.innerHTML = tracks.length ? spTrackRows(tracks) : `<div class="im-hint">Rien pour l'instant.</div>`;
+            bindSpRows(el);
+        } catch (e) { const el = box.querySelector('#im-sprecent'); if (el) el.innerHTML = ''; }
+        // Playlists
+        try {
             const pls = await API.spotify.playlists();
-            box.innerHTML = `<div class="im-hint" style="margin-top:4px">Tes playlists (${st.profile?.name || 'Spotify'}) :</div><div class="im-list" id="im-sppl"></div>`;
-            box.querySelector('#im-sppl').innerHTML = pls.map(p =>
-                `<div class="im-li" data-id="${p.id}"><img src="${p.image || ''}" alt="" onerror="this.style.visibility='hidden'"><span class="n">${esc(p.name)}</span><span style="font-size:10.5px;color:var(--text3,#7a7a86)">${p.tracks}</span></div>`).join('');
-            box.querySelectorAll('#im-sppl .im-li').forEach(el => el.onclick = () =>
-                playSpotify('playlist', el.dataset.id, el.querySelector('.n').textContent, 'Ta playlist Spotify', ['#1db954', '#1ed760']));
-        } catch (e) { box.innerHTML = ''; }
+            const el = box.querySelector('#im-sppl');
+            el.innerHTML = pls.length ? spPlRows(pls) : `<div class="im-hint">Aucune playlist.</div>`;
+            bindSpRows(el);
+        } catch (e) { const el = box.querySelector('#im-sppl'); if (el) el.innerHTML = ''; }
     }
 
     // ══════════════════════ LECTURE — YouTube (IFrame API) ══════════════════════
@@ -412,6 +511,24 @@
     function stopSpotify() { try { if (spCtrl) spCtrl.pause?.(); } catch (e) {} const e = document.getElementById('im-spembed'); if (e) e.innerHTML = ''; }
     function stopLocal()   { try { localAudio.pause(); } catch (e) {} }
     function stopAll() { stopYouTube(); stopSpotify(); stopLocal(); setPlaying(false); }
+
+    // ══════════════════════ Minuterie de sommeil ══════════════════════
+    let sleepMin = 0, sleepHandle = null;
+    function updateTimerBtn() {
+        const btn = root.querySelector('#im-timer'); if (!btn) return;
+        btn.classList.toggle('on', sleepMin > 0);
+        btn.title = sleepMin > 0 ? `Minuterie : arrêt dans ${sleepMin} min (cliquer pour changer)` : 'Minuterie de sommeil';
+    }
+    function cycleSleep() {
+        const steps = [0, 15, 30, 60, 90];
+        sleepMin = steps[(steps.indexOf(sleepMin) + 1) % steps.length];
+        if (sleepHandle) { clearTimeout(sleepHandle); sleepHandle = null; }
+        if (sleepMin > 0) {
+            sleepHandle = setTimeout(() => { stopAll(); sleepMin = 0; updateTimerBtn(); window.MH?.toast?.('Musique arrêtée (minuterie)'); }, sleepMin * 60000);
+            window.MH?.toast?.(`Minuterie : arrêt dans ${sleepMin} min`);
+        } else { window.MH?.toast?.('Minuterie désactivée'); }
+        updateTimerBtn();
+    }
 
     // ══════════════════════ Utilitaires ══════════════════════
     function parseYT(url) { const m = (url || '').match(/[?&]v=([A-Za-z0-9_-]{11})/) || (url || '').match(/youtu\.be\/([A-Za-z0-9_-]{11})/) || (url || '').match(/^([A-Za-z0-9_-]{11})$/); return m ? m[1] : null; }
