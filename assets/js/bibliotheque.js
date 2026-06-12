@@ -34,7 +34,24 @@
         await loadLibrary();
         bindUpdates();
         wireLibRefresh();
+        maybeAutoCheck();
     });
+
+    // Vérification automatique des nouveaux chapitres (au plus une fois / 6 h)
+    async function maybeAutoCheck() {
+        if (!favs.length) return;
+        const KEY = 'inko_lib_lastcheck';
+        let last = 0; try { last = +localStorage.getItem(KEY) || 0; } catch (e) {}
+        if (Date.now() - last < 6 * 3600 * 1000) return;
+        const status = document.getElementById('libRefreshStatus');
+        if (status) status.innerHTML = '<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span> Recherche de nouveautés…';
+        try {
+            await fetchUpdates();
+            render();
+            try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {}
+            if (status) status.textContent = `À jour · ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+        } catch (e) { if (status) status.textContent = ''; }
+    }
 
     // ── Mise à jour des chapitres depuis l'onglet Bibliothèque ──
     async function fetchUpdates() {
@@ -44,6 +61,10 @@
             const f = favs.find(x => x.mangaId === u.mangaId);
             if (f && u.latest) f.lastChapter = u.latest.chapter;
         });
+        // Badge de navigation : nombre de séries avec des chapitres non lus
+        const newCount = (data.updates || []).filter(u => u.unreadCount > 0).length;
+        try { localStorage.setItem('inko_lib_newcount', String(newCount)); } catch (e) {}
+        window.MH?.updateLibBadge?.();
         return data;
     }
     function wireLibRefresh() {
@@ -272,9 +293,33 @@
                                 ${u.unreadCount > 0 ? ` · <strong style="color:var(--orange)">${u.unreadCount} non lu(s)</strong>` : ' · à jour'}
                             </div>
                         </div>
-                        ${u.latest ? `<a class="btn btn-primary btn-sm" href="chapitre.html?manga=${encodeURIComponent(u.mangaId)}&chapter=${encodeURIComponent(u.latest.id)}&source=${src}">Lire</a>` : ''}
+                        <div style="display:flex;gap:6px;flex-shrink:0">
+                            ${u.unreadCount > 0 ? `<button class="btn btn-secondary btn-sm" data-markread="${encodeURIComponent(u.mangaId)}" data-src="${src}" title="Marquer toute la série comme lue">Tout lu</button>` : ''}
+                            ${u.latest ? `<a class="btn btn-primary btn-sm" href="chapitre.html?manga=${encodeURIComponent(u.mangaId)}&chapter=${encodeURIComponent(u.latest.id)}&source=${src}">Lire</a>` : ''}
+                        </div>
                     </div>`;
                 }).join('');
+                listEl.querySelectorAll('[data-markread]').forEach(b => b.addEventListener('click', async () => {
+                    const mangaId = decodeURIComponent(b.dataset.markread);
+                    const source = decodeURIComponent(b.dataset.src || '');
+                    b.disabled = true; b.textContent = '…';
+                    try {
+                        const data = await API.mangas.chaptersFor(source, mangaId, { lang: window.Storage?.getPref('readingLang') || 'fr,en', limit: 500 });
+                        const chaps = (data.results || []).map(c => ({ chapterId: c.id, chapter: c.chapter }));
+                        if (chaps.length) await API.me.markChaptersBulk(mangaId, chaps);
+                        updatesByManga[mangaId] = { unreadCount: 0, latest: updatesByManga[mangaId]?.latest, hasNew: false };
+                        MH.toast('Série marquée comme lue');
+                        render(); // rafraîchit les badges de l'onglet Bibliothèque
+                        const row = b.closest('.upd-row');
+                        if (row) {
+                            const meta = row.querySelector('.upd-meta');
+                            const lc = updatesByManga[mangaId]?.latest;
+                            if (meta) meta.innerHTML = (lc ? `Dernier : Ch. ${lc.chapter}` : '') + ' · à jour';
+                            row.querySelector('.upd-new')?.remove();
+                            b.remove();
+                        }
+                    } catch (e) { MH.toast('Erreur : ' + e.message); b.disabled = false; b.textContent = 'Tout lu'; }
+                }));
             } catch (e) {
                 status.textContent = '';
                 listEl.innerHTML = `<div class="lib2-empty" style="color:#ef4444">Erreur : ${MH.esc(e.message)}</div>`;

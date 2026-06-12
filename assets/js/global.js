@@ -118,6 +118,15 @@
         });
     };
 
+    // Badge "nouveaux chapitres" sur le lien Bibliothèque (valeur posée par bibliotheque.js)
+    window.MH.updateLibBadge = function () {
+        const b = document.getElementById('navLibBadge');
+        if (!b) return;
+        let n = 0; try { n = +localStorage.getItem('inko_lib_newcount') || 0; } catch (e) {}
+        if (n > 0) { b.textContent = n > 99 ? '99+' : String(n); b.style.display = ''; }
+        else { b.style.display = 'none'; }
+    };
+
     /* ── Header HTML ─────────────────────────────────────── */
     const headerHTML = (activePage) => {
         const u = window.API?.user;
@@ -143,7 +152,7 @@
           <nav class="header-nav">
             <a href="accueil.html" class="${activePage === 'accueil' ? 'active' : ''}">Accueil</a>
             <a href="catalogue.html" class="${['catalogue','serie','chapitre'].includes(activePage) ? 'active' : ''}">Catalogue</a>
-            <a href="bibliotheque.html" class="${activePage === 'bibliotheque' ? 'active' : ''}">Bibliothèque</a>
+            <a href="bibliotheque.html" class="${activePage === 'bibliotheque' ? 'active' : ''}" style="position:relative">Bibliothèque<span class="nav-badge" id="navLibBadge" style="display:none"></span></a>
             <a href="#" id="navRandom">Aléatoire</a>
             <a href="sources.html" class="${activePage === 'sources' ? 'active' : ''}">Sources</a>
             ${nsfwLink}
@@ -214,6 +223,7 @@
         initSearch();
         initFooterButtons();
         initHeaderButtons();
+        window.MH.updateLibBadge();
 
         // Re-render header au login/logout
         window.addEventListener('auth:change', () => {

@@ -624,3 +624,21 @@ ul, ol { list-style: none; }
 .lp-new { display: flex; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .lp-new .list-modal-input { flex: 1; }
 .lp-new .btn { white-space: nowrap; }
+
+/* Badge de nouveautés sur la navigation (Bibliothèque) */
+.nav-badge {
+  position: absolute;
+  top: -6px;
+  right: -12px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,.4);
+}

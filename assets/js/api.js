@@ -142,6 +142,7 @@
             tags:     ()            => get(API.mangas._prefix() + '/mangas/tags'),
             get:      (id)          => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}`),
             chapters: (id, params={}) => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
+            chaptersFor: (source, id, params={}) => get((source ? `/sources/${encodeURIComponent(source)}` : '') + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
             pages:    (chapterId)   => get(API.mangas._prefix() + `/chapters/${encodeURIComponent(chapterId)}/pages`),
         },
 
@@ -226,6 +227,9 @@
             playlists:  ()  => get('/spotify/playlists'),
             search:     (q) => get('/spotify/search?q=' + encodeURIComponent(q || '')),
             recent:     ()  => get('/spotify/recent'),
+            top:        ()  => get('/spotify/top'),
+            saved:      ()  => get('/spotify/saved'),
+            nowPlaying: ()  => get('/spotify/now-playing'),
             disconnect: ()  => post('/spotify/disconnect'),
         },
     };

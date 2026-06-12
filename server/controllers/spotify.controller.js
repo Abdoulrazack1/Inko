@@ -228,4 +228,62 @@ async function recent(req, res, next) {
     }
 }
 
-module.exports = { configured, login, callback, status, disconnect, playlists, search, recent };
+function mapTrack(t) {
+    if (!t) return null;
+    return {
+        id: t.id, uri: t.uri, name: t.name,
+        artists: (t.artists || []).map(a => a.name).join(', '),
+        image: t.album?.images?.slice(-1)[0]?.url || t.album?.images?.[0]?.url || null,
+    };
+}
+
+// ── Titres les plus écoutés ──
+async function top(req, res, next) {
+    try {
+        const row = await validToken(req.user.id);
+        if (!row) return res.status(404).json({ error: 'Compte Spotify non lié' });
+        const r = await axios.get('https://api.spotify.com/v1/me/top/tracks', {
+            headers: { Authorization: 'Bearer ' + row.access_token },
+            params: { limit: 12, time_range: 'short_term' },
+        });
+        res.json({ tracks: (r.data.items || []).map(mapTrack).filter(Boolean) });
+    } catch (e) {
+        if (e.response?.status === 401) return res.status(401).json({ error: 'Token Spotify expiré' });
+        next(e);
+    }
+}
+
+// ── Titres aimés (sauvegardés) ──
+async function saved(req, res, next) {
+    try {
+        const row = await validToken(req.user.id);
+        if (!row) return res.status(404).json({ error: 'Compte Spotify non lié' });
+        const r = await axios.get('https://api.spotify.com/v1/me/tracks', {
+            headers: { Authorization: 'Bearer ' + row.access_token },
+            params: { limit: 20 },
+        });
+        res.json({ tracks: (r.data.items || []).map(it => mapTrack(it.track)).filter(Boolean).slice(0, 16) });
+    } catch (e) {
+        if (e.response?.status === 401) return res.status(401).json({ error: 'Token Spotify expiré' });
+        next(e);
+    }
+}
+
+// ── Lecture en cours sur Spotify ──
+async function nowPlaying(req, res, next) {
+    try {
+        const row = await validToken(req.user.id);
+        if (!row) return res.status(404).json({ error: 'Compte Spotify non lié' });
+        const r = await axios.get('https://api.spotify.com/v1/me/player/currently-playing', {
+            headers: { Authorization: 'Bearer ' + row.access_token },
+            validateStatus: s => s === 200 || s === 204,
+        });
+        if (r.status === 204 || !r.data) return res.json({ playing: false });
+        res.json({ playing: !!r.data.is_playing, track: mapTrack(r.data.item) });
+    } catch (e) {
+        if (e.response?.status === 401) return res.status(401).json({ error: 'Token Spotify expiré' });
+        next(e);
+    }
+}
+
+module.exports = { configured, login, callback, status, disconnect, playlists, search, recent, top, saved, nowPlaying };

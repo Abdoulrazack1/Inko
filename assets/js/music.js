@@ -28,6 +28,7 @@
         radio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1A10 10 0 0 1 4.9 4.9M19.1 4.9a10 10 0 0 1 0 14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4"/><circle cx="12" cy="12" r="2"/></svg>',
         timer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M9 2h6"/></svg>',
         shuffle:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>',
+        repeat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>',
     };
 
     // Stations (live, un clic). yt = YouTube IFrame API ; sp = embed Spotify.
@@ -43,7 +44,7 @@
     ];
 
     // ── État ──
-    let S = { mode: null, ytId: null, spId: null, label: '', sub: '', art: null, vol: 0.7, expanded: false, tab: 'stations', visible: false, min: false };
+    let S = { mode: null, ytId: null, spId: null, label: '', sub: '', art: null, vol: 0.7, expanded: false, tab: 'stations', visible: false, min: false, repeat: 'off' };
     try { Object.assign(S, JSON.parse(localStorage.getItem(SKEY) || '{}')); } catch (e) {}
     S.expanded = false; // toujours replié au chargement
     function save() { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} }
@@ -107,6 +108,8 @@
     .im-ico{background:none;border:none;color:#e8e8ee;cursor:pointer;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s}
     .im-ico:hover{background:rgba(255,255,255,.1)}
     .im-ico.on{color:var(--orange,#ff6b1a)}
+    #im-repeat{position:relative}
+    .im-rep1{position:absolute;top:2px;right:2px;font-size:8px;font-weight:800;background:var(--orange,#ff6b1a);color:#fff;border-radius:6px;min-width:11px;height:11px;display:flex;align-items:center;justify-content:center;line-height:1;padding:0 1px}
     .im-ico svg{width:18px;height:18px}
     .im-ico.pp{background:#fff;color:#111;width:40px;height:40px}
     .im-ico.pp:hover{background:#fff;transform:scale(1.05)}
@@ -155,6 +158,7 @@
                     <button class="im-ico" id="im-next" title="Suivant">${ICON.next}</button>
                 </div>
                 <div class="im-vol">${ICON.vol}<input type="range" id="im-vol" min="0" max="1" step="0.01" value="${S.vol}"></div>
+                <button class="im-ico" id="im-repeat" title="Répéter">${ICON.repeat}</button>
                 <button class="im-ico" id="im-timer" title="Minuterie de sommeil">${ICON.timer}</button>
                 <button class="im-ico im-chev" id="im-exp" title="Agrandir">${ICON.chevron}</button>
                 <button class="im-ico" id="im-min" title="Réduire en pastille">${ICON.minus}</button>
@@ -176,10 +180,12 @@
         root.querySelector('#im-next').onclick = () => skip(1);
         root.querySelector('#im-vol').oninput = e => setVolume(+e.target.value);
         root.querySelector('#im-timer').onclick = cycleSleep;
+        root.querySelector('#im-repeat').onclick = cycleRepeat;
         root.querySelectorAll('.im-tab').forEach(t => t.onclick = () => { S.tab = t.dataset.tab; save(); renderContent(); });
+        updateRepeatBtn();
         localAudio = new Audio(); localAudio.volume = S.vol;
         localAudio.addEventListener('timeupdate', updateProgress);
-        localAudio.addEventListener('ended', () => skip(1));
+        localAudio.addEventListener('ended', onTrackEnded);
         localAudio.addEventListener('play', () => setPlaying(true));
         localAudio.addEventListener('pause', () => setPlaying(false));
     }
@@ -366,7 +372,11 @@
         box.innerHTML = `
             <div class="im-row"><input class="im-input" id="im-spq" placeholder="Rechercher un titre, une playlist…"><button class="im-btn green" id="im-spgo">Chercher</button></div>
             <div id="im-spresults"></div>
-            <div class="im-hint" style="margin-top:10px">Écoutés récemment</div>
+            <div class="im-hint" style="margin-top:10px">Tes titres du moment</div>
+            <div class="im-list" id="im-sptop"><div class="im-hint">Chargement…</div></div>
+            <div class="im-hint" style="margin-top:8px">Titres aimés</div>
+            <div class="im-list" id="im-spsaved"><div class="im-hint">Chargement…</div></div>
+            <div class="im-hint" style="margin-top:8px">Écoutés récemment</div>
             <div class="im-list" id="im-sprecent"><div class="im-hint">Chargement…</div></div>
             <div class="im-hint" style="margin-top:8px">Tes playlists</div>
             <div class="im-list" id="im-sppl"><div class="im-hint">Chargement…</div></div>`;
@@ -385,13 +395,18 @@
         };
         box.querySelector('#im-spgo').onclick = doSearch;
         box.querySelector('#im-spq').onkeydown = e => { if (e.key === 'Enter') doSearch(); };
-        // Écoutés récemment
-        try {
-            const { tracks } = await API.spotify.recent();
-            const el = box.querySelector('#im-sprecent');
-            el.innerHTML = tracks.length ? spTrackRows(tracks) : `<div class="im-hint">Rien pour l'instant.</div>`;
-            bindSpRows(el);
-        } catch (e) { const el = box.querySelector('#im-sprecent'); if (el) el.innerHTML = ''; }
+        // Chargeur générique de section "titres"
+        const loadTracks = async (sel, fn, emptyMsg) => {
+            const el = box.querySelector(sel); if (!el) return;
+            try {
+                const { tracks } = await fn();
+                el.innerHTML = (tracks && tracks.length) ? spTrackRows(tracks) : `<div class="im-hint">${emptyMsg}</div>`;
+                bindSpRows(el);
+            } catch (e) { el.innerHTML = `<div class="im-hint">${emptyMsg}</div>`; }
+        };
+        loadTracks('#im-sptop', () => API.spotify.top(), 'Pas encore de statistiques.');
+        loadTracks('#im-spsaved', () => API.spotify.saved(), 'Aucun titre aimé.');
+        loadTracks('#im-sprecent', () => API.spotify.recent(), "Rien pour l'instant.");
         // Playlists
         try {
             const pls = await API.spotify.playlists();
@@ -528,6 +543,26 @@
             window.MH?.toast?.(`Minuterie : arrêt dans ${sleepMin} min`);
         } else { window.MH?.toast?.('Minuterie désactivée'); }
         updateTimerBtn();
+    }
+
+    // ══════════════════════ Répétition ══════════════════════
+    function cycleRepeat() {
+        const modes = ['off', 'all', 'one'];
+        S.repeat = modes[(modes.indexOf(S.repeat) + 1) % modes.length]; save();
+        updateRepeatBtn();
+        window.MH?.toast?.(S.repeat === 'off' ? 'Répétition désactivée' : S.repeat === 'all' ? 'Répéter tout' : 'Répéter le titre');
+    }
+    function updateRepeatBtn() {
+        const b = root.querySelector('#im-repeat'); if (!b) return;
+        b.classList.toggle('on', S.repeat !== 'off');
+        b.innerHTML = ICON.repeat + (S.repeat === 'one' ? '<span class="im-rep1">1</span>' : '');
+        b.title = S.repeat === 'off' ? 'Répéter' : S.repeat === 'all' ? 'Répéter tout' : 'Répéter le titre';
+    }
+    function onTrackEnded() {
+        if (S.mode !== 'local') return;
+        if (S.repeat === 'one') { localAudio.currentTime = 0; localAudio.play().catch(() => {}); return; }
+        if (localIdx + 1 >= localQueue.length && S.repeat !== 'all') { setPlaying(false); return; }
+        if (localQueue.length) playLocal((localIdx + 1) % localQueue.length);
     }
 
     // ══════════════════════ Utilitaires ══════════════════════
