@@ -670,3 +670,9 @@ ul, ol { list-style: none; }
   text-align: center;
   box-shadow: 0 2px 6px rgba(0,0,0,.4);
 }
+
+/* ── Fluidité : rendu des cartes ─────────────────────────── */
+/* Fond de remplacement pendant le chargement des covers (zéro flash blanc) */
+.manga-card-cover img, .trending-cover img, .se-cover img, .resume-cover img { background: var(--bg3); }
+/* Les cartes hors écran ne sont ni mises en page ni peintes */
+.manga-card { content-visibility: auto; contain-intrinsic-size: auto 300px; }

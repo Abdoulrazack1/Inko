@@ -175,12 +175,40 @@
         });
     }
 
-    // ── Reco (basé sur popular pour l'instant) ────────────
-    function renderReco(mangas) {
+    // ── Reco personnalisée (tags des favoris) ─────────────
+    // Connecté avec favoris → séries du genre préféré non suivies.
+    // Sinon → repli sur les populaires.
+    async function renderReco(fallback) {
         const el = document.getElementById('recoGrid');
         if (!el) return;
-        el.innerHTML = mangas.map((m, i) => mangaCardHTML(m, [98, 94, 91][i])).join('');
-        MH.markFavorites(el);
+        const subEl = document.querySelector('.section-reco .section-subtitle');
+
+        const showFallback = () => {
+            if (subEl) subEl.textContent = 'Les séries les plus suivies en ce moment';
+            el.innerHTML = (fallback || []).map(m => mangaCardHTML(m)).join('');
+            MH.markFavorites(el);
+        };
+
+        if (!API.isLoggedIn()) return showFallback();
+        try {
+            const favs = await API.me.favorites();
+            if (!favs.length) return showFallback();
+            const favSet = new Set(favs.map(f => String(f.mangaId)));
+            const mangas = (await Promise.allSettled(favs.slice(0, 8).map(f => API.mangas.get(f.mangaId))))
+                .filter(r => r.status === 'fulfilled').map(r => r.value);
+            const counts = {};
+            mangas.forEach(m => (m.tags || []).slice(0, 5).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+            const topTags = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
+            if (!topTags.length) return showFallback();
+
+            const data = await API.mangas.search({ includedTags: [topTags[0]], limit: 12, sort: 'popularity' });
+            const picks = (data.results || []).filter(m => !favSet.has(String(m.id))).slice(0, 3);
+            if (!picks.length) return showFallback();
+
+            if (subEl) subEl.textContent = `Parce que tu suis des séries ${topTags[0]}`;
+            el.innerHTML = picks.map(m => mangaCardHTML(m, topTags.find(t => (m.tags || []).includes(t)))).join('');
+            MH.markFavorites(el);
+        } catch (e) { showFallback(); }
     }
 
     // ── Dernières sorties ────────────────────────────────
@@ -194,16 +222,35 @@
         }
     }
 
-    function renderLatest() {
+    let latestFilter = 'all';
+    async function filteredLatest() {
+        if (latestFilter === 'populaire') return popularCache || [];
+        if (latestFilter === 'suivis') {
+            const favSet = await MH.getFavSet();
+            return (latestCache || []).filter(m => favSet.has(String(m.id)));
+        }
+        return latestCache || [];
+    }
+
+    async function renderLatest() {
         const el = document.getElementById('latestGrid');
         if (!el || !latestCache) return;
-        el.innerHTML = latestCache.slice(0, latestCount).map(m => mangaCardHTML(m)).join('');
+        const list = await filteredLatest();
+        if (!list.length) {
+            el.innerHTML = `<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text3);font-size:13px">
+                ${latestFilter === 'suivis' ? 'Aucune sortie récente parmi tes séries suivies.' : 'Rien à afficher.'}
+            </div>`;
+        } else {
+            el.innerHTML = list.slice(0, latestCount).map(m => mangaCardHTML(m)).join('');
+        }
+        const more = document.getElementById('btnMore');
+        if (more) more.style.display = latestCount >= list.length ? 'none' : '';
         MH.markFavorites(el);
     }
 
     function bindLatestControls() {
         document.getElementById('btnMore')?.addEventListener('click', () => {
-            latestCount = Math.min(latestCount + 4, latestCache?.length || 0);
+            latestCount = Math.min(latestCount + 4, 16);
             renderLatest();
         });
         document.getElementById('latestFilters')?.addEventListener('click', e => {
@@ -212,6 +259,9 @@
             document.querySelectorAll('#latestFilters [data-filter]')
                 .forEach(b => b.classList.remove('tag-orange', 'active'));
             btn.classList.add('tag-orange', 'active');
+            latestFilter = btn.dataset.filter;
+            latestCount = 8;
+            renderLatest();
         });
     }
 
@@ -254,7 +304,7 @@
                         <div class="resume-info">
                             <div class="resume-title">${MH.esc(m.title)}</div>
                             <div class="resume-chap">Chapitre ${e.chapter} · Page ${e.page}</div>
-                            <div class="resume-progress"><div class="resume-progress-fill" style="width:${Math.round((e.page / 20) * 100)}%"></div></div>
+                            <div class="resume-progress"><div class="resume-progress-fill" style="width:${Math.min(100, Math.round((e.page / 20) * 100))}%"></div></div>
                         </div>
                     </a>
                     <button class="resume-remove" data-remove="${MH.esc(m.id)}" title="Retirer de la liste"
@@ -332,14 +382,15 @@
     }
 
     // ── Card HTML ──
-    function mangaCardHTML(m, matchPct) {
+    // matchTag : tag favori de l'utilisateur présent sur cette série (reco perso)
+    function mangaCardHTML(m, matchTag) {
         return `
         <a href="serie.html?id=${encodeURIComponent(m.id)}" class="manga-card" data-manga-id="${m.id}">
             <div class="manga-card-cover">
-                <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy"
+                <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
                 <div class="manga-card-badges">
-                    ${matchPct ? `<span class="badge badge-orange">${matchPct}% MATCH</span>` : ''}
+                    ${matchTag ? `<span class="badge badge-orange">${MH.esc(matchTag.toUpperCase())}</span>` : ''}
                     ${m.status === 'completed' ? '<span class="badge badge-termine">TERMINÉ</span>' : ''}
                 </div>
                 <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">${MH.heartIcon(false)}</button>
