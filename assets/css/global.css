@@ -513,6 +513,23 @@ ul, ol { list-style: none; }
   width: 7px; height: 7px; background: var(--orange);
   border-radius: 50%; border: 1.5px solid var(--bg);
 }
+/* ── Méta des cartes (statut / année / démographie) ──────── */
+.manga-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.manga-card-meta .mc-year { font-size: 11px; color: var(--text3); }
+.manga-card-meta .mc-demo {
+  font-size: 10px; color: var(--text2); background: var(--bg4);
+  padding: 1px 6px; border-radius: 4px; text-transform: capitalize;
+}
+.manga-card-meta .mc-status {
+  font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.manga-card-meta .mc-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.mc-status.mc-ongoing   { color: #22c55e; background: rgba(34,197,94,.12); }
+.mc-status.mc-completed  { color: #3b82f6; background: rgba(59,130,246,.12); }
+.mc-status.mc-hiatus     { color: #f59e0b; background: rgba(245,158,11,.12); }
+.mc-status.mc-cancelled  { color: #ef4444; background: rgba(239,68,68,.12); }
+
 /* ── Comptes connectés (Spotify / AniList) ───────────────── */
 .conn-list { display: flex; flex-direction: column; gap: 10px; }
 .conn-card {

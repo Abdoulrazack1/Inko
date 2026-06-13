@@ -198,31 +198,39 @@
         }
     }
 
+    const STATUS_LABELS = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };
+    const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
     function mangaCardHTML(m) {
+        const isNovel = MH.isNovelSource(API.sources.current);
+        const tags = (m.tags || []).filter(Boolean).slice(0, 3);
+        const statusLabel = STATUS_LABELS[m.status] || '';
+        // Sous-titre : auteur si dispo, sinon genres, sinon type/statut — jamais un tiret seul
+        const sub = m.author || (tags.length ? tags.join(' · ') : (isNovel ? 'Roman' : ''));
+        // Méta du bas : on n'affiche que ce qui existe vraiment
+        const metaBits = [];
+        if (m.year) metaBits.push(`<span class="mc-year">${m.year}</span>`);
+        if (m.demographic) metaBits.push(`<span class="mc-demo">${MH.esc(cap(m.demographic))}</span>`);
+        if (statusLabel) metaBits.push(`<span class="mc-status mc-${m.status}">${statusLabel}</span>`);
         return `
         <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}" class="manga-card" data-manga-id="${m.id}">
             <div class="manga-card-cover">
                 <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
                 <div class="manga-card-badges">
+                    ${isNovel ? '<span class="badge" style="background:#7c3aed;color:#fff">ROMAN</span>' : ''}
                     ${m.status === 'completed' ? '<span class="badge badge-termine">TERMINÉ</span>' : ''}
                     ${m.status === 'hiatus' ? '<span class="badge badge-pause">PAUSE</span>' : ''}
                 </div>
                 <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">${MH.heartIcon(false)}</button>
                 <div class="manga-card-overlay">
-                    <div class="btn-read-overlay">Lire</div>
+                    <div class="btn-read-overlay">${isNovel ? 'Lire' : 'Lire'}</div>
                 </div>
             </div>
             <div class="manga-card-info">
                 <div class="manga-card-title">${MH.esc(m.title)}</div>
-                <div class="manga-card-author">${MH.esc(m.author || '—')}</div>
-                <div class="manga-card-tags">
-                    ${(m.tags || []).slice(0, 2).map(t => `<span class="manga-card-tag">${MH.esc(t)}</span>`).join('')}
-                </div>
-                <div class="manga-card-meta" style="margin-top:6px">
-                    <span class="manga-card-rating">${m.year || '—'}</span>
-                    ${m.demographic ? `<span>${m.demographic}</span>` : ''}
-                </div>
+                ${sub ? `<div class="manga-card-author">${MH.esc(sub)}</div>` : ''}
+                ${metaBits.length ? `<div class="manga-card-meta">${metaBits.join('')}</div>` : ''}
             </div>
         </a>`;
     }
@@ -391,7 +399,8 @@
         // Reset
         document.getElementById('filtersReset')?.addEventListener('click', async () => {
             activeTags.clear(); activeStatus = null; activeDemo = null;
-            lastQuery = ''; currentPage = 1;
+            lastQuery = ''; currentPage = 1; activeSort = 'popularity';
+            const sortSel = document.getElementById('sortSelect'); if (sortSel) sortSel.value = 'popularity';
             renderFilterSidebar();
             document.querySelectorAll('.quick-filter-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
             await runSearch();

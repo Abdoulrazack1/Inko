@@ -388,14 +388,25 @@
 
     // ── Card HTML ──
     // matchTag : tag favori de l'utilisateur présent sur cette série (reco perso)
+    const STATUS_LABELS = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };
+    const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
     function mangaCardHTML(m, matchTag) {
+        const isNovel = MH.isNovelSource(API.sources.current);
+        const tags = (m.tags || []).filter(Boolean).slice(0, 3);
+        const statusLabel = STATUS_LABELS[m.status] || '';
+        const sub = m.author || (tags.length ? tags.join(' · ') : (isNovel ? 'Roman' : ''));
+        const metaBits = [];
+        if (m.year) metaBits.push(`<span class="mc-year">${m.year}</span>`);
+        if (m.demographic) metaBits.push(`<span class="mc-demo">${MH.esc(cap(m.demographic))}</span>`);
+        if (statusLabel) metaBits.push(`<span class="mc-status mc-${m.status}">${statusLabel}</span>`);
         return `
-        <a href="serie.html?id=${encodeURIComponent(m.id)}" class="manga-card" data-manga-id="${m.id}">
+        <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}" class="manga-card" data-manga-id="${m.id}">
             <div class="manga-card-cover">
                 <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
                 <div class="manga-card-badges">
                     ${matchTag ? `<span class="badge badge-orange">${MH.esc(matchTag.toUpperCase())}</span>` : ''}
+                    ${isNovel ? '<span class="badge" style="background:#7c3aed;color:#fff">ROMAN</span>' : ''}
                     ${m.status === 'completed' ? '<span class="badge badge-termine">TERMINÉ</span>' : ''}
                 </div>
                 <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">${MH.heartIcon(false)}</button>
@@ -405,11 +416,8 @@
             </div>
             <div class="manga-card-info">
                 <div class="manga-card-title">${MH.esc(m.title)}</div>
-                <div class="manga-card-author">${MH.esc(m.author || '')}</div>
-                <div class="manga-card-meta">
-                    <span class="manga-card-rating">${m.year || ''}</span>
-                    ${m.demographic ? `<span>${m.demographic}</span>` : ''}
-                </div>
+                ${sub ? `<div class="manga-card-author">${MH.esc(sub)}</div>` : ''}
+                ${metaBits.length ? `<div class="manga-card-meta">${metaBits.join('')}</div>` : ''}
             </div>
         </a>`;
     }
