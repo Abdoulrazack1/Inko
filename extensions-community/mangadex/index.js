@@ -153,11 +153,12 @@ module.exports = {
             'contentRating[]': filters.contentRating || this._ratings(filters.adult),
         };
         if (q) params.title = q;
-        if (filters.demographic) params['publicationDemographic[]'] = [filters.demographic];
-        if (filters.status)      params['status[]']                = [filters.status];
+        const arr = (v) => v == null ? [] : (Array.isArray(v) ? v : [v]);
+        const dem = arr(filters.demographic); if (dem.length) params['publicationDemographic[]'] = dem;
+        const st  = arr(filters.status);      if (st.length)  params['status[]']                = st;
         if (filters.year)        params.year                       = filters.year;
-        const inc = filters.includedTags || filters['includedTags[]'];
-        if (inc) params['includedTags[]'] = Array.isArray(inc) ? inc : [inc];
+        const inc = arr(filters.includedTags || filters['includedTags[]']);
+        if (inc.length) params['includedTags[]'] = inc;
         // Hors +18 : on masque l'Ecchi
         if (!this._isAdult(filters.adult)) params['excludedTags[]'] = [this._ECCHI];
 

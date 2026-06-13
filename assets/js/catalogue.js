@@ -8,9 +8,9 @@
     let lastResults   = [];
     let lastTotal     = 0;
     let allTags       = [];
-    let activeTags    = new Set();
-    let activeStatus  = null;
-    let activeDemo    = null;
+    let activeTags    = new Set();   // genres (multi)
+    let activeStatus  = new Set();   // statuts (multi)
+    let activeDemo    = new Set();   // démographies (multi)
     let activeSort    = 'popularity'; // popularity | latest | alpha | added | rating
     let viewMode      = 'grid';       // grid | list
     let inFlight      = 0;
@@ -77,22 +77,31 @@
             { label: 'Josei',      val: 'josei',    type: 'demo'   },
         ];
         el.innerHTML = options.map(o =>
-            `<button class="quick-filter-btn ${!o.val && !activeStatus && !activeDemo ? 'active' : ''}"
-                data-quick="${o.val || ''}" data-type="${o.type || ''}">${o.label}</button>`
+            `<button class="quick-filter-btn" data-quick="${o.val || ''}" data-type="${o.type || ''}">${o.label}</button>`
         ).join('');
+        syncQuickFilters();
         el.addEventListener('click', async e => {
             const btn = e.target.closest('.quick-filter-btn');
             if (!btn) return;
-            document.querySelectorAll('.quick-filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            activeStatus = null; activeDemo = null;
             const v = btn.dataset.quick;
             const t = btn.dataset.type;
-            if (t === 'status') activeStatus = v;
-            if (t === 'demo')   activeDemo   = v;
+            if (!v) { activeStatus.clear(); activeDemo.clear(); }   // « Tout »
+            else if (t === 'status') { activeStatus.has(v) ? activeStatus.delete(v) : activeStatus.add(v); }
+            else if (t === 'demo')   { activeDemo.has(v)   ? activeDemo.delete(v)   : activeDemo.add(v); }
             currentPage = 1;
+            syncQuickFilters();
             syncSidebarState();
             await runSearch();
+        });
+    }
+
+    // Reflète l'état des sets sur les boutons rapides (plusieurs actifs possibles)
+    function syncQuickFilters() {
+        const none = !activeStatus.size && !activeDemo.size;
+        document.querySelectorAll('.quick-filter-btn').forEach(b => {
+            const v = b.dataset.quick, t = b.dataset.type;
+            const on = !v ? none : (t === 'status' ? activeStatus.has(v) : activeDemo.has(v));
+            b.classList.toggle('active', on);
         });
     }
 
@@ -121,7 +130,7 @@
                 { v: 'hiatus',    l: 'En pause'  },
                 { v: 'cancelled', l: 'Annulé'    },
             ].map(s =>
-                `<button class="filter-status-btn ${activeStatus === s.v ? 'active' : ''}" data-status="${s.v}">${s.l}</button>`
+                `<button class="filter-status-btn ${activeStatus.has(s.v) ? 'active' : ''}" data-status="${s.v}">${s.l}</button>`
             ).join('');
         }
 
@@ -129,19 +138,19 @@
         if (demoEl) {
             demoEl.innerHTML = ['shounen','seinen','shoujo','josei'].map(d =>
                 `<label class="filter-checkbox">
-                    <input type="checkbox" data-demo="${d}" ${activeDemo === d ? 'checked' : ''}> ${d.charAt(0).toUpperCase() + d.slice(1)}
+                    <input type="checkbox" data-demo="${d}" ${activeDemo.has(d) ? 'checked' : ''}> ${d.charAt(0).toUpperCase() + d.slice(1)}
                 </label>`
             ).join('');
         }
         updateFiltersCount();
     }
 
-    // Resynchronise l'état visuel de la sidebar (après quick filter / reset)
+    // Resynchronise l'état visuel de la sidebar (plusieurs filtres actifs possibles)
     function syncSidebarState() {
         document.querySelectorAll('#filterStatus [data-status]').forEach(b =>
-            b.classList.toggle('active', b.dataset.status === activeStatus));
+            b.classList.toggle('active', activeStatus.has(b.dataset.status)));
         document.querySelectorAll('#filterDemo [data-demo]').forEach(i =>
-            { i.checked = i.dataset.demo === activeDemo; });
+            { i.checked = activeDemo.has(i.dataset.demo); });
         document.querySelectorAll('#filterGenres [data-tag]').forEach(b =>
             b.classList.toggle('active', activeTags.has(b.dataset.tag)));
         updateFiltersCount();
@@ -150,7 +159,7 @@
     function updateFiltersCount() {
         const el = document.getElementById('activeFiltersCount');
         if (!el) return;
-        const n = activeTags.size + (activeStatus ? 1 : 0) + (activeDemo ? 1 : 0);
+        const n = activeTags.size + activeStatus.size + activeDemo.size;
         el.textContent = n ? `${n} filtre(s) actif(s)` : '';
     }
 
@@ -173,10 +182,10 @@
                 offset: (currentPage - 1) * PER_PAGE,
                 sort: activeSort,
             };
-            if (lastQuery)       params.q           = lastQuery;
-            if (activeStatus)    params.status      = activeStatus;
-            if (activeDemo)      params.demographic = activeDemo;
-            if (activeTags.size) params.includedTags = [...activeTags];
+            if (lastQuery)        params.q            = lastQuery;
+            if (activeStatus.size) params.status      = [...activeStatus];
+            if (activeDemo.size)   params.demographic = [...activeDemo];
+            if (activeTags.size)   params.includedTags = [...activeTags];
 
             const data = await API.mangas.search(params);
             if (myReq !== inFlight) return; // requête plus récente en cours
@@ -376,33 +385,36 @@
             await runSearch();
         });
 
-        // Statut
+        // Statut (multi : on ajoute/retire du set)
         document.getElementById('filterStatus')?.addEventListener('click', async e => {
             const btn = e.target.closest('[data-status]');
             if (!btn) return;
-            activeStatus = activeStatus === btn.dataset.status ? null : btn.dataset.status;
+            const v = btn.dataset.status;
+            activeStatus.has(v) ? activeStatus.delete(v) : activeStatus.add(v);
             syncSidebarState();
+            syncQuickFilters();
             currentPage = 1;
             await runSearch();
         });
 
-        // Démographie
+        // Démographie (multi)
         document.getElementById('filterDemo')?.addEventListener('change', async e => {
             const inp = e.target.closest('[data-demo]');
             if (!inp) return;
-            activeDemo = inp.checked ? inp.dataset.demo : null;
+            inp.checked ? activeDemo.add(inp.dataset.demo) : activeDemo.delete(inp.dataset.demo);
             syncSidebarState();
+            syncQuickFilters();
             currentPage = 1;
             await runSearch();
         });
 
         // Reset
         document.getElementById('filtersReset')?.addEventListener('click', async () => {
-            activeTags.clear(); activeStatus = null; activeDemo = null;
+            activeTags.clear(); activeStatus.clear(); activeDemo.clear();
             lastQuery = ''; currentPage = 1; activeSort = 'popularity';
             const sortSel = document.getElementById('sortSelect'); if (sortSel) sortSel.value = 'popularity';
             renderFilterSidebar();
-            document.querySelectorAll('.quick-filter-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+            syncQuickFilters();
             await runSearch();
         });
 

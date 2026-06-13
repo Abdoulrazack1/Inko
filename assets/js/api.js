@@ -166,7 +166,16 @@
 
         // ── Mangas (public, route automatiquement selon la source courante) ──
         mangas: {
-            _qs(params)        { const s = new URLSearchParams(params).toString(); return s ? '?' + s : ''; },
+            _qs(params)        {
+                // Les tableaux deviennent des clés répétées (?status=a&status=b),
+                // ce qui permet de combiner plusieurs valeurs d'un même filtre.
+                const sp = new URLSearchParams();
+                Object.entries(params || {}).forEach(([k, v]) => {
+                    if (Array.isArray(v)) v.forEach(x => { if (x != null && x !== '') sp.append(k, x); });
+                    else if (v != null && v !== '') sp.append(k, v);
+                });
+                const s = sp.toString(); return s ? '?' + s : '';
+            },
             _prefix()          { const id = API.sources.current; return id ? `/sources/${encodeURIComponent(id)}` : ''; },
             search:   (params = {}) => get(API.mangas._prefix() + '/mangas/search'  + API.mangas._qs(params)).then(mapMangaPage),
             searchAll:(q)           => get('/search-all?q=' + encodeURIComponent(q || '')).then(mapMangaPage),

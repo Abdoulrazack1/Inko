@@ -161,11 +161,12 @@ module.exports = {
 
     async search({ q, limit = 24, offset = 0, filters = {} } = {}) {
         requireCheerio();
-        const statuses = filters.status ? [STATUS_MAP[filters.status] || filters.status] : [];
-        let tags = filters.includedTags || filters['includedTags[]'] || [];
-        if (!Array.isArray(tags)) tags = [tags];
+        const arr = (v) => v == null ? [] : (Array.isArray(v) ? v : [v]);
+        const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+        const statuses = arr(filters.status).map(s => STATUS_MAP[s] || s);
+        let tags = arr(filters.includedTags || filters['includedTags[]']);
         // La démographie WeebCentral est un tag comme un autre (Shounen, Seinen…)
-        if (filters.demographic) tags = [...tags, filters.demographic.charAt(0).toUpperCase() + filters.demographic.slice(1)];
+        arr(filters.demographic).forEach(d => tags.push(cap(d)));
         const hasFilters = statuses.length || tags.length;
         const sort = SORT_MAP[filters.sort] || (q ? 'Best Match' : 'Popularity');
         if (!q && !hasFilters && !filters.sort) return this.popular({ limit, offset });
