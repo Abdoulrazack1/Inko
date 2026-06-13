@@ -174,6 +174,7 @@
             latest:   (params = {}) => get(API.mangas._prefix() + '/mangas/latest'  + API.mangas._qs(params)).then(mapMangaPage),
             tags:     ()            => get(API.mangas._prefix() + '/mangas/tags'),
             get:      (id)          => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
+            getFrom:  (source, id)  => get((source ? `/sources/${encodeURIComponent(source)}` : '') + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
             chapters: (id, params={}) => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
             chaptersFor: (source, id, params={}) => get((source ? `/sources/${encodeURIComponent(source)}` : '') + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
             pages:    (chapterId)   => get(API.mangas._prefix() + `/chapters/${encodeURIComponent(chapterId)}/pages`),
@@ -199,7 +200,7 @@
 
             progress:         ()           => get('/me/progress'),
             setProgress:      (mangaId, payload) =>
-                put('/me/progress/' + encodeURIComponent(mangaId), payload),
+                put('/me/progress/' + encodeURIComponent(mangaId), { source: API.sources.current, ...payload }),
             removeProgress:   (mangaId)    => del('/me/progress/' + encodeURIComponent(mangaId)),
 
             readChapters:     ()           => get('/me/read-chapters'),

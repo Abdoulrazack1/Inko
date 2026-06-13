@@ -237,7 +237,7 @@
             const st = f.status && STATUS[f.status]
                 ? `<div class="lib2-status" style="background:${STATUS[f.status][1]}">${STATUS[f.status][0]}</div>` : '';
             const href = prog?.chapterId
-                ? `chapitre.html?manga=${encodeURIComponent(f.mangaId)}&chapter=${encodeURIComponent(prog.chapterId)}&source=${encodeURIComponent(f.source || '')}`
+                ? MH.readerHref(f.mangaId, prog.chapterId, f.source || prog.source)
                 : `serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}`;
             return `
             <a class="lib2-card" href="${href}" data-manga-id="${f.mangaId}">
@@ -295,7 +295,7 @@
                         </div>
                         <div style="display:flex;gap:6px;flex-shrink:0">
                             ${u.unreadCount > 0 ? `<button class="btn btn-secondary btn-sm" data-markread="${encodeURIComponent(u.mangaId)}" data-src="${src}" title="Marquer toute la série comme lue">Tout lu</button>` : ''}
-                            ${u.latest ? `<a class="btn btn-primary btn-sm" href="chapitre.html?manga=${encodeURIComponent(u.mangaId)}&chapter=${encodeURIComponent(u.latest.id)}&source=${src}">Lire</a>` : ''}
+                            ${u.latest ? `<a class="btn btn-primary btn-sm" href="${MH.readerHref(u.mangaId, u.latest.id, u.source || decodeURIComponent(src))}">Lire</a>` : ''}
                         </div>
                     </div>`;
                 }).join('');

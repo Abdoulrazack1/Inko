@@ -85,10 +85,18 @@ CREATE TABLE IF NOT EXISTS progress (
   chapter_id      VARCHAR(191) DEFAULT NULL,
   chapter_number  FLOAT       DEFAULT NULL,
   page            INT         DEFAULT 1,
+  source          VARCHAR(64) DEFAULT NULL,
   updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, manga_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- Migration douce : source de la progression (routage manga/novel)
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE progress ADD COLUMN source VARCHAR(64) DEFAULT NULL',
+  'SELECT 1') FROM information_schema.columns
+  WHERE table_schema=DATABASE() AND table_name='progress' AND column_name='source');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
 
 -- ──────────────────────────────────────────────────────────────
 -- Chapitres lus

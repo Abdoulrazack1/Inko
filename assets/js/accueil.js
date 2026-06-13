@@ -289,22 +289,27 @@
                 return;
             }
 
-            // Récupère les détails des mangas en parallèle
-            const mangas = await Promise.allSettled(entries.map(e => API.mangas.get(e.mangaId)));
+            await MH.loadSourceTypes();
+            // Récupère les détails des mangas depuis LEUR source d'origine
+            const mangas = await Promise.allSettled(entries.map(e => API.mangas.getFrom(e.source, e.mangaId)));
             el.innerHTML = entries.map((e, i) => {
                 const r = mangas[i];
-                if (r.status !== 'fulfilled') return '';
+                if (r.status !== 'fulfilled' || !r.value || !r.value.title) return '';
                 const m = r.value;
+                const isNovel = MH.isNovelSource(e.source);
+                // Pour un roman, "page" = % de défilement ; pour un manga, ~20 pages/chapitre
+                const pct = isNovel ? Math.min(100, e.page || 0) : Math.min(100, Math.round((e.page / 20) * 100));
+                const sub = isNovel ? `Chapitre ${e.chapter} · ${pct}%` : `Chapitre ${e.chapter} · Page ${e.page}`;
                 return `
                 <div class="resume-item" data-resume="${MH.esc(m.id)}" style="position:relative">
-                    <a href="chapitre.html?manga=${encodeURIComponent(m.id)}&chapter=${encodeURIComponent(e.chapterId)}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
+                    <a href="${MH.readerHref(m.id, e.chapterId, e.source)}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
                         <div class="resume-cover">
                             <img src="${m.coverThumb || m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy">
                         </div>
                         <div class="resume-info">
                             <div class="resume-title">${MH.esc(m.title)}</div>
-                            <div class="resume-chap">Chapitre ${e.chapter} · Page ${e.page}</div>
-                            <div class="resume-progress"><div class="resume-progress-fill" style="width:${Math.min(100, Math.round((e.page / 20) * 100))}%"></div></div>
+                            <div class="resume-chap">${sub}</div>
+                            <div class="resume-progress"><div class="resume-progress-fill" style="width:${pct}%"></div></div>
                         </div>
                     </a>
                     <button class="resume-remove" data-remove="${MH.esc(m.id)}" title="Retirer de la liste"

@@ -21,6 +21,7 @@
         if (src && API.sources.current !== src) API.sources.current = src; // contexte multi-sources
         if (!id) { showError('ID manquant.'); return; }
 
+        await MH.loadSourceTypes();   // pour router les liens de lecture (manga/novel)
         showSkeleton();
 
         try {
@@ -173,12 +174,12 @@
             }
             const first = [...chapters].sort((a, b) => a.chapter - b.chapter)[0];
             if (!first) return;
-            window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(first.id)}&source=${encodeURIComponent(API.sources.current)}`;
+            window.location.href = MH.readerHref(manga.id, first.id, API.sources.current);
         });
 
         document.getElementById('btnResume')?.addEventListener('click', () => {
             if (progress?.chapterId) {
-                window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(progress.chapterId)}&source=${encodeURIComponent(API.sources.current)}`;
+                window.location.href = MH.readerHref(manga.id, progress.chapterId, API.sources.current);
             }
         });
 
@@ -470,7 +471,7 @@
     function renderChapterRow(c) {
         const isRead = readChapsSet.has(c.id);
         return `
-        <a href="chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(c.id)}&source=${encodeURIComponent(API.sources.current)}" class="chapter-row${isRead ? ' chapter-row--read' : ''}">
+        <a href="${MH.readerHref(manga.id, c.id, API.sources.current)}" class="chapter-row${isRead ? ' chapter-row--read' : ''}">
             <div class="chapter-num">Chap. ${c.chapter}</div>
             <div class="chapter-title-text">${MH.esc(c.title || 'Chapitre ' + c.chapter)}</div>
             <div class="chapter-meta">
@@ -577,7 +578,7 @@
         </div>`;
 
         document.getElementById('sidebarResumeBtn')?.addEventListener('click', () => {
-            if (resumeChap) window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(resumeChap)}&source=${encodeURIComponent(API.sources.current)}`;
+            if (resumeChap) window.location.href = MH.readerHref(manga.id, resumeChap, API.sources.current);
         });
 
         renderRating();

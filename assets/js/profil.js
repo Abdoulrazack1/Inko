@@ -453,7 +453,11 @@
                 el.innerHTML = `<div style="color:var(--text3);font-size:12.5px;padding:12px">Aucune lecture en cours.</div>`;
                 return;
             }
-            const mangas = await loadMangas(items.map(i => i.mangaId));
+            await MH.loadSourceTypes();
+            // Récupère chaque œuvre depuis SA source (manga ou roman)
+            const settled = await Promise.allSettled(items.map(i => API.mangas.getFrom(i.source, i.mangaId)));
+            const mangas = settled.map(r => r.status === 'fulfilled' ? r.value : null);
+            const pctOf = (p) => MH.isNovelSource(p.source) ? Math.min(100, p.page || 0) : Math.min(100, Math.round((p.page / 20) * 100));
             el.innerHTML = items.map((p, i) => {
                 const m = mangas[i];
                 if (!m) return '';
@@ -465,7 +469,7 @@
                         <div class="history-entry-chap">Chapitre ${p.chapter}</div>
                         <div class="history-entry-time">${relativeTime(p.updatedAt)}</div>
                     </div>
-                    <a href="chapitre.html?manga=${encodeURIComponent(m.id)}&chapter=${encodeURIComponent(p.chapterId)}" class="history-entry-status link-orange" style="text-decoration:none">▶</a>
+                    <a href="${MH.readerHref(m.id, p.chapterId, p.source)}" class="history-entry-status link-orange" style="text-decoration:none">▶</a>
                 </div>`;
             }).join('');
 
@@ -474,14 +478,14 @@
             if (lastCard && items[0]) {
                 const m = mangas[0];
                 if (m) {
-                    const pct = Math.min(100, Math.round((items[0].page / 20) * 100));
+                    const pct = pctOf(items[0]);
                     lastCard.querySelector('.last-read-cover img').src = m.coverThumb || m.cover || '';
                     lastCard.querySelector('.last-read-title').textContent = m.title;
                     lastCard.querySelector('.last-read-chap').textContent = `Chapitre ${items[0].chapter}`;
                     lastCard.querySelector('.last-read-fill').style.width = pct + '%';
                     lastCard.querySelector('.last-read-progress span').textContent = pct + '%';
                     const a = lastCard.querySelector('a.btn-primary');
-                    if (a) a.href = `chapitre.html?manga=${encodeURIComponent(m.id)}&chapter=${encodeURIComponent(items[0].chapterId)}`;
+                    if (a) a.href = MH.readerHref(m.id, items[0].chapterId, items[0].source);
                 }
             }
         } catch(e) {
@@ -606,7 +610,7 @@
                             <div class="timeline-manga-name">${MH.esc(m.title)}</div>
                             <div class="timeline-chap">Chapitre ${item.metadata?.chapter || '?'}</div>
                         </div>
-                        <a href="chapitre.html?manga=${encodeURIComponent(m.id)}&chapter=${encodeURIComponent(item.chapterId)}" class="timeline-status lu" style="text-decoration:none">Reprendre</a>
+                        <a href="${MH.readerHref(m.id, item.chapterId, item.source)}" class="timeline-status lu" style="text-decoration:none">Reprendre</a>
                     </div>`;
                 }).join('');
                 return `<div class="timeline-group-label">${label}</div>${itemsHTML}`;

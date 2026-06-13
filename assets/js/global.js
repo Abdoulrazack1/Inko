@@ -12,6 +12,29 @@
 
     window.MH = { $, $$, fmt, esc };
 
+    /* ── Type de source (manga vs novel) ─────────────────────
+       Cache du manifest pour router vers le bon lecteur. */
+    window.MH._sourceTypes = null;
+    window.MH.loadSourceTypes = async function () {
+        if (window.MH._sourceTypes) return window.MH._sourceTypes;
+        try {
+            const list = await window.API.sources.list();
+            const map = {};
+            (list || []).forEach(s => { map[s.id] = s.type || 'manga'; });
+            window.MH._sourceTypes = map;
+        } catch (e) { window.MH._sourceTypes = {}; }
+        return window.MH._sourceTypes;
+    };
+    window.MH.isNovelSource = function (id) {
+        return !!(window.MH._sourceTypes && window.MH._sourceTypes[id] === 'novel');
+    };
+    // URL du lecteur adapté au type de la source (texte pour les romans)
+    window.MH.readerHref = function (mangaId, chapterId, source) {
+        const src = source || window.API?.sources?.current || '';
+        const page = window.MH.isNovelSource(src) ? 'lecture.html' : 'chapitre.html';
+        return `${page}?manga=${encodeURIComponent(mangaId)}&chapter=${encodeURIComponent(chapterId)}&source=${encodeURIComponent(src)}`;
+    };
+
     /* ── Lecteur musique intégré (dock en bas de page) ────── */
     window.MH.openMusic = function () {
         if (window.Music) { window.Music.toggle(); return; }
@@ -280,6 +303,7 @@
         initHeaderButtons();
         renderMobileNav(activePage);
         window.MH.updateLibBadge();
+        window.MH.loadSourceTypes();   // pré-charge les types pour le routage lecteur
         // Check des nouveautés au lancement (pas pendant la lecture : priorité aux pages)
         if (activePage !== 'chapitre') launchUpdateCheck();
 

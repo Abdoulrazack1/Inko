@@ -137,7 +137,7 @@ async function setLibraryStatus(req, res, next) {
 async function getAllProgress(req, res, next) {
     try {
         const [rows] = await pool.query(
-            'SELECT manga_id, chapter_id, chapter_number, page, updated_at FROM progress WHERE user_id = ? ORDER BY updated_at DESC',
+            'SELECT manga_id, chapter_id, chapter_number, page, source, updated_at FROM progress WHERE user_id = ? ORDER BY updated_at DESC',
             [req.user.id]
         );
         const map = {};
@@ -146,6 +146,7 @@ async function getAllProgress(req, res, next) {
                 chapterId: r.chapter_id,
                 chapter:   r.chapter_number,
                 page:      r.page,
+                source:    r.source || null,
                 updatedAt: r.updated_at,
             };
         });
@@ -155,16 +156,17 @@ async function getAllProgress(req, res, next) {
 
 async function setProgress(req, res, next) {
     try {
-        const { chapterId, chapter, page } = req.body;
+        const { chapterId, chapter, page, source } = req.body;
         const mangaId = req.params.mangaId;
         await pool.query(
-            `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page)
-             VALUES (?, ?, ?, ?, ?)
+            `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, source)
+             VALUES (?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 chapter_id     = VALUES(chapter_id),
                 chapter_number = VALUES(chapter_number),
-                page           = VALUES(page)`,
-            [req.user.id, mangaId, chapterId || null, chapter || null, page || 1]
+                page           = VALUES(page),
+                source         = COALESCE(VALUES(source), source)`,
+            [req.user.id, mangaId, chapterId || null, chapter || null, page || 1, source || null]
         );
         await pushEvent(req.user.id, 'read',
             { mangaId, chapterId, metadata: { chapter, page } });
