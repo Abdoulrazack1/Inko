@@ -67,38 +67,51 @@ function chapterNumFromText(t) {
     return m ? parseFloat(m[1]) : null;
 }
 
-// Parse une liste de résultats (page de recherche / listing)
+const DEMOS = ['shounen', 'seinen', 'shoujo', 'josei'];
+function statusFromText(t) {
+    t = (t || '').toLowerCase();
+    if (/ongoing/.test(t))   return 'ongoing';
+    if (/complete/.test(t))  return 'completed';
+    if (/hiatus/.test(t))    return 'hiatus';
+    if (/cancel/.test(t))    return 'cancelled';
+    return null;
+}
+
+// Parse une liste de résultats. Le mode "Full Display" expose pour chaque série
+// le titre, l'année, le statut, l'auteur et les tags : on extrait tout.
 function parseList($) {
     const byId = new Map();
     $('a[href*="/series/"]').each((_, a) => {
-        const href = $(a).attr('href');
-        const id = idFromSeriesUrl(href);
+        const id = idFromSeriesUrl($(a).attr('href'));
         if (!id || id === 'random' || byId.has(id)) return;
-        // Titre : texte du lien, ou attribut, ou alt de l'image
-        let title = $(a).attr('title')
-            || $(a).find('.truncate, .series-title').first().text().trim()
-            || $(a).text().trim()
-            || $(a).find('img').attr('alt') || '';
+
+        const result = $(a).closest('article.bg-base-300');
+        const root   = result.length ? result : $(a).closest('article, li');
+
+        // Titre : div .text-lg de la section info, sinon alt de la cover
+        let title = root.find('.text-lg').first().text().replace(/\s+/g, ' ').trim()
+            || ($(a).find('img').attr('alt') || '').replace(/\s+cover$/i, '').trim()
+            || $(a).attr('title') || '';
         title = title.replace(/\s+/g, ' ').trim();
-        if (!title || title.length > 200) {
-            // fallback : cherche un titre proche
-            title = $(a).closest('article, li').find('.truncate, a[href*="/series/"]').first().text().replace(/\s+/g, ' ').trim();
-        }
-        if (!title) return;
+        if (!title || title.length > 200) return;
+
+        // Métadonnées via le texte de la fiche (Full Display)
+        const info = (root.text() || '').replace(/\s+/g, ' ');
+        const grab = (re) => { const m = info.match(re); return m ? m[1].trim() : ''; };
+        const year   = (() => { const m = info.match(/Year:\s*(\d{4})/i); return m ? parseInt(m[1]) : null; })();
+        const status = statusFromText(grab(/Status:\s*([A-Za-z]+)/i));
+        const author = grab(/Author\(s\):\s*(.+?)\s*(?:Tag\(s\):|$)/i);
+        const tagsStr = grab(/Tag\(s\):\s*(.+?)$/i);
+        const tags = tagsStr ? tagsStr.split(',').map(s => s.trim()).filter(Boolean).slice(0, 10) : [];
+        const demographic = (tags.find(t => DEMOS.includes(t.toLowerCase())) || '').toLowerCase() || null;
+
         byId.set(id, {
-            id,
-            title,
-            titleAlt:     '',
-            author:       '',
-            description:  '',
-            status:       null,
-            year:         null,
-            tags:         [],
-            cover:        COVER(id),
-            coverLarge:   COVER(id),
-            coverThumb:   COVER(id),
-            contentRating: 'safe',
-            langs:        ['en'],
+            id, title, titleAlt: '',
+            author: author || '', description: '',
+            status, year, demographic,
+            tags,
+            cover: COVER(id), coverLarge: COVER(id), coverThumb: COVER(id),
+            contentRating: 'safe', langs: ['en'],
         });
     });
     return [...byId.values()];

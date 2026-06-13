@@ -199,6 +199,7 @@
             } else {
                 grid.innerHTML = lastResults.map(m => mangaCardHTML(m)).join('');
                 MH.markFavorites(grid);
+                enrichSparseCards(lastResults, myReq);   // complète auteur/statut si la liste est pauvre
             }
             renderPagination();
         } catch(err) {
@@ -210,19 +211,28 @@
     const STATUS_LABELS = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };
     const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 
-    function mangaCardHTML(m) {
+    // Bloc info (titre + sous-titre + méta) — réutilisé par le rendu et l'enrichissement
+    function cardInfoHTML(m) {
         const isNovel = MH.isNovelSource(API.sources.current);
         const tags = (m.tags || []).filter(Boolean).slice(0, 3);
         const statusLabel = STATUS_LABELS[m.status] || '';
-        // Sous-titre : auteur si dispo, sinon genres, sinon type/statut — jamais un tiret seul
         const sub = m.author || (tags.length ? tags.join(' · ') : (isNovel ? 'Roman' : ''));
-        // Méta du bas : on n'affiche que ce qui existe vraiment
         const metaBits = [];
         if (m.year) metaBits.push(`<span class="mc-year">${m.year}</span>`);
         if (m.demographic) metaBits.push(`<span class="mc-demo">${MH.esc(cap(m.demographic))}</span>`);
         if (statusLabel) metaBits.push(`<span class="mc-status mc-${m.status}">${statusLabel}</span>`);
+        return `<div class="manga-card-title">${MH.esc(m.title)}</div>
+                ${sub ? `<div class="manga-card-author">${MH.esc(sub)}</div>` : ''}
+                ${metaBits.length ? `<div class="manga-card-meta">${metaBits.join('')}</div>` : ''}`;
+    }
+
+    // Une œuvre est "pauvre" si sa liste ne fournit ni auteur, ni statut, ni genres
+    function isSparse(m) { return !m.author && !m.status && !(m.tags || []).length; }
+
+    function mangaCardHTML(m) {
+        const isNovel = MH.isNovelSource(API.sources.current);
         return `
-        <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}" class="manga-card" data-manga-id="${m.id}">
+        <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}" class="manga-card" data-manga-id="${MH.esc(m.id)}">
             <div class="manga-card-cover">
                 <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
@@ -233,15 +243,35 @@
                 </div>
                 <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">${MH.heartIcon(false)}</button>
                 <div class="manga-card-overlay">
-                    <div class="btn-read-overlay">${isNovel ? 'Lire' : 'Lire'}</div>
+                    <div class="btn-read-overlay">Lire</div>
                 </div>
             </div>
-            <div class="manga-card-info">
-                <div class="manga-card-title">${MH.esc(m.title)}</div>
-                ${sub ? `<div class="manga-card-author">${MH.esc(sub)}</div>` : ''}
-                ${metaBits.length ? `<div class="manga-card-meta">${metaBits.join('')}</div>` : ''}
-            </div>
+            <div class="manga-card-info">${cardInfoHTML(m)}</div>
         </a>`;
+    }
+
+    // Enrichit en arrière-plan les cartes "pauvres" via getManga (sources dont la
+    // liste n'expose pas l'auteur/statut, ex. SushiScan, Chireads). Throttlé + caché serveur.
+    async function enrichSparseCards(list, reqId) {
+        const src = API.sources.current;
+        const need = list.filter(isSparse);
+        if (!need.length) return;
+        let i = 0;
+        const worker = async () => {
+            while (i < need.length) {
+                if (reqId !== inFlight) return;          // une recherche plus récente a pris le relais
+                const m = need[i++];
+                try {
+                    const full = await API.mangas.getFrom(src, m.id);
+                    if (reqId !== inFlight || !full || isSparse(full)) continue;
+                    const card = [...document.querySelectorAll('#resultsGrid .manga-card')]
+                        .find(c => c.dataset.mangaId === String(m.id));
+                    const info = card?.querySelector('.manga-card-info');
+                    if (info) info.innerHTML = cardInfoHTML(full);
+                } catch (e) {}
+            }
+        };
+        await Promise.all([worker(), worker(), worker()]);   // 3 requêtes en parallèle max
     }
 
     function renderPagination() {

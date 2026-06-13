@@ -8,6 +8,7 @@
 // Pré-requis : `npm install cheerio` dans le dossier server/
 // ============================================================
 const axios = require('axios');
+const { execFile } = require('child_process');
 
 let cheerio = null;
 try { cheerio = require('cheerio'); }
@@ -39,10 +40,31 @@ function requireCheerio() {
     if (!cheerio) throw new Error('cheerio non installé — `cd server && npm install cheerio`');
 }
 
+// SushiScan est protégé par Cloudflare : l'empreinte TLS de Node est bloquée.
+// curl (présent nativement Win10+/macOS/Linux) passe ; repli axios si absent.
+function curlGet(url) {
+    return new Promise((resolve, reject) => {
+        execFile('curl', [
+            '-s', '-L', '--compressed', '-m', '25',
+            '-A', UA,
+            '-H', 'Accept: text/html,application/xhtml+xml,*/*;q=0.8',
+            '-H', 'Accept-Language: fr-FR,fr;q=0.9,en;q=0.8',
+            '-H', `Referer: ${BASE}/`,
+            BASE + url,
+        ], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
+            if (err) return reject(new Error('curl indisponible : ' + err.message));
+            if (!stdout || stdout.length < 800) return reject(new Error('réponse vide (blocage anti-bot ?)'));
+            resolve(stdout);
+        });
+    });
+}
+
 async function fetchHtml(url, ttlMs = 60_000) {
     const cached = getC(url);
     if (cached) return cached;
-    const { data } = await http.get(url, { responseType: 'text' });
+    let data;
+    try { data = await curlGet(url); }
+    catch (e) { ({ data } = await http.get(url, { responseType: 'text' })); }
     setC(url, data, ttlMs);
     return data;
 }
@@ -245,33 +267,39 @@ module.exports = {
         const $    = cheerio.load(html);
 
         const title = $('.entry-title, .post-title h1').first().text().trim();
-        const cover = $('.thumb img, .summary_image img').attr('data-src')
-                   || $('.thumb img, .summary_image img').attr('src');
-        const description = $('.entry-content[itemprop="description"], .summary__content p').text().trim();
-        const author = $('.author-content a, .info-content .imptdt:contains("Auteur") + .imptdt').text().trim();
-        const status = ($('.post-status .post-content_item:contains("Statut") .summary-content, .imptdt:contains("Statut") i').text().trim() || '').toLowerCase();
-        const tags = $('.mgen a, .wd-full a[rel="tag"]').map((_, el) => $(el).text().trim()).get();
+        const cover = $('.thumb img, .summary_image img, .seriestucontent img, .infomanga img').attr('data-src')
+                   || $('.thumb img, .summary_image img, .seriestucontent img, .infomanga img').attr('src') || '';
+        const description = ($('.entry-content[itemprop="description"], .summary__content, [itemprop="description"]').first().text() || '').replace(/\s+/g, ' ').trim();
 
+        // Thème Madara/SushiScan : table.infotable (Statut / Type / Sortie / Auteur / Dessinateur / Prépublication)
+        const info = {};
+        $('.infotable tr').each((_, tr) => {
+            const k = $(tr).find('td').eq(0).text().replace(/\s+/g, ' ').trim().toLowerCase();
+            const v = $(tr).find('td').eq(1).text().replace(/\s+/g, ' ').trim();
+            if (k) info[k] = v;
+        });
+        const author = info['auteur'] || info['dessinateur'] || '';
+        const yearM  = (info['sortie'] || info['année'] || '').match(/(\d{4})/);
+        const st     = (info['statut'] || '').toLowerCase();
         let statusNorm = null;
-        if (/en cours|ongoing/i.test(status))      statusNorm = 'ongoing';
-        else if (/terminé|completed/i.test(status))statusNorm = 'completed';
-        else if (/pause|hiatus/i.test(status))     statusNorm = 'hiatus';
+        if (/en cours|ongoing/.test(st))        statusNorm = 'ongoing';
+        else if (/termin|completed/.test(st))   statusNorm = 'completed';
+        else if (/pause|hiatus/.test(st))       statusNorm = 'hiatus';
+        else if (/abandonn|annul|cancel/.test(st)) statusNorm = 'cancelled';
+
+        const tags = $('.seriestugenre a, .wd-full .mgen a, .mgen a, .gnr a').map((_, el) => $(el).text().trim()).get().filter(Boolean);
+        const DEMOS = ['shounen','seinen','shoujo','josei'];
+        const demographic = (tags.find(t => DEMOS.includes(t.toLowerCase())) || '').toLowerCase() || null;
 
         return {
-            id,
-            title,
-            titleAlt:     '',
-            author,
-            description,
-            status:       statusNorm,
-            year:         null,
-            demographic:  null,
+            id, title, titleAlt: '',
+            author, description,
+            status: statusNorm,
+            year: yearM ? parseInt(yearM[1]) : null,
+            demographic,
             tags,
-            cover,
-            coverLarge:   cover,
-            coverThumb:   cover,
-            contentRating: 'safe',
-            langs:        ['fr'],
+            cover, coverLarge: cover, coverThumb: cover,
+            contentRating: 'safe', langs: ['fr'],
         };
     },
 
