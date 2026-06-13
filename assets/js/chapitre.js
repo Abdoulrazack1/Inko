@@ -38,6 +38,13 @@
             return;
         }
 
+        // Source de romans → lecteur texte (toutes les entrées passent par ici)
+        try {
+            const sources = await API.sources.list();
+            const cur = (sources || []).find(s => s.id === API.sources.current);
+            if (cur?.type === 'novel') { location.replace('lecture.html' + location.search); return; }
+        } catch (e) { /* hors-ligne : on tente la lecture image */ }
+
         // Préférences UI — le mode de lecture est mémorisé PAR SÉRIE
         // (un webtoon se lit en défilement, un manga en page/page)
         const prefs = window.Storage?.getPrefs() || {};

@@ -106,6 +106,16 @@ async function pages(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// Contenu texte d'un chapitre (sources de romans, type 'novel')
+async function text(req, res, next) {
+    try {
+        const src = resolveSource(req);
+        if (!supports(src, 'text') || typeof src.getText !== 'function')
+            return notSupported(res, src, 'text');
+        res.json(await src.getText(req.params.id));
+    } catch (e) { next(e); }
+}
+
 async function tags(req, res, next) {
     try {
         const src = resolveSource(req);
@@ -114,4 +124,4 @@ async function tags(req, res, next) {
     } catch (e) { next(e); }
 }
 
-module.exports = { listSources, popular, latest, search, searchAll, getOne, chapters, pages, tags };
+module.exports = { listSources, popular, latest, search, searchAll, getOne, chapters, pages, text, tags };

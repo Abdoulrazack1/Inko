@@ -1,0 +1,119 @@
+/* ══════════════════════════════════════════════════════════
+   LECTURE.CSS — Lecteur de romans (light novels)
+══════════════════════════════════════════════════════════ */
+
+/* Toolbar (réutilise l'esprit du lecteur manga) */
+.reader-toolbar {
+  position: sticky; top: 0; z-index: 80;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 18px;
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+}
+.toolbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.toolbar-back {
+  color: var(--orange); text-decoration: none; font-size: 13px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px;
+}
+.toolbar-sep  { color: var(--text3); }
+.toolbar-chap { font-size: 13px; color: var(--text2); white-space: nowrap; }
+.toolbar-center { display: flex; align-items: center; gap: 6px; }
+.toolbar-right  { display: flex; align-items: center; gap: 6px; }
+
+.reader-icon-btn {
+  width: 32px; height: 32px; border-radius: var(--radius2);
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text2); font-size: 15px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.reader-icon-btn:hover:not(:disabled) { border-color: var(--border2); color: var(--text); }
+.reader-icon-btn:disabled { opacity: .4; cursor: default; }
+.reader-chap-select {
+  max-width: 260px; height: 32px; padding: 0 8px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius2); color: var(--text); font-size: 12.5px;
+}
+
+/* Barre de progression */
+.novel-progressbar { position: sticky; top: 53px; z-index: 70; height: 3px; background: var(--bg3); }
+.novel-progressbar-fill { height: 100%; width: 0%; background: var(--orange); transition: width .15s linear; }
+
+/* Zone de lecture — les variables sont pilotées par lecture.js */
+.novel-wrap {
+  --novel-bg: #0d0d0f;
+  --novel-fg: #d8d8de;
+  --novel-size: 17px;
+  --novel-lh: 1.85;
+  --novel-width: 720px;
+  --novel-font: Georgia, 'Times New Roman', serif;
+  background: var(--novel-bg);
+  min-height: calc(100vh - 120px);
+  padding: 36px 20px 80px;
+  transition: background .25s;
+}
+.novel-content {
+  max-width: var(--novel-width);
+  margin: 0 auto;
+  color: var(--novel-fg);
+  font-family: var(--novel-font);
+  font-size: var(--novel-size);
+  line-height: var(--novel-lh);
+  letter-spacing: .1px;
+}
+.novel-content h1.novel-chap-title {
+  font-family: var(--font-head);
+  font-size: calc(var(--novel-size) * 1.45);
+  line-height: 1.3;
+  margin-bottom: 28px;
+  color: inherit;
+}
+.novel-content p { margin: 0 0 1.05em; }
+.novel-content hr { border: none; border-top: 1px solid currentColor; opacity: .2; margin: 2em auto; width: 50%; }
+.novel-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 1em 0; }
+.novel-content table { border-collapse: collapse; margin: 1em 0; max-width: 100%; }
+.novel-content td, .novel-content th { border: 1px solid currentColor; padding: 6px 10px; }
+.novel-content a { color: var(--orange); }
+.novel-content em { opacity: .95; }
+
+.novel-loading {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 80px 0; color: var(--text3); font-size: 13px;
+}
+
+/* Fin de chapitre */
+.novel-endzone { max-width: var(--novel-width, 720px); margin: 0 auto; padding: 0 0 40px; }
+.novel-next-card {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px; margin-top: 30px;
+}
+.novel-next-info { flex: 1; min-width: 180px; }
+.novel-next-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--orange); margin-bottom: 4px; }
+.novel-next-title { font-size: 14.5px; font-weight: 700; }
+
+/* Panneau de réglages typo */
+.novel-settings-pop {
+  position: fixed; top: 64px; right: 18px; z-index: 130;
+  width: 300px; max-height: calc(100vh - 90px); overflow-y: auto;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 16px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.5);
+}
+.ns-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13.5px; margin-bottom: 10px; }
+.ns-close { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 14px; }
+.ns-label { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text2); margin: 12px 0 6px; }
+.ns-range { width: 100%; accent-color: var(--orange); }
+.ns-seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.ns-seg button {
+  flex: 1; min-width: 60px; padding: 6px 8px; font-size: 12px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius2); color: var(--text2); cursor: pointer;
+}
+.ns-seg button.on { background: var(--orange); border-color: var(--orange); color: #fff; }
+
+@media (max-width: 600px) {
+  .reader-toolbar { flex-wrap: wrap; }
+  .toolbar-back { max-width: 160px; }
+  .novel-wrap { padding: 22px 14px 60px; }
+  .novel-settings-pop { right: 8px; left: 8px; width: auto; }
+}

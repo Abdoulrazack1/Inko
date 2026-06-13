@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Inko — Lecture</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#ff6b1a">
+  <link rel="icon" type="image/svg+xml" href="./assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <link rel="stylesheet" href="assets/css/lecture.css">
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+
+  <!-- Toolbar du lecteur de romans -->
+  <div class="reader-toolbar" id="novelToolbar"></div>
+
+  <!-- Barre de progression de lecture -->
+  <div class="novel-progressbar"><div class="novel-progressbar-fill" id="novelProgressFill"></div></div>
+
+  <!-- Contenu -->
+  <div class="novel-wrap" id="novelWrap">
+    <article class="novel-content" id="novelContent">
+      <div class="novel-loading"><div class="spinner-inline"></div><div>Chargement du chapitre…</div></div>
+    </article>
+    <div class="novel-endzone" id="novelEnd"></div>
+  </div>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/nsfw.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/lecture.js"></script>
+  <script src="assets/js/eula.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>

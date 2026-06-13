@@ -61,6 +61,7 @@ function manifest() {
         baseUrl:      s.baseUrl,
         nsfw:         !!s.nsfw,
         version:      s.version,
+        type:         s.type || 'manga',   // 'manga' (images) | 'novel' (texte)
         description:  s.description || '',
         capabilities: s.capabilities || [],
     }));

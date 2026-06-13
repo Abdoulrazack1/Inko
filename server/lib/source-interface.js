@@ -37,21 +37,27 @@
 //     description 'Source officielle MangaDex API',
 //     capabilities: ['popular','latest','search','manga','chapters','pages'],
 //
+//     type        'manga' | 'novel',           // 'novel' = source de romans (texte)
+//
 //     // Méthodes (toutes async)
 //     async popular({ limit, offset })                     → MangasPage
 //     async latest ({ limit, offset })                     → MangasPage
 //     async search ({ q, limit, offset, filters })         → MangasPage
 //     async getManga(id)                                   → Manga
 //     async getChapters(mangaId, { lang, limit, offset })  → ChaptersPage
-//     async getPages(chapterId)                            → PagesPayload
+//     async getPages(chapterId)                            → PagesPayload   // sources 'manga'
+//     async getText?(chapterId)                            → TextPayload    // sources 'novel'
 //     async getTags?()                                     → [{id,name,group}]  // optionnel
 //   }
+//
+// TextPayload { title?: string, content: string /* HTML assaini */ }
 // ============================================================
 
 /**
  * Liste des méthodes obligatoires que chaque extension doit exposer.
+ * Une source 'novel' implémente getText() à la place de getPages().
  */
-const REQUIRED_METHODS = ['popular', 'latest', 'search', 'getManga', 'getChapters', 'getPages'];
+const REQUIRED_METHODS = ['popular', 'latest', 'search', 'getManga', 'getChapters'];
 
 /**
  * Valide qu'un objet source respecte le contrat.
@@ -69,6 +75,12 @@ function validateSource(src) {
     REQUIRED_METHODS.forEach(m => {
         if (typeof src[m] !== 'function') errors.push(`méthode ${m}() manquante`);
     });
+    // Selon le type : une source manga sert des images, une source novel du texte
+    if ((src.type || 'manga') === 'novel') {
+        if (typeof src.getText !== 'function') errors.push('méthode getText() manquante (source novel)');
+    } else {
+        if (typeof src.getPages !== 'function') errors.push('méthode getPages() manquante');
+    }
     return { ok: errors.length === 0, errors };
 }
 

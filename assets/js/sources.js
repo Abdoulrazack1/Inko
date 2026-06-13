@@ -38,6 +38,7 @@
                     ${MH.esc(s.name)}
                     <span class="source-version">v${MH.esc(s.version)}</span>
                     <span class="source-lang">${MH.esc(s.lang || '—')}</span>
+                    ${s.type === 'novel' ? '<span class="source-lang" style="background:#7c3aed;color:#fff" title="Source de romans — lecture en texte">ROMANS</span>' : ''}
                     ${s.nsfw ? '<span class="source-nsfw">NSFW</span>' : ''}
                 </div>
                 <div class="source-desc">${MH.esc(s.description || '')}</div>

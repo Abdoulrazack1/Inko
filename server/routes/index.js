@@ -41,6 +41,7 @@ router.get('/mangas/tags',          Manga.tags);
 router.get('/mangas/:id',           Manga.getOne);
 router.get('/mangas/:id/chapters',  Manga.chapters);
 router.get('/chapters/:id/pages',   Manga.pages);
+router.get('/chapters/:id/text',    Manga.text);     // sources de romans (novel)
 
 // ── Routes scoping par source : /sources/:sourceId/mangas/* ──
 router.get('/sources/:sourceId/mangas/search',       Manga.search);
@@ -50,6 +51,7 @@ router.get('/sources/:sourceId/mangas/tags',         Manga.tags);
 router.get('/sources/:sourceId/mangas/:id',          Manga.getOne);
 router.get('/sources/:sourceId/mangas/:id/chapters', Manga.chapters);
 router.get('/sources/:sourceId/chapters/:id/pages',  Manga.pages);
+router.get('/sources/:sourceId/chapters/:id/text',   Manga.text);
 
 // ── User data (auth required) ───────────────────
 router.get   ('/me/favorites',            auth.authRequired, User.getFavorites);
