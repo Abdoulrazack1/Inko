@@ -183,13 +183,15 @@
         document.body.appendChild(nav);
     }
 
-    // ── Vérification des nouveaux chapitres au lancement de l'app ──
-    // Une fois par session navigateur : interroge toutes les œuvres suivies
-    // en arrière-plan, met à jour le badge et notifie discrètement.
-    async function launchUpdateCheck() {
-        if (!window.API?.isLoggedIn()) return;
-        try { if (sessionStorage.getItem('inko_launch_checked')) return; } catch (e) {}
-        try { sessionStorage.setItem('inko_launch_checked', '1'); } catch (e) {}
+    // ── Vérification des nouveaux chapitres ──
+    // Interroge toutes les œuvres suivies, met à jour le badge et notifie.
+    // { force } ignore le throttle ; { silent } supprime les toasts.
+    let _checkInFlight = false;
+    window.MH.checkUpdates = async function ({ force = false, silent = false } = {}) {
+        if (!window.API?.isLoggedIn()) { if (!silent) MH.toast('Connecte-toi pour suivre tes séries'); return null; }
+        if (_checkInFlight) return null;
+        _checkInFlight = true;
+        setRefreshSpinning(true);
         try {
             const lang = window.Storage?.getPref('readingLang') || 'fr,en';
             const data = await API.me.updates(lang);
@@ -201,11 +203,40 @@
                 localStorage.setItem('inko_lib_lastcheck', String(Date.now()));
             } catch (e) {}
             window.MH.updateLibBadge();
-            if (fresh.length) {
-                const names = fresh.slice(0, 2).map(u => u.title).filter(Boolean).join(', ');
-                window.MH.toast(`Nouveaux chapitres : ${names}${fresh.length > 2 ? ` (+${fresh.length - 2})` : ''}`);
+            try { window.dispatchEvent(new CustomEvent('updates:checked', { detail: data })); } catch (e) {}
+            if (!silent) {
+                if (fresh.length) {
+                    const names = fresh.slice(0, 2).map(u => u.title).filter(Boolean).join(', ');
+                    MH.toast(`Nouveaux chapitres : ${names}${fresh.length > 2 ? ` (+${fresh.length - 2})` : ''}`);
+                } else if (newCount > 0) {
+                    MH.toast(`${newCount} série(s) avec des chapitres non lus`);
+                } else if (force) {
+                    MH.toast('Tout est à jour ✓');
+                }
             }
-        } catch (e) { /* hors-ligne ou serveur indisponible : silencieux */ }
+            return data;
+        } catch (e) {
+            if (!silent && force) MH.toast('Actualisation impossible : ' + e.message);
+            return null;
+        } finally {
+            _checkInFlight = false;
+            setRefreshSpinning(false);
+        }
+    };
+
+    function setRefreshSpinning(on) {
+        document.querySelectorAll('#btnRefresh').forEach(b => {
+            b.classList.toggle('spinning', on);
+            b.disabled = on;
+        });
+    }
+
+    // Au lancement : une fois par session, en silence.
+    async function launchUpdateCheck() {
+        try { if (sessionStorage.getItem('inko_launch_checked')) return; } catch (e) {}
+        if (!window.API?.isLoggedIn()) return;
+        try { sessionStorage.setItem('inko_launch_checked', '1'); } catch (e) {}
+        window.MH.checkUpdates({ silent: false });
     }
 
     /* ── Header HTML ─────────────────────────────────────── */
@@ -244,6 +275,7 @@
             <div class="search-dropdown" id="searchDropdown"></div>
           </div>
           <div class="header-actions">
+            <button class="header-icon-btn" id="btnRefresh" title="Actualiser mes séries (nouveaux chapitres)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:middle"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></button>
             <button class="header-icon-btn" id="btnMusic" title="Musique (s'ouvre dans une fenêtre qui reste en lecture)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
             <a href="parametres.html" class="header-icon-btn ${activePage === 'parametres' ? 'active' : ''}" title="Paramètres" style="text-decoration:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
             ${userBlock}
@@ -416,6 +448,14 @@
             if (!btn) return;
             e.preventDefault();
             window.MH.openMusic();
+        });
+
+        // Bouton actualiser : relance la vérification des nouveaux chapitres à la demande
+        document.addEventListener('click', e => {
+            const btn = e.target.closest('#btnRefresh');
+            if (!btn) return;
+            e.preventDefault();
+            window.MH.checkUpdates({ force: true });
         });
 
         document.addEventListener('click', async e => {

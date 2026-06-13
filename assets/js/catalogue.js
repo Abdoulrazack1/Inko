@@ -289,21 +289,24 @@
     async function renderLatestMini() {
         const el = document.getElementById('weekCalendar');
         if (!el) return;
+        el.innerHTML = '<div class="latest-mini-loading"><span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span></div>';
         try {
-            const data = await API.mangas.latest({ limit: 5 });
-            const list = (data.results || []).slice(0, 5);
-            if (!list.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:4px 0">Rien pour l\'instant.</div>'; return; }
-            el.innerHTML = list.map(m => `
-                <a href="serie.html?id=${encodeURIComponent(m.id)}" style="display:flex;align-items:center;gap:8px;padding:5px 0;text-decoration:none">
-                    <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" decoding="async"
-                         style="width:30px;height:42px;object-fit:cover;border-radius:4px;background:var(--bg4)"
-                         onerror="this.style.visibility='hidden'">
-                    <div style="min-width:0">
-                        <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${MH.esc(m.title)}</div>
-                        <div style="font-size:10.5px;color:var(--text3)">Mis à jour récemment</div>
-                    </div>
-                </a>`).join('');
-        } catch (e) { el.innerHTML = ''; }
+            const data = await API.mangas.latest({ limit: 6 });
+            const list = (data.results || []).slice(0, 6);
+            const src = API.sources.current;
+            if (!list.length) { el.innerHTML = '<div class="latest-mini-empty">Rien pour l\'instant.</div>'; return; }
+            el.innerHTML = `<div class="latest-mini">` + list.map((m, i) => `
+                <a class="latest-mini-row" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}" title="${MH.esc(m.title)}">
+                    <span class="latest-mini-rank">${i + 1}</span>
+                    <span class="latest-mini-cover">
+                        <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" decoding="async" onerror="this.closest('.latest-mini-cover').classList.add('noimg')">
+                    </span>
+                    <span class="latest-mini-info">
+                        <span class="latest-mini-title">${MH.esc(m.title)}</span>
+                        <span class="latest-mini-sub">${m.lastChapter ? 'Ch. ' + m.lastChapter : (m.status === 'completed' ? 'Terminé' : 'Mis à jour')}</span>
+                    </span>
+                </a>`).join('') + `</div>`;
+        } catch (e) { el.innerHTML = '<div class="latest-mini-empty">Indisponible.</div>'; }
     }
 
     // Mes collections (mini)

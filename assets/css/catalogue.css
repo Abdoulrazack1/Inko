@@ -78,23 +78,35 @@
 }
 .lang-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
 
-.week-release { margin-bottom: 8px; }
-.week-day {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  color: var(--orange); margin-bottom: 4px;
+/* ── Dernières sorties (sidebar) ─────────────────────────────── */
+.latest-mini { display: flex; flex-direction: column; gap: 2px; }
+.latest-mini-loading { display: flex; justify-content: center; padding: 14px 0; }
+.latest-mini-empty { font-size: 11.5px; color: var(--text3); padding: 6px 0; }
+.latest-mini-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 6px; margin: 0 -6px; border-radius: 8px;
+  text-decoration: none; transition: background var(--transition);
 }
-.week-release-item {
-  display: flex; align-items: center; gap: 7px;
-  padding: 5px 0;
+.latest-mini-row:hover { background: var(--bg3); }
+.latest-mini-rank {
+  flex-shrink: 0; width: 16px; text-align: center;
+  font-family: var(--font-head); font-size: 12px; font-weight: 800;
+  color: var(--text3);
 }
-.week-cover {
-  width: 28px; height: 38px; border-radius: 3px;
-  overflow: hidden; flex-shrink: 0;
+.latest-mini-row:hover .latest-mini-rank { color: var(--orange); }
+.latest-mini-cover {
+  flex-shrink: 0; width: 32px; height: 44px; border-radius: 5px;
+  overflow: hidden; background: var(--bg4); position: relative;
 }
-.week-cover img { width: 100%; height: 100%; object-fit: cover; }
-.week-info { font-size: 11px; color: var(--text2); }
-.week-title { font-size: 11.5px; font-weight: 500; color: var(--text); }
-.calendar-full-link { font-size: 11.5px; color: var(--orange); }
+.latest-mini-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.latest-mini-cover.noimg img { display: none; }
+.latest-mini-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.latest-mini-title {
+  font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.25;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.latest-mini-sub { font-size: 10.5px; color: var(--text3); }
 
 /* ── Catalogue header ───────────────────────────────────────── */
 .catalogue-header {
