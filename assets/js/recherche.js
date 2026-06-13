@@ -4,6 +4,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         MH.initPage('recherche');
+        MH.loadSourceTypes();   // pour badger les groupes Romans
         const input = document.getElementById('seInput');
         const q = new URLSearchParams(location.search).get('q') || '';
         if (q) { input.value = q; run(q); }
@@ -45,6 +46,7 @@
         const head = `
             <div class="se-ghead">
                 <span class="se-gname">${MH.esc(g.sourceName)}</span>
+                ${MH.isNovelSource(g.source) ? '<span class="se-gtag" style="background:#7c3aed;color:#fff">ROMAN</span>' : '<span class="se-gtag">MANGA</span>'}
                 ${g.lang ? `<span class="se-gtag">${MH.esc(g.lang)}</span>` : ''}
                 <span class="se-gcount">${g.error ? '' : (g.items.length + ' résultat(s)')}</span>
             </div>`;

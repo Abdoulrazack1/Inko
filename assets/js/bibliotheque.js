@@ -7,6 +7,7 @@
     let progressByManga = {};
     let updatesByManga = {};   // mangaId -> { unreadCount, latest, hasNew } (depuis /me/updates)
     let filter = { type: 'all', value: null };
+    let kindFilter = 'all';    // 'all' | 'manga' | 'novel' (sépare romans et mangas)
 
     const STATUS = {
         reading:   ['En cours',  '#22c55e'],
@@ -145,6 +146,7 @@
     // ── BIBLIOTHÈQUE ──
     async function loadLibrary() {
         const grid = document.getElementById('libGrid');
+        await MH.loadSourceTypes();   // pour séparer mangas/romans
         try {
             const [favoris, allRead, allProg] = await Promise.all([
                 API.me.favorites(),
@@ -206,15 +208,36 @@
         const chip = (type, val, label, count, on) =>
             `<button class="lib2-chip ${on ? 'on' : ''}" data-ftype="${type}" data-fval="${MH.esc(val == null ? '' : val)}">${MH.esc(label)}${count != null ? `<span class="cnt">${count}</span>` : ''}</button>`;
 
-        let html = chip('all', '', 'Tout', favs.length, filter.type === 'all');
+        // Segment Mangas / Romans (n'apparaît que si la biblio contient des deux)
+        const nManga = favs.filter(f => !MH.isNovelSource(f.source)).length;
+        const nNovel = favs.filter(f => MH.isNovelSource(f.source)).length;
+        let kindHtml = '';
+        if (nManga && nNovel) {
+            const k = (val, label, count) =>
+                `<button class="lib2-kind ${kindFilter === val ? 'on' : ''}" data-kind="${val}">${label}<span class="cnt">${count}</span></button>`;
+            kindHtml = `<div class="lib2-kinds">${k('all', 'Tout', favs.length)}${k('manga', 'Mangas', nManga)}${k('novel', 'Romans', nNovel)}</div>`;
+        }
+
+        let html = chip('all', '', 'Tout', favsOfKind().length, filter.type === 'all');
         Object.keys(STATUS).forEach(s => { if (sc[s]) html += chip('status', s, STATUS[s][0], sc[s], filter.type === 'status' && filter.value === s); });
         Object.keys(cc).sort().forEach(c => { html += chip('category', c, c, cc[c], filter.type === 'category' && filter.value === c); });
-        el.innerHTML = html;
+        el.innerHTML = kindHtml + html;
 
+        el.querySelectorAll('.lib2-kind').forEach(ch => ch.addEventListener('click', () => {
+            kindFilter = ch.dataset.kind;
+            renderFilters(); render();
+        }));
         el.querySelectorAll('.lib2-chip').forEach(ch => ch.addEventListener('click', () => {
             filter = { type: ch.dataset.ftype, value: ch.dataset.fval || null };
             renderFilters(); render();
         }));
+    }
+
+    // Favoris filtrés par type (manga/roman)
+    function favsOfKind() {
+        if (kindFilter === 'manga') return favs.filter(f => !MH.isNovelSource(f.source));
+        if (kindFilter === 'novel') return favs.filter(f => MH.isNovelSource(f.source));
+        return favs;
     }
 
     function render() {
@@ -222,7 +245,7 @@
         const q = (document.getElementById('libSearch').value || '').toLowerCase();
         const sort = document.getElementById('libSort').value;
 
-        let list = favs.filter(f => !q || (f.title || '').toLowerCase().includes(q));
+        let list = favsOfKind().filter(f => !q || (f.title || '').toLowerCase().includes(q));
         if (filter.type === 'status')   list = list.filter(f => f.status === filter.value);
         if (filter.type === 'category') list = list.filter(f => f.category === filter.value);
 
@@ -250,6 +273,7 @@
                     <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy"
                          onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                     ${st}
+                    ${MH.isNovelSource(f.source) ? '<div class="lib2-kind-badge">ROMAN</div>' : ''}
                     ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
                 </div>
                 <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>

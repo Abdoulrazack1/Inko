@@ -30,7 +30,7 @@
 
         const active = API.sources.current || sources[0].id;
 
-        el.innerHTML = sources.map(s => `
+        const card = (s) => `
         <div class="source-card ${s.id === active ? 'active' : ''}" data-id="${MH.esc(s.id)}">
             <div class="source-icon">${MH.esc((s.name || '?')[0])}</div>
             <div class="source-meta">
@@ -38,7 +38,7 @@
                     ${MH.esc(s.name)}
                     <span class="source-version">v${MH.esc(s.version)}</span>
                     <span class="source-lang">${MH.esc(s.lang || '—')}</span>
-                    ${s.type === 'novel' ? '<span class="source-lang" style="background:#7c3aed;color:#fff" title="Source de romans — lecture en texte">ROMANS</span>' : ''}
+                    ${s.type === 'novel' ? '<span class="source-type-badge">ROMAN</span>' : ''}
                     ${s.nsfw ? '<span class="source-nsfw">NSFW</span>' : ''}
                 </div>
                 <div class="source-desc">${MH.esc(s.description || '')}</div>
@@ -54,8 +54,24 @@
                     ? '<span class="source-active-badge">✓ ACTIVE</span>'
                     : `<button class="btn btn-primary btn-sm" data-activate="${MH.esc(s.id)}">Activer</button>`}
             </div>
-        </div>
-        `).join('');
+        </div>`;
+
+        // Séparation claire : mangas d'un côté, romans de l'autre
+        const mangas = sources.filter(s => (s.type || 'manga') !== 'novel');
+        const novels = sources.filter(s => s.type === 'novel');
+        const group = (title, sub, list) => list.length ? `
+            <div class="sources-group">
+                <div class="sources-group-head">
+                    <h2 class="sources-group-title">${title}</h2>
+                    <span class="sources-group-sub">${sub}</span>
+                    <span class="sources-group-count">${list.length}</span>
+                </div>
+                ${list.map(card).join('')}
+            </div>` : '';
+
+        el.innerHTML =
+            group('Mangas', 'Lecture en images', mangas) +
+            group('Romans', 'Light novels & web novels — lecture en texte', novels);
 
         el.querySelectorAll('[data-activate]').forEach(btn => {
             btn.addEventListener('click', () => {
