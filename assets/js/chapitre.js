@@ -38,9 +38,11 @@
             return;
         }
 
-        // Préférences UI
+        // Préférences UI — le mode de lecture est mémorisé PAR SÉRIE
+        // (un webtoon se lit en défilement, un manga en page/page)
         const prefs = window.Storage?.getPrefs() || {};
         if (prefs.readMode) readMode = prefs.readMode;
+        if (prefs['readMode_' + mangaId]) readMode = prefs['readMode_' + mangaId];
         if (prefs.zoom)     zoom     = prefs.zoom;
         loadReaderSettings();
         if (prefs.readingDir) rs.direction = prefs.readingDir;
@@ -174,15 +176,10 @@
         document.getElementById('btnMarkRead')?.addEventListener('click', markUpToHere);
         wireDownloadBtn();
         updateAutoBtn();
-        document.getElementById('chapSelect')?.addEventListener('change', e => {
-            window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(e.target.value)}`;
-        });
-        document.getElementById('btnPrevChap')?.addEventListener('click', () => {
-            if (prevChap) window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(prevChap.id)}`;
-        });
-        document.getElementById('btnNextChap')?.addEventListener('click', () => {
-            if (nextChap) window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(nextChap.id)}`;
-        });
+        const chapURL = (id) => `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(id)}&source=${encodeURIComponent(API.sources.current)}`;
+        document.getElementById('chapSelect')?.addEventListener('change', e => { window.location.href = chapURL(e.target.value); });
+        document.getElementById('btnPrevChap')?.addEventListener('click', () => { if (prevChap) window.location.href = chapURL(prevChap.id); });
+        document.getElementById('btnNextChap')?.addEventListener('click', () => { if (nextChap) window.location.href = chapURL(nextChap.id); });
     }
 
     // ── Modebar ──
@@ -203,7 +200,8 @@
             const btn = e.target.closest('[data-mode]');
             if (!btn) return;
             readMode = btn.dataset.mode;
-            window.Storage?.setPref('readMode', readMode);
+            window.Storage?.setPref('readMode', readMode);                  // défaut global
+            window.Storage?.setPref('readMode_' + manga.id, readMode);     // mémorisé pour cette série
             el.querySelectorAll('.modebar-btn').forEach(b => b.classList.toggle('active', b === btn));
             renderPage(currentPage);
         });
@@ -214,6 +212,45 @@
         const quality = window.Storage?.getPref('quality') || 'high';
         return quality === 'saver' ? (p.urlSaver || p.url) : p.url;
     }
+
+    // Markup d'une image de page : fade-in au chargement + retry en cas d'échec
+    function pageImg(idx, extra = '', lazy = false) {
+        const p = pages[idx];
+        return `<img class="reader-page-img" data-idx="${idx}" src="${pageSrc(p)}" alt="Page ${idx + 1}"
+                 onload="this.classList.add('loaded')" onerror="window.imgFail&&window.imgFail(this)"
+                 decoding="async" loading="${lazy ? 'lazy' : 'eager'}" ${extra}>`;
+    }
+    // Les images déjà en cache peuvent être "complete" avant le binding
+    function armImages(root) {
+        (root || document).querySelectorAll('.reader-page-img').forEach(im => {
+            if (im.complete && im.naturalWidth) im.classList.add('loaded');
+        });
+    }
+
+    // Échec de chargement : bascule éco → sinon bouton Réessayer
+    window.imgFail = function (img) {
+        const p = pages[+img.dataset.idx];
+        if (!p) return;
+        if (!img.dataset.triedSaver && p.urlSaver && img.src !== p.urlSaver) {
+            img.dataset.triedSaver = '1';
+            img.src = p.urlSaver;
+            return;
+        }
+        if (img.nextElementSibling?.classList.contains('reader-img-fail')) return;
+        const div = document.createElement('div');
+        div.className = 'reader-img-fail';
+        div.innerHTML = `<div class="reader-img-fail-msg">Page ${+img.dataset.idx + 1} introuvable</div>
+            <button class="btn btn-secondary btn-sm">Réessayer</button>`;
+        div.querySelector('button').onclick = () => {
+            delete img.dataset.triedSaver;
+            div.remove();
+            img.style.display = '';
+            const url = pageSrc(p);
+            img.src = ''; img.src = url;   // force un vrai re-fetch
+        };
+        img.style.display = 'none';
+        img.after(div);
+    };
 
     function renderPage(num) {
         const el = document.getElementById('readerPagesArea');
@@ -229,11 +266,11 @@
         <div class="page-zone-prev" onclick="window.goToPage(${leftTarget})"><div class="page-zone-arrow">‹</div></div>
         <div class="page-zone-next" onclick="window.goToPage(${rightTarget})"><div class="page-zone-arrow">›</div></div>
         <div class="reader-page-wrapper" style="transform:scale(${zoom/100});transform-origin:top center">
-            <img class="reader-page-img" src="${pageSrc(p)}" alt="Page ${num}"
-                 onerror="this.src='${p.urlSaver || ''}'" loading="eager">
+            ${pageImg(num - 1)}
         </div>
         <div class="page-counter-badge">Page <strong>${num}</strong> / ${totalPages}</div>`;
 
+        armImages(el);
         updateUIPage(num);
     }
 
@@ -242,10 +279,7 @@
         if (!el) return;
         el.innerHTML = `
         <div class="reader-page-wrapper" style="display:flex;flex-direction:column;gap:${rs.gap}px;transform:scale(${zoom/100});transform-origin:top center">
-            ${pages.map((p, i) => `
-                <img class="reader-page-img" data-page="${i+1}" src="${pageSrc(p)}" alt="Page ${i+1}"
-                     onerror="this.src='${p.urlSaver || ''}'" loading="${i < 3 ? 'eager' : 'lazy'}">
-            `).join('')}
+            ${pages.map((p, i) => pageImg(i, `data-page="${i+1}"`, i >= 3)).join('')}
         </div>
         <div class="page-counter-badge"><strong>${totalPages}</strong> pages — défilement</div>`;
 
@@ -253,13 +287,15 @@
             const io = new IntersectionObserver(entries => {
                 entries.forEach(en => {
                     if (en.isIntersecting) {
+                        // Suit la page visible (lecture avant ET retours arrière / sauts)
                         const p = +en.target.dataset.page;
-                        if (p > currentPage) { currentPage = p; updateUIPage(p); }
+                        if (p !== currentPage) { currentPage = p; updateUIPage(p); }
                     }
                 });
             }, { threshold: 0.5 });
             el.querySelectorAll('[data-page]').forEach(img => io.observe(img));
         }
+        armImages(el);
         updateUIPage(currentPage);
     }
 
@@ -273,19 +309,22 @@
         <div class="page-zone-prev" onclick="window.goToPage(${num - 2})"><div class="page-zone-arrow">‹</div></div>
         <div class="page-zone-next" onclick="window.goToPage(${num + 2})"><div class="page-zone-arrow">›</div></div>
         <div class="reader-page-wrapper" style="display:flex;gap:${rs.gap}px;transform:scale(${zoom/100});transform-origin:top center">
-            <img class="reader-page-img" src="${pageSrc(left)}" alt="P${num}" onerror="this.src='${left.urlSaver || ''}'" style="max-width:48%">
-            ${right ? `<img class="reader-page-img" src="${pageSrc(right)}" alt="P${num+1}" onerror="this.src='${right.urlSaver || ''}'" style="max-width:48%">` : ''}
+            ${pageImg(num - 1, 'style="max-width:48%"')}
+            ${right ? pageImg(num, 'style="max-width:48%"') : ''}
         </div>
         <div class="page-counter-badge">Pages <strong>${num}${right ? '–' + (num+1) : ''}</strong> / ${totalPages}</div>`;
+        armImages(el);
         updateUIPage(right ? num + 1 : num);
     }
 
     function updateUIPage(p) {
-        preloadPage(p + 1); preloadPage(p + 2);   // précharge les pages suivantes
+        preloadPage(p + 1); preloadPage(p + 2); preloadPage(p + 3);   // précharge les pages suivantes
         document.querySelectorAll('.reader-thumb').forEach((t, i) => t.classList.toggle('active', i + 1 === p));
         document.querySelector('.reader-thumb.active')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         const pct = document.querySelector('.modebar-pct');
         if (pct) pct.textContent = `${Math.round((p / totalPages) * 100)}% lu`;
+        const fill = document.getElementById('readerProgressFill');
+        if (fill) fill.style.width = `${(p / totalPages) * 100}%`;
         renderNavigation();
 
         // Sauvegarde progression (debounce)
@@ -349,6 +388,9 @@
         <button class="reader-nav-btn" onclick="window.goToPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>← Précédent</button>
         <div class="reader-nav-center">
             <div class="reader-nav-page">Page <strong>${currentPage}</strong> / ${totalPages}</div>
+            <input type="range" class="reader-scrub" id="pageScrub" min="1" max="${totalPages}" value="${currentPage}"
+                   style="${rs.direction === 'rtl' && readMode !== 'scroll' ? 'direction:rtl' : ''}"
+                   title="Aller à la page…" aria-label="Aller à la page">
             <div class="reader-shortcuts">
                 <span class="shortcut-key">← →</span> pages &nbsp;
                 <span class="shortcut-key">F</span> plein écran &nbsp;
@@ -356,6 +398,8 @@
             </div>
         </div>
         <button class="reader-nav-btn" onclick="window.goToPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>Suivant →</button>`;
+        const scrub = el.querySelector('#pageScrub');
+        if (scrub) scrub.addEventListener('input', () => window.goToPage(+scrub.value));
     }
 
     // ── Next chapter ──
@@ -394,11 +438,57 @@
 
     // ── Controls globaux ──
     window.goToPage = function (p) {
-        if (!pages.length || p < 1 || p > totalPages) return;
+        if (!pages.length) return;
+        // Avant la première page → chapitre précédent ; après la dernière → transition
+        if (p < 1) { if (neighborChapter(-1)) showChapterTransition(-1); return; }
+        if (p > totalPages) { showChapterTransition(1); return; }
         currentPage = p;
+        if (readMode === 'scroll') {
+            // En défilement : on saute à l'image, sans tout re-rendre
+            const img = document.querySelector(`.reader-page-img[data-page="${p}"]`);
+            if (img) { img.scrollIntoView({ behavior: 'smooth', block: 'start' }); updateUIPage(p); return; }
+        }
         renderPage(currentPage);
         document.getElementById('readerPagesArea')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
+
+    // ── Transition de fin/début de chapitre (façon Mihon) ──
+    function showChapterTransition(delta) {
+        const target = neighborChapter(delta);
+        const ex = document.getElementById('chapTransition');
+        if (ex) { // déjà affichée → confirme
+            if (target) goChapter(delta);
+            return;
+        }
+        if (delta > 0 && API.isLoggedIn()) markChapterRead();
+        const ov = document.createElement('div');
+        ov.id = 'chapTransition';
+        ov.className = 'chap-transition';
+        ov.innerHTML = `
+            <div class="chap-transition-card">
+                <div class="chap-transition-label">${delta > 0 ? 'Fin du chapitre' : 'Début du chapitre'} ${MH.esc(String(currentChap.chapter))}</div>
+                ${target ? `
+                    <div class="chap-transition-next">${delta > 0 ? 'À suivre' : 'Précédent'} : <strong>Chapitre ${MH.esc(String(target.chapter))}</strong>${target.title ? ' — ' + MH.esc(target.title) : ''}</div>
+                    <div class="chap-transition-actions">
+                        <button class="btn btn-primary" id="ctGo">${delta > 0 ? 'Chapitre suivant →' : '← Chapitre précédent'}</button>
+                        <button class="btn btn-ghost btn-sm" id="ctStay">Rester ici</button>
+                    </div>
+                    <div class="chap-transition-hint">Appuie encore sur ${delta > 0 ? '→' : '←'} pour continuer</div>
+                ` : `
+                    <div class="chap-transition-next">${delta > 0 ? "C'est le dernier chapitre disponible. Reviens plus tard !" : "C'est le premier chapitre."}</div>
+                    <div class="chap-transition-actions">
+                        <a class="btn btn-primary" href="serie.html?id=${encodeURIComponent(manga.id)}">Retour à la série</a>
+                        <button class="btn btn-ghost btn-sm" id="ctStay">Rester ici</button>
+                    </div>
+                `}
+            </div>`;
+        document.body.appendChild(ov);
+        ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+        ov.querySelector('#ctStay')?.addEventListener('click', () => ov.remove());
+        ov.querySelector('#ctGo')?.addEventListener('click', () => goChapter(delta));
+        // Fermeture auto si on ne confirme pas
+        setTimeout(() => { document.getElementById('chapTransition')?.remove(); }, 8000);
+    }
 
     window.changeZoom = function (delta) {
         zoom = Math.min(200, Math.max(50, zoom + delta));
@@ -426,6 +516,12 @@
     }
 
     function bindKeyboard() {
+        // Double-clic sur la page = zoom rapide 100 % ↔ 150 %
+        document.getElementById('readerPagesArea')?.addEventListener('dblclick', e => {
+            if (!e.target.closest('.reader-page-img')) return;
+            e.preventDefault();
+            window.changeZoom(zoom === 100 ? 50 : 100 - zoom);
+        });
         document.addEventListener('keydown', e => {
             if (['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName)) return;
             const rtl = rs.direction === 'rtl';
@@ -440,7 +536,10 @@
                 case 'a': case 'A': toggleAutoScroll(); return;
                 case '[': bumpAutoSpeed(-0.2); return;
                 case ']': bumpAutoSpeed(0.2); return;
-                case 'Escape': if (autoTimer) { stopAutoScroll(); return; } if (document.getElementById('readerSettings')) toggleReaderSettings(); return;
+                case 'Escape':
+                    if (document.getElementById('chapTransition')) { document.getElementById('chapTransition').remove(); return; }
+                    if (autoTimer) { stopAutoScroll(); return; }
+                    if (document.getElementById('readerSettings')) toggleReaderSettings(); return;
             }
             // En défilement : on laisse le scroll natif
             if (readMode === 'scroll') return;
