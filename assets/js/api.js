@@ -52,7 +52,9 @@
             const err = new Error(data?.error || `HTTP ${res.status}`);
             err.status = res.status;
             err.data = data;
-            // Si token invalide → déconnecte
+            // Si token Inko invalide → déconnecte.
+            // (Les 401 de services tiers liés — Spotify, etc. — répondent 424,
+            //  on ne purge donc la session que sur un vrai rejet d'auth Inko.)
             if (res.status === 401 && _token) {
                 _user = null; _token = null; persist();
             }

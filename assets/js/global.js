@@ -127,6 +127,31 @@
         else { b.style.display = 'none'; }
     };
 
+    // ── Vérification des nouveaux chapitres au lancement de l'app ──
+    // Une fois par session navigateur : interroge toutes les œuvres suivies
+    // en arrière-plan, met à jour le badge et notifie discrètement.
+    async function launchUpdateCheck() {
+        if (!window.API?.isLoggedIn()) return;
+        try { if (sessionStorage.getItem('inko_launch_checked')) return; } catch (e) {}
+        try { sessionStorage.setItem('inko_launch_checked', '1'); } catch (e) {}
+        try {
+            const lang = window.Storage?.getPref('readingLang') || 'fr,en';
+            const data = await API.me.updates(lang);
+            const ups = data.updates || [];
+            const newCount = ups.filter(u => u.unreadCount > 0).length;
+            const fresh    = ups.filter(u => u.hasNew);
+            try {
+                localStorage.setItem('inko_lib_newcount', String(newCount));
+                localStorage.setItem('inko_lib_lastcheck', String(Date.now()));
+            } catch (e) {}
+            window.MH.updateLibBadge();
+            if (fresh.length) {
+                const names = fresh.slice(0, 2).map(u => u.title).filter(Boolean).join(', ');
+                window.MH.toast(`Nouveaux chapitres : ${names}${fresh.length > 2 ? ` (+${fresh.length - 2})` : ''}`);
+            }
+        } catch (e) { /* hors-ligne ou serveur indisponible : silencieux */ }
+    }
+
     /* ── Header HTML ─────────────────────────────────────── */
     const headerHTML = (activePage) => {
         const u = window.API?.user;
@@ -224,6 +249,8 @@
         initFooterButtons();
         initHeaderButtons();
         window.MH.updateLibBadge();
+        // Check des nouveautés au lancement (pas pendant la lecture : priorité aux pages)
+        if (activePage !== 'chapitre') launchUpdateCheck();
 
         // Re-render header au login/logout
         window.addEventListener('auth:change', () => {

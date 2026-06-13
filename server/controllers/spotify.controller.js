@@ -170,7 +170,7 @@ async function playlists(req, res, next) {
             owner: p.owner?.display_name || '',
         })));
     } catch (e) {
-        if (e.response?.status === 401) return res.status(401).json({ error: 'Token Spotify expiré' });
+        if (e.response?.status === 401) return res.status(424).json({ error: 'Token Spotify expiré' }); // 424 : ne PAS renvoyer 401 (le client le traiterait comme une session Inko invalide)
         next(e);
     }
 }
@@ -198,7 +198,7 @@ async function search(req, res, next) {
         }));
         res.json({ tracks, playlists });
     } catch (e) {
-        if (e.response?.status === 401) return res.status(401).json({ error: 'Token Spotify expiré' });
+        if (e.response?.status === 401) return res.status(424).json({ error: 'Token Spotify expiré' }); // 424 : ne PAS renvoyer 401 (le client le traiterait comme une session Inko invalide)
         next(e);
     }
 }
@@ -223,7 +223,7 @@ async function recent(req, res, next) {
         });
         res.json({ tracks: tracks.slice(0, 12) });
     } catch (e) {
-        if (e.response?.status === 401) return res.status(401).json({ error: 'Token Spotify expiré' });
+        if (e.response?.status === 401) return res.status(424).json({ error: 'Token Spotify expiré' }); // 424 : ne PAS renvoyer 401 (le client le traiterait comme une session Inko invalide)
         next(e);
     }
 }
@@ -248,7 +248,7 @@ async function top(req, res, next) {
         });
         res.json({ tracks: (r.data.items || []).map(mapTrack).filter(Boolean) });
     } catch (e) {
-        if (e.response?.status === 401) return res.status(401).json({ error: 'Token Spotify expiré' });
+        if (e.response?.status === 401) return res.status(424).json({ error: 'Token Spotify expiré' }); // 424 : ne PAS renvoyer 401 (le client le traiterait comme une session Inko invalide)
         next(e);
     }
 }
@@ -264,7 +264,7 @@ async function saved(req, res, next) {
         });
         res.json({ tracks: (r.data.items || []).map(it => mapTrack(it.track)).filter(Boolean).slice(0, 16) });
     } catch (e) {
-        if (e.response?.status === 401) return res.status(401).json({ error: 'Token Spotify expiré' });
+        if (e.response?.status === 401) return res.status(424).json({ error: 'Token Spotify expiré' }); // 424 : ne PAS renvoyer 401 (le client le traiterait comme une session Inko invalide)
         next(e);
     }
 }
@@ -281,7 +281,7 @@ async function nowPlaying(req, res, next) {
         if (r.status === 204 || !r.data) return res.json({ playing: false });
         res.json({ playing: !!r.data.is_playing, track: mapTrack(r.data.item) });
     } catch (e) {
-        if (e.response?.status === 401) return res.status(401).json({ error: 'Token Spotify expiré' });
+        if (e.response?.status === 401) return res.status(424).json({ error: 'Token Spotify expiré' }); // 424 : ne PAS renvoyer 401 (le client le traiterait comme une session Inko invalide)
         next(e);
     }
 }
