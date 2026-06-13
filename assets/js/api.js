@@ -69,6 +69,37 @@
     const put  = (p, body) => request('PUT', p, body);
     const del  = (p)       => request('DELETE', p);
 
+    // ── Proxy de couvertures ──────────────────────────────────
+    // Réécrit vers /api/img (cache serveur + bon Referer + compat Cloudflare)
+    // UNIQUEMENT les hôtes lents ou protégés (sources de romans). Les hôtes
+    // manga rapides (MangaDex, WeebCentral) chargent en direct via HTTP/2,
+    // c'est plus rapide qu'un détour serveur. Les data:/URLs locales passent.
+    const PROXY_HOSTS = ['chireads.com', 'novelfull.com', 'royalroad.com', 'royalroadcdn.com'];
+    function shouldProxy(u) {
+        try {
+            const h = new URL(u).hostname;
+            return PROXY_HOSTS.some(d => h === d || h.endsWith('.' + d));
+        } catch (e) { return false; }
+    }
+    function proxyCover(u) {
+        if (!u || typeof u !== 'string') return u;
+        if (u.startsWith('data:') || u.startsWith('/')) return u;
+        if (!/^https?:\/\//i.test(u)) return u;
+        if (u.indexOf('/api/img?') !== -1) return u; // déjà proxifié
+        return shouldProxy(u) ? API_BASE + '/img?u=' + encodeURIComponent(u) : u;
+    }
+    function mapManga(m) {
+        if (m && typeof m === 'object') {
+            ['cover', 'coverLarge', 'coverThumb'].forEach(k => { if (m[k]) m[k] = proxyCover(m[k]); });
+        }
+        return m;
+    }
+    function mapMangaPage(d) {
+        if (d && Array.isArray(d.results)) d.results.forEach(mapManga);
+        if (d && Array.isArray(d.groups))  d.groups.forEach(g => (g.items || []).forEach(mapManga));
+        return d;
+    }
+
     // ── API publique ──────────────────────────────────────────
     const API = {
         get base()   { return API_BASE; },
@@ -137,12 +168,12 @@
         mangas: {
             _qs(params)        { const s = new URLSearchParams(params).toString(); return s ? '?' + s : ''; },
             _prefix()          { const id = API.sources.current; return id ? `/sources/${encodeURIComponent(id)}` : ''; },
-            search:   (params = {}) => get(API.mangas._prefix() + '/mangas/search'  + API.mangas._qs(params)),
-            searchAll:(q)           => get('/search-all?q=' + encodeURIComponent(q || '')),
-            popular:  (params = {}) => get(API.mangas._prefix() + '/mangas/popular' + API.mangas._qs(params)),
-            latest:   (params = {}) => get(API.mangas._prefix() + '/mangas/latest'  + API.mangas._qs(params)),
+            search:   (params = {}) => get(API.mangas._prefix() + '/mangas/search'  + API.mangas._qs(params)).then(mapMangaPage),
+            searchAll:(q)           => get('/search-all?q=' + encodeURIComponent(q || '')).then(mapMangaPage),
+            popular:  (params = {}) => get(API.mangas._prefix() + '/mangas/popular' + API.mangas._qs(params)).then(mapMangaPage),
+            latest:   (params = {}) => get(API.mangas._prefix() + '/mangas/latest'  + API.mangas._qs(params)).then(mapMangaPage),
             tags:     ()            => get(API.mangas._prefix() + '/mangas/tags'),
-            get:      (id)          => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}`),
+            get:      (id)          => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
             chapters: (id, params={}) => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
             chaptersFor: (source, id, params={}) => get((source ? `/sources/${encodeURIComponent(source)}` : '') + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
             pages:    (chapterId)   => get(API.mangas._prefix() + `/chapters/${encodeURIComponent(chapterId)}/pages`),
@@ -151,7 +182,7 @@
 
         // ── User data (auth required) ──
         me: {
-            favorites:        ()           => get('/me/favorites'),
+            favorites:        ()           => get('/me/favorites').then(a => { (a || []).forEach(f => { if (f.cover) f.cover = proxyCover(f.cover); }); return a; }),
             addFavorite:      (mangaId, meta = {}) => post('/me/favorites', {
                 mangaId,
                 source: meta.source || API.sources.current || 'mangadex',
@@ -160,7 +191,7 @@
             }),
             removeFavorite:   (mangaId)    => del('/me/favorites/' + encodeURIComponent(mangaId)),
             setCategory:      (mangaId, payload) => put('/me/favorites/' + encodeURIComponent(mangaId) + '/category', payload),
-            updates:          (lang)       => get('/me/updates' + (lang ? '?lang=' + encodeURIComponent(lang) : '')),
+            updates:          (lang)       => get('/me/updates' + (lang ? '?lang=' + encodeURIComponent(lang) : '')).then(d => { (d && d.updates || []).forEach(u => { if (u.cover) u.cover = proxyCover(u.cover); }); return d; }),
 
             library:          ()           => get('/me/library'),
             setLibrary:       (mangaId, status, rating) =>
@@ -175,7 +206,10 @@
             markChapter:      (payload)    => post('/me/read-chapters', payload),
             markChaptersBulk: (mangaId, chapters) => post('/me/read-chapters/bulk', { mangaId, chapters }),
 
-            lists:            ()           => get('/me/lists'),
+            lists:            ()           => get('/me/lists').then(a => { (a || []).forEach(l => {
+                if (Array.isArray(l.covers)) l.covers = l.covers.map(proxyCover);
+                if (Array.isArray(l.items))  l.items.forEach(it => { if (it.cover) it.cover = proxyCover(it.cover); });
+            }); return a; }),
             createList:       (data)       => post('/me/lists', data),
             updateList:       (id, data)   => put('/me/lists/' + id, data),
             deleteList:       (id)         => del('/me/lists/' + id),
@@ -213,6 +247,9 @@
             set:    (mangaId, payload) => put('/ratings/' + encodeURIComponent(mangaId), payload),
             remove: (mangaId)          => del('/ratings/' + encodeURIComponent(mangaId)),
         },
+
+        // ── Proxy d'image (couvertures, vignettes) ──
+        img: proxyCover,
 
         // ── Artwork officiel (AniList) ──
         art: {

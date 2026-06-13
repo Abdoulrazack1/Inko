@@ -7,6 +7,7 @@ const User    = require('../controllers/user.controller');
 const Spotify = require('../controllers/spotify.controller');
 const Artwork = require('../controllers/artwork.controller');
 const AniList = require('../controllers/anilist.controller');
+const Image   = require('../controllers/image.controller');
 
 // ── Healthcheck ─────────────────────────────────
 router.get('/health', (_req, res) => res.json({ ok: true, time: Date.now() }));
@@ -24,6 +25,9 @@ router.post('/auth/delete',   auth.authRequired, Auth.deleteAccount);
 
 // ── Sources (extensions installées) ───────────────
 router.get('/sources',              Manga.listSources);
+
+// ── Proxy de couvertures (cache + anti-hotlink) ───
+router.get('/img',                  Image.proxy);
 
 // ── Artwork officiel (AniList) pour le hero ───────
 router.get('/artwork',              Artwork.artwork);

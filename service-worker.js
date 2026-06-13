@@ -3,11 +3,19 @@
 //             stale-while-revalidate pour assets statiques
 //             cache des couvertures mangadex (bande passante)
 
-const CACHE_VERSION = 'inko-v10';
+const CACHE_VERSION = 'inko-v11';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const OFFLINE_CACHE = 'inko-offline';   // chapitres téléchargés (non versionné : persiste)
+
+// Hôtes de couvertures à mettre en cache durable (cache-first)
+function isCoverHost(hostname) {
+    return hostname === 'uploads.mangadex.org'
+        || hostname.endsWith('mangadex.network')
+        || hostname === 'temp.compsci88.com'      // WeebCentral
+        || hostname.endsWith('royalroadcdn.com'); // Royal Road (covers directes)
+}
 
 const STATIC_ASSETS = [
     '/',
@@ -104,7 +112,7 @@ self.addEventListener('fetch', (event) => {
     }
 
     // 2) Covers / pages MangaDex : cache-first (économise bande passante)
-    if (url.hostname === 'uploads.mangadex.org' || url.hostname.endsWith('mangadex.network')) {
+    if (isCoverHost(url.hostname)) {
         event.respondWith(cacheFirst(req, COVERS_CACHE));
         return;
     }
@@ -124,7 +132,9 @@ async function offlineImage(req, url) {
         const hit = await off.match(req, { ignoreVary: true });
         if (hit) return hit;
     } catch (e) {}
-    if (url.hostname === 'uploads.mangadex.org' || url.hostname.endsWith('mangadex.network')) {
+    // Couvertures (proxifiées /api/img + hôtes de covers connus) : cache-first
+    if ((url.origin === self.location.origin && url.pathname === '/api/img')
+        || isCoverHost(url.hostname)) {
         return cacheFirst(req, COVERS_CACHE);
     }
     try { return await fetch(req); }
