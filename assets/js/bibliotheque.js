@@ -120,17 +120,22 @@
                 Ouvre un chapitre et appuie sur l'icône de téléchargement pour le lire hors-ligne.</div>`;
             return;
         }
-        listEl.innerHTML = groups.map(g => `
+        listEl.innerHTML = groups.map(g => {
+            // Lien direct vers le 1er chapitre téléchargé (lecture hors-ligne possible)
+            const firstChap = [...g.chapters].sort((a, b) => (a.chapterNum || 0) - (b.chapterNum || 0))[0];
+            const readHref = firstChap ? MH.readerHref(g.mangaId, firstChap.chapterId, g.source) : '#';
+            return `
             <div class="upd-row">
-                <a class="upd-cover" href="serie.html?id=${encodeURIComponent(g.mangaId)}&source=${encodeURIComponent(g.source || '')}">
+                <a class="upd-cover" href="${readHref}">
                     <img src="${g.cover || MH.placeholderCover(g.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(g.mangaId)}'">
                 </a>
                 <div class="upd-info">
-                    <div class="upd-name">${MH.esc(g.title || g.mangaId)}</div>
+                    <a class="upd-name" href="${readHref}" style="color:inherit;text-decoration:none">${MH.esc(g.title || g.mangaId)}</a>
                     <div class="upd-meta">${g.chapters.length} chapitre(s) · ${g.chapters.slice(0, 5).map(c => 'Ch.' + c.chapterNum).join(', ')}${g.chapters.length > 5 ? '…' : ''}</div>
                 </div>
                 <button class="btn btn-sm" style="background:rgba(239,68,68,.12);color:#ef4444" data-dlmanga="${g.mangaId}">Supprimer</button>
-            </div>`).join('');
+            </div>`;
+        }).join('');
         listEl.querySelectorAll('[data-dlmanga]').forEach(b => b.addEventListener('click', async () => {
             await window.Downloads.removeManga(b.dataset.dlmanga);
             renderDownloads();

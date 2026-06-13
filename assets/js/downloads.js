@@ -80,6 +80,19 @@
             return { count: urls.length };
         },
 
+        // Téléchargement d'un chapitre de ROMAN (texte) — stocké dans IndexedDB.
+        // info : { mangaId, chapterId, chapterNum, chapterTitle, mangaTitle, cover, source }
+        async downloadText(info, content) {
+            await putMeta({
+                chapterId: info.chapterId, mangaId: info.mangaId,
+                chapterNum: info.chapterNum ?? null, chapterTitle: info.chapterTitle || '',
+                mangaTitle: info.mangaTitle || '', cover: info.cover || '',
+                source: info.source || '', kind: 'novel',
+                text: content || '', pages: [], count: 1, savedAt: Date.now(),
+            });
+            return { ok: true };
+        },
+
         async remove(chapterId) {
             const meta = await getMeta(chapterId);
             if (meta && 'caches' in window) {
