@@ -68,7 +68,8 @@
 
     async function loadChapters() {
         try {
-            const data = await API.mangas.chapters(manga.id, { lang: 'fr,en', limit: 200 });
+            // Pas de limite : la liste complète, même pour les très longues séries
+            const data = await API.mangas.chapters(manga.id, { lang: window.Storage?.getPref('readingLang') || 'fr,en' });
             chapters = data.results || [];
             if (activeTab === 'chapitres') {
                 renderTab('chapitres');

@@ -337,6 +337,9 @@
   color: inherit;
   transition: background 0.15s;
   cursor: pointer;
+  /* Longues séries : ne peint que les lignes visibles */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 42px;
 }
 .chapter-row:last-child { border-bottom: none; }
 .chapter-row:hover { background: var(--bg4); }

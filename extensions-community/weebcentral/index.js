@@ -1,7 +1,7 @@
 // ============================================================
 // WeebCentral — extension Inko (modèle Mihon)
 // ============================================================
-// Extension communautaire. Scrape weebcentral.com (HTMX).
+// ⚠ Extension communautaire. Scrape weebcentral.com (HTMX).
 // Structure :
 //   - recherche : /search/data?text=…&sort=…&order=…
 //   - série     : /series/<ID>/<slug>            (titre, tags, desc)
@@ -104,7 +104,7 @@ function parseList($) {
     return [...byId.values()];
 }
 
-function searchUrl({ text = '', sort = 'Best Match', order = 'Descending', limit = 32, offset = 0 } = {}) {
+function searchUrl({ text = '', sort = 'Best Match', order = 'Descending', limit = 32, offset = 0, statuses = [], tags = [] } = {}) {
     const p = new URLSearchParams({
         author: '', text,
         sort, order,
@@ -114,8 +114,23 @@ function searchUrl({ text = '', sort = 'Best Match', order = 'Descending', limit
         limit: String(limit),
         offset: String(offset),
     });
+    statuses.forEach(s => p.append('included_status', s));
+    tags.forEach(t => p.append('included_tag', t));
     return `/search/data?${p.toString()}`;
 }
+
+// Statuts UI (normalisés) → valeurs WeebCentral
+const STATUS_MAP = { ongoing: 'Ongoing', completed: 'Complete', hiatus: 'Hiatus', cancelled: 'Canceled' };
+// Tri UI (normalisé) → valeurs WeebCentral
+const SORT_MAP = { popularity: 'Popularity', latest: 'Latest Updates', alpha: 'Alphabet', added: 'Recently Added' };
+
+// Tags fixes du site (liste stable, hors contenu adulte)
+const TAGS = [
+    'Action', 'Adventure', 'Comedy', 'Drama', 'Ecchi', 'Fantasy', 'Gender Bender',
+    'Harem', 'Historical', 'Horror', 'Isekai', 'Josei', 'Martial Arts', 'Mecha',
+    'Mystery', 'Psychological', 'Romance', 'School Life', 'Sci-fi', 'Seinen',
+    'Shoujo', 'Shounen', 'Slice of Life', 'Sports', 'Supernatural', 'Tragedy',
+];
 
 // ── Source export ──
 module.exports = {
@@ -126,7 +141,11 @@ module.exports = {
     nsfw:         false,
     version:      '1.0.0',
     description:  'Weeb Central — large catalogue anglais de scans (HTMX). Recherche, chapitres et lecture.',
-    capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
+    capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],
+
+    async getTags() {
+        return TAGS.map(t => ({ id: t, name: t, group: 'genre' }));
+    },
 
     async popular({ limit = 24, offset = 0 } = {}) {
         requireCheerio();
@@ -140,12 +159,25 @@ module.exports = {
         return { total: 5000, results: parseList(cheerio.load(html)) };
     },
 
-    async search({ q, limit = 24, offset = 0 } = {}) {
+    async search({ q, limit = 24, offset = 0, filters = {} } = {}) {
         requireCheerio();
-        if (!q) return this.popular({ limit, offset });
-        const html = await fetchHtml(searchUrl({ text: q, sort: 'Best Match', limit, offset }), { ttl: 120_000, hx: true });
-        const results = parseList(cheerio.load(html));
-        return { total: results.length, results };
+        const statuses = filters.status ? [STATUS_MAP[filters.status] || filters.status] : [];
+        let tags = filters.includedTags || filters['includedTags[]'] || [];
+        if (!Array.isArray(tags)) tags = [tags];
+        // La démographie WeebCentral est un tag comme un autre (Shounen, Seinen…)
+        if (filters.demographic) tags = [...tags, filters.demographic.charAt(0).toUpperCase() + filters.demographic.slice(1)];
+        const hasFilters = statuses.length || tags.length;
+        const sort = SORT_MAP[filters.sort] || (q ? 'Best Match' : 'Popularity');
+        if (!q && !hasFilters && !filters.sort) return this.popular({ limit, offset });
+        const html = await fetchHtml(searchUrl({ text: q || '', sort, limit, offset, statuses, tags }), { ttl: 120_000, hx: true });
+        // Le site impose un minimum de ~32 résultats : on tronque à la limite demandée
+        // (l'offset reste honoré par le site, donc aucune série n'est sautée)
+        const all = parseList(cheerio.load(html));
+        const results = all.slice(0, +limit || 24);
+        // Pas de total renvoyé par le site : pagination "page suivante" tant que la page est pleine
+        const off = +offset || 0;
+        const total = all.length < +limit ? off + all.length : off + results.length + +limit;
+        return { total, results };
     },
 
     async getManga(id) {
@@ -175,7 +207,7 @@ module.exports = {
         };
     },
 
-    async getChapters(id, { limit = 1000 } = {}) {
+    async getChapters(id, { limit } = {}) {
         requireCheerio();
         const html = await fetchHtml(`/series/${id}/full-chapter-list`, { ttl: 60_000, hx: true, referer: `${BASE}/series/${id}` });
         const $ = cheerio.load(html);
@@ -202,7 +234,8 @@ module.exports = {
             });
         });
         out.sort((a, b) => b.chapter - a.chapter);
-        return { total: out.length, results: out.slice(0, +limit || 1000) };
+        // Liste complète : ne jamais tronquer les longues séries
+        return { total: out.length, results: limit && +limit < out.length ? out.slice(0, +limit) : out };
     },
 
     async getPages(chapterId) {

@@ -304,7 +304,7 @@
                     const source = decodeURIComponent(b.dataset.src || '');
                     b.disabled = true; b.textContent = '…';
                     try {
-                        const data = await API.mangas.chaptersFor(source, mangaId, { lang: window.Storage?.getPref('readingLang') || 'fr,en', limit: 500 });
+                        const data = await API.mangas.chaptersFor(source, mangaId, { lang: window.Storage?.getPref('readingLang') || 'fr,en' });
                         const chaps = (data.results || []).map(c => ({ chapterId: c.id, chapter: c.chapter }));
                         if (chaps.length) await API.me.markChaptersBulk(mangaId, chaps);
                         updatesByManga[mangaId] = { unreadCount: 0, latest: updatesByManga[mangaId]?.latest, hasNew: false };

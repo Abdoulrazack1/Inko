@@ -53,7 +53,7 @@
             try {
                 [m, chapsData, pagesData] = await Promise.all([
                     API.mangas.get(mangaId),
-                    API.mangas.chapters(mangaId, { lang: 'fr,en', limit: 500 }),
+                    API.mangas.chapters(mangaId, { lang: window.Storage?.getPref('readingLang') || 'fr,en' }),
                     API.mangas.pages(chapterId),
                 ]);
             } catch (netErr) {

@@ -134,12 +134,22 @@ module.exports = {
         return { total: data.total, results: (data.data || []).map(mapManga) };
     },
 
+    // Tri UI (normalisé) → paramètre d'ordre MangaDex
+    _SORT: {
+        popularity: { 'order[followedCount]': 'desc' },
+        latest:     { 'order[latestUploadedChapter]': 'desc' },
+        rating:     { 'order[rating]': 'desc' },
+        alpha:      { 'order[title]': 'asc' },
+        added:      { 'order[createdAt]': 'desc' },
+        year:       { 'order[year]': 'desc' },
+    },
+
     async search({ q, limit = 20, offset = 0, filters = {} } = {}) {
         const params = {
             limit: Math.min(+limit || 20, 100),
             offset: +offset || 0,
             'includes[]': ['cover_art', 'author', 'artist'],
-            'order[followedCount]': 'desc',
+            ...(this._SORT[filters.sort] || { 'order[followedCount]': 'desc' }),
             'contentRating[]': filters.contentRating || this._ratings(filters.adult),
         };
         if (q) params.title = q;
@@ -162,30 +172,41 @@ module.exports = {
         return mapManga(data.data);
     },
 
-    async getChapters(mangaId, { lang, limit = 200, offset = 0 } = {}) {
-        const params = {
-            limit: Math.min(+limit || 200, 500),
-            offset: +offset || 0,
+    async getChapters(mangaId, { lang, limit } = {}) {
+        // Le feed est paginé à 500 entrées max : on boucle jusqu'au bout pour
+        // ne JAMAIS tronquer les longues séries (One Piece ≈ 1100 chapitres,
+        // multipliés par le nombre de langues demandées).
+        // `limit` explicite (ex : check de MAJ) → plafonne le nombre d'entrées lues.
+        const cap = +limit > 0 ? Math.min(+limit, 8000) : 8000;
+        const baseParams = {
             'order[chapter]': 'desc',
             'translatedLanguage[]': (lang || 'fr,en').split(','),
             'contentRating[]': ['safe', 'suggestive', 'erotica'],
             includeFutureUpdates: 0,
         };
-        const data = await call(`/manga/${mangaId}/feed`, params, 60_000);
+        let offset = 0, total = Infinity;
+        const entries = [];
+        while (offset < total && offset < cap) {
+            const pageSize = Math.min(500, cap - offset);
+            const data = await call(`/manga/${mangaId}/feed`, { ...baseParams, limit: pageSize, offset }, 60_000);
+            total = data.total ?? 0;
+            const batch = data.data || [];
+            entries.push(...batch);
+            if (!batch.length) break;
+            offset += batch.length;
+        }
 
         // Déduplique par numéro de chapitre (préférence fr > en > autre)
         const byNum = new Map();
-        (data.data || []).forEach(c => {
+        entries.forEach(c => {
             const m = mapChapter(c);
             if (m.chapter === null || m.externalUrl) return;
             const cur = byNum.get(m.chapter);
             const score = (x) => x.lang === 'fr' ? 2 : x.lang === 'en' ? 1 : 0;
             if (!cur || score(m) > score(cur)) byNum.set(m.chapter, m);
         });
-        return {
-            total: data.total,
-            results: [...byNum.values()].sort((a, b) => b.chapter - a.chapter),
-        };
+        const results = [...byNum.values()].sort((a, b) => b.chapter - a.chapter);
+        return { total: results.length, results };
     },
 
     async getPages(chapterId) {
