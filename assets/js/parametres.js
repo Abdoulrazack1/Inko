@@ -101,10 +101,11 @@
     // ── SEGMENTS (lecteur + thème) ──
     function initSegments() {
         const map = [
-            { id: 'segDir',     key: 'readingDir', def: 'rtl' },
-            { id: 'segMode',    key: 'readMode',   def: 'page' },
-            { id: 'segQuality', key: 'quality',    def: 'high' },
-            { id: 'segTheme',   key: 'theme',      def: 'dark' },
+            { id: 'segDir',     key: 'readingDir',  def: 'rtl' },
+            { id: 'segMode',    key: 'readMode',    def: 'page' },
+            { id: 'segQuality', key: 'quality',     def: 'high' },
+            { id: 'segLang',    key: 'readingLang', def: 'fr,en' },
+            { id: 'segTheme',   key: 'theme',       def: 'dark' },
         ];
         map.forEach(({ id, key, def }) => {
             const seg = document.getElementById(id);
@@ -208,6 +209,27 @@
                 a.click(); URL.revokeObjectURL(url);
                 toast('Export téléchargé ✓');
             } catch (e) { toast('Erreur : ' + e.message); }
+        });
+
+        // Import d'une sauvegarde JSON
+        const importFile = document.getElementById('importFile');
+        document.getElementById('btnImport')?.addEventListener('click', () => {
+            if (!API.isLoggedIn()) { toast('Connecte-toi pour importer'); return; }
+            importFile?.click();
+        });
+        importFile?.addEventListener('change', async () => {
+            const file = importFile.files?.[0];
+            if (!file) return;
+            try {
+                const data = JSON.parse(await file.text());
+                if (!data || (!data.favorites && !data.library && !data.progress)) {
+                    toast('Fichier invalide'); return;
+                }
+                const r = await API.me.importData(data);
+                const c = r.imported || {};
+                toast(`Import : ${c.favorites || 0} favoris, ${c.progress || 0} progressions ✓`, 3500);
+            } catch (e) { toast('Erreur : ' + e.message); }
+            finally { importFile.value = ''; }
         });
 
         document.getElementById('btnClearHistory').addEventListener('click', async () => {

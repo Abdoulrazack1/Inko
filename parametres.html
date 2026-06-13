@@ -114,6 +114,19 @@
           <button data-val="saver">Éco</button>
         </div>
       </div>
+
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Langue de lecture</div>
+          <div class="set-row-desc">Langue préférée des chapitres (quand plusieurs existent)</div>
+        </div>
+        <div class="seg" id="segLang">
+          <button data-val="fr,en">FR + EN</button>
+          <button data-val="fr">FR</button>
+          <button data-val="en">EN</button>
+          <button data-val="fr,en,ja">+ JA</button>
+        </div>
+      </div>
     </div>
 
     <!-- APPARENCE -->
@@ -177,9 +190,17 @@
       <div class="set-row">
         <div>
           <div class="set-row-label">Exporter mes données</div>
-          <div class="set-row-desc">Favoris, progression, notes au format JSON</div>
+          <div class="set-row-desc">Favoris, bibliothèque, progression, notes au format JSON</div>
         </div>
         <button class="btn btn-secondary btn-sm" id="btnExport">Exporter</button>
+      </div>
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Importer une sauvegarde</div>
+          <div class="set-row-desc">Restaure un fichier JSON exporté (fusion, sans écraser)</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnImport">Importer</button>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none">
       </div>
       <div class="set-row">
         <div>

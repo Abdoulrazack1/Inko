@@ -97,6 +97,7 @@ router.put   ('/me/settings',             auth.authRequired, User.setSettings);
 
 // ── Données ─────────────────────────────────────
 router.get   ('/me/export',               auth.authRequired, User.exportData);
+router.post  ('/me/import',               auth.authRequired, User.importData);
 router.post  ('/me/clear-history',        auth.authRequired, User.clearHistory);
 
 router.get   ('/me/events',               auth.authRequired, User.getEvents);

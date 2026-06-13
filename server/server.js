@@ -16,7 +16,7 @@ app.use(cors({
     origin: (origin, cb) => cb(null, true),
     credentials: true,
 }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '12mb' }));   // import de sauvegarde possible
 app.use(cookieParser());
 
 // Logger minimal

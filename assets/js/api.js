@@ -243,6 +243,7 @@
 
             // Données
             exportData:       ()           => get('/me/export'),
+            importData:       (data)       => post('/me/import', data),
             clearHistory:     ()           => post('/me/clear-history'),
         },
 

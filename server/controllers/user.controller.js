@@ -560,16 +560,74 @@ async function setSettings(req, res, next) {
 async function exportData(req, res, next) {
     try {
         const uid = req.user.id;
-        const [favorites]    = await pool.query('SELECT manga_id, added_at FROM favorites WHERE user_id = ?', [uid]);
+        const [favorites]    = await pool.query('SELECT manga_id, source, title, cover, category, last_chapter, added_at FROM favorites WHERE user_id = ?', [uid]);
         const [library]      = await pool.query('SELECT manga_id, status, rating FROM library WHERE user_id = ?', [uid]);
-        const [progress]     = await pool.query('SELECT manga_id, chapter_id, chapter_number, page FROM progress WHERE user_id = ?', [uid]);
+        const [progress]     = await pool.query('SELECT manga_id, chapter_id, chapter_number, page, source FROM progress WHERE user_id = ?', [uid]);
         const [readChapters] = await pool.query('SELECT manga_id, chapter_id, chapter_number FROM read_chapters WHERE user_id = ?', [uid]);
         const [ratings]      = await pool.query('SELECT manga_id, rating, review FROM ratings WHERE user_id = ?', [uid]);
         res.json({
+            inkoVersion: 1,
             exportedAt: new Date().toISOString(),
             user: { username: req.user.username, email: req.user.email },
             favorites, library, progress, readChapters, ratings,
         });
+    } catch (e) { next(e); }
+}
+
+// Restaure une sauvegarde JSON (fusion, sans écraser ce qui n'est pas dans le fichier)
+async function importData(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const d = req.body || {};
+        const counts = { favorites: 0, library: 0, progress: 0, readChapters: 0, ratings: 0 };
+
+        for (const f of (d.favorites || [])) {
+            if (!f.manga_id && !f.mangaId) continue;
+            const mid = f.manga_id || f.mangaId;
+            await pool.query(
+                `INSERT INTO favorites (user_id, manga_id, source, title, cover, category, last_chapter)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE source=COALESCE(VALUES(source),source),
+                   title=COALESCE(VALUES(title),title), cover=COALESCE(VALUES(cover),cover),
+                   category=COALESCE(VALUES(category),category)`,
+                [uid, mid, f.source || null, f.title || null, f.cover || null, f.category || null, f.last_chapter ?? null]
+            ).then(() => counts.favorites++).catch(() => {});
+        }
+        for (const l of (d.library || [])) {
+            const mid = l.manga_id || l.mangaId; if (!mid) continue;
+            await pool.query(
+                `INSERT INTO library (user_id, manga_id, status, rating) VALUES (?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE status=VALUES(status), rating=VALUES(rating)`,
+                [uid, mid, l.status || 'reading', l.rating ?? null]
+            ).then(() => counts.library++).catch(() => {});
+        }
+        for (const p of (d.progress || [])) {
+            const mid = p.manga_id || p.mangaId; if (!mid) continue;
+            await pool.query(
+                `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, source)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE chapter_id=VALUES(chapter_id), chapter_number=VALUES(chapter_number),
+                   page=VALUES(page), source=COALESCE(VALUES(source),source)`,
+                [uid, mid, p.chapter_id || p.chapterId || null, p.chapter_number ?? p.chapter ?? null, p.page || 1, p.source || null]
+            ).then(() => counts.progress++).catch(() => {});
+        }
+        for (const r of (d.readChapters || [])) {
+            const mid = r.manga_id || r.mangaId, cid = r.chapter_id || r.chapterId;
+            if (!mid || !cid) continue;
+            await pool.query(
+                `INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?, ?, ?, ?)`,
+                [uid, mid, cid, r.chapter_number ?? r.chapter ?? null]
+            ).then(() => counts.readChapters++).catch(() => {});
+        }
+        for (const r of (d.ratings || [])) {
+            const mid = r.manga_id || r.mangaId; if (!mid || r.rating == null) continue;
+            await pool.query(
+                `INSERT INTO ratings (user_id, manga_id, rating, review) VALUES (?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE rating=VALUES(rating), review=VALUES(review)`,
+                [uid, mid, r.rating, r.review || null]
+            ).then(() => counts.ratings++).catch(() => {});
+        }
+        res.json({ ok: true, imported: counts });
     } catch (e) { next(e); }
 }
 
@@ -655,6 +713,6 @@ module.exports = {
     getEvents, getStats,
     getMangaRating, setMangaRating, deleteMangaRating, getMyRatings,
     getSettings, setSettings,
-    exportData, clearHistory,
+    exportData, importData, clearHistory,
     checkUpdates,
 };
