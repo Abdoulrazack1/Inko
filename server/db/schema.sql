@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS favorites (
   user_id    INT NOT NULL,
-  manga_id   VARCHAR(64) NOT NULL,
+  manga_id   VARCHAR(191) NOT NULL,
   source     VARCHAR(64) DEFAULT 'mangadex',
   title      VARCHAR(512) DEFAULT NULL,
   cover      VARCHAR(512) DEFAULT NULL,
@@ -66,7 +66,7 @@ PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
 
 CREATE TABLE IF NOT EXISTS library (
   user_id    INT NOT NULL,
-  manga_id   VARCHAR(64) NOT NULL,
+  manga_id   VARCHAR(191) NOT NULL,
   status     ENUM('reading','completed','planned','paused','dropped') NOT NULL DEFAULT 'reading',
   rating     TINYINT      DEFAULT NULL,
   added_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS library (
 -- ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS progress (
   user_id         INT NOT NULL,
-  manga_id        VARCHAR(64) NOT NULL,
-  chapter_id      VARCHAR(64) DEFAULT NULL,
+  manga_id        VARCHAR(191) NOT NULL,
+  chapter_id      VARCHAR(191) DEFAULT NULL,
   chapter_number  FLOAT       DEFAULT NULL,
   page            INT         DEFAULT 1,
   updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -95,8 +95,8 @@ CREATE TABLE IF NOT EXISTS progress (
 -- ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS read_chapters (
   user_id        INT NOT NULL,
-  manga_id       VARCHAR(64) NOT NULL,
-  chapter_id     VARCHAR(64) NOT NULL,
+  manga_id       VARCHAR(191) NOT NULL,
+  chapter_id     VARCHAR(191) NOT NULL,
   chapter_number FLOAT       DEFAULT NULL,
   read_at        TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, chapter_id),
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS lists (
 
 CREATE TABLE IF NOT EXISTS list_items (
   list_id    INT NOT NULL,
-  manga_id   VARCHAR(64) NOT NULL,
+  manga_id   VARCHAR(191) NOT NULL,
   source     VARCHAR(64)  DEFAULT NULL,
   title      VARCHAR(512) DEFAULT NULL,
   cover      VARCHAR(512) DEFAULT NULL,
@@ -153,8 +153,8 @@ PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
 CREATE TABLE IF NOT EXISTS comments (
   id         INT AUTO_INCREMENT PRIMARY KEY,
   user_id    INT NOT NULL,
-  manga_id   VARCHAR(64) NOT NULL,
-  chapter_id VARCHAR(64) DEFAULT NULL,
+  manga_id   VARCHAR(191) NOT NULL,
+  chapter_id VARCHAR(191) DEFAULT NULL,
   text       TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -168,8 +168,8 @@ CREATE TABLE IF NOT EXISTS events (
   id         INT AUTO_INCREMENT PRIMARY KEY,
   user_id    INT NOT NULL,
   type       ENUM('read','favorite','unfavorite','rating','comment','status_change') NOT NULL,
-  manga_id   VARCHAR(64) DEFAULT NULL,
-  chapter_id VARCHAR(64) DEFAULT NULL,
+  manga_id   VARCHAR(191) DEFAULT NULL,
+  chapter_id VARCHAR(191) DEFAULT NULL,
   metadata   JSON DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -209,7 +209,7 @@ CREATE TABLE IF NOT EXISTS spotify_accounts (
 -- ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ratings (
   user_id    INT NOT NULL,
-  manga_id   VARCHAR(64) NOT NULL,
+  manga_id   VARCHAR(191) NOT NULL,
   rating     TINYINT NOT NULL,
   review     TEXT DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -230,3 +230,17 @@ CREATE TABLE IF NOT EXISTS user_settings (
   PRIMARY KEY (user_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- ──────────────────────────────────────────────────────────────
+-- Migration douce : élargit les identifiants d'œuvres/chapitres
+-- (les sources de romans utilisent des slugs/chemins longs).
+-- MODIFY est idempotent : sans effet si déjà en 191.
+-- ──────────────────────────────────────────────────────────────
+ALTER TABLE favorites     MODIFY manga_id VARCHAR(191) NOT NULL;
+ALTER TABLE library       MODIFY manga_id VARCHAR(191) NOT NULL;
+ALTER TABLE progress      MODIFY manga_id VARCHAR(191) NOT NULL, MODIFY chapter_id VARCHAR(191) DEFAULT NULL;
+ALTER TABLE read_chapters MODIFY manga_id VARCHAR(191) NOT NULL, MODIFY chapter_id VARCHAR(191) NOT NULL;
+ALTER TABLE list_items    MODIFY manga_id VARCHAR(191) NOT NULL;
+ALTER TABLE comments      MODIFY manga_id VARCHAR(191) NOT NULL, MODIFY chapter_id VARCHAR(191) DEFAULT NULL;
+ALTER TABLE ratings       MODIFY manga_id VARCHAR(191) NOT NULL;
+ALTER TABLE events        MODIFY manga_id VARCHAR(191) DEFAULT NULL, MODIFY chapter_id VARCHAR(191) DEFAULT NULL;

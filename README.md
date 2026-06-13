@@ -155,11 +155,14 @@ Sources de référence fournies :
 | WeebCentral | EN | Manga | Source par défaut, filtres genres/statut/tri natifs |
 | MangaDex | Multi | Manga | Très grand catalogue, métadonnées riches, tri complet |
 | SushiScan | FR | Manga | Expérimental, scraping HTML |
-| Royal Road | EN | **Roman** | Web novels (LitRPG, fantasy) — lecture en texte |
+| Royal Road | EN | **Roman** | Web novels originaux EN (LitRPG, fantasy) |
+| NovelFull | EN | **Roman** | Light novels **JP / CN / KR** traduits en anglais (xianxia, wuxia, isekai) |
+| Chireads | FR | **Roman** | Novels **chinois** traduits en **français** (fantrad) |
 
 Les sources de type **roman** (`type: 'novel'`) exposent `getText(chapterId)` au
 lieu de `getPages()` : leurs chapitres s'ouvrent dans le lecteur texte
-(`lecture.html`) avec réglages typographiques complets.
+(`lecture.html`) avec réglages typographiques complets. Tu peux ainsi lire des
+œuvres japonaises et chinoises traduites, pas seulement des originaux anglais.
 
 ---
 
