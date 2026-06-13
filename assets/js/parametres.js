@@ -10,8 +10,7 @@
         initSegments();
         renderNsfw();
         bindData();
-        bindSpotify();
-        bindAniList();
+        bindConnections();
         // Charge les settings serveur si connecté (override le local)
         if (API.isLoggedIn()) {
             try {
@@ -229,143 +228,48 @@
         });
     }
 
-    // ── MUSIQUE / SPOTIFY ──
-    async function bindSpotify() {
-        // Bouton "Ouvrir le lecteur" (toujours dispo)
+    // ── COMPTES LIÉS (Spotify + AniList) + Musique ──
+    async function bindConnections() {
+        // Bouton "Ouvrir le lecteur" de musique
         document.getElementById('btnOpenMusic')?.addEventListener('click', () => {
             if (window.MH?.openMusic) MH.openMusic();
             else window.open('player.html', 'inkoMusic', 'width=420,height=640');
         });
 
-        // Retour du callback OAuth (?spotify=linked|denied|error|badstate)
+        // Si cette page est la popup d'auth Spotify → se fermer
         const params = new URLSearchParams(location.search);
         const sp = params.get('spotify');
         if (sp) {
-            // Si cette page est la popup d'auth → notifier l'ouvreur et se fermer
-            if (window.name === 'inkoSpotifyAuth' && window.opener) {
-                window.close();
-                return;
-            }
-            const msgs = {
-                linked:   'Compte Spotify lié ✓',
-                denied:   'Autorisation Spotify refusée.',
-                error:    'Erreur lors du lien Spotify.',
-                badstate: 'Session expirée, réessaie.',
-            };
+            if (window.name === 'inkoSpotifyAuth' && window.opener) { window.close(); return; }
+            const msgs = { linked: 'Compte Spotify lié ✓', denied: 'Autorisation Spotify refusée.',
+                           error: 'Erreur lors du lien Spotify.', badstate: 'Session expirée, réessaie.' };
             toast(msgs[sp] || 'Spotify : ' + sp);
-            history.replaceState({}, '', location.pathname); // nettoie l'URL
+            history.replaceState({}, '', location.pathname);
         }
-
-        renderSpotifyStatus();
-    }
-
-    async function renderSpotifyStatus() {
-        const txt = document.getElementById('spotifyStatusText');
-        const actions = document.getElementById('spotifyActions');
-        if (!txt || !actions) return;
-
-        // Garde le bouton "Ouvrir le lecteur", on ajoute le lien/délier devant
-        const openBtn = document.getElementById('btnOpenMusic');
-        cleanupSpotifyButtons(); // évite les doublons sur re-render
-
-        if (!API.isLoggedIn()) {
-            txt.textContent = 'Connecte-toi à Inko pour lier Spotify.';
-            return;
-        }
-        try {
-            const st = await API.spotify.status();
-            if (!st.configured) {
-                txt.innerHTML = 'Linking non configuré sur le serveur. ' +
-                    '<span style="color:var(--text3)">(clés Spotify manquantes dans .env)</span>';
-                return;
-            }
-            if (st.linked) {
-                txt.innerHTML = 'Lié à <strong>' + MH.esc(st.profile.name || 'Spotify') + '</strong>' +
-                    (st.profile.product === 'premium' ? ' · Premium' : '');
-                const btn = document.createElement('button');
-                btn.className = 'btn-danger';
-                btn.textContent = 'Délier';
-                btn.addEventListener('click', async () => {
-                    try { await API.spotify.disconnect(); toast('Compte Spotify délié'); renderSpotifyStatus(); }
-                    catch (e) { toast('Erreur : ' + e.message); }
-                });
-                actions.insertBefore(btn, openBtn);
-            } else {
-                txt.textContent = 'Aucun compte lié.';
-                const btn = document.createElement('button');
-                btn.className = 'btn btn-sm';
-                btn.style.cssText = 'background:#1db954;color:#fff;display:inline-flex;align-items:center;gap:6px';
-                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/></svg> Connecter Spotify';
-                btn.addEventListener('click', () => {
-                    window.open(API.spotify.loginUrl(), 'inkoSpotifyAuth', 'width=480,height=760');
-                    // Re-vérifie périodiquement
-                    let n = 0;
-                    const iv = setInterval(async () => {
-                        n++;
-                        try { const s = await API.spotify.status(); if (s.linked) { clearInterval(iv); cleanupSpotifyButtons(); renderSpotifyStatus(); } } catch (e) {}
-                        if (n > 90) clearInterval(iv);
-                    }, 2000);
-                });
-                actions.insertBefore(btn, openBtn);
-            }
-        } catch (e) {
-            txt.textContent = 'Statut Spotify indisponible.';
-        }
-    }
-
-    function cleanupSpotifyButtons() {
-        const actions = document.getElementById('spotifyActions');
-        if (!actions) return;
-        // Retire tout sauf le bouton "Ouvrir le lecteur"
-        [...actions.children].forEach(c => { if (c.id !== 'btnOpenMusic') c.remove(); });
-    }
-
-    // ── SUIVI ANILIST ──
-    async function bindAniList() {
-        const params = new URLSearchParams(location.search);
         if (params.get('anilist') === 'linked') {
             toast('Compte AniList lié ✓');
             history.replaceState({}, '', location.pathname);
         }
-        renderAniListStatus();
+
+        // Composant unifié + ligne de synchro AniList contextuelle
+        const el = document.getElementById('settingsConnections');
+        if (el && MH.renderConnections) await MH.renderConnections(el, { onChange: renderAniListSyncRow });
+        renderAniListSyncRow();
     }
 
-    async function renderAniListStatus() {
-        const txt = document.getElementById('anilistStatusText');
-        const actions = document.getElementById('anilistActions');
-        if (!txt || !actions || !window.AniList) return;
-        actions.innerHTML = '';
-
-        const cfg = await AniList.getConfig();
-        if (!cfg.configured) {
-            txt.innerHTML = 'Suivi non configuré sur le serveur. ' +
-                '<span style="color:var(--text3)">(ANILIST_CLIENT_ID manquant dans .env)</span>';
-            return;
-        }
-        if (AniList.isLinked()) {
-            const u = AniList.user();
-            txt.innerHTML = 'Lié à <strong>' + MH.esc(u?.name || 'AniList') + '</strong>';
+    // Bouton "Synchroniser ma bibliothèque" visible uniquement si AniList est lié
+    function renderAniListSyncRow() {
+        const row = document.getElementById('anilistSyncRow');
+        if (!row) return;
+        if (window.AniList && AniList.isLinked()) {
+            row.innerHTML = '';
             const sync = document.createElement('button');
             sync.className = 'btn btn-secondary btn-sm';
-            sync.textContent = 'Synchroniser ma bibliothèque';
+            sync.textContent = '↻ Synchroniser ma bibliothèque vers AniList';
             sync.addEventListener('click', () => syncLibraryToAniList(sync));
-            const unlink = document.createElement('button');
-            unlink.className = 'btn-danger';
-            unlink.textContent = 'Délier';
-            unlink.addEventListener('click', () => { AniList.disconnect(); toast('Compte AniList délié'); renderAniListStatus(); });
-            actions.append(sync, unlink);
+            row.appendChild(sync);
         } else {
-            txt.textContent = 'Aucun compte lié.';
-            const btn = document.createElement('button');
-            btn.className = 'btn btn-sm';
-            btn.style.cssText = 'background:#02a9ff;color:#fff';
-            btn.textContent = 'Connecter AniList';
-            btn.addEventListener('click', async () => {
-                btn.disabled = true;
-                try { await AniList.connect(); toast('Compte AniList lié ✓'); renderAniListStatus(); }
-                catch (e) { toast('Erreur : ' + e.message); btn.disabled = false; }
-            });
-            actions.appendChild(btn);
+            row.innerHTML = '';
         }
     }
 

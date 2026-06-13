@@ -513,6 +513,42 @@ ul, ol { list-style: none; }
   width: 7px; height: 7px; background: var(--orange);
   border-radius: 50%; border: 1.5px solid var(--bg);
 }
+/* ── Comptes connectés (Spotify / AniList) ───────────────── */
+.conn-list { display: flex; flex-direction: column; gap: 10px; }
+.conn-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: 12px;
+}
+.conn-logo {
+  width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg3); border: 1px solid var(--border);
+}
+.conn-body { flex: 1; min-width: 0; }
+.conn-name { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.conn-desc { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
+.conn-desc code { background: var(--bg4); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+.conn-pill {
+  font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 20px; color: var(--text2);
+  background: var(--bg4); border: 1px solid var(--border);
+}
+.conn-pill.ok { color: #22c55e; background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); }
+.conn-pill.muted { color: var(--text3); }
+.conn-action { flex-shrink: 0; }
+.conn-btn-spotify { background: #1db954; color: #fff; }
+.conn-btn-spotify:hover { background: #1ed760; }
+.conn-btn-anilist { background: #02a9ff; color: #fff; }
+.conn-btn-anilist:hover { background: #2bb8ff; }
+.conn-btn-danger { color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
+.conn-btn-danger:hover { background: rgba(239,68,68,.1); }
+@media (max-width: 560px) {
+  .conn-card { flex-wrap: wrap; }
+  .conn-action { width: 100%; }
+  .conn-action .btn { width: 100%; }
+}
+
 /* ╔══════════════════════════════════════════════════════════╗
    ║  RESPONSIVE — global.css                                 ║
    ╚══════════════════════════════════════════════════════════╝ */

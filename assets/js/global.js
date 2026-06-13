@@ -239,6 +239,136 @@
         window.MH.checkUpdates({ silent: false });
     }
 
+    /* ── Comptes connectés (Spotify + AniList) ───────────────
+       Composant unifié, partagé par profil et paramètres. */
+    function ensureAniList() {
+        return new Promise((resolve) => {
+            if (window.AniList) return resolve();
+            const s = document.createElement('script');
+            s.src = '/assets/js/anilist.js'; s.defer = true;
+            s.onload = () => resolve(); s.onerror = () => resolve();
+            document.body.appendChild(s);
+        });
+    }
+
+    const CONN_LOGOS = {
+        spotify: '<svg viewBox="0 0 24 24" fill="#1db954" width="22" height="22"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/></svg>',
+        anilist: '<svg viewBox="0 0 24 24" fill="#02a9ff" width="22" height="22"><path d="M6.361 2.943 0 21.056h4.942l1.077-3.133H11.4l1.052 3.133H22.9c.71 0 1.1-.392 1.1-1.101V17.53c0-.71-.39-1.101-1.1-1.101h-6.483V4.045c0-.71-.392-1.102-1.101-1.102h-2.422c-.71 0-1.101.392-1.101 1.102v1.064l-.758-2.166zm2.324 5.948 1.688 5.018H7.144z"/></svg>',
+    };
+
+    // Rend les cartes de comptes connectés dans `el`. opts.onChange() après lien/délier.
+    window.MH.renderConnections = async function (el, opts = {}) {
+        if (!el) return;
+        await ensureAniList();
+        el.classList.add('conn-list');
+        el.innerHTML = `
+            <div class="conn-card" id="conn-spotify">
+                <div class="conn-logo">${CONN_LOGOS.spotify}</div>
+                <div class="conn-body">
+                    <div class="conn-name">Spotify <span class="conn-pill" id="conn-sp-pill">…</span></div>
+                    <div class="conn-desc" id="conn-sp-desc">Retrouve tes playlists dans le lecteur de musique.</div>
+                </div>
+                <div class="conn-action" id="conn-sp-action"></div>
+            </div>
+            <div class="conn-card" id="conn-anilist">
+                <div class="conn-logo">${CONN_LOGOS.anilist}</div>
+                <div class="conn-body">
+                    <div class="conn-name">AniList <span class="conn-pill" id="conn-al-pill">…</span></div>
+                    <div class="conn-desc" id="conn-al-desc">Synchronise automatiquement ta progression de lecture.</div>
+                </div>
+                <div class="conn-action" id="conn-al-action"></div>
+            </div>`;
+        const changed = () => { try { opts.onChange && opts.onChange(); } catch (e) {} };
+        renderSpotifyConn(el, changed);
+        renderAniListConn(el, changed);
+    };
+
+    function pill(elId, label, kind) {
+        const p = document.getElementById(elId);
+        if (!p) return;
+        p.textContent = label;
+        p.className = 'conn-pill ' + (kind || '');
+    }
+
+    async function renderSpotifyConn(root, changed) {
+        const action = document.getElementById('conn-sp-action');
+        const desc   = document.getElementById('conn-sp-desc');
+        if (!action) return;
+        action.innerHTML = '';
+        if (!window.API?.isLoggedIn()) { pill('conn-sp-pill', 'Connexion requise', 'muted'); return; }
+        let st;
+        try { st = await API.spotify.status(); }
+        catch (e) { pill('conn-sp-pill', 'Indisponible', 'muted'); return; }
+        if (!st.configured) {
+            pill('conn-sp-pill', 'Non configuré', 'muted');
+            desc.innerHTML = 'Clés Spotify manquantes côté serveur. Voir <code>SPOTIFY_SETUP.md</code>.';
+            return;
+        }
+        if (st.linked) {
+            pill('conn-sp-pill', 'Connecté', 'ok');
+            desc.textContent = 'Lié à ' + (st.profile?.name || 'ton compte') + (st.profile?.product === 'premium' ? ' · Premium' : '');
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-ghost btn-sm conn-btn-danger';
+            btn.textContent = 'Délier';
+            btn.onclick = async () => {
+                btn.disabled = true;
+                try { await API.spotify.disconnect(); MH.toast('Spotify délié'); renderSpotifyConn(root, changed); changed(); }
+                catch (e) { btn.disabled = false; MH.toast('Erreur : ' + e.message); }
+            };
+            action.appendChild(btn);
+        } else {
+            pill('conn-sp-pill', 'Non connecté', '');
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-sm conn-btn-spotify';
+            btn.textContent = 'Connecter';
+            btn.onclick = () => {
+                window.open(API.spotify.loginUrl(), 'inkoSpotifyAuth', 'width=480,height=760');
+                btn.disabled = true; btn.textContent = 'En attente…';
+                let n = 0;
+                const iv = setInterval(async () => {
+                    n++;
+                    try { const s = await API.spotify.status(); if (s.linked) { clearInterval(iv); MH.toast('Spotify connecté ✓'); renderSpotifyConn(root, changed); changed(); } } catch (e) {}
+                    if (n > 90) { clearInterval(iv); btn.disabled = false; btn.textContent = 'Connecter'; }
+                }, 2000);
+            };
+            action.appendChild(btn);
+        }
+    }
+
+    async function renderAniListConn(root, changed) {
+        const action = document.getElementById('conn-al-action');
+        const desc   = document.getElementById('conn-al-desc');
+        if (!action || !window.AniList) { pill('conn-al-pill', 'Indisponible', 'muted'); return; }
+        action.innerHTML = '';
+        const cfg = await AniList.getConfig();
+        if (!cfg.configured) {
+            pill('conn-al-pill', 'Non configuré', 'muted');
+            desc.innerHTML = 'Client AniList manquant côté serveur (<code>ANILIST_CLIENT_ID</code>).';
+            return;
+        }
+        if (AniList.isLinked()) {
+            const u = AniList.user();
+            pill('conn-al-pill', 'Connecté', 'ok');
+            desc.textContent = 'Lié à ' + (u?.name || 'ton compte AniList');
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-ghost btn-sm conn-btn-danger';
+            btn.textContent = 'Délier';
+            btn.onclick = () => { AniList.disconnect(); MH.toast('AniList délié'); renderAniListConn(root, changed); changed(); };
+            action.appendChild(btn);
+        } else {
+            pill('conn-al-pill', 'Non connecté', '');
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-sm conn-btn-anilist';
+            btn.textContent = 'Connecter';
+            btn.onclick = async () => {
+                btn.disabled = true; btn.textContent = 'En attente…';
+                try { await AniList.connect(); MH.toast('AniList connecté ✓'); renderAniListConn(root, changed); changed(); }
+                catch (e) { btn.disabled = false; btn.textContent = 'Connecter'; MH.toast('Erreur : ' + e.message); }
+            };
+            action.appendChild(btn);
+        }
+    }
+
     /* ── Header HTML ─────────────────────────────────────── */
     const headerHTML = (activePage) => {
         const u = window.API?.user;

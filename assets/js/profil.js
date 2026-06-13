@@ -310,23 +310,10 @@
         } catch (e) {}
     }
 
-    // ── Comptes connectés (statuts réels) ──
+    // ── Comptes connectés (composant unifié, actions réelles) ──
     async function renderConnections() {
-        const sp = document.getElementById('spotifyConnStatus');
-        if (sp) {
-            try {
-                const st = await API.spotify.status();
-                sp.textContent = st.linked ? 'Connecté' : 'Non connecté';
-                sp.classList.toggle('on', !!st.linked);
-            } catch (e) { sp.textContent = 'Non connecté'; }
-        }
-        const al = document.getElementById('anilistConnStatus');
-        if (al) {
-            let linked = false;
-            try { linked = !!localStorage.getItem('anilist_token'); } catch (e) {}
-            al.textContent = linked ? 'Connecté' : 'Non connecté';
-            al.classList.toggle('on', linked);
-        }
+        const el = document.getElementById('profilConnections');
+        if (el && MH.renderConnections) await MH.renderConnections(el);
     }
 
     // ── Badges (succès calculés sur les vraies stats) ──

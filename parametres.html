@@ -133,36 +133,32 @@
       </div>
     </div>
 
-    <!-- MUSIQUE / SPOTIFY -->
+    <!-- COMPTES LIÉS -->
+    <div class="set-card">
+      <h2>Comptes liés</h2>
+      <div class="sub">Connecte <strong>Spotify</strong> (playlists pendant la lecture) et
+        <strong>AniList</strong> (synchronisation automatique de ta progression, tes statuts
+        et tes notes). Tu peux lier ou délier à tout moment.</div>
+      <div id="settingsConnections" style="margin-top:14px"></div>
+      <div id="anilistSyncRow" style="margin-top:12px"></div>
+    </div>
+
+    <!-- MUSIQUE -->
     <div class="set-card">
       <h2>Musique</h2>
-      <div class="sub">Lie ton compte Spotify pour écouter tes playlists en lisant. Le lecteur
-        s'ouvre dans une fenêtre qui reste active pendant la navigation.</div>
+      <div class="sub">Le lecteur de musique reste actif pendant la navigation (stations,
+        Spotify, YouTube, fichiers locaux).</div>
       <div class="set-row">
         <div>
-          <div class="set-row-label">Compte Spotify</div>
-          <div class="set-row-desc" id="spotifyStatusText">Vérification…</div>
+          <div class="set-row-label">Lecteur intégré</div>
+          <div class="set-row-desc">Ouvre le dock de musique en bas de page.</div>
         </div>
-        <div id="spotifyActions" style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center">
           <button class="btn btn-secondary btn-sm" id="btnOpenMusic" style="display:inline-flex;align-items:center;gap:6px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
             Ouvrir le lecteur
           </button>
         </div>
-      </div>
-    </div>
-
-    <!-- SUIVI ANILIST -->
-    <div class="set-card">
-      <h2>Suivi AniList</h2>
-      <div class="sub">Lie ton compte AniList pour synchroniser automatiquement ta
-        progression, tes statuts et tes notes quand tu lis.</div>
-      <div class="set-row">
-        <div>
-          <div class="set-row-label">Compte AniList</div>
-          <div class="set-row-desc" id="anilistStatusText">Vérification…</div>
-        </div>
-        <div id="anilistActions" style="display:flex;gap:8px;align-items:center"></div>
       </div>
     </div>
 
