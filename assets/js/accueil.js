@@ -299,7 +299,7 @@
                 const isNovel = MH.isNovelSource(e.source);
                 // Pour un roman, "page" = % de défilement ; pour un manga, ~20 pages/chapitre
                 const pct = isNovel ? Math.min(100, e.page || 0) : Math.min(100, Math.round((e.page / 20) * 100));
-                const sub = isNovel ? `Chapitre ${e.chapter} · ${pct}%` : `Chapitre ${e.chapter} · Page ${e.page}`;
+                const sub = isNovel ? `Chapitre ${MH.chapNum(e.chapter)} · ${pct}%` : `Chapitre ${MH.chapNum(e.chapter)} · Page ${e.page}`;
                 return `
                 <div class="resume-item" data-resume="${MH.esc(m.id)}" style="position:relative">
                     <a href="${MH.readerHref(m.id, e.chapterId, e.source)}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">

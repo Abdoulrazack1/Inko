@@ -12,6 +12,9 @@
 
     window.MH = { $, $$, fmt, esc };
 
+    // Numéro de chapitre lisible (gère prologue/null sans afficher "null")
+    window.MH.chapNum = (n) => (n != null && n !== '') ? n : '?';
+
     /* ── Type de source (manga vs novel) ─────────────────────
        Cache du manifest pour router vers le bon lecteur. */
     window.MH._sourceTypes = null;

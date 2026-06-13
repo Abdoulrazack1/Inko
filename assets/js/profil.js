@@ -467,7 +467,7 @@
                     <div class="history-entry-cover"><img src="${m.coverThumb || m.cover || ''}" alt=""></div>
                     <div class="history-entry-info">
                         <div class="history-entry-title">${MH.esc(m.title)}</div>
-                        <div class="history-entry-chap">Chapitre ${p.chapter}</div>
+                        <div class="history-entry-chap">Chapitre ${MH.chapNum(p.chapter)}</div>
                         <div class="history-entry-time">${relativeTime(p.updatedAt)}</div>
                     </div>
                     <a href="${MH.readerHref(m.id, p.chapterId, p.source)}" class="history-entry-status link-orange" style="text-decoration:none">▶</a>
@@ -482,7 +482,7 @@
                     const pct = pctOf(items[0]);
                     lastCard.querySelector('.last-read-cover img').src = m.coverThumb || m.cover || '';
                     lastCard.querySelector('.last-read-title').textContent = m.title;
-                    lastCard.querySelector('.last-read-chap').textContent = `Chapitre ${items[0].chapter}`;
+                    lastCard.querySelector('.last-read-chap').textContent = `Chapitre ${MH.chapNum(items[0].chapter)}`;
                     lastCard.querySelector('.last-read-fill').style.width = pct + '%';
                     lastCard.querySelector('.last-read-progress span').textContent = pct + '%';
                     const a = lastCard.querySelector('a.btn-primary');

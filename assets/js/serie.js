@@ -100,6 +100,9 @@
         if (!el) return;
         const statusLabel = { ongoing:'En cours', completed:'Terminé', hiatus:'En pause', cancelled:'Annulé' }[manga.status] || manga.status;
         const resumeChap = progress?.chapterId;
+        // Libellé du bouton Reprendre : numéro de chapitre si connu, sinon générique
+        const resumeLabel = (progress?.chapter != null && progress.chapter !== '')
+            ? `↻ Reprendre Ch.${progress.chapter}` : '↻ Reprendre la lecture';
 
         el.innerHTML = `
         <div class="serie-hero-inner">
@@ -129,7 +132,7 @@
                 <p class="serie-desc-short">${MH.esc((manga.description || '').slice(0, 400))}${manga.description?.length > 400 ? '…' : ''}</p>
                 <div class="serie-actions">
                     <button class="btn btn-primary" id="btnReadStart">▶ Lire depuis le début</button>
-                    ${resumeChap ? `<button class="btn btn-secondary" id="btnResume">↻ Reprendre Ch.${progress.chapter}</button>` : ''}
+                    ${resumeChap ? `<button class="btn btn-secondary" id="btnResume">${resumeLabel}</button>` : ''}
                     <button class="btn btn-ghost ${favorited ? 'is-fav' : ''}" id="btnFavorite">
                         ${favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste'}
                     </button>
