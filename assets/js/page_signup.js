@@ -1,10 +1,10 @@
-// page_signup.js — Inscription via API
+﻿// page_signup.js â€” Inscription via API
 (function () {
     'use strict';
-    const toast = (msg) => window.MH?.toast(msg) || alert(msg);
+    const toast = (msg) => { if (window.MH?.toast) MH.toast(msg); else alert(msg); };
 
     if (window.API?.isLoggedIn?.()) {
-        toast('Vous êtes déjà connecté.');
+        toast('Vous Ãªtes dÃ©jÃ  connectÃ©.');
         setTimeout(() => { window.location.href = 'accueil.html'; }, 600);
     }
 
@@ -70,6 +70,6 @@
     }
 
     document.querySelectorAll('.social-btn').forEach(b => {
-        b.addEventListener('click', (e) => { e.preventDefault(); toast('Inscription SSO bientôt disponible'); });
+        b.addEventListener('click', (e) => { e.preventDefault(); toast('Inscription SSO bientÃ´t disponible'); });
     });
 })();

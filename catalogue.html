@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inko — Catalogue</title>
   <link rel="manifest" href="./manifest.webmanifest">
@@ -23,11 +24,6 @@
       </div>
 
       <div class="filter-section">
-        <div class="filter-label">Type</div>
-        <div class="filter-tags" id="filterTypes"></div>
-      </div>
-
-      <div class="filter-section">
         <div class="filter-label">Genres</div>
         <div class="filter-tags" id="filterGenres"></div>
       </div>
@@ -38,29 +34,13 @@
       </div>
 
       <div class="filter-section">
-        <div class="filter-label">Note minimale</div>
-        <div class="filter-rating">
-          <input type="range" id="ratingSlider" min="0" max="5" step="0.5" value="0">
-          <div class="rating-vals">
-            <span id="ratingDisplay">0</span><span id="ratingMax">5.0</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="filter-section">
         <div class="filter-label">Démographie</div>
         <div class="filter-checkboxes" id="filterDemo"></div>
       </div>
 
       <div class="filter-section">
-        <div class="filter-label">Langue</div>
-        <div class="filter-langs" id="filterLangs"></div>
-      </div>
-
-      <div class="filter-section">
-        <div class="filter-label">Sorties de la semaine</div>
+        <div class="filter-label">Dernières sorties</div>
         <div id="weekCalendar"></div>
-        <a href="#" class="calendar-full-link">Voir le calendrier complet</a>
       </div>
     </aside>
 
@@ -78,7 +58,6 @@
             <button class="btn btn-primary btn-sm" id="btnRandom">
               Lecture aléatoire
             </button>
-            <button class="btn btn-secondary btn-sm">≡ Filtres avancés</button>
             <span class="catalogue-active-filters" id="activeFiltersCount"></span>
           </div>
         </div>
@@ -88,7 +67,7 @@
       <!-- Team picks -->
       <div class="team-picks-section">
         <div class="section-header">
-          <div class="section-title">Sélection de l'équipe</div>
+          <div class="section-title">Les incontournables</div>
         </div>
         <div class="team-picks-grid" id="teamPicksGrid"></div>
       </div>
@@ -102,10 +81,11 @@
             <button class="view-btn" data-view="list" title="Liste">☰</button>
           </div>
           <select class="sort-select" id="sortSelect">
-            <option value="popularity">↕ Popularité</option>
+            <option value="popularity">Popularité</option>
+            <option value="latest">Mis à jour</option>
+            <option value="added">Nouveautés</option>
             <option value="rating">Note</option>
-            <option value="chapters">Chapitres</option>
-            <option value="latest">Récent</option>
+            <option value="alpha">A → Z</option>
           </select>
         </div>
       </div>
@@ -129,7 +109,6 @@
       <div class="catalogue-reviews">
         <div class="section-header">
           <div class="section-title">Derniers avis de la communauté</div>
-          <a href="#" class="section-link">Voir tout →</a>
         </div>
         <div class="reviews-grid" id="reviewsGrid"></div>
       </div>

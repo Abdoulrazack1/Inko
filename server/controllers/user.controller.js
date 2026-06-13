@@ -356,6 +356,33 @@ async function getComments(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// Derniers commentaires toutes séries confondues (vitrine catalogue)
+async function getRecentComments(req, res, next) {
+    try {
+        const limit = Math.min(parseInt(req.query.limit || '6', 10), 20);
+        const [rows] = await pool.query(
+            `SELECT c.id, c.text, c.manga_id, c.created_at,
+                    u.username, u.avatar,
+                    rt.rating,
+                    (SELECT f.title  FROM favorites f WHERE f.manga_id = c.manga_id AND f.title IS NOT NULL LIMIT 1) AS manga_title,
+                    (SELECT f.source FROM favorites f WHERE f.manga_id = c.manga_id AND f.source IS NOT NULL LIMIT 1) AS manga_source
+             FROM comments c
+             JOIN users u ON u.id = c.user_id
+             LEFT JOIN ratings rt ON rt.user_id = c.user_id AND rt.manga_id = c.manga_id
+             ORDER BY c.created_at DESC
+             LIMIT ?`,
+            [limit]
+        );
+        res.json(rows.map(r => ({
+            id: r.id, text: r.text, mangaId: r.manga_id,
+            mangaTitle: r.manga_title || null, mangaSource: r.manga_source || null,
+            rating: r.rating || null,
+            user: r.username, avatar: r.avatar || r.username[0].toUpperCase(),
+            createdAt: r.created_at,
+        })));
+    } catch (e) { next(e); }
+}
+
 async function addComment(req, res, next) {
     try {
         const { text, chapterId } = req.body;
@@ -621,7 +648,7 @@ module.exports = {
     getAllProgress, setProgress, deleteProgress,
     getReadChapters, markChapter, markChaptersBulk,
     getLists, createList, updateList, deleteList, addToList, removeFromList,
-    getComments, addComment,
+    getComments, addComment, getRecentComments,
     getEvents, getStats,
     getMangaRating, setMangaRating, deleteMangaRating, getMyRatings,
     getSettings, setSettings,

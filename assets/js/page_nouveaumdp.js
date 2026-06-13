@@ -1,7 +1,7 @@
-// page_nouveaumdp.js — Reset password via API
+﻿// page_nouveaumdp.js â€” Reset password via API
 (function () {
     'use strict';
-    const toast = (msg) => window.MH?.toast(msg) || alert(msg);
+    const toast = (msg) => { if (window.MH?.toast) MH.toast(msg); else alert(msg); };
     const params = new URLSearchParams(location.search);
     const email  = params.get('email') || '';
     const token  = params.get('token') || '';
@@ -45,19 +45,19 @@
             e.preventDefault();
             const pwd = newPwd.value, cfm = confirmPwd.value;
             if (!pwd || !cfm) { toast('Veuillez remplir tous les champs.'); return; }
-            if (pwd.length < 6) { toast('Mot de passe trop court (6 caractères min).'); newPwd.style.borderColor = '#ef4444'; return; }
+            if (pwd.length < 6) { toast('Mot de passe trop court (6 caractÃ¨res min).'); newPwd.style.borderColor = '#ef4444'; return; }
             if (pwd !== cfm)    { toast('Les mots de passe ne correspondent pas.'); confirmPwd.style.borderColor = '#ef4444'; return; }
             if (!email || !token) {
-                toast('Lien invalide — recommencez la procédure.');
+                toast('Lien invalide â€” recommencez la procÃ©dure.');
                 setTimeout(() => { window.location.href = 'page_mdpoublie.html'; }, 1000);
                 return;
             }
             try {
                 await API.auth.resetPassword({ email, token, newPassword: pwd });
-                toast('Mot de passe réinitialisé ! ');
+                toast('Mot de passe rÃ©initialisÃ© ! ');
                 setTimeout(() => { window.location.href = 'page_login.html'; }, 800);
             } catch(err) {
-                toast(err.message || 'Erreur lors de la réinitialisation');
+                toast(err.message || 'Erreur lors de la rÃ©initialisation');
             }
         });
     }

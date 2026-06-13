@@ -200,8 +200,9 @@
         },
 
         comments: {
-            list:  (mangaId)         => get('/comments/' + encodeURIComponent(mangaId)),
-            add:   (mangaId, payload)=> post('/comments/' + encodeURIComponent(mangaId), payload),
+            list:   (mangaId)         => get('/comments/' + encodeURIComponent(mangaId)),
+            add:    (mangaId, payload)=> post('/comments/' + encodeURIComponent(mangaId), payload),
+            recent: (limit = 6)       => get('/comments-recent?limit=' + limit),
         },
 
         ratings: {

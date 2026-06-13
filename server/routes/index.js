@@ -75,6 +75,7 @@ router.delete('/me/lists/:id',            auth.authRequired, User.deleteList);
 router.post  ('/me/lists/:id/items',                auth.authRequired, User.addToList);
 router.delete('/me/lists/:id/items/:mangaId',       auth.authRequired, User.removeFromList);
 
+router.get   ('/comments-recent',                   User.getRecentComments);
 router.get   ('/comments/:mangaId',                 User.getComments);
 router.post  ('/comments/:mangaId',       auth.authRequired, User.addComment);
 

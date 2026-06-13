@@ -1,7 +1,7 @@
-// page_mdpoublie.js — Demande de reset via API
+﻿// page_mdpoublie.js â€” Demande de reset via API
 (function () {
     'use strict';
-    const toast = (msg) => window.MH?.toast(msg) || alert(msg);
+    const toast = (msg) => { if (window.MH?.toast) MH.toast(msg); else alert(msg); };
     const form  = document.getElementById('forgotForm');
     if (!form) return;
 
@@ -15,9 +15,9 @@
         }
         try {
             const r = await API.auth.requestReset(email);
-            toast(`Lien de réinitialisation envoyé`);
+            toast(`Lien de rÃ©initialisation envoyÃ©`);
             emailInput.style.borderColor = '';
-            // Mode mock : on a le token immédiatement
+            // Mode mock : on a le token immÃ©diatement
             if (r.token) {
                 setTimeout(() => {
                     window.location.href = `page_nouveaumdp.html?email=${encodeURIComponent(email)}&token=${r.token}`;

@@ -162,7 +162,7 @@ async function deleteAccount(req, res, next) {
         if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
         // Le compte démo ne peut pas être supprimé
-        if (user.email === 'demo@mangahub.app')
+        if (user.email === 'demo@inko.app' || user.email === 'demo@mangahub.app')
             return res.status(403).json({ error: 'Le compte démo ne peut pas être supprimé' });
 
         if (!password) return res.status(400).json({ error: 'Mot de passe requis pour confirmer' });

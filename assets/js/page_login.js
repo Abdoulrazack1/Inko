@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    const toast = (msg) => window.MH?.toast(msg) || alert(msg);
+    const toast = (msg) => { if (window.MH?.toast) MH.toast(msg); else alert(msg); };
 
     if (window.API?.isLoggedIn?.()) {
         toast('Déjà connecté !');
@@ -66,7 +66,7 @@
         demoHint.style.cssText = 'width:100%;margin-top:10px;font-size:11.5px;opacity:.7';
         demoHint.textContent = 'Tester avec le compte démo';
         demoHint.addEventListener('click', () => {
-            form.querySelector('input[type="email"]').value = 'demo@mangahub.app';
+            form.querySelector('input[type="email"]').value = 'demo@inko.app';
             pwdInput.value = 'demo1234';
             toast('Compte démo pré-rempli');
         });
