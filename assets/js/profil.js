@@ -427,11 +427,12 @@
                 </div><div class="fav-add" onclick="window.location.href='catalogue.html'">+</div>`;
                 return;
             }
-            const mangas = await loadMangas(favs.slice(0, 6).map(f => f.mangaId));
-            el.innerHTML = mangas.map(m => `
-                <a href="serie.html?id=${encodeURIComponent(m.id)}" class="fav-item">
-                    <img src="${m.coverThumb || m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy">
-                    <div class="fav-item-title">${MH.esc(m.title)}</div>
+            // Les favoris stockent titre/cover/source : on les affiche directement
+            // (correct pour une bibliothèque multi-sources, et plus rapide)
+            el.innerHTML = favs.slice(0, 6).map(f => `
+                <a href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}" class="fav-item">
+                    <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
+                    <div class="fav-item-title">${MH.esc(f.title || f.mangaId)}</div>
                 </a>
             `).join('') + `<div class="fav-add" onclick="window.location.href='catalogue.html'">+</div>`;
         } catch(e) {
@@ -512,11 +513,20 @@
                 return;
             }
 
-            const mangas = await loadMangas(entries.map(e => e.mangaId));
-            const progress = await API.me.progress();
+            // Métadonnées depuis les favoris (titre/cover/source stockés) — correct
+            // en multi-sources ; fallback fetch source courante pour le reste.
+            const [favs, progress] = await Promise.all([API.me.favorites(), API.me.progress()]);
+            const favMap = new Map((favs || []).map(f => [String(f.mangaId), f]));
+            const toFetch = entries.filter(e => !favMap.has(String(e.mangaId)));
+            const fetched = await Promise.allSettled(toFetch.map(e => API.mangas.get(e.mangaId)));
+            const fetchedMap = new Map();
+            toFetch.forEach((e, i) => { if (fetched[i].status === 'fulfilled') fetchedMap.set(String(e.mangaId), fetched[i].value); });
 
-            el.innerHTML = entries.map((e, i) => {
-                const m = mangas[i];
+            el.innerHTML = entries.map((e) => {
+                const fav = favMap.get(String(e.mangaId));
+                const m = fav
+                    ? { id: e.mangaId, title: fav.title || e.mangaId, cover: fav.cover, source: fav.source, tags: [] }
+                    : fetchedMap.get(String(e.mangaId));
                 if (!m) return '';
                 const p = progress[m.id];
                 const chapRead = p?.chapter || 0;
@@ -525,9 +535,9 @@
                 const colors = { reading:'#22c55e', completed:'#9ca3af', planned:'#3b82f6', paused:'#f59e0b', dropped:'#ef4444' };
                 return `
                 <div class="lib-manga-card">
-                    <a href="serie.html?id=${encodeURIComponent(m.id)}">
+                    <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(m.source || '')}">
                         <div class="manga-card-cover" style="aspect-ratio:3/4;border-radius:var(--radius);overflow:hidden;position:relative">
-                            <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" style="width:100%;height:100%;object-fit:cover">
+                            <img src="${m.cover || MH.placeholderCover(m.id)}" alt="${MH.esc(m.title)}" style="width:100%;height:100%;object-fit:cover" onerror="this.src='${MH.placeholderCover(m.id)}'">
                         </div>
                         <div class="lib-manga-progress-label" style="margin-top:6px">
                             <span style="font-size:12.5px;font-weight:500;color:var(--text)">${MH.esc(m.title)}</span>
