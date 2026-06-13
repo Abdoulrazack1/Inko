@@ -413,34 +413,79 @@
                 </a>`).join('');
         }
 
-        // Genres populaires
+        // Genres populaires (lien vers le filtre par tag du catalogue)
         const genreEl = document.getElementById('genreCloud');
         if (genreEl) {
             const popular = ['Action','Adventure','Drama','Fantasy','Romance','Comedy','Slice of Life','Horror','Mystery','Sci-Fi'];
             genreEl.innerHTML = popular.map(g =>
-                `<a href="catalogue.html?q=${encodeURIComponent(g)}" class="tag">${g}</a>`
+                `<a href="catalogue.html?tag=${encodeURIComponent(g)}" class="tag">${g}</a>`
             ).join('');
         }
 
-        // Poll
-        const pollEl = document.getElementById('pollBlock');
-        if (pollEl) {
-            pollEl.innerHTML = `
-                <div class="sidebar-block-header">
-                    <span class="sidebar-block-title">Sondage de la semaine</span>
-                </div>
-                <div class="poll-question">Quel genre préférez-vous lire ce mois-ci ?</div>
-                ${[
-                    ['Shōnen action', 45],
-                    ['Seinen psychologique', 30],
-                    ['Romance', 15],
-                    ['Slice of life', 10],
-                ].map(([l, p]) => `
-                    <div class="poll-option">
-                        <div class="poll-option-label"><span>${l}</span><span>${p}%</span></div>
-                        <div class="poll-bar-wrap"><div class="poll-bar" style="width:${p}%"></div></div>
-                    </div>`).join('')}`;
+        renderStatsMini();
+        renderRecentComments();
+        wireInstallButton();
+    }
+
+    // Bouton "Installer l'application" : visible seulement si la PWA est installable
+    function wireInstallButton() {
+        const btn = document.getElementById('btnInstallApp');
+        if (!btn) return;
+        const show = () => { if (window.MH?.canInstall?.()) { btn.style.display = ''; } };
+        show();
+        window.addEventListener('pwa:installable', show);
+        if (!btn.dataset.bound) {
+            btn.dataset.bound = '1';
+            btn.addEventListener('click', () => window.MH.pwaInstall());
         }
+    }
+
+    // Bloc stats réel (remplace l'ancien faux sondage)
+    async function renderStatsMini() {
+        const el = document.getElementById('pollBlock');
+        if (!el) return;
+        if (!API.isLoggedIn()) {
+            el.innerHTML = `<div class="sidebar-block-header"><span class="sidebar-block-title">Ta progression</span></div>
+                <div style="font-size:12.5px;color:var(--text3);padding:4px 0 2px">
+                    <a href="page_login.html" class="link-orange">Connecte-toi</a> pour suivre ta lecture.</div>`;
+            return;
+        }
+        try {
+            const stats = await API.me.stats();
+            const t = stats.totals || {};
+            const streak = stats.streak?.current || 0;
+            const item = (num, label) => `<div class="stat-mini2"><div class="stat-mini2-num">${MH.fmt(num || 0)}</div><div class="stat-mini2-label">${label}</div></div>`;
+            el.innerHTML = `
+                <div class="sidebar-block-header"><span class="sidebar-block-title">Ta progression</span>
+                    <a href="stats.html" class="section-link" style="font-size:11px">Détails →</a></div>
+                <div class="stats-mini-grid">
+                    ${item(t.chapters_read, 'Chapitres')}
+                    ${item(t.series_read, 'Séries')}
+                    ${item(streak, 'Jours d\'affilée')}
+                    ${item(t.favorites, 'Favoris')}
+                </div>`;
+        } catch (e) { el.innerHTML = ''; }
+    }
+
+    // Commentaires récents de la communauté (réels)
+    async function renderRecentComments() {
+        const el = document.getElementById('recentComments');
+        if (!el) return;
+        try {
+            const list = await API.comments.recent(4);
+            if (!list || !list.length) {
+                el.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:4px 0">Aucun commentaire pour l'instant.</div>`;
+                return;
+            }
+            el.innerHTML = list.map(c => `
+                <a class="recent-comment" href="serie.html?id=${encodeURIComponent(c.mangaId)}${c.mangaSource ? '&source=' + encodeURIComponent(c.mangaSource) : ''}">
+                    <span class="recent-comment-avatar">${MH.esc((c.avatar || c.user || '?').slice(0,1).toUpperCase())}</span>
+                    <span class="recent-comment-body">
+                        <span class="recent-comment-user">${MH.esc(c.user)}${c.mangaTitle ? ' · <span style="color:var(--text3)">' + MH.esc(c.mangaTitle) + '</span>' : ''}</span>
+                        <span class="recent-comment-text">${MH.esc(c.text.length > 80 ? c.text.slice(0,80) + '…' : c.text)}</span>
+                    </span>
+                </a>`).join('');
+        } catch (e) { el.innerHTML = ''; }
     }
 
     // ── Card HTML ──

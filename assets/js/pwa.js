@@ -14,9 +14,19 @@
 
     // ── Prompt d'installation ──
     let deferredPrompt;
+    // Exposé pour les boutons "Installer" dans l'UI (ex. sidebar accueil)
+    window.MH = window.MH || {};
+    window.MH.canInstall = () => !!deferredPrompt;
+    window.MH.pwaInstall = async () => {
+        if (!deferredPrompt) { window.MH.toast?.('Installation non disponible (déjà installée ou navigateur non compatible)'); return; }
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+    };
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
+        try { window.dispatchEvent(new CustomEvent('pwa:installable')); } catch (e) {}
         // Affiche un toast incitatif (1 seule fois)
         try {
             if (localStorage.getItem('mh_install_dismissed')) return;

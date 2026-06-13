@@ -1,5 +1,23 @@
 /* ── index.css ─────────────────────────────────────────────── */
 
+/* Sidebar : stats mini (remplace l'ancien sondage) */
+.stats-mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.stat-mini2 { background: var(--bg3); border: 1px solid var(--border); border-radius: 9px; padding: 10px; text-align: center; }
+.stat-mini2-num { font-family: var(--font-head); font-size: 19px; font-weight: 800; color: var(--orange); }
+.stat-mini2-label { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
+
+/* Sidebar : commentaires récents */
+.recent-comment { display: flex; gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--border); text-decoration: none; }
+.recent-comment:last-child { border-bottom: none; }
+.recent-comment-avatar {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--bg4); color: var(--orange); font-weight: 700; font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+}
+.recent-comment-body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.recent-comment-user { font-size: 11.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recent-comment-text { font-size: 11.5px; color: var(--text2); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
 /* ══ HERO — carrousel des dernières sorties ════════════════════ */
 .hero {
   position: relative; height: 520px;
