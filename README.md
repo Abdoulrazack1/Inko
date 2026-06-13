@@ -60,7 +60,9 @@ tu peux étendre toi-même.
 ## Fonctionnalités
 
 **Lecteur**
-- Trois modes : page, double page et webtoon (défilement vertical)
+- Trois modes : page, double page et webtoon (défilement vertical), mémorisés par série
+- Transition de fin de chapitre avec enchaînement en un clic, scrubber de pages
+- Lecteur de **light novels** dédié (taille, interligne, largeur, police, thèmes)
 - Panneau de réglages : fond (sombre / noir / gris / sépia / clair), ajustement
   (original / largeur / hauteur), sens RTL ou LTR, luminosité, écart entre pages
 - Reprise exacte à la page où tu t'es arrêté, préchargement du chapitre suivant
@@ -148,11 +150,16 @@ dans la page Sources de l'application.
 
 Sources de référence fournies :
 
-| Source | Langue | Notes |
-|---|---|---|
-| WeebCentral | EN | Source par défaut, héberge les pages des titres populaires |
-| MangaDex | Multi | Très grand catalogue et métadonnées riches |
-| SushiScan | FR | Expérimental, scraping HTML |
+| Source | Langue | Type | Notes |
+|---|---|---|---|
+| WeebCentral | EN | Manga | Source par défaut, filtres genres/statut/tri natifs |
+| MangaDex | Multi | Manga | Très grand catalogue, métadonnées riches, tri complet |
+| SushiScan | FR | Manga | Expérimental, scraping HTML |
+| Royal Road | EN | **Roman** | Web novels (LitRPG, fantasy) — lecture en texte |
+
+Les sources de type **roman** (`type: 'novel'`) exposent `getText(chapterId)` au
+lieu de `getPages()` : leurs chapitres s'ouvrent dans le lecteur texte
+(`lecture.html`) avec réglages typographiques complets.
 
 ---
 
