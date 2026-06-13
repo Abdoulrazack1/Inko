@@ -22,6 +22,11 @@
             renderHistoryTimeline(),
             renderHeatmap(),
             renderListsPanel(),
+            renderMyReviews(),
+            renderBadges(),
+            renderGenres(),
+            renderLastReview(),
+            renderConnections(),
         ]);
         initToggles();
         initPrefBtns();
@@ -80,40 +85,290 @@
     }
 
     // ── Hero + Stats ──
-    async function renderHeroAndStats() {
+    function renderHeroIdentity() {
         const u = API.user;
-        if (u) {
-            const avatarEl = document.querySelector('.profil-avatar');
-            const nameEl   = document.querySelector('.profil-name');
-            const handleEl = document.querySelector('.profil-handle');
-            const sinceEl  = document.querySelector('.profil-since');
-            if (avatarEl) avatarEl.textContent = (u.username[0] || '?').toUpperCase();
-            if (nameEl)   nameEl.textContent   = u.username;
-            if (handleEl) handleEl.textContent = '@' + u.username.toLowerCase().replace(/\s+/g, '_');
-            if (sinceEl)  sinceEl.textContent  = u.createdAt
-                ? 'Membre depuis ' + new Date(u.createdAt).toLocaleDateString('fr-FR', { month:'short', year:'numeric' })
-                : '';
-        }
+        if (!u) return;
+        const avatarEl = document.querySelector('.profil-avatar');
+        const nameEl   = document.querySelector('.profil-name');
+        const handleEl = document.querySelector('.profil-handle');
+        const sinceEl  = document.querySelector('.profil-since');
+        if (avatarEl) avatarEl.textContent = (u.avatar || u.username[0] || '?').toUpperCase().slice(0, 2);
+        if (nameEl)   nameEl.textContent   = u.username;
+        if (handleEl) handleEl.textContent = '@' + u.username.toLowerCase().replace(/\s+/g, '_');
+        if (sinceEl)  sinceEl.textContent  = u.createdAt
+            ? 'Membre depuis ' + new Date(u.createdAt).toLocaleDateString('fr-FR', { month:'short', year:'numeric' })
+            : '';
+    }
+
+    async function renderHeroAndStats() {
+        renderHeroIdentity();
         try {
             const stats = await API.me.stats();
             const t = stats.totals || {};
+            const heat = stats.heatmap || {};
             const statsEls = document.querySelectorAll('.profil-stat .profil-stat-num');
             if (statsEls[0]) statsEls[0].textContent = MH.fmt(t.chapters_read || 0);
             if (statsEls[1]) statsEls[1].textContent = MH.fmt(t.library || 0);
             if (statsEls[2]) statsEls[2].textContent = MH.fmt(t.favorites || 0);
 
+            // Niveau : progression douce basée sur les chapitres réellement lus
+            const lvl = 1 + Math.floor(Math.sqrt(t.chapters_read || 0));
+            const lvlEl = document.getElementById('profilLevel');
+            if (lvlEl) lvlEl.textContent = 'NIVEAU ' + lvl;
+
             const statCards = document.querySelectorAll('.stat-mini-card');
             if (statCards[0]) statCards[0].querySelector('.stat-mini-num').textContent = t.chapters_this_month || 0;
+            // Temps de lecture estimé (~8 min / chapitre)
+            if (statCards[1]) {
+                const mins = (t.chapters_read || 0) * 8;
+                const txt = mins < 60 ? mins + ' min'
+                    : mins < 60 * 48 ? Math.round(mins / 60) + ' h'
+                    : Math.round(mins / 60 / 24) + ' j';
+                statCards[1].querySelector('.stat-mini-num').textContent = txt;
+            }
             if (statCards[2]) statCards[2].querySelector('.stat-mini-num').textContent = t.favorites || 0;
-            if (statCards[3]) statCards[3].querySelector('.stat-mini-num').textContent = Object.keys(stats.heatmap || {}).length;
+            if (statCards[3]) statCards[3].querySelector('.stat-mini-num').textContent = Object.keys(heat).length;
+
+            // Tendance réelle : ce mois vs mois précédent (heatmap)
+            const badge = document.getElementById('statTrendBadge');
+            if (badge) {
+                const now = new Date();
+                const ym  = (d) => d.toISOString().slice(0, 7);
+                const cur = ym(now);
+                const prevD = new Date(now.getFullYear(), now.getMonth() - 1, 15);
+                const prev = ym(prevD);
+                let nCur = 0, nPrev = 0;
+                Object.entries(heat).forEach(([day, n]) => {
+                    if (day.startsWith(cur)) nCur += n;
+                    else if (day.startsWith(prev)) nPrev += n;
+                });
+                if (nPrev > 0) {
+                    const pct = Math.round(((nCur - nPrev) / nPrev) * 100);
+                    badge.textContent = (pct >= 0 ? '+' : '') + pct + '%';
+                    badge.className = 'stat-mini-badge ' + (pct >= 0 ? 'green' : 'blue');
+                    badge.style.display = '';
+                }
+            }
+
+            renderWeeklyGoal(heat);
         } catch(e) {}
 
         // Bouton éditer profil
         const editBtn = document.querySelector('.profil-actions .btn-ghost');
         if (editBtn && !editBtn.dataset.bound) {
             editBtn.dataset.bound = '1';
-            editBtn.addEventListener('click', () => MH.toast('Édition du profil bientôt disponible'));
+            editBtn.addEventListener('click', openEditProfile);
         }
+    }
+
+    // ── Objectif hebdo (réel : heatmap des 7 derniers jours) ──
+    function renderWeeklyGoal(heat) {
+        const goal = Math.max(1, +(window.Storage?.getPref('weeklyGoal') || 15));
+        let read = 0;
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            read += heat[d.toISOString().slice(0, 10)] || 0;
+        }
+        const ring = document.getElementById('goalRingFill');
+        const num  = document.getElementById('goalNum');
+        const lab  = document.getElementById('goalLabel');
+        const sub  = document.getElementById('goalSub');
+        const ratio = Math.min(1, read / goal);
+        if (ring) ring.style.strokeDashoffset = String(201 * (1 - ratio));
+        if (num)  num.textContent = `${read}/${goal}`;
+        if (lab) {
+            lab.textContent = ratio >= 1 ? 'Objectif atteint !' : ratio >= 0.6 ? 'Excellent rythme !' : ratio > 0 ? 'En bonne voie' : 'C\'est parti ?';
+            lab.style.color = ratio >= 1 ? 'var(--green)' : 'var(--text2)';
+        }
+        if (sub) sub.textContent = ratio >= 1 ? 'Bien joué cette semaine' : `Plus que ${goal - read} chapitre(s)`;
+
+        const edit = document.getElementById('goalEdit');
+        if (edit && !edit.dataset.bound) {
+            edit.dataset.bound = '1';
+            edit.addEventListener('click', () => {
+                const v = prompt('Objectif de chapitres par semaine :', String(goal));
+                if (v === null) return;
+                const n = parseInt(v, 10);
+                if (!n || n < 1) { MH.toast('Valeur invalide'); return; }
+                window.Storage?.setPref('weeklyGoal', n);
+                renderWeeklyGoal(heat);
+                MH.toast('Objectif mis à jour : ' + n + ' chapitres/semaine');
+            });
+        }
+    }
+
+    // ── Édition du profil (nom + avatar) ──
+    function openEditProfile() {
+        const u = API.user || {};
+        const ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center';
+        ov.innerHTML = `
+            <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:24px;width:min(380px,calc(100% - 40px))">
+                <div style="font-weight:700;font-size:15px;margin-bottom:16px">Éditer le profil</div>
+                <label style="font-size:11.5px;color:var(--text2)">Nom d'utilisateur</label>
+                <input id="epName" class="list-modal-input" style="width:100%;margin:6px 0 14px" value="${MH.esc(u.username || '')}" maxlength="50">
+                <label style="font-size:11.5px;color:var(--text2)">Avatar (1–2 caractères, lettre ou emoji)</label>
+                <input id="epAvatar" class="list-modal-input" style="width:100%;margin:6px 0 18px" value="${MH.esc(u.avatar || (u.username || '?')[0].toUpperCase())}" maxlength="2">
+                <div style="display:flex;gap:8px;justify-content:flex-end">
+                    <button class="btn btn-ghost btn-sm" id="epCancel">Annuler</button>
+                    <button class="btn btn-primary btn-sm" id="epSave">Enregistrer</button>
+                </div>
+            </div>`;
+        document.body.appendChild(ov);
+        ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+        ov.querySelector('#epCancel').addEventListener('click', () => ov.remove());
+        ov.querySelector('#epSave').addEventListener('click', async () => {
+            const username = ov.querySelector('#epName').value.trim();
+            const avatar   = ov.querySelector('#epAvatar').value.trim();
+            if (username.length < 2) { MH.toast('Nom trop court (2 caractères min)'); return; }
+            try {
+                await API.auth.updateProfile({ username, avatar });
+                renderHeroIdentity();
+                MH.toast('Profil mis à jour ✓');
+                ov.remove();
+            } catch (e) { MH.toast('Erreur : ' + e.message); }
+        });
+        ov.querySelector('#epName').focus();
+    }
+
+    // ── Mes avis ──
+    async function renderMyReviews() {
+        const el = document.getElementById('myReviewsList');
+        if (!el) return;
+        try {
+            const ratings = await API.me.myRatings();
+            if (!ratings.length) {
+                el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text3);font-size:13px">
+                    Aucun avis pour l'instant. Note une série depuis sa fiche !</div>`;
+                return;
+            }
+            const mangas = await loadMangas(ratings.slice(0, 30).map(r => r.mangaId));
+            const byId = new Map(mangas.filter(Boolean).map(m => [m.id, m]));
+            el.innerHTML = ratings.slice(0, 30).map(r => {
+                const m = byId.get(r.mangaId);
+                const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+                return `
+                <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+                    <a href="serie.html?id=${encodeURIComponent(r.mangaId)}" style="flex-shrink:0">
+                        <img src="${m?.coverThumb || m?.cover || ''}" alt="" loading="lazy"
+                             style="width:44px;height:62px;object-fit:cover;border-radius:6px;background:var(--bg4)">
+                    </a>
+                    <div style="min-width:0">
+                        <a href="serie.html?id=${encodeURIComponent(r.mangaId)}" style="font-weight:600;font-size:13.5px;color:var(--text);text-decoration:none">${MH.esc(m?.title || r.mangaId)}</a>
+                        <div style="color:#f59e0b;font-size:13px;margin:2px 0">${stars}</div>
+                        ${r.review ? `<div style="font-size:12.5px;color:var(--text2);font-style:italic">« ${MH.esc(r.review)} »</div>` : ''}
+                        <div style="font-size:11px;color:var(--text3);margin-top:3px">${r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('fr-FR') : ''}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (e) {
+            el.innerHTML = `<div style="color:#ef4444;font-size:13px">Erreur : ${MH.esc(e.message)}</div>`;
+        }
+    }
+
+    // ── Genres préférés (calculés sur les tags des favoris) ──
+    async function renderGenres() {
+        const el = document.getElementById('genreBars');
+        if (!el) return;
+        try {
+            const favs = await API.me.favorites();
+            if (!favs.length) return; // garde le message par défaut
+            const mangas = await loadMangas(favs.slice(0, 20).map(f => f.mangaId));
+            const counts = {};
+            let total = 0;
+            mangas.filter(Boolean).forEach(m => (m.tags || []).slice(0, 6).forEach(t => {
+                counts[t] = (counts[t] || 0) + 1; total++;
+            }));
+            const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4);
+            if (!top.length) return;
+            const colors = ['var(--orange)', '#ef4444', '#22c55e', '#3b82f6'];
+            const max = top[0][1];
+            el.innerHTML = top.map(([name, n], i) => {
+                const pct = Math.round((n / max) * 100);
+                return `
+                <div class="genre-bar-item">
+                    <div class="genre-bar-label"><span>${MH.esc(name)}</span><span>${pct}%</span></div>
+                    <div class="genre-bar-track"><div class="genre-bar-fill" style="width:${pct}%;background:${colors[i]}"></div></div>
+                </div>`;
+            }).join('');
+        } catch (e) {}
+    }
+
+    // ── Dernier avis (aperçu overview) ──
+    async function renderLastReview() {
+        const el = document.getElementById('lastReviewBox');
+        if (!el) return;
+        try {
+            const ratings = await API.me.myRatings();
+            if (!ratings.length) return; // message par défaut
+            const r = ratings[0];
+            const m = await loadManga(r.mangaId);
+            el.innerHTML = `
+                <div class="review-preview-manga">${MH.esc(m?.title || r.mangaId)}</div>
+                <div style="color:#f59e0b;font-size:13px;margin:4px 0">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+                ${r.review ? `<div class="review-preview-text">«&nbsp;${MH.esc(r.review)}&nbsp;»</div>` : ''}`;
+        } catch (e) {}
+    }
+
+    // ── Comptes connectés (statuts réels) ──
+    async function renderConnections() {
+        const sp = document.getElementById('spotifyConnStatus');
+        if (sp) {
+            try {
+                const st = await API.spotify.status();
+                sp.textContent = st.linked ? 'Connecté' : 'Non connecté';
+                sp.classList.toggle('on', !!st.linked);
+            } catch (e) { sp.textContent = 'Non connecté'; }
+        }
+        const al = document.getElementById('anilistConnStatus');
+        if (al) {
+            let linked = false;
+            try { linked = !!localStorage.getItem('anilist_token'); } catch (e) {}
+            al.textContent = linked ? 'Connecté' : 'Non connecté';
+            al.classList.toggle('on', linked);
+        }
+    }
+
+    // ── Badges (succès calculés sur les vraies stats) ──
+    async function renderBadges() {
+        const el = document.getElementById('badgesGrid');
+        if (!el) return;
+        try {
+            const stats = await API.me.stats();
+            const t = stats.totals || {};
+            const heat = stats.heatmap || {};
+            const activeDays = Object.keys(heat).length;
+            const chapters = t.chapters_read || 0;
+            const streak = stats.streak?.current || 0;
+            const BADGES = [
+                { ico: '📖', name: 'Premier pas',      desc: 'Lire son premier chapitre',     ok: chapters >= 1 },
+                { ico: '🔥', name: 'Lancé',            desc: '10 chapitres lus',              ok: chapters >= 10 },
+                { ico: '💯', name: 'Centurion',        desc: '100 chapitres lus',             ok: chapters >= 100 },
+                { ico: '🏆', name: 'Dévoreur',         desc: '1 000 chapitres lus',           ok: chapters >= 1000 },
+                { ico: '❤️', name: 'Coup de cœur',     desc: 'Ajouter un favori',             ok: (t.favorites || 0) >= 1 },
+                { ico: '📚', name: 'Collectionneur',   desc: '10 séries dans la bibliothèque', ok: (t.library || 0) >= 10 },
+                { ico: '⭐', name: 'Critique',         desc: 'Donner un avis',                ok: (t.ratings || 0) >= 1 },
+                { ico: '📅', name: 'Régulier',         desc: '7 jours de lecture actifs',     ok: activeDays >= 7 },
+                { ico: '⚡', name: 'En feu',           desc: '3 jours d\'affilée',            ok: streak >= 3 },
+                { ico: '🌙', name: 'Marathonien',      desc: '30 jours de lecture actifs',    ok: activeDays >= 30 },
+            ];
+            el.innerHTML = BADGES.map(b => `
+                <div class="card" style="padding:14px;text-align:center;${b.ok ? '' : 'opacity:.38;filter:grayscale(.7)'}">
+                    <div style="font-size:28px;margin-bottom:6px">${b.ico}</div>
+                    <div style="font-weight:700;font-size:13px">${b.name}</div>
+                    <div style="font-size:11px;color:var(--text3);margin-top:3px">${b.desc}</div>
+                    <div style="font-size:10px;font-weight:700;margin-top:8px;color:${b.ok ? 'var(--green)' : 'var(--text3)'}">${b.ok ? 'DÉBLOQUÉ' : 'VERROUILLÉ'}</div>
+                </div>`).join('');
+
+            // Mini-aperçu (vue d'ensemble) : les 4 derniers badges débloqués
+            const mini = document.getElementById('badgesMini');
+            if (mini) {
+                const unlocked = BADGES.filter(b => b.ok);
+                mini.innerHTML = unlocked.length
+                    ? unlocked.slice(-4).map(b => `<div class="badge-item" title="${b.name} — ${b.desc}">${b.ico}</div>`).join('')
+                    : '<div style="color:var(--text3);font-size:12px;padding:6px 0">Lis ton premier chapitre pour débloquer un badge !</div>';
+            }
+        } catch (e) { el.innerHTML = ''; }
     }
 
     // ── Heatmap ──

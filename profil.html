@@ -25,32 +25,27 @@
       </div>
       <div class="profil-info">
         <div class="profil-name-row">
-          <h1 class="profil-name">Kaito Tanaka</h1>
-          <span class="profil-level">NIVEAU 42</span>
+          <h1 class="profil-name">…</h1>
+          <span class="profil-level" id="profilLevel" title="Niveau calculé selon tes chapitres lus"></span>
         </div>
         <div class="profil-meta">
-          <span class="profil-handle">@night_reader</span>
+          <span class="profil-handle"></span>
           <span class="profil-dot">•</span>
-          <span class="profil-since">Membre depuis Sept 2022</span>
-        </div>
-        <div class="profil-socials">
-          <a href="#" class="profil-social-btn" title="Twitter">𝕏</a>
-          <a href="#" class="profil-social-btn" title="Instagram"></a>
-          <a href="#" class="profil-social-btn" title="Site"></a>
+          <span class="profil-since"></span>
         </div>
       </div>
       <div class="profil-stats">
         <div class="profil-stat">
-          <div class="profil-stat-num">1,240</div>
+          <div class="profil-stat-num">—</div>
           <div class="profil-stat-label">CHAPITRES</div>
         </div>
         <div class="profil-stat">
-          <div class="profil-stat-num">84</div>
+          <div class="profil-stat-num">—</div>
           <div class="profil-stat-label">SÉRIES</div>
         </div>
         <div class="profil-stat">
-          <div class="profil-stat-num">12</div>
-          <div class="profil-stat-label">AVIS</div>
+          <div class="profil-stat-num">—</div>
+          <div class="profil-stat-label">FAVORIS</div>
         </div>
       </div>
       <div class="profil-actions">
@@ -83,25 +78,18 @@
         </nav>
       </div>
       <div class="sidebar-section">
-        <div class="sidebar-section-label">SOCIAL & AVIS</div>
+        <div class="sidebar-section-label">AVIS</div>
         <nav class="sidebar-nav">
-          <a href="#" class="sidebar-nav-item">
-            <span class="sidebar-nav-icon"></span> Amis
-            <span class="sidebar-notif">4</span>
-          </a>
-          <a href="#" class="sidebar-nav-item">
-            <span class="sidebar-nav-icon"></span> Commentaires
-          </a>
-          <a href="#" class="sidebar-nav-item">
-            <span class="sidebar-nav-icon"></span> Mes avis
+          <a href="#" class="sidebar-nav-item" data-tab="reviews">
+            <span class="sidebar-nav-icon">★</span> Mes avis
           </a>
         </nav>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-section-label">SUCCÈS</div>
         <nav class="sidebar-nav">
-          <a href="#" class="sidebar-nav-item">
-            <span class="sidebar-nav-icon"></span> Défis &amp; Badges
+          <a href="#" class="sidebar-nav-item" data-tab="badges">
+            <span class="sidebar-nav-icon"></span> Badges
           </a>
           <a href="stats.html" class="sidebar-nav-item">
             <span class="sidebar-nav-icon"></span> Statistiques détaillées
@@ -150,20 +138,22 @@
             </div>
           </div>
           <div class="card goal-card">
-            <div class="goal-title">Objectif Hebdo</div>
+            <div class="goal-title">Objectif Hebdo
+              <button id="goalEdit" class="btn btn-ghost btn-sm" title="Modifier l'objectif" style="float:right;padding:0 6px;font-size:11px">✎</button>
+            </div>
             <div class="goal-ring-wrap">
               <svg class="goal-ring" viewBox="0 0 80 80">
                 <circle cx="40" cy="40" r="32" stroke="var(--bg4)" stroke-width="6" fill="none"/>
-                <circle cx="40" cy="40" r="32" stroke="var(--orange)" stroke-width="6" fill="none"
-                  stroke-dasharray="201" stroke-dashoffset="45" stroke-linecap="round"
-                  transform="rotate(-90 40 40)"/>
+                <circle id="goalRingFill" cx="40" cy="40" r="32" stroke="var(--orange)" stroke-width="6" fill="none"
+                  stroke-dasharray="201" stroke-dashoffset="201" stroke-linecap="round"
+                  transform="rotate(-90 40 40)" style="transition:stroke-dashoffset .5s ease"/>
               </svg>
               <div class="goal-ring-text">
-                <div class="goal-num">12/15</div>
+                <div class="goal-num" id="goalNum">—</div>
               </div>
             </div>
-            <div class="goal-label" style="color:var(--green);font-size:11.5px;text-align:center">Excellent rythme !</div>
-            <div class="goal-sub" style="color:var(--text3);font-size:11px;text-align:center;margin-top:2px">Plus que 3 chapitres</div>
+            <div class="goal-label" id="goalLabel" style="font-size:11.5px;text-align:center"></div>
+            <div class="goal-sub" id="goalSub" style="color:var(--text3);font-size:11px;text-align:center;margin-top:2px"></div>
           </div>
         </div>
 
@@ -172,32 +162,31 @@
           <div class="card stat-mini-card">
             <div class="stat-mini-top">
               <span class="stat-mini-icon"></span>
-              <span class="stat-mini-badge green">+12%</span>
+              <span class="stat-mini-badge green" id="statTrendBadge" style="display:none"></span>
             </div>
-            <div class="stat-mini-num">342</div>
+            <div class="stat-mini-num">—</div>
             <div class="stat-mini-label">Chapitres ce mois</div>
           </div>
           <div class="card stat-mini-card">
             <div class="stat-mini-top">
               <span class="stat-mini-icon">⏱</span>
-              <span class="stat-mini-badge blue">+3h</span>
             </div>
-            <div class="stat-mini-num">47h</div>
-            <div class="stat-mini-label">Temps de lecture</div>
+            <div class="stat-mini-num">—</div>
+            <div class="stat-mini-label">Temps de lecture estimé</div>
           </div>
           <div class="card stat-mini-card">
             <div class="stat-mini-top">
               <span class="stat-mini-icon"></span>
             </div>
-            <div class="stat-mini-num">28</div>
+            <div class="stat-mini-num">—</div>
             <div class="stat-mini-label">Coups de cœur</div>
           </div>
           <div class="card stat-mini-card">
             <div class="stat-mini-top">
               <span class="stat-mini-icon"></span>
             </div>
-            <div class="stat-mini-num">12</div>
-            <div class="stat-mini-label">Jours consécutifs</div>
+            <div class="stat-mini-num">—</div>
+            <div class="stat-mini-label">Jours actifs</div>
           </div>
         </div>
 
@@ -225,36 +214,16 @@
         <div class="overview-bottom-row">
           <div class="card genres-card">
             <div class="card-title">Genres préférés</div>
-            <div class="genre-bars">
-              <div class="genre-bar-item">
-                <div class="genre-bar-label"><span>Shōnen</span><span>85%</span></div>
-                <div class="genre-bar-track"><div class="genre-bar-fill" style="width:85%;background:var(--orange)"></div></div>
-              </div>
-              <div class="genre-bar-item">
-                <div class="genre-bar-label"><span>Seinen</span><span>60%</span></div>
-                <div class="genre-bar-track"><div class="genre-bar-fill" style="width:60%;background:#ef4444"></div></div>
-              </div>
-              <div class="genre-bar-item">
-                <div class="genre-bar-label"><span>Fantasy</span><span>45%</span></div>
-                <div class="genre-bar-track"><div class="genre-bar-fill" style="width:45%;background:#22c55e"></div></div>
-              </div>
-              <div class="genre-bar-item">
-                <div class="genre-bar-label"><span>Sport</span><span>30%</span></div>
-                <div class="genre-bar-track"><div class="genre-bar-fill" style="width:30%;background:#3b82f6"></div></div>
-              </div>
+            <div class="genre-bars" id="genreBars">
+              <div style="color:var(--text3);font-size:12px;padding:8px 0">Ajoute des favoris pour voir tes genres.</div>
             </div>
           </div>
           <div class="card badges-card">
             <div class="card-title-row">
               <span class="card-title">Badges récents</span>
-              <a href="#" class="card-link">Voir tout</a>
+              <a href="#" class="card-link" data-goto="badges">Voir tout</a>
             </div>
-            <div class="badges-grid">
-              <div class="badge-item" title="Lecteur assidu"></div>
-              <div class="badge-item" title="Collectionneur"></div>
-              <div class="badge-item" title="Statistiques"></div>
-              <div class="badge-item" title="Débloqué"></div>
-            </div>
+            <div class="badges-grid" id="badgesMini"></div>
           </div>
         </div>
 
@@ -277,100 +246,40 @@
             <div id="historyMini"></div>
           </div>
           <div class="overview-right-col">
-            <div class="card friends-activity-card">
-              <div class="card-title">Activité des amis</div>
-              <div class="friend-item">
-                <div class="friend-avatar" style="background:#7c3aed">S</div>
-                <div class="friend-text">
-                  <span class="friend-name">Sophie</span> a commencé
-                  <a href="serie.html?id=49" class="friend-manga">Spy × Family</a>
-                </div>
-              </div>
-              <div class="friend-item">
-                <div class="friend-avatar" style="background:#0891b2">M</div>
-                <div class="friend-text">
-                  <span class="friend-name">Marcus</span> a noté
-                  <a href="serie.html?id=31" class="friend-manga">One Piece</a>
-                  <span style="color:#f59e0b"> ★★★★☆</span>
-                </div>
-              </div>
-            </div>
             <div class="card last-review-card">
-              <div class="card-title">Mon dernier avis</div>
-              <div class="review-preview">
-                <div class="review-preview-manga">Blue Lock</div>
-                <div style="color:#f59e0b;font-size:13px;margin:4px 0">★★★★☆</div>
-                <div class="review-preview-text">«&nbsp;L'intensité des matchs est incroyable en soi, les dessins sont sublimes…&nbsp;»</div>
+              <div class="card-title-row">
+                <span class="card-title">Mon dernier avis</span>
+                <a href="#" class="card-link" data-goto="reviews">Voir tous</a>
+              </div>
+              <div class="review-preview" id="lastReviewBox">
+                <div style="color:var(--text3);font-size:12px">Aucun avis pour l'instant.</div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Comptes connectés + Notifs -->
+        <!-- Comptes connectés -->
         <div class="overview-settings-row">
           <div class="card connected-card">
             <div class="card-title-row">
               <span class="card-title">Comptes connectés</span>
-              <a href="#" class="card-link">Gérer les connexions</a>
+              <a href="parametres.html" class="card-link">Gérer les connexions</a>
             </div>
             <div class="connected-item">
               <div class="connected-icon" style="background:#1db954"></div>
               <div class="connected-info">
                 <div class="connected-name">Spotify</div>
-                <div class="connected-desc">Synchronisez votre statut de lecture avec votre musique.</div>
+                <div class="connected-desc">Retrouve tes playlists dans le lecteur de musique.</div>
               </div>
-              <span class="connected-status on">Connecté</span>
-              <div class="toggle on"></div>
+              <span class="connected-status" id="spotifyConnStatus">…</span>
             </div>
             <div class="connected-item">
-              <div class="connected-icon" style="background:#5865f2"></div>
+              <div class="connected-icon" style="background:#02a9ff"></div>
               <div class="connected-info">
-                <div class="connected-name">Discord</div>
-                <div class="connected-desc">Affichez le manga en cours dans votre statut.</div>
+                <div class="connected-name">AniList</div>
+                <div class="connected-desc">Synchronise automatiquement ta progression de lecture.</div>
               </div>
-              <button class="btn btn-ghost btn-xs">Connecter</button>
-            </div>
-            <div class="connected-item">
-              <div class="connected-icon" style="background:#f47521">▶</div>
-              <div class="connected-info">
-                <div class="connected-name">Crunchyroll</div>
-                <div class="connected-desc">Reliez vos animes avec vos lectures.</div>
-              </div>
-              <button class="btn btn-ghost btn-xs">Connecter</button>
-            </div>
-          </div>
-          <div class="card notif-card">
-            <div class="card-title-row">
-              <span class="card-title">Notifications</span>
-              <a href="#" class="card-link">Tout gérer</a>
-            </div>
-            <div class="notif-item">
-              <div class="notif-info">
-                <div class="notif-name">Nouveaux chapitres</div>
-                <div class="notif-desc">Alerté quand un manga suivi a un nouveau chapitre.</div>
-              </div>
-              <div class="toggle on"></div>
-            </div>
-            <div class="notif-item">
-              <div class="notif-info">
-                <div class="notif-name">Activité des amis</div>
-                <div class="notif-desc">Quand un ami commence ou termine une série.</div>
-              </div>
-              <div class="toggle"></div>
-            </div>
-            <div class="notif-item">
-              <div class="notif-info">
-                <div class="notif-name">Recommandations personnalisées</div>
-                <div class="notif-desc">Recommandations hebdomadaires basées sur vos lectures.</div>
-              </div>
-              <div class="toggle on"></div>
-            </div>
-            <div class="notif-item">
-              <div class="notif-info">
-                <div class="notif-name">Résumé mensuel</div>
-                <div class="notif-desc">Un récap de vos statistiques de lecture.</div>
-              </div>
-              <div class="toggle"></div>
+              <span class="connected-status" id="anilistConnStatus">…</span>
             </div>
           </div>
         </div>
@@ -380,7 +289,6 @@
           <div class="card prefs-card">
             <div class="card-title-row">
               <span class="card-title">Préférences de lecture</span>
-              <a href="chapitre.html?manga=1&chapter=1" class="card-link">Ouvrir le lecteur</a>
             </div>
             <div class="prefs-grid">
               <div class="pref-item">
@@ -820,61 +728,30 @@
           </div>
         </div>
 
-        <!-- Découvrir des listes populaires -->
-        <div class="discover-lists-section">
-          <div class="discover-lists-header">
-            <span class="section-title">Découvrir des listes populaires</span>
-            <a href="collections.html" class="card-link">Voir tout →</a>
-          </div>
-          <div class="discover-lists-grid">
-            <div class="card discover-list-card">
-              <div class="discover-list-user">
-                <div class="discover-avatar" style="background:#7c3aed">S</div>
-                <div>
-                  <div class="discover-username">Sophie_Read</div>
-                  <div class="discover-handle">@so_phie</div>
-                </div>
-              </div>
-              <div class="discover-list-name">Pépites Méconnues 2024</div>
-              <div class="discover-list-desc">Une sélection de mangas incroyables qui méritent plus d'attention cette année.</div>
-              <div class="discover-list-tags">
-                <span class="tag" style="font-size:11px">12 Titres</span>
-                <span class="tag" style="font-size:11px">Seinen</span>
-              </div>
-            </div>
-            <div class="card discover-list-card">
-              <div class="discover-list-user">
-                <div class="discover-avatar" style="background:#0891b2">R</div>
-                <div>
-                  <div class="discover-username">Raj_Manga</div>
-                  <div class="discover-handle">@raj_reads</div>
-                </div>
-              </div>
-              <div class="discover-list-name">Romance &amp; Drama</div>
-              <div class="discover-list-desc">Préparez vos mouchoirs. Les meilleures histoires d'amour et de drame.</div>
-              <div class="discover-list-tags">
-                <span class="tag" style="font-size:11px">25 Titres</span>
-                <span class="tag" style="font-size:11px">Shojo</span>
-              </div>
-            </div>
-            <div class="card discover-list-card">
-              <div class="discover-list-user">
-                <div class="discover-avatar" style="background:#059669">Y</div>
-                <div>
-                  <div class="discover-username">Yuki.Chan</div>
-                  <div class="discover-handle">@yuki_san</div>
-                </div>
-              </div>
-              <div class="discover-list-name">Survival Game Classics</div>
-              <div class="discover-list-desc">Alice in Borderland, Gantz, et autres classiques du genre survival.</div>
-              <div class="discover-list-tags">
-                <span class="tag" style="font-size:11px">8 Titres</span>
-                <span class="tag" style="font-size:11px">Horror</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div><!-- /tab-lists -->
+
+      <!-- ══════════════════════════════════════════════════
+           TAB : MES AVIS
+      ══════════════════════════════════════════════════ -->
+      <div class="tab-content" id="tab-reviews">
+        <div class="tab-header-row">
+          <h2 class="tab-title">★ Mes avis</h2>
+        </div>
+        <div class="card" style="padding:18px">
+          <div id="myReviewsList"><div class="spinner-inline"></div></div>
+        </div>
+      </div><!-- /tab-reviews -->
+
+      <!-- ══════════════════════════════════════════════════
+           TAB : BADGES
+      ══════════════════════════════════════════════════ -->
+      <div class="tab-content" id="tab-badges">
+        <div class="tab-header-row">
+          <h2 class="tab-title">Badges</h2>
+        </div>
+        <p style="color:var(--text3);font-size:12.5px;margin:-6px 0 14px">Débloqués automatiquement selon ta lecture réelle.</p>
+        <div id="badgesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px"></div>
+      </div><!-- /tab-badges -->
 
     </main>
   </div><!-- /profil-layout -->

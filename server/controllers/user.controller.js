@@ -430,8 +430,9 @@ async function getStats(req, res, next) {
                 (SELECT COUNT(*) FROM library WHERE user_id = ?) AS library,
                 (SELECT COUNT(*) FROM read_chapters WHERE user_id = ?) AS chapters_read,
                 (SELECT COUNT(*) FROM read_chapters WHERE user_id = ? AND read_at > NOW() - INTERVAL 30 DAY) AS chapters_this_month,
-                (SELECT COUNT(DISTINCT manga_id) FROM read_chapters WHERE user_id = ?) AS series_read`,
-            [uid, uid, uid, uid, uid]
+                (SELECT COUNT(DISTINCT manga_id) FROM read_chapters WHERE user_id = ?) AS series_read,
+                (SELECT COUNT(*) FROM ratings WHERE user_id = ?) AS ratings`,
+            [uid, uid, uid, uid, uid, uid]
         );
 
         const [days] = await pool.query(

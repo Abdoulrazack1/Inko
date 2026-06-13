@@ -514,6 +514,34 @@ ul, ol { list-style: none; }
    ║  RESPONSIVE — global.css                                 ║
    ╚══════════════════════════════════════════════════════════╝ */
 
+/* ── Navigation mobile (bottom bar) ─────────────────────── */
+.mobile-nav { display: none; }
+@media (max-width: 1024px) {
+  .mobile-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 95;
+    display: flex;
+    background: rgba(16, 16, 19, .92);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .mnav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 9px 0 7px; text-decoration: none;
+    color: var(--text3); font-size: 10px; font-weight: 600;
+    transition: color var(--transition);
+  }
+  .mnav-item.active { color: var(--orange); }
+  .mnav-icon { position: relative; display: flex; }
+  .mnav-icon svg { width: 21px; height: 21px; }
+  .mnav-icon .nav-badge { top: -5px; right: -10px; }
+  /* Laisse la place à la barre (contenu + dock musique) */
+  body.page-body { padding-bottom: 62px; }
+  #inko-music { bottom: 58px !important; }
+  .im-pill { bottom: 76px !important; }
+}
+
 /* ── Tablet (≤ 1024px) ──────────────────────────────────── */
 @media (max-width: 1024px) {
   .site-header { padding: 0 16px; gap: 16px; }

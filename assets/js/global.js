@@ -118,14 +118,44 @@
         });
     };
 
-    // Badge "nouveaux chapitres" sur le lien Bibliothèque (valeur posée par bibliotheque.js)
+    // Badge "nouveaux chapitres" sur les liens Bibliothèque (header + nav mobile)
     window.MH.updateLibBadge = function () {
-        const b = document.getElementById('navLibBadge');
-        if (!b) return;
         let n = 0; try { n = +localStorage.getItem('inko_lib_newcount') || 0; } catch (e) {}
-        if (n > 0) { b.textContent = n > 99 ? '99+' : String(n); b.style.display = ''; }
-        else { b.style.display = 'none'; }
+        document.querySelectorAll('#navLibBadge, #navLibBadgeM').forEach(b => {
+            if (n > 0) { b.textContent = n > 99 ? '99+' : String(n); b.style.display = ''; }
+            else { b.style.display = 'none'; }
+        });
     };
+
+    /* ── Navigation mobile (bottom bar, ≤1024px) ─────────────
+       Le header masque sa nav sous 1024px : cette barre app-like
+       prend le relais. Masquée pendant la lecture (immersion). */
+    function renderMobileNav(activePage) {
+        if (activePage === 'chapitre') return;            // lecture : plein écran
+        if (document.getElementById('inkoMobileNav')) return;
+        const I = {
+            home:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>',
+            book:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>',
+            lib:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>',
+            search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+            user:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+        };
+        const item = (href, id, label, svg, extra = '') =>
+            `<a href="${href}" class="mnav-item ${activePage === id ? 'active' : ''}" aria-label="${label}">
+                <span class="mnav-icon">${svg}${extra}</span><span class="mnav-label">${label}</span>
+            </a>`;
+        const nav = document.createElement('nav');
+        nav.id = 'inkoMobileNav';
+        nav.className = 'mobile-nav';
+        nav.innerHTML =
+            item('accueil.html', 'accueil', 'Accueil', I.home) +
+            item('catalogue.html', 'catalogue', 'Catalogue', I.book) +
+            item('bibliotheque.html', 'bibliotheque', 'Bibliothèque', I.lib,
+                 '<span class="nav-badge" id="navLibBadgeM" style="display:none"></span>') +
+            item('recherche.html', 'recherche', 'Recherche', I.search) +
+            item(window.API?.isLoggedIn() ? 'profil.html' : 'page_login.html', 'profil', 'Profil', I.user);
+        document.body.appendChild(nav);
+    }
 
     // ── Vérification des nouveaux chapitres au lancement de l'app ──
     // Une fois par session navigateur : interroge toutes les œuvres suivies
@@ -248,6 +278,7 @@
         initSearch();
         initFooterButtons();
         initHeaderButtons();
+        renderMobileNav(activePage);
         window.MH.updateLibBadge();
         // Check des nouveautés au lancement (pas pendant la lecture : priorité aux pages)
         if (activePage !== 'chapitre') launchUpdateCheck();
