@@ -277,7 +277,7 @@
                     ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
                 </div>
                 <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
-                <div class="lib2-sub">${prog ? 'Ch. ' + prog.chapter : 'Pas commencé'} · ${f.source || 'mangadex'}</div>
+                <div class="lib2-sub">${prog ? 'Ch. ' + MH.chapNum(prog.chapter) : 'Pas commencé'} · ${f.source || 'mangadex'}</div>
                 ${f.category ? `<div class="lib2-cat">${MH.esc(f.category)}</div>` : ''}
             </a>`;
         }).join('');
