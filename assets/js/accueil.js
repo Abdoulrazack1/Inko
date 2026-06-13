@@ -18,110 +18,152 @@
         bindLatestControls();
     });
 
-    // ── Hero + Tendances ────────────────────────────────────
+    // ── Hero (dernières sorties) + Tendances ─────────────────
+    const HERO_MS = 7000;
+    let heroLatestChap = {};   // mangaId -> { id, chapter } (dernier chapitre, lazy)
+
     async function loadHeroAndTrending() {
+        // Tendances/reco s'appuient sur le populaire ; le hero sur les dernières sorties
         try {
-            const data = await API.mangas.popular({ limit: 12 });
-            popularCache = data.results || [];
-            heroMangas = popularCache.slice(0, 4);
-            renderHero();
+            const [pop, latest] = await Promise.all([
+                API.mangas.popular({ limit: 12 }),
+                API.mangas.latest({ limit: 8 }),
+            ]);
+            popularCache = pop.results || [];
+            const fresh = (latest.results || []).filter(m => m.cover || m.coverThumb);
+            heroMangas = (fresh.length ? fresh : popularCache).slice(0, 6);
             renderTrending(popularCache.slice(0, 10));
             renderReco(popularCache.slice(4, 7));
-            // Illustration officielle (banner AniList) pour chaque série du hero
+            await MH.loadSourceTypes();
+            renderHero();
+            // Illustration large officielle (banner AniList) en arrière-plan
             heroMangas.forEach((m, i) => {
                 API.art.get(m.title).then(a => {
                     if (a && a.banner) {
                         heroMangas[i] = Object.assign({}, heroMangas[i], { banner: a.banner });
-                        if (heroIdx === i && heroShow) heroShow(i);   // révèle le banner sur le slide visible
+                        if (heroIdx === i && heroShow) heroShow(i, true);
                     }
                 }).catch(() => {});
             });
-        } catch(e) {
-            showError('hero', "Impossible de charger les tendances. Le backend est-il lancé ?");
+        } catch (e) {
+            showError('hero', "Impossible de charger l'accueil. Le backend est-il lancé ?");
         }
     }
 
+    // Récupère (et cache) le dernier chapitre d'une série pour le CTA de lecture
+    async function fetchLatestChapter(m) {
+        if (heroLatestChap[m.id] !== undefined) return heroLatestChap[m.id];
+        try {
+            const data = await API.mangas.chaptersFor(API.sources.current, m.id,
+                { lang: window.Storage?.getPref('readingLang') || 'fr,en', limit: 1 });
+            const c = (data.results || [])[0] || null;
+            heroLatestChap[m.id] = c;
+            return c;
+        } catch (e) { heroLatestChap[m.id] = null; return null; }
+    }
+
     function renderHero() {
-        const bg      = document.getElementById('heroBg');
+        const bg    = document.getElementById('heroBg');
+        const bgN   = document.getElementById('heroBgNext');
         const content = document.getElementById('heroContent');
-        const dots    = document.getElementById('heroDots');
-        const hero    = document.getElementById('hero');
+        const rail  = document.getElementById('heroRail');
+        const prog  = document.getElementById('heroProgress');
+        const hero  = document.getElementById('hero');
         if (!bg || !content || !hero || !heroMangas.length) return;
 
-        clearInterval(heroTimer);   // évite les intervalles cumulés sur re-render
+        clearInterval(heroTimer);
+        const src = API.sources.current;
+        const isNovel = MH.isNovelSource(src);
 
         function slideHTML(m) {
+            const genres = (m.tags || []).filter(Boolean).slice(0, 4);
+            const metaBits = [];
+            if (m.year) metaBits.push(`<span>${m.year}</span>`);
+            if (m.demographic) metaBits.push(`<span class="hero-demo">${MH.esc(m.demographic)}</span>`);
+            if (m.status) metaBits.push(MH.statusBadge(m.status));
+            const desc = (m.description || '').replace(/\s+/g, ' ').trim();
             return `
                 <div class="hero-inner">
-                    <div class="hero-badges">
-                        ${(m.tags || []).slice(0, 3).map(g => `<span class="hero-badge">${MH.esc(g.toUpperCase())}</span>`).join('')}
-                    </div>
-                    <h1 class="hero-title">${MH.esc(m.title)}</h1>
-                    <div class="hero-meta">
-                        ${m.author ? `<span class="hero-meta-item">${MH.esc(m.author)}</span>` : ''}
-                        ${m.year ? `<span class="hero-meta-item">${m.year}</span>` : ''}
-                        ${m.status ? `<span class="hero-meta-item">${MH.statusBadge(m.status)}</span>` : ''}
-                    </div>
-                    <p class="hero-desc">${MH.esc((m.description || '').slice(0, 240))}${m.description?.length > 240 ? '…' : ''}</p>
-                    <div class="hero-actions">
-                        <a href="serie.html?id=${encodeURIComponent(m.id)}" class="btn btn-primary">Voir la fiche</a>
-                        <button class="btn btn-secondary" data-fav="${m.id}">+ Suivre</button>
+                    <a class="hero-poster-link" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}">
+                        <img class="hero-poster" src="${m.coverLarge || m.cover || ''}" alt="${MH.esc(m.title)}"
+                             onerror="this.style.visibility='hidden'">
+                        ${isNovel ? '<span class="hero-poster-tag">ROMAN</span>' : ''}
+                    </a>
+                    <div class="hero-text">
+                        <div class="hero-eyebrow"><span class="hero-eyebrow-dot"></span> ${isNovel ? 'Nouveau chapitre · Roman' : 'Dernière sortie'}</div>
+                        <a class="hero-title-link" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}"><h1 class="hero-title">${MH.esc(m.title)}</h1></a>
+                        ${genres.length ? `<div class="hero-genres">${genres.map(g => `<a class="hero-genre" href="catalogue.html?tag=${encodeURIComponent(g)}">${MH.esc(g)}</a>`).join('')}</div>` : ''}
+                        ${metaBits.length ? `<div class="hero-meta">${metaBits.join('<span class="hero-dot-sep">·</span>')}</div>` : ''}
+                        ${desc ? `<p class="hero-desc">${MH.esc(desc.slice(0, 230))}${desc.length > 230 ? '…' : ''}</p>` : ''}
+                        <div class="hero-actions">
+                            <a class="btn btn-primary hero-read" id="heroRead" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                                <span id="heroReadLabel">${isNovel ? 'Lire' : 'Lire le dernier chapitre'}</span>
+                            </a>
+                            <a class="btn btn-secondary" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}">Voir la fiche</a>
+                            <button class="btn btn-ghost hero-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">${MH.heartIcon(false)}</button>
+                        </div>
                     </div>
                 </div>`;
         }
 
-        // Crossfade de l'arrière-plan via une couche temporaire
-        function crossfadeBg(url) {
-            const layer = document.createElement('div');
-            layer.className = 'hero-bg hero-bg-fade';
-            layer.style.backgroundImage = `url('${url}')`;
-            bg.insertAdjacentElement('afterend', layer);
-            requestAnimationFrame(() => layer.classList.add('show'));
-            setTimeout(() => { bg.style.backgroundImage = `url('${url}')`; layer.remove(); }, 760);
-        }
-
-        // Poster net (cover en portrait, à droite) — créé une fois
-        let poster = document.getElementById('heroPoster');
-        if (!poster) {
-            poster = document.createElement('img');
-            poster.id = 'heroPoster'; poster.className = 'hero-poster'; poster.alt = '';
-            poster.onerror = () => { poster.style.visibility = 'hidden'; };
-            poster.onload  = () => { poster.style.visibility = 'visible'; };
-            hero.appendChild(poster);
+        // Met à jour le CTA "Lire le dernier chapitre" pour le slide visible
+        async function wireReadCTA(m) {
+            if (isNovel) return; // pour les romans : reste sur la fiche (chapitrage variable)
+            const c = await fetchLatestChapter(m);
+            if (heroIdx !== heroMangas.indexOf(m)) return; // slide changé entre-temps
+            const read = document.getElementById('heroRead');
+            const label = document.getElementById('heroReadLabel');
+            if (c && read) {
+                read.href = MH.readerHref(m.id, c.id, src);
+                if (label) label.textContent = `Lire le Ch. ${MH.chapNum(c.chapter)}`;
+            }
         }
 
         function show(idx, instant) {
             const m = heroMangas[idx]; if (!m) return;
             heroIdx = idx;
-            const banner = m.banner || null;             // illustration large officielle
-            const cover  = m.coverLarge || m.cover || '';
-            const bgUrl  = banner || cover;
-            hero.classList.toggle('has-banner', !!banner);
-            poster.style.display = banner ? 'none' : '';  // banner = pas de poster ; sinon cover nette
+            const bgUrl = m.banner || m.coverLarge || m.cover || '';
+            hero.classList.toggle('has-banner', !!m.banner);
+            // Crossfade du fond via la couche "next"
             if (instant) {
                 bg.style.backgroundImage = `url('${bgUrl}')`;
-                if (!banner) poster.src = cover;
+                bgN.style.opacity = '0';
             } else {
-                crossfadeBg(bgUrl);
-                if (!banner) { poster.classList.add('swapping'); setTimeout(() => { poster.src = cover; poster.classList.remove('swapping'); }, 240); }
+                bgN.style.backgroundImage = `url('${bgUrl}')`;
+                bgN.style.opacity = '1';
+                setTimeout(() => { bg.style.backgroundImage = `url('${bgUrl}')`; bgN.style.opacity = '0'; }, 700);
             }
             content.classList.add('hero-fading');
             setTimeout(() => {
                 content.innerHTML = slideHTML(m);
                 content.classList.remove('hero-fading');
-            }, instant ? 0 : 260);
-            dots.querySelectorAll('.hero-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+                if (window.MH?.markFavorites) MH.markFavorites(content);
+                wireReadCTA(m);
+            }, instant ? 0 : 240);
+            rail.querySelectorAll('.hero-thumb').forEach((d, i) => d.classList.toggle('active', i === idx));
+            restartProgress();
         }
 
-        function go(idx)   { show((idx + heroMangas.length) % heroMangas.length); restart(); }
-        function start()   { heroTimer = setInterval(() => show((heroIdx + 1) % heroMangas.length), 6000); }
+        function go(idx) { show((idx + heroMangas.length) % heroMangas.length); restart(); }
+        function start() { heroTimer = setInterval(() => show((heroIdx + 1) % heroMangas.length), HERO_MS); restartProgress(); }
         function restart() { clearInterval(heroTimer); start(); }
+        function restartProgress() {
+            if (!prog) return;
+            prog.style.transition = 'none'; prog.style.width = '0%';
+            // force reflow puis lance l'animation
+            void prog.offsetWidth;
+            prog.style.transition = `width ${HERO_MS}ms linear`; prog.style.width = '100%';
+        }
 
-        // Points de navigation
-        dots.innerHTML = heroMangas.map((_, i) => `<div class="hero-dot ${i === 0 ? 'active' : ''}" data-i="${i}"></div>`).join('');
-        dots.querySelectorAll('.hero-dot').forEach(d => d.addEventListener('click', () => go(+d.dataset.i)));
+        // Rail de vignettes (carrousel visuel)
+        rail.innerHTML = heroMangas.map((m, i) => `
+            <button class="hero-thumb ${i === 0 ? 'active' : ''}" data-i="${i}" aria-label="${MH.esc(m.title)}">
+                <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+            </button>`).join('');
+        rail.querySelectorAll('.hero-thumb').forEach(t => t.addEventListener('click', () => go(+t.dataset.i)));
 
-        // Flèches précédent / suivant
+        // Flèches
         if (!document.getElementById('heroPrev')) {
             const arrow = (id, side, d) => {
                 const b = document.createElement('button');
@@ -140,10 +182,25 @@
         heroShow = show;
         show(0, true);
         start();
+
         if (!hero.dataset.heroBound) {
             hero.dataset.heroBound = '1';
-            hero.addEventListener('mouseenter', () => clearInterval(heroTimer));
+            // Pause au survol
+            hero.addEventListener('mouseenter', () => { clearInterval(heroTimer); if (prog) { prog.style.transition = 'none'; } });
             hero.addEventListener('mouseleave', restart);
+            // Clavier
+            hero.setAttribute('tabindex', '0');
+            hero.addEventListener('keydown', e => {
+                if (e.key === 'ArrowLeft') go(heroIdx - 1);
+                else if (e.key === 'ArrowRight') go(heroIdx + 1);
+            });
+            // Swipe tactile
+            let sx = 0;
+            hero.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+            hero.addEventListener('touchend', e => {
+                const dx = e.changedTouches[0].clientX - sx;
+                if (Math.abs(dx) > 50) go(heroIdx + (dx < 0 ? 1 : -1));
+            }, { passive: true });
         }
     }
 

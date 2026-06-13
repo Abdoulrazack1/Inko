@@ -619,17 +619,18 @@
             e.stopPropagation();
             if (!window.API?.isLoggedIn()) { MH.toast('Connecte-toi pour ajouter des favoris'); return; }
             const id = btn.dataset.fav;
-            const isCard = btn.classList.contains('card-fav-btn');
-            const card = btn.closest('.manga-card');
+            // Bouton icône (cœur) sur les cartes ET le hero ; bouton texte ailleurs
+            const isIcon = btn.classList.contains('card-fav-btn') || btn.classList.contains('hero-fav-btn');
+            const ctx = btn.closest('.manga-card') || btn.closest('.hero-inner');
             const meta = {
-                title: card?.querySelector('.manga-card-title')?.textContent?.trim() || null,
-                cover: card?.querySelector('img')?.src || null,
+                title: ctx?.querySelector('.manga-card-title, .hero-title')?.textContent?.trim() || null,
+                cover: ctx?.querySelector('.hero-poster, img')?.src || null,
                 source: API.sources.current,
             };
             const willFav = !btn.classList.contains('is-fav');
             btn.dataset.favTouched = '1';
             btn.classList.toggle('is-fav', willFav);
-            if (isCard) btn.innerHTML = MH.heartIcon(willFav);
+            if (isIcon) btn.innerHTML = MH.heartIcon(willFav);
             else        btn.textContent = willFav ? 'Suivi' : '+ Suivre';
             try {
                 if (willFav) await API.me.addFavorite(id, meta);
