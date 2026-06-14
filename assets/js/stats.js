@@ -13,7 +13,8 @@
             return;
         }
         try {
-            const [stats, events] = await Promise.all([API.me.stats(), API.me.events(60)]);
+            await window.UserData?.ready?.();
+            const [stats, events] = await Promise.all([API.me.stats(), API.me.events(120)]);
             render(body, stats, events);
         } catch (e) {
             body.innerHTML = `<div class="st-empty" style="color:#ef4444">Erreur : ${MH.esc(e.message)}</div>`;
@@ -31,7 +32,30 @@
             ['', streak.longest || 0, 'Record de série'],
             ['', t.favorites || 0, 'Favoris'],
         ];
+        // Objectif de lecture hebdomadaire (UserData)
+        const goal = (window.UserData?.getGoal?.() || {}).weekly || 0;
+        const weekAgo = Date.now() - 7 * 86400 * 1000;
+        const readThisWeek = (events || []).filter(e => e.type === 'read' && new Date(e.at).getTime() >= weekAgo).length;
+        const pct = goal > 0 ? Math.min(100, Math.round((readThisWeek / goal) * 100)) : 0;
+
         body.innerHTML = `
+            <div class="st-panel" id="goalPanel" style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+                <div style="flex:1;min-width:220px">
+                    <h2 style="margin-bottom:6px">Objectif de la semaine</h2>
+                    <div style="font-size:12.5px;color:var(--text3)" id="goalLabel">${goal > 0
+                        ? `${readThisWeek} / ${goal} chapitre(s) · ${pct}%${pct >= 100 ? ' — objectif atteint 🎉' : ''}`
+                        : 'Aucun objectif défini. Fixe-toi un défi de lecture hebdomadaire.'}</div>
+                    <div style="height:9px;border-radius:6px;background:var(--bg4);overflow:hidden;margin-top:10px">
+                        <div id="goalFill" style="height:100%;width:${pct}%;background:linear-gradient(90deg,#ff8c42,var(--orange));transition:width .3s"></div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <label style="font-size:12.5px;color:var(--text2)">Objectif / semaine</label>
+                    <input type="number" id="goalInput" min="0" max="500" value="${goal || ''}" placeholder="ex: 10"
+                        style="width:78px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 9px;font-size:13px">
+                    <button class="btn btn-primary btn-sm" id="goalSave">Définir</button>
+                </div>
+            </div>
             <div class="st-cards">
                 ${cards.map(([c, v, l]) => `<div class="st-card ${c}"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}
             </div>
@@ -45,6 +69,14 @@
                 <div id="stAct"></div>
             </div>`;
         renderActivity(document.getElementById('stAct'), events);
+
+        // Objectif de lecture : sauvegarde + re-rendu
+        document.getElementById('goalSave')?.addEventListener('click', () => {
+            const v = Math.max(0, parseInt(document.getElementById('goalInput').value, 10) || 0);
+            window.UserData?.setGoal?.({ weekly: v });
+            MH.toast?.(v ? `Objectif fixé : ${v} chapitre(s)/semaine` : 'Objectif retiré');
+            render(body, stats, events);
+        });
     }
 
     function heatmap(map) {
