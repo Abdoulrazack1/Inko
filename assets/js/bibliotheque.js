@@ -21,13 +21,7 @@
         MH.initPage('bibliotheque');
 
         if (!API.isLoggedIn()) {
-            document.querySelector('.lib2-wrap').innerHTML = `
-                <div class="lib2-empty">
-                    <div class="ico"></div>
-                    <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">Connexion requise</div>
-                    <div style="margin-bottom:18px">Connecte-toi pour retrouver ta bibliothèque synchronisée.</div>
-                    <a href="page_login.html" class="btn btn-primary">Se connecter</a>
-                </div>`;
+            showLoggedOutLibrary();
             return;
         }
 
@@ -37,6 +31,40 @@
         wireLibRefresh();
         maybeAutoCheck();
     });
+
+    // Déconnecté : on affiche le miroir local de la bibliothèque (lecture seule)
+    // pour que les séries ne « disparaissent » jamais. La synchro revient au login.
+    function showLoggedOutLibrary() {
+        const cache = window.Storage?.getCachedLibrary?.();
+        const grid = document.getElementById('libGrid');
+        // Onglets MAJ (nécessite le compte) masqués hors connexion ; Téléchargements reste local.
+        document.querySelector('.lib2-tab[data-tab="updates"]')?.style.setProperty('display', 'none');
+        document.getElementById('btnLibRefresh')?.style.setProperty('display', 'none');
+        initTabs();
+
+        if (!cache || !cache.favs.length) {
+            document.getElementById('tabLibrary').innerHTML = `
+                <div class="lib2-empty">
+                    <div class="ico"></div>
+                    <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">Connexion requise</div>
+                    <div style="margin-bottom:18px">Connecte-toi pour retrouver ta bibliothèque synchronisée.</div>
+                    <a href="page_login.html" class="btn btn-primary">Se connecter</a>
+                </div>`;
+            return;
+        }
+
+        // Bannière « hors connexion »
+        const banner = document.createElement('div');
+        banner.style.cssText = 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:10px;padding:11px 14px;margin-bottom:16px;font-size:13px;color:var(--text2)';
+        const when = cache.at ? new Date(cache.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+        banner.innerHTML = `<span style="flex:1;min-width:200px">📚 Aperçu local de ta bibliothèque${when ? ` (sauvegardé le ${when})` : ''}. Connecte-toi pour la synchroniser et reprendre ta lecture.</span>
+            <a href="page_login.html" class="btn btn-primary btn-sm">Se connecter</a>`;
+        document.getElementById('tabLibrary').prepend(banner);
+
+        favs = cache.favs.slice();
+        renderFilters();
+        render();
+    }
 
     // Vérification automatique des nouveaux chapitres (au plus une fois / 6 h)
     async function maybeAutoCheck() {
@@ -183,6 +211,9 @@
                 } catch (e) {}
             }));
         }
+
+        // Miroir local : la bibliothèque reste visible même déconnecté / hors-ligne.
+        window.Storage?.cacheLibrary?.(favs);
 
         renderFilters();
         render();

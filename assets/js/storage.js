@@ -28,9 +28,30 @@
         catch(e) {}
     }
 
+    // Miroir local de la bibliothèque : permet de continuer à voir ses séries
+    // même hors-ligne ou déconnecté (la source de vérité reste le serveur).
+    const LIB_KEY = 'inko_lib_mirror';
+
     window.Storage = {
         getPrefs()       { return { ...DEFAULT_PREFS, ...get(PREF_KEY, {}) }; },
         setPref(k, v)    { const p = window.Storage.getPrefs(); p[k] = v; set(PREF_KEY, p); },
         getPref(k)       { return window.Storage.getPrefs()[k]; },
+
+        // ── Cache bibliothèque (favoris) ──
+        cacheLibrary(favs) {
+            try {
+                const slim = (favs || []).map(f => ({
+                    mangaId: f.mangaId, title: f.title, cover: f.cover,
+                    source: f.source, status: f.status, category: f.category,
+                    lastChapter: f.lastChapter,
+                }));
+                set(LIB_KEY, { at: Date.now(), favs: slim });
+            } catch (e) {}
+        },
+        getCachedLibrary() {
+            const c = get(LIB_KEY, null);
+            return c && Array.isArray(c.favs) ? c : null;
+        },
+        clearLibraryCache() { try { localStorage.removeItem(LIB_KEY); } catch (e) {} },
     };
 })();
