@@ -383,14 +383,19 @@
   white-space: nowrap;
 }
 .chapter-read-dot {
-  width: 8px;
-  height: 8px;
+  width: 15px;
+  height: 15px;
+  padding: 0;
   border-radius: 50%;
   border: 1.5px solid var(--border2);
   background: transparent;
-  transition: background 0.15s;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: background 0.15s, transform 0.1s, border-color 0.15s;
   flex-shrink: 0;
 }
+.chapter-read-dot:hover { border-color: #22c55e; transform: scale(1.15); }
 .chapter-read-dot.is-read {
   background: #22c55e;
   border-color: #22c55e;

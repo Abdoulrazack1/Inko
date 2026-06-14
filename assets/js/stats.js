@@ -38,6 +38,12 @@
         const readThisWeek = (events || []).filter(e => e.type === 'read' && new Date(e.at).getTime() >= weekAgo).length;
         const pct = goal > 0 ? Math.min(100, Math.round((readThisWeek / goal) * 100)) : 0;
 
+        // Défi de lecture annuel (UserData) — chapitres lus cette année via la heatmap
+        const yGoal = (window.UserData?.getGoal?.() || {}).yearly || 0;
+        const curYear = String(new Date().getFullYear());
+        const readThisYear = Object.entries(stats.heatmap || {}).reduce((n, [k, v]) => k.startsWith(curYear) ? n + v : n, 0);
+        const yPct = yGoal > 0 ? Math.min(100, Math.round((readThisYear / yGoal) * 100)) : 0;
+
         body.innerHTML = `
             <div class="st-panel" id="goalPanel" style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
                 <div style="flex:1;min-width:220px">
@@ -54,6 +60,23 @@
                     <input type="number" id="goalInput" min="0" max="500" value="${goal || ''}" placeholder="ex: 10"
                         style="width:78px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 9px;font-size:13px">
                     <button class="btn btn-primary btn-sm" id="goalSave">Définir</button>
+                </div>
+            </div>
+            <div class="st-panel" id="yearPanel" style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+                <div style="flex:1;min-width:220px">
+                    <h2 style="margin-bottom:6px">Défi de lecture ${curYear}</h2>
+                    <div style="font-size:12.5px;color:var(--text3)" id="yearLabel">${yGoal > 0
+                        ? `${readThisYear} / ${yGoal} chapitre(s) cette année · ${yPct}%${yPct >= 100 ? ' — défi relevé 🏆' : ''}`
+                        : 'Lance-toi un défi annuel (façon Goodreads) : combien de chapitres veux-tu lire cette année ?'}</div>
+                    <div style="height:9px;border-radius:6px;background:var(--bg4);overflow:hidden;margin-top:10px">
+                        <div id="yearFill" style="height:100%;width:${yPct}%;background:linear-gradient(90deg,#a855f7,#6366f1);transition:width .3s"></div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <label style="font-size:12.5px;color:var(--text2)">Objectif ${curYear}</label>
+                    <input type="number" id="yearInput" min="0" max="100000" value="${yGoal || ''}" placeholder="ex: 365"
+                        style="width:90px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 9px;font-size:13px">
+                    <button class="btn btn-primary btn-sm" id="yearSave">Définir</button>
                 </div>
             </div>
             <div class="st-cards">
@@ -75,6 +98,12 @@
             const v = Math.max(0, parseInt(document.getElementById('goalInput').value, 10) || 0);
             window.UserData?.setGoal?.({ weekly: v });
             MH.toast?.(v ? `Objectif fixé : ${v} chapitre(s)/semaine` : 'Objectif retiré');
+            render(body, stats, events);
+        });
+        document.getElementById('yearSave')?.addEventListener('click', () => {
+            const v = Math.max(0, parseInt(document.getElementById('yearInput').value, 10) || 0);
+            window.UserData?.setGoal?.({ yearly: v });
+            MH.toast?.(v ? `Défi ${new Date().getFullYear()} : ${v} chapitre(s)` : 'Défi retiré');
             render(body, stats, events);
         });
     }

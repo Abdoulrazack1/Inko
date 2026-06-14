@@ -22,6 +22,8 @@
         if (!id) { showError('ID manquant.'); return; }
 
         await MH.loadSourceTypes();   // pour router les liens de lecture (manga/novel)
+        bindBookmarkHandler();        // handlers délégués actifs dès le départ
+        bindReadToggle();
         showSkeleton();
 
         try {
@@ -476,7 +478,8 @@
                 <span class="chapter-time">${(c.lang || '').toUpperCase()}</span>
                 <button class="chapter-bm${isBm ? ' on' : ''}" title="${isBm ? 'Retirer le signet' : 'Ajouter un signet'}"
                     data-bm="${MH.esc(c.id)}" data-bmnum="${MH.esc(c.chapter)}" data-bmtitle="${MH.esc(c.title || '')}">🔖</button>
-                <span class="chapter-read-dot ${isRead ? 'is-read' : ''}" title="${isRead ? 'Lu' : 'Non lu'}"></span>
+                <button class="chapter-read-dot ${isRead ? 'is-read' : ''}" title="${isRead ? 'Lu — clic pour marquer non lu' : 'Non lu — clic pour marquer lu'}"
+                    data-read="${MH.esc(c.id)}" data-readnum="${MH.esc(c.chapter)}"></button>
             </div>
         </a>`;
     }
@@ -507,9 +510,39 @@
         });
     }
 
+    // Handler délégué : marquer un chapitre lu / non lu en un clic
+    let _readBound = false;
+    function bindReadToggle() {
+        if (_readBound) return; _readBound = true;
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.chapter-read-dot[data-read]');
+            if (!btn) return;
+            e.preventDefault(); e.stopPropagation();
+            if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour suivre ta lecture'); return; }
+            const chapterId = btn.dataset.read;
+            const willRead = !readChapsSet.has(chapterId);
+            // MAJ optimiste de l'UI
+            if (willRead) readChapsSet.add(chapterId); else readChapsSet.delete(chapterId);
+            btn.classList.toggle('is-read', willRead);
+            btn.title = willRead ? 'Lu — clic pour marquer non lu' : 'Non lu — clic pour marquer lu';
+            btn.closest('.chapter-row')?.classList.toggle('chapter-row--read', willRead);
+            renderSidebar();
+            try {
+                await API.me.markChapter({ mangaId: manga.id, chapterId, chapter: btn.dataset.readnum, read: willRead });
+            } catch (err) {
+                // rollback
+                if (willRead) readChapsSet.delete(chapterId); else readChapsSet.add(chapterId);
+                btn.classList.toggle('is-read', !willRead);
+                renderSidebar();
+                MH.toast?.('Erreur : ' + err.message);
+            }
+        });
+    }
+
     // ── CHAPITRES ──
     function renderChapitres(el) {
         bindBookmarkHandler();
+        bindReadToggle();
         if (!chapters.length) {
             el.innerHTML = `
             <div class="chapters-block">
@@ -530,6 +563,7 @@
                 <div class="chapters-block-title">Tous les chapitres · <span id="chapCount">${chapters.length}</span></div>
                 <div class="chapters-controls">
                     <input type="text" id="chapSearch" class="chap-search-input" placeholder="Chercher un chapitre…">
+                    <button class="chap-sort-btn" id="chapMarkAll" title="Marquer tous les chapitres comme lus">✓ Tout lu</button>
                     <button class="chap-sort-btn" id="chapSortBtn">${chapSortAsc ? '↑ Ancien' : '↓ Récent'}</button>
                 </div>
             </div>
@@ -538,8 +572,23 @@
 
         const input   = el.querySelector('#chapSearch');
         const sortBtn = el.querySelector('#chapSortBtn');
+        const markAll = el.querySelector('#chapMarkAll');
         const list    = el.querySelector('#chapsList');
         const countEl = el.querySelector('#chapCount');
+
+        if (markAll) markAll.addEventListener('click', async () => {
+            if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour suivre ta lecture'); return; }
+            const items = chapters.map(c => ({ chapterId: c.id, chapter: c.chapter }));
+            if (!items.length) return;
+            markAll.disabled = true; const lbl = markAll.textContent; markAll.textContent = '…';
+            try {
+                await API.me.markChaptersBulk(manga.id, items);
+                chapters.forEach(c => readChapsSet.add(c.id));
+                render(); renderSidebar();
+                MH.toast?.(`${items.length} chapitre(s) marqué(s) comme lus`);
+            } catch (e) { MH.toast?.('Erreur : ' + e.message); }
+            finally { markAll.disabled = false; markAll.textContent = lbl; }
+        });
 
         function render() {
             const q = chapFilter.toLowerCase();
@@ -580,6 +629,10 @@
             <div class="progress-stat">
                 <span class="progress-label">Chapitres lus</span>
                 <span class="progress-val">${chapRead} / ${total}</span>
+            </div>
+            <div class="progress-stat">
+                <span class="progress-label">Restant à lire</span>
+                <span class="progress-val">${Math.max(0, total - chapRead)}${total - chapRead <= 0 ? ' · à jour ✓' : ''}</span>
             </div>
             <div class="progress-bar-big"><div class="progress-fill" style="width:${pct}%"></div></div>
             ${resumeChap ? `<button class="btn btn-primary sidebar-resume-btn" id="sidebarResumeBtn">

@@ -30,6 +30,7 @@
         await loadLibrary();
         bindUpdates();
         wireLibRefresh();
+        wireLibRandom();
         maybeAutoCheck();
     });
 
@@ -96,6 +97,21 @@
         try { localStorage.setItem('inko_lib_newcount', String(newCount)); } catch (e) {}
         window.MH?.updateLibBadge?.();
         return data;
+    }
+    function wireLibRandom() {
+        const btn = document.getElementById('btnLibRandom');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            const pool = favsOfKind();
+            if (!pool.length) { MH.toast?.('Ta bibliothèque est vide'); return; }
+            const f = pool[Math.floor(Math.random() * pool.length)];
+            const prog = progressByManga[f.mangaId];
+            const href = prog?.chapterId
+                ? MH.readerHref(f.mangaId, prog.chapterId, f.source || prog.source)
+                : `serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}`;
+            MH.toast?.(`Au hasard : ${f.title || f.mangaId}`);
+            setTimeout(() => { window.location.href = href; }, 400);
+        });
     }
     function wireLibRefresh() {
         const btn = document.getElementById('btnLibRefresh');
