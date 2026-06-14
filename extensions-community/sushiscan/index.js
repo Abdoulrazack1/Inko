@@ -76,6 +76,55 @@ function slugFromUrl(url) {
     return m ? m[1] : url.split('/').filter(Boolean).pop();
 }
 
+// Titre lisible déduit du slug (la cover/le vrai titre sont affinés par getManga)
+function titleFromSlug(slug) {
+    return (slug || '')
+        .replace(/-(scan|vf|vostfr|french|fr|colored|color)$/i, '')
+        .replace(/-/g, ' ')
+        .replace(/\s+/g, ' ').trim()
+        .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ── Index COMPLET du catalogue (via les manga-sitemaps RankMath) ──
+// Le moteur de recherche WordPress de SushiScan est désactivé : on construit
+// donc un index de TOUTES les séries (id + cover + titre déduit) à partir des
+// sitemaps, mis en cache 6 h. Permet de chercher dans tout le catalogue.
+let _catalog = null;       // { list, byId, builtAt }
+let _catalogBuilding = null;
+async function buildCatalogIndex() {
+    if (_catalog && Date.now() - _catalog.builtAt < 6 * 3600_000) return _catalog;
+    if (_catalogBuilding) return _catalogBuilding;
+    _catalogBuilding = (async () => {
+        const byId = new Map();
+        for (let i = 1; i <= 15; i++) {
+            let xml;
+            try { xml = await fetchHtml(`/manga-sitemap${i}.xml`, 6 * 3600_000); }
+            catch (e) { break; }
+            if (!xml || !/<url>/.test(xml)) break;
+            // Un bloc <url> par série : on extrait loc (slug) et image:loc (cover) séparément
+            for (const block of xml.split('<url>')) {
+                const loc = block.match(/<loc>[^<]*\/catalogue\/([^<]+?)\/<\/loc>/);
+                if (!loc) continue;
+                const slug = loc[1];
+                if (!slug || slug.includes('/') || byId.has(slug)) continue;
+                const img = block.match(/<image:loc>([^<]+)<\/image:loc>/);
+                const cover = img ? img[1].trim() : '';
+                byId.set(slug, {
+                    id: slug, title: titleFromSlug(slug), titleAlt: '',
+                    author: '', description: '', status: null, year: null, demographic: null, tags: [],
+                    cover, coverLarge: cover, coverThumb: cover,
+                    contentRating: 'safe', langs: ['fr'],
+                });
+            }
+            if (xml.length < 200) break;
+        }
+        _catalog = { list: [...byId.values()], byId, builtAt: Date.now() };
+        _catalogBuilding = null;
+        return _catalog;
+    })();
+    return _catalogBuilding;
+}
+
 function chapterIdFromUrl(url) {
     // URL chapter SushiScan : https://sushiscan.fr/manga-slug-chapter-N/
     if (!url) return '';
@@ -244,18 +293,29 @@ module.exports = {
         requireCheerio();
         const adult = filters.adult;
         if (!q) return this.popular({ limit, offset, adult });
-        const url  = `/?s=${encodeURIComponent(q)}`;
-        const html = await fetchHtml(url, 120_000);
-        let list   = parseMangaList(cheerio.load(html));
+
+        // Recherche dans l'index complet du catalogue (le moteur du site est HS).
+        // On normalise (sans accents/tirets) pour matcher « arslan senki », etc.
+        const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+        const terms = norm(q).split(' ').filter(Boolean);
+        let list = [];
+        try {
+            const cat = await buildCatalogIndex();
+            list = cat.list.filter(m => {
+                const hay = norm(m.id) + ' ' + norm(m.title);
+                return terms.every(t => hay.includes(t));
+            });
+        } catch (e) { list = []; }
 
         const idx = await buildAdultIndex();
         if (isAdultFlag(adult)) {
-            // +18 : ne garder QUE l'adulte
             list = list.filter(m => idx.set.has(m.id)).map(m => ({ ...m, contentRating: 'pornographic' }));
         } else {
-            // SFW : retirer l'adulte
             list = list.filter(m => !idx.set.has(m.id));
         }
+        // Tri : les correspondances en début de titre d'abord
+        const qn = norm(q);
+        list.sort((a, b) => (norm(b.title).startsWith(qn) ? 1 : 0) - (norm(a.title).startsWith(qn) ? 1 : 0));
         const off = +offset || 0;
         return { total: list.length, results: list.slice(off, off + (+limit || 20)) };
     },

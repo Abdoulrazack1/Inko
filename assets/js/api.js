@@ -74,7 +74,7 @@
     // UNIQUEMENT les hôtes lents ou protégés (sources de romans). Les hôtes
     // manga rapides (MangaDex, WeebCentral) chargent en direct via HTTP/2,
     // c'est plus rapide qu'un détour serveur. Les data:/URLs locales passent.
-    const PROXY_HOSTS = ['chireads.com', 'novelfull.com', 'royalroad.com', 'royalroadcdn.com'];
+    const PROXY_HOSTS = ['chireads.com', 'novelfull.com', 'royalroad.com', 'royalroadcdn.com', 'sushiscan.fr', 'sushiscan.net'];
     function shouldProxy(u) {
         try {
             const h = new URL(u).hostname;
