@@ -9,6 +9,7 @@
     let filter = { type: 'all', value: null };
     let kindFilter = 'all';    // 'all' | 'manga' | 'novel' (sépare romans et mangas)
     let unreadOnly = false;    // n'afficher que les séries avec des chapitres non lus
+    let sourceFilter = null;   // filtrer par source d'origine
 
     const STATUS = {
         reading:   ['En cours',  '#22c55e'],
@@ -31,6 +32,7 @@
         bindUpdates();
         wireLibRefresh();
         wireLibRandom();
+        wireLibExtras();
         maybeAutoCheck();
     });
 
@@ -64,8 +66,10 @@
         document.getElementById('tabLibrary').prepend(banner);
 
         favs = cache.favs.slice();
+        renderSummary();
         renderFilters();
         render();
+        wireLibExtras();
     }
 
     // Vérification automatique des nouveaux chapitres (au plus une fois / 6 h)
@@ -98,6 +102,50 @@
         window.MH?.updateLibBadge?.();
         return data;
     }
+    // Résumé en-tête : nombre de séries + chapitres non lus
+    function renderSummary() {
+        const el = document.getElementById('libSummary');
+        if (!el) return;
+        const totalUnread = favs.reduce((n, f) => n + unreadCount(f), 0);
+        const n = favs.length;
+        el.textContent = `${n} série${n > 1 ? 's' : ''}${totalUnread > 0 ? ` · ${totalUnread} chapitre${totalUnread > 1 ? 's' : ''} non lu${totalUnread > 1 ? 's' : ''}` : ' · à jour'}`;
+    }
+
+    // Densité d'affichage (compact/confort) + Export de la bibliothèque
+    function wireLibExtras() {
+        const grid = document.getElementById('libGrid');
+        const dBtn = document.getElementById('btnLibDensity');
+        const apply = (compact) => {
+            grid?.classList.toggle('lib2-grid--compact', compact);
+            if (dBtn) dBtn.textContent = compact ? '▦ Confort' : '▦ Compact';
+        };
+        let compact = false;
+        try { compact = window.Storage?.getPref?.('libDensity') === 'compact'; } catch (e) {}
+        apply(compact);
+        dBtn?.addEventListener('click', () => {
+            compact = !compact;
+            window.Storage?.setPref?.('libDensity', compact ? 'compact' : 'comfort');
+            apply(compact);
+        });
+
+        const xBtn = document.getElementById('btnLibExport');
+        xBtn?.addEventListener('click', async () => {
+            xBtn.disabled = true; const lbl = xBtn.textContent; xBtn.textContent = '…';
+            try {
+                const data = await API.me.exportData();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `inko-bibliotheque-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+                MH.toast?.('Sauvegarde téléchargée');
+            } catch (e) { MH.toast?.('Erreur : ' + e.message); }
+            finally { xBtn.disabled = false; xBtn.textContent = lbl; }
+        });
+    }
+
     function wireLibRandom() {
         const btn = document.getElementById('btnLibRandom');
         if (!btn) return;
@@ -269,6 +317,7 @@
         // Miroir local : la bibliothèque reste visible même déconnecté / hors-ligne.
         window.Storage?.cacheLibrary?.(favs);
 
+        renderSummary();
         renderFilters();
         render();
     }
@@ -306,9 +355,25 @@
         let html = chip('all', '', 'Tout', favsOfKind().length, filter.type === 'all');
         Object.keys(STATUS).forEach(s => { if (sc[s]) html += chip('status', s, STATUS[s][0], sc[s], filter.type === 'status' && filter.value === s); });
         Object.keys(cc).sort().forEach(c => { html += chip('category', c, c, cc[c], filter.type === 'category' && filter.value === c); });
+
+        // Filtre par source (n'apparaît que si la biblio compte plusieurs sources)
+        const srcCount = {};
+        favsOfKind().forEach(f => { const s = f.source || 'mangadex'; srcCount[s] = (srcCount[s] || 0) + 1; });
+        let srcHtml = '';
+        const sources = Object.keys(srcCount);
+        if (sources.length > 1) {
+            srcHtml = `<span style="width:100%;height:1px"></span>` +
+                `<button class="lib2-chip ${!sourceFilter ? 'on' : ''}" data-src="">Toutes sources</button>` +
+                sources.sort().map(s => `<button class="lib2-chip ${sourceFilter === s ? 'on' : ''}" data-src="${MH.esc(s)}">${MH.esc(s)}<span class="cnt">${srcCount[s]}</span></button>`).join('');
+        }
         // Bascule « Non lus uniquement »
         const unreadHtml = `<button class="lib2-chip ${unreadOnly ? 'on' : ''}" id="chipUnread" style="margin-left:auto" title="N'afficher que les séries avec des chapitres non lus">● Non lus</button>`;
-        el.innerHTML = kindHtml + html + unreadHtml;
+        el.innerHTML = kindHtml + html + srcHtml + unreadHtml;
+
+        el.querySelectorAll('[data-src]').forEach(ch => ch.addEventListener('click', () => {
+            sourceFilter = ch.dataset.src || null;
+            renderFilters(); render();
+        }));
 
         el.querySelectorAll('.lib2-kind').forEach(ch => ch.addEventListener('click', () => {
             kindFilter = ch.dataset.kind;
@@ -338,11 +403,14 @@
         let list = favsOfKind().filter(f => !q || (f.title || '').toLowerCase().includes(q));
         if (filter.type === 'status')   list = list.filter(f => f.status === filter.value);
         if (filter.type === 'category') list = list.filter(f => f.category === filter.value);
+        if (sourceFilter)               list = list.filter(f => (f.source || 'mangadex') === sourceFilter);
         if (unreadOnly)                 list = list.filter(f => unreadCount(f) > 0);
 
         if (sort === 'title')    list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
         if (sort === 'unread')   list.sort((a, b) => unreadCount(b) - unreadCount(a));
         if (sort === 'progress') list.sort((a, b) => (progressByManga[b.mangaId]?.chapter || 0) - (progressByManga[a.mangaId]?.chapter || 0));
+        if (sort === 'recent-read') list.sort((a, b) =>
+            new Date(progressByManga[b.mangaId]?.updatedAt || 0) - new Date(progressByManga[a.mangaId]?.updatedAt || 0));
         // 'recent' = ordre par défaut (added_at desc)
 
         // Épingles toujours en tête (stable vis-à-vis du tri choisi)

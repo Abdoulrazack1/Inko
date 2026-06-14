@@ -21,6 +21,9 @@
     .lib2-search:focus { outline:none; border-color:var(--orange); }
     .lib2-sort { background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:9px 12px; border-radius:9px; font-size:12.5px; }
     .lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:16px; }
+    .lib2-grid.lib2-grid--compact { grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:10px; }
+    .lib2-grid--compact .lib2-title { font-size:11px; }
+    .lib2-grid--compact .lib2-sub, .lib2-grid--compact .lib2-cat { display:none; }
     .lib2-card { position:relative; cursor:pointer; }
     .lib2-cover { aspect-ratio:3/4; border-radius:10px; overflow:hidden; background:var(--bg4); position:relative; }
     .lib2-cover img { width:100%; height:100%; object-fit:cover; }
@@ -66,7 +69,10 @@
 
   <div class="lib2-wrap">
     <div class="lib2-head">
-      <h1>Ma bibliothèque</h1>
+      <div>
+        <h1>Ma bibliothèque</h1>
+        <div id="libSummary" style="font-size:12.5px;color:var(--text3);margin-top:2px"></div>
+      </div>
       <div class="lib2-tabs">
         <button class="lib2-tab active" data-tab="library">Bibliothèque</button>
         <button class="lib2-tab" data-tab="updates">Mises à jour</button>
@@ -81,11 +87,14 @@
         <input type="text" class="lib2-search" id="libSearch" placeholder="Filtrer ma bibliothèque…">
         <select class="lib2-sort" id="libSort">
           <option value="recent">Récemment ajoutés</option>
+          <option value="recent-read">Récemment lus</option>
           <option value="title">Titre A→Z</option>
           <option value="unread">Non-lus d'abord</option>
           <option value="progress">Progression</option>
         </select>
+        <button class="btn btn-secondary btn-sm" id="btnLibDensity" title="Changer la densité d'affichage">▦ Compact</button>
         <button class="btn btn-secondary btn-sm" id="btnLibRandom" title="Ouvrir une série au hasard dans ma bibliothèque">🎲 Au hasard</button>
+        <button class="btn btn-secondary btn-sm" id="btnLibExport" title="Télécharger une sauvegarde de mes données (JSON)">⬇ Exporter</button>
         <button class="btn btn-primary btn-sm" id="btnLibRefresh" title="Vérifier les nouveaux chapitres de toute la bibliothèque">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-2px;margin-right:5px"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>Mettre à jour
         </button>
