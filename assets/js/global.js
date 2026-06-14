@@ -406,6 +406,32 @@
         }, 100);
     };
 
+    /* ── Reprendre la lecture (bouton « Continuer » du header) ── */
+    let _lastReadPromise = null;
+    window.MH.lastReadTarget = function () {
+        if (_lastReadPromise) return _lastReadPromise;
+        _lastReadPromise = (async () => {
+            if (!window.API?.isLoggedIn?.()) return null;
+            try {
+                const progress = await API.me.progress();
+                const entries = Object.entries(progress)
+                    .map(([id, p]) => ({ mangaId: id, ...p }))
+                    .filter(e => e.chapterId)
+                    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+                if (!entries.length) return null;
+                const e = entries[0];
+                return { href: window.MH.readerHref(e.mangaId, e.chapterId, e.source), mangaId: e.mangaId };
+            } catch (err) { return null; }
+        })();
+        return _lastReadPromise;
+    };
+    window.MH.refreshContinueButton = async function () {
+        const btn = document.getElementById('btnContinue');
+        if (!btn) return;
+        const last = await window.MH.lastReadTarget();
+        btn.style.display = last ? '' : 'none';
+    };
+
     /* ── Header HTML ─────────────────────────────────────── */
     const headerHTML = (activePage) => {
         const u = window.API?.user;
@@ -442,6 +468,7 @@
             <div class="search-dropdown" id="searchDropdown"></div>
           </div>
           <div class="header-actions">
+            <button class="header-icon-btn" id="btnContinue" title="Reprendre ma dernière lecture" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:middle"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg></button>
             <button class="header-icon-btn" id="btnRefresh" title="Actualiser mes séries (nouveaux chapitres)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:middle"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></button>
             <button class="header-icon-btn" id="btnMusic" title="Musique (s'ouvre dans une fenêtre qui reste en lecture)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
             <a href="parametres.html" class="header-icon-btn ${activePage === 'parametres' ? 'active' : ''}" title="Paramètres" style="text-decoration:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
@@ -517,6 +544,8 @@
             wrapper.innerHTML = headerHTML(activePage);
             oldHeader.replaceWith(wrapper.firstElementChild);
             initSearch();
+            _lastReadPromise = null;            // recalcule selon le nouveau compte
+            window.MH.refreshContinueButton();
         });
     };
 
@@ -625,6 +654,18 @@
             window.MH.checkUpdates({ force: true });
         });
 
+        // Bouton « Continuer » : reprend la dernière lecture en cours
+        document.addEventListener('click', async e => {
+            const btn = e.target.closest('#btnContinue');
+            if (!btn) return;
+            e.preventDefault();
+            const last = await window.MH.lastReadTarget();
+            if (last) window.location.href = last.href;
+            else MH.toast('Aucune lecture en cours pour le moment');
+        });
+        // Révèle le bouton si une lecture est en cours
+        window.MH.refreshContinueButton();
+
         document.addEventListener('click', async e => {
             const btn = e.target.closest('#btnLogout');
             if (!btn) return;
@@ -679,7 +720,7 @@
             } catch (err) {
                 // Rollback visuel en cas d'échec
                 btn.classList.toggle('is-fav', !willFav);
-                if (isCard) btn.innerHTML = MH.heartIcon(!willFav);
+                if (isIcon) btn.innerHTML = MH.heartIcon(!willFav);
                 else        btn.textContent = !willFav ? 'Suivi' : '+ Suivre';
                 MH.toast('Erreur : ' + err.message);
             }
