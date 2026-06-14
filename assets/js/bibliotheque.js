@@ -8,6 +8,7 @@
     let updatesByManga = {};   // mangaId -> { unreadCount, latest, hasNew } (depuis /me/updates)
     let filter = { type: 'all', value: null };
     let kindFilter = 'all';    // 'all' | 'manga' | 'novel' (sépare romans et mangas)
+    let unreadOnly = false;    // n'afficher que les séries avec des chapitres non lus
 
     const STATUS = {
         reading:   ['En cours',  '#22c55e'],
@@ -175,6 +176,7 @@
     async function loadLibrary() {
         const grid = document.getElementById('libGrid');
         await MH.loadSourceTypes();   // pour séparer mangas/romans
+        await window.UserData?.ready?.();   // épingles + données perso
         try {
             const [favoris, allRead, allProg] = await Promise.all([
                 API.me.favorites(),
@@ -252,13 +254,18 @@
         let html = chip('all', '', 'Tout', favsOfKind().length, filter.type === 'all');
         Object.keys(STATUS).forEach(s => { if (sc[s]) html += chip('status', s, STATUS[s][0], sc[s], filter.type === 'status' && filter.value === s); });
         Object.keys(cc).sort().forEach(c => { html += chip('category', c, c, cc[c], filter.type === 'category' && filter.value === c); });
-        el.innerHTML = kindHtml + html;
+        // Bascule « Non lus uniquement »
+        const unreadHtml = `<button class="lib2-chip ${unreadOnly ? 'on' : ''}" id="chipUnread" style="margin-left:auto" title="N'afficher que les séries avec des chapitres non lus">● Non lus</button>`;
+        el.innerHTML = kindHtml + html + unreadHtml;
 
         el.querySelectorAll('.lib2-kind').forEach(ch => ch.addEventListener('click', () => {
             kindFilter = ch.dataset.kind;
             renderFilters(); render();
         }));
-        el.querySelectorAll('.lib2-chip').forEach(ch => ch.addEventListener('click', () => {
+        el.querySelector('#chipUnread')?.addEventListener('click', () => {
+            unreadOnly = !unreadOnly; renderFilters(); render();
+        });
+        el.querySelectorAll('.lib2-chip:not(#chipUnread)').forEach(ch => ch.addEventListener('click', () => {
             filter = { type: ch.dataset.ftype, value: ch.dataset.fval || null };
             renderFilters(); render();
         }));
@@ -279,20 +286,26 @@
         let list = favsOfKind().filter(f => !q || (f.title || '').toLowerCase().includes(q));
         if (filter.type === 'status')   list = list.filter(f => f.status === filter.value);
         if (filter.type === 'category') list = list.filter(f => f.category === filter.value);
+        if (unreadOnly)                 list = list.filter(f => unreadCount(f) > 0);
 
         if (sort === 'title')    list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
         if (sort === 'unread')   list.sort((a, b) => unreadCount(b) - unreadCount(a));
         if (sort === 'progress') list.sort((a, b) => (progressByManga[b.mangaId]?.chapter || 0) - (progressByManga[a.mangaId]?.chapter || 0));
         // 'recent' = ordre par défaut (added_at desc)
 
+        // Épingles toujours en tête (stable vis-à-vis du tri choisi)
+        const pinned = (f) => window.UserData?.isPinned?.(f.mangaId, f.source) ? 0 : 1;
+        list.sort((a, b) => pinned(a) - pinned(b));
+
         if (!list.length) {
-            grid.innerHTML = `<div class="lib2-empty" style="grid-column:1/-1">Aucun résultat.</div>`;
+            grid.innerHTML = `<div class="lib2-empty" style="grid-column:1/-1">${unreadOnly ? 'Aucune série avec des chapitres non lus.' : 'Aucun résultat.'}</div>`;
             return;
         }
 
         grid.innerHTML = list.map(f => {
             const prog = progressByManga[f.mangaId];
             const u = unreadCount(f);
+            const isPin = window.UserData?.isPinned?.(f.mangaId, f.source);
             const st = f.status && STATUS[f.status]
                 ? `<div class="lib2-status" style="background:${STATUS[f.status][1]}">${STATUS[f.status][0]}</div>` : '';
             const href = prog?.chapterId
@@ -306,12 +319,21 @@
                     ${st}
                     ${MH.isNovelSource(f.source) ? '<div class="lib2-kind-badge">ROMAN</div>' : ''}
                     ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
+                    <button class="lib2-pin ${isPin ? 'on' : ''}" data-pin="${MH.esc(f.mangaId)}" data-src="${MH.esc(f.source || '')}"
+                        title="${isPin ? 'Désépingler' : 'Épingler en haut'}" aria-label="Épingler">📌</button>
                 </div>
                 <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
                 <div class="lib2-sub">${prog ? 'Ch. ' + MH.chapNum(prog.chapter) : 'Pas commencé'} · ${f.source || 'mangadex'}</div>
                 ${f.category ? `<div class="lib2-cat">${MH.esc(f.category)}</div>` : ''}
             </a>`;
         }).join('');
+
+        grid.querySelectorAll('.lib2-pin').forEach(btn => btn.addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            const nowPinned = window.UserData?.togglePin?.(btn.dataset.pin, btn.dataset.src);
+            MH.toast?.(nowPinned ? 'Épinglé en haut de la bibliothèque' : 'Désépinglé');
+            render();
+        }));
     }
 
     // re-render on search/sort
