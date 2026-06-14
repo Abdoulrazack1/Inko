@@ -530,6 +530,7 @@
         initSearch();
         initFooterButtons();
         initHeaderButtons();
+        bindGlobalShortcuts();
         renderMobileNav(activePage);
         window.MH.updateLibBadge();
         window.MH.loadSourceTypes();   // pré-charge les types pour le routage lecteur
@@ -725,6 +726,58 @@
                 MH.toast('Erreur : ' + err.message);
             }
         });
+    }
+
+    /* ── Raccourcis clavier globaux ──────────────────────── */
+    let shortcutsBound = false;
+    function bindGlobalShortcuts() {
+        if (shortcutsBound) return;
+        shortcutsBound = true;
+
+        document.addEventListener('keydown', async (e) => {
+            // Ignore si saisie en cours ou combinaison avec modificateur
+            const tag = (e.target.tagName || '').toUpperCase();
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || e.target.isContentEditable) {
+                if (e.key === 'Escape') e.target.blur();
+                return;
+            }
+            switch (e.key) {
+                case '/':
+                    e.preventDefault();
+                    document.getElementById('headerSearch')?.focus();
+                    break;
+                case 'r': document.getElementById('navRandom')?.click(); break;
+                case 'b': window.location.href = 'bibliotheque.html'; break;
+                case 'h': window.location.href = 'accueil.html'; break;
+                case 'c': {
+                    const last = await window.MH.lastReadTarget?.();
+                    if (last) window.location.href = last.href; else MH.toast('Aucune lecture en cours');
+                    break;
+                }
+                case '?': toggleShortcutsHelp(); break;
+                case 'Escape': document.getElementById('mhShortcuts')?.remove(); break;
+            }
+        });
+    }
+    function toggleShortcutsHelp() {
+        const ex = document.getElementById('mhShortcuts');
+        if (ex) { ex.remove(); return; }
+        const rows = [
+            ['/', 'Rechercher'], ['r', 'Lecture aléatoire'], ['c', 'Reprendre la lecture'],
+            ['b', 'Ma bibliothèque'], ['h', 'Accueil'], ['?', 'Afficher cette aide'], ['Échap', 'Fermer'],
+        ];
+        const ov = document.createElement('div');
+        ov.id = 'mhShortcuts';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)';
+        ov.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:22px 24px;min-width:300px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+            <div style="font-family:var(--font-head);font-size:17px;font-weight:700;margin-bottom:14px">Raccourcis clavier</div>
+            ${rows.map(([k, l]) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:24px;padding:6px 0;font-size:13.5px;color:var(--text2)"><span>${l}</span><kbd style="background:var(--bg4);border:1px solid var(--border2);border-radius:6px;padding:2px 9px;font-family:monospace;color:var(--text)">${k}</kbd></div>`).join('')}
+            <div style="text-align:right;margin-top:14px"><button class="btn btn-primary btn-sm" id="mhShortcutsClose">Fermer</button></div>
+        </div>`;
+        ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+        document.body.appendChild(ov);
+        document.getElementById('mhShortcutsClose')?.addEventListener('click', () => ov.remove());
     }
 
 })();
