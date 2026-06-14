@@ -563,6 +563,7 @@
                 <div class="chapters-block-title">Tous les chapitres · <span id="chapCount">${chapters.length}</span></div>
                 <div class="chapters-controls">
                     <input type="text" id="chapSearch" class="chap-search-input" placeholder="Chercher un chapitre…">
+                    <button class="chap-sort-btn" id="chapRandom" title="Ouvrir un chapitre au hasard">🎲 Au hasard</button>
                     <button class="chap-sort-btn" id="chapMarkAll" title="Marquer tous les chapitres comme lus">✓ Tout lu</button>
                     <button class="chap-sort-btn" id="chapSortBtn">${chapSortAsc ? '↑ Ancien' : '↓ Récent'}</button>
                 </div>
@@ -573,8 +574,15 @@
         const input   = el.querySelector('#chapSearch');
         const sortBtn = el.querySelector('#chapSortBtn');
         const markAll = el.querySelector('#chapMarkAll');
+        const randBtn = el.querySelector('#chapRandom');
         const list    = el.querySelector('#chapsList');
         const countEl = el.querySelector('#chapCount');
+
+        if (randBtn) randBtn.addEventListener('click', () => {
+            if (!chapters.length) return;
+            const c = chapters[Math.floor(Math.random() * chapters.length)];
+            window.location.href = MH.readerHref(manga.id, c.id, API.sources.current);
+        });
 
         if (markAll) markAll.addEventListener('click', async () => {
             if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour suivre ta lecture'); return; }
@@ -634,6 +642,18 @@
                 <span class="progress-label">Restant à lire</span>
                 <span class="progress-val">${Math.max(0, total - chapRead)}${total - chapRead <= 0 ? ' · à jour ✓' : ''}</span>
             </div>
+            ${(() => {
+                const remain = Math.max(0, total - chapRead);
+                if (!remain) return '';
+                const perChap = MH.isNovelSource(API.sources.current) ? 15 : 4; // minutes / chapitre
+                const mins = remain * perChap;
+                const h = Math.floor(mins / 60), m = mins % 60;
+                const txt = h ? `${h} h${m ? ' ' + m + ' min' : ''}` : `${m} min`;
+                return `<div class="progress-stat">
+                    <span class="progress-label">Temps estimé</span>
+                    <span class="progress-val">≈ ${txt}</span>
+                </div>`;
+            })()}
             <div class="progress-bar-big"><div class="progress-fill" style="width:${pct}%"></div></div>
             ${resumeChap ? `<button class="btn btn-primary sidebar-resume-btn" id="sidebarResumeBtn">
                 ${chapRead > 0 ? '↻ Reprendre' : '▶ Commencer'}

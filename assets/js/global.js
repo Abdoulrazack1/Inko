@@ -531,6 +531,7 @@
         initFooterButtons();
         initHeaderButtons();
         bindGlobalShortcuts();
+        initBackToTop();
         renderMobileNav(activePage);
         window.MH.updateLibBadge();
         window.MH.loadSourceTypes();   // pré-charge les types pour le routage lecteur
@@ -726,6 +727,28 @@
                 MH.toast('Erreur : ' + err.message);
             }
         });
+    }
+
+    /* ── Bouton flottant « Retour en haut » ─────────────── */
+    let backTopBound = false;
+    function initBackToTop() {
+        if (backTopBound) return; backTopBound = true;
+        const btn = document.createElement('button');
+        btn.id = 'btnBackTop';
+        btn.title = 'Retour en haut';
+        btn.setAttribute('aria-label', 'Retour en haut');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polyline points="18 15 12 9 6 15"/></svg>';
+        btn.style.cssText = 'position:fixed;right:20px;bottom:22px;z-index:900;width:42px;height:42px;border-radius:50%;border:1px solid var(--border);background:var(--orange);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.35);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .2s,transform .2s';
+        btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+        document.body.appendChild(btn);
+        const onScroll = () => {
+            const show = window.scrollY > 600;
+            btn.style.opacity = show ? '1' : '0';
+            btn.style.transform = show ? 'translateY(0)' : 'translateY(12px)';
+            btn.style.pointerEvents = show ? 'auto' : 'none';
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
     }
 
     /* ── Raccourcis clavier globaux ──────────────────────── */

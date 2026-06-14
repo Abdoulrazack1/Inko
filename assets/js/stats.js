@@ -14,14 +14,14 @@
         }
         try {
             await window.UserData?.ready?.();
-            const [stats, events] = await Promise.all([API.me.stats(), API.me.events(120)]);
-            render(body, stats, events);
+            const [stats, events, favs] = await Promise.all([API.me.stats(), API.me.events(120), API.me.favorites().catch(() => [])]);
+            render(body, stats, events, favs);
         } catch (e) {
             body.innerHTML = `<div class="st-empty" style="color:#ef4444">Erreur : ${MH.esc(e.message)}</div>`;
         }
     });
 
-    function render(body, stats, events) {
+    function render(body, stats, events, favs) {
         const t = stats.totals || {};
         const streak = stats.streak || { current: 0, longest: 0 };
         const cards = [
@@ -82,6 +82,7 @@
             <div class="st-cards">
                 ${cards.map(([c, v, l]) => `<div class="st-card ${c}"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}
             </div>
+            ${statusPanel(favs)}
             <div class="st-panel">
                 <h2>Activité sur l'année</h2>
                 ${heatmap(stats.heatmap || {})}
@@ -98,14 +99,35 @@
             const v = Math.max(0, parseInt(document.getElementById('goalInput').value, 10) || 0);
             window.UserData?.setGoal?.({ weekly: v });
             MH.toast?.(v ? `Objectif fixé : ${v} chapitre(s)/semaine` : 'Objectif retiré');
-            render(body, stats, events);
+            render(body, stats, events, favs);
         });
         document.getElementById('yearSave')?.addEventListener('click', () => {
             const v = Math.max(0, parseInt(document.getElementById('yearInput').value, 10) || 0);
             window.UserData?.setGoal?.({ yearly: v });
             MH.toast?.(v ? `Défi ${new Date().getFullYear()} : ${v} chapitre(s)` : 'Défi retiré');
-            render(body, stats, events);
+            render(body, stats, events, favs);
         });
+    }
+
+    // Répartition de la bibliothèque par statut (barre empilée)
+    const ST_LABELS = {
+        reading: ['En cours', '#22c55e'], completed: ['Terminé', '#3b82f6'],
+        planned: ['À lire', '#a855f7'], paused: ['En pause', '#f59e0b'], dropped: ['Abandonné', '#ef4444'],
+    };
+    function statusPanel(favs) {
+        favs = favs || [];
+        const counts = {};
+        favs.forEach(f => { if (f.status) counts[f.status] = (counts[f.status] || 0) + 1; });
+        const keys = Object.keys(ST_LABELS).filter(k => counts[k]);
+        if (!keys.length) return '';
+        const total = keys.reduce((n, k) => n + counts[k], 0);
+        const bar = keys.map(k => `<div title="${ST_LABELS[k][0]} : ${counts[k]}" style="width:${(counts[k] / total) * 100}%;background:${ST_LABELS[k][1]}"></div>`).join('');
+        const legend = keys.map(k => `<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin-right:14px"><i style="width:10px;height:10px;border-radius:3px;background:${ST_LABELS[k][1]};display:inline-block"></i>${ST_LABELS[k][0]} · ${counts[k]}</span>`).join('');
+        return `<div class="st-panel">
+            <h2>Ma bibliothèque par statut</h2>
+            <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:12px 0">${bar}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px 0">${legend}</div>
+        </div>`;
     }
 
     function heatmap(map) {

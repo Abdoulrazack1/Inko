@@ -48,6 +48,9 @@
         run(q);
     }
 
+    let lastGroups = [];
+    let typeFilter = 'all';   // 'all' | 'manga' | 'novel'
+
     async function run(q) {
         const out = document.getElementById('seResults');
         const sub = document.getElementById('seSub');
@@ -57,18 +60,40 @@
         out.innerHTML = `<div class="se-loading"><div class="spinner-inline"></div> Recherche en cours…</div>`;
         try {
             const data = await API.mangas.searchAll(q);
-            const groups = data.groups || [];
-            const totalItems = groups.reduce((n, g) => n + (g.items?.length || 0), 0);
-            sub.textContent = `${totalItems} résultat(s) pour « ${q} » sur ${groups.length} source(s).`;
-            if (!totalItems) {
-                out.innerHTML = `<div class="se-empty">Aucun résultat. Essaie un autre titre ou vérifie tes sources.</div>`;
-                return;
-            }
-            out.innerHTML = groups.map(g => renderGroup(g)).join('');
+            lastGroups = data.groups || [];
+            renderResults(q);
         } catch (e) {
             sub.textContent = '';
             out.innerHTML = `<div class="se-err">Erreur : ${MH.esc(e.message)}</div>`;
         }
+    }
+
+    function renderResults(q) {
+        const out = document.getElementById('seResults');
+        const sub = document.getElementById('seSub');
+        const groups = lastGroups.filter(g =>
+            typeFilter === 'all' ? true :
+            typeFilter === 'novel' ? MH.isNovelSource(g.source) : !MH.isNovelSource(g.source));
+        const nManga = lastGroups.filter(g => !MH.isNovelSource(g.source)).reduce((n, g) => n + (g.items?.length || 0), 0);
+        const nNovel = lastGroups.filter(g => MH.isNovelSource(g.source)).reduce((n, g) => n + (g.items?.length || 0), 0);
+        const totalItems = groups.reduce((n, g) => n + (g.items?.length || 0), 0);
+
+        // Puces de filtre par type (n'apparaissent que s'il y a des deux)
+        let chips = '';
+        if (nManga && nNovel) {
+            const c = (val, label, count) => `<button class="se-chip ${typeFilter === val ? 'on' : ''}" data-type="${val}">${label}${count != null ? ` · ${count}` : ''}</button>`;
+            chips = `<div class="se-types" style="display:flex;gap:8px;margin-bottom:16px">${c('all', 'Tout', nManga + nNovel)}${c('manga', 'Mangas', nManga)}${c('novel', 'Romans', nNovel)}</div>`;
+        }
+
+        sub.textContent = `${totalItems} résultat(s) pour « ${q} » sur ${groups.length} source(s).`;
+        if (!totalItems) {
+            out.innerHTML = chips + `<div class="se-empty">Aucun résultat ${typeFilter !== 'all' ? 'dans cette catégorie' : '. Essaie un autre titre ou vérifie tes sources'}.</div>`;
+        } else {
+            out.innerHTML = chips + groups.map(g => renderGroup(g)).join('');
+        }
+        out.querySelectorAll('.se-chip[data-type]').forEach(b => b.addEventListener('click', () => {
+            typeFilter = b.dataset.type; renderResults(q);
+        }));
     }
 
     function renderGroup(g) {
