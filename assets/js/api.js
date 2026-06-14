@@ -119,6 +119,12 @@
                 _user = r.user; _token = r.token; persist();
                 return r;
             },
+            providers() { return get('/auth/providers'); },
+            async google(credential) {
+                const r = await post('/auth/google', { credential });
+                _user = r.user; _token = r.token; persist();
+                return r;
+            },
             async logout() {
                 try { await post('/auth/logout'); } catch (e) {}
                 _user = null; _token = null; persist();

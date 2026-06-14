@@ -69,7 +69,6 @@
         emailIn.addEventListener('input', () => { emailIn.style.borderColor = ''; });
     }
 
-    document.querySelectorAll('.social-btn').forEach(b => {
-        b.addEventListener('click', (e) => { e.preventDefault(); toast('Inscription SSO bientÃ´t disponible'); });
-    });
+    // Inscription Google (reelle si configuree)
+    window.MH?.setupGoogleSignin?.({ container: 'googleSignin', divider: 'ssoDivider' });
 })();

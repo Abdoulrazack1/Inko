@@ -53,10 +53,8 @@
         emailIn.addEventListener('input', () => { emailIn.style.borderColor = ''; });
     }
 
-    // ── SSO mock ──
-    document.querySelectorAll('.social-btn').forEach(b => {
-        b.addEventListener('click', (e) => { e.preventDefault(); toast('Connexion SSO bientôt disponible'); });
-    });
+    // ── Connexion Google (réelle si configurée) ──
+    window.MH?.setupGoogleSignin?.({ container: 'googleSignin', divider: 'ssoDivider' });
 
     // ── Compte démo ──
     if (form) {

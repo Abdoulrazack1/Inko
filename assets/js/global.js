@@ -369,6 +369,43 @@
         }
     }
 
+    /* ── Connexion Google (Google Identity Services) ─────────
+       Bouton « Sign in with Google » sur login/signup. */
+    window.MH.setupGoogleSignin = async function ({ container, divider } = {}) {
+        const box = document.getElementById(container);
+        const div = divider && document.getElementById(divider);
+        const reveal = () => { if (div) div.style.display = ''; };
+        if (!box || !window.API) { reveal(); return; }
+        let cfg;
+        try { cfg = await API.auth.providers(); } catch (e) { reveal(); return; }
+        if (!cfg.google || !cfg.googleClientId) {
+            box.style.display = 'none';   // non configuré : on garde juste l'email
+            reveal();
+            return;
+        }
+        reveal();
+        // Attend que la lib GIS soit prête
+        let n = 0;
+        const iv = setInterval(() => {
+            if (window.google?.accounts?.id) {
+                clearInterval(iv);
+                try {
+                    google.accounts.id.initialize({
+                        client_id: cfg.googleClientId,
+                        callback: async (resp) => {
+                            try {
+                                const r = await API.auth.google(resp.credential);
+                                MH.toast(`Bienvenue ${r.user.username} !`);
+                                setTimeout(() => { window.location.href = 'accueil.html'; }, 500);
+                            } catch (e) { MH.toast('Erreur Google : ' + e.message); }
+                        },
+                    });
+                    google.accounts.id.renderButton(box, { theme: 'filled_black', size: 'large', width: 320, text: 'continue_with', shape: 'pill' });
+                } catch (e) { box.style.display = 'none'; }
+            } else if (++n > 40) { clearInterval(iv); box.style.display = 'none'; }
+        }, 100);
+    };
+
     /* ── Header HTML ─────────────────────────────────────── */
     const headerHTML = (activePage) => {
         const u = window.API?.user;

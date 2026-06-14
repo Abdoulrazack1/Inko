@@ -77,7 +77,8 @@ function loadUserConfig() {
                       "http://127.0.0.1:8088/api/spotify/callback. AniList : client sur " +
                       "https://anilist.co/settings/developer, Redirect URL http://127.0.0.1:8088/anilist.html. Redémarre Inko après modification.",
                 spotify: { clientId: "", clientSecret: "" },
-                anilist: { clientId: "" }
+                anilist: { clientId: "" },
+                google:  { clientId: "" }
             }, null, 2));
         }
         const cfg = JSON.parse(fs.readFileSync(USER_CONFIG, 'utf8'));
@@ -88,6 +89,7 @@ function loadUserConfig() {
         if (cfg.anilist?.clientId)     process.env.ANILIST_CLIENT_ID     = cfg.anilist.clientId;
         if (!process.env.ANILIST_REDIRECT_URI)
             process.env.ANILIST_REDIRECT_URI = `http://127.0.0.1:${PORT}/anilist.html`;
+        if (cfg.google?.clientId)      process.env.GOOGLE_CLIENT_ID      = cfg.google.clientId;
     } catch (e) { /* config optionnelle */ }
 }
 

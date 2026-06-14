@@ -1,8 +1,11 @@
 // controllers/auth.controller.js
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const axios  = require('axios');
 const { pool } = require('../config/db');
 const { sign } = require('../middleware/auth');
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 // App locale / self-hostée : pas de HTTPS public → cookie non-Secure
@@ -59,6 +62,53 @@ async function login(req, res, next) {
         const ok = await bcrypt.compare(password, user.password_hash);
         if (!ok) return res.status(401).json({ error: 'Identifiants incorrects' });
 
+        const token = sign(user);
+        res.cookie('token', token, COOKIE_OPTS);
+        res.json({ user: publicUser(user), token });
+    } catch (e) { next(e); }
+}
+
+// Indique au front quels fournisseurs SSO sont configurés
+function providers(_req, res) {
+    res.json({ google: !!GOOGLE_CLIENT_ID, googleClientId: GOOGLE_CLIENT_ID || null });
+}
+
+// Connexion / inscription via Google (Google Identity Services).
+// Le front envoie le « credential » (ID token) ; on le vérifie côté Google.
+async function googleAuth(req, res, next) {
+    try {
+        if (!GOOGLE_CLIENT_ID)
+            return res.status(503).json({ error: 'Connexion Google non configurée sur le serveur (GOOGLE_CLIENT_ID manquant).' });
+        const { credential } = req.body || {};
+        if (!credential) return res.status(400).json({ error: 'Jeton Google manquant' });
+
+        // Vérification du token auprès de Google
+        let info;
+        try {
+            const r = await axios.get('https://oauth2.googleapis.com/tokeninfo', { params: { id_token: credential }, timeout: 10000 });
+            info = r.data;
+        } catch (e) {
+            return res.status(401).json({ error: 'Jeton Google invalide' });
+        }
+        if (info.aud !== GOOGLE_CLIENT_ID)
+            return res.status(401).json({ error: 'Jeton Google destiné à une autre application' });
+        const email = (info.email || '').toLowerCase();
+        if (!email || (info.email_verified !== 'true' && info.email_verified !== true))
+            return res.status(401).json({ error: 'Email Google non vérifié' });
+
+        // Trouve ou crée le compte
+        let [[user]] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+        if (!user) {
+            const username = (info.name || info.given_name || email.split('@')[0]).trim().slice(0, 50);
+            // Mot de passe inutilisable (compte SSO) : hash d'une valeur aléatoire
+            const randomHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+            const avatar = (info.name || username)[0].toUpperCase();
+            const [r] = await pool.query(
+                'INSERT INTO users (username, email, password_hash, avatar) VALUES (?, ?, ?, ?)',
+                [username || 'Lecteur', email, randomHash, avatar]
+            );
+            [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [r.insertId]);
+        }
         const token = sign(user);
         res.cookie('token', token, COOKIE_OPTS);
         res.json({ user: publicUser(user), token });
@@ -178,4 +228,5 @@ async function deleteAccount(req, res, next) {
 module.exports = {
     register, login, me, logout, requestReset, resetPassword,
     changePassword, updateProfile, deleteAccount,
+    providers, googleAuth,
 };
