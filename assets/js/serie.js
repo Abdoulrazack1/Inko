@@ -570,6 +570,14 @@
                     `<a href="catalogue.html?q=${encodeURIComponent(t)}" class="tag tag-link">${MH.esc(t)}</a>`
                 ).join('')}
             </div>
+        </div>
+
+        <!-- Notes personnelles (privées, synchronisées) -->
+        <div class="sidebar-note card" id="noteCard" style="padding:14px">
+            <div class="sidebar-block-header"><span class="sidebar-block-title">Ma note perso</span>
+                <span id="noteStatus" style="font-size:11px;color:var(--text3)"></span></div>
+            <textarea id="noteArea" placeholder="Note privée : où j'en suis, mon avis, à retenir…"
+                style="width:100%;margin-top:8px;min-height:78px;resize:vertical;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;color:var(--text);font-size:12.5px;padding:9px 11px;font-family:inherit;line-height:1.5"></textarea>
         </div>`;
 
         document.getElementById('sidebarResumeBtn')?.addEventListener('click', () => {
@@ -577,6 +585,26 @@
         });
 
         renderRating();
+        renderNote();
+    }
+
+    // ── NOTE PERSONNELLE (UserData : sync + miroir local) ──
+    async function renderNote() {
+        const area = document.getElementById('noteArea');
+        const status = document.getElementById('noteStatus');
+        if (!area || !window.UserData) return;
+        await UserData.ready();
+        const src = API.sources.current;
+        area.value = UserData.getNote(manga.id, src);
+        let t = null;
+        area.addEventListener('input', () => {
+            if (status) status.textContent = 'Enregistrement…';
+            clearTimeout(t);
+            t = setTimeout(() => {
+                UserData.setNote(manga.id, src, area.value);
+                if (status) { status.textContent = 'Enregistré ✓'; setTimeout(() => { status.textContent = ''; }, 1500); }
+            }, 500);
+        });
     }
 
     // ── NOTES / RATINGS ──
