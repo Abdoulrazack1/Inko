@@ -10,7 +10,11 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "pack": "electron-builder --dir",
+    "build:win": "electron-builder --win",
     "dist": "electron-builder --win",
+    "postdist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-local.ps1",
+    "deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-local.ps1",
+    "release": "npm run dist",
     "dist:mac": "electron-builder --mac",
     "dist:linux": "electron-builder --linux"
   },
