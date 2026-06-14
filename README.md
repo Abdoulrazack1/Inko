@@ -56,12 +56,18 @@ tu peux étendre toi-même.
 | Extensions ouvertes | Oui | Oui | Oui | Non |
 | Auto-hébergeable | Oui (Node/MySQL) | Non | Non | Non |
 | Sync compte (favoris, progression) | Oui | Partiel | Partiel | Oui |
+| Bibliothèque visible hors connexion | Oui (miroir local) | Oui | Oui | Non |
+| Connexion Google (SSO) | Oui | Non | Non | Non |
+| Objectifs & défis de lecture | Oui | Non | Non | Non |
 | Musique pendant la lecture | Oui (Spotify, YouTube, local) | Non | Non | Non |
 | Sans framework lourd (forkable) | Oui (Vanilla JS) | Non (Kotlin) | Non (Swift) | Non (React) |
 
 ---
 
 ## Fonctionnalités
+
+Inko est **centré sur la lecture** : pas de réseau social ni de sondages, juste
+les outils pour lire, suivre et organiser tes séries.
 
 **Lecteur**
 - Trois modes : page, double page et webtoon (défilement vertical), mémorisés par série
@@ -71,7 +77,9 @@ tu peux étendre toi-même.
   (original / largeur / hauteur), sens RTL ou LTR, luminosité, écart entre pages
 - Reprise exacte à la page où tu t'es arrêté, préchargement du chapitre suivant
 - Raccourcis clavier (pages, chapitre suivant/précédent, plein écran, réglages)
-- Marquer un chapitre, les précédents, ou tout le manga comme lus
+- Marquer un chapitre **lu / non lu en un clic**, les précédents, ou tout le manga
+- **Chapitre au hasard** depuis la fiche série
+- **Signets** de chapitres, retrouvés dans un onglet dédié de la bibliothèque
 
 **Mangas & romans, séparés**
 - Sources rangées en deux familles : **Mangas** (images) et **Romans** (texte)
@@ -79,12 +87,25 @@ tu peux étendre toi-même.
 - L'app route automatiquement vers le bon lecteur selon le type de la source
 
 **Bibliothèque**
-- Favoris synchronisés sur ton compte
+- Favoris synchronisés sur ton compte, **et conservés même hors connexion** : un
+  miroir local garde ta bibliothèque visible si tu te déconnectes ou perds le réseau
 - Statuts de lecture (en cours, terminé, à lire, en pause, abandonné) et catégories
-- Filtres par statut / catégorie / type, tri et recherche
+- **Épingle** tes séries pour les garder en tête de liste
+- Filtres par statut / catégorie / type / **source** / **non-lus uniquement**
+- Tris : récemment ajoutés, **récemment lus**, titre, non-lus, progression
+- **Densité d'affichage** compact / confort, résumé en-tête (séries · chapitres non lus)
+- **Note personnelle** privée et **temps de lecture estimé** par série
 - Vérification des nouveaux chapitres au lancement **et à la demande** (bouton
   Actualiser dans la barre du haut), badge de nouveautés sur la Bibliothèque
-- Historique de lecture, notes et avis
+- **Au hasard dans ma bibliothèque**, bouton **Continuer** dans la barre du haut
+  pour reprendre instantanément ta dernière lecture
+- Historique de lecture, notes et avis ; **export JSON** de sauvegarde en un clic
+
+**Objectifs & statistiques**
+- **Objectif de lecture hebdomadaire** et **défi annuel** (façon Goodreads) avec
+  barre de progression
+- Série de jours d'affilée (streak), répartition de la bibliothèque par statut,
+  heatmap d'activité sur l'année, activité récente
 
 **Hors-ligne**
 - Téléchargement des chapitres (images **et** texte des romans) pour lire sans connexion
@@ -96,7 +117,9 @@ tu peux étendre toi-même.
   dernier chapitre » qui ouvre directement le chapitre, illustrations officielles
   (AniList), rail de vignettes, navigation clavier / tactile
 - Recommandations personnalisées d'après tes favoris, recherche multi-sources
-  (mangas + romans), aperçu riche au survol d'une carte
+  (mangas + romans) avec **filtre par type** (tout / mangas / romans) et
+  **historique de recherche**
+- Lecture aléatoire, aperçu riche au survol d'une carte
 - Couvertures proxifiées et mises en cache côté serveur (chargement rapide,
   contournement de l'anti-hotlink)
 
@@ -106,13 +129,17 @@ tu peux étendre toi-même.
 - Fichiers audio locaux, YouTube (vrai contrôle via l'IFrame API), et Spotify
 - Liaison de compte Spotify (OAuth) pour retrouver tes playlists
 
-**Comptes liés & suivi**
+**Comptes & connexion**
+- Inscription / connexion par email, **ou en un clic avec Google (Gmail)** via
+  Google Identity Services
 - Composant unifié (profil + paramètres) pour lier/délier **Spotify** et **AniList**
 - AniList : synchronisation automatique de ta progression et de tes statuts pendant
   que tu lis, + synchro manuelle de toute la bibliothèque
 
 **Confort et compte**
-- Thème clair, sombre ou automatique
+- Thème clair, sombre ou automatique ; **raccourcis clavier globaux**
+  (`/` recherche, `r` aléatoire, `c` continuer, `b` bibliothèque, `?` aide) et
+  bouton flottant **Retour en haut**
 - Export de tes données au format JSON
 - Espace adulte masqué, protégé par un code
 - Compte sécurisé (JWT + bcrypt), aucune télémétrie
@@ -209,8 +236,14 @@ npm install -g @capacitor/cli
 npx cap add android && npx cap sync android && npx cap open android
 ```
 
-## Comptes liés (Spotify, AniList)
+## Connexion Google & comptes liés
 
+- **Connexion Google (Gmail)** : crée un *OAuth Client ID* de type « Application
+  Web » sur `console.cloud.google.com/apis/credentials`, avec
+  `http://127.0.0.1:8088` et `http://localhost:8088` en origines JavaScript
+  autorisées. Renseigne ensuite `GOOGLE_CLIENT_ID` dans `server/.env` (ou via
+  `inko-config.json` pour l'app desktop). **Laissé vide, le bouton Google se masque
+  proprement** et la connexion par email reste pleinement fonctionnelle.
 - **Spotify** (playlists dans le lecteur) : OAuth officiel, nécessite une app
   développeur gratuite. Étapes dans [`SPOTIFY_SETUP.md`](SPOTIFY_SETUP.md). Sans
   configuration, le lecteur reste utilisable via les stations, YouTube et les
@@ -233,7 +266,8 @@ inko/
     global.js                header/nav, recherche, comptes liés, MAJ chapitres,
                              routage lecteur (MH.readerHref) selon le type de source
     theme.js, nsfw.js        thème, espace +18
-    storage.js               préférences locales
+    storage.js               préférences locales + miroir bibliothèque (hors-ligne)
+    userdata.js              notes, signets, épingles, objectifs (sync /me/settings + local)
     card-hover.js            aperçu au survol
     music.js                 lecteur de musique intégré (dock)
     downloads.js             hors-ligne : images (Cache API) + texte (IndexedDB)
@@ -262,16 +296,18 @@ Base `/api`. Voir le [détail des routes](server/routes/index.js).
 
 ```
 Auth      POST /auth/register, /auth/login    PUT /auth/password,/auth/profile    POST /auth/delete
+Google    GET  /auth/providers     POST /auth/google   (Sign-in with Google, ID token)
 Sources   GET  /sources    /sources/:id/mangas/*
 Mangas    GET  /mangas/{search,popular,latest,tags,:id,:id/chapters}
 Lecture   GET  /chapters/:id/pages  (manga)    /chapters/:id/text  (roman)
 Images    GET  /img?u=<url>         (proxy + cache des couvertures)
 Compte    GET/PUT /me/{favorites,library,progress,lists,settings,ratings,updates}    /me/export
+          (notes, signets, épingles, objectifs : stockés dans /me/settings)
 Read      POST /me/read-chapters    /me/read-chapters/bulk    PUT /me/favorites/:id/category
 Artwork   GET  /artwork?title=...   (illustrations officielles AniList)
 Spotify   GET  /spotify/{login,callback,status,playlists,recent,top,saved,now-playing}    POST /spotify/disconnect
 AniList   GET  /anilist/{config,similar}
-Social    GET/POST /comments/:id    GET /comments-recent    /ratings/:id    GET /me/stats
+Stats     GET  /me/stats    /me/events    /ratings/:id
 ```
 
 ---
