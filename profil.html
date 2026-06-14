@@ -328,23 +328,23 @@
           </div>
         </div>
 
-        <!-- Footer cards -->
+        <!-- Footer cards (valeurs réelles) -->
         <div class="overview-footer-cards">
           <div class="card footer-mini-card green-border">
             <div class="footer-mini-icon"></div>
             <div class="footer-mini-label">Spotify</div>
-            <div class="footer-mini-val">Connecté</div>
+            <div class="footer-mini-val" id="miniSpotify">—</div>
           </div>
           <div class="card footer-mini-card">
             <div class="footer-mini-icon"></div>
             <div class="footer-mini-label">Téléchargements</div>
-            <div class="footer-mini-val">3.2 Go utilisé</div>
+            <div class="footer-mini-val" id="miniDownloads">—</div>
           </div>
-          <div class="card footer-mini-card orange-border">
+          <a class="card footer-mini-card orange-border" href="https://github.com/Abdoulrazack1/Inko" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">
             <div class="footer-mini-icon"></div>
-            <div class="footer-mini-label">Abonnement</div>
-            <div class="footer-mini-val">Premium Actif</div>
-          </div>
+            <div class="footer-mini-label">Inko</div>
+            <div class="footer-mini-val" id="miniPlan">Open-source · Gratuit</div>
+          </a>
         </div>
 
       </div><!-- /tab-overview -->
@@ -744,9 +744,11 @@
 
   <script src="assets/js/api.js"></script>
   <script src="assets/js/storage.js"></script>
+  <script src="assets/js/userdata.js"></script>
   <script src="assets/js/theme.js"></script>
   <script src="assets/js/nsfw.js"></script>
   <script src="assets/js/global.js"></script>
+  <script src="assets/js/downloads.js"></script>
   <script src="assets/js/profil.js"></script>
   <script src="assets/js/eula.js"></script>
   <script src="assets/js/pwa.js"></script>

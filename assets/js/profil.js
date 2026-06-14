@@ -27,6 +27,7 @@
             renderGenres(),
             renderLastReview(),
             renderConnections(),
+            renderMiniCards(),
         ]);
         initToggles();
         initPrefBtns();
@@ -37,6 +38,28 @@
         bindDangerActions();
         wireExtraButtons();
     });
+
+    // ── Cartes de bas de profil : valeurs réelles ──
+    async function renderMiniCards() {
+        const spot = document.getElementById('miniSpotify');
+        const dl   = document.getElementById('miniDownloads');
+        if (spot) {
+            try {
+                const st = await API.spotify.status();
+                spot.textContent = st?.connected ? (st.profile?.name || 'Connecté') : 'Non connecté';
+            } catch (e) { spot.textContent = 'Non connecté'; }
+        }
+        if (dl) {
+            try {
+                if (window.Downloads) {
+                    const groups = await window.Downloads.byManga();
+                    const st = await window.Downloads.storage();
+                    const n = groups.reduce((a, g) => a + g.chapters.length, 0);
+                    dl.textContent = n ? `${n} chap. · ${(st.usage / 1048576).toFixed(0)} Mo` : 'Aucun';
+                } else { dl.textContent = 'Indisponible'; }
+            } catch (e) { dl.textContent = 'Aucun'; }
+        }
+    }
 
     function redirectGuest() {
         document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
