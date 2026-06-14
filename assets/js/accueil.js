@@ -423,7 +423,6 @@
         }
 
         renderStatsMini();
-        renderRecentComments();
         wireInstallButton();
     }
 
@@ -464,27 +463,6 @@
                     ${item(streak, 'Jours d\'affilée')}
                     ${item(t.favorites, 'Favoris')}
                 </div>`;
-        } catch (e) { el.innerHTML = ''; }
-    }
-
-    // Commentaires récents de la communauté (réels)
-    async function renderRecentComments() {
-        const el = document.getElementById('recentComments');
-        if (!el) return;
-        try {
-            const list = await API.comments.recent(4);
-            if (!list || !list.length) {
-                el.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:4px 0">Aucun commentaire pour l'instant.</div>`;
-                return;
-            }
-            el.innerHTML = list.map(c => `
-                <a class="recent-comment" href="serie.html?id=${encodeURIComponent(c.mangaId)}${c.mangaSource ? '&source=' + encodeURIComponent(c.mangaSource) : ''}">
-                    <span class="recent-comment-avatar">${MH.esc((c.avatar || c.user || '?').slice(0,1).toUpperCase())}</span>
-                    <span class="recent-comment-body">
-                        <span class="recent-comment-user">${MH.esc(c.user)}${c.mangaTitle ? ' · <span style="color:var(--text3)">' + MH.esc(c.mangaTitle) + '</span>' : ''}</span>
-                        <span class="recent-comment-text">${MH.esc(c.text.length > 80 ? c.text.slice(0,80) + '…' : c.text)}</span>
-                    </span>
-                </a>`).join('');
         } catch (e) { el.innerHTML = ''; }
     }
 

@@ -29,7 +29,6 @@
         renderFocus();
         renderLatestMini();
         renderCollectionsMini();
-        renderReviews();
 
         await runSearch();
     });
@@ -375,28 +374,6 @@
                         <div class="collection-mini-meta">${l.count || 0} série(s)</div>
                     </div>
                 </div>`).join('');
-        } catch (e) { if (section) section.style.display = 'none'; }
-    }
-
-    // Derniers avis de la communauté
-    async function renderReviews() {
-        const el = document.getElementById('reviewsGrid');
-        const section = el?.closest('.catalogue-reviews');
-        if (!el) return;
-        try {
-            const comments = await API.comments.recent(6);
-            if (!comments || !comments.length) { if (section) section.style.display = 'none'; return; }
-            el.innerHTML = comments.slice(0, 6).map(c => {
-                const stars = c.rating ? '★'.repeat(Math.round(c.rating)) + '☆'.repeat(5 - Math.round(c.rating)) : '';
-                const serieLink = `serie.html?id=${encodeURIComponent(c.mangaId)}${c.mangaSource ? '&source=' + encodeURIComponent(c.mangaSource) : ''}`;
-                return `
-                <div class="review-card">
-                    <a class="review-card-manga" href="${serieLink}" style="text-decoration:none;display:block">${MH.esc(c.mangaTitle || 'Voir la série →')}</a>
-                    ${stars ? `<div class="review-card-stars" style="color:#f59e0b;font-size:12px">${stars}</div>` : ''}
-                    <div class="review-card-text">« ${MH.esc(c.text.length > 140 ? c.text.slice(0, 140) + '…' : c.text)} »</div>
-                    <div class="review-card-user"><span class="review-avatar">${MH.esc((c.avatar || '?').slice(0, 2))}</span> ${MH.esc(c.user)}</div>
-                </div>`;
-            }).join('');
         } catch (e) { if (section) section.style.display = 'none'; }
     }
 

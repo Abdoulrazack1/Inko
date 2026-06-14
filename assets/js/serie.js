@@ -360,13 +360,6 @@
         <div class="chapters-block" id="similarBlock" style="display:none">
             <div class="chapters-block-header"><div class="chapters-block-title">Tu aimeras aussi</div></div>
             <div id="similarRow" style="display:flex;gap:12px;overflow-x:auto;padding:4px 2px 8px"></div>
-        </div>
-        <div class="chapters-block" id="commentsBlock">
-            <div class="chapters-block-header">
-                <div class="chapters-block-title">Commentaires <span id="commentCount" class="comment-count-badge"></span></div>
-            </div>
-            <div id="commentForm"></div>
-            <div id="commentsList" class="comments-list"></div>
         </div>`;
         el.querySelectorAll('[data-goto="chapitres"]').forEach(btn => {
             btn.addEventListener('click', e => {
@@ -377,7 +370,6 @@
             });
         });
         loadSimilar();
-        loadComments();
     }
 
     // ── Commentaires ──
