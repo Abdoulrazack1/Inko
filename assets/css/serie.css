@@ -395,6 +395,21 @@
   background: #22c55e;
   border-color: #22c55e;
 }
+.chapter-bm {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 6px;
+  filter: grayscale(1) opacity(0.35);
+  transition: filter 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+.chapter-row:hover .chapter-bm { filter: grayscale(1) opacity(0.6); }
+.chapter-bm:hover { filter: none; transform: scale(1.15); }
+.chapter-bm.on { filter: none; }
 
 .chapters-list { }
 .chapters-empty {

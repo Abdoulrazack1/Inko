@@ -465,6 +465,7 @@
 
     function renderChapterRow(c) {
         const isRead = readChapsSet.has(c.id);
+        const isBm = window.UserData?.hasBookmark?.(manga.id, c.id);
         return `
         <a href="${MH.readerHref(manga.id, c.id, API.sources.current)}" class="chapter-row${isRead ? ' chapter-row--read' : ''}">
             <div class="chapter-num">Chap. ${c.chapter}</div>
@@ -473,13 +474,42 @@
                 <span class="chapter-date">${c.publishedAt ? new Date(c.publishedAt).toLocaleDateString('fr-FR') : ''}</span>
                 <span class="chapter-time">${c.pages ? c.pages + ' p.' : ''}</span>
                 <span class="chapter-time">${(c.lang || '').toUpperCase()}</span>
+                <button class="chapter-bm${isBm ? ' on' : ''}" title="${isBm ? 'Retirer le signet' : 'Ajouter un signet'}"
+                    data-bm="${MH.esc(c.id)}" data-bmnum="${MH.esc(c.chapter)}" data-bmtitle="${MH.esc(c.title || '')}">🔖</button>
                 <span class="chapter-read-dot ${isRead ? 'is-read' : ''}" title="${isRead ? 'Lu' : 'Non lu'}"></span>
             </div>
         </a>`;
     }
 
+    // Handler délégué unique pour les signets de chapitre
+    let _bmBound = false;
+    function bindBookmarkHandler() {
+        if (_bmBound) return; _bmBound = true;
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.chapter-bm');
+            if (!btn) return;
+            e.preventDefault(); e.stopPropagation();
+            const chapterId = btn.dataset.bm;
+            const exists = window.UserData?.hasBookmark?.(manga.id, chapterId);
+            if (exists) {
+                UserData.removeBookmark(manga.id, chapterId);
+                btn.classList.remove('on'); btn.title = 'Ajouter un signet';
+                MH.toast?.('Signet retiré');
+            } else {
+                UserData.addBookmark({
+                    mangaId: manga.id, source: API.sources.current,
+                    title: manga.title, cover: manga.cover || manga.coverThumb,
+                    chapterId, chapterNum: btn.dataset.bmnum, label: btn.dataset.bmtitle,
+                });
+                btn.classList.add('on'); btn.title = 'Retirer le signet';
+                MH.toast?.('Signet ajouté — retrouvé dans ta bibliothèque');
+            }
+        });
+    }
+
     // ── CHAPITRES ──
     function renderChapitres(el) {
+        bindBookmarkHandler();
         if (!chapters.length) {
             el.innerHTML = `
             <div class="chapters-block">

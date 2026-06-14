@@ -120,7 +120,7 @@
     }
 
     function initTabs() {
-        const panels = { library: 'tabLibrary', updates: 'tabUpdates', downloads: 'tabDownloads' };
+        const panels = { library: 'tabLibrary', updates: 'tabUpdates', bookmarks: 'tabBookmarks', downloads: 'tabDownloads' };
         document.querySelectorAll('.lib2-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.lib2-tab').forEach(t => t.classList.remove('active'));
@@ -130,8 +130,44 @@
                     const el = document.getElementById(id); if (el) el.style.display = (k === t) ? '' : 'none';
                 });
                 if (t === 'downloads') renderDownloads();
+                if (t === 'bookmarks') renderBookmarks();
             });
         });
+    }
+
+    // ── SIGNETS (UserData) ──
+    async function renderBookmarks() {
+        const el = document.getElementById('bmList');
+        if (!el) return;
+        await window.UserData?.ready?.();
+        const items = window.UserData?.getBookmarks?.() || [];
+        if (!items.length) {
+            el.innerHTML = `<div class="lib2-empty"><div class="ico">🔖</div>
+                <div style="font-size:14px;color:var(--text);font-weight:500;margin-bottom:6px">Aucun signet</div>
+                Sur une fiche série, clique sur le 🔖 d'un chapitre pour le retrouver ici.</div>`;
+            return;
+        }
+        el.innerHTML = items.map(b => {
+            const href = MH.readerHref(b.mangaId, b.chapterId, b.source);
+            return `
+            <div class="upd-row">
+                <a class="upd-cover" href="${href}">
+                    <img src="${b.cover || MH.placeholderCover(b.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(b.mangaId)}'">
+                </a>
+                <div class="upd-info">
+                    <a class="upd-name" href="${href}" style="color:inherit;text-decoration:none">${MH.esc(b.title || b.mangaId)}</a>
+                    <div class="upd-meta">Chap. ${MH.esc(String(b.chapterNum || '?'))}${b.label ? ' · ' + MH.esc(b.label) : ''}${b.source ? ' · ' + MH.esc(b.source) : ''}</div>
+                </div>
+                <div style="display:flex;gap:6px;flex-shrink:0">
+                    <a class="btn btn-primary btn-sm" href="${href}">Lire</a>
+                    <button class="btn btn-sm" style="background:rgba(239,68,68,.12);color:#ef4444" data-bmdel="${MH.esc(b.mangaId)}" data-bmchap="${MH.esc(b.chapterId)}">Retirer</button>
+                </div>
+            </div>`;
+        }).join('');
+        el.querySelectorAll('[data-bmdel]').forEach(btn => btn.addEventListener('click', () => {
+            window.UserData.removeBookmark(btn.dataset.bmdel, btn.dataset.bmchap);
+            renderBookmarks();
+        }));
     }
 
     async function renderDownloads() {
