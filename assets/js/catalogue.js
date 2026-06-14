@@ -18,7 +18,8 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('catalogue');
-        readURLParams();
+        restoreCtx();        // restaure le dernier contexte (filtres/tri/vue)
+        readURLParams();     // l'URL (?q=, ?tag=, ?sort=) reste prioritaire
         renderQuickFilters();
         bindEvents();
 
@@ -38,6 +39,29 @@
         if (p.get('q'))    lastQuery  = p.get('q');
         if (p.get('sort')) activeSort = p.get('sort');
         if (p.get('tag'))  activeTags.add(p.get('tag'));
+    }
+
+    // ── Mémorisation du contexte (filtres / tri / vue) ──
+    const CTX_KEY = 'inko_catalogue_ctx';
+    function saveCtx() {
+        try {
+            localStorage.setItem(CTX_KEY, JSON.stringify({
+                tags: [...activeTags], status: [...activeStatus], demo: [...activeDemo],
+                sort: activeSort, view: viewMode, source: API.sources.current,
+            }));
+        } catch (e) {}
+    }
+    function restoreCtx() {
+        let c; try { c = JSON.parse(localStorage.getItem(CTX_KEY)); } catch (e) {}
+        if (!c) return;
+        // Ne restaure les filtres que si on revient sur la même source
+        if (c.source && c.source === API.sources.current) {
+            (c.tags   || []).forEach(t => activeTags.add(t));
+            (c.status || []).forEach(s => activeStatus.add(s));
+            (c.demo   || []).forEach(d => activeDemo.add(d));
+        }
+        if (c.sort) activeSort = c.sort;
+        if (c.view) viewMode = c.view;
     }
 
     // ── Source active (pour affichage honnête) ──
@@ -190,6 +214,7 @@
             if (myReq !== inFlight) return; // requête plus récente en cours
             lastResults = data.results || [];
             lastTotal   = data.total || 0;
+            saveCtx();   // mémorise le contexte courant pour la prochaine visite
 
             if (count) count.innerHTML = `Affichage de <strong>${lastResults.length}</strong> sur <strong>${MH.fmt ? MH.fmt(lastTotal) : lastTotal}</strong> séries`;
 
@@ -454,7 +479,11 @@
             viewMode = b.dataset.view;
             document.querySelectorAll('.view-btn').forEach(x => x.classList.toggle('active', x === b));
             document.getElementById('resultsGrid')?.classList.toggle('list-view', viewMode === 'list');
+            saveCtx();
         }));
+        // Applique la vue restauree au chargement
+        document.querySelectorAll('.view-btn').forEach(x => x.classList.toggle('active', x.dataset.view === viewMode));
+        document.getElementById('resultsGrid')?.classList.toggle('list-view', viewMode === 'list');
 
         // Lecture aléatoire
         document.getElementById('btnRandom')?.addEventListener('click', async () => {

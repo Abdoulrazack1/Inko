@@ -30,6 +30,7 @@
         initTabs();
         await loadLibrary();
         bindUpdates();
+        wireNotifyButton();
         wireLibRefresh();
         wireLibRandom();
         wireLibExtras();
@@ -100,7 +101,60 @@
         const newCount = (data.updates || []).filter(u => u.unreadCount > 0).length;
         try { localStorage.setItem('inko_lib_newcount', String(newCount)); } catch (e) {}
         window.MH?.updateLibBadge?.();
+        maybeNotify(data.updates || []);
         return data;
+    }
+
+    // ── Notifications navigateur pour nouveaux chapitres ──
+    function notifyEnabled() {
+        try { return window.Storage?.getPref?.('notifyNewChapters') === true; } catch (e) { return false; }
+    }
+    function maybeNotify(updates) {
+        if (!notifyEnabled() || !('Notification' in window) || Notification.permission !== 'granted') return;
+        let notified = {};
+        try { notified = JSON.parse(localStorage.getItem('inko_notified') || '{}'); } catch (e) {}
+        const fresh = updates.filter(u => u.hasNew && u.latest && notified[u.mangaId] !== u.latest.id).slice(0, 5);
+        fresh.forEach(u => {
+            try {
+                const n = new Notification('Inko — nouveau chapitre', {
+                    body: `${u.title} · Ch. ${u.latest.chapter}`,
+                    icon: u.cover || '/assets/img/icon.svg', tag: 'inko-' + u.mangaId,
+                });
+                n.onclick = () => { window.focus(); window.location.href = MH.readerHref(u.mangaId, u.latest.id, u.source); };
+            } catch (e) {}
+            notified[u.mangaId] = u.latest.id;
+        });
+        try { localStorage.setItem('inko_notified', JSON.stringify(notified)); } catch (e) {}
+    }
+    function wireNotifyButton() {
+        const btn = document.getElementById('btnNotify');
+        if (!btn) return;
+        const supported = 'Notification' in window;
+        const paint = () => {
+            if (!supported) { btn.textContent = '🔔 Indisponible'; btn.disabled = true; return; }
+            const on = notifyEnabled() && Notification.permission === 'granted';
+            btn.textContent = on ? '🔔 Notifications activées' : '🔔 Activer les notifications';
+            btn.classList.toggle('btn-primary', on);
+            btn.classList.toggle('btn-secondary', !on);
+        };
+        paint();
+        btn.addEventListener('click', async () => {
+            if (!supported) return;
+            if (notifyEnabled() && Notification.permission === 'granted') {
+                window.Storage?.setPref?.('notifyNewChapters', false);
+                MH.toast?.('Notifications désactivées');
+                paint(); return;
+            }
+            let perm = Notification.permission;
+            if (perm !== 'granted') { try { perm = await Notification.requestPermission(); } catch (e) {} }
+            if (perm === 'granted') {
+                window.Storage?.setPref?.('notifyNewChapters', true);
+                MH.toast?.('Notifications activées — tu seras prévenu des nouveaux chapitres');
+            } else {
+                MH.toast?.('Autorisation refusée par le navigateur');
+            }
+            paint();
+        });
     }
     // Résumé en-tête : nombre de séries + chapitres non lus
     function renderSummary() {
@@ -126,6 +180,27 @@
             compact = !compact;
             window.Storage?.setPref?.('libDensity', compact ? 'compact' : 'comfort');
             apply(compact);
+        });
+
+        // Import : restaure une sauvegarde JSON
+        const iBtn = document.getElementById('btnLibImport');
+        const iFile = document.getElementById('libImportFile');
+        iBtn?.addEventListener('click', () => {
+            if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour importer'); return; }
+            iFile?.click();
+        });
+        iFile?.addEventListener('change', async () => {
+            const f = iFile.files?.[0];
+            if (!f) return;
+            try {
+                const data = JSON.parse(await f.text());
+                if (!confirm('Restaurer cette sauvegarde ? Tes favoris, progression et listes seront fusionnés avec les données importées.')) { iFile.value = ''; return; }
+                await API.me.importData(data);
+                MH.toast?.('Sauvegarde restaurée');
+                setTimeout(() => window.location.reload(), 700);
+            } catch (e) {
+                MH.toast?.('Fichier invalide : ' + e.message);
+            } finally { iFile.value = ''; }
         });
 
         const xBtn = document.getElementById('btnLibExport');
@@ -441,6 +516,8 @@
                     ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
                     <button class="lib2-pin ${isPin ? 'on' : ''}" data-pin="${MH.esc(f.mangaId)}" data-src="${MH.esc(f.source || '')}"
                         title="${isPin ? 'Désépingler' : 'Épingler en haut'}" aria-label="Épingler">📌</button>
+                    <button class="lib2-del" data-del="${MH.esc(f.mangaId)}" data-title="${MH.esc(f.title || '')}"
+                        title="Retirer de ma bibliothèque" aria-label="Retirer">✕</button>
                 </div>
                 <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
                 <div class="lib2-sub">${prog ? 'Ch. ' + MH.chapNum(prog.chapter) : 'Pas commencé'} · ${f.source || 'mangadex'}</div>
@@ -453,6 +530,21 @@
             const nowPinned = window.UserData?.togglePin?.(btn.dataset.pin, btn.dataset.src);
             MH.toast?.(nowPinned ? 'Épinglé en haut de la bibliothèque' : 'Désépinglé');
             render();
+        }));
+
+        grid.querySelectorAll('.lib2-del').forEach(btn => btn.addEventListener('click', async (e) => {
+            e.preventDefault(); e.stopPropagation();
+            if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour modifier ta bibliothèque'); return; }
+            const id = btn.dataset.del;
+            if (!confirm(`Retirer « ${btn.dataset.title || id} » de ta bibliothèque ?`)) return;
+            try {
+                await API.me.removeFavorite(id);
+                favs = favs.filter(f => f.mangaId !== id);
+                try { const set = await MH.getFavSet?.(); set?.delete(String(id)); } catch (er) {}
+                window.Storage?.cacheLibrary?.(favs);
+                MH.toast?.('Retiré de ta bibliothèque');
+                renderSummary(); renderFilters(); render();
+            } catch (err) { MH.toast?.('Erreur : ' + err.message); }
         }));
     }
 

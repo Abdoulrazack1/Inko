@@ -135,6 +135,7 @@
                 <div class="serie-actions">
                     <button class="btn btn-primary" id="btnReadStart">▶ Lire depuis le début</button>
                     ${resumeChap ? `<button class="btn btn-secondary" id="btnResume">${resumeLabel}</button>` : ''}
+                    <button class="btn btn-secondary" id="btnNextUnread" title="Ouvrir le premier chapitre non lu">⏭ 1er non-lu</button>
                     <button class="btn btn-ghost ${favorited ? 'is-fav' : ''}" id="btnFavorite">
                         ${favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste'}
                     </button>
@@ -186,6 +187,14 @@
             if (progress?.chapterId) {
                 window.location.href = MH.readerHref(manga.id, progress.chapterId, API.sources.current);
             }
+        });
+
+        document.getElementById('btnNextUnread')?.addEventListener('click', () => {
+            if (!chapters.length) { MH.toast('Chargement des chapitres en cours…'); return; }
+            const asc = [...chapters].sort((a, b) => a.chapter - b.chapter);
+            const next = asc.find(c => !readChapsSet.has(c.id));
+            if (!next) { MH.toast('Tous les chapitres sont lus ✓'); return; }
+            window.location.href = MH.readerHref(manga.id, next.id, API.sources.current);
         });
 
         document.getElementById('btnFavorite')?.addEventListener('click', async () => {
