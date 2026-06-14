@@ -458,11 +458,19 @@
 
         // Lecture aléatoire
         document.getElementById('btnRandom')?.addEventListener('click', async () => {
-            const data = await API.mangas.popular({ limit: 100 });
-            const list = data.results || [];
-            if (!list.length) return;
-            const m = list[Math.floor(Math.random() * list.length)];
-            window.location.href = `serie.html?id=${encodeURIComponent(m.id)}`;
+            const btn = document.getElementById('btnRandom');
+            if (btn) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = 'Tirage…'; }
+            try {
+                const data = await API.mangas.popular({ limit: 100 });
+                const list = data.results || [];
+                if (!list.length) { MH.toast?.('Aucun manga à tirer'); return; }
+                const m = list[Math.floor(Math.random() * list.length)];
+                window.location.href = `serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current || '')}`;
+            } catch (e) {
+                MH.toast?.('Erreur : ' + e.message);
+            } finally {
+                if (btn) { btn.disabled = false; if (btn.dataset.label) btn.textContent = btn.dataset.label; }
+            }
         });
 
         // Le toggle des favoris (cœurs de cartes) est géré globalement dans global.js.

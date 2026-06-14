@@ -2,21 +2,48 @@
 (function () {
     'use strict';
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('recherche');
         MH.loadSourceTypes();   // pour badger les groupes Romans
+        await window.UserData?.ready?.();
         const input = document.getElementById('seInput');
         const q = new URLSearchParams(location.search).get('q') || '';
-        if (q) { input.value = q; run(q); }
+        if (q) { input.value = q; run(q); } else { renderHistory(); }
         input.focus();
 
         document.getElementById('seGo').addEventListener('click', () => go(input.value));
         input.addEventListener('keydown', e => { if (e.key === 'Enter') go(input.value); });
     });
 
+    // ── Historique de recherche (UserData) ──
+    function renderHistory() {
+        const el = document.getElementById('seHist');
+        if (!el || !window.UserData) return;
+        const items = UserData.getSearchHistory();
+        if (!items.length) { el.style.display = 'none'; return; }
+        el.style.display = 'flex';
+        el.innerHTML = `<span class="se-hist-label">Recherches récentes :</span>` +
+            items.map(q => `<span class="se-chip" data-q="${MH.esc(q)}">${MH.esc(q)}<span class="x" data-del="${MH.esc(q)}" title="Retirer">×</span></span>`).join('') +
+            `<button class="se-hist-clear" id="seHistClear">tout effacer</button>`;
+        el.querySelectorAll('.se-chip').forEach(c => c.addEventListener('click', (e) => {
+            if (e.target.dataset.del != null) {
+                UserData.pushSearch(''); // no-op guard
+                const rest = UserData.getSearchHistory().filter(x => x !== e.target.dataset.del);
+                UserData.clearSearchHistory(); rest.reverse().forEach(x => UserData.pushSearch(x));
+                renderHistory();
+                return;
+            }
+            const q = c.dataset.q;
+            document.getElementById('seInput').value = q;
+            go(q);
+        }));
+        document.getElementById('seHistClear')?.addEventListener('click', () => { UserData.clearSearchHistory(); renderHistory(); });
+    }
+
     function go(q) {
         q = (q || '').trim();
         if (!q) return;
+        window.UserData?.pushSearch?.(q);
         history.replaceState({}, '', 'recherche.html?q=' + encodeURIComponent(q));
         run(q);
     }
@@ -24,6 +51,8 @@
     async function run(q) {
         const out = document.getElementById('seResults');
         const sub = document.getElementById('seSub');
+        window.UserData?.pushSearch?.(q);
+        renderHistory();
         sub.textContent = `Recherche de « ${q} » sur toutes les sources…`;
         out.innerHTML = `<div class="se-loading"><div class="spinner-inline"></div> Recherche en cours…</div>`;
         try {
