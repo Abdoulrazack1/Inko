@@ -4,64 +4,63 @@
 # la derniere version. Lance automatiquement apres "npm run dist"
 # (script postdist) ; peut aussi etre lance seul via "npm run deploy".
 #
-# Raison : "npm run dist" ne fait que regenerer dist\ ; il ne
-# touche PAS l'app installee dans %LOCALAPPDATA%\Programs\Inko.
-# Sans cette etape, l'utilisateur relance l'ancien build fige.
+# Methode : COPIE DIRECTE de dist\win-unpacked par-dessus l'install
+# (%LOCALAPPDATA%\Programs\Inko). On NE lance PAS l'installeur en
+# reinstallation : ca evite l'etape de desinstallation qui affichait
+# "Echec de la desinstallation" quand l'app tournait encore.
+# Les raccourcis (Bureau + Menu Demarrer) pointent deja vers ce
+# dossier : ils continuent de fonctionner. Le desinstalleur est
+# conserve (copie sans purge).
 # ============================================================
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 $distDir = Join-Path $PSScriptRoot '..\dist'
-$installDir = Join-Path $env:LOCALAPPDATA 'Programs\Inko'
+$src     = Join-Path $distDir 'win-unpacked'
+$dst     = Join-Path $env:LOCALAPPDATA 'Programs\Inko'
 
-# 1. Trouver l'installeur le plus recent
-$setup = Get-ChildItem -Path $distDir -Filter 'Inko-Setup-*.exe' -ErrorAction SilentlyContinue |
-    Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if (-not $setup) {
-    Write-Host "[deploy] Aucun installeur Inko-Setup-*.exe dans $distDir - rien a deployer." -ForegroundColor Yellow
+if (-not (Test-Path (Join-Path $src 'Inko.exe'))) {
+    Write-Host "[deploy] build win-unpacked introuvable ($src) - rien a deployer." -ForegroundColor Yellow
     exit 0
 }
-Write-Host "[deploy] Installeur : $($setup.Name) ($([math]::Round($setup.Length/1MB,1)) Mo)"
 
-# 2. Arreter les instances Inko en cours (sinon fichiers verrouilles)
-$running = Get-Process -Name Inko -ErrorAction SilentlyContinue
-if ($running) {
-    Write-Host "[deploy] Arret de $($running.Count) instance(s) Inko en cours..."
-    $running | Stop-Process -Force
-    Start-Sleep -Seconds 2
+# 1. Arreter TOUTES les instances d'Inko et attendre la liberation des fichiers
+for ($i = 0; $i -lt 12; $i++) {
+    $procs = Get-Process -Name Inko -ErrorAction SilentlyContinue
+    if (-not $procs) { break }
+    Write-Host "[deploy] Arret de $($procs.Count) instance(s) Inko..."
+    $procs | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 700
+}
+Start-Sleep -Seconds 1
+
+# 2. Premiere installation absente ? -> installeur silencieux (cree les raccourcis)
+if (-not (Test-Path (Join-Path $dst 'Inko.exe'))) {
+    $setup = Get-ChildItem -Path $distDir -Filter 'Inko-Setup-*.exe' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($setup) {
+        Write-Host "[deploy] Premiere installation (silencieuse)..."
+        Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait
+        Start-Sleep -Seconds 2
+    }
 }
 
-# 3. Installation silencieuse (ecrase l'install existante, garde les raccourcis)
-Write-Host "[deploy] Installation silencieuse de la nouvelle version..."
-$proc = Start-Process -FilePath $setup.FullName -ArgumentList '/S' -PassThru -Wait
-if ($proc.ExitCode -ne 0) {
-    Write-Host "[deploy] ECHEC de l'installeur (code $($proc.ExitCode))." -ForegroundColor Red
+# 3. Copie directe de la build fraiche par-dessus l'install (sans desinstallation)
+Write-Host "[deploy] Mise a jour par copie directe (sans desinstallation)..."
+$args = @("`"$src`"", "`"$dst`"", '/E', '/R:4', '/W:1', '/NJH', '/NJS', '/NDL', '/NFL', '/NP')
+$rc = Start-Process -FilePath 'robocopy.exe' -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+# robocopy : 0-7 = succes, >=8 = echec
+if ($rc.ExitCode -ge 8) {
+    Write-Host "[deploy] ECHEC robocopy (code $($rc.ExitCode)) - fichiers peut-etre verrouilles." -ForegroundColor Red
     exit 1
 }
-Start-Sleep -Seconds 2
 
-# 4. Verification : l'app installee doit contenir le code frais
-$installedExe = Join-Path $installDir 'Inko.exe'
-$freshExe     = Join-Path $distDir 'win-unpacked\Inko.exe'
-$marker       = Join-Path $installDir 'resources\frontend\assets\js\userdata.js'
-
-if (-not (Test-Path $installedExe)) {
-    Write-Host "[deploy] Inko.exe introuvable apres install : $installedExe" -ForegroundColor Red
-    exit 1
-}
-$instTime = (Get-Item $installedExe).LastWriteTime
-$ok = $true
-if (Test-Path $freshExe) {
-    $freshTime = (Get-Item $freshExe).LastWriteTime
-    Write-Host "[deploy] Installe : $instTime"
-    Write-Host "[deploy] Build    : $freshTime"
-    if ([math]::Abs(($instTime - $freshTime).TotalSeconds) -gt 180) { $ok = $false }
-}
-if (-not (Test-Path $marker)) { $ok = $false }
-
-if ($ok) {
-    Write-Host "[deploy] OK - l'app installee (%LOCALAPPDATA%\Programs\Inko) est a jour." -ForegroundColor Green
+# 4. Verification
+$installedExe = Join-Path $dst 'Inko.exe'
+$marker       = Join-Path $dst 'resources\frontend\assets\js\userdata.js'
+if ((Test-Path $installedExe) -and (Test-Path $marker)) {
+    Write-Host "[deploy] OK - l'app installee est a jour : $((Get-Item $installedExe).LastWriteTime)" -ForegroundColor Green
 } else {
-    Write-Host "[deploy] ATTENTION - l'install ne semble pas a jour, verifie manuellement." -ForegroundColor Yellow
+    Write-Host "[deploy] ATTENTION - verification incomplete (Inko.exe ou resources manquants)." -ForegroundColor Yellow
     exit 1
 }
