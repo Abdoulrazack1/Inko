@@ -106,8 +106,10 @@
             renderNextChapter();
             renderDetails();
             bindKeyboard();
+            applyInitialScroll();
             saveProgress();
             preloadNextChapter();
+            requestWakeLock();
         } catch (e) {
             showError('Impossible de charger le chapitre : ' + e.message);
         }
@@ -160,6 +162,12 @@
             <button class="reader-icon-btn" ${!nextChap ? 'disabled' : ''} id="btnNextChap">›</button>
         </div>
         <div class="toolbar-right">
+            <button class="reader-icon-btn" id="btnBookmark" title="Ajouter un signet sur cette page (B)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+            <button class="reader-icon-btn" id="btnImmersive" title="Mode immersif — masquer l'interface (I)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+            </button>
             <button class="reader-icon-btn" id="btnMarkRead" title="Marquer ce chapitre (et les précédents) comme lus">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M20 6 9 17l-5-5"/></svg>
             </button>
@@ -181,6 +189,9 @@
         document.getElementById('btnReaderSettings')?.addEventListener('click', toggleReaderSettings);
         document.getElementById('btnAutoScroll')?.addEventListener('click', toggleAutoScroll);
         document.getElementById('btnMarkRead')?.addEventListener('click', markUpToHere);
+        document.getElementById('btnBookmark')?.addEventListener('click', toggleBookmark);
+        document.getElementById('btnImmersive')?.addEventListener('click', toggleImmersive);
+        refreshBookmarkBtn();
         wireDownloadBtn();
         updateAutoBtn();
         const chapURL = (id) => `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(id)}&source=${encodeURIComponent(API.sources.current)}`;
@@ -327,9 +338,14 @@
     function updateUIPage(p) {
         preloadPage(p + 1); preloadPage(p + 2); preloadPage(p + 3);   // précharge les pages suivantes
         document.querySelectorAll('.reader-thumb').forEach((t, i) => t.classList.toggle('active', i + 1 === p));
-        document.querySelector('.reader-thumb.active')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        centerActiveThumb();   // recentre la miniature SANS jamais bouger la fenêtre
         const pct = document.querySelector('.modebar-pct');
-        if (pct) pct.textContent = `${Math.round((p / totalPages) * 100)}% lu`;
+        if (pct) {
+            const remaining = Math.max(0, totalPages - p);
+            const secs = remaining * 8;   // ~8 s par page
+            const tleft = secs >= 60 ? `${Math.round(secs / 60)} min` : `${secs} s`;
+            pct.textContent = `${Math.round((p / totalPages) * 100)}% lu` + (remaining ? ` · ~${tleft}` : ' · terminé');
+        }
         const fill = document.getElementById('readerProgressFill');
         if (fill) fill.style.width = `${(p / totalPages) * 100}%`;
         renderNavigation();
@@ -337,6 +353,30 @@
         // Sauvegarde progression (debounce)
         if (p === totalPages && API.isLoggedIn()) markChapterRead();
         debouncedSave(p);
+    }
+
+    // Recentre la miniature active dans SA bande horizontale uniquement
+    // (ne touche jamais au scroll de la fenêtre → corrige les sauts de page)
+    function centerActiveThumb() {
+        const strip = document.getElementById('readerThumbnails');
+        const thumb = strip?.querySelector('.reader-thumb.active');
+        if (!strip || !thumb) return;
+        const target = thumb.offsetLeft - (strip.clientWidth / 2) + (thumb.clientWidth / 2);
+        strip.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    }
+
+    // Positionne la fenêtre au bon endroit à l'ouverture (corrige « ne démarre pas à la 1re page »)
+    function applyInitialScroll() {
+        if (readMode === 'scroll' && currentPage > 1) {
+            // Reprise : on attend un court instant que les 1res images aient une hauteur
+            setTimeout(() => {
+                const img = document.querySelector(`.reader-page-img[data-page="${currentPage}"]`);
+                if (img) img.scrollIntoView({ block: 'start' });
+                else window.scrollTo(0, 0);
+            }, 250);
+        } else {
+            window.scrollTo(0, 0);   // démarre toujours en haut (page 1 visible)
+        }
     }
 
     let saveTimer;
@@ -392,6 +432,7 @@
         const el = document.getElementById('readerNavigation');
         if (!el) return;
         el.innerHTML = `
+        <button class="reader-nav-btn reader-nav-edge" onclick="window.goToPage(1)" ${currentPage <= 1 ? 'disabled' : ''} title="Première page (Début)">⤒</button>
         <button class="reader-nav-btn" onclick="window.goToPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>← Précédent</button>
         <div class="reader-nav-center">
             <div class="reader-nav-page">Page <strong>${currentPage}</strong> / ${totalPages}</div>
@@ -400,11 +441,13 @@
                    title="Aller à la page…" aria-label="Aller à la page">
             <div class="reader-shortcuts">
                 <span class="shortcut-key">← →</span> pages &nbsp;
-                <span class="shortcut-key">F</span> plein écran &nbsp;
-                <span class="shortcut-key">+/−</span> zoom
+                <span class="shortcut-key">B</span> signet &nbsp;
+                <span class="shortcut-key">I</span> immersif &nbsp;
+                <span class="shortcut-key">F</span> plein écran
             </div>
         </div>
-        <button class="reader-nav-btn" onclick="window.goToPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>Suivant →</button>`;
+        <button class="reader-nav-btn" onclick="window.goToPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>Suivant →</button>
+        <button class="reader-nav-btn reader-nav-edge" onclick="window.goToPage(${totalPages})" ${currentPage >= totalPages ? 'disabled' : ''} title="Dernière page (Fin)">⤓</button>`;
         const scrub = el.querySelector('#pageScrub');
         if (scrub) scrub.addEventListener('input', () => window.goToPage(+scrub.value));
     }
@@ -541,9 +584,12 @@
                 case '-': window.changeZoom(-10); return;
                 case 's': case 'S': case '?': case 'h': case 'H': toggleReaderSettings(); return;
                 case 'a': case 'A': toggleAutoScroll(); return;
+                case 'b': case 'B': toggleBookmark(); return;
+                case 'i': case 'I': toggleImmersive(); return;
                 case '[': bumpAutoSpeed(-0.2); return;
                 case ']': bumpAutoSpeed(0.2); return;
                 case 'Escape':
+                    if (document.body.classList.contains('reader-immersive')) { toggleImmersive(); return; }
                     if (document.getElementById('chapTransition')) { document.getElementById('chapTransition').remove(); return; }
                     if (autoTimer) { stopAutoScroll(); return; }
                     if (document.getElementById('readerSettings')) toggleReaderSettings(); return;
@@ -703,6 +749,53 @@
         const items = chapters.map(c => ({ chapterId: c.id, chapter: c.chapter }));
         bulkMark(items, 'Tout le manga marqué comme lu');
     }
+
+    // ── Signet de page (UserData → onglet Signets de la bibliothèque) ──
+    function refreshBookmarkBtn() {
+        const btn = document.getElementById('btnBookmark');
+        if (!btn || !window.UserData || !currentChap) return;
+        const on = UserData.hasBookmark(manga.id, currentChap.id);
+        btn.classList.toggle('on', on);
+        btn.title = on ? 'Signet posé sur ce chapitre (B)' : 'Ajouter un signet sur cette page (B)';
+    }
+    function toggleBookmark() {
+        if (!window.UserData) return;
+        if (UserData.hasBookmark(manga.id, currentChap.id)) {
+            UserData.removeBookmark(manga.id, currentChap.id);
+            MH.toast?.('Signet retiré');
+        } else {
+            UserData.addBookmark({
+                mangaId: manga.id, source: API.sources.current,
+                title: manga.title, cover: manga.cover || manga.coverThumb,
+                chapterId: currentChap.id, chapterNum: currentChap.chapter,
+                label: 'Page ' + currentPage,
+            });
+            MH.toast?.('Signet ajouté — retrouvé dans ta bibliothèque');
+        }
+        refreshBookmarkBtn();
+    }
+
+    // ── Mode immersif (masque l'interface pour une lecture sans distraction) ──
+    function toggleImmersive() {
+        const on = document.body.classList.toggle('reader-immersive');
+        const btn = document.getElementById('btnImmersive');
+        if (btn) btn.classList.toggle('on', on);
+        MH.toast?.(on ? 'Mode immersif — I ou Échap pour quitter' : 'Interface affichée');
+    }
+
+    // ── Garder l'écran allumé pendant la lecture (Wake Lock) ──
+    let wakeLock = null;
+    async function requestWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+                wakeLock.addEventListener?.('release', () => { wakeLock = null; });
+            }
+        } catch (e) { /* refusé ou non supporté : sans gravité */ }
+    }
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && !wakeLock) requestWakeLock();
+    });
 
     // ── Téléchargement hors-ligne ──
     function setDlIcon(done) {

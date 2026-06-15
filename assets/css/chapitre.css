@@ -862,3 +862,65 @@
 .chap-transition-next { font-size: 13.5px; color: var(--text2); margin-bottom: 18px; }
 .chap-transition-actions { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
 .chap-transition-hint { margin-top: 14px; font-size: 11px; color: var(--text3); }
+
+/* ══════════════════════════════════════════════════════════
+   LECTEUR V3 — signets, mode immersif, sauts Début/Fin
+══════════════════════════════════════════════════════════ */
+
+/* État actif des boutons de la toolbar (signet posé, immersif on, auto-scroll on) */
+.reader-icon-btn.on {
+  background: var(--orange);
+  color: #fff;
+  border-color: var(--orange);
+}
+
+/* Boutons de saut Début / Fin (carrés, compacts) */
+.reader-nav-edge {
+  padding: 0 !important;
+  width: 38px;
+  min-width: 38px;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* Mode immersif : on masque toute l'interface, on ne garde que les pages */
+body.reader-immersive #header-slot,
+body.reader-immersive #footer-slot,
+body.reader-immersive .reader-toolbar,
+body.reader-immersive .reader-modebar,
+body.reader-immersive .reader-navigation,
+body.reader-immersive .reader-thumbnails,
+body.reader-immersive .reader-next-chapter,
+body.reader-immersive .reader-details,
+body.reader-immersive .reader-panel,
+body.reader-immersive #translatorNote {
+  display: none !important;
+}
+body.reader-immersive .reader-viewer-wrap {
+  grid-template-columns: 1fr;
+  max-width: 100%;
+  padding: 6px 6px 30px;
+}
+body.reader-immersive .reader-pages-area {
+  border-radius: 0;
+  border: none;
+  min-height: calc(100vh - 12px);
+}
+/* Petit rappel pour quitter le mode immersif */
+body.reader-immersive::after {
+  content: "I ou Échap pour quitter";
+  position: fixed;
+  bottom: 14px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,.6);
+  color: rgba(255,255,255,.7);
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  z-index: 200;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  animation: immersiveHint 3s ease forwards;
+}
+@keyframes immersiveHint { 0%,70% { opacity: 1 } 100% { opacity: 0 } }
