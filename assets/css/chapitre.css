@@ -965,3 +965,28 @@ body.reader-immersive::after {
   animation: immersiveHint 3s ease forwards;
 }
 @keyframes immersiveHint { 0%,70% { opacity: 1 } 100% { opacity: 0 } }
+
+/* ══════════════════════════════════════════════════════════
+   LECTEUR V4 — défilement interne en mode page / double
+   La page (ou la planche) défile DANS la zone si elle dépasse
+   l'écran ; molette et flèches tournent la page aux extrémités.
+══════════════════════════════════════════════════════════ */
+.reader-pages-area.paged {
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-items: flex-start;          /* haut de page visible (pas de coupe au centre) */
+  max-height: calc(100vh - 130px);  /* toolbar + modebar + barre + marges */
+  min-height: 360px;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg4) transparent;
+}
+.reader-pages-area.paged::-webkit-scrollbar { width: 8px; }
+.reader-pages-area.paged::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
+/* En plein écran / immersif, la page occupe toute la hauteur */
+body.reader-fullscreen .reader-pages-area.paged,
+body.reader-immersive .reader-pages-area.paged {
+  max-height: 100vh;
+}
+/* La pastille de pagination reste visible en bas de la fenêtre */
+.reader-pages-area.paged .page-counter-badge { position: fixed; bottom: 14px; }

@@ -10,6 +10,7 @@
     let totalPages   = 0;
     let zoom         = 100;
     let readMode     = 'page';
+    let doubleBase   = 1;       // 1re page de la planche affichée en mode double
 
     // ── Réglages lecteur (persistés) ──
     const rs = { bg: 'dark', brightness: 100, gap: 8, fit: 'original', direction: 'rtl', autospeed: 1.4 };
@@ -97,6 +98,7 @@
                 } catch(e) {}
             }
 
+            doubleBase = currentPage;   // ancre de la planche double (reprise correcte)
             renderToolbar();
             renderModebar();
             applyReaderSettings();
@@ -106,6 +108,7 @@
             renderNextChapter();
             renderDetails();
             bindKeyboard();
+            bindWheel();
             applyInitialScroll();
             saveProgress();
             preloadNextChapter();
@@ -221,7 +224,9 @@
             window.Storage?.setPref('readMode', readMode);                  // défaut global
             window.Storage?.setPref('readMode_' + manga.id, readMode);     // mémorisé pour cette série
             el.querySelectorAll('.modebar-btn').forEach(b => b.classList.toggle('active', b === btn));
+            if (readMode === 'double') doubleBase = currentPage;            // ancre la planche sur la page courante
             renderPage(currentPage);
+            resetPagedScroll(1);
         });
     }
 
@@ -274,10 +279,11 @@
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
         if (readMode === 'scroll') return renderScroll();
-        if (readMode === 'double') return renderDouble(num);
+        if (readMode === 'double') return renderDouble(doubleBase || num);
 
         const p = pages[num - 1];
         if (!p) return;
+        el.classList.add('paged');   // défilement interne quand la page dépasse l'écran
         const leftTarget  = rs.direction === 'rtl' ? num + 1 : num - 1;
         const rightTarget = rs.direction === 'rtl' ? num - 1 : num + 1;
         el.innerHTML = `
@@ -295,6 +301,7 @@
     function renderScroll() {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
+        el.classList.remove('paged');   // défilement natif de la fenêtre (images empilées)
         el.innerHTML = `
         <div class="reader-page-wrapper" style="display:flex;flex-direction:column;gap:${rs.gap}px;transform:scale(${zoom/100});transform-origin:top center">
             ${pages.map((p, i) => pageImg(i, `data-page="${i+1}"`, i >= 3)).join('')}
@@ -320,6 +327,9 @@
     function renderDouble(num) {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
+        if (num < 1) num = 1;
+        doubleBase = num;              // ancre de la planche (navigation par 2)
+        el.classList.add('paged');     // défilement interne si la planche dépasse l'écran
         const cur  = pages[num - 1];   // page courante (num)
         const next = pages[num];       // page suivante (num+1)
         if (!cur) return;
@@ -328,12 +338,12 @@
         const curImg  = pageImg(num - 1);
         const nextImg = next ? pageImg(num) : '';
         const spread  = (rtl && next) ? (nextImg + curImg) : (curImg + nextImg);
-        // Zones de navigation : on tourne 2 pages à la fois, sens respecté
-        const leftTarget  = rtl ? num + 2 : num - 2;
-        const rightTarget = rtl ? num - 2 : num + 2;
+        // Zones : gauche/droite = sens de lecture (clic = planche suivante/précédente)
+        const leftStep  = rtl ? 1 : -1;   // en RTL, la gauche fait avancer
+        const rightStep = rtl ? -1 : 1;
         el.innerHTML = `
-        <div class="page-zone-prev" onclick="window.goToPage(${leftTarget})"><div class="page-zone-arrow">‹</div></div>
-        <div class="page-zone-next" onclick="window.goToPage(${rightTarget})"><div class="page-zone-arrow">›</div></div>
+        <div class="page-zone-prev" onclick="window.navStep(${leftStep})"><div class="page-zone-arrow">‹</div></div>
+        <div class="page-zone-next" onclick="window.navStep(${rightStep})"><div class="page-zone-arrow">›</div></div>
         <div class="reader-page-wrapper reader-spread" style="transform:scale(${zoom/100});transform-origin:top center">
             ${spread}
         </div>
@@ -343,6 +353,7 @@
     }
 
     function updateUIPage(p) {
+        currentPage = p;   // MAJ immédiate → l'affichage (numéro, barre) est toujours juste
         preloadPage(p + 1); preloadPage(p + 2); preloadPage(p + 3);   // précharge les pages suivantes
         document.querySelectorAll('.reader-thumb').forEach((t, i) => t.classList.toggle('active', i + 1 === p));
         centerActiveThumb();   // recentre la miniature SANS jamais bouger la fenêtre
@@ -359,7 +370,7 @@
 
         // Sauvegarde progression (debounce)
         if (p === totalPages && API.isLoggedIn()) markChapterRead();
-        debouncedSave(p);
+        debouncedSave();
     }
 
     // Recentre la miniature active dans SA bande horizontale uniquement
@@ -387,12 +398,9 @@
     }
 
     let saveTimer;
-    function debouncedSave(p) {
+    function debouncedSave() {
         clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => {
-            currentPage = p;
-            saveProgress();
-        }, 400);
+        saveTimer = setTimeout(() => { saveProgress(); }, 400);   // currentPage déjà à jour
     }
 
     async function saveProgress() {
@@ -499,15 +507,87 @@
         // Avant la première page → chapitre précédent ; après la dernière → transition
         if (p < 1) { if (neighborChapter(-1)) showChapterTransition(-1); return; }
         if (p > totalPages) { showChapterTransition(1); return; }
-        currentPage = p;
         if (readMode === 'scroll') {
             // En défilement : on saute à l'image, sans tout re-rendre
+            currentPage = p;
             const img = document.querySelector(`.reader-page-img[data-page="${p}"]`);
             if (img) { img.scrollIntoView({ behavior: 'smooth', block: 'start' }); updateUIPage(p); return; }
+            return;
         }
+        if (readMode === 'double') {
+            // Affiche la planche commençant à p (utilisé par le scrub / miniatures)
+            renderDouble(p);
+            resetPagedScroll(1);
+            return;
+        }
+        currentPage = p;
         renderPage(currentPage);
-        document.getElementById('readerPagesArea')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        resetPagedScroll(1);
     };
+
+    // Avance/recule d'une UNITÉ de lecture (1 page, ou 1 planche en mode double)
+    window.navStep = function (dir) {   // dir : +1 = suivant, -1 = précédent
+        if (readMode === 'scroll') { window.goToPage(currentPage + dir); return; }
+        if (readMode === 'double') {
+            const target = doubleBase + dir * 2;
+            if (target < 1) { if (neighborChapter(-1)) showChapterTransition(-1); return; }
+            if (target > totalPages) { showChapterTransition(1); return; }
+            renderDouble(target);
+            resetPagedScroll(dir);
+            return;
+        }
+        window.goToPage(currentPage + dir);
+    };
+
+    // Remet le défilement interne de la page en haut (ou en bas si retour arrière)
+    function resetPagedScroll(dir) {
+        const area = document.getElementById('readerPagesArea');
+        if (!area) return;
+        requestAnimationFrame(() => { area.scrollTop = dir < 0 ? area.scrollHeight : 0; });
+    }
+
+    // Molette / flèches verticales : défile DANS la page si elle dépasse, sinon tourne la page
+    function scrollOrStep(dir) {
+        const area = document.getElementById('readerPagesArea');
+        if (!area) { window.navStep(dir); return; }
+        const canScroll = area.scrollHeight > area.clientHeight + 2;
+        const atBottom  = area.scrollTop + area.clientHeight >= area.scrollHeight - 2;
+        const atTop     = area.scrollTop <= 2;
+        if (canScroll && ((dir > 0 && !atBottom) || (dir < 0 && !atTop))) {
+            area.scrollBy({ top: dir * area.clientHeight * 0.9, behavior: 'smooth' });
+            return;
+        }
+        window.navStep(dir);
+    }
+
+    // Liaison molette (page/double) — défilement natif dans la page, tourne aux extrémités
+    let wheelLock = 0;
+    function bindWheel() {
+        const area = document.getElementById('readerPagesArea');
+        if (!area) return;
+        area.addEventListener('wheel', (e) => {
+            if (readMode === 'scroll') return;   // défilement natif des images empilées
+            const down = e.deltaY > 0;
+            const canScroll = area.scrollHeight > area.clientHeight + 2;
+            const atBottom  = area.scrollTop + area.clientHeight >= area.scrollHeight - 2;
+            const atTop     = area.scrollTop <= 2;
+            // Page haute non terminée → on laisse le défilement natif
+            if (canScroll && ((down && !atBottom) || (!down && !atTop))) return;
+            // Sinon (extrémité atteinte, ou page qui tient à l'écran) → on tourne la page
+            e.preventDefault();
+            const now = Date.now();
+            if (now - wheelLock < 360) return;   // anti-rebond (1 cran = 1 page)
+            wheelLock = now;
+            window.navStep(down ? 1 : -1);
+        }, { passive: false });
+    }
+
+    // Re-render selon le mode courant (utilisé après changement de réglage)
+    function rerender() {
+        if (readMode === 'scroll') renderScroll();
+        else if (readMode === 'double') renderDouble(doubleBase);
+        else renderPage(currentPage);
+    }
 
     // ── Transition de fin/début de chapitre (façon Mihon) ──
     function showChapterTransition(delta) {
@@ -563,20 +643,20 @@
             // Entrer : vrai plein écran OS si possible, sinon repli plein cadre
             let req;
             try { req = document.documentElement.requestFullscreen?.(); } catch (e) {}
-            if (req && req.catch) req.catch(() => { document.body.classList.add('reader-fullscreen'); if (readMode !== 'scroll') renderPage(currentPage); });
-            else if (!req) { document.body.classList.add('reader-fullscreen'); if (readMode !== 'scroll') renderPage(currentPage); }
+            if (req && req.catch) req.catch(() => { document.body.classList.add('reader-fullscreen'); rerender(); });
+            else if (!req) { document.body.classList.add('reader-fullscreen'); rerender(); }
         } else if (inReal) {
             document.exitFullscreen?.();
         } else {
             // Sortir du repli (pas de vrai plein écran natif)
             document.body.classList.remove('reader-fullscreen');
-            if (readMode !== 'scroll') renderPage(currentPage);
+            rerender();
         }
     };
     // Synchronise le rendu avec l'état réel du plein écran navigateur (vrai plein écran OS)
     document.addEventListener('fullscreenchange', () => {
         document.body.classList.toggle('reader-fullscreen', !!document.fullscreenElement);
-        if (readMode !== 'scroll') renderPage(currentPage);
+        rerender();
     });
 
     function neighborChapter(delta) {
@@ -622,10 +702,14 @@
             // En défilement : on laisse le scroll natif
             if (readMode === 'scroll') return;
             switch (e.key) {
-                case 'ArrowRight': window.goToPage(currentPage + (rtl ? -1 : 1)); break;
-                case 'ArrowLeft':  window.goToPage(currentPage + (rtl ? 1 : -1)); break;
-                case ' ': case 'ArrowDown': e.preventDefault(); window.goToPage(currentPage + 1); break;
-                case 'ArrowUp': window.goToPage(currentPage - 1); break;
+                // Gauche/Droite = sens de lecture (tourne la page/planche)
+                case 'ArrowRight': e.preventDefault(); window.navStep(rtl ? -1 : 1); break;
+                case 'ArrowLeft':  e.preventDefault(); window.navStep(rtl ? 1 : -1); break;
+                // Haut/Bas/Espace = défile dans la page si elle dépasse, sinon tourne
+                case ' ': case 'ArrowDown': e.preventDefault(); scrollOrStep(1); break;
+                case 'ArrowUp': e.preventDefault(); scrollOrStep(-1); break;
+                case 'PageDown': e.preventDefault(); scrollOrStep(1); break;
+                case 'PageUp': e.preventDefault(); scrollOrStep(-1); break;
                 case 'Home': window.goToPage(1); break;
                 case 'End':  window.goToPage(totalPages); break;
             }
@@ -692,11 +776,11 @@
         dim.style.opacity = String(Math.max(0, (100 - rs.brightness) / 100 * 0.72));
     }
 
-    function saveReaderSetting(key, val, rerender) {
+    function saveReaderSetting(key, val, doRerender) {
         rs[key] = val;
         window.Storage?.setPref('reader_' + key, val);
         applyReaderSettings();
-        if (rerender) renderPage(currentPage);
+        if (doRerender) rerender();
     }
 
     function toggleReaderSettings() {
@@ -726,7 +810,7 @@
             ${seg('quality', [{v:'high',l:'Haute'},{v:'saver',l:'Éco'}], q)}
             <div class="rs-foot">
                 <button class="btn btn-secondary btn-sm" id="rsMarkAll" style="width:100%">Marquer tout le manga comme lu</button>
-                <div class="rs-shortcuts">← → pages · N/P chapitre · F plein écran · A défilement auto · [ ] vitesse · S réglages</div>
+                <div class="rs-shortcuts">← → pages · ↑ ↓ / molette défile puis tourne · Début/Fin première/dernière · N/P chapitre · F plein écran · I immersif · B signet · A défilement auto · [ ] vitesse · S réglages</div>
             </div>`;
         document.body.appendChild(panel);
 
@@ -736,7 +820,7 @@
                 sg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
                 b.classList.add('on');
                 const val = b.dataset.val;
-                if (key === 'quality') { window.Storage?.setPref('quality', val); renderPage(currentPage); renderThumbnails(); return; }
+                if (key === 'quality') { window.Storage?.setPref('quality', val); rerender(); renderThumbnails(); return; }
                 saveReaderSetting(key, val, ['gap', 'fit', 'direction'].includes(key));
             }));
         });
