@@ -884,7 +884,31 @@
   font-weight: 700;
 }
 
-/* Mode immersif : on masque toute l'interface, on ne garde que les pages */
+/* Planche double COLLÉE (côte à côte, sans espace, comme un vrai livre) */
+.reader-spread {
+  display: flex;
+  flex-direction: row;
+  gap: 0 !important;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0;
+  width: 100%;
+}
+.reader-spread .reader-page-img {
+  max-width: 50%;
+  max-height: 88vh;
+  width: auto;
+  object-fit: contain;
+  border-radius: 0;          /* bords droits pour que les deux pages se touchent */
+  margin: 0;
+  display: block;
+}
+/* En plein écran, la planche occupe toute la hauteur */
+body.reader-fullscreen .reader-spread .reader-page-img { max-height: 100vh; }
+.fit-width .reader-spread .reader-page-img { width: 50% !important; height: auto !important; max-width: 50% !important; }
+.fit-height .reader-spread .reader-page-img { max-height: calc(100vh - 60px) !important; width: auto !important; }
+
+/* Mode immersif ET plein écran : on masque toute l'interface, on ne garde que les pages */
 body.reader-immersive #header-slot,
 body.reader-immersive #footer-slot,
 body.reader-immersive .reader-toolbar,
@@ -894,19 +918,36 @@ body.reader-immersive .reader-thumbnails,
 body.reader-immersive .reader-next-chapter,
 body.reader-immersive .reader-details,
 body.reader-immersive .reader-panel,
-body.reader-immersive #translatorNote {
+body.reader-immersive #translatorNote,
+body.reader-fullscreen #header-slot,
+body.reader-fullscreen #footer-slot,
+body.reader-fullscreen .reader-toolbar,
+body.reader-fullscreen .reader-modebar,
+body.reader-fullscreen .reader-navigation,
+body.reader-fullscreen .reader-thumbnails,
+body.reader-fullscreen .reader-next-chapter,
+body.reader-fullscreen .reader-details,
+body.reader-fullscreen .reader-panel,
+body.reader-fullscreen #translatorNote {
   display: none !important;
 }
-body.reader-immersive .reader-viewer-wrap {
+body.reader-immersive .reader-viewer-wrap,
+body.reader-fullscreen .reader-viewer-wrap {
   grid-template-columns: 1fr;
   max-width: 100%;
   padding: 6px 6px 30px;
 }
-body.reader-immersive .reader-pages-area {
+body.reader-immersive .reader-pages-area,
+body.reader-fullscreen .reader-pages-area {
   border-radius: 0;
   border: none;
   min-height: calc(100vh - 12px);
 }
+/* En vrai plein écran : zone de lecture pleine, image edge-to-edge */
+body.reader-fullscreen .reader-viewer-wrap { padding: 0; }
+body.reader-fullscreen .reader-pages-area { min-height: 100vh; }
+body.reader-fullscreen .reader-page-wrapper { min-height: 100vh; padding: 0; }
+body.reader-fullscreen .reader-page-img { max-height: 100vh; }
 /* Petit rappel pour quitter le mode immersif */
 body.reader-immersive::after {
   content: "I ou Échap pour quitter";

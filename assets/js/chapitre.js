@@ -320,19 +320,26 @@
     function renderDouble(num) {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
-        const left  = pages[num - 1];
-        const right = pages[num];
-        if (!left) return;
+        const cur  = pages[num - 1];   // page courante (num)
+        const next = pages[num];       // page suivante (num+1)
+        if (!cur) return;
+        const rtl = rs.direction === 'rtl';
+        // Planche collée : en RTL la page la plus récente est à GAUCHE
+        const curImg  = pageImg(num - 1);
+        const nextImg = next ? pageImg(num) : '';
+        const spread  = (rtl && next) ? (nextImg + curImg) : (curImg + nextImg);
+        // Zones de navigation : on tourne 2 pages à la fois, sens respecté
+        const leftTarget  = rtl ? num + 2 : num - 2;
+        const rightTarget = rtl ? num - 2 : num + 2;
         el.innerHTML = `
-        <div class="page-zone-prev" onclick="window.goToPage(${num - 2})"><div class="page-zone-arrow">‹</div></div>
-        <div class="page-zone-next" onclick="window.goToPage(${num + 2})"><div class="page-zone-arrow">›</div></div>
-        <div class="reader-page-wrapper" style="display:flex;gap:${rs.gap}px;transform:scale(${zoom/100});transform-origin:top center">
-            ${pageImg(num - 1, 'style="max-width:48%"')}
-            ${right ? pageImg(num, 'style="max-width:48%"') : ''}
+        <div class="page-zone-prev" onclick="window.goToPage(${leftTarget})"><div class="page-zone-arrow">‹</div></div>
+        <div class="page-zone-next" onclick="window.goToPage(${rightTarget})"><div class="page-zone-arrow">›</div></div>
+        <div class="reader-page-wrapper reader-spread" style="transform:scale(${zoom/100});transform-origin:top center">
+            ${spread}
         </div>
-        <div class="page-counter-badge">Pages <strong>${num}${right ? '–' + (num+1) : ''}</strong> / ${totalPages}</div>`;
+        <div class="page-counter-badge">Pages <strong>${num}${next ? '–' + (num+1) : ''}</strong> / ${totalPages}${rtl && next ? ' · sens →←' : ''}</div>`;
         armImages(el);
-        updateUIPage(right ? num + 1 : num);
+        updateUIPage(next ? num + 1 : num);
     }
 
     function updateUIPage(p) {
@@ -550,9 +557,27 @@
     };
 
     window.toggleFullscreen = function () {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
-        else document.exitFullscreen?.();
+        const inReal = !!document.fullscreenElement;
+        const inFallback = document.body.classList.contains('reader-fullscreen');
+        if (!inReal && !inFallback) {
+            // Entrer : vrai plein écran OS si possible, sinon repli plein cadre
+            let req;
+            try { req = document.documentElement.requestFullscreen?.(); } catch (e) {}
+            if (req && req.catch) req.catch(() => { document.body.classList.add('reader-fullscreen'); if (readMode !== 'scroll') renderPage(currentPage); });
+            else if (!req) { document.body.classList.add('reader-fullscreen'); if (readMode !== 'scroll') renderPage(currentPage); }
+        } else if (inReal) {
+            document.exitFullscreen?.();
+        } else {
+            // Sortir du repli (pas de vrai plein écran natif)
+            document.body.classList.remove('reader-fullscreen');
+            if (readMode !== 'scroll') renderPage(currentPage);
+        }
     };
+    // Synchronise le rendu avec l'état réel du plein écran navigateur (vrai plein écran OS)
+    document.addEventListener('fullscreenchange', () => {
+        document.body.classList.toggle('reader-fullscreen', !!document.fullscreenElement);
+        if (readMode !== 'scroll') renderPage(currentPage);
+    });
 
     function neighborChapter(delta) {
         const asc = [...chapters].sort((a, b) => a.chapter - b.chapter);
