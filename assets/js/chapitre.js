@@ -25,6 +25,8 @@
         rs.warm = +rs.warm; if (isNaN(rs.warm)) rs.warm = 0;
     }
     let autoTimer = null;
+    let sleepMins = 0;       // minuteur de lecture (0 = off)
+    let sleepTimerId = null;
     const READER_BG = { dark: '#0d0d0f', black: '#000000', gray: '#26262b', sepia: '#f1e7d0', light: '#ffffff' };
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -758,6 +760,36 @@
         if (autoTimer) MH.toast?.('Vitesse : ' + v.toFixed(1) + '×');
     }
 
+    // ── Minuteur de lecture (sleep timer) ──
+    function setSleepTimer(mins) {
+        sleepMins = mins || 0;
+        if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
+        if (sleepMins > 0) {
+            sleepTimerId = setTimeout(triggerSleep, sleepMins * 60 * 1000);
+            MH.toast?.(`Minuteur réglé : pause dans ${sleepMins} min`);
+        } else {
+            MH.toast?.('Minuteur désactivé');
+        }
+    }
+    function triggerSleep() {
+        if (autoTimer) stopAutoScroll();
+        sleepTimerId = null;
+        if (document.getElementById('sleepOverlay')) return;
+        const ov = document.createElement('div');
+        ov.id = 'sleepOverlay';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center';
+        ov.innerHTML = `<div style="text-align:center;max-width:340px;padding:30px">
+            <div style="font-size:40px;margin-bottom:12px">🌙</div>
+            <div style="font-family:var(--font-head);font-size:20px;font-weight:800;margin-bottom:8px;color:#fff">Pause lecture</div>
+            <div style="font-size:13.5px;color:rgba(255,255,255,.7);margin-bottom:20px">Tu lis depuis ${sleepMins} min. Le temps de souffler un peu ?</div>
+            <div style="display:flex;gap:10px;justify-content:center">
+                <button class="btn btn-primary" id="sleepResume">Continuer</button>
+                <a class="btn btn-ghost" href="accueil.html">Arrêter</a>
+            </div></div>`;
+        document.body.appendChild(ov);
+        ov.querySelector('#sleepResume').onclick = () => { ov.remove(); if (sleepMins) setSleepTimer(sleepMins); };
+    }
+
     // ── Réglages lecteur : application + panneau ──
     function applyReaderSettings() {
         const wrap = document.getElementById('readerViewerWrap');
@@ -821,6 +853,11 @@
             <input type="range" id="rsAuto" min="0.4" max="6" step="0.2" value="${rs.autospeed}" class="rs-range">
             <label class="rs-label">Qualité des images</label>
             ${seg('quality', [{v:'high',l:'Haute'},{v:'saver',l:'Éco'}], q)}
+            <label class="rs-label">Minuteur de lecture</label>
+            <div class="rs-seg" id="rsSleep">
+                ${[['0','Off'],['15','15m'],['30','30m'],['45','45m'],['60','60m']].map(([v,l]) =>
+                    `<button data-sleep="${v}" class="${String(sleepMins)===v?'on':''}">${l}</button>`).join('')}
+            </div>
             <div class="rs-foot">
                 <button class="btn btn-secondary btn-sm" id="rsMarkAll" style="width:100%">Marquer tout le manga comme lu</button>
                 <div class="rs-shortcuts">← → pages · ↑ ↓ / molette défile puis tourne · Début/Fin première/dernière · N/P chapitre · F plein écran · I immersif · B signet · A défilement auto · [ ] vitesse · S réglages</div>
@@ -853,6 +890,11 @@
             document.getElementById('rsAutoVal').textContent = (+e.target.value).toFixed(1) + '×';
             saveReaderSetting('autospeed', +e.target.value, false);
         });
+        panel.querySelector('#rsSleep')?.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+            panel.querySelectorAll('#rsSleep button').forEach(x => x.classList.remove('on'));
+            b.classList.add('on');
+            setSleepTimer(+b.dataset.sleep);
+        }));
         panel.querySelector('#rsClose').addEventListener('click', toggleReaderSettings);
         panel.querySelector('#rsMarkAll').addEventListener('click', markAllManga);
     }

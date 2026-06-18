@@ -8,7 +8,7 @@
         await window.UserData?.ready?.();
         const input = document.getElementById('seInput');
         const q = new URLSearchParams(location.search).get('q') || '';
-        if (q) { input.value = q; run(q); } else { renderHistory(); }
+        if (q) { input.value = q; run(q); } else { renderHistory(); renderSuggestions(); }
         input.focus();
 
         document.getElementById('seGo').addEventListener('click', () => go(input.value));
@@ -38,6 +38,26 @@
             go(q);
         }));
         document.getElementById('seHistClear')?.addEventListener('click', () => { UserData.clearSearchHistory(); renderHistory(); });
+    }
+
+    // ── Suggestions populaires quand la barre est vide ──
+    async function renderSuggestions() {
+        const out = document.getElementById('seResults');
+        const sub = document.getElementById('seSub');
+        if (!out) return;
+        out.innerHTML = `<div class="se-loading"><div class="spinner-inline"></div> Suggestions…</div>`;
+        try {
+            const data = await API.mangas.popular({ limit: 18 });
+            const list = data.results || [];
+            if (!list.length) { out.innerHTML = ''; return; }
+            if (sub) sub.textContent = 'Populaires en ce moment — ou tape un titre ci-dessus.';
+            out.innerHTML = `<div class="se-group"><div class="se-ghead"><span class="se-gname">Populaires</span></div>
+                <div class="se-grid">${list.map(m => `
+                    <a class="se-card manga-card" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}" data-manga-id="${m.id}">
+                        <div class="se-cover"><img src="${m.cover || m.coverThumb || MH.placeholderCover(m.id)}" alt="${MH.esc(m.title||'')}" loading="lazy" onerror="this.src='${MH.placeholderCover(m.id)}'"></div>
+                        <div class="se-title">${MH.esc(m.title || m.id)}</div>
+                    </a>`).join('')}</div></div>`;
+        } catch (e) { out.innerHTML = ''; }
     }
 
     function go(q) {
