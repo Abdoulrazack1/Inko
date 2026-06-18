@@ -8,6 +8,7 @@
         MH.initPage('parametres');
         renderAccount();
         initSegments();
+        initAccent();
         renderNsfw();
         bindData();
         bindConnections();
@@ -22,6 +23,27 @@
             } catch (e) {}
         }
     });
+
+    // ── COULEUR D'ACCENT ──
+    function initAccent() {
+        const el = document.getElementById('accentSwatches');
+        if (!el || !window.Theme) return;
+        const presets = ['#ff6b1a','#3b82f6','#a855f7','#22c55e','#ec4899','#ef4444','#06b6d4','#f59e0b'];
+        const cur = window.Theme.currentAccent();
+        el.innerHTML = presets.map(c =>
+            `<button class="accent-dot" data-accent="${c}" title="${c}" style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${c.toLowerCase()===cur.toLowerCase()?'var(--text)':'transparent'};cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)"></button>`
+        ).join('') +
+        `<label title="Couleur personnalisée" style="width:26px;height:26px;border-radius:50%;overflow:hidden;cursor:pointer;border:2px dashed var(--border2);display:inline-flex;align-items:center;justify-content:center;font-size:13px">🎨
+            <input type="color" id="accentCustom" value="${cur}" style="opacity:0;width:0;height:0;position:absolute">
+        </label>`;
+        const choose = (hex) => {
+            window.Theme.setAccent(hex);
+            savePref('accent', hex);
+            initAccent(); // re-render pour la bordure active
+        };
+        el.querySelectorAll('.accent-dot').forEach(b => b.addEventListener('click', () => choose(b.dataset.accent)));
+        el.querySelector('#accentCustom')?.addEventListener('input', (e) => choose(e.target.value));
+    }
 
     // ── CONNEXION GOOGLE (config du Client ID dans l'app) ──
     async function bindGoogleConfig() {
