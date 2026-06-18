@@ -38,6 +38,7 @@ router.get('/artwork',              Artwork.artwork);
 
 // ── AniList (suivi : config OAuth implicite) ──────
 router.get('/anilist/config',       AniList.config);
+router.put('/anilist/config',       auth.authRequired, AniList.setConfig);
 router.get('/anilist/similar',      AniList.similar);
 
 // ── Mangas (relais vers source active, ?source=<id> pour cibler) ──

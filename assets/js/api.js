@@ -276,6 +276,12 @@
             similar: (title) => get('/anilist/similar?title=' + encodeURIComponent(title || '')),
         },
 
+        // ── AniList (config OAuth) ──
+        anilist: {
+            config()           { return get('/anilist/config'); },
+            setConfig(clientId) { return put('/anilist/config', { clientId }); },
+        },
+
         // ── Spotify (linking de compte OAuth) ──
         spotify: {
             // URL d'autorisation (navigation top-level requise : window.open / location)

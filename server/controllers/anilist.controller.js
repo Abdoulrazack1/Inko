@@ -7,6 +7,21 @@
 // ============================================================
 
 const axios = require('axios');
+const fs    = require('fs');
+const path  = require('path');
+
+// Client ID AniList : env prioritaire, sinon fichier config modifiable depuis l'app.
+const ANILIST_CFG_PATH = path.join(__dirname, '..', 'config', 'anilist.json');
+function getAnilistClientId() {
+    if (process.env.ANILIST_CLIENT_ID) return process.env.ANILIST_CLIENT_ID.trim();
+    try { return (JSON.parse(fs.readFileSync(ANILIST_CFG_PATH, 'utf8')).clientId || '').trim(); }
+    catch (e) { return ''; }
+}
+function setAnilistClientIdFile(clientId) {
+    fs.mkdirSync(path.dirname(ANILIST_CFG_PATH), { recursive: true });
+    fs.writeFileSync(ANILIST_CFG_PATH, JSON.stringify({ clientId: (clientId || '').trim() }, null, 2));
+}
+
 const _simCache = new Map();
 const SIM_TTL = 24 * 3600 * 1000;
 const SIM_QUERY = `query ($s: String) {
@@ -43,15 +58,29 @@ async function similar(req, res, next) {
 }
 
 function config(_req, res) {
-    const clientId = process.env.ANILIST_CLIENT_ID || '';
+    const clientId = getAnilistClientId();
     const redirectUri = process.env.ANILIST_REDIRECT_URI ||
         `http://127.0.0.1:${process.env.PORT || 8088}/anilist.html`;
     res.json({
         configured: !!clientId,
         clientId,
         redirectUri,
+        viaEnv: !!process.env.ANILIST_CLIENT_ID,
         authorizeBase: 'https://anilist.co/api/v2/oauth/authorize',
     });
 }
 
-module.exports = { config, similar };
+// Définit le Client ID AniList depuis l'app (Paramètres / carte de connexion). Authentifié.
+function setConfig(req, res, next) {
+    try {
+        if (process.env.ANILIST_CLIENT_ID)
+            return res.status(409).json({ error: 'Client ID défini par variable d’environnement (ANILIST_CLIENT_ID).' });
+        const v = String((req.body || {}).clientId || '').trim();
+        if (v && !/^\d{3,8}$/.test(v))
+            return res.status(400).json({ error: 'Client ID AniList invalide (identifiant numérique attendu).' });
+        setAnilistClientIdFile(v);
+        res.json({ ok: true, configured: !!v });
+    } catch (e) { next(e); }
+}
+
+module.exports = { config, similar, setConfig };

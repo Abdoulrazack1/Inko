@@ -27,6 +27,7 @@
         catch (e) { _config = { configured: false }; }
         return _config;
     }
+    function clearConfigCache() { _config = null; }
 
     function token() { try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return null; } }
     function isLinked() { return !!token(); }
@@ -107,5 +108,5 @@
         } catch (e) { return false; }
     }
 
-    window.AniList = { getConfig, isLinked, user, token, me, connect, disconnect, syncEntry, syncByTitle, mediaId, STATUS_MAP };
+    window.AniList = { getConfig, clearConfigCache, isLinked, user, token, me, connect, disconnect, syncEntry, syncByTitle, mediaId, STATUS_MAP };
 })();

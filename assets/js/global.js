@@ -342,8 +342,25 @@
         action.innerHTML = '';
         const cfg = await AniList.getConfig();
         if (!cfg.configured) {
-            pill('conn-al-pill', 'Non configuré', 'muted');
-            desc.innerHTML = 'Client AniList manquant côté serveur (<code>ANILIST_CLIENT_ID</code>).';
+            pill('conn-al-pill', 'À configurer', 'muted');
+            const canConfig = window.API?.isLoggedIn?.() && !cfg.viaEnv;
+            desc.innerHTML = canConfig
+                ? `Crée un client sur <a href="https://anilist.co/settings/developer" target="_blank" rel="noopener" class="link-orange">anilist.co/settings/developer</a> ` +
+                  `(Redirect URL : <code>${esc(cfg.redirectUri)}</code>), puis colle l'<strong>ID client</strong> :`
+                : 'Client AniList non configuré.' + (cfg.viaEnv ? ' (défini par variable d’environnement)' : '');
+            if (canConfig) {
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;width:100%';
+                wrap.innerHTML = `<input type="text" id="al-cid" placeholder="ex: 12345" inputmode="numeric"
+                    style="flex:1;min-width:140px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px">
+                    <button class="btn btn-primary btn-sm" id="al-cid-save">Activer</button>`;
+                action.appendChild(wrap);
+                wrap.querySelector('#al-cid-save').onclick = async () => {
+                    const v = wrap.querySelector('#al-cid').value.trim();
+                    try { await API.anilist.setConfig(v); MH.toast('AniList configuré ✓'); AniList.clearConfigCache?.(); renderAniListConn(root, changed); }
+                    catch (e) { MH.toast('Erreur : ' + e.message); }
+                };
+            }
             return;
         }
         if (AniList.isLinked()) {
