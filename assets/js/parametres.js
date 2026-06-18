@@ -11,6 +11,7 @@
         renderNsfw();
         bindData();
         bindConnections();
+        bindGoogleConfig();
         // Charge les settings serveur si connecté (override le local)
         if (API.isLoggedIn()) {
             try {
@@ -21,6 +22,50 @@
             } catch (e) {}
         }
     });
+
+    // ── CONNEXION GOOGLE (config du Client ID dans l'app) ──
+    async function bindGoogleConfig() {
+        const input = document.getElementById('googleClientId');
+        const pill  = document.getElementById('googlePill');
+        const hint  = document.getElementById('googleHint');
+        const save  = document.getElementById('btnGoogleSave');
+        const clear = document.getElementById('btnGoogleClear');
+        const origin = document.getElementById('googleOrigin');
+        if (!input) return;
+
+        if (!API.isLoggedIn()) {
+            hint.textContent = 'Connecte-toi pour configurer la connexion Google.';
+            input.disabled = save.disabled = clear.disabled = true;
+            return;
+        }
+        const paint = (cfg) => {
+            const on = !!cfg.configured;
+            pill.textContent = on ? 'Configurée' : 'Non configurée';
+            pill.className = 'pill ' + (on ? 'pill-on' : 'pill-off');
+            input.value = cfg.clientId || '';
+            if (origin && cfg.origin) origin.textContent = cfg.origin;
+            if (cfg.viaEnv) {
+                hint.textContent = 'Défini par variable d’environnement (GOOGLE_CLIENT_ID) — modifie le .env pour changer.';
+                input.disabled = save.disabled = clear.disabled = true;
+            } else {
+                hint.textContent = on ? 'Google est actif sur les pages de connexion et d’inscription.' : '';
+            }
+        };
+        try { paint(await API.auth.googleConfig()); } catch (e) { hint.textContent = 'Erreur : ' + e.message; }
+
+        save.addEventListener('click', async () => {
+            const v = input.value.trim();
+            if (v && !/\.apps\.googleusercontent\.com$/.test(v)) { MH.toast('Client ID invalide (doit finir par .apps.googleusercontent.com)'); return; }
+            save.disabled = true;
+            try { await API.auth.setGoogleConfig(v); MH.toast('Connexion Google ' + (v ? 'activée' : 'retirée')); paint(await API.auth.googleConfig()); }
+            catch (e) { MH.toast('Erreur : ' + e.message); }
+            finally { save.disabled = false; }
+        });
+        clear.addEventListener('click', async () => {
+            try { await API.auth.setGoogleConfig(''); MH.toast('Connexion Google retirée'); paint(await API.auth.googleConfig()); }
+            catch (e) { MH.toast('Erreur : ' + e.message); }
+        });
+    }
 
     // ── Sauvegarde d'une pref (locale + serveur si connecté) ──
     async function savePref(key, val) {

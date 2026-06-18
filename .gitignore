@@ -3,6 +3,7 @@ server/node_modules/
 server/.env
 server/.env.local
 server/uploads/
+server/config/google.json
 
 # Extensions installées par l'utilisateur (modèle Mihon : aucune source en défaut)
 # Les sources de référence sont dans extensions-community/.

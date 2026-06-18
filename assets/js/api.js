@@ -125,6 +125,8 @@
                 _user = r.user; _token = r.token; persist();
                 return r;
             },
+            googleConfig()            { return get('/auth/google-config'); },
+            setGoogleConfig(clientId) { return put('/auth/google-config', { clientId }); },
             async logout() {
                 try { await post('/auth/logout'); } catch (e) {}
                 _user = null; _token = null; persist();

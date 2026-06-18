@@ -15,6 +15,8 @@ router.get('/health', (_req, res) => res.json({ ok: true, time: Date.now() }));
 // ── Auth ─────────────────────────────────────────
 router.get ('/auth/providers',      Auth.providers);
 router.post('/auth/google',         Auth.googleAuth);
+router.get ('/auth/google-config',  auth.authRequired, Auth.getGoogleConfig);
+router.put ('/auth/google-config',  auth.authRequired, Auth.setGoogleConfig);
 router.post('/auth/register',       Auth.register);
 router.post('/auth/login',          Auth.login);
 router.post('/auth/logout',         Auth.logout);

@@ -2,10 +2,26 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const axios  = require('axios');
+const fs     = require('fs');
+const path   = require('path');
 const { pool } = require('../config/db');
 const { sign } = require('../middleware/auth');
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+// Client ID Google : priorité à la variable d'environnement, sinon fichier de
+// config modifiable depuis l'app (Paramètres → Connexion Google) — pas besoin
+// de redémarrer le serveur ni d'éditer un fichier à la main.
+const GOOGLE_CFG_PATH = path.join(__dirname, '..', 'config', 'google.json');
+function getGoogleClientId() {
+    if (process.env.GOOGLE_CLIENT_ID) return process.env.GOOGLE_CLIENT_ID.trim();
+    try {
+        const j = JSON.parse(fs.readFileSync(GOOGLE_CFG_PATH, 'utf8'));
+        return (j.clientId || '').trim();
+    } catch (e) { return ''; }
+}
+function setGoogleClientIdFile(clientId) {
+    fs.mkdirSync(path.dirname(GOOGLE_CFG_PATH), { recursive: true });
+    fs.writeFileSync(GOOGLE_CFG_PATH, JSON.stringify({ clientId: (clientId || '').trim() }, null, 2));
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 // App locale / self-hostée : pas de HTTPS public → cookie non-Secure
@@ -70,15 +86,40 @@ async function login(req, res, next) {
 
 // Indique au front quels fournisseurs SSO sont configurés
 function providers(_req, res) {
-    res.json({ google: !!GOOGLE_CLIENT_ID, googleClientId: GOOGLE_CLIENT_ID || null });
+    const id = getGoogleClientId();
+    res.json({ google: !!id, googleClientId: id || null });
+}
+
+// Configuration du Client ID Google depuis l'app (Paramètres). Authentifié.
+function getGoogleConfig(_req, res) {
+    const id = getGoogleClientId();
+    res.json({
+        clientId: id || '',
+        configured: !!id,
+        viaEnv: !!process.env.GOOGLE_CLIENT_ID,
+        origin: `http://127.0.0.1:${process.env.PORT || 8088}`,
+    });
+}
+function setGoogleConfig(req, res, next) {
+    try {
+        if (process.env.GOOGLE_CLIENT_ID)
+            return res.status(409).json({ error: 'Client ID défini par variable d’environnement (GOOGLE_CLIENT_ID) — modifie le .env.' });
+        const { clientId } = req.body || {};
+        const v = (clientId || '').trim();
+        if (v && !/\.apps\.googleusercontent\.com$/.test(v))
+            return res.status(400).json({ error: 'Client ID invalide (doit finir par .apps.googleusercontent.com)' });
+        setGoogleClientIdFile(v);
+        res.json({ ok: true, configured: !!v });
+    } catch (e) { next(e); }
 }
 
 // Connexion / inscription via Google (Google Identity Services).
 // Le front envoie le « credential » (ID token) ; on le vérifie côté Google.
 async function googleAuth(req, res, next) {
     try {
+        const GOOGLE_CLIENT_ID = getGoogleClientId();
         if (!GOOGLE_CLIENT_ID)
-            return res.status(503).json({ error: 'Connexion Google non configurée sur le serveur (GOOGLE_CLIENT_ID manquant).' });
+            return res.status(503).json({ error: 'Connexion Google non configurée (ajoute ton Client ID dans Paramètres → Connexion Google).' });
         const { credential } = req.body || {};
         if (!credential) return res.status(400).json({ error: 'Jeton Google manquant' });
 
@@ -228,5 +269,5 @@ async function deleteAccount(req, res, next) {
 module.exports = {
     register, login, me, logout, requestReset, resetPassword,
     changePassword, updateProfile, deleteAccount,
-    providers, googleAuth,
+    providers, googleAuth, getGoogleConfig, setGoogleConfig,
 };
