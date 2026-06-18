@@ -12,6 +12,31 @@
 
     window.MH = { $, $$, fmt, esc };
 
+    /* ── Icônes SVG (remplace les emojis d'interface) ──────── */
+    const ICON_PATHS = {
+        home:      '<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/>',
+        catalogue: '<path d="M4 5a2 2 0 0 1 2-2h7v18H6a2 2 0 0 0-2 2z"/><path d="M13 3h5a2 2 0 0 1 2 2v16a2 2 0 0 0-2-2h-5"/>',
+        book:      '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+        search:    '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+        chart:     '<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/>',
+        folder:    '<path d="M4 5h5l2 3h9v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>',
+        puzzle:    '<path d="M10 3h4v3a2 2 0 1 0 4 0V6h3v4h-1a2 2 0 1 0 0 4h1v4h-4v-1a2 2 0 1 0-4 0v1H6v-4h1a2 2 0 1 0 0-4H6V6h4z"/>',
+        gear:      '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+        dice:      '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.3" fill="currentColor" stroke="none"/>',
+        play:      '<polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/>',
+        bell:      '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+        pin:       '<path d="M9 4h6l-1 7 4 3v2H6v-2l4-3z"/><path d="M12 16v4"/>',
+        upload:    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/>',
+        download:  '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+        grid:      '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+        bookmark:  '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+        moon:      '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+    };
+    window.MH.icon = function (name, size = 18) {
+        const p = ICON_PATHS[name]; if (!p) return '';
+        return `<svg class="mh-icon" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+    };
+
     // Numéro de chapitre lisible (gère prologue/null sans afficher "null")
     window.MH.chapNum = (n) => (n != null && n !== '') ? n : '?';
 
@@ -771,17 +796,18 @@
     /* ── Palette de commandes (Ctrl/Cmd+K) ──────────────── */
     window.MH.openCommandPalette = function () {
         if (document.getElementById('cmdPalette')) return;
+        const I = window.MH.icon;
         const nav = [
-            { label: 'Accueil', icon: '🏠', go: 'accueil.html' },
-            { label: 'Catalogue', icon: '📚', go: 'catalogue.html' },
-            { label: 'Ma bibliothèque', icon: '📖', go: 'bibliotheque.html' },
-            { label: 'Recherche globale', icon: '🔎', go: 'recherche.html' },
-            { label: 'Statistiques', icon: '📊', go: 'stats.html' },
-            { label: 'Collections', icon: '🗂️', go: 'collections.html' },
-            { label: 'Sources', icon: '🧩', go: 'sources.html' },
-            { label: 'Paramètres', icon: '⚙️', go: 'parametres.html' },
-            { label: 'Lecture aléatoire', icon: '🎲', act: () => document.getElementById('navRandom')?.click() },
-            { label: 'Reprendre ma lecture', icon: '▶', act: async () => { const t = await window.MH.lastReadTarget?.(); if (t) location.href = t.href; else MH.toast('Aucune lecture en cours'); } },
+            { label: 'Accueil', icon: I('home'), go: 'accueil.html' },
+            { label: 'Catalogue', icon: I('catalogue'), go: 'catalogue.html' },
+            { label: 'Ma bibliothèque', icon: I('book'), go: 'bibliotheque.html' },
+            { label: 'Recherche globale', icon: I('search'), go: 'recherche.html' },
+            { label: 'Statistiques', icon: I('chart'), go: 'stats.html' },
+            { label: 'Collections', icon: I('folder'), go: 'collections.html' },
+            { label: 'Sources', icon: I('puzzle'), go: 'sources.html' },
+            { label: 'Paramètres', icon: I('gear'), go: 'parametres.html' },
+            { label: 'Lecture aléatoire', icon: I('dice'), act: () => document.getElementById('navRandom')?.click() },
+            { label: 'Reprendre ma lecture', icon: I('play'), act: async () => { const t = await window.MH.lastReadTarget?.(); if (t) location.href = t.href; else MH.toast('Aucune lecture en cours'); } },
         ];
         const ov = document.createElement('div');
         ov.id = 'cmdPalette';

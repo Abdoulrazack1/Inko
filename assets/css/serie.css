@@ -404,17 +404,20 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
+  line-height: 0;
   padding: 2px 4px;
   border-radius: 6px;
-  filter: grayscale(1) opacity(0.35);
-  transition: filter 0.15s, transform 0.1s;
+  color: var(--text3);
+  opacity: 0.5;
+  transition: opacity 0.15s, transform 0.1s, color 0.15s;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
 }
-.chapter-row:hover .chapter-bm { filter: grayscale(1) opacity(0.6); }
-.chapter-bm:hover { filter: none; transform: scale(1.15); }
-.chapter-bm.on { filter: none; }
+.chapter-row:hover .chapter-bm { opacity: 0.8; }
+.chapter-bm:hover { opacity: 1; transform: scale(1.15); color: var(--orange); }
+.chapter-bm.on { opacity: 1; color: var(--orange); }
+.chapter-bm.on svg { fill: var(--orange); }
 
 .chapters-list { }
 .chapters-empty {

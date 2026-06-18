@@ -486,7 +486,7 @@
                 <span class="chapter-time">${c.pages ? c.pages + ' p.' : ''}</span>
                 <span class="chapter-time">${(c.lang || '').toUpperCase()}</span>
                 <button class="chapter-bm${isBm ? ' on' : ''}" title="${isBm ? 'Retirer le signet' : 'Ajouter un signet'}"
-                    data-bm="${MH.esc(c.id)}" data-bmnum="${MH.esc(c.chapter)}" data-bmtitle="${MH.esc(c.title || '')}">🔖</button>
+                    data-bm="${MH.esc(c.id)}" data-bmnum="${MH.esc(c.chapter)}" data-bmtitle="${MH.esc(c.title || '')}">${MH.icon('bookmark', 14)}</button>
                 <button class="chapter-read-dot ${isRead ? 'is-read' : ''}" title="${isRead ? 'Lu — clic pour marquer non lu' : 'Non lu — clic pour marquer lu'}"
                     data-read="${MH.esc(c.id)}" data-readnum="${MH.esc(c.chapter)}"></button>
             </div>

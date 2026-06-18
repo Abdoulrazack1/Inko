@@ -130,10 +130,12 @@
         const btn = document.getElementById('btnNotify');
         if (!btn) return;
         const supported = 'Notification' in window;
+        const bell = MH.icon('bell', 14);
         const paint = () => {
-            if (!supported) { btn.textContent = '🔔 Indisponible'; btn.disabled = true; return; }
+            btn.classList.add('ic-btn');
+            if (!supported) { btn.innerHTML = bell + 'Indisponible'; btn.disabled = true; return; }
             const on = notifyEnabled() && Notification.permission === 'granted';
-            btn.textContent = on ? '🔔 Notifications activées' : '🔔 Activer les notifications';
+            btn.innerHTML = bell + (on ? 'Notifications activées' : 'Activer les notifications');
             btn.classList.toggle('btn-primary', on);
             btn.classList.toggle('btn-secondary', !on);
         };
@@ -169,9 +171,10 @@
     function wireLibExtras() {
         const grid = document.getElementById('libGrid');
         const dBtn = document.getElementById('btnLibDensity');
+        const gridIcon = MH.icon('grid', 15);
         const apply = (compact) => {
             grid?.classList.toggle('lib2-grid--compact', compact);
-            if (dBtn) dBtn.textContent = compact ? '▦ Confort' : '▦ Compact';
+            if (dBtn) { dBtn.classList.add('ic-btn'); dBtn.innerHTML = gridIcon + (compact ? 'Confort' : 'Compact'); }
         };
         let compact = false;
         try { compact = window.Storage?.getPref?.('libDensity') === 'compact'; } catch (e) {}
@@ -521,7 +524,7 @@
                     ${MH.isNovelSource(f.source) ? '<div class="lib2-kind-badge">ROMAN</div>' : ''}
                     ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
                     <button class="lib2-pin ${isPin ? 'on' : ''}" data-pin="${MH.esc(f.mangaId)}" data-src="${MH.esc(f.source || '')}"
-                        title="${isPin ? 'Désépingler' : 'Épingler en haut'}" aria-label="Épingler">📌</button>
+                        title="${isPin ? 'Désépingler' : 'Épingler en haut'}" aria-label="Épingler">${MH.icon('pin', 15)}</button>
                     <button class="lib2-del" data-del="${MH.esc(f.mangaId)}" data-title="${MH.esc(f.title || '')}"
                         title="Retirer de ma bibliothèque" aria-label="Retirer">✕</button>
                     ${progBar}

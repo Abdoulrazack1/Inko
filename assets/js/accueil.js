@@ -30,8 +30,10 @@
                 API.mangas.latest({ limit: 8 }),
             ]);
             popularCache = pop.results || [];
-            const fresh = (latest.results || []).filter(m => m.cover || m.coverThumb);
-            heroMangas = (fresh.length ? fresh : popularCache).slice(0, 6);
+            const hasCover = m => m.banner || m.coverLarge || m.cover || m.coverThumb;
+            const fresh = (latest.results || []).filter(hasCover);
+            const pool  = fresh.length ? fresh : popularCache.filter(hasCover);
+            heroMangas = (pool.length ? pool : popularCache).slice(0, 6);
             renderTrending(popularCache.slice(0, 10));
             renderReco(popularCache.slice(4, 7));
             await MH.loadSourceTypes();
@@ -120,19 +122,31 @@
             }
         }
 
+        // Dégradé déterministe (repli quand aucune image / image protégée)
+        function heroGradient(m) {
+            const s = ((m.id || '') + (m.title || '')).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+            const h = s % 360;
+            return `linear-gradient(135deg, hsl(${h},48%,20%) 0%, hsl(${(h + 45) % 360},52%,9%) 100%)`;
+        }
+        // backgroundImage = image puis dégradé : si l'image manque/échoue, le dégradé reste peint
+        function heroBgValue(m) {
+            const url = m.banner || m.coverLarge || m.cover || m.coverThumb || '';
+            const grad = heroGradient(m);
+            return url ? `url('${url}'), ${grad}` : grad;
+        }
         function show(idx, instant) {
             const m = heroMangas[idx]; if (!m) return;
             heroIdx = idx;
-            const bgUrl = m.banner || m.coverLarge || m.cover || '';
+            const bgVal = heroBgValue(m);
             hero.classList.toggle('has-banner', !!m.banner);
             // Crossfade du fond via la couche "next"
             if (instant) {
-                bg.style.backgroundImage = `url('${bgUrl}')`;
+                bg.style.backgroundImage = bgVal;
                 bgN.style.opacity = '0';
             } else {
-                bgN.style.backgroundImage = `url('${bgUrl}')`;
+                bgN.style.backgroundImage = bgVal;
                 bgN.style.opacity = '1';
-                setTimeout(() => { bg.style.backgroundImage = `url('${bgUrl}')`; bgN.style.opacity = '0'; }, 700);
+                setTimeout(() => { bg.style.backgroundImage = bgVal; bgN.style.opacity = '0'; }, 700);
             }
             content.classList.add('hero-fading');
             setTimeout(() => {
