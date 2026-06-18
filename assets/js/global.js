@@ -768,6 +768,79 @@
         onScroll();
     }
 
+    /* ── Palette de commandes (Ctrl/Cmd+K) ──────────────── */
+    window.MH.openCommandPalette = function () {
+        if (document.getElementById('cmdPalette')) return;
+        const nav = [
+            { label: 'Accueil', icon: '🏠', go: 'accueil.html' },
+            { label: 'Catalogue', icon: '📚', go: 'catalogue.html' },
+            { label: 'Ma bibliothèque', icon: '📖', go: 'bibliotheque.html' },
+            { label: 'Recherche globale', icon: '🔎', go: 'recherche.html' },
+            { label: 'Statistiques', icon: '📊', go: 'stats.html' },
+            { label: 'Collections', icon: '🗂️', go: 'collections.html' },
+            { label: 'Sources', icon: '🧩', go: 'sources.html' },
+            { label: 'Paramètres', icon: '⚙️', go: 'parametres.html' },
+            { label: 'Lecture aléatoire', icon: '🎲', act: () => document.getElementById('navRandom')?.click() },
+            { label: 'Reprendre ma lecture', icon: '▶', act: async () => { const t = await window.MH.lastReadTarget?.(); if (t) location.href = t.href; else MH.toast('Aucune lecture en cours'); } },
+        ];
+        const ov = document.createElement('div');
+        ov.id = 'cmdPalette';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding-top:12vh';
+        ov.innerHTML = `<div style="width:560px;max-width:92vw;background:var(--bg2);border:1px solid var(--border);border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.55);overflow:hidden">
+            <input id="cmdInput" type="text" placeholder="Rechercher un manga, aller à une page…" autocomplete="off"
+                style="width:100%;box-sizing:border-box;background:var(--bg3);border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:15px;padding:16px 18px;outline:none">
+            <div id="cmdList" style="max-height:52vh;overflow-y:auto"></div>
+            <div style="padding:8px 14px;font-size:11px;color:var(--text3);border-top:1px solid var(--border);display:flex;gap:14px">
+                <span><kbd>↑↓</kbd> naviguer</span><span><kbd>↵</kbd> ouvrir</span><span><kbd>Échap</kbd> fermer</span></div>
+        </div>`;
+        document.body.appendChild(ov);
+        const input = ov.querySelector('#cmdInput');
+        const list = ov.querySelector('#cmdList');
+        let items = [], sel = 0, seq = 0;
+        const close = () => ov.remove();
+        ov.addEventListener('click', e => { if (e.target === ov) close(); });
+
+        const rowHTML = (it, i) => `<div class="cmd-row" data-i="${i}" style="display:flex;align-items:center;gap:12px;padding:11px 16px;cursor:pointer;${i===sel?'background:var(--bg4)':''}">
+            ${it.cover ? `<img src="${it.cover}" style="width:30px;height:40px;object-fit:cover;border-radius:4px" onerror="this.style.visibility='hidden'">` : `<span style="width:30px;text-align:center;font-size:17px">${it.icon||'•'}</span>`}
+            <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px">${esc(it.label)}</span>
+            ${it.tag ? `<span style="font-size:10.5px;color:var(--text3)">${esc(it.tag)}</span>` : ''}</div>`;
+        const paint = () => {
+            list.innerHTML = items.map(rowHTML).join('') || `<div style="padding:18px;color:var(--text3);font-size:13px;text-align:center">Aucun résultat</div>`;
+            list.querySelectorAll('.cmd-row').forEach(r => {
+                r.addEventListener('mouseenter', () => { sel = +r.dataset.i; highlight(); });
+                r.addEventListener('click', () => run(items[+r.dataset.i]));
+            });
+        };
+        const highlight = () => list.querySelectorAll('.cmd-row').forEach((r,i) => r.style.background = i===sel ? 'var(--bg4)' : '');
+        const run = (it) => { if (!it) return; close(); if (it.act) it.act(); else if (it.go) location.href = it.go; };
+        const filterNav = (q) => nav.filter(n => n.label.toLowerCase().includes(q.toLowerCase()));
+
+        async function update() {
+            const q = input.value.trim();
+            if (!q) { items = nav.slice(); sel = 0; paint(); return; }
+            items = filterNav(q); sel = 0; paint();
+            const my = ++seq;
+            try {
+                const data = await API.mangas.search({ q, limit: 6 });
+                if (my !== seq) return;
+                const results = (data.results || []).map(m => ({
+                    label: m.title, tag: m.author || '', cover: m.coverThumb || m.cover,
+                    go: `serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current||'')}`,
+                }));
+                items = filterNav(q).concat(results); paint();
+            } catch (e) {}
+        }
+        let t; input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(update, 220); });
+        ov.addEventListener('keydown', e => {
+            if (e.key === 'Escape') { e.preventDefault(); close(); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(items.length-1, sel+1); highlight(); list.querySelector(`[data-i="${sel}"]`)?.scrollIntoView({block:'nearest'}); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel-1); highlight(); list.querySelector(`[data-i="${sel}"]`)?.scrollIntoView({block:'nearest'}); }
+            else if (e.key === 'Enter') { e.preventDefault(); run(items[sel]); }
+        });
+        update();
+        setTimeout(() => input.focus(), 30);
+    };
+
     /* ── Raccourcis clavier globaux ──────────────────────── */
     let shortcutsBound = false;
     function bindGlobalShortcuts() {
@@ -775,6 +848,12 @@
         shortcutsBound = true;
 
         document.addEventListener('keydown', async (e) => {
+            // Palette de commandes : Ctrl/Cmd + K (avant le filtre des modificateurs)
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+                e.preventDefault();
+                window.MH.openCommandPalette();
+                return;
+            }
             // Ignore si saisie en cours ou combinaison avec modificateur
             const tag = (e.target.tagName || '').toUpperCase();
             if (e.ctrlKey || e.metaKey || e.altKey) return;
