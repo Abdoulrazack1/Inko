@@ -82,6 +82,7 @@
             <div class="st-cards">
                 ${cards.map(([c, v, l]) => `<div class="st-card ${c}"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}
             </div>
+            ${badgesPanel(t, streak, favs)}
             ${statusPanel(favs)}
             <div class="st-panel">
                 <h2>Activité sur l'année</h2>
@@ -107,6 +108,39 @@
             MH.toast?.(v ? `Défi ${new Date().getFullYear()} : ${v} chapitre(s)` : 'Défi retiré');
             render(body, stats, events, favs);
         });
+    }
+
+    // Badges / accomplissements de lecture (calculés depuis les stats existantes)
+    function badgesPanel(t, streak, favs) {
+        const chapters = t.chapters_read || 0;
+        const series   = t.series_read || 0;
+        const fav      = (favs || []).length || t.favorites || 0;
+        const longest  = streak.longest || 0;
+        const sources  = new Set((favs || []).map(f => f.source || 'mangadex')).size;
+        const novels   = (favs || []).filter(f => window.MH?.isNovelSource?.(f.source)).length;
+        const defs = [
+            { ico: '🌱', name: 'Premiers pas',      desc: '1er chapitre lu',            ok: chapters >= 1,   goal: 1,   val: chapters },
+            { ico: '📖', name: 'Lecteur assidu',    desc: '100 chapitres lus',          ok: chapters >= 100, goal: 100, val: chapters },
+            { ico: '🏆', name: 'Dévoreur',          desc: '1000 chapitres lus',         ok: chapters >= 1000,goal: 1000,val: chapters },
+            { ico: '📚', name: 'Collectionneur',    desc: '25 séries en bibliothèque',  ok: fav >= 25,       goal: 25,  val: fav },
+            { ico: '🔥', name: 'Marathon',          desc: '7 jours d’affilée',          ok: longest >= 7,    goal: 7,   val: longest },
+            { ico: '⚡', name: 'Inarrêtable',       desc: '30 jours d’affilée',         ok: longest >= 30,   goal: 30,  val: longest },
+            { ico: '🧭', name: 'Explorateur',       desc: 'Lire depuis 3 sources',      ok: sources >= 3,    goal: 3,   val: sources },
+            { ico: '📜', name: 'Rat de bibliothèque', desc: 'Suivre 5 romans',          ok: novels >= 5,     goal: 5,   val: novels },
+            { ico: '🎯', name: 'Touche-à-tout',     desc: '10 séries différentes lues', ok: series >= 10,    goal: 10,  val: series },
+        ];
+        const earned = defs.filter(d => d.ok).length;
+        const card = (d) => `<div class="st-badge ${d.ok ? 'on' : ''}" title="${MH.esc(d.desc)}${d.ok ? ' ✓' : ` · ${Math.min(d.val, d.goal)}/${d.goal}`}"
+            style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 6px;border-radius:12px;background:var(--bg3);border:1px solid var(--border2);text-align:center;${d.ok ? '' : 'opacity:.45;filter:grayscale(1)'}">
+            <span style="font-size:26px;line-height:1">${d.ico}</span>
+            <span style="font-size:11.5px;font-weight:600;color:var(--text)">${MH.esc(d.name)}</span>
+            <span style="font-size:10px;color:var(--text3)">${MH.esc(d.desc)}</span>
+            ${d.ok ? '<span style="font-size:9.5px;color:var(--green,#22c55e);font-weight:700">DÉBLOQUÉ</span>' : `<span style="font-size:9.5px;color:var(--text3)">${Math.min(d.val,d.goal)}/${d.goal}</span>`}
+        </div>`;
+        return `<div class="st-panel">
+            <h2>Accomplissements <span style="font-size:12px;color:var(--text3);font-weight:400">${earned}/${defs.length}</span></h2>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:12px">${defs.map(card).join('')}</div>
+        </div>`;
     }
 
     // Répartition de la bibliothèque par statut (barre empilée)

@@ -13,15 +13,16 @@
     let doubleBase   = 1;       // 1re page de la planche affichée en mode double
 
     // ── Réglages lecteur (persistés) ──
-    const rs = { bg: 'dark', brightness: 100, gap: 8, fit: 'original', direction: 'rtl', autospeed: 1.4 };
+    const rs = { bg: 'dark', brightness: 100, gap: 8, fit: 'original', direction: 'rtl', autospeed: 1.4, warm: 0 };
     function loadReaderSettings() {
-        ['bg', 'brightness', 'gap', 'fit', 'direction', 'autospeed'].forEach(k => {
+        ['bg', 'brightness', 'gap', 'fit', 'direction', 'autospeed', 'warm'].forEach(k => {
             const v = window.Storage?.getPref('reader_' + k);
             if (v !== undefined && v !== null && v !== '') rs[k] = v;
         });
         rs.brightness = +rs.brightness || 100;
         rs.gap = +rs.gap; if (isNaN(rs.gap)) rs.gap = 8;
         rs.autospeed = +rs.autospeed || 1.4;
+        rs.warm = +rs.warm; if (isNaN(rs.warm)) rs.warm = 0;
     }
     let autoTimer = null;
     const READER_BG = { dark: '#0d0d0f', black: '#000000', gray: '#26262b', sepia: '#f1e7d0', light: '#ffffff' };
@@ -774,6 +775,16 @@
             document.body.appendChild(dim);
         }
         dim.style.opacity = String(Math.max(0, (100 - rs.brightness) / 100 * 0.72));
+
+        // Filtre confort des yeux (lumière chaude type f.lux)
+        let warm = document.getElementById('readerWarm');
+        if (!warm) {
+            warm = document.createElement('div');
+            warm.id = 'readerWarm';
+            warm.style.cssText = 'position:fixed;inset:0;background:#ff8a1e;pointer-events:none;z-index:76;mix-blend-mode:multiply;transition:opacity .2s';
+            document.body.appendChild(warm);
+        }
+        warm.style.opacity = String(Math.max(0, Math.min(0.6, (+rs.warm || 0) / 100 * 0.6)));
     }
 
     function saveReaderSetting(key, val, doRerender) {
@@ -802,6 +813,8 @@
             ${seg('direction', [{v:'rtl',l:'← RTL'},{v:'ltr',l:'LTR →'}], rs.direction)}
             <label class="rs-label">Luminosité <span id="rsBrightVal">${rs.brightness}%</span></label>
             <input type="range" id="rsBright" min="40" max="100" value="${rs.brightness}" class="rs-range">
+            <label class="rs-label">Confort des yeux (lumière chaude) <span id="rsWarmVal">${rs.warm || 0}%</span></label>
+            <input type="range" id="rsWarm" min="0" max="100" value="${rs.warm || 0}" class="rs-range">
             <label class="rs-label">Écart entre pages <span id="rsGapVal">${rs.gap}px</span></label>
             <input type="range" id="rsGap" min="0" max="40" value="${rs.gap}" class="rs-range">
             <label class="rs-label">Vitesse défilement auto <span id="rsAutoVal">${(+rs.autospeed || 1.4).toFixed(1)}×</span></label>
@@ -827,6 +840,10 @@
         panel.querySelector('#rsBright').addEventListener('input', e => {
             document.getElementById('rsBrightVal').textContent = e.target.value + '%';
             saveReaderSetting('brightness', +e.target.value, false);
+        });
+        panel.querySelector('#rsWarm').addEventListener('input', e => {
+            document.getElementById('rsWarmVal').textContent = e.target.value + '%';
+            saveReaderSetting('warm', +e.target.value, false);
         });
         panel.querySelector('#rsGap').addEventListener('input', e => {
             document.getElementById('rsGapVal').textContent = e.target.value + 'px';
