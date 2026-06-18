@@ -503,6 +503,12 @@
             const isPin = window.UserData?.isPinned?.(f.mangaId, f.source);
             const st = f.status && STATUS[f.status]
                 ? `<div class="lib2-status" style="background:${STATUS[f.status][1]}">${STATUS[f.status][0]}</div>` : '';
+            // Progression de lecture : chapitres lus / total connu
+            const readN = (readByManga[f.mangaId] || []).length;
+            const total = Math.max(readN + u, readN, Math.round(f.lastChapter || 0));
+            const pct = total > 0 ? Math.min(100, Math.round((readN / total) * 100)) : 0;
+            const progBar = readN > 0
+                ? `<div class="lib2-progress" title="${readN}/${total} lus (${pct}%)"><div class="lib2-progress-fill" style="width:${pct}%"></div></div>` : '';
             const href = prog?.chapterId
                 ? MH.readerHref(f.mangaId, prog.chapterId, f.source || prog.source)
                 : `serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}`;
@@ -518,6 +524,7 @@
                         title="${isPin ? 'Désépingler' : 'Épingler en haut'}" aria-label="Épingler">📌</button>
                     <button class="lib2-del" data-del="${MH.esc(f.mangaId)}" data-title="${MH.esc(f.title || '')}"
                         title="Retirer de ma bibliothèque" aria-label="Retirer">✕</button>
+                    ${progBar}
                 </div>
                 <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
                 <div class="lib2-sub">${prog ? 'Ch. ' + MH.chapNum(prog.chapter) : 'Pas commencé'} · ${f.source || 'mangadex'}</div>

@@ -115,7 +115,7 @@
         const nameEl   = document.querySelector('.profil-name');
         const handleEl = document.querySelector('.profil-handle');
         const sinceEl  = document.querySelector('.profil-since');
-        if (avatarEl) avatarEl.textContent = (u.avatar || u.username[0] || '?').toUpperCase().slice(0, 2);
+        if (avatarEl) avatarEl.textContent = avatarText(u.avatar, u.username);
         if (nameEl)   nameEl.textContent   = u.username;
         if (handleEl) handleEl.textContent = '@' + u.username.toLowerCase().replace(/\s+/g, '_');
         if (sinceEl)  sinceEl.textContent  = u.createdAt
@@ -220,6 +220,14 @@
         }
     }
 
+    // Avatar : emoji préservé tel quel, sinon 2 lettres majuscules
+    function avatarText(a, name) {
+        a = (a || '').trim();
+        if (!a) return ((name || '?')[0] || '?').toUpperCase();
+        if (/[^\x00-\x7F]/.test(a)) return a;   // emoji / caractère non-ASCII
+        return a.toUpperCase().slice(0, 2);
+    }
+
     // ── Édition du profil (nom + avatar) ──
     function openEditProfile() {
         const u = API.user || {};
@@ -230,8 +238,11 @@
                 <div style="font-weight:700;font-size:15px;margin-bottom:16px">Éditer le profil</div>
                 <label style="font-size:11.5px;color:var(--text2)">Nom d'utilisateur</label>
                 <input id="epName" class="list-modal-input" style="width:100%;margin:6px 0 14px" value="${MH.esc(u.username || '')}" maxlength="50">
-                <label style="font-size:11.5px;color:var(--text2)">Avatar (1–2 caractères, lettre ou emoji)</label>
-                <input id="epAvatar" class="list-modal-input" style="width:100%;margin:6px 0 18px" value="${MH.esc(u.avatar || (u.username || '?')[0].toUpperCase())}" maxlength="2">
+                <label style="font-size:11.5px;color:var(--text2)">Avatar (lettre ou emoji)</label>
+                <input id="epAvatar" class="list-modal-input" style="width:100%;margin:6px 0 10px" value="${MH.esc(u.avatar || (u.username || '?')[0].toUpperCase())}" maxlength="8">
+                <div id="epEmojis" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px">
+                    ${['📚','🦊','🐉','🌸','⚔️','👹','🔥','🌙','⭐','🎴','🐈','🍥','💀','👑','🎧'].map(e => `<button type="button" class="ep-emoji" data-e="${e}" style="font-size:18px;width:34px;height:34px;border-radius:9px;border:1px solid var(--border2);background:var(--bg3);cursor:pointer">${e}</button>`).join('')}
+                </div>
                 <div style="display:flex;gap:8px;justify-content:flex-end">
                     <button class="btn btn-ghost btn-sm" id="epCancel">Annuler</button>
                     <button class="btn btn-primary btn-sm" id="epSave">Enregistrer</button>
@@ -239,6 +250,7 @@
             </div>`;
         document.body.appendChild(ov);
         ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+        ov.querySelectorAll('.ep-emoji').forEach(b => b.addEventListener('click', () => { ov.querySelector('#epAvatar').value = b.dataset.e; }));
         ov.querySelector('#epCancel').addEventListener('click', () => ov.remove());
         ov.querySelector('#epSave').addEventListener('click', async () => {
             const username = ov.querySelector('#epName').value.trim();

@@ -234,11 +234,20 @@ async function changePassword(req, res, next) {
 async function updateProfile(req, res, next) {
     try {
         const { username, avatar } = req.body || {};
+        const sets = [], vals = [];
         if (username !== undefined) {
             if (!username || username.trim().length < 2)
                 return res.status(400).json({ error: "Nom d'utilisateur trop court" });
-            await pool.query('UPDATE users SET username = ?, avatar = ? WHERE id = ?',
-                [username.trim(), (avatar || username.trim()[0]).toUpperCase().slice(0, 2), req.user.id]);
+            sets.push('username = ?'); vals.push(username.trim());
+        }
+        if (avatar !== undefined) {
+            // Avatar : emoji OU 1–2 lettres. On préserve tel quel (colonne VARCHAR(10)).
+            const a = String(avatar).trim().slice(0, 10);
+            sets.push('avatar = ?'); vals.push(a || null);
+        }
+        if (sets.length) {
+            vals.push(req.user.id);
+            await pool.query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, vals);
         }
         const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
         res.json({ user: publicUser(user) });
