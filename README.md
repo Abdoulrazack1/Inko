@@ -6,7 +6,7 @@
 
 **Tes mangas et light novels, partout. Lis, suis tes séries, reprends où tu t'es arrêté.**
 
-Un lecteur de **mangas et de romans** moderne — web, PWA installable, application
+Un lecteur de **mangas et de romans** moderne: web, PWA installable, application
 desktop et mobile — construit sur un système d'extensions ouvert, dans l'esprit de
 Mihon / Tachiyomi. Lis des mangas en images **et** des light/web novels en texte
 (y compris des œuvres japonaises et chinoises traduites).
