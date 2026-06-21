@@ -31,10 +31,29 @@
         grid:      '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
         bookmark:  '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
         moon:      '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+        incognito: '<path d="M2 12h20"/><path d="M5 12l1.5-5a2 2 0 0 1 1.9-1.4h7.2A2 2 0 0 1 19 7l1.5 5"/><circle cx="7.5" cy="15.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/><path d="M10 15.5c1-0.7 3-0.7 4 0"/>',
     };
     window.MH.icon = function (name, size = 18) {
         const p = ICON_PATHS[name]; if (!p) return '';
         return `<svg class="mh-icon" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+    };
+
+    /* ── Mode incognito (lecture privée : ni progression, ni historique) ──
+       Persisté par session (comme un navigateur). Les lecteurs vérifient
+       MH.isIncognito() avant de sauver la progression / marquer comme lu. */
+    window.MH.isIncognito = function () {
+        try { return sessionStorage.getItem('inko_incognito') === '1'; } catch (e) { return false; }
+    };
+    window.MH.setIncognito = function (on) {
+        try { sessionStorage.setItem('inko_incognito', on ? '1' : '0'); } catch (e) {}
+        document.body.classList.toggle('incognito-on', !!on);
+        document.querySelectorAll('#btnIncognito').forEach(b => b.classList.toggle('on', !!on));
+    };
+    window.MH.toggleIncognito = function () {
+        const on = !window.MH.isIncognito();
+        window.MH.setIncognito(on);
+        window.MH.toast?.(on ? 'Mode incognito activé — lecture non enregistrée' : 'Mode incognito désactivé');
+        return on;
     };
 
     // Numéro de chapitre lisible (gère prologue/null sans afficher "null")
@@ -510,6 +529,7 @@
             <div class="search-dropdown" id="searchDropdown"></div>
           </div>
           <div class="header-actions">
+            <button class="header-icon-btn" id="btnIncognito" title="Mode incognito (lecture privée)">${window.MH.icon('incognito', 17)}</button>
             <button class="header-icon-btn" id="btnContinue" title="Reprendre ma dernière lecture" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:middle"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg></button>
             <button class="header-icon-btn" id="btnRefresh" title="Actualiser mes séries (nouveaux chapitres)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:middle"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></button>
             <button class="header-icon-btn" id="btnMusic" title="Musique (s'ouvre dans une fenêtre qui reste en lecture)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
@@ -707,6 +727,15 @@
             if (last) window.location.href = last.href;
             else MH.toast('Aucune lecture en cours pour le moment');
         });
+
+        // Bouton incognito (lecture privée)
+        document.addEventListener('click', e => {
+            const btn = e.target.closest('#btnIncognito');
+            if (!btn) return;
+            e.preventDefault();
+            window.MH.toggleIncognito();
+        });
+        window.MH.setIncognito(window.MH.isIncognito());   // applique l'état au chargement
         // Révèle le bouton si une lecture est en cours
         window.MH.refreshContinueButton();
 

@@ -418,6 +418,15 @@
 .chapter-bm:hover { opacity: 1; transform: scale(1.15); color: var(--orange); }
 .chapter-bm.on { opacity: 1; color: var(--orange); }
 .chapter-bm.on svg { fill: var(--orange); }
+.ic-btn { display: inline-flex; align-items: center; gap: 6px; }
+.ic-btn svg { flex-shrink: 0; }
+.chap-filter {
+  padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  background: var(--bg3); border: 1px solid var(--border2); color: var(--text2);
+  cursor: pointer; transition: all 0.12s;
+}
+.chap-filter:hover { color: var(--text); border-color: var(--border); }
+.chap-filter.on { background: var(--orange); border-color: var(--orange); color: #fff; }
 
 .chapters-list { }
 .chapters-empty {

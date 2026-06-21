@@ -200,6 +200,7 @@
         }, { passive: true });
     }
     async function saveProgress(pct) {
+        if (window.MH?.isIncognito?.()) return;   // lecture privée
         if (!API.isLoggedIn() || !manga || !currentChap) return;
         try {
             await API.me.setProgress(manga.id, {
@@ -222,6 +223,7 @@
         } catch (e) {}
     }
     async function markChapterRead() {
+        if (window.MH?.isIncognito?.()) return;   // lecture privée
         if (!API.isLoggedIn()) return;
         try {
             await API.me.markChapter({

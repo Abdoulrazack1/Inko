@@ -30,6 +30,17 @@
   --transition:  0.18s ease;
 }
 
+/* ── Thème AMOLED (noir pur, économie OLED) ────────────────── */
+html[data-theme="amoled"] {
+  --bg:      #000000;
+  --bg2:     #060608;
+  --bg3:     #0c0c10;
+  --bg4:     #141418;
+  --border:  rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.11);
+}
+html[data-theme="amoled"] body { background: #000; }
+
 /* ── Thème clair ───────────────────────────────────────────── */
 html[data-theme="light"] {
   --bg:          #f6f6f8;
@@ -175,6 +186,13 @@ ul, ol { list-style: none; }
 }
 .header-icon-btn:hover { color: var(--text); border-color: var(--border2); }
 .header-icon-btn:disabled { opacity: .6; cursor: default; }
+.header-icon-btn.on { background: var(--orange); color: #fff; border-color: var(--orange); }
+/* Mode incognito : liseré discret en haut de page pour le rappeler */
+body.incognito-on::before {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; height: 3px;
+  background: repeating-linear-gradient(90deg, var(--orange) 0 14px, transparent 14px 28px);
+  z-index: 9999; pointer-events: none; opacity: .85;
+}
 #btnRefresh.spinning svg { animation: inko-spin .8s linear infinite; }
 @keyframes inko-spin { to { transform: rotate(360deg); } }
 .header-user {

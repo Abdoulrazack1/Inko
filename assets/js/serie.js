@@ -566,16 +566,22 @@
             return;
         }
 
+        let readFilter = 'all';   // all | unread | read
         el.innerHTML = `
         <div class="chapters-block">
             <div class="chapters-block-header">
                 <div class="chapters-block-title">Tous les chapitres · <span id="chapCount">${chapters.length}</span></div>
                 <div class="chapters-controls">
                     <input type="text" id="chapSearch" class="chap-search-input" placeholder="Chercher un chapitre…">
-                    <button class="chap-sort-btn" id="chapRandom" title="Ouvrir un chapitre au hasard">🎲 Au hasard</button>
+                    <button class="chap-sort-btn ic-btn" id="chapRandom" title="Ouvrir un chapitre au hasard">${MH.icon('dice', 14)} Au hasard</button>
                     <button class="chap-sort-btn" id="chapMarkAll" title="Marquer tous les chapitres comme lus">✓ Tout lu</button>
                     <button class="chap-sort-btn" id="chapSortBtn">${chapSortAsc ? '↑ Ancien' : '↓ Récent'}</button>
                 </div>
+            </div>
+            <div class="chap-filters" id="chapFilters" style="display:flex;gap:6px;margin-bottom:10px">
+                <button class="chap-filter on" data-rf="all">Tous</button>
+                <button class="chap-filter" data-rf="unread">Non lus</button>
+                <button class="chap-filter" data-rf="read">Lus</button>
             </div>
             <div class="chapters-list" id="chapsList"></div>
         </div>`;
@@ -586,6 +592,12 @@
         const randBtn = el.querySelector('#chapRandom');
         const list    = el.querySelector('#chapsList');
         const countEl = el.querySelector('#chapCount');
+
+        el.querySelectorAll('.chap-filter').forEach(b => b.addEventListener('click', () => {
+            readFilter = b.dataset.rf;
+            el.querySelectorAll('.chap-filter').forEach(x => x.classList.toggle('on', x === b));
+            render();
+        }));
 
         if (randBtn) randBtn.addEventListener('click', () => {
             if (!chapters.length) return;
@@ -612,9 +624,12 @@
             let filtered = chapters.filter(c =>
                 !q || String(c.chapter).includes(q) || (c.title || '').toLowerCase().includes(q)
             );
+            if (readFilter === 'unread') filtered = filtered.filter(c => !readChapsSet.has(c.id));
+            else if (readFilter === 'read') filtered = filtered.filter(c => readChapsSet.has(c.id));
             if (chapSortAsc) filtered = [...filtered].reverse();
             if (countEl) countEl.textContent = filtered.length;
-            list.innerHTML = filtered.map(c => renderChapterRow(c)).join('') || '<div class="chapters-empty">Aucun chapitre trouvé</div>';
+            list.innerHTML = filtered.map(c => renderChapterRow(c)).join('')
+                || `<div class="chapters-empty">${readFilter === 'unread' ? 'Tout est lu ✓' : (readFilter === 'read' ? 'Aucun chapitre lu' : 'Aucun chapitre trouvé')}</div>`;
         }
 
         if (input) {

@@ -8,8 +8,9 @@
     'use strict';
 
     function resolve(theme) {
-        if (theme === 'light') return 'light';
-        if (theme === 'dark')  return 'dark';
+        if (theme === 'light')  return 'light';
+        if (theme === 'dark')   return 'dark';
+        if (theme === 'amoled') return 'amoled';   // noir pur (OLED)
         // auto → suit le système
         try {
             return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
@@ -21,7 +22,7 @@
         document.documentElement.setAttribute('data-theme', t);
         // Met aussi à jour la meta theme-color pour la PWA
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.content = t === 'light' ? '#ffffff' : '#0d0d0f';
+        if (meta) meta.content = t === 'light' ? '#ffffff' : (t === 'amoled' ? '#000000' : '#0d0d0f');
     }
 
     // ── Couleur d'accent personnalisable ──

@@ -407,6 +407,7 @@
     }
 
     async function saveProgress() {
+        if (window.MH?.isIncognito?.()) return;   // lecture privée : pas de progression
         if (!API.isLoggedIn() || !manga || !currentChap) return;
         try {
             await API.me.setProgress(manga.id, {
@@ -418,6 +419,7 @@
     }
 
     async function markChapterRead() {
+        if (window.MH?.isIncognito?.()) return;   // lecture privée : pas de marquage
         if (!API.isLoggedIn() || !manga || !currentChap) return;
         try {
             await API.me.markChapter({
