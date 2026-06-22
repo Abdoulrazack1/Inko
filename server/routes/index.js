@@ -8,6 +8,7 @@ const Spotify = require('../controllers/spotify.controller');
 const Artwork = require('../controllers/artwork.controller');
 const AniList = require('../controllers/anilist.controller');
 const Image   = require('../controllers/image.controller');
+const Ext     = require('../controllers/extensions.controller');
 
 // ── Healthcheck ─────────────────────────────────
 router.get('/health', (_req, res) => res.json({ ok: true, time: Date.now() }));
@@ -29,6 +30,10 @@ router.post('/auth/delete',   auth.authRequired, Auth.deleteAccount);
 
 // ── Sources (extensions installées) ───────────────
 router.get('/sources',              Manga.listSources);
+
+// ── Extensions : mises à jour (modèle Mihon) ──────
+router.get ('/extensions/updates',  Ext.checkUpdates);
+router.post('/extensions/update',   auth.authRequired, Ext.applyUpdates);
 
 // ── Proxy de couvertures (cache + anti-hotlink) ───
 router.get('/img',                  Image.proxy);

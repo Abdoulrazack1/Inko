@@ -482,7 +482,7 @@
             <div class="chapter-num">Chap. ${c.chapter}</div>
             <div class="chapter-title-text">${MH.esc(c.title || 'Chapitre ' + c.chapter)}</div>
             <div class="chapter-meta">
-                <span class="chapter-date">${c.publishedAt ? new Date(c.publishedAt).toLocaleDateString('fr-FR') : ''}</span>
+                <span class="chapter-date" title="${c.publishedAt ? MH.fullDate(c.publishedAt) : ''}">${c.publishedAt ? MH.relTime(c.publishedAt) : ''}</span>
                 <span class="chapter-time">${c.pages ? c.pages + ' p.' : ''}</span>
                 <span class="chapter-time">${(c.lang || '').toUpperCase()}</span>
                 <button class="chapter-bm${isBm ? ' on' : ''}" title="${isBm ? 'Retirer le signet' : 'Ajouter un signet'}"

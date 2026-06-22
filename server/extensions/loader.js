@@ -84,4 +84,10 @@ function defaultSource() {
     return all[0] || null;
 }
 
-module.exports = { loadAll, getAll, get, manifest, defaultSource };
+// Recharge le registre (après installation/MAJ d'une extension)
+function reload() {
+    registry.clear();
+    return loadAll();
+}
+
+module.exports = { loadAll, getAll, get, manifest, defaultSource, reload };

@@ -77,6 +77,12 @@
          les <strong>mangas</strong> (lecture en images) et les <strong>romans</strong>
          (light/web novels, lecture en texte). Active la source que tu souhaites utiliser ;
          les autres pages s'adaptent automatiquement à son type.</p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px">
+        <button class="btn btn-primary btn-sm" id="btnCheckExt" title="Chercher des mises à jour des extensions">Vérifier les mises à jour</button>
+        <button class="btn btn-primary btn-sm" id="btnUpdateAll" style="display:none">Tout mettre à jour</button>
+        <span id="extStatus" style="font-size:12.5px;color:var(--text3)"></span>
+      </div>
+      <div id="extUpdates" style="margin-top:12px"></div>
     </div>
 
     <div class="sources-warning">

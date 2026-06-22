@@ -170,6 +170,9 @@
                     window.dispatchEvent(new CustomEvent('source:change', { detail: { id } }));
                 } catch(e) {}
             },
+            // Mises à jour des extensions (modèle Mihon)
+            checkUpdates: ()      => get('/extensions/updates'),
+            update:       (ids)   => post('/extensions/update', { ids: ids || null }),
         },
 
         // ── Mangas (public, route automatiquement selon la source courante) ──

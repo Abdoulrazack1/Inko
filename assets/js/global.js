@@ -59,6 +59,27 @@
     // Numéro de chapitre lisible (gère prologue/null sans afficher "null")
     window.MH.chapNum = (n) => (n != null && n !== '') ? n : '?';
 
+    // Date relative ("il y a 3 j", "il y a 2 mois") + titre = date complète
+    window.MH.relTime = function (dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr); if (isNaN(d)) return '';
+        const s = Math.floor((Date.now() - d.getTime()) / 1000);
+        if (s < 0) return d.toLocaleDateString('fr-FR');
+        if (s < 60) return "à l'instant";
+        if (s < 3600) return 'il y a ' + Math.floor(s / 60) + ' min';
+        if (s < 86400) return 'il y a ' + Math.floor(s / 3600) + ' h';
+        const days = Math.floor(s / 86400);
+        if (days < 7) return 'il y a ' + days + ' j';
+        if (days < 31) return 'il y a ' + Math.floor(days / 7) + ' sem';
+        if (days < 365) return 'il y a ' + Math.floor(days / 30) + ' mois';
+        return 'il y a ' + Math.floor(days / 365) + ' an' + (days >= 730 ? 's' : '');
+    };
+    window.MH.fullDate = function (dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr); if (isNaN(d)) return '';
+        return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+
     /* ── Type de source (manga vs novel) ─────────────────────
        Cache du manifest pour router vers le bon lecteur. */
     window.MH._sourceTypes = null;

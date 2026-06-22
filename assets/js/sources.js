@@ -5,7 +5,64 @@
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('sources');
         await render();
+        wireUpdates();
     });
+
+    // ── Mises à jour des extensions (modèle Mihon) ──
+    function wireUpdates() {
+        const btn = document.getElementById('btnCheckExt');
+        const allBtn = document.getElementById('btnUpdateAll');
+        const status = document.getElementById('extStatus');
+        const box = document.getElementById('extUpdates');
+        if (!btn) return;
+
+        async function check() {
+            btn.disabled = true;
+            status.innerHTML = '<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span> Recherche de mises à jour…';
+            box.innerHTML = ''; allBtn.style.display = 'none';
+            try {
+                const data = await API.sources.checkUpdates();
+                const ups = (data.installed || []).filter(x => x.hasUpdate);
+                const news = data.available || [];
+                if (!ups.length && !news.length) {
+                    status.textContent = `Toutes les extensions sont à jour ✓ (source : ${data.source === 'github' ? 'dépôt' : 'local'})`;
+                    return;
+                }
+                status.textContent = `${ups.length} mise(s) à jour · ${news.length} nouvelle(s) source(s)`;
+                allBtn.style.display = '';
+                box.innerHTML = [...ups, ...news.map(n => ({ ...n, current: '—', name: n.id, isNew: true }))].map(u => `
+                    <div class="source-card" style="padding:12px 16px">
+                        <div class="source-meta">
+                            <div class="source-name">${MH.esc(u.name || u.id)} ${u.isNew ? '<span class="source-type-badge" style="background:#22c55e">NOUVEAU</span>' : ''}</div>
+                            <div class="source-desc">${u.isNew ? `Nouvelle source disponible · v${u.latest}` : `v${u.current} → <strong style="color:var(--orange)">v${u.latest}</strong>`}</div>
+                        </div>
+                        <div class="source-actions">
+                            <button class="btn btn-secondary btn-sm" data-upd="${MH.esc(u.id)}">${u.isNew ? 'Installer' : 'Mettre à jour'}</button>
+                        </div>
+                    </div>`).join('');
+                box.querySelectorAll('[data-upd]').forEach(b => b.addEventListener('click', () => doUpdate([b.dataset.upd], b)));
+            } catch (e) {
+                status.textContent = 'Erreur : ' + e.message;
+            } finally { btn.disabled = false; }
+        }
+
+        async function doUpdate(ids, btnEl) {
+            if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour installer des mises à jour'); return; }
+            if (btnEl) { btnEl.disabled = true; btnEl.textContent = '…'; }
+            else { allBtn.disabled = true; allBtn.textContent = 'Installation…'; }
+            try {
+                const r = await API.sources.update(ids);
+                MH.toast?.(`${(r.updated || []).length} extension(s) mise(s) à jour`);
+                await render();      // recharge la liste (nouvelles versions)
+                await check();       // rafraîchit l'état des MAJ
+            } catch (e) { MH.toast?.('Erreur : ' + e.message); }
+            finally { if (allBtn) { allBtn.disabled = false; allBtn.textContent = 'Tout mettre à jour'; } }
+        }
+
+        btn.addEventListener('click', check);
+        allBtn.addEventListener('click', () => doUpdate(null, null));
+        check();   // recherche automatique des mises à jour au chargement
+    }
 
     async function render() {
         const el = document.getElementById('sourcesGrid');
