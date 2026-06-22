@@ -2,7 +2,7 @@
 // SushiScan — extension Inko (modèle Mihon)
 // ============================================================
 // ⚠ Extension communautaire, fournie sans garantie. Scrape l'HTML
-// de sushiscan.fr (thème Madara). Le site change régulièrement,
+// de sushiscan.fr (thème Madara/TS). Le site change régulièrement,
 // utilise Cloudflare et peut bloquer les requêtes serveur.
 //
 // Pré-requis : `npm install cheerio` dans le dossier server/
@@ -69,7 +69,7 @@ async function fetchHtml(url, ttlMs = 60_000) {
     return data;
 }
 
-// ── Mappers ──
+// ── Helpers ──
 function slugFromUrl(url) {
     if (!url) return '';
     const m = url.match(/\/catalogue\/([^/]+)/) || url.match(/\/manga\/([^/]+)/);
@@ -79,10 +79,76 @@ function slugFromUrl(url) {
 // Titre lisible déduit du slug (la cover/le vrai titre sont affinés par getManga)
 function titleFromSlug(slug) {
     return (slug || '')
-        .replace(/-(scan|vf|vostfr|french|fr|colored|color)$/i, '')
+        .replace(/-(scan|vf|vostfr|french|fr|colored|color|manga|manhwa|webtoon)$/i, '')
         .replace(/-/g, ' ')
         .replace(/\s+/g, ' ').trim()
         .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Statut SushiScan ("En Cours", "Terminé", "En Pause"…) → valeur normalisée Inko
+function normStatus(s) {
+    s = (s || '').toLowerCase();
+    if (/en cours|ongoing|publishing/.test(s))     return 'ongoing';
+    if (/termin|completed|fini|complete/.test(s))  return 'completed';
+    if (/pause|hiatus/.test(s))                    return 'hiatus';
+    if (/abandonn|annul|cancel|drop/.test(s))      return 'cancelled';
+    return null;
+}
+
+// Format de série → type d'œuvre ("manga", "manhwa", "manhua", "webtoon")
+function normFormat(s) {
+    s = (s || '').toLowerCase();
+    if (/manhwa/.test(s))  return 'manhwa';
+    if (/manhua/.test(s))  return 'manhua';
+    if (/webtoon/.test(s)) return 'webtoon';
+    if (/comic/.test(s))   return 'comic';
+    if (/manga/.test(s))   return 'manga';
+    return null;
+}
+
+// Dates de chapitres → ISO (YYYY-MM-DD). Gère l'anglais ("July 13, 2025"),
+// le français ("13 juillet 2025") et l'ISO. Renvoie null si illisible
+// (le front préfère ne rien afficher plutôt qu'une date fausse).
+const FR_MONTHS = {
+    janvier: 1, fevrier: 2, février: 2, mars: 3, avril: 4, mai: 5, juin: 6,
+    juillet: 7, aout: 8, août: 8, septembre: 9, octobre: 10, novembre: 11,
+    decembre: 12, décembre: 12,
+};
+function parseChapterDate(s) {
+    if (!s) return null;
+    s = s.replace(/\s+/g, ' ').trim();
+    if (!s) return null;
+    // Déjà ISO
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    // Français : "13 juillet 2025"
+    m = s.match(/(\d{1,2})\s+([a-zàâäéèêëîïôöûüç]+)\.?\s+(\d{4})/i);
+    if (m) {
+        const mo = FR_MONTHS[m[2].toLowerCase()];
+        if (mo) return `${m[3]}-${String(mo).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
+    }
+    // Anglais ("July 13, 2025") et autres formats reconnus par JS.
+    // On lit les composantes LOCALES (pas toISOString, qui décale d'un jour
+    // selon le fuseau du serveur).
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+        const p = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+    return null;
+}
+
+function chapterIdFromUrl(url) {
+    // URL chapitre SushiScan : https://sushiscan.fr/<slug>-chapitre-N/
+    if (!url) return '';
+    return url.replace(BASE, '').replace(/^\/+|\/+$/g, '');
+}
+
+function chapterNumberFromTitle(title) {
+    if (!title) return null;
+    const m = title.match(/chap(?:ter|itre)?\s*(\d+(?:\.\d+)?)/i)
+          || title.match(/(\d+(?:\.\d+)?)/);
+    return m ? parseFloat(m[1]) : null;
 }
 
 // ── Index COMPLET du catalogue (via les manga-sitemaps RankMath) ──
@@ -125,22 +191,11 @@ async function buildCatalogIndex() {
     return _catalogBuilding;
 }
 
-function chapterIdFromUrl(url) {
-    // URL chapter SushiScan : https://sushiscan.fr/manga-slug-chapter-N/
-    if (!url) return '';
-    return url.replace(BASE, '').replace(/^\/+|\/+$/g, '');
-}
-
-function chapterNumberFromTitle(title) {
-    if (!title) return null;
-    const m = title.match(/chap(?:ter|itre)?\s*(\d+(?:\.\d+)?)/i)
-          || title.match(/(\d+(?:\.\d+)?)/);
-    return m ? parseFloat(m[1]) : null;
-}
-
+// ── Parse une grille de cartes (.bs/.bsx du thème TS) ──
+// Enrichit chaque carte avec le dernier chapitre (.epxs), le statut (.status)
+// et le format (.type) quand disponibles.
 function parseMangaList($) {
     const byId = new Map(); // dédup par slug
-    // Sélecteurs Madara typiques. Ordre par priorité décroissante de précision.
     const SELECTORS = [
         '.listupd .bs',
         '.page-listing-item .bs',
@@ -171,15 +226,24 @@ function parseMangaList($) {
                    || img.attr('src')
                    || '';
 
+        // Dernier chapitre dispo sur la carte (badge ".epxs" : "Chapitre 111")
+        const epxs = $el.find('.epxs').first().text().trim();
+        const lastChapter = chapterNumberFromTitle(epxs);
+        // Statut & format (classes/texte du badge)
+        const statusRaw = ($el.find('.status').attr('class') || '') + ' ' + $el.find('.status').text();
+        const typeRaw   = ($el.find('.type').attr('class') || '') + ' ' + $el.find('.type').text();
+
         byId.set(id, {
             id,
             title,
             titleAlt:     '',
             author:       '',
             description:  '',
-            status:       null,
+            status:       normStatus(statusRaw),
+            format:       normFormat(typeRaw),
             year:         null,
             tags:         [],
+            lastChapter:  lastChapter,
             cover,
             coverLarge:   cover,
             coverThumb:   cover,
@@ -258,15 +322,16 @@ module.exports = {
     lang:         'fr',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '0.3.0-experimental',
-    description:  '⚠ Expérimental — scrape sushiscan.fr (Madara). Catalogue paginé complet, contenu adulte filtré hors espace +18.',
+    version:      '0.4.0',
+    description:  '⚠ Expérimental — scrape sushiscan.fr (Madara/TS). Populaires & dernières sorties distinctes, dates de sortie des chapitres, recherche sur tout le catalogue, contenu adulte filtré hors espace +18.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
 
-    // Catalogue paginé : on mappe (offset/limit) sur la page native SushiScan
-    // (~30 items/page). On retourne un total généreux pour permettre une
-    // navigation profonde dans tout le catalogue.
+    // Catalogue trié & paginé : SushiScan accepte ?order=popular|update|title
+    // et pagine via ?page=N (PAS /page/N/ qui renvoie toujours la 1re page).
+    // - popular → ?order=popular  (les plus lues)
+    // - latest  → ?order=update   (dernières mises à jour)
     async _browse(order, { limit = 24, offset = 0, adult } = {}) {
-        // +18 : on sert l'index adulte
+        // +18 : on sert l'index adulte (déjà trié par genre)
         if (isAdultFlag(adult)) {
             const idx = await buildAdultIndex();
             const off = +offset || 0;
@@ -274,14 +339,15 @@ module.exports = {
         }
         const idx  = await buildAdultIndex();
         const page = Math.floor((+offset || 0) / (+limit || 24)) + 1;
-        // SushiScan pagine via ?page=N (PAS /page/N/ qui renvoie toujours la 1re).
-        const url  = page > 1 ? `/catalogue/?page=${page}` : `/catalogue/`;
+        const ord  = order === 'popular' ? 'popular' : 'update';
+        const qp   = `order=${ord}` + (page > 1 ? `&page=${page}` : '');
+        const url  = `/catalogue/?${qp}`;
         let items  = [];
         try { items = parseMangaList(cheerio.load(await fetchHtml(url, 300_000))); }
         catch (e) {}
         const sfw = items.filter(m => !idx.set.has(m.id));
-        // Pas d'items → on est au-delà de la dernière page : total = position réelle.
-        // Sinon : total généreux pour garder le bouton "page suivante" actif.
+        // Pas d'items → au-delà de la dernière page : total = position réelle.
+        // Sinon : total généreux pour garder le bouton « page suivante » actif.
         const total = items.length ? Math.max((+offset || 0) + 480, 1000) : (+offset || 0);
         return { total, results: sfw };
     },
@@ -326,12 +392,19 @@ module.exports = {
         const html = await fetchHtml(url, 300_000);
         const $    = cheerio.load(html);
 
-        const title = $('.entry-title, .post-title h1').first().text().trim();
-        const cover = $('.thumb img, .summary_image img, .seriestucontent img, .infomanga img').attr('data-src')
-                   || $('.thumb img, .summary_image img, .seriestucontent img, .infomanga img').attr('src') || '';
-        const description = ($('.entry-content[itemprop="description"], .summary__content, [itemprop="description"]').first().text() || '').replace(/\s+/g, ' ').trim();
+        const og = (p) => $(`meta[property="og:${p}"]`).attr('content') || '';
 
-        // Thème Madara/SushiScan : table.infotable (Statut / Type / Sortie / Auteur / Dessinateur / Prépublication)
+        const title = ($('.entry-title, .post-title h1').first().text().trim())
+                   || og('title').replace(/\s*(Scan|VF|FR|Gratuit)\b.*$/i, '').trim()
+                   || titleFromSlug(id);
+        const cover = $('.thumb img, .summary_image img, .seriestucontent img, .infomanga img').attr('data-src')
+                   || $('.thumb img, .summary_image img, .seriestucontent img, .infomanga img').attr('src')
+                   || og('image') || '';
+        const description = ($('.entry-content[itemprop="description"], .summary__content, [itemprop="description"]').first().text() || '')
+                   .replace(/\s+/g, ' ').trim()
+                   || og('description');
+
+        // Thème Madara/TS : table.infotable (Statut / Type / Sortie / Auteur / Dessinateur / Prépublication)
         const info = {};
         $('.infotable tr').each((_, tr) => {
             const k = $(tr).find('td').eq(0).text().replace(/\s+/g, ' ').trim().toLowerCase();
@@ -340,21 +413,18 @@ module.exports = {
         });
         const author = info['auteur'] || info['dessinateur'] || '';
         const yearM  = (info['sortie'] || info['année'] || '').match(/(\d{4})/);
-        const st     = (info['statut'] || '').toLowerCase();
-        let statusNorm = null;
-        if (/en cours|ongoing/.test(st))        statusNorm = 'ongoing';
-        else if (/termin|completed/.test(st))   statusNorm = 'completed';
-        else if (/pause|hiatus/.test(st))       statusNorm = 'hiatus';
-        else if (/abandonn|annul|cancel/.test(st)) statusNorm = 'cancelled';
+        const statusNorm = normStatus(info['statut']);
+        const format     = normFormat(info['type']);
 
         const tags = $('.seriestugenre a, .wd-full .mgen a, .mgen a, .gnr a').map((_, el) => $(el).text().trim()).get().filter(Boolean);
-        const DEMOS = ['shounen','seinen','shoujo','josei'];
+        const DEMOS = ['shounen', 'seinen', 'shoujo', 'josei'];
         const demographic = (tags.find(t => DEMOS.includes(t.toLowerCase())) || '').toLowerCase() || null;
 
         return {
             id, title, titleAlt: '',
             author, description,
             status: statusNorm,
+            format,
             year: yearM ? parseInt(yearM[1]) : null,
             demographic,
             tags,
@@ -378,7 +448,7 @@ module.exports = {
             const titleText = $el.find('.chapternum').text().trim() || a.text().trim();
             const dateText  = $el.find('.chapterdate, .chapter-release-date').text().trim();
             const num = chapterNumberFromTitle(titleText);
-            if (num === null) return;
+            if (num === null) return;   // ignore le gabarit Madara "Chapitre {{number}}"
             chapters.push({
                 id:           chapterIdFromUrl(href),
                 chapter:      num,
@@ -386,7 +456,7 @@ module.exports = {
                 title:        titleText.replace(/^Chap(?:ter|itre)?\s*\d+(?:\.\d+)?\s*[:\-]?\s*/i, '').trim() || null,
                 lang:         'fr',
                 pages:        0,
-                publishedAt:  dateText || null,
+                publishedAt:  parseChapterDate(dateText),
             });
         });
 
@@ -399,26 +469,29 @@ module.exports = {
         requireCheerio();
         const url  = chapterId.startsWith('http') ? chapterId : '/' + chapterId.replace(/^\/+/, '');
         const html = await fetchHtml(url, 5 * 60_000);
-        const $    = cheerio.load(html);
+
+        // Ignore les images d'UI/branding qui peuvent traîner dans la page
+        const isJunk = (u) => !u || /(\/social\.|logo|placeholder|loading|banner|sushiscan\.fr\/wp-content\/uploads\/\d{4}\/\d{2}\/social)/i.test(u);
 
         let pages = [];
 
-        // 1) Madara : <div id="readerarea"><img src="..."> ou data-src
-        $('#readerarea img, .reading-content img').each((i, el) => {
-            const src = $(el).attr('data-src') || $(el).attr('src');
-            if (src) pages.push({ page: pages.length + 1, url: src.trim(), urlSaver: null });
-        });
+        // 1) SushiScan/TS : ts_reader.run({ sources: [{ images: [...] }] }) — source autoritaire
+        const m = html.match(/ts_reader\.run\(({[\s\S]*?})\);?\s*<\/script>/) || html.match(/ts_reader\.run\(({[\s\S]*?})\);?/);
+        if (m) {
+            try {
+                const data = JSON.parse(m[1]);
+                const imgs = (data && data.sources && data.sources[0] && data.sources[0].images) || (data && data.images) || [];
+                pages = imgs.filter(u => !isJunk(u)).map((u, i) => ({ page: i + 1, url: String(u).trim(), urlSaver: null }));
+            } catch (e) {}
+        }
 
-        // 2) SushiScan custom : ts_reader.run({ sources: [{ images: [...] }] })
+        // 2) Repli Madara : <div id="readerarea"><img src|data-src="..."></div>
         if (!pages.length) {
-            const m = html.match(/ts_reader\.run\(({[\s\S]*?})\);?/);
-            if (m) {
-                try {
-                    const data = JSON.parse(m[1]);
-                    const imgs = (data?.sources?.[0]?.images) || data?.images || [];
-                    pages = imgs.map((u, i) => ({ page: i + 1, url: u, urlSaver: null }));
-                } catch (e) {}
-            }
+            const $ = cheerio.load(html);
+            $('#readerarea img, .reading-content img').each((_, el) => {
+                const src = ($(el).attr('data-src') || $(el).attr('src') || '').trim();
+                if (src && !isJunk(src)) pages.push({ page: pages.length + 1, url: src, urlSaver: null });
+            });
         }
 
         return { baseUrl: '', hash: '', pages };
