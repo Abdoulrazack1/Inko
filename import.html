@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Importer un fichier</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0d0d0f">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <style>
+    .im-wrap { max-width: 880px; margin: 0 auto; padding: 26px 20px 80px; }
+    .im-head h1 { font-family: var(--font-head); font-size: 27px; font-weight: 700; margin-bottom: 4px; }
+    .im-head p { color: var(--text2); font-size: 13.5px; margin-bottom: 22px; }
+    .im-drop { border: 2px dashed var(--border2); border-radius: 16px; padding: 44px 20px; text-align: center; color: var(--text2); cursor: pointer; transition: border-color .2s, background .2s; background: var(--bg2); }
+    .im-drop.drag { border-color: var(--orange); background: rgba(255,140,66,.06); }
+    .im-drop .ic { font-size: 38px; margin-bottom: 10px; }
+    .im-drop .hint { font-size: 12px; color: var(--text3); margin-top: 8px; }
+    .im-bar { height: 8px; border-radius: 5px; background: var(--bg4); overflow: hidden; margin-top: 16px; display: none; }
+    .im-bar > div { height: 100%; width: 0; background: linear-gradient(90deg,#ff8c42,var(--orange)); transition: width .15s; }
+    .im-list { margin-top: 30px; }
+    .im-item { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; }
+    .im-cover { width: 44px; height: 60px; border-radius: 8px; background: linear-gradient(135deg,var(--orange),#ff8c42); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .im-meta { flex: 1; min-width: 0; }
+    .im-title { font-weight: 600; font-size: 14px; }
+    .im-sub { font-size: 11.5px; color: var(--text3); margin-top: 3px; }
+    .im-empty { text-align: center; padding: 30px; color: var(--text3); }
+    .tag { font-size: 10px; padding: 2px 7px; border-radius: 6px; background: var(--bg4); color: var(--text2); text-transform: uppercase; }
+  </style>
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+  <div class="im-wrap">
+    <div class="im-head">
+      <h1>Importer un livre</h1>
+      <p>Ajoute tes propres fichiers <strong>EPUB</strong> (romans), <strong>CBZ</strong> / <strong>CBR</strong> (mangas/BD). Ils restent privés sur ton compte.</p>
+    </div>
+    <div id="imBody"></div>
+  </div>
+  <div id="footer-slot"></div>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/userdata.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/nsfw.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/import.js"></script>
+  <script src="assets/js/eula.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>

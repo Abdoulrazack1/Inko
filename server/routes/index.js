@@ -1,6 +1,8 @@
 // routes/index.js — assemble toutes les routes
 const router  = require('express').Router();
 const auth    = require('../middleware/auth');
+const { adminRequired } = require('../middleware/admin');
+const { authLimiter, writeLimiter } = require('../middleware/security');
 const Auth    = require('../controllers/auth.controller');
 const Manga   = require('../controllers/manga.controller');
 const User    = require('../controllers/user.controller');
@@ -9,6 +11,10 @@ const Artwork = require('../controllers/artwork.controller');
 const AniList = require('../controllers/anilist.controller');
 const Image   = require('../controllers/image.controller');
 const Ext     = require('../controllers/extensions.controller');
+const Admin   = require('../controllers/admin.controller');
+const Notif   = require('../controllers/notif.controller');
+const Profile = require('../controllers/profile.controller');
+const Local   = require('../controllers/local.controller');
 
 // ── Healthcheck ─────────────────────────────────
 router.get('/health', (_req, res) => res.json({ ok: true, time: Date.now() }));
@@ -18,12 +24,12 @@ router.get ('/auth/providers',      Auth.providers);
 router.post('/auth/google',         Auth.googleAuth);
 router.get ('/auth/google-config',  auth.authRequired, Auth.getGoogleConfig);
 router.put ('/auth/google-config',  auth.authRequired, Auth.setGoogleConfig);
-router.post('/auth/register',       Auth.register);
-router.post('/auth/login',          Auth.login);
+router.post('/auth/register',       authLimiter, Auth.register);
+router.post('/auth/login',          authLimiter, Auth.login);
 router.post('/auth/logout',         Auth.logout);
 router.get ('/auth/me', auth.authRequired, Auth.me);
-router.post('/auth/forgot',         Auth.requestReset);
-router.post('/auth/reset',          Auth.resetPassword);
+router.post('/auth/forgot',         authLimiter, Auth.requestReset);
+router.post('/auth/reset',          authLimiter, Auth.resetPassword);
 router.put ('/auth/password', auth.authRequired, Auth.changePassword);
 router.put ('/auth/profile',  auth.authRequired, Auth.updateProfile);
 router.post('/auth/delete',   auth.authRequired, Auth.deleteAccount);
@@ -92,8 +98,34 @@ router.post  ('/me/lists/:id/items',                auth.authRequired, User.addT
 router.delete('/me/lists/:id/items/:mangaId',       auth.authRequired, User.removeFromList);
 
 router.get   ('/comments-recent',                   User.getRecentComments);
-router.get   ('/comments/:mangaId',                 User.getComments);
-router.post  ('/comments/:mangaId',       auth.authRequired, User.addComment);
+router.get   ('/comments/:mangaId',       auth.authOptional, User.getComments);
+router.post  ('/comments/:mangaId',       auth.authRequired, writeLimiter, User.addComment);
+router.post  ('/comments/:commentId/report', auth.authRequired, writeLimiter, User.reportComment);
+router.delete('/comments/:commentId',     auth.authRequired, User.deleteComment);
+
+// ── Import local (EPUB / CBZ / CBR) ─────────────
+router.post  ('/library/import/local',    auth.authRequired, Local.importLocal);
+router.get   ('/library/local',           auth.authRequired, Local.listLocal);
+router.get   ('/library/local/:id/file',  auth.authRequired, Local.getLocalFile);
+router.delete('/library/local/:id',       auth.authRequired, Local.deleteLocal);
+
+// ── Profils publics ─────────────────────────────
+router.get   ('/users/profile/:username', auth.authOptional, Profile.publicProfile);
+
+// ── Notifications in-app + Web Push ─────────────
+router.get   ('/me/notifications',            auth.authRequired, Notif.list);
+router.get   ('/me/notifications/unread',     auth.authRequired, Notif.unreadCount);
+router.post  ('/me/notifications/read-all',   auth.authRequired, Notif.markAllRead);
+router.post  ('/me/notifications/:id/read',   auth.authRequired, Notif.markRead);
+router.post  ('/me/push/subscribe',           auth.authRequired, Notif.subscribe);
+
+// ── Administration & modération (role=admin) ────
+router.get   ('/admin/stats',                 auth.authRequired, adminRequired, Admin.stats);
+router.get   ('/admin/users',                 auth.authRequired, adminRequired, Admin.listUsers);
+router.put   ('/admin/users/:id/role',        auth.authRequired, adminRequired, Admin.setUserRole);
+router.put   ('/admin/users/:id/ban',         auth.authRequired, adminRequired, Admin.setUserBan);
+router.get   ('/admin/reports',               auth.authRequired, adminRequired, Admin.listReports);
+router.post  ('/admin/reports/:id/resolve',   auth.authRequired, adminRequired, Admin.resolveReport);
 
 // ── Ratings ─────────────────────────────────────
 router.get   ('/ratings/:mangaId',        auth.authOptional, User.getMangaRating);

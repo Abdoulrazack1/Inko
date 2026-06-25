@@ -38,6 +38,15 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
     }
 
     await conn.end();
+
+    // Migrations additives (threads, reports, notifications, push…)
+    try {
+        await require('./migrate').ensureSchema();
+        console.log('▸ Migrations additives appliquées.');
+    } catch (e) {
+        console.warn('▸ Migrations additives ignorées :', e.message);
+    }
+
     console.log('Base de données prête.');
     process.exit(0);
 })().catch(err => {

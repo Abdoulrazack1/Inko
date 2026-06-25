@@ -438,17 +438,105 @@
             listEl.innerHTML = `<div class="comment-empty">Aucun commentaire pour l'instant. Sois le premier à donner ton avis.</div>`;
             return;
         }
-        listEl.innerHTML = comments.map(c => `
-            <div class="comment-item">
+        renderCommentTree(listEl, comments);
+    }
+
+    // Transforme @username en lien vers le profil public (sur texte déjà échappé)
+    function linkifyMentions(escapedText) {
+        return escapedText.replace(/@([A-Za-z0-9_]{2,50})/g,
+            '<a href="u.html?u=$1" class="comment-user" style="font-weight:600">@$1</a>');
+    }
+
+    function renderCommentTree(listEl, comments) {
+        const me      = API.user || {};
+        const myName  = me.username;
+        const isAdmin = me.role === 'admin';
+        const loggedIn = API.isLoggedIn();
+
+        // Regroupe chaque commentaire sous son ancêtre racine (2 niveaux visuels)
+        const byId = new Map(comments.map(c => [c.id, c]));
+        const rootOf = (c) => { let cur = c, guard = 0; while (cur.parentId && byId.get(cur.parentId) && guard++ < 50) cur = byId.get(cur.parentId); return cur; };
+        const roots = comments.filter(c => !c.parentId);
+        const repliesByRoot = new Map();
+        comments.filter(c => c.parentId).forEach(c => {
+            const r = rootOf(c).id;
+            (repliesByRoot.get(r) || repliesByRoot.set(r, []).get(r)).push(c);
+        });
+        roots.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // récents en haut
+
+        const one = (c, isReply) => {
+            const canDel = loggedIn && (c.user === myName || isAdmin);
+            const flagged = isAdmin && c.reports > 0 ? `<span title="${c.reports} signalement(s)" style="color:#ef4444;font-size:11px">⚑ ${c.reports}</span>` : '';
+            return `
+            <div class="comment-item" id="comment-${c.id}" data-cid="${c.id}" style="${isReply ? 'margin-left:42px;' : ''}">
                 <div class="comment-avatar">${MH.esc((c.user || '?').slice(0, 1).toUpperCase())}</div>
                 <div class="comment-body">
                     <div class="comment-head">
-                        <span class="comment-user">${MH.esc(c.user || 'Anonyme')}</span>
+                        <a class="comment-user" href="u.html?u=${encodeURIComponent(c.user || '')}">${MH.esc(c.user || 'Anonyme')}</a>
                         <span class="comment-date">${commentTimeAgo(c.createdAt)}</span>
+                        ${flagged}
                     </div>
-                    <div class="comment-text">${MH.esc(c.text || '')}</div>
+                    <div class="comment-text">${linkifyMentions(MH.esc(c.text || ''))}</div>
+                    <div class="comment-actions" style="display:flex;gap:14px;margin-top:5px;font-size:11.5px;color:var(--text3)">
+                        ${loggedIn ? `<button type="button" data-reply="${c.id}" data-replyuser="${MH.esc(c.user || '')}" class="comment-act" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0">Répondre</button>` : ''}
+                        ${loggedIn && c.user !== myName ? `<button type="button" data-report="${c.id}" class="comment-act" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0">Signaler</button>` : ''}
+                        ${canDel ? `<button type="button" data-del="${c.id}" class="comment-act" style="background:none;border:none;color:#ef4444;cursor:pointer;padding:0">Supprimer</button>` : ''}
+                    </div>
+                    <div class="comment-replybox" data-replybox="${c.id}"></div>
                 </div>
-            </div>`).join('');
+            </div>`;
+        };
+
+        listEl.innerHTML = roots.map(r => {
+            const replies = (repliesByRoot.get(r.id) || []).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            return one(r, false) + replies.map(rep => one(rep, true)).join('');
+        }).join('');
+
+        // Interactions (handler unique, ré-assigné à chaque rendu)
+        listEl.onclick = async (e) => {
+            const replyBtn  = e.target.closest('[data-reply]');
+            const reportBtn = e.target.closest('[data-report]');
+            const delBtn    = e.target.closest('[data-del]');
+            if (replyBtn)  return openReplyBox(replyBtn.dataset.reply, replyBtn.dataset.replyuser);
+            if (reportBtn) return reportComment(reportBtn.dataset.report);
+            if (delBtn)    return deleteComment(delBtn.dataset.del);
+        };
+    }
+
+    function openReplyBox(parentId, replyUser) {
+        const box = document.querySelector(`[data-replybox="${parentId}"]`);
+        if (!box) return;
+        if (box.dataset.open) { box.innerHTML = ''; box.dataset.open = ''; return; }
+        box.dataset.open = '1';
+        box.innerHTML = `
+            <div style="margin-top:8px">
+                <textarea class="comment-textarea" rows="2" maxlength="1000" placeholder="Répondre à @${MH.esc(replyUser)}…">@${replyUser} </textarea>
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px">
+                    <button class="btn btn-sm" data-replycancel="${parentId}">Annuler</button>
+                    <button class="btn btn-primary btn-sm" data-replysend="${parentId}">Répondre</button>
+                </div>
+            </div>`;
+        const ta = box.querySelector('textarea'); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+        box.querySelector('[data-replycancel]').onclick = () => { box.innerHTML = ''; box.dataset.open = ''; };
+        box.querySelector('[data-replysend]').onclick = async (ev) => {
+            const text = ta.value.trim(); if (!text) return;
+            ev.target.disabled = true;
+            try { await API.comments.reply(manga.id, +parentId, text); await loadComments(); MH.toast?.('Réponse publiée'); }
+            catch (e2) { MH.toast?.('Erreur : ' + e2.message); ev.target.disabled = false; }
+        };
+    }
+
+    async function reportComment(id) {
+        const reason = prompt('Pourquoi signales-tu ce commentaire ? (optionnel)');
+        if (reason === null) return; // annulé
+        try { await API.comments.report(+id, reason || ''); MH.toast?.('Commentaire signalé. Merci.'); }
+        catch (e) { MH.toast?.('Erreur : ' + e.message); }
+    }
+
+    async function deleteComment(id) {
+        if (!confirm('Supprimer ce commentaire ?')) return;
+        try { await API.comments.remove(+id); await loadComments(); MH.toast?.('Commentaire supprimé'); }
+        catch (e) { MH.toast?.('Erreur : ' + e.message); }
     }
 
     // ── Similaires (AniList) ──

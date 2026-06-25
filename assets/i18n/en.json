@@ -1,0 +1,20 @@
+{
+  "nav.home": "Home",
+  "nav.catalog": "Catalog",
+  "nav.library": "Library",
+  "nav.random": "Random",
+  "nav.sources": "Sources",
+  "nav.search_ph": "Search a manga…",
+  "nav.login": "Sign in",
+  "nav.signup": "Sign up",
+  "nav.logout": "Sign out",
+  "nav.connected": "Signed in",
+  "common.settings": "Settings",
+  "common.notifications": "Notifications",
+  "common.admin": "Administration",
+  "common.language": "Language",
+  "footer.tagline": "Open-source manga reader. Discover, read and organize your library, on every platform.",
+  "footer.explore": "Explore",
+  "footer.community": "Community",
+  "footer.legal": "Legal"
+}

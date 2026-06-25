@@ -261,7 +261,64 @@
         comments: {
             list:   (mangaId)         => get('/comments/' + encodeURIComponent(mangaId)),
             add:    (mangaId, payload)=> post('/comments/' + encodeURIComponent(mangaId), payload),
+            reply:  (mangaId, parentId, text) => post('/comments/' + encodeURIComponent(mangaId), { text, parentId }),
+            report: (commentId, reason) => post('/comments/' + commentId + '/report', { reason }),
+            remove: (commentId)       => del('/comments/' + commentId),
             recent: (limit = 6)       => get('/comments-recent?limit=' + limit),
+        },
+
+        // ── Notifications in-app + Web Push ──
+        notifications: {
+            list:      (limit = 30) => get('/me/notifications?limit=' + limit),
+            unread:    ()           => get('/me/notifications/unread'),
+            markRead:  (id)         => post('/me/notifications/' + id + '/read'),
+            markAll:   ()           => post('/me/notifications/read-all'),
+            subscribe: (sub)        => post('/me/push/subscribe', sub),
+        },
+
+        // ── Import local (EPUB / CBZ / CBR) ──
+        local: {
+            list:    ()   => get('/library/local'),
+            remove:  (id) => del('/library/local/' + id),
+            fileUrl: (id) => API_BASE + '/library/local/' + id + '/file',
+            async upload(file, title, onProgress) {
+                const fd = new FormData();
+                fd.append('file', file);
+                if (title) fd.append('title', title);
+                // XHR pour la progression d'upload (fetch ne l'expose pas simplement)
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', API_BASE + '/library/import/local');
+                    if (_token) xhr.setRequestHeader('Authorization', 'Bearer ' + _token);
+                    xhr.upload.onprogress = (e) => { if (onProgress && e.lengthComputable) onProgress(e.loaded / e.total); };
+                    xhr.onload = () => {
+                        try {
+                            const data = JSON.parse(xhr.responseText || '{}');
+                            xhr.status >= 200 && xhr.status < 300 ? resolve(data) : reject(new Error(data.error || 'Échec de l\'import'));
+                        } catch (e) { reject(new Error('Réponse invalide')); }
+                    };
+                    xhr.onerror = () => reject(new Error('Erreur réseau'));
+                    xhr.send(fd);
+                });
+            },
+        },
+
+        // ── Profil public ──
+        users: {
+            profile: (username) => get('/users/profile/' + encodeURIComponent(username)).then(p => {
+                if (p && p.avatar && /^https?:\/\//.test(p.avatar)) p.avatar = proxyCover(p.avatar);
+                return p;
+            }),
+        },
+
+        // ── Administration & modération (role=admin) ──
+        admin: {
+            stats:         ()              => get('/admin/stats'),
+            users:         (q = '')        => get('/admin/users' + (q ? '?q=' + encodeURIComponent(q) : '')),
+            setRole:       (id, role)      => put('/admin/users/' + id + '/role', { role }),
+            setBan:        (id, banned)    => put('/admin/users/' + id + '/ban', { banned }),
+            reports:       (status = 'open') => get('/admin/reports?status=' + encodeURIComponent(status)),
+            resolveReport: (id, action)    => post('/admin/reports/' + id + '/resolve', { action }),
         },
 
         ratings: {

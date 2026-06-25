@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Administration</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0d0d0f">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <style>
+    .ad-wrap { max-width: 1080px; margin: 0 auto; padding: 26px 20px 80px; }
+    .ad-head h1 { font-family: var(--font-head); font-size: 27px; font-weight: 700; margin-bottom: 4px; }
+    .ad-head p { color: var(--text2); font-size: 13.5px; margin-bottom: 22px; }
+    .ad-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; margin-bottom: 26px; }
+    .ad-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+    .ad-card .v { font-size: 26px; font-weight: 800; font-family: var(--font-head); line-height: 1; }
+    .ad-card .l { font-size: 12px; color: var(--text3); margin-top: 7px; }
+    .ad-card.alert .v { color: #ef4444; }
+    .ad-tabs { display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
+    .ad-tab { padding: 9px 16px; font-size: 13.5px; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; }
+    .ad-tab.active { color: var(--text); border-bottom-color: var(--orange); font-weight: 600; }
+    .ad-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 6px 4px; }
+    .ad-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--border); font-size: 13px; }
+    .ad-row:first-child { border-top: none; }
+    .ad-row .grow { flex: 1; min-width: 0; }
+    .ad-muted { color: var(--text3); font-size: 11.5px; }
+    .ad-input { background: var(--bg3); border: 1px solid var(--border2); color: var(--text); border-radius: 9px; padding: 9px 12px; font-size: 13.5px; width: 100%; max-width: 320px; margin-bottom: 14px; }
+    .ad-empty { text-align: center; padding: 40px 20px; color: var(--text3); }
+    .ad-deny { text-align: center; padding: 80px 20px; color: var(--text3); }
+    .tag { font-size: 10.5px; padding: 2px 7px; border-radius: 6px; background: var(--bg4); color: var(--text2); }
+    .tag.admin { background: #6d28d9; color: #fff; } .tag.ban { background: #ef4444; color: #fff; }
+  </style>
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+  <div class="ad-wrap">
+    <div class="ad-head">
+      <h1>Administration</h1>
+      <p>Modération, utilisateurs et monitoring de la plateforme.</p>
+    </div>
+    <div id="adBody"><div class="ad-empty"><div class="spinner-inline"></div></div></div>
+  </div>
+  <div id="footer-slot"></div>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/userdata.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/nsfw.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/admin.js"></script>
+  <script src="assets/js/eula.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>

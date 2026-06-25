@@ -10,6 +10,8 @@
 // Sécurité : n'accède qu'à des URLs http(s) absolues (pas de SSRF interne).
 // ============================================================
 const { execFile } = require('child_process');
+const net = require('net');
+const dns = require('dns').promises;
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -25,10 +27,40 @@ function contentTypeFor(url) {
         || 'image/jpeg';
 }
 
-function isPrivate(host) {
-    // Bloque les cibles internes (anti-SSRF basique)
-    return /^(localhost|127\.|10\.|192\.168\.|169\.254\.|0\.0\.0\.0|\[?::1)/i.test(host)
-        || /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+// Vrai/Faux : cette IP (v4 ou v6) appartient-elle à une plage interne/réservée ?
+function ipIsPrivate(ip) {
+    if (net.isIPv4(ip)) {
+        const [a, b] = ip.split('.').map(Number);
+        return a === 0 || a === 10 || a === 127                  // this-host, privé, loopback
+            || (a === 169 && b === 254)                          // link-local
+            || (a === 172 && b >= 16 && b <= 31)                 // privé
+            || (a === 192 && b === 168)                          // privé
+            || (a === 100 && b >= 64 && b <= 127)                // CGNAT (RFC 6598)
+            || a >= 224;                                         // multicast / réservé
+    }
+    if (net.isIPv6(ip)) {
+        const v = ip.toLowerCase();
+        if (v === '::1' || v === '::') return true;              // loopback / non spécifié
+        if (v.startsWith('fe80') || v.startsWith('fc') || v.startsWith('fd')) return true; // link-local / ULA
+        const m = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);      // IPv4 mappée
+        if (m) return ipIsPrivate(m[1]);
+        return false;
+    }
+    return true; // format inconnu → on refuse par prudence
+}
+
+// Anti-SSRF robuste : résout le DNS et vérifie TOUTES les IP renvoyées.
+// Bloque le « DNS rebinding » (un domaine public qui pointe vers 127.0.0.1/10.x…).
+async function hostResolvesPrivate(host) {
+    const bare = host.replace(/^\[|\]$/g, '');                  // retire les crochets IPv6
+    if (net.isIP(bare)) return ipIsPrivate(bare);               // IP littérale
+    if (/^localhost$/i.test(bare) || bare.endsWith('.localhost')) return true;
+    try {
+        const addrs = await dns.lookup(bare, { all: true });
+        return addrs.length === 0 || addrs.some(a => ipIsPrivate(a.address));
+    } catch {
+        return true; // résolution impossible → on refuse
+    }
 }
 
 function fetchImage(url) {
@@ -36,7 +68,7 @@ function fetchImage(url) {
     const origin = (() => { try { return new URL(url).origin + '/'; } catch { return ''; } })();
     const p = new Promise((resolve, reject) => {
         execFile('curl', [
-            '-s', '-L', '--compressed', '-m', '20',
+            '-s', '-L', '--max-redirs', '4', '--compressed', '-m', '20',
             '-A', UA,
             '-e', origin,                          // Referer = origine de l'image
             '-H', 'Accept: image/avif,image/webp,image/*,*/*;q=0.8',
@@ -56,7 +88,7 @@ async function proxy(req, res) {
     if (!url || !/^https?:\/\//i.test(url)) return res.status(400).end();
     let host;
     try { host = new URL(url).hostname; } catch (e) { return res.status(400).end(); }
-    if (isPrivate(host)) return res.status(403).end();
+    if (await hostResolvesPrivate(host)) return res.status(403).end();
 
     // Cache hit
     const hit = cache.get(url);

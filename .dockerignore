@@ -1,0 +1,21 @@
+# Build & deps
+**/node_modules
+desktop/dist
+desktop/node_modules
+server/node_modules
+
+# Git & éditeurs
+.git
+.github
+.vscode
+**/.DS_Store
+
+# Secrets & config locale (injectés via variables d'environnement)
+server/.env
+server/config/*.json
+
+# Artefacts mobiles / divers
+android
+promo
+tools
+*.log

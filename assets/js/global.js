@@ -526,6 +526,15 @@
           <a href="page_login.html" class="btn-connect btn">Se connecter</a>
           <a href="page_signup.html" class="btn btn-primary btn-sm" style="margin-left:6px">Inscription</a>`;
 
+        // Cloche de notifications (connecté) + accès admin (role admin)
+        const bell = u ? `
+          <div class="notif-wrap" style="position:relative;display:inline-flex">
+            <button class="header-icon-btn" id="btnNotif" title="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" style="display:none;position:absolute;top:1px;right:1px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;line-height:15px;text-align:center"></span></button>
+            <div id="notifDropdown" style="display:none;position:absolute;right:0;top:44px;width:330px;max-height:440px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45);z-index:200"></div>
+          </div>` : '';
+        const adminBtn = (u && u.role === 'admin') ? `
+          <a href="admin.html" class="header-icon-btn ${activePage === 'admin' ? 'active' : ''}" title="Administration" style="text-decoration:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></a>` : '';
+
         // Accès discret +18 : visible uniquement si l'espace est activé
         const nsfwLink = (window.NSFW?.isEnabled?.())
             ? `<a href="secret.html" title="Espace +18" style="color:#ec4899;font-weight:700;font-size:12px">+18</a>` : '';
@@ -537,16 +546,16 @@
             Inko
           </a>
           <nav class="header-nav">
-            <a href="accueil.html" class="${activePage === 'accueil' ? 'active' : ''}">Accueil</a>
-            <a href="catalogue.html" class="${['catalogue','serie','chapitre'].includes(activePage) ? 'active' : ''}">Catalogue</a>
-            <a href="bibliotheque.html" class="${activePage === 'bibliotheque' ? 'active' : ''}" style="position:relative">Bibliothèque<span class="nav-badge" id="navLibBadge" style="display:none"></span></a>
-            <a href="#" id="navRandom">Aléatoire</a>
-            <a href="sources.html" class="${activePage === 'sources' ? 'active' : ''}">Sources</a>
+            <a href="accueil.html" class="${activePage === 'accueil' ? 'active' : ''}" data-i18n="nav.home">Accueil</a>
+            <a href="catalogue.html" class="${['catalogue','serie','chapitre'].includes(activePage) ? 'active' : ''}" data-i18n="nav.catalog">Catalogue</a>
+            <a href="bibliotheque.html" class="${activePage === 'bibliotheque' ? 'active' : ''}" style="position:relative"><span data-i18n="nav.library">Bibliothèque</span><span class="nav-badge" id="navLibBadge" style="display:none"></span></a>
+            <a href="#" id="navRandom" data-i18n="nav.random">Aléatoire</a>
+            <a href="sources.html" class="${activePage === 'sources' ? 'active' : ''}" data-i18n="nav.sources">Sources</a>
             ${nsfwLink}
           </nav>
           <div class="header-search">
             <span class="header-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align:middle"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
-            <input type="text" id="headerSearch" placeholder="Rechercher un manga…" autocomplete="off">
+            <input type="text" id="headerSearch" placeholder="Rechercher un manga…" data-i18n-ph="nav.search_ph" autocomplete="off">
             <div class="search-dropdown" id="searchDropdown"></div>
           </div>
           <div class="header-actions">
@@ -554,6 +563,8 @@
             <button class="header-icon-btn" id="btnContinue" title="Reprendre ma dernière lecture" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:middle"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg></button>
             <button class="header-icon-btn" id="btnRefresh" title="Actualiser mes séries (nouveaux chapitres)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:middle"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></button>
             <button class="header-icon-btn" id="btnMusic" title="Musique (s'ouvre dans une fenêtre qui reste en lecture)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+            ${bell}
+            ${adminBtn}
             <a href="parametres.html" class="header-icon-btn ${activePage === 'parametres' ? 'active' : ''}" title="Paramètres" style="text-decoration:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
             ${userBlock}
           </div>
@@ -581,6 +592,7 @@
             <li><a href="catalogue.html">Catalogue</a></li>
             <li><a href="catalogue.html?sort=latest">Nouveautés</a></li>
             <li><a href="catalogue.html?sort=rating">Top</a></li>
+            <li><a href="import.html">Importer un fichier</a></li>
           </ul>
         </div>
         <div class="footer-col">
@@ -601,8 +613,47 @@
       </div>
       <div class="footer-bottom">
         <p>© 2026 Inko. Tous droits réservés. Données issues de MangaDex.</p>
+        <div class="footer-lang" style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text3)">
+          <span data-i18n="common.language">Langue</span>
+          <button type="button" data-setlang="fr" class="footer-lang-btn" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:3px 8px;cursor:pointer">FR</button>
+          <button type="button" data-setlang="en" class="footer-lang-btn" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:3px 8px;cursor:pointer">EN</button>
+        </div>
       </div>
     </footer>`;
+
+    /* ── i18n (dictionnaires JSON, traduction dynamique sans reload) ── */
+    (function initI18nModule() {
+        const KEY = 'inko_lang';
+        let dict = {};
+        window.MH.lang = (() => { try { return localStorage.getItem(KEY) || 'fr'; } catch (e) { return 'fr'; } })();
+        window.MH.t = (k, fb) => dict[k] || fb || k;
+        window.MH.applyI18n = (root) => {
+            const r = root || document;
+            r.querySelectorAll('[data-i18n]').forEach(el => { const v = dict[el.getAttribute('data-i18n')]; if (v) el.textContent = v; });
+            r.querySelectorAll('[data-i18n-ph]').forEach(el => { const v = dict[el.getAttribute('data-i18n-ph')]; if (v) el.placeholder = v; });
+        };
+        window.MH.loadI18n = async (lang) => {
+            lang = lang || window.MH.lang || 'fr';
+            try { const res = await fetch('/assets/i18n/' + lang + '.json'); dict = await res.json(); }
+            catch (e) { dict = {}; }
+            window.MH.lang = lang;
+            window.MH.applyI18n(document);
+        };
+        window.MH.setLang = async (lang) => {
+            try { localStorage.setItem(KEY, lang); } catch (e) {}
+            await window.MH.loadI18n(lang);
+            try { document.documentElement.lang = lang; } catch (e) {}
+            window.dispatchEvent(new CustomEvent('i18n:change', { detail: { lang } }));
+        };
+        // Sélecteur de langue (footer) — délégué, marche sur toutes les pages
+        document.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-setlang]');
+            if (!b) return;
+            e.preventDefault();
+            window.MH.setLang(b.getAttribute('data-setlang'));
+            window.MH.toast?.(b.getAttribute('data-setlang') === 'en' ? 'Language: English' : 'Langue : Français');
+        });
+    })();
 
     /* ── Inject header & footer ──────────────────────────── */
     window.MH.initPage = function (activePage) {
@@ -613,6 +664,8 @@
         initSearch();
         initFooterButtons();
         initHeaderButtons();
+        initNotifications();
+        if (window.MH.lang && window.MH.lang !== 'fr') window.MH.loadI18n();  // applique la traduction si ≠ FR
         bindGlobalShortcuts();
         initBackToTop();
         renderMobileNav(activePage);
@@ -629,10 +682,76 @@
             wrapper.innerHTML = headerHTML(activePage);
             oldHeader.replaceWith(wrapper.firstElementChild);
             initSearch();
+            initNotifications();
             _lastReadPromise = null;            // recalcule selon le nouveau compte
             window.MH.refreshContinueButton();
         });
     };
+
+    /* ── Notifications (cloche header) ───────────────────── */
+    function notifTimeAgo(d) {
+        const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+        if (s < 60) return "à l'instant";
+        const m = Math.floor(s / 60); if (m < 60) return `${m} min`;
+        const h = Math.floor(m / 60); if (h < 24) return `${h} h`;
+        const j = Math.floor(h / 24); if (j < 30) return `${j} j`;
+        return new Date(d).toLocaleDateString('fr-FR');
+    }
+    function setNotifBadge(n) {
+        const b = document.getElementById('notifBadge');
+        if (!b) return;
+        if (n > 0) { b.textContent = n > 99 ? '99+' : n; b.style.display = ''; }
+        else b.style.display = 'none';
+    }
+    async function renderNotifDropdown() {
+        const dd = document.getElementById('notifDropdown');
+        if (!dd) return;
+        dd.innerHTML = `<div style="padding:18px;text-align:center;color:var(--text3);font-size:13px">Chargement…</div>`;
+        let data = { items: [], unread: 0 };
+        try { data = await window.API.notifications.list(30); } catch (e) {}
+        setNotifBadge(data.unread || 0);
+        const head = `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)">
+            <strong style="font-size:13.5px">Notifications</strong>
+            ${data.items.length ? `<button id="notifMarkAll" style="background:none;border:none;color:var(--orange);font-size:11.5px;cursor:pointer">Tout marquer lu</button>` : ''}</div>`;
+        if (!data.items.length) {
+            dd.innerHTML = head + `<div style="padding:26px 16px;text-align:center;color:var(--text3);font-size:13px">Aucune notification.</div>`;
+        } else {
+            dd.innerHTML = head + data.items.map(n => `
+                <a href="${esc(n.link || '#')}" data-nid="${n.id}" style="display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;background:${n.read ? 'transparent' : 'rgba(255,140,66,.07)'}">
+                    <div style="flex:0 0 auto;font-size:16px">${n.type === 'reply' ? '💬' : n.type === 'mention' ? '@' : n.type === 'chapter' ? '📖' : n.type === 'badge' ? '🏅' : '🔔'}</div>
+                    <div style="min-width:0">
+                        <div style="font-size:12.5px;font-weight:600;line-height:1.3">${esc(n.title || '')}</div>
+                        ${n.body ? `<div style="font-size:11.5px;color:var(--text2);line-height:1.35;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(n.body)}</div>` : ''}
+                        <div style="font-size:10.5px;color:var(--text3);margin-top:3px">${notifTimeAgo(n.at)}</div>
+                    </div>
+                </a>`).join('');
+            dd.querySelector('#notifMarkAll')?.addEventListener('click', async (e) => {
+                e.preventDefault(); e.stopPropagation();
+                try { await window.API.notifications.markAll(); } catch (_) {}
+                setNotifBadge(0); renderNotifDropdown();
+            });
+            dd.querySelectorAll('[data-nid]').forEach(a => {
+                a.addEventListener('click', () => { window.API.notifications.markRead(a.dataset.nid).catch(() => {}); });
+            });
+        }
+    }
+    function initNotifications() {
+        const btn = document.getElementById('btnNotif');
+        if (!btn || !window.API?.isLoggedIn?.()) return;
+        // Compteur initial
+        window.API.notifications.unread().then(d => setNotifBadge(d.unread || 0)).catch(() => {});
+        const dd = document.getElementById('notifDropdown');
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = dd.style.display !== 'none';
+            if (open) { dd.style.display = 'none'; return; }
+            dd.style.display = 'block';
+            renderNotifDropdown();
+        });
+        document.addEventListener('click', (e) => {
+            if (dd && dd.style.display === 'block' && !e.target.closest('.notif-wrap')) dd.style.display = 'none';
+        });
+    }
 
     /* ── Live search ─────────────────────────────────────── */
     function initSearch() {

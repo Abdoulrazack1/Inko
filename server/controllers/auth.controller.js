@@ -36,7 +36,7 @@ const COOKIE_OPTS = {
 };
 
 function publicUser(u) {
-    return { id: u.id, username: u.username, email: u.email, avatar: u.avatar || u.username[0].toUpperCase(), createdAt: u.created_at };
+    return { id: u.id, username: u.username, email: u.email, avatar: u.avatar || u.username[0].toUpperCase(), role: u.role || 'user', createdAt: u.created_at };
 }
 
 async function register(req, res, next) {

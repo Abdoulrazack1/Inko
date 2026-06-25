@@ -8,14 +8,17 @@ const { ping }     = require('./config/db');
 const routes       = require('./routes');
 const extensions   = require('./extensions/loader');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const { securityHeaders, corsOptions } = require('./middleware/security');
 
 const app  = express();
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
-app.use(cors({
-    origin: (origin, cb) => cb(null, true),
-    credentials: true,
-}));
+// Derrière un reverse-proxy (déploiement en ligne), TRUST_PROXY=1 rend
+// req.ip fiable pour le rate limiting. Inactif en local par défaut.
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
+
+app.use(securityHeaders);
+app.use(cors(corsOptions()));
 app.use(express.json({ limit: '12mb' }));   // import de sauvegarde possible
 app.use(cookieParser());
 
@@ -50,6 +53,9 @@ app.use(errorHandler);
     try {
         await ping();
         console.log('MySQL OK');
+        // Migrations additives idempotentes (threads, reports, notifications…)
+        try { await require('./db/migrate').ensureSchema(); }
+        catch (e) { console.warn('[migrate] non appliquée :', e.message); }
     } catch (e) {
         console.error('MySQL inaccessible — vérifiez Laragon et lancez `npm run init-db`');
         console.error('   ' + e.message);

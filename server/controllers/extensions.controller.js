@@ -15,6 +15,10 @@ const REPO_RAW       = 'https://raw.githubusercontent.com/Abdoulrazack1/Inko/mai
 const COMMUNITY_DIR  = path.join(__dirname, '..', '..', 'extensions-community');
 const RUNTIME_DIR    = path.join(__dirname, '..', 'extensions');
 
+// Un id d'extension ne peut être qu'un slug simple : empêche le path-traversal
+// (ex. "../../server" écrirait du code hors du dossier extensions = RCE).
+const VALID_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
+
 // Compare deux versions "x.y.z[-tag]" : >0 si a plus récente que b
 function cmpVer(a, b) {
     const pa = String(a || '0').split(/[.\-]/);
@@ -82,6 +86,7 @@ async function applyUpdates(req, res, next) {
         const updated = [], failed = [];
         for (const id of targets) {
             try {
+                if (!VALID_ID.test(id)) throw new Error('identifiant invalide');
                 const src = await getLatestSource(id);
                 if (!src || !/module\.exports/.test(src)) throw new Error('source invalide');
                 const dir = path.join(RUNTIME_DIR, id);

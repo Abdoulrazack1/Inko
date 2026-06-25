@@ -1,6 +1,7 @@
 // controllers/user.controller.js — user data : favoris, library, progress, lists, comments, events
 const { pool } = require('../config/db');
 const extensions = require('../extensions/loader');
+const { notifyMentions, createNotification } = require('../lib/notify');
 
 // Limiteur de concurrence simple (pour les checks de MAJ multi-mangas)
 async function mapLimit(arr, limit, fn) {
@@ -340,20 +341,35 @@ async function removeFromList(req, res, next) {
 // ──────────────────────────────────────────────────────────────
 async function getComments(req, res, next) {
     try {
+        // Tous les commentaires de l'œuvre (parents + réponses) ; le front
+        // reconstruit l'arbre via parentId. Compte aussi les signalements
+        // ouverts pour les admins (sinon 0).
+        const isAdmin = req.user?.role === 'admin';
         const [rows] = await pool.query(
-            `SELECT c.id, c.text, c.chapter_id, c.created_at,
-                    u.username, u.avatar
+            `SELECT c.id, c.text, c.chapter_id, c.parent_id, c.created_at,
+                    c.user_id, u.username, u.avatar
              FROM comments c
              JOIN users u ON u.id = c.user_id
              WHERE c.manga_id = ?
-             ORDER BY c.created_at DESC
-             LIMIT 50`,
+             ORDER BY c.created_at ASC
+             LIMIT 300`,
             [req.params.mangaId]
         );
+        let reportCounts = {};
+        if (isAdmin && rows.length) {
+            const [reps] = await pool.query(
+                `SELECT comment_id, COUNT(*) AS n FROM reports
+                 WHERE status = 'open' AND comment_id IN (?) GROUP BY comment_id`,
+                [rows.map(r => r.id)]
+            );
+            reps.forEach(r => { reportCounts[r.comment_id] = r.n; });
+        }
         res.json(rows.map(r => ({
             id: r.id, text: r.text, chapterId: r.chapter_id,
+            parentId: r.parent_id || null,
             user: r.username, avatar: r.avatar || r.username[0].toUpperCase(),
             createdAt: r.created_at,
+            reports: reportCounts[r.id] || 0,
         })));
     } catch (e) { next(e); }
 }
@@ -387,18 +403,78 @@ async function getRecentComments(req, res, next) {
 
 async function addComment(req, res, next) {
     try {
-        const { text, chapterId } = req.body;
+        const { text, chapterId, parentId } = req.body;
+        const mangaId = req.params.mangaId;
         if (!text || text.trim().length < 1)
             return res.status(400).json({ error: 'Commentaire vide' });
         if (text.length > 1000)
             return res.status(400).json({ error: 'Commentaire trop long (1000 caractères max)' });
+
+        // Réponse : valide que le parent existe et appartient à la même œuvre
+        let parent = null;
+        if (parentId) {
+            const [[p]] = await pool.query(
+                'SELECT id, user_id FROM comments WHERE id = ? AND manga_id = ?',
+                [parentId, mangaId]
+            );
+            if (!p) return res.status(400).json({ error: 'Commentaire parent introuvable' });
+            parent = p;
+        }
+
         const [r] = await pool.query(
-            'INSERT INTO comments (user_id, manga_id, chapter_id, text) VALUES (?, ?, ?, ?)',
-            [req.user.id, req.params.mangaId, chapterId || null, text.trim()]
+            'INSERT INTO comments (user_id, manga_id, chapter_id, text, parent_id) VALUES (?, ?, ?, ?, ?)',
+            [req.user.id, mangaId, chapterId || null, text.trim(), parent ? parent.id : null]
         );
-        await pushEvent(req.user.id, 'comment',
-            { mangaId: req.params.mangaId, chapterId });
+        await pushEvent(req.user.id, 'comment', { mangaId, chapterId });
+
+        // Notifications : réponse au parent + mentions @username
+        const link = `/serie.html?id=${encodeURIComponent(mangaId)}#comment-${r.insertId}`;
+        if (parent && parent.user_id !== req.user.id) {
+            await createNotification(parent.user_id, {
+                type: 'reply', title: `@${req.user.username} a répondu à ton commentaire`,
+                body: text.trim().slice(0, 140), link, actor: req.user.username,
+            });
+        }
+        await notifyMentions(text, { actor: req.user.username, link });
+
         res.json({ id: r.insertId, ok: true });
+    } catch (e) { next(e); }
+}
+
+// Signaler un commentaire (modération)
+async function reportComment(req, res, next) {
+    try {
+        const commentId = parseInt(req.params.commentId, 10);
+        if (!commentId) return res.status(400).json({ error: 'Commentaire invalide' });
+        const { reason } = req.body || {};
+        const [[c]] = await pool.query('SELECT id, manga_id FROM comments WHERE id = ?', [commentId]);
+        if (!c) return res.status(404).json({ error: 'Commentaire introuvable' });
+        // Un seul signalement ouvert par utilisateur et par commentaire
+        const [[dup]] = await pool.query(
+            `SELECT id FROM reports WHERE reporter_id = ? AND comment_id = ? AND status = 'open'`,
+            [req.user.id, commentId]
+        );
+        if (dup) return res.json({ ok: true, already: true });
+        await pool.query(
+            'INSERT INTO reports (reporter_id, comment_id, manga_id, reason) VALUES (?, ?, ?, ?)',
+            [req.user.id, commentId, c.manga_id, (reason || '').slice(0, 255) || null]
+        );
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+// Supprimer son propre commentaire (ou tout commentaire si admin)
+async function deleteComment(req, res, next) {
+    try {
+        const commentId = parseInt(req.params.commentId, 10);
+        if (!commentId) return res.status(400).json({ error: 'Commentaire invalide' });
+        const isAdmin = req.user.role === 'admin';
+        const [r] = await pool.query(
+            `DELETE FROM comments WHERE id = ?` + (isAdmin ? '' : ' AND user_id = ?'),
+            isAdmin ? [commentId] : [commentId, req.user.id]
+        );
+        if (!r.affectedRows) return res.status(404).json({ error: 'Introuvable ou non autorisé' });
+        res.json({ ok: true });
     } catch (e) { next(e); }
 }
 
@@ -709,7 +785,7 @@ module.exports = {
     getAllProgress, setProgress, deleteProgress,
     getReadChapters, markChapter, markChaptersBulk,
     getLists, createList, updateList, deleteList, addToList, removeFromList,
-    getComments, addComment, getRecentComments,
+    getComments, addComment, getRecentComments, reportComment, deleteComment,
     getEvents, getStats,
     getMangaRating, setMangaRating, deleteMangaRating, getMyRatings,
     getSettings, setSettings,

@@ -1,0 +1,20 @@
+{
+  "nav.home": "Accueil",
+  "nav.catalog": "Catalogue",
+  "nav.library": "Bibliothèque",
+  "nav.random": "Aléatoire",
+  "nav.sources": "Sources",
+  "nav.search_ph": "Rechercher un manga…",
+  "nav.login": "Se connecter",
+  "nav.signup": "Inscription",
+  "nav.logout": "Déconnexion",
+  "nav.connected": "Connecté",
+  "common.settings": "Paramètres",
+  "common.notifications": "Notifications",
+  "common.admin": "Administration",
+  "common.language": "Langue",
+  "footer.tagline": "Lecteur de mangas open-source. Découvre, lis et organise ta bibliothèque, sur toutes tes plateformes.",
+  "footer.explore": "Explorer",
+  "footer.community": "Communauté",
+  "footer.legal": "Légal"
+}

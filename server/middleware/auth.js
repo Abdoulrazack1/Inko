@@ -17,10 +17,11 @@ async function authRequired(req, res, next) {
     try {
         const payload = jwt.verify(token, SECRET);
         const [[user]] = await pool.query(
-            'SELECT id, username, email, avatar, role, created_at FROM users WHERE id = ?',
+            'SELECT id, username, email, avatar, role, banned, created_at FROM users WHERE id = ?',
             [payload.uid]
         );
         if (!user) return res.status(401).json({ error: 'Utilisateur inexistant' });
+        if (user.banned) return res.status(403).json({ error: 'Compte suspendu', code: 'BANNED' });
         req.user = user;
         next();
     } catch (e) {
