@@ -7,21 +7,28 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --bg:     #0d0d0f;
-  --bg2:    #111113;
-  --bg3:    #18181b;
-  --bg4:    #222226;
-  --border:  #2a2a2f;
-  --border2: #3a3a42;
-  --text:    #f0f0f2;
-  --text2:   #9999aa;
-  --text3:   #66667a;
-  --orange:  #ff6b1a;
-  --orange2: #ff8c42;
-  --orange-glow: rgba(255, 107, 26, 0.35);
-  --radius:  10px;
-  --font-head: 'Georgia', 'Times New Roman', serif;
-  --transition: .2s ease;
+  --bg:          #0d0d0f;
+  --bg2:         #141417;
+  --bg3:         #1a1a1f;
+  --bg4:         #1f1f26;
+  --border:      rgba(255,255,255,0.07);
+  --border2:     rgba(255,255,255,0.12);
+  --orange:      #ff6b1a;
+  --orange2:     #ff8c42;
+  --orange-glow: rgba(255,107,26,0.25);
+  --text:        #f0f0f2;
+  --text2:       #a8a8b3;
+  --text3:       #6b6b78;
+  --green:       #22c55e;
+  --blue:        #3b82f6;
+  --red:         #ef4444;
+  --amber:       #f59e0b;
+  --radius:      10px;
+  --radius2:     6px;
+  --header-h:    56px;
+  --font-head:   'Syne', sans-serif;
+  --font-body:   'Inter', sans-serif;
+  --transition:  0.18s ease;
 }
 
 body {
@@ -275,7 +282,6 @@ body {
   left: -4px;
 }
 
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* Point animé flottant */
 .animated-dot {

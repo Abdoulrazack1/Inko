@@ -22,6 +22,7 @@
   --green:       #22c55e;
   --blue:        #3b82f6;
   --red:         #ef4444;
+  --amber:      #f59e0b;
   --radius:      10px;
   --radius2:     6px;
   --header-h:    56px;
@@ -292,17 +293,17 @@ body.incognito-on::before {
   font-size: 10px; font-weight: 700; letter-spacing: .04em;
   text-transform: uppercase; line-height: 1.6;
 }
-.badge-hot    { background: rgba(239,68,68,.15); color: #ef4444; }
-.badge-new    { background: rgba(34,197,94,.15); color: #22c55e; }
-.badge-exclu  { background: rgba(59,130,246,.15); color: #3b82f6; }
+.badge-hot    { background: rgba(239,68,68,.15); color: var(--red); }
+.badge-new    { background: rgba(34,197,94,.15); color: var(--green); }
+.badge-exclu  { background: rgba(59,130,246,.15); color: var(--blue); }
 .badge-top    { background: rgba(255,107,26,.15); color: var(--orange); }
 .badge-orange { background: var(--orange); color: #fff; }
 .badge-termine { background: rgba(107,114,128,.2); color: #9ca3af; }
-.badge-cours  { background: rgba(34,197,94,.1); color: #22c55e; }
-.badge-pause  { background: rgba(245,158,11,.1); color: #f59e0b; }
+.badge-cours  { background: rgba(34,197,94,.1); color: var(--green); }
+.badge-pause  { background: rgba(245,158,11,.1); color: var(--amber); }
 
 /* Rating stars */
-.stars { display: inline-flex; gap: 1px; color: #f59e0b; font-size: 12px; }
+.stars { display: inline-flex; gap: 1px; color: var(--amber); font-size: 12px; }
 .stars-score { font-size: 12px; font-weight: 600; color: var(--text); }
 .stars-count { font-size: 11px; color: var(--text2); }
 
@@ -385,7 +386,7 @@ body.incognito-on::before {
   font-size: 11px; color: var(--text3);
 }
 .manga-card-rating { display: flex; align-items: center; gap: 3px; color: var(--text2); }
-.manga-card-rating svg { color: #f59e0b; }
+.manga-card-rating svg { color: var(--amber); }
 .manga-card-chapter { font-size: 11px; color: var(--text3); }
 
 /* Progress bar */
@@ -469,7 +470,7 @@ body.incognito-on::before {
   transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 .card-fav-btn:hover  { background: rgba(0,0,0,0.75); transform: scale(1.08); }
-.card-fav-btn.is-fav { color: #ef4444; background: rgba(0,0,0,0.7); }
+.card-fav-btn.is-fav { color: var(--red); background: rgba(0,0,0,0.7); }
 
 /* ── Spinner inline ── */
 .spinner-inline {
@@ -543,10 +544,10 @@ body.incognito-on::before {
   display: inline-flex; align-items: center; gap: 4px;
 }
 .manga-card-meta .mc-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-.mc-status.mc-ongoing   { color: #22c55e; background: rgba(34,197,94,.12); }
-.mc-status.mc-completed  { color: #3b82f6; background: rgba(59,130,246,.12); }
-.mc-status.mc-hiatus     { color: #f59e0b; background: rgba(245,158,11,.12); }
-.mc-status.mc-cancelled  { color: #ef4444; background: rgba(239,68,68,.12); }
+.mc-status.mc-ongoing   { color: var(--green); background: rgba(34,197,94,.12); }
+.mc-status.mc-completed  { color: var(--blue); background: rgba(59,130,246,.12); }
+.mc-status.mc-hiatus     { color: var(--amber); background: rgba(245,158,11,.12); }
+.mc-status.mc-cancelled  { color: var(--red); background: rgba(239,68,68,.12); }
 
 /* ── Comptes connectés (Spotify / AniList) ───────────────── */
 .conn-list { display: flex; flex-direction: column; gap: 10px; }
@@ -569,14 +570,14 @@ body.incognito-on::before {
   padding: 2px 8px; border-radius: 20px; color: var(--text2);
   background: var(--bg4); border: 1px solid var(--border);
 }
-.conn-pill.ok { color: #22c55e; background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); }
+.conn-pill.ok { color: var(--green); background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); }
 .conn-pill.muted { color: var(--text3); }
 .conn-action { flex-shrink: 0; }
 .conn-btn-spotify { background: #1db954; color: #fff; }
 .conn-btn-spotify:hover { background: #1ed760; }
 .conn-btn-anilist { background: #02a9ff; color: #fff; }
 .conn-btn-anilist:hover { background: #2bb8ff; }
-.conn-btn-danger { color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
+.conn-btn-danger { color: var(--red); border: 1px solid rgba(239,68,68,.3); }
 .conn-btn-danger:hover { background: rgba(239,68,68,.1); }
 @media (max-width: 560px) {
   .conn-card { flex-wrap: wrap; }
@@ -679,6 +680,7 @@ body.incognito-on::before {
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
   padding: 20px;
+  backdrop-filter: blur(2px);
 }
 .list-modal {
   background: var(--bg2);
@@ -750,3 +752,13 @@ body.incognito-on::before {
 .manga-card-cover img, .trending-cover img, .se-cover img, .resume-cover img { background: var(--bg3); }
 /* Les cartes hors écran ne sont ni mises en page ni peintes */
 .manga-card { content-visibility: auto; contain-intrinsic-size: auto 300px; }
+
+
+/* -- Reduced motion ------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -99,7 +99,7 @@
   flex-wrap: wrap;
   align-items: center;
 }
-.serie-actions .btn.is-fav { color: #ef4444; border-color: #ef4444; }
+.serie-actions .btn.is-fav { color: var(--red); border-color: var(--red); }
 
 /* Fiche rapide */
 .serie-fiche {
@@ -167,9 +167,9 @@
   border-radius: 10px;
   border: 1px solid currentColor;
 }
-.status-en_cours { color: #22c55e; }
+.status-en_cours { color: var(--green); }
 .status-termine  { color: var(--text2); }
-.status-pause    { color: #f59e0b; }
+.status-pause    { color: var(--amber); }
 
 /* ══════════════════════════════════════════════════════════
    TABS BAR
@@ -395,10 +395,10 @@
   transition: background 0.15s, transform 0.1s, border-color 0.15s;
   flex-shrink: 0;
 }
-.chapter-read-dot:hover { border-color: #22c55e; transform: scale(1.15); }
+.chapter-read-dot:hover { border-color: var(--green); transform: scale(1.15); }
 .chapter-read-dot.is-read {
-  background: #22c55e;
-  border-color: #22c55e;
+  background: var(--green);
+  border-color: var(--green);
 }
 .chapter-bm {
   background: none;
@@ -630,7 +630,7 @@
   font-size: 11px;
   color: var(--text2);
 }
-.manga-card-rating { color: #f59e0b; font-weight: 600; }
+.manga-card-rating { color: var(--amber); font-weight: 600; }
 
 /* ══════════════════════════════════════════════════════════
    SIDEBAR
@@ -765,12 +765,6 @@
   font-weight: 500;
 }
 .section-link:hover { opacity: 0.75; }
-
-.card {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
 
 /* ══════════════════════════════════════════════════════════
    RESPONSIVE

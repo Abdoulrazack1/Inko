@@ -207,8 +207,8 @@
     gap: 10px;
     align-items: flex-start;
 }
-.translator-note-icon { color: #f59e0b; font-size: 14px; flex-shrink: 0; margin-top: 1px; }
-.translator-note-title { font-size: 10.5px; font-weight: 700; color: #f59e0b; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+.translator-note-icon { color: var(--amber); font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.translator-note-title { font-size: 10.5px; font-weight: 700; color: var(--amber); margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
 .translator-note-text { font-size: 12px; color: var(--text2); line-height: 1.5; }
 .translator-note-close { margin-left: auto; color: var(--text3); font-size: 16px; flex-shrink: 0; cursor: pointer; line-height: 1; }
 .translator-note-close:hover { color: var(--text); }
@@ -358,7 +358,6 @@
     border-radius: 50%;
     animation: spin 0.75s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 .reader-loading-manga {
     font-family: var(--font-head);
     font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 2px;
@@ -623,7 +622,7 @@
     transition: border-color 0.15s;
 }
 .comment-input-area:focus { outline: none; border-color: rgba(255,107,26,0.4); }
-.comment-warning { font-size: 10.5px; color: #f59e0b; margin: 4px 0 8px; }
+.comment-warning { font-size: 10.5px; color: var(--amber); margin: 4px 0 8px; }
 .comment-send { display: flex; justify-content: flex-end; }
 
 /* ══════════════════════════════════════════════════════════

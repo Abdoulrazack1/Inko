@@ -222,7 +222,7 @@
   font-family: var(--font-head); font-size: 11px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
 }
-.trending-card:first-child .trending-rank { background: #f59e0b; width: 26px; height: 26px; font-size: 13px; }
+.trending-card:first-child .trending-rank { background: var(--amber); width: 26px; height: 26px; font-size: 13px; }
 .trending-cover {
   aspect-ratio: 3/4; overflow: hidden;
   position: relative;
@@ -316,7 +316,7 @@
   font-family: var(--font-head); font-size: 14px;
   font-weight: 800; color: var(--text3); text-align: center;
 }
-.top-rank-1 { color: #f59e0b; }
+.top-rank-1 { color: var(--amber); }
 .top-rank-2 { color: #9ca3af; }
 .top-rank-3 { color: #cd7f32; }
 .top-cover {
