@@ -670,7 +670,390 @@ La page profil est la plus complète en HTML mais aussi celle avec le plus d'él
 
 ---
 
-## 15. Recommandations prioritaires
+## 15. Stratégie d'expansion — Romans, BD & tout support de lecture
+
+### 15.1 Vision
+
+Inko doit évoluer d'un lecteur manga/novel vers un **lecteur universel** capable d'afficher tout type de contenu écrit : romans français/anglais (ePub/PDF/TXT), BD (bandes dessinées, comics), webtoons, romans web, articles, documents techniques. Le principe : **un seul endroit pour tout lire**, avec une UX adaptée au format.
+
+### 15.2 Formats à supporter
+
+| Format | Type | Priorité | Complexité | NPM/libs |
+|--------|------|----------|------------|----------|
+| **EPUB** | Romans, livres | Haute | Moyenne | `jszip` (déjà), `epubjs` ou `epub-parser` |
+| **PDF** | Docs, scans, BD | Haute | Haute | `pdfjs` (Mozilla) |
+| **TXT / Markdown** | Notes, romans bruts | Haute | Faible | Aucune (lecture directe) |
+| **CBZ / CBR** | BD/scans (déjà partiel) | Haute | Moyenne | `jszip` (déjà), `node-unrar-js` |
+| **HTML** | Web novels, articles | Haute | Faible | Aucune |
+| **MOBI/AZW** | Kindle (Amazon) | Basse | Haute | `mobi` npm (reverse-engineered) |
+| **FB2** | Romans (Europe Est) | Basse | Faible | XML parsing |
+| **DJVU** | Scans techniques | Basse | Haute | `djvu` native lib |
+
+**Recommandation** : Priorité EPUB + PDF + TXT en phase 1 (couvre 95% des besoins), CBZ natif amélioré en phase 2, MOBI/FB2/DJVU en phase 3.
+
+### 15.3 Sources de contenu (libres & légaux)
+
+#### Extensions à créer
+
+Le système d'extensions actuel (`server/extensions/<id>/index.js`) supporte déjà les types `manga` et `novel`. Le type `book` s'ajoute comme un troisième type avec `getText()` comme les novels.
+
+| Extension | API/Scraping | Contenu | Légal | Effort |
+|-----------|-------------|---------|-------|--------|
+| **Project Gutenberg** | Gutendex REST (`gutendex.com`) | 70 000+ classiques PD | ✅ Public domain | 1 jour |
+| **Open Library** | REST API (`openlibrary.org`) | Métadonnées + texte partiel | ✅ Public domain | 1-2 jours |
+| **Standard Ebooks** | Scraping OPDS + EPUB | 700+ eBooks curés | ✅ Public domain | 1 jour |
+| **Google Books** | REST API (API key) | Métadonnées + PD full text | ✅ PD only | 1-2 jours |
+| **ComicK** | REST API (`comick.io/api`) | Comics occidentaux + manga | ⚠️ Zone grise | 1 jour |
+| **Feedbooks** | OPDS feed | Romans PD | ✅ Public domain | 1 jour |
+
+#### Architecture de recherche unifiée
+
+Le moteur actuel (`GET /api/search-all`) itère déjà toutes les sources. Pour ajouter les livres :
+1. Créer les extensions ci-dessus avec `type: 'book'`
+2. Dans `source-interface.js`, traiter `'book'` comme `'novel'` (require `getText()`)
+3. Dans `global.js`, renommer `MH.isNovelSource()` → `MH.isTextSource()` (ou alias)
+4. Dans `sources.js`, ajouter un 3ème groupe "Livres & Romans" à côté de "Mangas"
+5. Dans `recherche.js`, ajouter le filtre "Livres"
+6. Le routage API existant (`/sources/:id/mangas/*`) fonctionne sans changement
+
+#### Structure d'une extension livre (ex: Gutenberg)
+
+```js
+// server/extensions/gutenberg/index.js — 150-200 lignes
+module.exports = {
+  id: 'gutenberg', name: 'Project Gutenberg', lang: 'multi',
+  type: 'book', version: '1.0.0',
+  capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'text'],
+  async search({ q })     { /* GET https://gutendex.com/books?search=... */ },
+  async popular()         { /* GET https://gutendex.com/books?sort=descending */ },
+  async getManga(id)      { /* GET https://gutendex.com/books/<id> → mapper */ },
+  async getChapters(id)   { /* retourner un seul chapitre = livre entier */ },
+  async getText(chapterId) { /* fetch le texte brut depuis formats.text/plain */ },
+};
+```
+
+### 15.4 UX Lecteur universel
+
+#### Modes de lecture
+
+| Mode | Usage | Fonctionnalités |
+|------|-------|-----------------|
+| **Scroll** (défaut romans) | Texte reflowable | Police adaptative, largeur 60-80ch, interligne 1.6-1.8, justification |
+| **Paginé** | Romans, PDF | Pages X/Y, animation de transition, colonnes multiples (grand écran) |
+| **Double page** | BD, comics, mangas | Côte à côte en paysage, numérotation pairs/impairs |
+| **Webtoon** | Webcomics, scroll vertical | Images qui s'enchaînent, lazy loading, tap pour pause |
+| **Guided view** | Comics US | Zoom panel par panel (comme Marvel Unlimited) |
+
+#### Typographie & accessibilité
+
+- **Polices serif** (Merriweather, Literata, EB Garamond) pour les romans — Google Fonts avec `font-display: swap`
+- **Polices sans-serif** (Inter, Source Sans 3) pour l'interface
+- **CJK** : Noto Sans CJK (subsetting nécessaire — polices de 15-20MB sinon)
+- **Thèmes** : Light, Dark, Sepia (spécifique texte) — CSS custom properties
+- **Réglages** : Taille police (14-28px), interligne (1.2-2.2), marges, alignement, césure (hyphens: auto)
+- **Pro blocs** : lettrine (drop caps), puces de paragraphe, numérotation de ligne
+
+#### Fonctionnalités texte avancées
+
+| Fonctionnalité | Implémentation |
+|---------------|----------------|
+| **Bookmarks** | Par paragraphe (stocké en percentage + contexte textuel) |
+| **Annotations** | `window.getSelection()` → highlight avec `document.createRange()` |
+| **Dictionnaire** | Tap mot → API dictionnaire (ex: `api.dictionary.lookup(word)`) |
+| **Text-to-Speech** | Web Speech API (`SpeechSynthesisUtterance`) avec surlignage synchro |
+| **Recherche dans le livre** | Client-side avec FlexSearch ou `indexOf` + scroll vers match |
+| **Table des matières** | Sidebar coulissante avec navigation (EPUB nav.xhtml / OPF spine) |
+| **Progression** | Pourcentage, temps restant estimé (wpm × mots restants) |
+
+#### Progression multi-format
+
+Le modèle actuel (`chapter_number + page`) est insuffisant pour le texte. Nouveaux modes :
+
+| Format | Métrique de progression |
+|--------|------------------------|
+| EPUB | **CFI** (Canonical Fragment Identifier) — standard EPUB |
+| PDF | Page number + page label |
+| TXT | Character offset |
+| Manga/Comic | Page number (inchangé) |
+| Reflowable | Chapter + percentage dans le chapitre |
+
+Schéma proposé pour les nouvelles colonnes dans `progress` :
+```sql
+ALTER TABLE progress ADD COLUMN progress_float FLOAT DEFAULT NULL;  -- 0.0-1.0
+ALTER TABLE progress ADD COLUMN progress_detail VARCHAR(255) DEFAULT NULL;  -- CFI / offset / path
+ALTER TABLE progress ADD COLUMN content_type VARCHAR(16) DEFAULT 'manga';
+```
+
+### 15.5 BD & Comics
+
+#### Spécificités BD
+
+La BD franco-belge a des contraintes spécifiques :
+- **Format** : À4 (21×29.7cm), souvent à l'italienne (paysage) pour les double-pages
+- **Métadonnées** : Scénariste ≠ dessinateur ≠ coloriste. Série + tome. Collection (label éditorial). ISBN par album
+- **Sens de lecture** : Gauche → droite (LTR) standard (contrairement au manga RTL)
+- **Sources** : Bedetheque.com (API), BDGest (base de données)
+
+#### Améliorations du lecteur image
+
+1. **Double-page spread** : Détection automatique (paire de pages), affichage côte à côte si viewport ≥ 1024px
+2. **Guided view** : Division d'une page en panneaux (nécessite détection de zones ou métadonnées Comic.xml)
+3. **Smart zoom** : Zoom-to-width par défaut (différent du zoom-to-height manga)
+4. **CBR (RAR)** : Ajouter `node-unrar-js` (`npm install node-unrar-js`) dans `localreader.js`
+5. **Tri naturel** : Remplacer `sort()` lexical par `naturalCompare` (page01, page02... page10 au lieu de page1, page10, page2)
+6. **ComicInfo.xml** : Parser le fichier XML inclus dans CBZ/CBR pour extraire série, tome, date, auteur
+
+### 15.6 Schéma & Métadonnées
+
+#### Approche recommandée : Polymorphique (Option A)
+
+Ajouter une colonne `content_type` aux tables existantes + une table `book_metadata` optionnelle :
+
+```sql
+-- Étape 1 : Ajouter content_type aux tables utilisateur
+ALTER TABLE favorites ADD COLUMN content_type VARCHAR(16) NOT NULL DEFAULT 'manga';
+ALTER TABLE library    ADD COLUMN content_type VARCHAR(16) NOT NULL DEFAULT 'manga';
+ALTER TABLE progress   ADD COLUMN content_type VARCHAR(16) NOT NULL DEFAULT 'manga';
+ALTER TABLE read_chapters ADD COLUMN content_type VARCHAR(16) NOT NULL DEFAULT 'manga';
+ALTER TABLE ratings    ADD COLUMN content_type VARCHAR(16) NOT NULL DEFAULT 'manga';
+ALTER TABLE list_items ADD COLUMN content_type VARCHAR(16) NOT NULL DEFAULT 'manga';
+ALTER TABLE comments   ADD COLUMN content_type VARCHAR(16) NOT NULL DEFAULT 'manga';
+ALTER TABLE events     ADD COLUMN content_type VARCHAR(16) NOT NULL DEFAULT 'manga';
+
+-- Étape 2 : Nouvelle table pour les métadonnées riches des livres
+CREATE TABLE IF NOT EXISTS book_metadata (
+  content_id    VARCHAR(191) NOT NULL,   -- "gutenberg:12345"
+  source        VARCHAR(64)  NOT NULL,
+  isbn_13       VARCHAR(13)  DEFAULT NULL,
+  isbn_10       VARCHAR(10)  DEFAULT NULL,
+  publisher     VARCHAR(255) DEFAULT NULL,
+  page_count    INT          DEFAULT NULL,
+  language      VARCHAR(10)  DEFAULT NULL,   -- ISO 639-1
+  original_lang VARCHAR(10)  DEFAULT NULL,
+  format        VARCHAR(32)  DEFAULT NULL,   -- 'epub', 'pdf', 'txt', 'comic'
+  rights        VARCHAR(128) DEFAULT NULL,   -- 'public_domain', 'copyrighted', 'cc-by'
+  raw_metadata  JSON         DEFAULT NULL,   -- cache de la réponse source
+  PRIMARY KEY (content_id, source)
+) ENGINE=InnoDB;
+
+-- Étape 3 : Index FULLTEXT pour la recherche
+ALTER TABLE book_metadata ADD FULLTEXT INDEX ft_book_search (isbn_13, isbn_10, publisher);
+```
+
+**Pourquoi Option A ?** : Migration progressive (pas de breaking change), les tables favorites/library existantes continuent de fonctionner, `content_type='manga'` pour les données existantes.
+
+#### Métadonnées par format
+
+| Champ | Manga (existant) | Novel (existant) | Book (nouveau) | Comic (nouveau) |
+|-------|------------------|------------------|----------------|-----------------|
+| ID | `mangadex:123` | `royalroad:456` | `gutenberg:789` | `comick:abc` |
+| Auteur | `author` | `author` | `author(s)` | `writer/artist/colorist` |
+| ISBN | ❌ | ❌ | ✅ | ✅ (pour albums) |
+| Éditeur | ❌ | ❌ | ✅ | ✅ (collection) |
+| Pages | ❌ | ❌ | ✅ (total) | ✅ (par tome) |
+| Langue | `langs[]` | `lang` | `language` | `language` |
+| Statut | ongoing/completed | ongoing/completed | `published` | ongoing/completed |
+| Série | ❌ | ❌ | ✅ (seriesName/position) | ✅ (volume/tome) |
+| FULLTEXT | ❌ | ❌ | ✅ | ❌ (images) |
+
+### 15.7 Internationalisation (i18n) & Encodage
+
+#### État actuel
+- `lang="fr"` hardcodé dans le HTML
+- `inko_lang` stocké en localStorage mais pas utilisé pour la traduction des labels
+- Tous les labels UI sont en français (`Paramètres`, `Bibliothèque`, `Mes listes`)
+- Pas de fichier de traduction, pas de framework i18n
+
+#### Ce qui est nécessaire pour les livres multi-langues
+
+1. **Chargement de polices par script** :
+   - Latin (FR/EN/DE/ES) : Google Fonts avec `&display=swap` — déjà présent
+   - CJK (JA/ZH/KO) : Noto Sans CJK — nécessite subsetting (taille : ~15MB complet, ~500KB subset)
+   - Arabe : Noto Naskh Arabic + `direction: rtl`
+   - Cyrillique : PT Serif, IBM Plex Serif
+   - Polices variables pour couvrir plusieurs poids en un fichier
+
+2. **Détection de langue par livre** :
+   - EPUB : champ `<dc:language>` dans l'OPF
+   - PDF : entrée `/Lang` dans les métadonnées
+   - Fallback : auto-détection avec library `franc` ou `cld`
+
+3. **Encodage** :
+   - UTF-8 standard (EPUB, HTML)
+   - ISO-8859-1 / Windows-1252 : EPUB legacy — détection via `chardet` npm
+   - Auto-détection pour fichiers TXT
+
+4. **Sens de lecture** :
+   - LTR (français, anglais, européen) — actuel
+   - RTL (arabe, hébreu, persan) — `direction: rtl` par livre
+   - Vertical (chinois traditionnel, japonais tategaki) — `writing-mode: vertical-rl`
+   - Per-book : stocké dans `book_metadata.language` + détection auto
+
+5. **Césure & typographie** :
+   - `hyphens: auto` avec `lang="fr"` / `lang="en"` sur le conteneur de texte
+   - Guillemets : `« »` français vs `""` anglais vs `„“` allemand — CSS `quotes` property
+   - `text-indent` pour alinéas (romans français) vs `margin-bottom` pour séparation (romans anglais)
+
+6. **Normalisation Unicode** :
+   - NFC (macOS) vs NFD (Linux) — normaliser en NFC stocké
+   - Émojis (populaires dans web novels)
+   - Ruby annotations (furigana japonais) — `<ruby>` tag HTML
+
+### 15.8 Stockage & Synchronisation
+
+#### Gestion des fichiers
+
+| Métrique | Valeur estimée |
+|----------|----------------|
+| Taille moyenne EPUB | 2-5 MB |
+| Taille moyenne PDF | 10-50 MB |
+| Taille moyenne BD/CBZ | 20-100 MB |
+| 1 000 livres | ~5-10 GB |
+| 500 BD | ~15-25 GB |
+| **Total projection** | **20-35 GB** |
+
+**Stratégie** :
+1. **Local** (défaut) : `server/uploads/{userId}/` avec sous-répertoires par type
+2. **Streaming** : Remplacer `res.sendFile()` par `fs.createReadStream()` avec support `Range` header pour PDF/EPUB
+3. **Cache thumbnails** : Génération avec `sharp` (EPUB: extraire cover de l'OPF, PDF: première page, CBZ: première image)
+4. **Optionnel S3** : Interface abstraite `StorageProvider` avec implémentation locale + MinIO/S3
+
+#### Téléchargements & offline
+
+- `downloads.js` existe (frontend) mais sans UI ni page dédiée
+- Besoin : file d'attente, progression, pause/reprise, SW background download
+- Stockage offline : **IndexedDB** (pas localStorage — limite 5-10MB) avec wrapper `idb`
+- Sync : offline queue → online → résolution de conflits (last-write-wins simple)
+
+#### Synchronisation multi-appareils
+
+Actuelle : `/api/me/progress` par `manga_id`. Pour les livres :
+- EPUB : **CFI** (Canonical Fragment Identifier) — standard W3C
+- PDF : numéro de page
+- TXT : offset caractère
+- Tous : pourcentage (0.0-1.0) dans `progress.progress_float`
+- Fréquence : debounced 700ms (inchangé, déjà implémenté dans `userdata.js`)
+
+### 15.9 Plan d'implémentation
+
+#### Phase 1 — Romans (2 semaines)
+
+| Tâche | Fichiers | Dépendances |
+|-------|----------|-------------|
+| Ajouter `type: 'book'` à `source-interface.js` | `server/lib/source-interface.js` | Aucune |
+| Renommer `MH.isNovelSource()` → `MH.isTextSource()` | `assets/js/global.js` | Aucune |
+| Créer extension Gutenberg | `server/extensions/gutenberg/index.js` | Source interface |
+| Créer extension Standard Ebooks | `server/extensions/standardebooks/index.js` | Source interface |
+| Ajouter "Livres" aux groupes de sources | `assets/js/sources.js` | Aucune |
+| Ajouter filtre "Livres" dans recherche | `assets/js/recherche.js` | Aucune |
+| Ajouter `content_type` aux tables | `server/db/migrate.js` | Aucune |
+| Créer `book_metadata` table | `server/db/migrate.js` | Aucune |
+| Améliorer le reader texte (scroll + paginé) | `assets/js/lecture.js`, `assets/css/lecture.css` | Aucune |
+
+#### Phase 2 — UX Lecteur enrichi (2-3 semaines)
+
+| Tâche | Fichiers |
+|-------|----------|
+| Polices serif (Merriweather) + thème Sepia | `assets/css/global.css` |
+| Bookmarks par paragraphe | `assets/js/lecture.js` |
+| Annotations / Highlights | `assets/js/lecture.js` |
+| Table des matières sidebar | `assets/js/lecture.js` |
+| Dictionnaire (tap mot) | `assets/js/lecture.js` + `api.js` |
+| Text-to-Speech (Web Speech API) | `assets/js/lecture.js` |
+| Progression % avec CFI | `server/controllers/user.controller.js` |
+| Réglages de lecture indépendants par format | `assets/js/parametres.js`, `profil.html` |
+
+#### Phase 3 — BD & Comics (2 semaines)
+
+| Tâche | Fichiers |
+|-------|----------|
+| Support CBR (RAR) | `assets/js/localreader.js`, `npm install node-unrar-js` |
+| Tri naturel des pages | `assets/js/localreader.js` |
+| Mode double-page | `assets/js/chapitre.js` |
+| ComicInfo.xml parser | `server/controllers/local.controller.js` |
+| Extension ComicK | `server/extensions/comick/index.js` |
+| Upload UI amélioré (progress bar, preview) | `bibliotheque.html`, `assets/js/bibliotheque.js` |
+| Thumbnails générés (sharp) | `server/controllers/local.controller.js` |
+
+#### Phase 4 — Recherche & Découverte (2 semaines)
+
+| Tâche | Fichiers |
+|-------|----------|
+| FULLTEXT search sur book_metadata | `server/db/schema.sql` |
+| API `/content/search` unifiée | `server/controllers/manga.controller.js` |
+| Recherche full-text dans un livre | `assets/js/lecture.js` + FlexSearch |
+| Filtres avancés (langue, format, auteur) | `assets/js/recherche.js` |
+| Vue liste / compacte dans les résultats | `assets/css/recherche.css` |
+| Catalogue par genre/auteur/langue | `assets/js/catalogue.js` |
+| Recommandations (tag-based) | `server/controllers/` |
+
+#### Phase 5 — Stockage & Sync (2 semaines)
+
+| Tâche | Fichiers |
+|-------|----------|
+| Streaming avec Range header | `server/controllers/local.controller.js` |
+| IndexedDB pour offline | `assets/js/pwa.js`, `service-worker.js` |
+| Page de gestion des téléchargements | `downloads.html`, `assets/js/downloads.js` |
+| Export/import avec fichiers | `server/controllers/user.controller.js` |
+| Cache thumbnails avec sharp | `server/controllers/local.controller.js` |
+| Migration S3 optionnelle | `server/lib/storage.js` (nouveau) |
+
+### 15.10 Schéma d'architecture finale
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    INKO UNIVERSAL READER                  │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │                  SOURCES (extensions)             │   │
+│  ├──────────┬──────────┬───────────┬───────────────┤   │
+│  │ Manga    │ Novel    │ Book      │ Comic         │   │
+│  │ mangadex │ royalroad│ gutenberg │ comick        │   │
+│  │ weebcent │ novelbin │ stdbooks  │ (BDGest)      │   │
+│  │ sushiscan│ novelfull│ openlib   │               │   │
+│  │          │ chireads │ googlebks │               │   │
+│  └──────────┴──────────┴───────────┴───────────────┘   │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │              MODES DE LECTURE                    │   │
+│  ├──────────┬──────────┬───────────┬───────────────┤   │
+│  │ Manga    │ Novel    │ BD/Comic  │ PDF           │   │
+│  │ (images) │ (texte)  │ (images)  │ (canvas)      │   │
+│  │ chapitre │ lecture  │ chapitre  │ lecture       │   │
+│  │ .js      │  .js     │ .js (v2)  │ .js (v2)      │   │
+│  └──────────┴──────────┴───────────┴───────────────┘   │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │           CONTENU LOCAL (upload)                 │   │
+│  │  EPUB · PDF · CBZ · CBR · TXT · HTML · MOBI    │   │
+│  │  └─ server/uploads/{userId}/ + thumbnails/      │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │           BASE DE DONNÉES UNIFIÉE                │   │
+│  │  favorites (➕content_type)                      │   │
+│  │  library    (➕content_type)                     │   │
+│  │  progress   (➕content_type + progress_float)    │   │
+│  │  book_metadata (ISBN, publisher, langue...)     │   │
+│  │  FULLTEXT indexes sur titre/auteur/description  │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 15.11 Recommandations clés
+
+1. **Commencer par Gutenberg** : 1 jour de dev, 70 000 livres gratuits et légaux, valeur immédiate
+2. **Ne pas toucher au schéma avant d'avoir 3 sources livres fonctionnelles** : le polymorphisme peut attendre
+3. **UX lecteur texte d'abord, BD ensuite** : le scroll + typographie est plus facile que le guided view
+4. **Éviter la sur-ingénierie** : pas besoin de ElasticSearch au début — MySQL FULLTEXT + FlexSearch suffisent
+5. **DRM-free uniquement** : pas de support Adobe DRM, Kindle DRM, etc. — contenu libre ou uploadé par l'utilisateur
+6. **Progressive enhancement** : chaque format doit fonctionner indépendamment sans casser les autres
+
+---
+
+## 16. Recommandations prioritaires
 
 ### Court terme (1-2 jours)
 1. ✅ Corriger le **duplicate ID** `libImportFile` dans `bibliotheque.html`
@@ -728,6 +1111,7 @@ La page profil est la plus complète en HTML mais aussi celle avec le plus d'él
 | Problèmes UX/A11Y | 15 (6 haut., 5 moy., 4 faibles) |
 | Problèmes SW/PWA | 9 (1 crit., 4 haut., 3 moy., 1 bas) |
 | Problèmes Dépendances | 9 (1 crit., 3 haut., 3 moy., 2 faibles) |
+| **Expansion romans/BD (section 15)** | **8 formats, 6 sources, 5 phases, ~30 fichiers** |
 | Placeholders UI inactifs (profil.html) | 15+ |
 | Code mort | ~5 fichiers/dossiers |
 | Fonctionnalités manquantes listées | 100+ |
