@@ -618,6 +618,12 @@ async function getSettings(req, res, next) {
 async function setSettings(req, res, next) {
     try {
         const incoming = req.body || {};
+        // Validation (audit API3) : objet simple, taille bornée — évite qu'un
+        // client stocke des blobs arbitraires de plusieurs Mo dans user_settings.
+        if (typeof incoming !== 'object' || Array.isArray(incoming))
+            return res.status(400).json({ error: 'Réglages invalides (objet attendu)' });
+        if (JSON.stringify(incoming).length > 256 * 1024)
+            return res.status(413).json({ error: 'Réglages trop volumineux (256 Ko max)' });
         const [[row]] = await pool.query('SELECT data FROM user_settings WHERE user_id = ?', [req.user.id]);
         const current = row ? (typeof row.data === 'string' ? JSON.parse(row.data) : row.data) : {};
         const merged = { ...current, ...incoming };

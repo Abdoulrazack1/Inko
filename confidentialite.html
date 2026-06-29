@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Confidentialité</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0d0d0f">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <style>
+    .pp { max-width: 760px; margin: 0 auto; padding: 30px 22px 90px; }
+    .pp h1 { font-family: var(--font-head); font-size: 28px; margin-bottom: 6px; }
+    .pp .upd { color: var(--text3); font-size: 12.5px; margin-bottom: 26px; }
+    .pp h2 { font-size: 17px; margin: 28px 0 10px; }
+    .pp p, .pp li { color: var(--text2); font-size: 14.5px; line-height: 1.65; }
+    .pp ul { padding-left: 20px; }
+    .pp li { margin-bottom: 6px; }
+    .pp strong { color: var(--text); }
+    .pp a { color: var(--orange); }
+  </style>
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+  <div class="pp">
+    <h1>Politique de confidentialité</h1>
+    <div class="upd">Dernière mise à jour : 30 juin 2026</div>
+
+    <p>Inko est un lecteur de mangas et de romans. Cette page explique quelles données sont
+    traitées, pourquoi, et quels sont tes droits. Inko ne fait <strong>aucune télémétrie</strong>
+    et ne revend aucune donnée.</p>
+
+    <h2>1. Données traitées</h2>
+    <ul>
+      <li><strong>Compte</strong> : email et mot de passe (haché avec bcrypt, jamais en clair).</li>
+      <li><strong>Activité de lecture</strong> : favoris, progression, chapitres lus, notes, commentaires — pour synchroniser ta bibliothèque entre appareils.</li>
+      <li><strong>Préférences</strong> : thème, langue, réglages de lecture (stockés localement et/ou sur ton compte).</li>
+      <li><strong>Comptes liés (optionnels)</strong> : Google (connexion), Spotify et AniList si tu les relies. Les jetons d'accès Spotify sont <strong>chiffrés au repos</strong>.</li>
+    </ul>
+
+    <h2>2. Finalités</h2>
+    <p>Les données servent uniquement à faire fonctionner le service : authentification,
+    synchronisation de la bibliothèque, statistiques personnelles, et fonctions communautaires
+    (commentaires, profils publics) que tu actives toi-même.</p>
+
+    <h2>3. Stockage local (cookies & localStorage)</h2>
+    <p>Inko utilise le <strong>localStorage</strong> du navigateur (pas de cookies publicitaires)
+    pour ta session, tes préférences et le mode hors-ligne. La déconnexion efface ces données
+    locales liées à ton compte.</p>
+
+    <h2>4. Tiers</h2>
+    <ul>
+      <li><strong>Sources de contenu</strong> : les images/chapitres proviennent des sources que tu actives ; Inko agit comme client personnel.</li>
+      <li><strong>Google / Spotify / AniList</strong> : seulement si tu les relies, selon leurs propres politiques.</li>
+    </ul>
+
+    <h2>5. Conservation</h2>
+    <p>Tes données sont conservées tant que ton compte existe. Les jetons de réinitialisation de
+    mot de passe expirent après 1 heure.</p>
+
+    <h2>6. Tes droits (RGPD)</h2>
+    <ul>
+      <li><strong>Accès & portabilité</strong> : exporte toutes tes données depuis <a href="parametres.html">Paramètres</a> (export JSON).</li>
+      <li><strong>Effacement</strong> : supprime ton compte depuis les Paramètres — tes données liées sont effacées (suppression en cascade).</li>
+      <li><strong>Rectification</strong> : modifie ton profil et tes préférences à tout moment.</li>
+    </ul>
+
+    <h2>7. Sécurité</h2>
+    <p>Mots de passe hachés (bcrypt), jetons Spotify chiffrés (AES-256-GCM), en-têtes de sécurité
+    (helmet), limitation de débit anti-brute-force, et protection anti-SSRF sur le proxy d'images.</p>
+
+    <h2>8. Contact</h2>
+    <p>Pour toute question relative à tes données, ouvre une issue sur le
+    <a href="https://github.com/Abdoulrazack1/Inko" target="_blank" rel="noopener">dépôt du projet</a>.</p>
+  </div>
+  <div id="footer-slot"></div>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/nsfw.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/eula.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>

@@ -12,8 +12,9 @@
 const axios = require('axios');
 const jwt   = require('jsonwebtoken');
 const { pool } = require('../config/db');
+const { encrypt, decrypt } = require('../lib/crypto');   // tokens chiffrés au repos (S10)
 
-const SECRET   = process.env.JWT_SECRET || 'change-me';
+const SECRET   = require('../lib/secret');               // secret centralisé (S12)
 const CLIENT   = process.env.SPOTIFY_CLIENT_ID;
 const CSECRET  = process.env.SPOTIFY_CLIENT_SECRET;
 const REDIRECT = process.env.SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:8088/api/spotify/callback';
@@ -38,22 +39,29 @@ function userIdFrom(req) {
 }
 
 // ── 1. Démarrage de l'autorisation ──
+// try/catch : fonction synchrone sans `next` — une exception (jwt.sign…)
+// crasherait le process sinon (audit API2).
 function login(req, res) {
-    if (!configured())
-        return res.status(503).send('Spotify non configuré côté serveur (SPOTIFY_CLIENT_ID/SECRET manquants dans server/.env).');
-    const uid = userIdFrom(req);
-    if (!uid) return res.status(401).send('Non authentifié');
+    try {
+        if (!configured())
+            return res.status(503).send('Spotify non configuré côté serveur (SPOTIFY_CLIENT_ID/SECRET manquants dans server/.env).');
+        const uid = userIdFrom(req);
+        if (!uid) return res.status(401).send('Non authentifié');
 
-    const state = jwt.sign({ uid }, SECRET, { expiresIn: '10m' });
-    const url = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({
-        response_type: 'code',
-        client_id: CLIENT,
-        scope: SCOPES,
-        redirect_uri: REDIRECT,
-        state,
-        show_dialog: 'true',
-    }).toString();
-    res.redirect(url);
+        const state = jwt.sign({ uid }, SECRET, { expiresIn: '10m' });
+        const url = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({
+            response_type: 'code',
+            client_id: CLIENT,
+            scope: SCOPES,
+            redirect_uri: REDIRECT,
+            state,
+            show_dialog: 'true',
+        }).toString();
+        res.redirect(url);
+    } catch (e) {
+        console.error('[spotify] login', e.message);
+        if (!res.headersSent) res.status(500).send('Erreur lors de l\'initialisation Spotify');
+    }
 }
 
 // ── 2. Callback : échange du code ──
@@ -95,7 +103,7 @@ async function callback(req, res, next) {
                 access_token=VALUES(access_token), refresh_token=VALUES(refresh_token),
                 expires_at=VALUES(expires_at)`,
             [uid, p.id, p.display_name || p.id, p.images?.[0]?.url || null, p.product || null,
-             access_token, refresh_token, Date.now() + (expires_in * 1000)]
+             encrypt(access_token), encrypt(refresh_token), Date.now() + (expires_in * 1000)]
         );
         res.redirect('/parametres.html?spotify=linked');
     } catch (e) {
@@ -108,6 +116,9 @@ async function callback(req, res, next) {
 async function validToken(uid) {
     const [[row]] = await pool.query('SELECT * FROM spotify_accounts WHERE user_id = ?', [uid]);
     if (!row) return null;
+    // Déchiffre les tokens (tolère le texte clair hérité)
+    row.access_token  = decrypt(row.access_token);
+    row.refresh_token = decrypt(row.refresh_token);
     if (row.expires_at - 30_000 > Date.now()) return row;   // encore valide
 
     // Refresh
@@ -123,7 +134,7 @@ async function validToken(uid) {
         const newExpires = Date.now() + expires_in * 1000;
         await pool.query(
             'UPDATE spotify_accounts SET access_token=?, expires_at=?, refresh_token=COALESCE(?, refresh_token) WHERE user_id=?',
-            [access_token, newExpires, refresh_token || null, uid]
+            [encrypt(access_token), newExpires, refresh_token ? encrypt(refresh_token) : null, uid]
         );
         row.access_token = access_token;
         row.expires_at   = newExpires;
@@ -286,4 +297,5 @@ async function nowPlaying(req, res, next) {
     }
 }
 
-module.exports = { configured, login, callback, status, disconnect, playlists, search, recent, top, saved, nowPlaying };
+// `configured` reste un helper interne (non exporté — n'était routé nulle part, audit API7)
+module.exports = { login, callback, status, disconnect, playlists, search, recent, top, saved, nowPlaying };

@@ -33,6 +33,22 @@ async function columnExists(table, col) {
     return r.n > 0;
 }
 
+async function columnType(table, col) {
+    const [[r]] = await pool.query(
+        `SELECT COLUMN_TYPE AS t FROM information_schema.columns
+         WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
+        [table, col]
+    );
+    return r ? String(r.t).toLowerCase() : null;
+}
+
+// Convertit une colonne seulement si son type actuel ne correspond pas (idempotent)
+async function modifyIf(table, col, wantSubstr, ddlType) {
+    const t = await columnType(table, col);
+    if (t == null || t.includes(wantSubstr)) return;
+    await run(`ALTER TABLE \`${table}\` MODIFY \`${col}\` ${ddlType}`);
+}
+
 async function ensureSchema() {
     // 1. Commentaires hiérarchiques (threads) : comments.parent_id
     if (!(await columnExists('comments', 'parent_id'))) {
@@ -87,6 +103,19 @@ async function ensureSchema() {
         UNIQUE KEY uq_push_endpoint (endpoint(191)),
         CONSTRAINT fk_push_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB`);
+
+    // ── Index manquants (audit DB6/DB7/DB9) ──
+    await run('ALTER TABLE read_chapters  ADD INDEX idx_read_at (read_at)');                 // stats/historique par date
+    await run('ALTER TABLE events         ADD INDEX idx_user_type_time (user_id, type, created_at)'); // filtres timeline
+    await run('ALTER TABLE password_resets ADD INDEX idx_expires (expires_at)');             // cleanup tokens expirés
+
+    // ── Types : précision & longueur (audit DB1/DB2/DB4) ──
+    await modifyIf('favorites',     'last_chapter',   'decimal', 'DECIMAL(10,2) DEFAULT NULL');   // FLOAT → DECIMAL
+    await modifyIf('progress',      'chapter_number', 'decimal', 'DECIMAL(10,2) DEFAULT NULL');
+    await modifyIf('read_chapters', 'chapter_number', 'decimal', 'DECIMAL(10,2) DEFAULT NULL');
+    await modifyIf('favorites',     'cover',  'text', 'TEXT DEFAULT NULL');                       // URLs longues (CDN signées)
+    await modifyIf('list_items',    'cover',  'text', 'TEXT DEFAULT NULL');
+    await modifyIf('users',         'avatar', 'varchar(255)', 'VARCHAR(255) DEFAULT NULL');       // emojis longs / URLs
 
     // 6. Imports locaux (EPUB / CBZ / CBR téléversés par l'utilisateur)
     await run(`CREATE TABLE IF NOT EXISTS local_imports (

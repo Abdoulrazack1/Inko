@@ -38,6 +38,9 @@ jobs:
       - name: Load all modules (smoke)
         run: node -e "require('./routes'); require('./db/migrate'); console.log('modules OK')"
 
+      - name: Unit tests
+        run: npm test
+
   docker:
     runs-on: ubuntu-latest
     needs: backend

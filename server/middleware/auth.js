@@ -2,7 +2,7 @@
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/db');
 
-const SECRET = process.env.JWT_SECRET || 'change-me';
+const SECRET = require('../lib/secret');   // secret centralisé (audit S12)
 
 function readToken(req) {
     if (req.cookies?.token) return req.cookies.token;

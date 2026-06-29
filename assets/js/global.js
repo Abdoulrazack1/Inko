@@ -606,8 +606,8 @@
         <div class="footer-col">
           <h4>Légal</h4>
           <ul>
-            <li><a href="#" class="footer-coming">Confidentialité</a></li>
-            <li><a href="#" class="footer-coming">Conditions</a></li>
+            <li><a href="confidentialite.html">Confidentialité</a></li>
+            <li><a href="confidentialite.html">Conditions</a></li>
           </ul>
         </div>
       </div>
@@ -665,6 +665,7 @@
         initFooterButtons();
         initHeaderButtons();
         initNotifications();
+        showConsentBanner();
         if (window.MH.lang && window.MH.lang !== 'fr') window.MH.loadI18n();  // applique la traduction si ≠ FR
         bindGlobalShortcuts();
         initBackToTop();
@@ -750,6 +751,26 @@
         });
         document.addEventListener('click', (e) => {
             if (dd && dd.style.display === 'block' && !e.target.closest('.notif-wrap')) dd.style.display = 'none';
+        });
+    }
+
+    /* ── Bandeau de consentement (RGPD, audit P1/P6) ─────── */
+    function showConsentBanner() {
+        try { if (localStorage.getItem('inko_consent')) return; } catch (e) { return; }
+        if (document.getElementById('inkoConsent')) return;
+        const bar = document.createElement('div');
+        bar.id = 'inkoConsent';
+        bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;max-width:760px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45);padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap';
+        bar.innerHTML = `
+            <div style="flex:1;min-width:220px;font-size:13px;color:var(--text2);line-height:1.5">
+                Inko stocke des données locales (session, préférences) pour fonctionner et synchroniser ta bibliothèque.
+                Aucune télémétrie, aucune publicité. <a href="confidentialite.html" style="color:var(--orange)">En savoir plus</a>.
+            </div>
+            <button id="inkoConsentOk" class="btn btn-primary btn-sm">J'ai compris</button>`;
+        document.body.appendChild(bar);
+        bar.querySelector('#inkoConsentOk').addEventListener('click', () => {
+            try { localStorage.setItem('inko_consent', '1'); } catch (e) {}
+            bar.remove();
         });
     }
 

@@ -182,7 +182,10 @@ async function requestReset(req, res, next) {
             [email.toLowerCase(), token, expires]
         );
 
-        // En prod : envoyer un email. Ici : retour direct du token pour démo
+        // Le token NE doit pas fuiter en production (audit S1) : en prod il
+        // partirait par email. En dev/desktop, on le renvoie pour permettre le
+        // flux sans serveur mail.
+        if (process.env.NODE_ENV === 'production') return res.json({ ok: true });
         res.json({ ok: true, token });
     } catch (e) { next(e); }
 }
