@@ -233,9 +233,17 @@
         renderSpotifyConnected();
     }
 
+    let _spConnectPoll = null;
+    window.addEventListener('beforeunload', () => { clearInterval(_spConnectPoll); });
     function connectSpotify() {
         window.open(API.spotify.loginUrl(), 'inkoSpotifyAuth', 'width=480,height=760');
-        let n = 0; const iv = setInterval(async () => { n++; try { const s = await API.spotify.status(); if (s.linked) { clearInterval(iv); renderSpotify(root.querySelector('#im-content')); } } catch (e) {} if (n > 90) clearInterval(iv); }, 2000);
+        clearInterval(_spConnectPoll);
+        let n = 0;
+        _spConnectPoll = setInterval(async () => {
+            n++;
+            try { const s = await API.spotify.status(); if (s.linked) { clearInterval(_spConnectPoll); renderSpotify(root.querySelector('#im-content')); } } catch (e) {}
+            if (n > 90) clearInterval(_spConnectPoll);
+        }, 2000);
     }
     function spTrackRows(tracks) {
         return (tracks || []).map(t =>

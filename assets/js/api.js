@@ -34,17 +34,50 @@
         try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch(e) {}
     }
 
+    // Nettoie TOUTES les données locales liées au compte (audit DF1) :
+    // vie privée sur machine partagée — la déconnexion ne doit pas laisser
+    // préférences, miroir bibliothèque, signets, tokens AniList/Spotify, NSFW…
+    function clearLocalUserData() {
+        try {
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (!k) continue;
+                if (/^(mh_|inko_)/i.test(k) || /anilist|spotify|nsfw|userdata|bookmark|mirror|music/i.test(k)) {
+                    localStorage.removeItem(k);
+                }
+            }
+        } catch (e) {}
+    }
+
     // ── Fetch helper ──────────────────────────────────────────
-    async function request(method, path, body) {
+    // Timeout via AbortController : sans ça, un serveur qui ne répond pas
+    // fige l'UI indéfiniment (audit API1/DF4, critique).
+    const DEFAULT_TIMEOUT = 30000;
+    async function request(method, path, body, { timeout = DEFAULT_TIMEOUT } = {}) {
+        const ctrl  = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeout);
         const opts = {
             method,
             credentials: 'include',
             headers: { 'Accept': 'application/json' },
+            signal: ctrl.signal,
         };
         if (_token) opts.headers['Authorization'] = `Bearer ${_token}`;
         if (body)   { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
 
-        const res = await fetch(API_BASE + path, opts);
+        let res;
+        try {
+            res = await fetch(API_BASE + path, opts);
+        } catch (e) {
+            const err = new Error(e && e.name === 'AbortError'
+                ? 'Délai dépassé — le serveur met trop de temps à répondre.'
+                : 'Connexion impossible — vérifie ta connexion réseau.');
+            err.status = 0; err.network = true;
+            try { window.dispatchEvent(new CustomEvent('api:error', { detail: err })); } catch (_) {}
+            throw err;
+        } finally {
+            clearTimeout(timer);
+        }
         let data = null;
         try { data = await res.json(); } catch (e) { data = null; }
 
@@ -129,7 +162,9 @@
             setGoogleConfig(clientId) { return put('/auth/google-config', { clientId }); },
             async logout() {
                 try { await post('/auth/logout'); } catch (e) {}
-                _user = null; _token = null; persist();
+                _user = null; _token = null;
+                clearLocalUserData();   // vie privée : purge les données locales du compte
+                persist();
             },
             async me() {
                 try {

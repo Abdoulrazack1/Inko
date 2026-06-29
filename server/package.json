@@ -1,9 +1,14 @@
 {
   "name": "inko-server",
   "version": "1.0.0",
-  "description": "Backend Inko/MangaHub — Express + MySQL + MangaDex proxy",
+  "description": "Backend Inko — Express + MySQL, lecteur manga/novel multi-sources",
   "main": "server.js",
   "type": "commonjs",
+  "license": "Apache-2.0",
+  "author": "Abdoulrazack Abdillahi",
+  "repository": { "type": "git", "url": "https://github.com/Abdoulrazack1/Inko.git" },
+  "bugs": { "url": "https://github.com/Abdoulrazack1/Inko/issues" },
+  "engines": { "node": ">=18" },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",

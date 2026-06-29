@@ -156,6 +156,8 @@
     }
 
     let spPoll = null;
+    // Cleanup du polling Spotify si la page est fermée (audit B4)
+    window.addEventListener('beforeunload', () => { clearInterval(spPoll); });
     document.getElementById('spotifyLoginBtn')?.addEventListener('click', () => {
         const w = window.open(API.spotify.loginUrl(), 'inkoSpotifyAuth', 'width=480,height=760');
         const status = document.getElementById('spotifyConnectStatus');

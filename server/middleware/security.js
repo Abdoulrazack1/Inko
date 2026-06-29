@@ -39,11 +39,13 @@ function corsOptions() {
 }
 
 // Anti brute-force sur l'authentification (login/register/reset).
+// Plus strict par défaut (audit S3) ; ajustable via AUTH_RATE_MAX.
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 40,                                 // 40 tentatives / 15 min / IP
+    max: parseInt(process.env.AUTH_RATE_MAX || '12', 10),   // 12 tentatives / 15 min / IP
     standardHeaders: true,
     legacyHeaders: false,
+    skipSuccessfulRequests: true,            // ne compte que les échecs (login raté)
     message: { error: 'Trop de tentatives. Réessaie dans quelques minutes.' },
 });
 

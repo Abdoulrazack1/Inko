@@ -3,11 +3,12 @@
 //             stale-while-revalidate pour assets statiques
 //             cache des couvertures mangadex (bande passante)
 
-const CACHE_VERSION = 'inko-v11';
+const CACHE_VERSION = 'inko-v12';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const OFFLINE_CACHE = 'inko-offline';   // chapitres téléchargés (non versionné : persiste)
+const OFFLINE_FALLBACK = '/offline.html';
 
 // Hôtes de couvertures à mettre en cache durable (cache-first)
 function isCoverHost(hostname) {
@@ -19,6 +20,7 @@ function isCoverHost(hostname) {
 
 const STATIC_ASSETS = [
     '/',
+    '/offline.html',
     '/accueil.html',
     '/catalogue.html',
     '/serie.html',
@@ -152,7 +154,13 @@ async function networkFirst(req, cacheName) {
         return res;
     } catch (e) {
         const cached = await caches.match(req);
-        return cached || Response.json({ error: 'Hors ligne' }, { status: 503 });
+        if (cached) return cached;
+        // Navigation hors-ligne sans cache → page de repli offline.html (audit SW1)
+        if (req.mode === 'navigate') {
+            const off = await caches.match(OFFLINE_FALLBACK);
+            if (off) return off;
+        }
+        return Response.json({ error: 'Hors ligne' }, { status: 503 });
     }
 }
 
