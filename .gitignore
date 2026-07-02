@@ -5,6 +5,8 @@ server/.env.local
 server/uploads/
 server/config/google.json
 server/config/anilist.json
+server/config/vapid.json
+server/config/secret.key
 
 # Extensions installées par l'utilisateur (modèle Mihon : aucune source en défaut)
 # Les sources de référence sont dans extensions-community/.

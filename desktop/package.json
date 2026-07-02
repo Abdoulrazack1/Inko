@@ -19,7 +19,7 @@
     "dist:linux": "electron-builder --linux"
   },
   "devDependencies": {
-    "electron": "^33.2.0",
+    "electron": "^43.0.0",
     "electron-builder": "^25.1.8"
   },
   "build": {
@@ -42,8 +42,12 @@
         "to": "server",
         "filter": [
           "**/*",
+          "node_modules/**/*",
           "!.env",
-          "!.env.*"
+          "!.env.*",
+          "!config/vapid.json",
+          "!config/google.json",
+          "!config/anilist.json"
         ]
       },
       {
@@ -62,7 +66,12 @@
     ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico",
       "artifactName": "Inko-Setup-${version}.${ext}"
@@ -74,7 +83,10 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Inko",
-      "installerLanguages": ["en_US", "fr_FR"]
+      "installerLanguages": [
+        "en_US",
+        "fr_FR"
+      ]
     },
     "mac": {
       "target": "dmg",
@@ -82,7 +94,10 @@
       "icon": "build/icon.icns"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Graphics",
       "icon": "build/icon.png"
     }

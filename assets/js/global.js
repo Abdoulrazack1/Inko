@@ -101,8 +101,10 @@
     };
     window.addEventListener('source:change', () => { _sourceTypesAt = 0; });
     window.MH.isNovelSource = function (id) {
-        return !!(window.MH._sourceTypes && window.MH._sourceTypes[id] === 'novel');
+        const t = window.MH._sourceTypes && window.MH._sourceTypes[id];
+        return t === 'novel' || t === 'book';   // les deux ouvrent le lecteur de texte
     };
+    window.MH.isTextSource = window.MH.isNovelSource;   // alias sémantique (audit §15)
     // URL du lecteur adapté au type de la source (texte pour les romans)
     window.MH.readerHref = function (mangaId, chapterId, source) {
         const src = source || window.API?.sources?.current || '';
@@ -837,6 +839,34 @@
             bar.remove();
         });
     }
+
+    /* ── Web Push : abonnement navigateur (audit §6.3) ───── */
+    function urlB64ToUint8(base64) {
+        const pad = '='.repeat((4 - base64.length % 4) % 4);
+        const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(b64);
+        const arr = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        return arr;
+    }
+    window.MH.enablePush = async function () {
+        try {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                window.MH.toast?.('Push non supporté par ce navigateur'); return false;
+            }
+            const perm = await Notification.requestPermission();
+            if (perm !== 'granted') { window.MH.toast?.('Notifications refusées'); return false; }
+            const reg = await navigator.serviceWorker.ready;
+            const { publicKey } = await window.API.notifications.vapid();
+            if (!publicKey) { window.MH.toast?.('Push non configuré côté serveur'); return false; }
+            const sub = await reg.pushManager.getSubscription()
+                || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(publicKey) });
+            const j = sub.toJSON();
+            await window.API.notifications.subscribe({ endpoint: j.endpoint, keys: j.keys });
+            window.MH.toast?.('Notifications push activées ✓');
+            return true;
+        } catch (e) { window.MH.toast?.('Push : ' + e.message); return false; }
+    };
 
     /* ── Live search ─────────────────────────────────────── */
     function initSearch() {

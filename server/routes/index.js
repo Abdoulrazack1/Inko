@@ -117,6 +117,7 @@ router.get   ('/me/notifications',            auth.authRequired, Notif.list);
 router.get   ('/me/notifications/unread',     auth.authRequired, Notif.unreadCount);
 router.post  ('/me/notifications/read-all',   auth.authRequired, Notif.markAllRead);
 router.post  ('/me/notifications/:id/read',   auth.authRequired, Notif.markRead);
+router.get   ('/push/vapid',                   Notif.vapid);
 router.post  ('/me/push/subscribe',           auth.authRequired, Notif.subscribe);
 
 // ── Administration & modération (role=admin) ────

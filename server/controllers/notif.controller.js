@@ -1,5 +1,11 @@
 // controllers/notif.controller.js — notifications in-app + abonnements Web Push
 const { pool } = require('../config/db');
+const { publicKey } = require('../lib/push');
+
+// Clé publique VAPID (nécessaire au navigateur pour s'abonner)
+function vapid(_req, res) {
+    res.json({ publicKey: publicKey() });
+}
 
 async function list(req, res, next) {
     try {
@@ -60,4 +66,4 @@ async function subscribe(req, res, next) {
     } catch (e) { next(e); }
 }
 
-module.exports = { list, unreadCount, markRead, markAllRead, subscribe };
+module.exports = { list, unreadCount, markRead, markAllRead, subscribe, vapid };

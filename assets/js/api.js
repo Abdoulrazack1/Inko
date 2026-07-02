@@ -328,6 +328,7 @@
             markRead:  (id)         => post('/me/notifications/' + id + '/read'),
             markAll:   ()           => post('/me/notifications/read-all'),
             subscribe: (sub)        => post('/me/push/subscribe', sub),
+            vapid:     ()           => get('/push/vapid'),
         },
 
         // ── Import local (EPUB / CBZ / CBR) ──

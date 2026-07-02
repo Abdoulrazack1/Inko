@@ -75,9 +75,11 @@ function validateSource(src) {
     REQUIRED_METHODS.forEach(m => {
         if (typeof src[m] !== 'function') errors.push(`méthode ${m}() manquante`);
     });
-    // Selon le type : une source manga sert des images, une source novel du texte
-    if ((src.type || 'manga') === 'novel') {
-        if (typeof src.getText !== 'function') errors.push('méthode getText() manquante (source novel)');
+    // Selon le type : manga = images (getPages) ; novel/book = texte (getText).
+    // 'book' (livres/romans classiques, ex. Gutenberg) se comporte comme 'novel'.
+    const type = src.type || 'manga';
+    if (type === 'novel' || type === 'book') {
+        if (typeof src.getText !== 'function') errors.push(`méthode getText() manquante (source ${type})`);
     } else {
         if (typeof src.getPages !== 'function') errors.push('méthode getPages() manquante');
     }

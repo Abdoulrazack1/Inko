@@ -2,8 +2,9 @@
 // lib/notify.js — Création de notifications in-app + parsing @mentions
 // ============================================================
 const { pool } = require('../config/db');
+const { sendPush } = require('./push');
 
-// Crée une notification (silencieux si la table n'existe pas encore)
+// Crée une notification (silencieux si la table n'existe pas encore) + push navigateur
 async function createNotification(userId, { type, title, body, link, actor } = {}) {
     if (!userId || !type) return;
     try {
@@ -12,6 +13,8 @@ async function createNotification(userId, { type, title, body, link, actor } = {
             [userId, type, title || null, body || null, link || null, actor || null]
         );
     } catch (e) { /* migration pas encore passée : on ignore */ }
+    // Push navigateur — fire-and-forget, n'impacte jamais l'action métier
+    sendPush(userId, { title: title || 'Inko', body: body || '', link: link || '/', type }).catch(() => {});
 }
 
 // Extrait les @mentions d'un texte → liste de usernames uniques

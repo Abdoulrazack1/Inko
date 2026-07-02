@@ -23,6 +23,7 @@
             document.querySelectorAll('.nt-pill').forEach(p => p.classList.toggle('active', p === b));
             render();
         });
+        document.getElementById('ntEnablePush')?.addEventListener('click', () => window.MH.enablePush?.());
         document.getElementById('ntMarkAll').addEventListener('click', async () => {
             try { await API.notifications.markAll(); items.forEach(n => { n.read = true; }); render(); MH.toast?.('Tout est lu ✓'); }
             catch (e) { MH.toast?.('Erreur : ' + e.message); }
