@@ -622,6 +622,7 @@
             <li><a href="catalogue.html?sort=latest">Nouveautés</a></li>
             <li><a href="catalogue.html?sort=rating">Top</a></li>
             <li><a href="import.html">Importer un fichier</a></li>
+            <li><a href="downloads.html">Téléchargements</a></li>
           </ul>
         </div>
         <div class="footer-col">

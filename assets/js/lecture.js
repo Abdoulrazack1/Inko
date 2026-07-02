@@ -142,6 +142,9 @@
             <button class="reader-icon-btn" id="btnMarkRead" title="Marquer ce chapitre (et les précédents) comme lus">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M20 6 9 17l-5-5"/></svg>
             </button>
+            <button class="reader-icon-btn" id="btnNovelTTS" title="Lecture audio (synthèse vocale)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+            </button>
             <button class="reader-icon-btn" id="btnNovelDl" title="Télécharger pour lire hors-ligne"></button>
             <button class="reader-icon-btn" id="btnNovelSettings" title="Réglages de lecture (S)">Aa</button>
         </div>`;
@@ -150,8 +153,75 @@
         el.querySelector('#btnNextChap')?.addEventListener('click', () => goChapter(1));
         el.querySelector('#btnNovelSettings').addEventListener('click', toggleSettings);
         el.querySelector('#btnMarkRead').addEventListener('click', markUpToHere);
+        el.querySelector('#btnNovelTTS').addEventListener('click', TTS.toggle);
         wireDownload();
     }
+
+    // ── Synthèse vocale (Text-to-Speech, Web Speech API) ──
+    const TTS = (function () {
+        const synth = window.speechSynthesis;
+        let paras = [];          // <p>/<h1> à lire
+        let idx = -1;
+        let playing = false;
+        let keepAlive = null;
+
+        function collect() {
+            const root = document.getElementById('novelContent');
+            paras = root ? [...root.querySelectorAll('h1, p, li')].filter(p => p.textContent.trim().length > 1) : [];
+        }
+        function pickVoice() {
+            const voices = synth.getVoices() || [];
+            const lang = (manga && manga.langs && manga.langs[0]) || (document.documentElement.lang || 'fr');
+            return voices.find(v => v.lang && v.lang.toLowerCase().startsWith(lang.toLowerCase()))
+                || voices.find(v => v.lang && v.lang.toLowerCase().startsWith('fr'))
+                || voices[0] || null;
+        }
+        function highlight(el) {
+            paras.forEach(p => p.classList.remove('tts-reading'));
+            if (el) { el.classList.add('tts-reading'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        }
+        function speakFrom(i) {
+            if (i >= paras.length) { stop(); return; }
+            idx = i;
+            const el = paras[i];
+            highlight(el);
+            const u = new SpeechSynthesisUtterance(el.textContent.trim());
+            const v = pickVoice(); if (v) { u.voice = v; u.lang = v.lang; }
+            u.rate = 1; u.pitch = 1;
+            u.onend = () => { if (playing) speakFrom(idx + 1); };
+            u.onerror = () => { if (playing) speakFrom(idx + 1); };
+            synth.speak(u);
+        }
+        function setBtn(on) {
+            const b = document.getElementById('btnNovelTTS');
+            if (b) b.classList.toggle('active', on);
+        }
+        function start() {
+            if (!('speechSynthesis' in window)) { MH.toast?.('Synthèse vocale non supportée'); return; }
+            collect();
+            if (!paras.length) { MH.toast?.('Rien à lire'); return; }
+            playing = true; setBtn(true);
+            // Reprend au paragraphe le plus proche du centre de l'écran
+            let startAt = 0;
+            const mid = window.scrollY + window.innerHeight / 2;
+            for (let i = 0; i < paras.length; i++) { if (paras[i].offsetTop <= mid) startAt = i; }
+            speakFrom(startAt);
+            // Certains navigateurs suspendent la synthèse après ~15 s : keep-alive.
+            clearInterval(keepAlive);
+            keepAlive = setInterval(() => { if (playing && !synth.speaking) return; if (playing) { synth.pause(); synth.resume(); } }, 10000);
+            MH.toast?.('Lecture audio ▶');
+        }
+        function stop() {
+            playing = false; setBtn(false);
+            clearInterval(keepAlive);
+            try { synth.cancel(); } catch (e) {}
+            highlight(null);
+        }
+        function toggle() { playing ? stop() : start(); }
+
+        window.addEventListener('beforeunload', () => { try { synth.cancel(); } catch (e) {} });
+        return { toggle, stop };
+    })();
 
     // ── Contenu ──
     function renderContent(textData) {

@@ -128,10 +128,15 @@ lecture** (pas de réseau social).
   gestion des utilisateurs (bannir, promouvoir), statistiques de la plateforme
 
 ### Import local & livres
-- **Importe tes fichiers** : EPUB (romans), CBZ/CBR (BD/scans) par glisser-déposer,
-  stockés sur ton compte, lus dans un lecteur intégré (décompression côté client)
+- **Importe tes fichiers** : EPUB (romans), **PDF** (livres/BD, rendu pdf.js),
+  CBZ/CBR (BD/scans) par glisser-déposer, stockés sur ton compte, lus dans un
+  lecteur intégré (décompression et rendu **côté client**, tes fichiers restent privés)
 - **Project Gutenberg** : 70 000+ classiques du domaine public (FR/EN/DE/ES…),
   gratuitement et légalement, dans le lecteur de texte
+- **Lecture audio** : synthèse vocale (Web Speech API) du lecteur de romans,
+  avec surlignage du paragraphe lu
+- **Page Téléchargements** dédiée : gère tes chapitres hors-ligne (par série,
+  espace utilisé, suppression)
 
 ### Suivi & comptes
 - Inscription / connexion **email** ou **Google (Gmail)** en un clic

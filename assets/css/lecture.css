@@ -111,6 +111,15 @@
 }
 .ns-seg button.on { background: var(--orange); border-color: var(--orange); color: #fff; }
 
+/* Synthèse vocale (TTS) : paragraphe en cours de lecture + bouton actif */
+.reader-icon-btn.active { color: var(--orange); }
+.tts-reading {
+  background: rgba(255,140,66,.14);
+  box-shadow: 0 0 0 6px rgba(255,140,66,.14);
+  border-radius: 4px;
+  transition: background .2s;
+}
+
 @media (max-width: 600px) {
   .reader-toolbar { flex-wrap: wrap; }
   .toolbar-back { max-width: 160px; }

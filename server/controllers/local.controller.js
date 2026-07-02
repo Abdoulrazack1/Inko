@@ -12,7 +12,7 @@ const multer = require('multer');
 const { pool } = require('../config/db');
 
 const UPLOAD_ROOT = path.join(__dirname, '..', 'uploads');
-const ALLOWED = { '.cbz': 'cbz', '.cbr': 'cbr', '.epub': 'epub', '.zip': 'cbz' };
+const ALLOWED = { '.cbz': 'cbz', '.cbr': 'cbr', '.epub': 'epub', '.zip': 'cbz', '.pdf': 'pdf' };
 
 const storage = multer.diskStorage({
     destination(req, _file, cb) {

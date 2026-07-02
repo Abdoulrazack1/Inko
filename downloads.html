@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Téléchargements</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0d0d0f">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <style>
+    .dl-wrap { max-width: 880px; margin: 0 auto; padding: 26px 20px 80px; }
+    .dl-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+    .dl-head h1 { font-family: var(--font-head); font-size: 27px; font-weight: 700; }
+    .dl-sub { color: var(--text2); font-size: 13px; margin-bottom: 22px; }
+    .dl-bar { height: 8px; border-radius: 5px; background: var(--bg4); overflow: hidden; margin: 6px 0 24px; }
+    .dl-bar > div { height: 100%; background: linear-gradient(90deg,#ff8c42,var(--orange)); }
+    .dl-group { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 12px; overflow: hidden; }
+    .dl-ghead { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    .dl-gcover { width: 38px; height: 52px; border-radius: 6px; object-fit: cover; background: var(--bg4); flex-shrink: 0; }
+    .dl-gtitle { font-weight: 600; font-size: 14px; flex: 1; min-width: 0; }
+    .dl-gcount { font-size: 11.5px; color: var(--text3); }
+    .dl-chap { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 13px; }
+    .dl-chap:first-child { border-top: none; }
+    .dl-chap .grow { flex: 1; min-width: 0; }
+    .dl-empty { text-align: center; padding: 60px 20px; color: var(--text3); }
+    .tag { font-size: 10px; padding: 2px 7px; border-radius: 6px; background: var(--bg4); color: var(--text2); text-transform: uppercase; }
+  </style>
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+  <div class="dl-wrap">
+    <div class="dl-head">
+      <h1>Téléchargements</h1>
+      <button class="btn btn-sm" id="dlClearAll" style="display:none;color:#ef4444">Tout supprimer</button>
+    </div>
+    <div class="dl-sub" id="dlStorage">Chapitres disponibles hors-ligne (stockés sur cet appareil).</div>
+    <div class="dl-bar" id="dlBar" style="display:none"><div></div></div>
+    <div id="dlBody"><div class="dl-empty"><div class="spinner-inline"></div></div></div>
+  </div>
+  <div id="footer-slot"></div>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/nsfw.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/downloads.js"></script>
+  <script src="assets/js/downloads-page.js"></script>
+  <script src="assets/js/eula.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>

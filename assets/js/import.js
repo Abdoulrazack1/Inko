@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    const TYPE_ICON = { epub: '📖', cbz: '📚', cbr: '📚' };
+    const TYPE_ICON = { epub: '📖', cbz: '📚', cbr: '📚', pdf: '📄' };
 
     document.addEventListener('DOMContentLoaded', () => {
         MH.initPage('bibliotheque');
@@ -18,8 +18,8 @@
             <div class="im-drop" id="imDrop">
                 <div class="ic">⬆️</div>
                 <div style="font-size:15px;color:var(--text);font-weight:600">Glisse un fichier ici, ou clique pour choisir</div>
-                <div class="hint">EPUB · CBZ · CBR — jusqu'à 300 Mo</div>
-                <input type="file" id="imFile" accept=".epub,.cbz,.cbr,.zip" multiple hidden>
+                <div class="hint">EPUB · PDF · CBZ · CBR — jusqu'à 300 Mo</div>
+                <input type="file" id="imFile" accept=".epub,.pdf,.cbz,.cbr,.zip" multiple hidden>
             </div>
             <div class="im-bar" id="imBar"><div></div></div>
             <div class="im-list" id="imList"></div>`;

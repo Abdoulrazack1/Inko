@@ -19,11 +19,14 @@
     async function init() {
         if (!window.API?.isLoggedIn?.()) { location.href = 'page_login.html'; return; }
         if (!id) { fail('Aucun fichier indiqué.'); return; }
-        if (typeof JSZip === 'undefined') { fail('Décompresseur (JSZip) non chargé.'); return; }
         try {
             const res = await fetch(API.local.fileUrl(id), { headers: { Authorization: 'Bearer ' + API.token } });
             if (!res.ok) throw new Error('Fichier introuvable (' + res.status + ')');
             const buf = await res.arrayBuffer();
+
+            if (type === 'pdf') { await renderPdf(buf); return; }
+
+            if (typeof JSZip === 'undefined') { fail('Décompresseur (JSZip) non chargé.'); return; }
             let zip;
             try { zip = await JSZip.loadAsync(buf); }
             catch (e) {
@@ -33,6 +36,37 @@
             if (type === 'epub') await renderEpub(zip);
             else await renderImages(zip);
         } catch (e) { fail(e.message); }
+    }
+
+    // ── PDF : rendu page par page sur canvas (pdf.js) ──
+    async function renderPdf(buf) {
+        const pdfjs = window.pdfjsLib;
+        if (!pdfjs) return fail('Lecteur PDF (pdf.js) non chargé.');
+        pdfjs.GlobalWorkerOptions.workerSrc = 'assets/vendor/pdf.worker.min.js';
+        let doc;
+        try { doc = await pdfjs.getDocument({ data: buf }).promise; }
+        catch (e) { return fail('PDF illisible ou protégé.'); }
+        titleEl.textContent = `${doc.numPages} page(s)`;
+        body.innerHTML = `<div class="lr-images" id="lrPdf"></div>`;
+        const cont = document.getElementById('lrPdf');
+        const width = Math.min(900, (cont.clientWidth || 900));
+        for (let n = 1; n <= doc.numPages; n++) {
+            try {
+                const page = await doc.getPage(n);
+                const vp0 = page.getViewport({ scale: 1 });
+                const scale = width / vp0.width;
+                const vp = page.getViewport({ scale });
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.floor(vp.width);
+                canvas.height = Math.floor(vp.height);
+                canvas.style.width = '100%';
+                canvas.style.maxWidth = '900px';
+                canvas.style.display = 'block';
+                canvas.style.margin = '0 auto 4px';
+                cont.appendChild(canvas);
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+            } catch (e) { /* page ratée : on continue */ }
+        }
     }
 
     function fail(msg) {
