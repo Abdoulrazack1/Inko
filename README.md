@@ -4,12 +4,14 @@
 
 # Inko
 
-**Tes mangas et light novels, partout. Lis, suis tes séries, reprends où tu t'es arrêté.**
+**Tes mangas, light novels et livres, partout. Lis, suis tes séries, reprends où tu t'es arrêté.**
 
-Un lecteur de **mangas et de romans** moderne — web, PWA installable, application
+Un lecteur de **mangas, romans et livres** moderne — web, PWA installable, application
 desktop (Electron) et mobile (Capacitor) — construit sur un système d'extensions
-ouvert, dans l'esprit de Mihon / Tachiyomi. Lis des mangas en images **et** des
-light/web novels en texte, y compris des œuvres japonaises et chinoises traduites.
+ouvert, dans l'esprit de Mihon / Tachiyomi. Lis des mangas en images, des
+light/web novels traduits **et** des classiques du domaine public (Project
+Gutenberg), avec profils publics, commentaires, notifications push et import
+de tes propres fichiers EPUB/CBZ.
 
 [![Node](https://img.shields.io/badge/Node-%E2%89%A518-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express-4-000000?logo=express&logoColor=white)](https://expressjs.com/)
@@ -118,6 +120,19 @@ lecture** (pas de réseau social).
   type, **historique** et **suggestions populaires**
 - Lecture aléatoire, aperçu riche au survol, couvertures proxifiées & mises en cache
 
+### Communauté & profils
+- **Commentaires threadés** : réponses, mentions `@pseudo` cliquables, signalement
+- **Profils publics** `u.html?u=pseudo` : stats, badges, streak — avec réglage **profil privé**
+- **Notifications** : cloche in-app + page dédiée + **Web Push** (VAPID, même app fermée)
+- **Dashboard admin** (`admin.html`, rôle admin) : modération des signalements,
+  gestion des utilisateurs (bannir, promouvoir), statistiques de la plateforme
+
+### Import local & livres
+- **Importe tes fichiers** : EPUB (romans), CBZ/CBR (BD/scans) par glisser-déposer,
+  stockés sur ton compte, lus dans un lecteur intégré (décompression côté client)
+- **Project Gutenberg** : 70 000+ classiques du domaine public (FR/EN/DE/ES…),
+  gratuitement et légalement, dans le lecteur de texte
+
 ### Suivi & comptes
 - Inscription / connexion **email** ou **Google (Gmail)** en un clic
 - **AniList** : synchronisation automatique de progression & statuts pendant la
@@ -127,6 +142,15 @@ lecture** (pas de réseau social).
 - **Spotify** (OAuth) : playlists dans le lecteur de musique intégré
 
 ### Confort, design & vie privée
+- **Interface animée** (GSAP) : entrées de cartes, tilt 3D des couvertures —
+  désactivé automatiquement si tu préfères les mouvements réduits
+- **i18n FR/EN** : bascule de langue instantanée (footer), sans rechargement
+- **Accessibilité** : navigation clavier (focus visible, lien d'évitement),
+  lecteurs d'écran (aria), contrastes relevés
+- **Sécurité** : en-têtes durcis (helmet), limitation de débit anti brute-force,
+  proxy d'images anti-SSRF (résolution DNS), jetons Spotify chiffrés au repos
+- **RGPD** : export complet de tes données, suppression totale du compte,
+  politique de confidentialité, aucune télémétrie
 - Thèmes **clair / sombre / AMOLED / auto** + **couleur d'accent** personnalisable
 - **Palette de commandes** (`Ctrl/Cmd+K`) : recherche + navigation rapide
 - **Raccourcis clavier globaux** (`/` recherche, `r` aléatoire, `c` continuer, `b`
@@ -197,7 +221,9 @@ la page Sources.
 | SushiScan | FR | Manga | Catalogue complet via index sitemap (~2100 séries) |
 | Royal Road | EN | **Roman** | Web novels originaux EN (LitRPG, fantasy) |
 | NovelFull | EN | **Roman** | Light novels JP / CN / KR traduits (xianxia, isekai…) |
+| NovelBin | EN | **Roman** | Très grand catalogue CN/KR/JP traduits (cultivation, système…) |
 | Chireads | FR | **Roman** | Novels chinois traduits en français (fantrad) |
+| Project Gutenberg | Multi | **Livre** | 70 000+ classiques du domaine public, 100% légal |
 
 ---
 
@@ -265,11 +291,25 @@ inko/
   extensions-community/  sources de référence (mangas + romans)
   server/
     routes, controllers, middleware
-    controllers/image.controller.js   proxy + cache des couvertures (curl)
-    extensions/loader.js              chargement dynamique (type manga|novel)
-    config/                           clés Google/AniList collées dans l'app (gitignoré)
-    db/schema.sql                     tables MySQL (migrations douces)
+    middleware/security.js            helmet + CORS + rate limiting
+    controllers/image.controller.js   proxy + cache des couvertures (curl, anti-SSRF)
+    controllers/{admin,notif,profile,local}.controller.js   modération, notifs, profils, imports
+    extensions/loader.js              chargement dynamique (type manga|novel|book)
+    lib/{push,notify,crypto,secret}.js  Web Push VAPID, notifications, chiffrement
+    config/                           clés Google/AniList/VAPID (gitignoré)
+    db/schema.sql + db/migrate.js     tables MySQL + migrations auto au démarrage
+    test/                             tests unitaires (npm test)
 ```
+
+### Déploiement en ligne (Docker)
+
+```bash
+docker compose up -d --build     # app + MySQL + Redis → http://localhost:8088
+```
+
+En production : définis `JWT_SECRET`, `DB_PASSWORD` et `CORS_ORIGINS` (voir
+[`server/.env.example`](server/.env.example)). CI GitHub Actions incluse
+(audit sécurité + tests + build Docker).
 
 Principe : séparation stricte logique / vue. Chaque page ne fait que du DOM ; la
 logique vit dans `api.js` et le backend. Vanilla JS, **sans étape de build**,
@@ -284,14 +324,20 @@ Base `/api`. Voir le [détail des routes](server/routes/index.js).
 ```
 Auth      POST /auth/register, /auth/login   PUT /auth/password, /auth/profile   POST /auth/delete
 Google    GET  /auth/providers   POST /auth/google   GET/PUT /auth/google-config
-Sources   GET  /sources    /sources/:id/mangas/*
+Sources   GET  /sources    /sources/:id/mangas/*    GET/POST /extensions/{updates,update}
 Mangas    GET  /mangas/{search,popular,latest,tags,:id,:id/chapters}    GET /search-all
-Lecture   GET  /chapters/:id/pages  (manga)    /chapters/:id/text  (roman)
-Images    GET  /img?u=<url>         (proxy + cache des couvertures)
+Lecture   GET  /chapters/:id/pages  (manga)    /chapters/:id/text  (roman / livre)
+Images    GET  /img?u=<url>         (proxy + cache des couvertures, anti-SSRF)
 Compte    GET/PUT /me/{favorites,library,progress,lists,settings,ratings,updates}   /me/export, /me/import
           (notes, signets, épingles, objectifs : stockés dans /me/settings)
 Read      POST /me/read-chapters   /me/read-chapters/bulk   PUT /me/favorites/:id/category
 Stats     GET  /me/stats   /me/events   /ratings/:id
+Social    GET  /comments/:mangaId  POST /comments/:mangaId (réponses via parentId)
+          POST /comments/:id/report   DELETE /comments/:id   GET /users/profile/:username
+Notifs    GET  /me/notifications{,/unread}   POST /me/notifications/{read-all,:id/read}
+          GET  /push/vapid   POST /me/push/subscribe   (Web Push)
+Local     POST /library/import/local   GET /library/local{,/:id/file}   DELETE /library/local/:id
+Admin     GET  /admin/{stats,users,reports}   PUT /admin/users/:id/{role,ban}   POST /admin/reports/:id/resolve
 Artwork   GET  /artwork?title=...   (illustrations officielles AniList)
 Spotify   GET  /spotify/{login,callback,status,playlists,recent,top,saved,now-playing}   POST /spotify/disconnect
 AniList   GET  /anilist/{config,similar}    PUT /anilist/config
@@ -311,8 +357,8 @@ côté serveur, **aucune télémétrie**. Usage strictement personnel. Voir
 
 ## Contribuer
 
-Contributions bienvenues : nouvelles extensions (mangas ou romans), support
-EPUB/CBZ, traductions, thèmes, trackers supplémentaires (MAL, Kitsu). Ouvre une
-issue ou une pull request.
+Contributions bienvenues : nouvelles extensions (mangas, romans ou livres),
+support PDF/MOBI, traductions, thèmes, trackers supplémentaires (MAL, Kitsu).
+Ouvre une issue ou une pull request.
 
 Distribué sous licence **Apache 2.0**.
