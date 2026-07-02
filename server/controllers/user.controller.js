@@ -622,17 +622,20 @@ async function setSettings(req, res, next) {
         // client stocke des blobs arbitraires de plusieurs Mo dans user_settings.
         if (typeof incoming !== 'object' || Array.isArray(incoming))
             return res.status(400).json({ error: 'Réglages invalides (objet attendu)' });
-        if (JSON.stringify(incoming).length > 256 * 1024)
+        const payload = JSON.stringify(incoming);
+        if (payload.length > 256 * 1024)
             return res.status(413).json({ error: 'Réglages trop volumineux (256 Ko max)' });
-        const [[row]] = await pool.query('SELECT data FROM user_settings WHERE user_id = ?', [req.user.id]);
-        const current = row ? (typeof row.data === 'string' ? JSON.parse(row.data) : row.data) : {};
-        const merged = { ...current, ...incoming };
+        // Fusion ATOMIQUE côté base (JSON_MERGE_PATCH, deep-merge) : deux écritures
+        // partielles concurrentes (ex. UserData + toggle) ne s'écrasent plus l'une
+        // l'autre — corrige la perte de mise à jour du read-modify-write JS.
         await pool.query(
-            `INSERT INTO user_settings (user_id, data) VALUES (?, ?)
-             ON DUPLICATE KEY UPDATE data = VALUES(data)`,
-            [req.user.id, JSON.stringify(merged)]
+            `INSERT INTO user_settings (user_id, data) VALUES (?, CAST(? AS JSON))
+             ON DUPLICATE KEY UPDATE data = JSON_MERGE_PATCH(COALESCE(data, JSON_OBJECT()), CAST(? AS JSON))`,
+            [req.user.id, payload, payload]
         );
-        res.json(merged);
+        const [[row]] = await pool.query('SELECT data FROM user_settings WHERE user_id = ?', [req.user.id]);
+        const data = row ? (typeof row.data === 'string' ? JSON.parse(row.data) : row.data) : {};
+        res.json(data);
     } catch (e) { next(e); }
 }
 
@@ -647,11 +650,22 @@ async function exportData(req, res, next) {
         const [progress]     = await pool.query('SELECT manga_id, chapter_id, chapter_number, page, source FROM progress WHERE user_id = ?', [uid]);
         const [readChapters] = await pool.query('SELECT manga_id, chapter_id, chapter_number FROM read_chapters WHERE user_id = ?', [uid]);
         const [ratings]      = await pool.query('SELECT manga_id, rating, review FROM ratings WHERE user_id = ?', [uid]);
+        // Portabilité complète (RGPD art. 20, audit P3) : TOUTES les données du compte
+        const [comments]     = await pool.query('SELECT manga_id, chapter_id, text, parent_id, created_at FROM comments WHERE user_id = ?', [uid]);
+        const [events]       = await pool.query('SELECT type, manga_id, chapter_id, metadata, created_at FROM events WHERE user_id = ? ORDER BY created_at DESC LIMIT 5000', [uid]);
+        const [lists]        = await pool.query('SELECT id, name, description, is_public, created_at FROM lists WHERE user_id = ?', [uid]);
+        const [listItems] = lists.length
+            ? await pool.query('SELECT list_id, manga_id, source, title, position FROM list_items WHERE list_id IN (?)', [lists.map(l => l.id)])
+            : [[]];
+        const [notifications] = await pool.query('SELECT type, title, body, link, is_read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 500', [uid]).catch(() => [[]]);
+        const [[settingsRow]] = await pool.query('SELECT data FROM user_settings WHERE user_id = ?', [uid]);
         res.json({
-            inkoVersion: 1,
+            inkoVersion: 2,
             exportedAt: new Date().toISOString(),
-            user: { username: req.user.username, email: req.user.email },
+            user: { username: req.user.username, email: req.user.email, avatar: req.user.avatar, createdAt: req.user.created_at },
             favorites, library, progress, readChapters, ratings,
+            comments, events, lists, listItems, notifications,
+            settings: settingsRow ? (typeof settingsRow.data === 'string' ? JSON.parse(settingsRow.data) : settingsRow.data) : {},
         });
     } catch (e) { next(e); }
 }

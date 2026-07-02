@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Notifications</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0d0d0f">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <style>
+    .nt-wrap { max-width: 720px; margin: 0 auto; padding: 26px 20px 80px; }
+    .nt-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .nt-head h1 { font-family: var(--font-head); font-size: 26px; font-weight: 700; }
+    .nt-filters { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+    .nt-pill { padding: 6px 14px; border-radius: 999px; font-size: 12.5px; background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); cursor: pointer; }
+    .nt-pill.active { background: var(--orange); border-color: var(--orange); color: #fff; font-weight: 600; }
+    .nt-item { display: flex; gap: 12px; padding: 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 9px; text-decoration: none; color: inherit; }
+    .nt-item.unread { background: rgba(255,140,66,.06); border-color: rgba(255,140,66,.25); }
+    .nt-ico { font-size: 20px; flex: 0 0 auto; }
+    .nt-body { min-width: 0; flex: 1; }
+    .nt-title { font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+    .nt-text { font-size: 12.5px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
+    .nt-when { font-size: 11px; color: var(--text3); margin-top: 5px; }
+    .nt-empty { text-align: center; padding: 60px 20px; color: var(--text3); }
+  </style>
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+  <div class="nt-wrap">
+    <div class="nt-head">
+      <h1>Notifications</h1>
+      <button class="btn btn-sm" id="ntMarkAll">Tout marquer lu</button>
+    </div>
+    <div class="nt-filters" id="ntFilters">
+      <button class="nt-pill active" data-f="all">Toutes</button>
+      <button class="nt-pill" data-f="unread">Non lues</button>
+      <button class="nt-pill" data-f="reply">Réponses</button>
+      <button class="nt-pill" data-f="mention">Mentions</button>
+      <button class="nt-pill" data-f="chapter">Chapitres</button>
+    </div>
+    <div id="ntList"><div class="nt-empty"><div class="spinner-inline"></div></div></div>
+  </div>
+  <div id="footer-slot"></div>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/userdata.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/nsfw.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/notifications.js"></script>
+  <script src="assets/js/eula.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>

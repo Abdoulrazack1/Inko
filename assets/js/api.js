@@ -97,7 +97,20 @@
         return data;
     }
 
-    const get  = (p)       => request('GET', p);
+    // GET avec un réessai automatique (audit DF9) : uniquement les lectures
+    // (idempotentes) et uniquement sur erreur réseau ou 5xx — jamais sur 4xx.
+    async function getWithRetry(p) {
+        try { return await request('GET', p); }
+        catch (e) {
+            if (e.network || (e.status >= 500 && e.status <= 599)) {
+                await new Promise(r => setTimeout(r, 800));
+                return request('GET', p);
+            }
+            throw e;
+        }
+    }
+
+    const get  = (p)       => getWithRetry(p);
     const post = (p, body) => request('POST', p, body);
     const put  = (p, body) => request('PUT', p, body);
     const del  = (p)       => request('DELETE', p);
@@ -238,7 +251,13 @@
 
         // ── User data (auth required) ──
         me: {
-            favorites:        ()           => get('/me/favorites').then(a => { (a || []).forEach(f => { if (f.cover) f.cover = proxyCover(f.cover); }); return a; }),
+            favorites:        ()           => get('/me/favorites').then(a => {
+                (a || []).forEach(f => { if (f.cover) f.cover = proxyCover(f.cover); });
+                // Rafraîchit le miroir hors-ligne à CHAQUE fetch (audit DF3 :
+                // sinon inko_lib_mirror reste périmé après ajout/suppression).
+                try { window.Storage?.cacheLibrary?.(a); } catch (e) {}
+                return a;
+            }),
             addFavorite:      (mangaId, meta = {}) => post('/me/favorites', {
                 mangaId,
                 source: meta.source || API.sources.current || 'mangadex',

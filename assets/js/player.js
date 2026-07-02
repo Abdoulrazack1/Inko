@@ -180,6 +180,7 @@
     });
 
     document.getElementById('spotifyLogout')?.addEventListener('click', async () => {
+        if (!confirm('Déconnecter ton compte Spotify ?')) return;   // action destructrice (audit A10)
         try { await API.spotify.disconnect(); } catch (e) {}
         document.getElementById('spotifyEmbed').innerHTML = '';
         spShow('spotifyConnect');

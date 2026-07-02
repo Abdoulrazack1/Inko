@@ -116,13 +116,16 @@
         root.querySelector('#im-exp').title = v ? 'Réduire' : 'Agrandir';
         if (v) renderContent();
     }
-    function open()  { S.visible = true; S.min = false; root.classList.remove('min'); root.style.display = 'flex'; setExpanded(true); save(); }
+    // Réserve la place du dock sous le contenu (audit A15 : le dock fixe
+    // cachait le bas de page, surtout en mobile).
+    function setBodyPad(on) { try { document.body.style.paddingBottom = on ? '84px' : ''; } catch (e) {} }
+    function open()  { S.visible = true; S.min = false; root.classList.remove('min'); root.style.display = 'flex'; setExpanded(true); setBodyPad(true); save(); }
     function show()  { S.visible = true; if (!S.min) root.style.display = 'flex'; save(); }
-    function close() { stopAll(); S.visible = false; S.min = false; root.classList.remove('min'); root.style.display = 'none'; save(); }
+    function close() { stopAll(); S.visible = false; S.min = false; root.classList.remove('min'); root.style.display = 'none'; setBodyPad(false); save(); }
     function toggle() { if (root.style.display === 'none') open(); else if (root.classList.contains('min')) restore(); else setExpanded(!root.classList.contains('open')); }
     // Réduit en pastille (la musique continue) ↔ rouvre la barre
-    function minimize() { root.classList.add('min'); root.classList.remove('open'); S.min = true; updatePill(); save(); }
-    function restore()  { root.classList.remove('min'); S.min = false; S.visible = true; root.style.display = 'flex'; save(); }
+    function minimize() { root.classList.add('min'); root.classList.remove('open'); S.min = true; updatePill(); setBodyPad(false); save(); }
+    function restore()  { root.classList.remove('min'); S.min = false; S.visible = true; root.style.display = 'flex'; setBodyPad(true); save(); }
     function updatePill() { const eq = root.querySelector('#im-pill .peq'); if (eq) eq.style.display = playing ? 'flex' : 'none'; }
 
     function setMeta(t, s, artHtml) {
@@ -292,6 +295,7 @@
                     <button class="im-spprof-x" id="im-spunlink">Déconnecter</button>
                 </div>`;
             prof.querySelector('#im-spunlink').onclick = async () => {
+                if (!confirm('Déconnecter ton compte Spotify ?')) return;   // action destructrice (audit A10)
                 try { await API.spotify.disconnect(); } catch (e) {}
                 renderSpotify(root.querySelector('#im-content'));
             };

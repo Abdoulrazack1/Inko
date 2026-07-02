@@ -11,7 +11,8 @@ const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { securityHeaders, corsOptions } = require('./middleware/security');
 
 const app  = express();
-const PORT = parseInt(process.env.PORT || '8080', 10);
+// Défaut aligné sur le frontend (api.js suppose 8088 hors même-origine) — audit §8
+const PORT = parseInt(process.env.PORT || '8088', 10);
 
 // Derrière un reverse-proxy (déploiement en ligne), TRUST_PROXY=1 rend
 // req.ip fiable pour le rate limiting. Inactif en local par défaut.
@@ -69,6 +70,18 @@ app.use(errorHandler);
     } else {
         console.log(`${count} extension(s) chargée(s)`);
     }
+
+    // Ménage quotidien (RGPD art. 5(1)(e), audit P5) : purge les tokens de
+    // reset expirés et borne l'historique d'events (la heatmap couvre 365 j).
+    const { pool } = require('./config/db');
+    async function housekeeping() {
+        try {
+            await pool.query('DELETE FROM password_resets WHERE expires_at < NOW() - INTERVAL 1 DAY');
+            await pool.query('DELETE FROM events WHERE created_at < NOW() - INTERVAL 400 DAY');
+        } catch (e) { /* DB down : réessaiera au prochain cycle */ }
+    }
+    housekeeping();
+    setInterval(housekeeping, 24 * 3600 * 1000).unref();
 
     app.listen(PORT, () => {
         console.log(`Inko backend → http://localhost:${PORT}`);

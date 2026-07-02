@@ -306,24 +306,24 @@
             <div class="card-title">Confidentialité</div>
             <div class="privacy-item">
               <div class="privacy-info">
-                <div class="privacy-name">Profil public</div>
-                <div class="privacy-desc">Votre profil est visible par les autres utilisateurs.</div>
+                <div class="privacy-name">Profil privé</div>
+                <div class="privacy-desc">Masque tes statistiques détaillées sur ton profil public.</div>
               </div>
-              <div class="toggle on"></div>
+              <div class="toggle" data-privacy="privateProfile"></div>
             </div>
             <div class="privacy-item">
               <div class="privacy-info">
                 <div class="privacy-name">Historique visible</div>
-                <div class="privacy-desc">Partagez votre historique avec vos amis.</div>
+                <div class="privacy-desc">Partage ton historique de lecture sur ton profil public.</div>
               </div>
-              <div class="toggle"></div>
+              <div class="toggle on" data-privacy="historyVisible"></div>
             </div>
             <div class="privacy-item">
               <div class="privacy-info">
                 <div class="privacy-name">Partager automatiquement les avis</div>
-                <div class="privacy-desc">Publiez vos avis sur votre flux d'activité.</div>
+                <div class="privacy-desc">Rends tes avis visibles sur ton profil public.</div>
               </div>
-              <div class="toggle on"></div>
+              <div class="toggle on" data-privacy="shareReviews"></div>
             </div>
           </div>
         </div>
@@ -368,30 +368,7 @@
           <button class="lib-filter-btn" data-libfilter="termine">Terminés (21)</button>
         </div>
 
-        <div class="library-filters-bar">
-          <button class="tag">Filtres</button>
-          <button class="tag">Genres</button>
-          <button class="tag">Note</button>
-          <button class="tag">Tags</button>
-          <div style="flex:1"></div>
-          <div class="view-toggle-btns">
-            <button class="view-toggle active" data-view="grid">▦</button>
-            <button class="view-toggle" data-view="list">☰</button>
-          </div>
-        </div>
-
         <div class="library-grid" id="libraryGrid"></div>
-
-        <div class="library-pagination">
-          <span class="lib-page-info">Affichage de <strong>1-8</strong> sur <strong>48</strong> séries</span>
-          <div class="lib-pages">
-            <button class="page-btn active">1</button>
-            <button class="page-btn">2</button>
-            <button class="page-btn">…</button>
-            <button class="page-btn">6</button>
-            <button class="page-btn">Suivant ›</button>
-          </div>
-        </div>
 
         <!-- Listes personnalisées -->
         <div class="lib-bottom-row">
@@ -400,30 +377,7 @@
               <span class="card-title">Listes personnalisées</span>
               <a href="#" class="card-link" data-goto="lists">Gérer</a>
             </div>
-            <div class="lib-list-item">
-              <div class="lib-list-cover" style="background:linear-gradient(135deg,#1a0d3d,#4d1a6a);width:40px;height:54px;border-radius:4px"></div>
-              <div class="lib-list-info">
-                <div class="lib-list-name">À lire cette semaine</div>
-                <div class="lib-list-meta">4 séries • Focus Shōnen &amp; seinen</div>
-                <div class="lib-list-sub">↻ Mise à jour il y a 2h</div>
-              </div>
-            </div>
-            <div class="lib-list-item">
-              <div class="lib-list-cover" style="background:linear-gradient(135deg,#3d0a0a,#6e1a1a);width:40px;height:54px;border-radius:4px"></div>
-              <div class="lib-list-info">
-                <div class="lib-list-name">Classiques à terminer</div>
-                <div class="lib-list-meta">5 séries • Berserk, Vagabond…</div>
-                <div class="lib-list-sub">Progression moyenne 64%</div>
-              </div>
-            </div>
-            <div class="lib-list-item">
-              <div class="lib-list-cover" style="background:linear-gradient(135deg,#0a1a3d,#1a4d8a);width:40px;height:54px;border-radius:4px"></div>
-              <div class="lib-list-info">
-                <div class="lib-list-name">Découvertes récentes</div>
-                <div class="lib-list-meta">11 séries ajoutées ces 30 derniers jours</div>
-                <div class="lib-list-sub">Basé sur tes recommandations</div>
-              </div>
-            </div>
+            <div id="libListsMini"><div class="lib-list-sub" style="padding:8px 0">Chargement…</div></div>
           </div>
           <div class="card lib-status-card">
             <div class="card-title">Statuts</div>
@@ -488,23 +442,20 @@
           <div class="history-summary-grid">
             <div class="hs-stat">
               <div class="hs-stat-label">Chapitres lus (7 derniers jours)</div>
-              <div class="hs-stat-num">42</div>
-              <div class="hs-stat-trend green">+18% vs semaine dernière</div>
+              <div class="hs-stat-num" id="hsChapters7">—</div>
+              <div class="hs-stat-trend" id="hsChaptersTrend"></div>
             </div>
             <div class="hs-stat">
-              <div class="hs-stat-label">Temps de lecture</div>
-              <div class="hs-stat-num">6h 24</div>
-              <div class="hs-stat-trend green">+1h 10min</div>
+              <div class="hs-stat-label">Chapitres lus (total)</div>
+              <div class="hs-stat-num" id="hsChaptersTotal">—</div>
             </div>
             <div class="hs-stat">
-              <div class="hs-stat-label">Séries différentes</div>
-              <div class="hs-stat-num">9</div>
-              <div class="hs-stat-trend blue">+2 nouvelles</div>
+              <div class="hs-stat-label">Séries différentes (7 j)</div>
+              <div class="hs-stat-num" id="hsSeries7">—</div>
             </div>
             <div class="hs-stat">
-              <div class="hs-stat-label">Jours actifs</div>
-              <div class="hs-stat-num">5/7</div>
-              <div class="hs-stat-trend green">Objectif atteint</div>
+              <div class="hs-stat-label">Jours actifs (7 j)</div>
+              <div class="hs-stat-num" id="hsActiveDays">—</div>
             </div>
           </div>
           <div class="history-heatmap-row">
@@ -531,36 +482,16 @@
           </div>
           <div class="history-side">
             <div class="card history-top-series-card">
-              <div class="card-title">Séries les plus lues</div>
-              <div class="top-series-item">
-                <img src="" alt="" style="background:linear-gradient(135deg,#0a3d3a,#1a8a7e);min-width:36px;min-height:50px;border-radius:4px">
-                <div>
-                  <div class="top-series-name">One Piece</div>
-                  <div class="top-series-count">12 chapitres cette semaine</div>
-                </div>
-              </div>
-              <div class="top-series-item">
-                <img src="" alt="" style="background:linear-gradient(135deg,#1a0d3d,#4d1a6a);min-width:36px;min-height:50px;border-radius:4px">
-                <div>
-                  <div class="top-series-name">Jujutsu Kaisen</div>
-                  <div class="top-series-count">8 chapitres cette semaine</div>
-                </div>
-              </div>
-              <div class="top-series-item">
-                <img src="" alt="" style="background:linear-gradient(135deg,#3d0a0a,#6e1a1a);min-width:36px;min-height:50px;border-radius:4px">
-                <div>
-                  <div class="top-series-name">Berserk</div>
-                  <div class="top-series-count">6 chapitres cette semaine</div>
-                </div>
-              </div>
+              <div class="card-title">Séries les plus lues (7 j)</div>
+              <div id="topSeries7"><div style="color:var(--text3);font-size:11.5px;padding:8px 4px">Chargement…</div></div>
             </div>
             <div class="card history-details-card">
               <div class="card-title">⏱ Détails de la période</div>
               <div class="detail-grid">
                 <div><div class="detail-label">Période</div><div class="detail-val">7 derniers jours</div></div>
-                <div><div class="detail-label">Chapitres / jour</div><div class="detail-val">6,0 en moyenne</div></div>
-                <div><div class="detail-label">Lectures de nuit</div><div class="detail-val">38%</div></div>
-                <div><div class="detail-label">Nombre de pauses</div><div class="detail-val">5 sessions</div></div>
+                <div><div class="detail-label">Chapitres / jour</div><div class="detail-val" id="hsPerDay">—</div></div>
+                <div><div class="detail-label">Chapitres (30 j)</div><div class="detail-val" id="hsChapters30">—</div></div>
+                <div><div class="detail-label">Streak actuelle</div><div class="detail-val" id="hsStreak">—</div></div>
               </div>
             </div>
           </div>

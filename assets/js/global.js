@@ -81,18 +81,25 @@
     };
 
     /* ── Type de source (manga vs novel) ─────────────────────
-       Cache du manifest pour router vers le bon lecteur. */
+       Cache du manifest pour router vers le bon lecteur.
+       TTL 5 min + invalidation sur source:change : évite un cache
+       périmé pour toujours si les sources évoluent (audit DF7). */
     window.MH._sourceTypes = null;
+    let _sourceTypesAt = 0;
+    const SOURCE_TYPES_TTL = 5 * 60 * 1000;
     window.MH.loadSourceTypes = async function () {
-        if (window.MH._sourceTypes) return window.MH._sourceTypes;
+        if (window.MH._sourceTypes && (Date.now() - _sourceTypesAt) < SOURCE_TYPES_TTL)
+            return window.MH._sourceTypes;
         try {
             const list = await window.API.sources.list();
             const map = {};
             (list || []).forEach(s => { map[s.id] = s.type || 'manga'; });
             window.MH._sourceTypes = map;
-        } catch (e) { window.MH._sourceTypes = {}; }
+            _sourceTypesAt = Date.now();
+        } catch (e) { window.MH._sourceTypes = window.MH._sourceTypes || {}; }
         return window.MH._sourceTypes;
     };
+    window.addEventListener('source:change', () => { _sourceTypesAt = 0; });
     window.MH.isNovelSource = function (id) {
         return !!(window.MH._sourceTypes && window.MH._sourceTypes[id] === 'novel');
     };
@@ -112,16 +119,36 @@
     };
     // Injecte le lecteur de musique sur toutes les pages
     (function loadMusicDock() {
-        if (document.getElementById('inko-music-js')) return;
+        if (window.Music || document.getElementById('inko-music-js')) return;   // évite le double-chargement (audit §8)
         const s = document.createElement('script');
         s.id = 'inko-music-js'; s.src = '/assets/js/music.js'; s.defer = true;
         (document.body || document.documentElement).appendChild(s);
+    })();
+
+    // Injecte les animations (GSAP) sur toutes les pages — décoratif, non bloquant.
+    // Sauté si l'utilisateur préfère les mouvements réduits.
+    (function loadMotion() {
+        if (document.getElementById('inko-motion-js')) return;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const add = (src, id, onload) => {
+            const s = document.createElement('script');
+            s.src = src; if (id) s.id = id; s.defer = true; if (onload) s.onload = onload;
+            (document.body || document.documentElement).appendChild(s);
+            return s;
+        };
+        add('/assets/vendor/gsap.min.js', 'inko-gsap-js', () => {
+            add('/assets/vendor/ScrollTrigger.min.js', 'inko-st-js', () => {
+                add('/assets/js/motion.js', 'inko-motion-js');
+            });
+        });
     })();
 
     /* ── Toast ───────────────────────────────────────────── */
     window.MH.toast = function (msg, duration = 2500) {
         const el = document.createElement('div');
         el.className = 'toast';
+        el.setAttribute('role', 'alert');          // lecteurs d'écran (audit A12)
+        el.setAttribute('aria-live', 'assertive');
         el.textContent = msg;
         Object.assign(el.style, {
             position: 'fixed', bottom: '24px', right: '24px', zIndex: '9999',
@@ -661,6 +688,8 @@
         const footerSlot = document.getElementById('footer-slot');
         if (headerSlot) headerSlot.outerHTML = headerHTML(activePage);
         if (footerSlot) footerSlot.innerHTML = footerHTML;
+        injectSkipLink();
+        applyAriaLabels();
         initSearch();
         initFooterButtons();
         initHeaderButtons();
@@ -675,8 +704,13 @@
         // Check des nouveautés au lancement (pas pendant la lecture : priorité aux pages)
         if (activePage !== 'chapitre') launchUpdateCheck();
 
-        // Re-render header au login/logout
-        window.addEventListener('auth:change', () => {
+        // Re-render header au login/logout.
+        // Un seul listener conservé : initPage() peut être rappelé (re-render),
+        // on retire l'ancien avant d'attacher pour éviter l'accumulation (audit DF2).
+        if (window.MH._authChangeHandler) {
+            window.removeEventListener('auth:change', window.MH._authChangeHandler);
+        }
+        window.MH._authChangeHandler = () => {
             const oldHeader = document.querySelector('.site-header');
             if (!oldHeader) return;
             const wrapper = document.createElement('div');
@@ -684,9 +718,11 @@
             oldHeader.replaceWith(wrapper.firstElementChild);
             initSearch();
             initNotifications();
+            applyAriaLabels();                  // ré-applique les aria-label au header reconstruit (audit A2)
             _lastReadPromise = null;            // recalcule selon le nouveau compte
             window.MH.refreshContinueButton();
-        });
+        };
+        window.addEventListener('auth:change', window.MH._authChangeHandler);
     };
 
     /* ── Notifications (cloche header) ───────────────────── */
@@ -713,7 +749,10 @@
         setNotifBadge(data.unread || 0);
         const head = `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)">
             <strong style="font-size:13.5px">Notifications</strong>
-            ${data.items.length ? `<button id="notifMarkAll" style="background:none;border:none;color:var(--orange);font-size:11.5px;cursor:pointer">Tout marquer lu</button>` : ''}</div>`;
+            <span style="display:flex;gap:12px;align-items:center">
+                ${data.items.length ? `<button id="notifMarkAll" style="background:none;border:none;color:var(--orange);font-size:11.5px;cursor:pointer">Tout marquer lu</button>` : ''}
+                <a href="notifications.html" style="color:var(--text3);font-size:11.5px;text-decoration:none">Voir tout →</a>
+            </span></div>`;
         if (!data.items.length) {
             dd.innerHTML = head + `<div style="padding:26px 16px;text-align:center;color:var(--text3);font-size:13px">Aucune notification.</div>`;
         } else {
@@ -752,6 +791,31 @@
         document.addEventListener('click', (e) => {
             if (dd && dd.style.display === 'block' && !e.target.closest('.notif-wrap')) dd.style.display = 'none';
         });
+    }
+
+    /* ── Accessibilité : skip link + aria-labels (audit A1/A2) ── */
+    function injectSkipLink() {
+        if (document.querySelector('.skip-link')) return;
+        const a = document.createElement('a');
+        a.className = 'skip-link';
+        a.href = '#';
+        a.textContent = 'Aller au contenu';
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Cible : l'élément qui suit le header (contenu principal de chaque page)
+            const header = document.querySelector('.site-header');
+            const main = header && header.nextElementSibling;
+            if (main) { main.setAttribute('tabindex', '-1'); main.focus(); }
+        });
+        document.body.insertBefore(a, document.body.firstChild);
+    }
+    function applyAriaLabels() {
+        // Les boutons-icônes du header ont un title : on le reflète en aria-label
+        document.querySelectorAll('.header-icon-btn[title]:not([aria-label])').forEach(b => {
+            b.setAttribute('aria-label', b.getAttribute('title'));
+        });
+        const search = document.getElementById('headerSearch');
+        if (search && !search.getAttribute('aria-label')) search.setAttribute('aria-label', 'Rechercher un manga');
     }
 
     /* ── Bandeau de consentement (RGPD, audit P1/P6) ─────── */

@@ -3,7 +3,7 @@
 //             stale-while-revalidate pour assets statiques
 //             cache des couvertures mangadex (bande passante)
 
-const CACHE_VERSION = 'inko-v12';
+const CACHE_VERSION = 'inko-v14';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -49,6 +49,27 @@ const STATIC_ASSETS = [
     '/page_signup.html',
     '/page_mdpoublie.html',
     '/page_nouveaumdp.html',
+    // Pages & modules récents (audit SW2 : liste tenue à jour)
+    '/admin.html',
+    '/assets/js/admin.js',
+    '/u.html',
+    '/assets/js/u.js',
+    '/import.html',
+    '/assets/js/import.js',
+    '/localreader.html',
+    '/assets/js/localreader.js',
+    '/assets/vendor/jszip.min.js',
+    '/assets/vendor/gsap.min.js',
+    '/assets/vendor/ScrollTrigger.min.js',
+    '/assets/js/motion.js',
+    '/confidentialite.html',
+    '/notifications.html',
+    '/assets/js/notifications.js',
+    '/assets/i18n/fr.json',
+    '/assets/i18n/en.json',
+    '/assets/js/userdata.js',
+    '/assets/js/theme.js',
+    '/assets/js/nsfw.js',
     '/manifest.webmanifest',
     '/assets/css/global.css',
     '/assets/css/accueil.css',
@@ -78,15 +99,23 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(STATIC_CACHE)
-            .then(c => c.addAll(STATIC_ASSETS).catch(() => {})) // ignore les 404
-            .then(() => self.skipWaiting())
-    );
+    // Pré-cache par asset : un 404 isolé n'annule plus tout le lot
+    // (audit SW3 : cache.addAll échoue en bloc au moindre asset manquant).
+    event.waitUntil((async () => {
+        const c = await caches.open(STATIC_CACHE);
+        const results = await Promise.allSettled(STATIC_ASSETS.map(a => c.add(a)));
+        const failed = results.filter(r => r.status === 'rejected').length;
+        if (failed) console.warn(`[sw] pré-cache : ${failed}/${STATIC_ASSETS.length} asset(s) non mis en cache`);
+        await self.skipWaiting();
+    })());
 });
 
 self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
+        // Navigation preload : la requête part pendant le réveil du SW (audit SW6)
+        if (self.registration.navigationPreload) {
+            try { await self.registration.navigationPreload.enable(); } catch (e) {}
+        }
         const keys = await caches.keys();
         await Promise.all(keys
             .filter(k => !k.startsWith(CACHE_VERSION) && k !== OFFLINE_CACHE)
@@ -107,9 +136,12 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 1) API : network-first (jamais cache stale)
+    // 1) API : network-first. Les GET publics (catalogue, sources, chapitres…)
+    //    gardent une copie de secours pour consultation hors-ligne (audit SW8).
+    //    Jamais les endpoints par compte (/me, /auth, /admin, /spotify).
     if (url.pathname.startsWith('/api/')) {
-        event.respondWith(networkFirst(req));
+        const isPublicGet = !/^\/api\/(me|auth|admin|spotify)(\/|$)/.test(url.pathname);
+        event.respondWith(networkFirst(req, isPublicGet ? RUNTIME_CACHE : undefined));
         return;
     }
 
@@ -123,10 +155,20 @@ self.addEventListener('fetch', (event) => {
     //    cache uniquement en secours hors-ligne. Évite le code périmé.
     if (url.origin === self.location.origin) {
         const isCode = /\.(html|js|css|webmanifest)$/.test(url.pathname) || url.pathname === '/';
-        event.respondWith(isCode ? networkFirst(req, RUNTIME_CACHE) : staleWhileRevalidate(req));
+        event.respondWith(isCode ? networkFirst(req, RUNTIME_CACHE, event) : staleWhileRevalidate(req));
         return;
     }
 });
+
+// Borne un cache à `max` entrées (éviction des plus anciennes) — audit SW7
+async function trimCache(cacheName, max) {
+    try {
+        const cache = await caches.open(cacheName);
+        const keys = await cache.keys();
+        if (keys.length <= max) return;
+        await Promise.all(keys.slice(0, keys.length - max).map(k => cache.delete(k)));
+    } catch (e) {}
+}
 
 async function offlineImage(req, url) {
     try {
@@ -143,9 +185,11 @@ async function offlineImage(req, url) {
     catch (e) { const c = await caches.match(req); return c || new Response('', { status: 504 }); }
 }
 
-async function networkFirst(req, cacheName) {
+async function networkFirst(req, cacheName, event) {
     try {
-        const res = await fetch(req);
+        // Navigation preload si dispo (réponse déjà en route pendant le réveil du SW)
+        const preload = event ? await event.preloadResponse.catch(() => null) : null;
+        const res = preload || await fetch(req);
         // Met en cache la version fraîche pour le mode hors-ligne
         if (cacheName && res.ok && req.url.startsWith('http')) {
             const c = await caches.open(cacheName);
@@ -170,7 +214,10 @@ async function cacheFirst(req, cacheName) {
     if (cached) return cached;
     try {
         const res = await fetch(req);
-        if (res.ok) cache.put(req, res.clone()).catch(() => {});
+        if (res.ok) {
+            cache.put(req, res.clone()).catch(() => {});
+            trimCache(cacheName, 400);   // le cache covers ne grossit plus indéfiniment (audit SW7)
+        }
         return res;
     } catch (e) {
         return new Response('', { status: 504 });

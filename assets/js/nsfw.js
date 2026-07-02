@@ -63,8 +63,23 @@
             if (!stored) return false;
             return (await sha256(pin || '')) === stored;
         },
+        // Anti brute-force (audit S2) : 5 essais ratés → verrou 60 s.
+        // Le PIN est un verrou de confort local (SHA-256 rapide) ; le délai
+        // rend au moins le brute-force interactif impraticable.
         async unlock(pin) {
-            if (!await this.verify(pin)) return false;
+            let st = { fails: 0, until: 0 };
+            try { st = JSON.parse(localStorage.getItem('inko_nsfw_lock') || '{}') || st; } catch (e) {}
+            if (st.until && Date.now() < st.until) {
+                const s = Math.ceil((st.until - Date.now()) / 1000);
+                throw new Error(`Trop de tentatives. Réessaie dans ${s} s.`);
+            }
+            if (!await this.verify(pin)) {
+                st.fails = (st.fails || 0) + 1;
+                if (st.fails >= 5) { st.until = Date.now() + 60_000; st.fails = 0; }
+                try { localStorage.setItem('inko_nsfw_lock', JSON.stringify(st)); } catch (e) {}
+                return false;
+            }
+            try { localStorage.removeItem('inko_nsfw_lock'); } catch (e) {}
             try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch (e) {}
             return true;
         },

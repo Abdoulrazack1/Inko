@@ -169,7 +169,9 @@
         </section>
     </div>
 
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- SRI impossible ici (audit S13) : Google met à jour gsi/client en continu,
+         un hash integrity casserait la connexion. Mitigation : referrerpolicy. -->
+    <script src="https://accounts.google.com/gsi/client" async defer referrerpolicy="no-referrer"></script>
     <script src="assets/js/api.js"></script>
     <script src="assets/js/storage.js"></script>
   <script src="assets/js/theme.js"></script>

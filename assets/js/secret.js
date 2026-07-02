@@ -30,7 +30,9 @@
         input?.focus();
 
         async function attempt() {
-            const ok = await window.NSFW.unlock(input.value);
+            let ok = false;
+            try { ok = await window.NSFW.unlock(input.value); }
+            catch (e) { MH.toast(e.message); input.value = ''; return; }   // verrou anti-brute-force
             if (ok) { showContent(); }
             else {
                 input.value = '';

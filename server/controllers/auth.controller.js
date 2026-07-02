@@ -272,7 +272,14 @@ async function deleteAccount(req, res, next) {
         const ok = await bcrypt.compare(password, user.password_hash);
         if (!ok) return res.status(401).json({ error: 'Mot de passe incorrect' });
 
+        // Purge complète (RGPD art. 17, audit P2) : la cascade FK nettoie les
+        // tables liées, mais pas les resets (clé email) ni les fichiers disque.
         await pool.query('DELETE FROM users WHERE id = ?', [req.user.id]); // CASCADE nettoie le reste
+        await pool.query('DELETE FROM password_resets WHERE email = ?', [user.email]).catch(() => {});
+        try {
+            const fs = require('fs'), path = require('path');
+            fs.rmSync(path.join(__dirname, '..', 'uploads', String(req.user.id)), { recursive: true, force: true });
+        } catch (e) { /* pas d'uploads */ }
         res.clearCookie('token', { path: '/' });
         res.json({ ok: true });
     } catch (e) { next(e); }

@@ -8,6 +8,27 @@
 (function () {
     'use strict';
 
+    // ── Migrations localStorage versionnées (audit DF10) ─────
+    // Chaque entrée transforme le stockage local d'une version à la suivante.
+    // Ajouter une fonction ici quand un schéma de clé change ; elle ne
+    // s'exécute qu'une fois par navigateur.
+    const SCHEMA_KEY = 'inko_schema_version';
+    const MIGRATIONS = [
+        // v1 : état de référence (aucune transformation)
+        function v1() {},
+        // v2 (exemple futur) : function v2() { renommer/convertir des clés ici }
+    ];
+    (function runMigrations() {
+        try {
+            let v = parseInt(localStorage.getItem(SCHEMA_KEY) || '0', 10) || 0;
+            while (v < MIGRATIONS.length) {
+                try { MIGRATIONS[v](); } catch (e) { /* une migration ratée ne bloque pas l'app */ }
+                v++;
+            }
+            localStorage.setItem(SCHEMA_KEY, String(v));
+        } catch (e) {}
+    })();
+
     const PREF_KEY = 'mh_prefs';
     const DEFAULT_PREFS = {
         readMode:        'page',    // 'page' | 'scroll' | 'double'

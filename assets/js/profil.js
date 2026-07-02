@@ -22,6 +22,8 @@
             renderHistoryTimeline(),
             renderHeatmap(),
             renderListsPanel(),
+            renderLibListsMini(),
+            renderHistorySummary(),
             renderMyReviews(),
             renderBadges(),
             renderGenres(),
@@ -75,10 +77,12 @@
     }
 
     // ── Helpers ──
+    const CACHE_MAX = 300;   // borne le cache (audit DF8 : Map non évincée)
     async function loadManga(id) {
         if (cacheMangas.has(id)) return cacheMangas.get(id);
         try {
             const m = await API.mangas.get(id);
+            if (cacheMangas.size >= CACHE_MAX) cacheMangas.delete(cacheMangas.keys().next().value);
             cacheMangas.set(id, m);
             return m;
         } catch(e) { return null; }
@@ -653,6 +657,92 @@
     }
 
     // ── Lists ──
+    // Résumé de l'onglet Historique : vraies stats (audit B6/B9 — fini les 42, +18%, One Piece…)
+    async function renderHistorySummary() {
+        if (!document.getElementById('hsChapters7')) return;
+        const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+        try {
+            const [stats, events] = await Promise.all([
+                API.me.stats().catch(() => ({})),
+                API.me.events(500).catch(() => []),
+            ]);
+            const t = stats.totals || {};
+            const heat = stats.heatmap || {};
+            const now = Date.now(), DAY = 86400000;
+            // Compte EXACT via la heatmap (DATE(read_at) sur read_chapters), pas les events
+            // qui surcomptent (chaque reprise de progression émet un 'read').
+            const dayKey = ms => new Date(ms).toISOString().slice(0, 10);
+            let chap7 = 0, prev7chap = 0, active = 0;
+            for (let i = 0; i < 7; i++)  { const c = heat[dayKey(now - i * DAY)] || 0; chap7 += c; if (c) active++; }
+            for (let i = 7; i < 14; i++) { prev7chap += heat[dayKey(now - i * DAY)] || 0; }
+            // Séries distinctes lues sur 7 j (via events, en relatif — ok pour un décompte de variété)
+            const reads7ev = (events || []).filter(e => e.type === 'read' && now - new Date(e.at).getTime() <= 7 * DAY);
+
+            set('hsChapters7', chap7);
+            set('hsChaptersTotal', t.chapters_read ?? '—');
+            set('hsSeries7', new Set(reads7ev.map(e => e.mangaId)).size);
+            set('hsActiveDays', `${active}/7`);
+            set('hsPerDay', (chap7 / 7).toFixed(1).replace('.', ','));
+            set('hsChapters30', t.chapters_this_month ?? '—');
+            set('hsStreak', (stats.streak?.current || 0) + ' j');
+
+            // Tendance vs semaine précédente (réelle)
+            const trendEl = document.getElementById('hsChaptersTrend');
+            if (trendEl && (chap7 || prev7chap)) {
+                const diff = chap7 - prev7chap;
+                trendEl.textContent = diff === 0 ? '= semaine précédente' : `${diff > 0 ? '+' : ''}${diff} vs sem. préc.`;
+                trendEl.className = 'hs-stat-trend ' + (diff >= 0 ? 'green' : '');
+            }
+
+            // Top séries les plus lues (7 j) — réelles
+            const cont = document.getElementById('topSeries7');
+            if (cont) {
+                const counts = {};
+                reads7.forEach(e => { if (e.mangaId) counts[e.mangaId] = (counts[e.mangaId] || 0) + 1; });
+                const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+                if (!top.length) {
+                    cont.innerHTML = `<div style="color:var(--text3);font-size:11.5px;padding:8px 4px">Aucune lecture cette semaine.</div>`;
+                } else {
+                    const mangas = await loadMangas(top.map(([id]) => id));
+                    cont.innerHTML = top.map(([id, n], i) => {
+                        const m = mangas[i] || {};
+                        return `<div class="top-series-item">
+                            <img src="${m.coverThumb || m.cover || ''}" alt="" style="min-width:36px;min-height:50px;border-radius:4px;object-fit:cover;background:var(--bg4)" onerror="this.style.visibility='hidden'">
+                            <div>
+                                <div class="top-series-name">${MH.esc(m.title || id)}</div>
+                                <div class="top-series-count">${n} chapitre${n > 1 ? 's' : ''} cette semaine</div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+            }
+        } catch (e) { /* silencieux */ }
+    }
+
+    // Vignettes des listes personnalisées dans l'onglet Bibliothèque (données réelles, audit B9)
+    async function renderLibListsMini() {
+        const el = document.getElementById('libListsMini');
+        if (!el) return;
+        try {
+            const lists = await API.me.lists();
+            if (!lists.length) {
+                el.innerHTML = `<div class="lib-list-sub" style="padding:8px 0;color:var(--text3)">Aucune liste. Crée-en une dans l'onglet « Mes listes ».</div>`;
+                return;
+            }
+            const grad = ['135deg,#1a0d3d,#4d1a6a', '135deg,#3d0a0a,#6e1a1a', '135deg,#0a1a3d,#1a4d8a', '135deg,#0d3d1a,#1a6a3d'];
+            el.innerHTML = lists.slice(0, 4).map((l, i) => `
+                <div class="lib-list-item" data-goto="lists" style="cursor:pointer">
+                    <div class="lib-list-cover" style="background:linear-gradient(${grad[i % grad.length]});width:40px;height:54px;border-radius:4px"></div>
+                    <div class="lib-list-info">
+                        <div class="lib-list-name">${MH.esc(l.name)}</div>
+                        <div class="lib-list-meta">${l.mangaIds.length} série${l.mangaIds.length > 1 ? 's' : ''}${l.description ? ' • ' + MH.esc(l.description) : ''}</div>
+                    </div>
+                </div>`).join('');
+        } catch (e) {
+            el.innerHTML = '';
+        }
+    }
+
     async function renderListsPanel() {
         const panel = document.querySelector('.lists-panel');
         if (!panel) return;
@@ -734,11 +824,32 @@
     }
 
     // ── Toggles + prefs ──
-    function initToggles() {
+    // Les toggles avec data-privacy sont persistés dans settings.privacy
+    // (audit B10) ; les autres restent purement visuels.
+    async function initToggles() {
+        // Charge l'état réel des toggles de confidentialité
+        let privacy = {};
+        try { privacy = (await API.me.settings())?.privacy || {}; } catch (e) {}
+        document.querySelectorAll('.toggle[data-privacy]').forEach(t => {
+            const key = t.dataset.privacy;
+            const on = key === 'privateProfile' ? !!privacy[key] : (privacy[key] !== false); // défaut visible
+            t.classList.toggle('on', on);
+        });
         document.querySelectorAll('.toggle').forEach(t => {
-            t.addEventListener('click', () => {
+            t.addEventListener('click', async () => {
                 t.classList.toggle('on');
-                MH.toast(t.classList.contains('on') ? 'Activé ✓' : 'Désactivé');
+                const isOn = t.classList.contains('on');
+                const key = t.dataset.privacy;
+                if (key) {
+                    try {
+                        const cur = (await API.me.settings()) || {};
+                        const p = { ...(cur.privacy || {}), [key]: isOn };
+                        await API.me.saveSettings({ privacy: p });
+                        MH.toast(isOn ? 'Activé ✓' : 'Désactivé');
+                    } catch (e) { MH.toast('Erreur : ' + e.message); t.classList.toggle('on'); }
+                } else {
+                    MH.toast(isOn ? 'Activé ✓' : 'Désactivé');
+                }
             });
         });
     }

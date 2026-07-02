@@ -68,14 +68,17 @@ async function searchAll(req, res, next) {
         const sources = extensions.getAll().filter(s => supports(s, 'search'));
         const groups = await Promise.all(sources.map(async s => {
             const base = { source: s.id, sourceName: s.name, lang: s.lang || '' };
+            let timer = null;   // nettoyé quoi qu'il arrive (audit B5 : timer qui traînait 15 s)
             try {
                 const r = await Promise.race([
                     s.search({ q: q.trim(), limit: +limit }),
-                    new Promise((_, rej) => setTimeout(() => rej(new Error('délai dépassé')), 15000)),
+                    new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('délai dépassé')), 15000); }),
                 ]);
                 return { ...base, items: (r.results || []).slice(0, +limit), total: r.total };
             } catch (e) {
                 return { ...base, items: [], error: e.message };
+            } finally {
+                clearTimeout(timer);
             }
         }));
         res.json({ query: q.trim(), groups });

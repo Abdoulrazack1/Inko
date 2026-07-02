@@ -57,7 +57,11 @@
     window.MH?.setupGoogleSignin?.({ container: 'googleSignin', divider: 'ssoDivider' });
 
     // ── Compte démo ──
-    if (form) {
+    // Visible uniquement en local (audit S7) : en déploiement public, le bouton
+    // de pré-remplissage disparaît (le compte démo n'existe que sur les
+    // installations locales issues de init-db).
+    const isLocalHost = ['localhost', '127.0.0.1'].includes(location.hostname);
+    if (form && isLocalHost) {
         const demoHint = document.createElement('button');
         demoHint.type = 'button';
         demoHint.className = 'btn btn-ghost btn-sm';
