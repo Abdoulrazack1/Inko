@@ -9,67 +9,7 @@
   <meta name="theme-color" content="#0d0d0f">
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
   <link rel="stylesheet" href="assets/css/global.css">
-  <style>
-    .lib2-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
-    .lib2-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
-    .lib2-head h1 { font-family: var(--font-head); font-size: 26px; font-weight: 700; }
-    .lib2-tabs { display:flex; gap:4px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:4px; }
-    .lib2-tab { padding:8px 16px; border-radius:7px; font-size:13px; color:var(--text2); font-weight:500; }
-    .lib2-tab.active { background:var(--orange); color:#fff; }
-    .lib2-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
-    .lib2-search { flex:1; min-width:200px; background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:9px 14px; border-radius:9px; font-size:13px; }
-    .lib2-search:focus { outline:none; border-color:var(--orange); }
-    .lib2-sort { background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:9px 12px; border-radius:9px; font-size:12.5px; }
-    .lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:16px; }
-    .lib2-grid.lib2-grid--compact { grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:10px; }
-    .lib2-grid--compact .lib2-title { font-size:11px; }
-    .lib2-grid--compact .lib2-sub, .lib2-grid--compact .lib2-cat { display:none; }
-    .lib2-card { position:relative; cursor:pointer; }
-    .lib2-cover { aspect-ratio:3/4; border-radius:10px; overflow:hidden; background:var(--bg4); position:relative; }
-    .lib2-cover img { width:100%; height:100%; object-fit:cover; }
-    .lib2-badge { position:absolute; top:8px; right:8px; background:var(--orange); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.4); }
-    .lib2-pin { position:absolute; bottom:8px; right:8px; width:30px; height:30px; border-radius:9px; border:none; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; opacity:0; transform:translateY(4px); transition:opacity .14s, transform .14s, background .14s; backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; }
-    .lib2-card:hover .lib2-pin { opacity:.9; transform:translateY(0); }
-    .lib2-pin:hover { background:rgba(0,0,0,.8); }
-    .lib2-pin.on { opacity:1; transform:translateY(0); background:var(--orange); box-shadow:0 2px 8px rgba(0,0,0,.4); }
-    .lib2-del { position:absolute; bottom:8px; right:44px; width:30px; height:30px; border-radius:9px; border:none; background:rgba(0,0,0,.55); color:#fff; font-size:13px; line-height:1; cursor:pointer; opacity:0; transform:translateY(4px); transition:opacity .14s, transform .14s, background .14s; backdrop-filter:blur(2px); }
-    .lib2-card:hover .lib2-del { opacity:.9; transform:translateY(0); }
-    .lib2-del:hover { background:#ef4444; opacity:1; }
-    .ic-btn { display:inline-flex; align-items:center; gap:6px; }
-    .ic-btn svg { flex-shrink:0; }
-    .lib2-progress { position:absolute; left:0; right:0; bottom:0; height:4px; background:rgba(0,0,0,.45); }
-    .lib2-progress-fill { height:100%; background:var(--orange); transition:width .3s; }
-    .lib2-title { font-size:12.5px; font-weight:500; margin-top:7px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    .lib2-sub { font-size:11px; color:var(--text3); margin-top:2px; }
-    .lib2-empty { text-align:center; padding:70px 20px; color:var(--text3); }
-    .lib2-empty .ico { font-size:48px; margin-bottom:10px; }
-    /* Filtres (statuts / catégories) */
-    .lib2-filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
-    .lib2-chip { padding:6px 13px; border-radius:20px; font-size:12.5px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; font-weight:500; transition:all .12s; }
-    .lib2-chip:hover { color:var(--text); border-color:var(--border); }
-    .lib2-chip.on { background:var(--orange); border-color:var(--orange); color:#fff; }
-    .lib2-chip .cnt { opacity:.65; margin-left:5px; font-size:11px; }
-    .lib2-chip-add { color:var(--text3); border-style:dashed; }
-    .lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; color:#fff; }
-    .lib2-kind-badge { position:absolute; bottom:8px; left:8px; font-size:8.5px; font-weight:800; padding:2px 6px; border-radius:5px; letter-spacing:.04em; color:#fff; background:#7c3aed; box-shadow:0 2px 6px rgba(0,0,0,.4); }
-    .lib2-cat { font-size:10px; color:var(--text3); margin-top:1px; }
-    /* Segment Mangas / Romans */
-    .lib2-kinds { display:inline-flex; background:var(--bg3); border:1px solid var(--border2); border-radius:20px; padding:3px; gap:2px; margin-right:6px; }
-    .lib2-kind { padding:5px 14px; border-radius:18px; font-size:12.5px; font-weight:600; color:var(--text2); background:none; border:none; cursor:pointer; transition:all .12s; }
-    .lib2-kind:hover { color:var(--text); }
-    .lib2-kind.on { background:var(--orange); color:#fff; }
-    .lib2-kind .cnt { opacity:.7; margin-left:5px; font-size:11px; }
-    .lib2-filters { width:100%; }
-    /* Updates list */
-    .upd-row { display:flex; align-items:center; gap:14px; padding:12px; background:var(--bg2); border:1px solid var(--border); border-radius:11px; margin-bottom:10px; transition:border-color .15s; }
-    .upd-row:hover { border-color:var(--orange); }
-    .upd-cover { width:52px; height:70px; border-radius:7px; overflow:hidden; flex-shrink:0; background:var(--bg4); }
-    .upd-cover img { width:100%; height:100%; object-fit:cover; }
-    .upd-info { flex:1; min-width:0; }
-    .upd-name { font-size:14px; font-weight:600; }
-    .upd-meta { font-size:12px; color:var(--text2); margin-top:3px; }
-    .upd-new { background:rgba(34,197,94,.15); color:var(--green); font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:5px; }
-  </style>
+  <link rel="stylesheet" href="assets/css/bibliotheque.css">
 </head>
 <body class="page-body">
   <div id="header-slot"></div>
@@ -99,7 +39,12 @@
           <option value="unread">Non-lus d'abord</option>
           <option value="progress">Progression</option>
         </select>
+        <div class="lib2-view" id="libViewToggle" role="group" aria-label="Vue">
+          <button data-view="grid" class="on" title="Vue grille" aria-label="Vue grille"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+          <button data-view="list" title="Vue liste" aria-label="Vue liste"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+        </div>
         <button class="btn btn-secondary btn-sm ic-btn" id="btnLibDensity" title="Changer la densité d'affichage"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Compact</button>
+        <button class="btn btn-secondary btn-sm ic-btn" id="btnLibSelect" title="Sélectionner plusieurs séries"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Sélectionner</button>
         <button class="btn btn-secondary btn-sm ic-btn" id="btnLibRandom" title="Ouvrir une série au hasard dans ma bibliothèque"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.3" fill="currentColor" stroke="none"/></svg>Au hasard</button>
         <button class="btn btn-secondary btn-sm ic-btn" id="btnLibExport" title="Télécharger une sauvegarde de mes données (JSON)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Exporter</button>
         <button class="btn btn-secondary btn-sm ic-btn" id="btnLibImport" title="Restaurer une sauvegarde (JSON)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/></svg>Importer</button>
@@ -109,6 +54,7 @@
         </button>
         <span id="libRefreshStatus" style="font-size:12px;color:var(--text3)"></span>
       </div>
+      <div class="lib2-resume" id="libResume" style="display:none"></div>
       <div class="lib2-filters" id="libFilters"></div>
       <div class="lib2-grid" id="libGrid">
         <div class="lib2-empty" style="grid-column:1/-1"><div class="spinner-inline"></div></div>
@@ -137,6 +83,14 @@
       </div>
       <div id="dlList"></div>
     </div>
+  </div>
+
+  <!-- Barre d'actions groupées (mode sélection, audit §10.3) -->
+  <div class="lib2-bulkbar hidden" id="libBulkBar">
+    <span class="count" id="bulkCount">0 sélectionné(s)</span>
+    <button class="btn btn-secondary btn-sm" id="bulkStatus">Statut…</button>
+    <button class="btn btn-sm" id="bulkDelete" style="background:rgba(239,68,68,.15);color:#ef4444">Retirer</button>
+    <button class="btn btn-sm" id="bulkCancel">Annuler</button>
   </div>
 
   <div id="footer-slot"></div>

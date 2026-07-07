@@ -3,22 +3,50 @@
 // ------------------------------------------------------------
 // Regroupe les protections transverses pour garder server.js lisible.
 // Choix volontaires pour ne PAS casser le frontend vanilla d'Inko :
-//   - CSP désactivée : les pages utilisent du JS/CSS et des handlers inline ;
-//     une CSP stricte les bloquerait. À réactiver le jour où le front passe
-//     à des scripts externes + nonces.
+//   - CSP/HSTS : activées UNIQUEMENT en production (audit court terme). En
+//     local (Laragon) et desktop on tourne en http avec des handlers inline,
+//     donc elles restent off pour ne rien casser. Échappatoires : DISABLE_CSP=1
+//     / DISABLE_HSTS=1 si un déploiement pose problème.
+//   - La CSP garde 'unsafe-inline' (le front vanilla a des handlers inline) mais
+//     verrouille object-src, base-uri, frame-ancestors et l'allowlist des SDK
+//     tiers réellement utilisés (Google GSI, embeds YouTube/Spotify, AniList).
 //   - crossOriginResourcePolicy = cross-origin : le proxy d'images sert des
 //     couvertures consommées par des <img> (parfois cross-origin en mobile).
-//   - HSTS off : en local (Laragon) et desktop, on tourne en http.
 // ============================================================
 const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+// CSP compatible avec le front vanilla (inline autorisé) mais restreignant les
+// origines externes aux seuls tiers réellement utilisés par l'app.
+const cspDirectives = {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'", "'unsafe-inline'",
+        'https://accounts.google.com', 'https://apis.google.com',
+        'https://open.spotify.com', 'https://www.youtube.com', 'https://s.ytimg.com'],
+    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],  // Google Fonts CSS
+    imgSrc: ["'self'", 'data:', 'blob:', 'https:'],   // couvertures proxifiées + externes
+    connectSrc: ["'self'", 'https:'],                 // fetch API + AniList/Google
+    frameSrc: ['https://open.spotify.com', 'https://www.youtube.com',
+        'https://youtube.com', 'https://accounts.google.com'],
+    fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],   // fichiers Google Fonts
+    mediaSrc: ["'self'", 'data:', 'blob:', 'https:'],
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    frameAncestors: ["'self'"],
+};
+
 // En-têtes de sécurité sûrs (noSniff, frameguard, referrerPolicy, etc.)
 const securityHeaders = helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: (IS_PROD && process.env.DISABLE_CSP !== '1')
+        ? { directives: cspDirectives }
+        : false,
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
-    hsts: false,
+    hsts: (IS_PROD && process.env.DISABLE_HSTS !== '1')
+        ? { maxAge: 15552000, includeSubDomains: true }   // 180 jours
+        : false,
 });
 
 // CORS : par défaut on reflète l'origine (compat desktop/PWA/mobile Capacitor,

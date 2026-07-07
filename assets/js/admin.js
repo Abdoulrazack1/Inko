@@ -48,6 +48,7 @@
             <div class="ad-tabs">
                 <button class="ad-tab ${activeTab === 'reports' ? 'active' : ''}" data-tab="reports">Modération ${t.open_reports ? `(${t.open_reports})` : ''}</button>
                 <button class="ad-tab ${activeTab === 'users' ? 'active' : ''}" data-tab="users">Utilisateurs</button>
+                <button class="ad-tab ${activeTab === 'sources' ? 'active' : ''}" data-tab="sources">Sources</button>
             </div>
             <div id="adTabBody"></div>`;
         body.querySelectorAll('.ad-tab').forEach(b => b.addEventListener('click', () => {
@@ -60,7 +61,55 @@
 
     function loadTab() {
         if (activeTab === 'reports') loadReports();
+        else if (activeTab === 'sources') loadSources();
         else loadUsers();
+    }
+
+    // ── Statut des sources (audit §7.3 rec 3) ──
+    async function loadSources() {
+        const el = document.getElementById('adTabBody');
+        el.innerHTML = `<div class="ad-empty"><div class="spinner-inline"></div></div>`;
+        let rows = [];
+        try { rows = await API.sources.health(); } catch (e) {
+            el.innerHTML = `<div class="ad-panel"><div class="ad-empty" style="color:#ef4444">Erreur : ${MH.esc(e.message)}</div></div>`;
+            return;
+        }
+        if (!rows.length) { el.innerHTML = `<div class="ad-panel"><div class="ad-empty">Aucune source installée.</div></div>`; return; }
+        // Cassées d'abord (échecs consécutifs), puis le reste
+        rows.sort((a, b) => (b.streak || 0) - (a.streak || 0));
+        const when = (ts) => ts ? MH.relTime(new Date(ts).toISOString?.() || ts) : '—';
+        const dot = (r) => {
+            if (r.streak >= 3) return ['#ef4444', 'cassée'];
+            if (r.streak > 0)  return ['#f59e0b', 'instable'];
+            if (r.okAt)        return ['#22c55e', 'OK'];
+            return ['#9ca3af', 'jamais testée'];
+        };
+        el.innerHTML = `<div class="ad-panel">${rows.map(r => {
+            const [color, label] = dot(r);
+            return `
+            <div class="ad-row" data-src="${MH.esc(r.id)}">
+                <div class="grow">
+                    <div style="font-weight:600;color:var(--text)">
+                        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${color};margin-right:7px"></span>
+                        ${MH.esc(r.name || r.id)} <span class="ad-muted" style="font-weight:400">· ${label}</span>
+                    </div>
+                    <div class="ad-muted" style="margin-top:4px">
+                        ${r.okAt ? `dernier succès ${when(r.okAt)}` : 'aucun succès enregistré'}
+                        ${r.streak ? ` · <span style="color:#ef4444">${r.streak} échec(s) consécutif(s)</span>` : ''}
+                        ${r.error ? `<br><span style="color:#ef4444">Dernière erreur : ${MH.esc(r.error)}</span>` : ''}
+                    </div>
+                </div>
+                <button class="btn btn-sm" data-test="${MH.esc(r.id)}">Tester</button>
+            </div>`;
+        }).join('')}</div>`;
+        el.querySelectorAll('[data-test]').forEach(btn => btn.addEventListener('click', async () => {
+            btn.disabled = true; const prev = btn.textContent; btn.textContent = '…';
+            try {
+                const res = await API.sources.test(btn.dataset.test);
+                MH.toast?.(res.ok ? `✓ ${btn.dataset.test} répond (${res.count})` : `✗ ${res.error || 'échec'}`);
+                loadSources();   // rafraîchit la santé après le test
+            } catch (e) { MH.toast?.('Erreur : ' + e.message); btn.disabled = false; btn.textContent = prev; }
+        }));
     }
 
     // ── Modération ──

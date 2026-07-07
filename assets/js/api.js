@@ -221,6 +221,9 @@
             // Mises à jour des extensions (modèle Mihon)
             checkUpdates: ()      => get('/extensions/updates'),
             update:       (ids)   => post('/extensions/update', { ids: ids || null }),
+            // Test de connectivité d'une source + santé globale (admin)
+            test:         (id)    => get('/extensions/' + encodeURIComponent(id) + '/test'),
+            health:       ()      => get('/extensions/health'),
         },
 
         // ── Mangas (public, route automatiquement selon la source courante) ──

@@ -62,8 +62,19 @@
             </div>
         </div>`;
         document.getElementById('cdShare')?.addEventListener('click', () => {
-            const url = location.href;
-            if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => MH.toast?.('Lien copié')).catch(() => MH.toast?.(url));
+            // La page collection-detail.html?id= est authentifiée : la copier ne partage
+            // rien d'ouvrable par autrui (audit — bouton « Partager » trompeur). Une liste
+            // n'est réellement visible que sur le profil public de son propriétaire, et
+            // seulement si elle est publique.
+            if (!list.isPublic) {
+                MH.toast?.('Cette liste est privée. Rends-la publique pour pouvoir la partager.');
+                return;
+            }
+            const username = API.user?.username;
+            if (!username) { MH.toast?.('Partage indisponible.'); return; }
+            const url = `${location.origin}/u.html?u=${encodeURIComponent(username)}`;
+            if (navigator.clipboard) navigator.clipboard.writeText(url)
+                .then(() => MH.toast?.('Lien du profil public copié')).catch(() => MH.toast?.(url));
             else MH.toast?.(url);
         });
         document.getElementById('cdDelete')?.addEventListener('click', async () => {

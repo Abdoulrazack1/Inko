@@ -62,6 +62,10 @@ function manifest() {
         nsfw:         !!s.nsfw,
         version:      s.version,
         type:         s.type || 'manga',   // 'manga' (images) | 'novel' (texte)
+        // unit : découpe l'affichage « Chapitre » vs « Tome » (audit §6). L'axe
+        // correct n'est PAS manga/roman mais sérialisé-par-épisodes vs publié-par-
+        // volumes : une source ne bascule en 'volume' que si elle le déclare.
+        unit:         s.unit === 'volume' ? 'volume' : 'chapter',
         description:  s.description || '',
         capabilities: s.capabilities || [],
     }));

@@ -153,7 +153,9 @@ async function status(req, res, next) {
         res.json({
             configured: true, linked: true,
             profile: { id: row.spotify_id, name: row.display_name, avatar: row.avatar, product: row.product },
-            accessToken: row.access_token,
+            // accessToken volontairement NON renvoyé (audit S9) : la lecture passe par
+            // l'IFrame embed côté client et par les proxies serveur ; le client n'a jamais
+            // besoin du token OAuth brut.
             expiresAt: row.expires_at,
         });
     } catch (e) { next(e); }

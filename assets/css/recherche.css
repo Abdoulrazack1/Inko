@@ -1,0 +1,45 @@
+/* recherche.css — Écran Recherche globale (audit §11 : sorti du <style> inline) */
+
+.se-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
+.se-bar { display: flex; gap: 10px; margin-bottom: 8px; }
+.se-input { flex: 1; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); padding: 12px 16px; border-radius: 11px; font-size: 15px; }
+.se-input:focus { outline: none; border-color: var(--orange); }
+.se-go { background: var(--orange); color: #fff; border: none; padding: 0 22px; border-radius: 11px; font-weight: 600; font-size: 14px; cursor: pointer; }
+.se-sub { font-size: 12.5px; color: var(--text3); margin-bottom: 22px; }
+.se-group { margin-bottom: 30px; }
+.se-ghead { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.se-gname { font-family: var(--font-head); font-size: 17px; font-weight: 700; }
+.se-gtag { font-size: 10.5px; padding: 2px 8px; border-radius: 5px; background: var(--bg3); color: var(--text2); text-transform: uppercase; font-weight: 600; }
+.se-gcount { font-size: 12px; color: var(--text3); margin-left: auto; }
+.se-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+.se-card { cursor: pointer; position: relative; display: block; }
+.se-cover { aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background: var(--bg4); position: relative; }
+.se-cover img { width: 100%; height: 100%; object-fit: cover; }
+.se-title { font-size: 12.5px; font-weight: 500; margin-top: 7px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.se-empty { color: var(--text3); font-size: 13px; padding: 6px 0; }
+.se-err { color: #ef4444; font-size: 12.5px; }
+.se-loading { text-align: center; padding: 60px; color: var(--text3); }
+.se-hist { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:22px; }
+.se-hist-label { font-size:12px; color:var(--text3); margin-right:2px; }
+.se-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:20px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); font-size:12.5px; cursor:pointer; transition:all .12s; }
+.se-chip:hover, .se-chip.kbd { color:var(--text); border-color:var(--orange); }
+.se-chip.on { background:var(--orange); border-color:var(--orange); color:#fff; }
+.se-chip .x { opacity:.5; font-size:14px; line-height:1; }
+.se-chip .x:hover { opacity:1; color:#ef4444; }
+.se-hist-clear { font-size:11.5px; color:var(--text3); cursor:pointer; background:none; border:none; text-decoration:underline; }
+
+/* ── §11 : carte fusionnée par titre (dédup multi-sources) ── */
+.se-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; color:#fff; }
+.se-lib-badge { position:absolute; top:8px; right:8px; background:#22c55e; color:#fff; font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.4); display:inline-flex; align-items:center; gap:3px; }
+.se-multi { position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,.6); color:#fff; font-size:9.5px; font-weight:700; padding:2px 7px; border-radius:20px; backdrop-filter:blur(2px); }
+.se-meta { font-size:10.5px; color:var(--text3); margin-top:2px; }
+.se-sources { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
+.se-src-chip { font-size:10px; padding:2px 7px; border-radius:6px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; text-decoration:none; }
+.se-src-chip:hover { border-color:var(--orange); color:var(--text); }
+.se-src-chip.novel { border-color:var(--ai); }
+.se-types { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+/* Suggestions personnalisées (§11) */
+.se-perso-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; margin-bottom:8px; }
+.se-perso-card { flex:0 0 96px; width:96px; }
+.se-perso-card .se-cover { border-radius:8px; }
+.se-perso-card .se-title { font-size:11px; -webkit-line-clamp:1; }

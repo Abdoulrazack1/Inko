@@ -60,24 +60,56 @@
             const cache = await caches.open(CACHE);
             const urls = pages.map(p => p.url).filter(Boolean);
             const sleep = ms => new Promise(r => setTimeout(r, ms));
-            let done = 0;
-            for (const url of urls) {
-                // referer par défaut (origine) : c'est ce que le lecteur envoie et que les CDN acceptent
-                for (let attempt = 0; attempt < 2; attempt++) {
-                    try { await cache.put(url, await fetch(url, { mode: 'no-cors' })); break; }
-                    catch (e) { if (attempt === 1) break; await sleep(300); }
+
+            // Récupère une page avec un STATUT LISIBLE (audit — un 403/404 ne doit plus
+            // être compté comme « téléchargé »). L'ancien fetch no-cors renvoyait une
+            // réponse opaque (status 0, ok=false illisible) : impossible de savoir si la
+            // page avait vraiment été récupérée. On tente d'abord un fetch CORS direct
+            // (statut lisible + réponse non-opaque, meilleure pour l'offline) ; si le CDN
+            // bloque CORS, on retombe sur le proxy serveur same-origin (statut lisible lui
+            // aussi). null = échec réel détecté.
+            const base = (window.API && API.base) || '';
+            async function fetchPage(url) {
+                try {
+                    const r = await fetch(url, { mode: 'cors' });
+                    if (r.ok) return r;                     // statut HTTP OK et lisible
+                    if (r.status >= 400) return null;       // 403/404… échec confirmé
+                } catch (e) { /* CORS bloqué → repli proxy */ }
+                if (base) {
+                    try {
+                        const pr = await fetch(base + '/img?u=' + encodeURIComponent(url));
+                        if (pr.ok) return pr;
+                    } catch (e) { /* échec réseau */ }
                 }
+                return null;
+            }
+
+            let done = 0, failed = 0;
+            for (const url of urls) {
+                let resp = null;
+                for (let attempt = 0; attempt < 2 && !resp; attempt++) {
+                    resp = await fetchPage(url);
+                    if (!resp && attempt === 0) await sleep(300);
+                }
+                if (resp) { try { await cache.put(url, resp); } catch (e) { failed++; } }
+                else failed++;
                 done++;
                 if (onProgress) onProgress(done, urls.length);
                 await sleep(60);   // ménage le CDN (évite le rate-limit)
             }
+
+            const okCount = urls.length - failed;
+            // Rien n'a pu être récupéré → vrai échec, on ne prétend pas avoir téléchargé.
+            if (urls.length && okCount === 0) throw new Error('Aucune page n\'a pu être téléchargée');
+
             await putMeta({
                 chapterId: info.chapterId, mangaId: info.mangaId,
                 chapterNum: info.chapterNum ?? null, mangaTitle: info.mangaTitle || '',
                 cover: info.cover || '', source: info.source || '',
                 pages: urls, count: urls.length, savedAt: Date.now(),
+                incomplete: failed > 0, failed,
             });
-            return { count: urls.length };
+            return { count: urls.length, failed };
         },
 
         // Téléchargement d'un chapitre de ROMAN (texte) — stocké dans IndexedDB.

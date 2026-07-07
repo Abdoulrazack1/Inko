@@ -10,6 +10,9 @@
     let kindFilter = 'all';    // 'all' | 'manga' | 'novel' (sépare romans et mangas)
     let unreadOnly = false;    // n'afficher que les séries avec des chapitres non lus
     let sourceFilter = null;   // filtrer par source d'origine
+    let viewMode = 'grid';     // 'grid' | 'list' (audit §10.3)
+    let selectMode = false;    // mode sélection multiple (audit §10.3)
+    const selected = new Set(); // mangaIds sélectionnés
 
     const STATUS = {
         reading:   ['En cours',  '#22c55e'],
@@ -28,12 +31,15 @@
         }
 
         initTabs();
+        try { viewMode = window.Storage?.getPref?.('libView') === 'list' ? 'list' : 'grid'; } catch (e) {}
         await loadLibrary();
         bindUpdates();
         wireNotifyButton();
         wireLibRefresh();
         wireLibRandom();
         wireLibExtras();
+        wireViewToggle();
+        wireSelect();
         maybeAutoCheck();
     });
 
@@ -298,7 +304,7 @@
                 </a>
                 <div class="upd-info">
                     <a class="upd-name" href="${href}" style="color:inherit;text-decoration:none">${MH.esc(b.title || b.mangaId)}</a>
-                    <div class="upd-meta">Chap. ${MH.esc(String(b.chapterNum || '?'))}${b.label ? ' · ' + MH.esc(b.label) : ''}${b.source ? ' · ' + MH.esc(b.source) : ''}</div>
+                    <div class="upd-meta">${MH.unitLabel(b.source, { short: true })} ${MH.esc(String(b.chapterNum || '?'))}${b.label ? ' · ' + MH.esc(b.label) : ''}${b.source ? ' · ' + MH.esc(b.source) : ''}</div>
                 </div>
                 <div style="display:flex;gap:6px;flex-shrink:0">
                     <a class="btn btn-primary btn-sm" href="${href}">Lire</a>
@@ -466,6 +472,42 @@
         }));
     }
 
+    // ── Rangée « Reprendre où j'en étais » (audit §10.3) ──
+    // Les séries en cours de lecture, triées par lecture la plus récente. Remonte
+    // l'info la plus utile là où l'œil regarde, au lieu de la cacher dans un onglet.
+    function renderResume() {
+        const box = document.getElementById('libResume');
+        if (!box) return;
+        // En mode sélection ou avec un filtre actif, on masque la rangée pour ne pas gêner.
+        const active = selectMode || filter.type !== 'all' || unreadOnly || sourceFilter;
+        const inProgress = favsOfKind()
+            .filter(f => progressByManga[f.mangaId]?.chapterId)
+            .sort((a, b) => new Date(progressByManga[b.mangaId]?.updatedAt || 0) - new Date(progressByManga[a.mangaId]?.updatedAt || 0))
+            .slice(0, 12);
+        if (active || inProgress.length < 2) { box.style.display = 'none'; box.innerHTML = ''; return; }
+        box.style.display = '';
+        box.innerHTML = `
+            <div class="lib2-section-head"><span class="bar"></span><h2>Reprendre où j'en étais</h2></div>
+            <div class="lib2-resume-row">${inProgress.map(f => {
+                const prog = progressByManga[f.mangaId];
+                const u = unreadCount(f);
+                const href = MH.readerHref(f.mangaId, prog.chapterId, f.source || prog.source);
+                const unit = MH.unitLabel(f.source, { short: true });
+                return `
+                <a class="lib2-card lib2-resume-card" href="${href}">
+                    <div class="lib2-cover">
+                        <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy"
+                             onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
+                        ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
+                    </div>
+                    <div class="lib2-info">
+                        <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
+                        <div class="lib2-sub">${unit} ${MH.chapNum(prog.chapter)}</div>
+                    </div>
+                </a>`;
+            }).join('')}</div>`;
+    }
+
     // Favoris filtrés par type (manga/roman)
     function favsOfKind() {
         if (kindFilter === 'manga') return favs.filter(f => !MH.isNovelSource(f.source));
@@ -475,8 +517,13 @@
 
     function render() {
         const grid = document.getElementById('libGrid');
+        grid.classList.toggle('lib2-grid', viewMode !== 'list');
+        grid.classList.toggle('lib2-list', viewMode === 'list');
+        renderResume();
         const q = (document.getElementById('libSearch').value || '').toLowerCase();
         const sort = document.getElementById('libSort').value;
+        // Set des mangas ayant au moins un signet (audit §10.3 : icône signet sur la carte)
+        const bmSet = new Set((window.UserData?.getBookmarks?.() || []).map(b => b.mangaId));
 
         let list = favsOfKind().filter(f => !q || (f.title || '').toLowerCase().includes(q));
         if (filter.type === 'status')   list = list.filter(f => f.status === filter.value);
@@ -515,25 +562,45 @@
             const href = prog?.chapterId
                 ? MH.readerHref(f.mangaId, prog.chapterId, f.source || prog.source)
                 : `serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}`;
+            const hasBm = bmSet.has(f.mangaId);
+            const isSel = selected.has(f.mangaId);
+            const unit = MH.unitLabel(f.source, { short: true });
             return `
-            <a class="lib2-card" href="${href}" data-manga-id="${f.mangaId}">
+            <a class="lib2-card ${selectMode ? 'selectable' : ''} ${isSel ? 'selected' : ''}" href="${href}" data-manga-id="${f.mangaId}" data-src="${MH.esc(f.source || '')}">
                 <div class="lib2-cover">
                     <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy"
                          onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
+                    ${selectMode ? `<div class="lib2-check">${isSel ? '✓' : ''}</div>` : ''}
                     ${st}
                     ${MH.isNovelSource(f.source) ? '<div class="lib2-kind-badge">ROMAN</div>' : ''}
                     ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
+                    ${(hasBm || prog) ? `<div class="dog-ear ${MH.isNovelSource(f.source) ? 'novel' : ''}" title="${hasBm ? 'Contient un signet' : 'Reprise de lecture possible'}"></div>` : ''}
                     <button class="lib2-pin ${isPin ? 'on' : ''}" data-pin="${MH.esc(f.mangaId)}" data-src="${MH.esc(f.source || '')}"
                         title="${isPin ? 'Désépingler' : 'Épingler en haut'}" aria-label="Épingler">${MH.icon('pin', 15)}</button>
                     <button class="lib2-del" data-del="${MH.esc(f.mangaId)}" data-title="${MH.esc(f.title || '')}"
                         title="Retirer de ma bibliothèque" aria-label="Retirer">✕</button>
                     ${progBar}
                 </div>
-                <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
-                <div class="lib2-sub">${prog ? 'Ch. ' + MH.chapNum(prog.chapter) : 'Pas commencé'} · ${f.source || 'mangadex'}</div>
-                ${f.category ? `<div class="lib2-cat">${MH.esc(f.category)}</div>` : ''}
+                <div class="lib2-info">
+                    <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
+                    <div class="lib2-sub">${prog ? unit + ' ' + MH.chapNum(prog.chapter) : 'Pas commencé'} · ${f.source || 'mangadex'}</div>
+                    ${f.category ? `<div class="lib2-cat">${MH.esc(f.category)}</div>` : ''}
+                </div>
             </a>`;
         }).join('');
+
+        // En mode sélection : le clic sur une carte (de)sélectionne au lieu de naviguer.
+        if (selectMode) {
+            grid.querySelectorAll('.lib2-card').forEach(card => card.addEventListener('click', (e) => {
+                e.preventDefault();
+                const id = card.dataset.mangaId;
+                if (selected.has(id)) selected.delete(id); else selected.add(id);
+                card.classList.toggle('selected', selected.has(id));
+                const chk = card.querySelector('.lib2-check');
+                if (chk) chk.textContent = selected.has(id) ? '✓' : '';
+                renderBulkBar();
+            }));
+        }
 
         grid.querySelectorAll('.lib2-pin').forEach(btn => btn.addEventListener('click', (e) => {
             e.preventDefault(); e.stopPropagation();
@@ -558,9 +625,85 @@
         }));
     }
 
-    // re-render on search/sort
-    document.addEventListener('input', e => { if (e.target.id === 'libSearch') render(); });
+    // re-render on search (debounce, audit §2 — évite un render complet à chaque frappe) / sort
+    let searchTimer = null;
+    document.addEventListener('input', e => {
+        if (e.target.id !== 'libSearch') return;
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(render, 200);
+    });
     document.addEventListener('change', e => { if (e.target.id === 'libSort') render(); });
+
+    // ── Vue Grille / Liste (audit §10.3) ──
+    function wireViewToggle() {
+        const box = document.getElementById('libViewToggle');
+        if (!box) return;
+        const paint = () => box.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.view === viewMode));
+        paint();
+        box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+            viewMode = b.dataset.view;
+            try { window.Storage?.setPref?.('libView', viewMode); } catch (e) {}
+            paint(); render();
+        }));
+    }
+
+    // ── Sélection multiple + actions groupées (audit §10.3) ──
+    function wireSelect() {
+        const btn = document.getElementById('btnLibSelect');
+        document.getElementById('bulkCancel')?.addEventListener('click', () => setSelectMode(false));
+        document.getElementById('bulkDelete')?.addEventListener('click', bulkDelete);
+        document.getElementById('bulkStatus')?.addEventListener('click', bulkStatus);
+        btn?.addEventListener('click', () => setSelectMode(!selectMode));
+    }
+    function setSelectMode(on) {
+        selectMode = on;
+        if (!on) selected.clear();
+        const btn = document.getElementById('btnLibSelect');
+        if (btn) btn.classList.toggle('btn-primary', on);
+        render();
+        renderBulkBar();
+    }
+    function renderBulkBar() {
+        const bar = document.getElementById('libBulkBar');
+        if (!bar) return;
+        bar.classList.toggle('hidden', !selectMode);
+        const c = document.getElementById('bulkCount');
+        if (c) c.textContent = `${selected.size} sélectionné(s)`;
+    }
+    async function bulkDelete() {
+        if (!selected.size) { MH.toast?.('Rien de sélectionné'); return; }
+        if (!confirm(`Retirer ${selected.size} série(s) de ta bibliothèque ?`)) return;
+        const ids = [...selected];
+        for (const id of ids) {
+            try { await API.me.removeFavorite(id); favs = favs.filter(f => f.mangaId !== id); }
+            catch (e) { /* on continue */ }
+        }
+        try { const set = await MH.getFavSet?.(); ids.forEach(id => set?.delete(String(id))); } catch (e) {}
+        window.Storage?.cacheLibrary?.(favs);
+        MH.toast?.(`${ids.length} série(s) retirée(s)`);
+        setSelectMode(false);
+        renderSummary(); renderFilters(); render();
+    }
+    async function bulkStatus() {
+        if (!selected.size) { MH.toast?.('Rien de sélectionné'); return; }
+        const choices = Object.keys(STATUS).map((s, i) => `${i + 1}. ${STATUS[s][0]}`).join('\n');
+        const keys = Object.keys(STATUS);
+        const ans = prompt(`Nouveau statut pour ${selected.size} série(s) :\n${choices}\n\nEntre un numéro (1-${keys.length}) :`);
+        const idx = parseInt(ans, 10) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= keys.length) return;
+        const status = keys[idx];
+        const ids = [...selected];
+        for (const id of ids) {
+            try {
+                await API.me.setLibrary(id, status);
+                const f = favs.find(x => x.mangaId === id);
+                if (f) f.status = status;
+            } catch (e) { /* on continue */ }
+        }
+        MH.toast?.(`Statut mis à jour (${STATUS[status][0]})`);
+        setSelectMode(false);
+        renderFilters(); render();
+    }
 
     // ── MISES À JOUR ──
     function bindUpdates() {

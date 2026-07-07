@@ -22,6 +22,8 @@
         if (!id) { showError('ID manquant.'); return; }
 
         await MH.loadSourceTypes();   // pour router les liens de lecture (manga/novel)
+        // §13 : accent fonctionnel selon le type de contenu (Kakishibu manga / Ai roman)
+        document.body.dataset.content = MH.isNovelSource(API.sources.current) ? 'novel' : 'manga';
         bindBookmarkHandler();        // handlers délégués actifs dès le départ
         bindReadToggle();
         showSkeleton();
@@ -369,7 +371,12 @@
             </div>
         </div>
         <div class="chapters-block" id="similarBlock" style="display:none">
-            <div class="chapters-block-header"><div class="chapters-block-title">Tu aimeras aussi</div></div>
+            <div class="chapters-block-header">
+                <div>
+                    <div class="chapters-block-title">Tu aimeras aussi</div>
+                    <div id="similarSub" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
+                </div>
+            </div>
             <div id="similarRow" style="display:flex;gap:12px;overflow-x:auto;padding:4px 2px 8px"></div>
         </div>`;
         el.querySelectorAll('[data-goto="chapitres"]').forEach(btn => {
@@ -539,27 +546,80 @@
         catch (e) { MH.toast?.('Erreur : ' + e.message); }
     }
 
-    // ── Similaires (AniList) ──
+    // ── Similaires (AniList) — refonte audit §12 ──
+    // Avant : chaque suggestion pointait vers recherche.html?q=titre, ce qui menait
+    // souvent à une recherche vide si le titre AniList n'existe sur aucune source
+    // installée. Maintenant on vérifie silencieusement l'existence sur les sources
+    // avant de proposer un lien direct ; sinon la carte reste en lecture seule.
     let similarItems = null;   // null = pas encore chargé
+    function normTitle(t) {
+        return (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+    }
     async function loadSimilar() {
         const block = document.getElementById('similarBlock');
         const row = document.getElementById('similarRow');
+        const sub = document.getElementById('similarSub');
         if (!block || !row || !manga?.title) return;
         if (similarItems === null) {
             try { similarItems = (await API.art.similar(manga.title)).items || []; }
             catch (e) { similarItems = []; }
         }
-        if (!similarItems.length) return;
-        try {
-            row.innerHTML = similarItems.slice(0, 12).map(m => `
-                <a href="recherche.html?q=${encodeURIComponent(m.title)}" style="flex:0 0 116px;text-decoration:none;color:inherit">
-                    <div style="aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--bg4)">
-                        <img src="${MH.esc(m.cover || '')}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.style.visibility='hidden'">
-                    </div>
-                    <div style="font-size:11.5px;margin-top:6px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${MH.esc(m.title)}</div>
-                </a>`).join('');
-            block.style.display = '';
-        } catch (e) { /* silencieux */ }
+        if (!similarItems.length) return;   // rien de pertinent : on ne montre pas un bloc vide
+        const items = similarItems.slice(0, 12);
+        if (sub) sub.textContent = `Parce que tu lis « ${manga.title} »`;
+
+        // Rendu immédiat : cartes en « vérification… », mises à jour au fur et à mesure.
+        row.innerHTML = items.map((m, i) => `
+            <div class="sim-card" data-idx="${i}" style="flex:0 0 116px">
+                <div style="aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--bg4);position:relative">
+                    <img src="${MH.esc(m.cover || '')}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.style.visibility='hidden'">
+                    <div class="sim-state" style="position:absolute;left:0;right:0;bottom:0;font-size:9px;text-align:center;padding:2px;background:rgba(0,0,0,.55);color:#cbd5e1">vérification…</div>
+                </div>
+                <div style="font-size:11.5px;margin-top:6px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${MH.esc(m.title)}</div>
+            </div>`).join('');
+        block.style.display = '';
+
+        verifyExistence(items, row);
+    }
+
+    // Vérifie chaque suggestion (concurrence limitée) et met à jour sa carte :
+    // trouvée → lien direct vers la fiche ; sinon → lecture seule « indisponible ».
+    async function verifyExistence(items, row) {
+        let next = 0;
+        const CONC = 2;
+        const worker = async () => {
+            while (next < items.length) {
+                const i = next++;
+                const card = row.querySelector(`.sim-card[data-idx="${i}"]`);
+                if (!card) continue;
+                let match = null;
+                try {
+                    const data = await API.mangas.searchAll(items[i].title);
+                    const key = normTitle(items[i].title);
+                    for (const g of (data.groups || [])) {
+                        if (g.error || !g.items) continue;
+                        const hit = g.items.find(m => normTitle(m.title) === key);
+                        if (hit) { match = { source: g.source, id: hit.id }; break; }
+                    }
+                } catch (e) { /* on marque indisponible */ }
+                updateSimCard(card, items[i], match);
+            }
+        };
+        await Promise.all(Array.from({ length: Math.min(CONC, items.length) }, worker));
+    }
+
+    function updateSimCard(card, item, match) {
+        const state = card.querySelector('.sim-state');
+        if (match) {
+            card.style.cursor = 'pointer';
+            const href = `serie.html?id=${encodeURIComponent(match.id)}&source=${encodeURIComponent(match.source)}`;
+            card.addEventListener('click', () => { window.location.href = href; });
+            if (state) state.remove();
+        } else {
+            // Pas sur les sources installées : lecture seule, honnête plutôt que décevant.
+            card.style.opacity = '.7';
+            if (state) { state.textContent = 'Pas sur tes sources'; state.style.background = 'rgba(0,0,0,.7)'; }
+        }
     }
 
     function renderChapterRow(c) {
@@ -567,7 +627,7 @@
         const isBm = window.UserData?.hasBookmark?.(manga.id, c.id);
         return `
         <a href="${MH.readerHref(manga.id, c.id, API.sources.current)}" class="chapter-row${isRead ? ' chapter-row--read' : ''}">
-            <div class="chapter-num">Chap. ${c.chapter}</div>
+            <div class="chapter-num">${MH.unitLabel(API.sources.current, { short: true })} ${c.chapter}</div>
             <div class="chapter-title-text">${MH.esc(c.title || 'Chapitre ' + c.chapter)}</div>
             <div class="chapter-meta">
                 <span class="chapter-date" title="${c.publishedAt ? MH.fullDate(c.publishedAt) : ''}">${c.publishedAt ? MH.relTime(c.publishedAt) : ''}</span>

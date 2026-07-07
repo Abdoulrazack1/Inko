@@ -88,7 +88,7 @@
             totalPages = pages.length;
 
             document.getElementById('pageTitle').textContent =
-                `${manga.title} — Chap. ${currentChap.chapter}`;
+                `${manga.title} — ${MH.unitLabel(API.sources.current, { short: true })} ${currentChap.chapter}`;
 
             // Reprise à la page sauvegardée
             if (API.isLoggedIn()) {
@@ -156,13 +156,13 @@
         <div class="toolbar-left">
             <a href="serie.html?id=${encodeURIComponent(manga.id)}" class="toolbar-back">← ${MH.esc(manga.title)}</a>
             <span class="toolbar-sep">/</span>
-            <span class="toolbar-chap">Chap. ${currentChap.chapter}</span>
+            <span class="toolbar-chap">${MH.unitLabel(API.sources.current, { short: true })} ${currentChap.chapter}</span>
         </div>
         <div class="toolbar-center">
             <button class="reader-icon-btn" ${!prevChap ? 'disabled' : ''} id="btnPrevChap">‹</button>
             <select class="reader-chap-select" id="chapSelect">
                 ${asc.slice().reverse().map(c =>
-                    `<option value="${c.id}" ${c.id === currentChap.id ? 'selected' : ''}>Chap. ${c.chapter}${c.title ? ' — ' + c.title : ''}</option>`
+                    `<option value="${c.id}" ${c.id === currentChap.id ? 'selected' : ''}>${MH.unitLabel(API.sources.current, { short: true })} ${c.chapter}${c.title ? ' — ' + c.title : ''}</option>`
                 ).join('')}
             </select>
             <button class="reader-icon-btn" ${!nextChap ? 'disabled' : ''} id="btnNextChap">›</button>
@@ -990,13 +990,16 @@
             if (!pages.length) { MH.toast?.('Aucune page à télécharger'); return; }
             btn.disabled = true;
             try {
-                await window.Downloads.download(
+                const r = await window.Downloads.download(
                     { mangaId: manga.id, chapterId: currentChap.id, chapterNum: currentChap.chapter,
                       mangaTitle: manga.title, cover: manga.cover || manga.coverThumb, source: API.sources.current },
                     pages,
                     (d, n) => { btn.innerHTML = `<span style="font-size:10px;font-weight:700">${Math.round(d / n * 100)}%</span>`; }
                 );
-                setDlIcon(true); MH.toast?.('Chapitre téléchargé pour le hors-ligne');
+                setDlIcon(true);
+                MH.toast?.(r?.failed
+                    ? `Téléchargé avec ${r.failed} page(s) manquante(s) sur ${r.count}`
+                    : 'Chapitre téléchargé pour le hors-ligne');
             } catch (e) { setDlIcon(false); MH.toast?.('Erreur : ' + e.message); }
             finally { btn.disabled = false; }
         };

@@ -17,11 +17,13 @@
     /* CBZ : images empilées (webtoon) */
     .lr-images img { display: block; width: 100%; max-width: 860px; margin: 0 auto; }
     /* EPUB : colonne de texte lisible */
-    .lr-text { max-width: 720px; margin: 0 auto; padding: 30px 22px 90px; font-size: 18px; line-height: 1.75; }
+    .lr-text { max-width: 720px; margin: 0 auto; padding: 30px 22px 90px; font-size: 18px; line-height: 1.75; font-family: var(--font-read); }
     .lr-text img { max-width: 100%; height: auto; }
     .lr-text h1, .lr-text h2, .lr-text h3 { line-height: 1.3; }
     .lr-msg { text-align: center; padding: 80px 20px; color: var(--text3); }
     .lr-nav { display: flex; justify-content: space-between; gap: 10px; max-width: 720px; margin: 20px auto 0; padding: 0 22px; }
+    /* Paragraphe en cours de lecture audio (TTS EPUB) */
+    .tts-reading { background: color-mix(in srgb, var(--orange) 18%, transparent); border-radius: 6px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--orange) 18%, transparent); }
   </style>
 </head>
 <body>

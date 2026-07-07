@@ -18,11 +18,12 @@
     }
 
     function apply(theme) {
-        const t = resolve(theme || (window.Storage?.getPref('theme')) || 'dark');
+        // §13 : l'édition claire « Washi » est la référence → défaut clair.
+        const t = resolve(theme || (window.Storage?.getPref('theme')) || 'light');
         document.documentElement.setAttribute('data-theme', t);
         // Met aussi à jour la meta theme-color pour la PWA
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.content = t === 'light' ? '#ffffff' : (t === 'amoled' ? '#000000' : '#0d0d0f');
+        if (meta) meta.content = t === 'light' ? '#eeece6' : (t === 'amoled' ? '#000000' : '#111113');
     }
 
     // ── Couleur d'accent personnalisable ──
@@ -40,14 +41,16 @@
     function applyAccent(hex) {
         const accent = hex || window.Storage?.getPref('accent');
         const root = document.documentElement.style;
-        if (!accent || accent === '#ff6b1a') {
-            root.removeProperty('--orange'); root.removeProperty('--orange2'); root.removeProperty('--orange-glow');
+        // §13 : par défaut on laisse le double accent fonctionnel Kakishibu/Ai du CSS.
+        // Un accent perso reste possible (power-user) mais écrase le double accent.
+        if (!accent || accent === '#c1531b') {
+            root.removeProperty('--accent'); root.removeProperty('--orange'); root.removeProperty('--orange2'); root.removeProperty('--orange-glow');
             return;
         }
+        root.setProperty('--accent', accent);
         root.setProperty('--orange', accent);
         root.setProperty('--orange2', lighten(accent, 0.12));
-        root.setProperty('--orange-glow', hexToRgba(accent, 0.25));
-        const meta = document.querySelector('meta[name="theme-color"]');
+        root.setProperty('--orange-glow', 'transparent');   // §13 : aucun glow
     }
     applyAccent();
 
@@ -65,14 +68,14 @@
         apply,
         applyAccent,
         setAccent(hex) {
-            window.Storage?.setPref('accent', hex || '#ff6b1a');
+            window.Storage?.setPref('accent', hex || '#c1531b');
             applyAccent(hex);
         },
-        currentAccent() { return window.Storage?.getPref('accent') || '#ff6b1a'; },
+        currentAccent() { return window.Storage?.getPref('accent') || '#c1531b'; },
         set(theme) {
             window.Storage?.setPref('theme', theme);
             apply(theme);
         },
-        current() { return window.Storage?.getPref('theme') || 'dark'; },
+        current() { return window.Storage?.getPref('theme') || 'light'; },
     };
 })();

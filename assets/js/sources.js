@@ -16,6 +16,16 @@
         const box = document.getElementById('extUpdates');
         if (!btn) return;
 
+        // Installer/mettre à jour une extension écrit un .js exécuté côté serveur pour
+        // toute l'instance : réservé aux admins (audit §7.3, route /extensions/update).
+        const isAdmin = API.user?.role === 'admin';
+        if (!isAdmin) {
+            btn.style.display = 'none';
+            allBtn.style.display = 'none';
+            if (status) status.textContent = 'La gestion des extensions est réservée aux administrateurs.';
+            return;
+        }
+
         async function check() {
             btn.disabled = true;
             status.innerHTML = '<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span> Recherche de mises à jour…';
@@ -87,8 +97,10 @@
 
         const active = API.sources.current || sources[0].id;
 
-        const card = (s) => `
-        <div class="source-card ${s.id === active ? 'active' : ''}" data-id="${MH.esc(s.id)}">
+        const card = (s) => {
+        const disabled = !MH.isSourceEnabled(s.id);
+        return `
+        <div class="source-card ${s.id === active ? 'active' : ''}" data-id="${MH.esc(s.id)}" style="${disabled ? 'opacity:.55' : ''}">
             <div class="source-icon">${MH.esc((s.name || '?')[0])}</div>
             <div class="source-meta">
                 <div class="source-name">
@@ -107,11 +119,17 @@
                 </div>
             </div>
             <div class="source-actions">
-                ${s.id === active
-                    ? '<span class="source-active-badge">✓ ACTIVE</span>'
-                    : `<button class="btn btn-primary btn-sm" data-activate="${MH.esc(s.id)}">Activer</button>`}
+                ${disabled
+                    ? `<span class="source-active-badge" style="background:var(--bg4);color:var(--text3)">DÉSACTIVÉE</span>`
+                    : (s.id === active
+                        ? '<span class="source-active-badge">✓ ACTIVE</span>'
+                        : `<button class="btn btn-primary btn-sm" data-activate="${MH.esc(s.id)}">Activer</button>`)}
+                <button class="btn btn-secondary btn-sm" data-test="${MH.esc(s.id)}" title="Vérifier que la source répond">Tester</button>
+                <button class="btn btn-secondary btn-sm" data-toggle-src="${MH.esc(s.id)}" title="${disabled ? 'Réactiver cette source' : 'Ne plus utiliser cette source (masquée en recherche)'}">${disabled ? 'Réactiver' : 'Désactiver'}</button>
+                <span class="source-test-result" data-test-result="${MH.esc(s.id)}" style="font-size:11px;margin-left:6px"></span>
             </div>
         </div>`;
+        };
 
         // Séparation claire : mangas d'un côté, romans de l'autre
         const mangas = sources.filter(s => (s.type || 'manga') !== 'novel');
@@ -135,6 +153,42 @@
                 API.sources.current = btn.dataset.activate;
                 MH.toast('Source activée : ' + btn.dataset.activate);
                 render();
+            });
+        });
+
+        // Activer / Désactiver une source (audit §9) : une source désactivée est
+        // exclue de la recherche multi-sources et ne peut pas devenir la source active.
+        el.querySelectorAll('[data-toggle-src]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.toggleSrc;
+                const nowDisabled = MH.setSourceDisabled(id, MH.isSourceEnabled(id));
+                if (nowDisabled && API.sources.current === id) {
+                    // On bascule la source active vers une autre source encore active.
+                    const fallback = sources.find(s => s.id !== id && MH.isSourceEnabled(s.id));
+                    if (fallback) API.sources.current = fallback.id;
+                }
+                MH.toast(nowDisabled ? 'Source désactivée' : 'Source réactivée');
+                render();
+            });
+        });
+
+        // Tester la connexion d'une source (audit §7.3 rec 2) : appel léger, on
+        // affiche succès ✓ ou l'erreur brute à côté du bouton.
+        el.querySelectorAll('[data-test]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.test;
+                const out = el.querySelector(`[data-test-result="${CSS.escape(id)}"]`);
+                btn.disabled = true; const prev = btn.textContent; btn.textContent = '…';
+                if (out) { out.style.color = 'var(--text3)'; out.textContent = 'test en cours…'; }
+                try {
+                    const r = await API.sources.test(id);
+                    if (out) {
+                        out.style.color = r.ok ? '#22c55e' : '#ef4444';
+                        out.textContent = r.ok ? `✓ répond (${r.count} résultat${r.count > 1 ? 's' : ''})` : `✗ ${r.error || 'échec'}`;
+                    }
+                } catch (e) {
+                    if (out) { out.style.color = '#ef4444'; out.textContent = '✗ ' + (e.message || 'échec'); }
+                } finally { btn.disabled = false; btn.textContent = prev; }
             });
         });
     }

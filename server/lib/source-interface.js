@@ -38,6 +38,9 @@
 //     capabilities: ['popular','latest','search','manga','chapters','pages'],
 //
 //     type        'manga' | 'novel',           // 'novel' = source de romans (texte)
+//     unit?       'chapter' | 'volume',        // §6 : unité affichée. Défaut 'chapter'
+//                                              // (sérialisé par épisodes). 'volume' pour
+//                                              // une source publiée par tomes → « Tome ».
 //
 //     // Méthodes (toutes async)
 //     async popular({ limit, offset })                     → MangasPage

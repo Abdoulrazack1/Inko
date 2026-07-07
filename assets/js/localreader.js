@@ -14,6 +14,57 @@
     const mkUrl = (blob) => { const u = URL.createObjectURL(blob); blobUrls.push(u); return u; };
     window.addEventListener('beforeunload', () => blobUrls.forEach(u => URL.revokeObjectURL(u)));
 
+    // ── Sauvegarde de progression (audit) — les lecteurs réseau la gardent déjà,
+    //    l'import local repartait toujours de zéro. Stockée par id de fichier. ──
+    const PROG_KEY = 'inko_lr_progress_v1';
+    function progAll() { try { return JSON.parse(localStorage.getItem(PROG_KEY) || '{}'); } catch (e) { return {}; } }
+    function progLoad() { return (id && progAll()[id]) || null; }
+    function progSave(data) {
+        if (!id) return;
+        const all = progAll(); all[id] = Object.assign({ at: Date.now() }, data);
+        try { localStorage.setItem(PROG_KEY, JSON.stringify(all)); } catch (e) {}
+    }
+
+    // Suit la page (image/canvas) en haut du viewport dans un conteneur empilé et
+    // enregistre son index (débounce). Utilisé pour CBZ et PDF.
+    function trackPages(cont, selector) {
+        let timer;
+        const io = new IntersectionObserver((entries) => {
+            for (const e of entries) {
+                if (!e.isIntersecting) continue;
+                const idx = +e.target.dataset.idx || 0;
+                clearTimeout(timer);
+                timer = setTimeout(() => progSave({ mode: 'page', page: idx }), 400);
+            }
+        }, { rootMargin: '0px 0px -80% 0px' });   // « courante » = proche du haut
+        cont.querySelectorAll(selector).forEach(el => io.observe(el));
+    }
+
+    // Ramène la vue sur l'enfant `index`. Comme les images se chargent en asynchrone
+    // et décalent la mise en page, on re-scrolle à chaque chargement d'une image
+    // précédente, jusqu'à ce que l'utilisateur bouge lui-même.
+    function restoreToChild(cont, index) {
+        const target = cont.children[index];
+        if (!target) return;
+        let userMoved = false;
+        const scroll = () => { if (!userMoved) target.scrollIntoView({ block: 'start' }); };
+        const before = [...cont.children].slice(0, index + 1)
+            .filter(n => n.tagName === 'IMG' && !n.complete);
+        const handlers = [];
+        const cleanup = () => handlers.forEach(([im, h]) => { im.removeEventListener('load', h); im.removeEventListener('error', h); });
+        const onUser = () => { userMoved = true; cleanup(); };
+        let pending = before.length;
+        before.forEach(im => {
+            const h = () => { scroll(); if (--pending <= 0) cleanup(); };
+            im.addEventListener('load', h); im.addEventListener('error', h);
+            handlers.push([im, h]);
+        });
+        window.addEventListener('wheel', onUser, { once: true, passive: true });
+        window.addEventListener('touchmove', onUser, { once: true, passive: true });
+        window.addEventListener('keydown', onUser, { once: true });
+        scroll();
+    }
+
     document.addEventListener('DOMContentLoaded', init);
 
     async function init() {
@@ -50,6 +101,8 @@
         body.innerHTML = `<div class="lr-images" id="lrPdf"></div>`;
         const cont = document.getElementById('lrPdf');
         const width = Math.min(900, (cont.clientWidth || 900));
+        const saved = progLoad();
+        const targetPage = (saved && saved.mode === 'page') ? saved.page : 0;
         for (let n = 1; n <= doc.numPages; n++) {
             try {
                 const page = await doc.getPage(n);
@@ -63,10 +116,15 @@
                 canvas.style.maxWidth = '900px';
                 canvas.style.display = 'block';
                 canvas.style.margin = '0 auto 4px';
+                canvas.dataset.idx = n - 1;
                 cont.appendChild(canvas);
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+                // Les canvas ont une taille définie dès l'ajout : dès que la page cible
+                // est rendue, on peut y ramener la vue de façon stable.
+                if (targetPage && n - 1 === targetPage) canvas.scrollIntoView({ block: 'start' });
             } catch (e) { /* page ratée : on continue */ }
         }
+        trackPages(cont, 'canvas');
     }
 
     function fail(msg) {
@@ -83,14 +141,33 @@
         titleEl.textContent = `${names.length} page(s)`;
         body.innerHTML = `<div class="lr-images" id="lrImages"></div>`;
         const cont = document.getElementById('lrImages');
-        // Chargement progressif (évite de tout décompresser d'un coup)
-        for (let i = 0; i < names.length; i++) {
-            const blob = await zip.files[names[i]].async('blob');
-            const img = new Image();
-            img.loading = 'lazy';
-            img.src = mkUrl(blob);
-            cont.appendChild(img);
-        }
+
+        // 1) Structure affichée immédiatement : tous les <img> sont créés d'abord,
+        //    la page n'attend plus la décompression séquentielle (audit — l'ancienne
+        //    boucle `await` bloquait l'affichage plusieurs secondes sur un gros CBZ).
+        const imgs = names.map((_, i) => {
+            const im = new Image();
+            im.loading = 'lazy'; im.dataset.idx = i; im.alt = 'Page ' + (i + 1);
+            cont.appendChild(im);
+            return im;
+        });
+
+        // 2) Décompression avec concurrence limitée (parallélise sans saturer le CPU).
+        let next = 0;
+        const CONCURRENCY = 4;
+        const worker = async () => {
+            while (next < names.length) {
+                const i = next++;
+                try { imgs[i].src = mkUrl(await zip.files[names[i]].async('blob')); }
+                catch (e) { imgs[i].alt = 'Page ' + (i + 1) + ' illisible'; }
+            }
+        };
+
+        trackPages(cont, 'img');
+        await Promise.all(Array.from({ length: Math.min(CONCURRENCY, names.length) }, worker));
+
+        const saved = progLoad();
+        if (saved && saved.mode === 'page' && saved.page) restoreToChild(cont, saved.page);
     }
 
     // ── EPUB : texte (spine OPF) ──
@@ -131,11 +208,18 @@
         sel.innerHTML = spine.map((m, i) => `<option value="${i}">Chapitre ${i + 1}</option>`).join('');
         sel.addEventListener('change', () => showChapter(+sel.value));
 
+        const ttsSupported = 'speechSynthesis' in window;
         body.innerHTML = `<div class="lr-text" id="lrText"></div>
-            <div class="lr-nav"><button class="btn" id="lrPrev">← Précédent</button><button class="btn" id="lrNext">Suivant →</button></div>`;
+            <div class="lr-nav">
+                <button class="btn" id="lrPrev">← Précédent</button>
+                ${ttsSupported ? '<button class="btn" id="lrTTS" title="Lecture audio (synthèse vocale)">▶ Écouter</button>' : ''}
+                <button class="btn" id="lrNext">Suivant →</button>
+            </div>`;
 
+        let current = 0;
         const showChapter = async (i) => {
             i = Math.max(0, Math.min(spine.length - 1, i));
+            current = i;
             sel.value = i;
             const path = normalize(opfDir + spine[i].href);
             let html = '';
@@ -146,8 +230,74 @@
             document.getElementById('lrNext').disabled = i === spine.length - 1;
             document.getElementById('lrPrev').onclick = () => showChapter(i - 1);
             document.getElementById('lrNext').onclick = () => showChapter(i + 1);
+            progSave({ mode: 'epub', chapter: i });
+            TTS.stop();   // change de chapitre = on coupe la lecture audio en cours
         };
-        showChapter(0);
+
+        // Navigation clavier (aligné sur chapitre.js/lecture.js) : ← / → changent
+        // de chapitre. On ignore quand le focus est dans un champ.
+        document.addEventListener('keydown', (e) => {
+            if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+            if (e.key === 'ArrowRight') { e.preventDefault(); showChapter(current + 1); }
+            else if (e.key === 'ArrowLeft') { e.preventDefault(); showChapter(current - 1); }
+        });
+
+        // ── TTS EPUB (synthèse vocale, même approche que lecture.js) ──
+        const TTS = (function () {
+            const synth = ttsSupported ? window.speechSynthesis : null;
+            let paras = [], idx = 0, playing = false, keepAlive = null;
+            function pickVoice() {
+                const voices = (synth && synth.getVoices()) || [];
+                return voices.find(v => v.lang && v.lang.toLowerCase().startsWith('fr')) || voices[0] || null;
+            }
+            function highlight(el) {
+                paras.forEach(p => p.classList.remove('tts-reading'));
+                if (el) { el.classList.add('tts-reading'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+            }
+            function speakFrom(i) {
+                if (!playing) return;
+                if (i >= paras.length) {   // fin de chapitre → enchaîne le suivant si possible
+                    if (current < spine.length - 1) { showChapter(current + 1).then(() => { playing = true; start(0); }); }
+                    else stop();
+                    return;
+                }
+                idx = i;
+                const el = paras[i];
+                highlight(el);
+                const u = new SpeechSynthesisUtterance(el.textContent.trim());
+                const v = pickVoice(); if (v) { u.voice = v; u.lang = v.lang; }
+                u.onend = () => { if (playing) speakFrom(idx + 1); };
+                u.onerror = () => { if (playing) speakFrom(idx + 1); };
+                synth.speak(u);
+            }
+            function paint() {
+                const b = document.getElementById('lrTTS');
+                if (b) b.textContent = playing ? '⏸ Pause' : '▶ Écouter';
+            }
+            function start(at) {
+                paras = [...document.querySelectorAll('#lrText p, #lrText h1, #lrText h2, #lrText h3')]
+                    .filter(p => p.textContent.trim().length > 1);
+                if (!paras.length) { window.MH?.toast?.('Rien à lire dans ce chapitre'); return; }
+                playing = true; paint();
+                keepAlive = setInterval(() => { if (playing && !synth.speaking) return; if (playing) { synth.pause(); synth.resume(); } }, 10000);
+                speakFrom(at || 0);
+            }
+            function stop() {
+                playing = false;
+                if (synth) synth.cancel();
+                clearInterval(keepAlive);
+                highlight(null); paint();
+            }
+            function toggle() {
+                if (!ttsSupported) { window.MH?.toast?.('Synthèse vocale non supportée'); return; }
+                if (playing) stop(); else start(0);
+            }
+            return { toggle, stop };
+        })();
+        document.getElementById('lrTTS')?.addEventListener('click', TTS.toggle);
+
+        const saved = progLoad();
+        showChapter(saved && saved.mode === 'epub' ? saved.chapter : 0);
     }
 
     // Nettoie le XHTML d'un chapitre : garde le body, retire scripts, recâble les images

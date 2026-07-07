@@ -6,6 +6,7 @@
 // (ou à la source par défaut si pas précisée — rétro-compat).
 // ============================================================
 const extensions = require('../extensions/loader');
+const health     = require('../lib/source-health');
 
 function resolveSource(req) {
     const sid = req.query.source || req.params.sourceId;
@@ -39,7 +40,7 @@ async function popular(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'popular')) return notSupported(res, src, 'popular');
-        res.json(await src.popular(req.query));
+        res.json(await health.track(src.id, () => src.popular(req.query)));
     } catch (e) { next(e); }
 }
 
@@ -47,7 +48,7 @@ async function latest(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'latest')) return notSupported(res, src, 'latest');
-        res.json(await src.latest(req.query));
+        res.json(await health.track(src.id, () => src.latest(req.query)));
     } catch (e) { next(e); }
 }
 
@@ -56,7 +57,7 @@ async function search(req, res, next) {
         const src = resolveSource(req);
         if (!supports(src, 'search')) return notSupported(res, src, 'search');
         const { q, limit, offset, ...rest } = req.query;
-        res.json(await src.search({ q, limit, offset, filters: rest }));
+        res.json(await health.track(src.id, () => src.search({ q, limit, offset, filters: rest })));
     } catch (e) { next(e); }
 }
 
@@ -74,8 +75,10 @@ async function searchAll(req, res, next) {
                     s.search({ q: q.trim(), limit: +limit }),
                     new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('délai dépassé')), 15000); }),
                 ]);
+                health.recordOk(s.id);
                 return { ...base, items: (r.results || []).slice(0, +limit), total: r.total };
             } catch (e) {
+                health.recordFail(s.id, e);
                 return { ...base, items: [], error: e.message };
             } finally {
                 clearTimeout(timer);
@@ -89,7 +92,7 @@ async function getOne(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'manga')) return notSupported(res, src, 'manga');
-        res.json(await src.getManga(req.params.id));
+        res.json(await health.track(src.id, () => src.getManga(req.params.id)));
     } catch (e) { next(e); }
 }
 
@@ -97,7 +100,7 @@ async function chapters(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'chapters')) return notSupported(res, src, 'chapters');
-        res.json(await src.getChapters(req.params.id, req.query));
+        res.json(await health.track(src.id, () => src.getChapters(req.params.id, req.query)));
     } catch (e) { next(e); }
 }
 
@@ -105,7 +108,7 @@ async function pages(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'pages')) return notSupported(res, src, 'pages');
-        res.json(await src.getPages(req.params.id));
+        res.json(await health.track(src.id, () => src.getPages(req.params.id)));
     } catch (e) { next(e); }
 }
 
@@ -115,7 +118,7 @@ async function text(req, res, next) {
         const src = resolveSource(req);
         if (!supports(src, 'text') || typeof src.getText !== 'function')
             return notSupported(res, src, 'text');
-        res.json(await src.getText(req.params.id));
+        res.json(await health.track(src.id, () => src.getText(req.params.id)));
     } catch (e) { next(e); }
 }
 

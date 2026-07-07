@@ -39,7 +39,11 @@ router.get('/sources',              Manga.listSources);
 
 // ── Extensions : mises à jour (modèle Mihon) ──────
 router.get ('/extensions/updates',  Ext.checkUpdates);
-router.post('/extensions/update',   auth.authRequired, Ext.applyUpdates);
+router.get ('/extensions/health',   auth.authRequired, adminRequired, Ext.healthStatus);
+router.get ('/extensions/:id/test', auth.authRequired, Ext.testSource);
+// applyUpdates écrit des fichiers .js exécutés côté serveur pour toute l'instance :
+// exige un rôle admin, pas seulement une session valide (audit §7.3).
+router.post('/extensions/update',   auth.authRequired, adminRequired, Ext.applyUpdates);
 
 // ── Proxy de couvertures (cache + anti-hotlink) ───
 router.get('/img',                  Image.proxy);

@@ -92,9 +92,10 @@
             return window.MH._sourceTypes;
         try {
             const list = await window.API.sources.list();
-            const map = {};
-            (list || []).forEach(s => { map[s.id] = s.type || 'manga'; });
+            const map = {}, units = {};
+            (list || []).forEach(s => { map[s.id] = s.type || 'manga'; units[s.id] = s.unit || 'chapter'; });
             window.MH._sourceTypes = map;
+            window.MH._sourceUnits = units;
             _sourceTypesAt = Date.now();
         } catch (e) { window.MH._sourceTypes = window.MH._sourceTypes || {}; }
         return window.MH._sourceTypes;
@@ -105,6 +106,40 @@
         return t === 'novel' || t === 'book';   // les deux ouvrent le lecteur de texte
     };
     window.MH.isTextSource = window.MH.isNovelSource;   // alias sémantique (audit §15)
+
+    // ── Unité d'affichage : « Chapitre » vs « Tome » (audit §6) ──
+    // Point de vérité unique, au lieu des « Chap. » codés en dur un peu partout.
+    // Une source ne bascule en 'volume' que si son manifeste le déclare ; on ne
+    // déduit PAS du type novel/manga (un roman web reste sérialisé en chapitres).
+    window.MH.sourceUnit = function (id) {
+        const u = window.MH._sourceUnits && window.MH._sourceUnits[id];
+        return u === 'volume' ? 'volume' : 'chapter';
+    };
+    window.MH.unitLabel = function (source, opts) {
+        const o = opts || {};
+        if (window.MH.sourceUnit(source) === 'volume')
+            return o.short ? 'T.' : (o.plural ? 'Tomes' : 'Tome');
+        return o.short ? 'Chap.' : (o.plural ? 'Chapitres' : 'Chapitre');
+    };
+
+    // ── Sources désactivées (audit §7.2/§9) ──────────────────
+    // Préférence locale (comme la source « courante ») : une source désactivée
+    // est exclue des résultats de recherche multi-sources et ne peut pas être
+    // la source active. Persisté dans localStorage.
+    const DISABLED_KEY = 'inko_disabled_sources';
+    function readDisabled() {
+        try { return new Set(JSON.parse(localStorage.getItem(DISABLED_KEY) || '[]')); }
+        catch (e) { return new Set(); }
+    }
+    window.MH.disabledSources = function () { return readDisabled(); };
+    window.MH.isSourceEnabled = function (id) { return !readDisabled().has(id); };
+    window.MH.setSourceDisabled = function (id, disabled) {
+        const set = readDisabled();
+        if (disabled) set.add(id); else set.delete(id);
+        try { localStorage.setItem(DISABLED_KEY, JSON.stringify([...set])); } catch (e) {}
+        try { window.dispatchEvent(new CustomEvent('source:change', { detail: { id } })); } catch (e) {}
+        return set.has(id);
+    };
     // URL du lecteur adapté au type de la source (texte pour les romans)
     window.MH.readerHref = function (mangaId, chapterId, source) {
         const src = source || window.API?.sources?.current || '';

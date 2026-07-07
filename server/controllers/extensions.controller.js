@@ -10,6 +10,7 @@ const fs    = require('fs');
 const path  = require('path');
 const axios = require('axios');
 const extensions = require('../extensions/loader');
+const health     = require('../lib/source-health');
 
 const REPO_RAW       = 'https://raw.githubusercontent.com/Abdoulrazack1/Inko/main';
 const COMMUNITY_DIR  = path.join(__dirname, '..', '..', 'extensions-community');
@@ -100,4 +101,34 @@ async function applyUpdates(req, res, next) {
     } catch (e) { next(e); }
 }
 
-module.exports = { checkUpdates, applyUpdates };
+// GET /api/extensions/:id/test — test de connectivité léger (audit §7.3 rec 2)
+async function testSource(req, res, next) {
+    try {
+        const src = extensions.get(req.params.id);
+        if (!src) return res.status(404).json({ ok: false, error: 'Source inconnue' });
+        try {
+            const r = await health.test(src);
+            res.json({ ok: true, method: r.method, count: r.count });
+        } catch (e) {
+            // Échec attendu (source cassée) : 200 avec ok:false + message brut,
+            // pas une 5xx — le front affiche l'erreur telle quelle.
+            res.json({ ok: false, error: e.message });
+        }
+    } catch (e) { next(e); }
+}
+
+// GET /api/extensions/health — instantané santé (admin, §7.3 rec 3)
+async function healthStatus(_req, res, next) {
+    try {
+        const byId = Object.fromEntries(extensions.manifest().map(s => [s.id, s]));
+        const rows = health.snapshot().map(h => ({ ...h, name: byId[h.id]?.name || h.id }));
+        // Inclut aussi les sources jamais appelées (aucune donnée de santé encore)
+        for (const s of extensions.manifest()) {
+            if (!rows.find(r => r.id === s.id))
+                rows.push({ id: s.id, name: s.name, okAt: null, failAt: null, error: null, oks: 0, fails: 0, streak: 0 });
+        }
+        res.json(rows);
+    } catch (e) { next(e); }
+}
+
+module.exports = { checkUpdates, applyUpdates, testSource, healthStatus };

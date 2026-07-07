@@ -10,7 +10,7 @@
     // ── Réglages typo (persistés, préfixe novel_) ──
     const ns = { size: 17, lh: 1.85, width: 720, font: 'serif', theme: 'dark' };
     const FONTS = {
-        serif: "Georgia, 'Times New Roman', serif",
+        serif: "'Bitter', Georgia, 'Times New Roman', serif",   // §13 : serif à faible contraste, pensée écran
         sans:  "'Segoe UI', system-ui, -apple-system, sans-serif",
         mono:  "'Cascadia Code', Consolas, monospace",
     };
@@ -48,6 +48,7 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('chapitre');
+        document.body.dataset.content = 'novel';   // §13 : lecteur de romans → accent Ai
         loadSettings();
         applySettings();
 

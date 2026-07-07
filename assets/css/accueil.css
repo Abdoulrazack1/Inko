@@ -72,7 +72,7 @@
 .hero-poster-tag {
   position: absolute; top: 10px; left: 10px;
   font-size: 9px; font-weight: 800; letter-spacing: .04em; color: #fff;
-  background: #7c3aed; padding: 3px 8px; border-radius: 5px;
+  background: var(--ai); padding: 3px 8px; border-radius: 5px;
 }
 
 /* Texte */

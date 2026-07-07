@@ -3,60 +3,87 @@
    Variables, reset, header, footer, composants réutilisables
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+/* Typographie §13 — 3 rôles, aucun par défaut générique :
+   Display = grotesque condensée anguleuse ; Lecture = serif à faible contraste
+   pensée écran ; Utilitaire = sans-serif neutre à chasse resserrée. */
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Bitter:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
-/* ── Variables ─────────────────────────────────────────────── */
+/* ── Variables — Refonte §13 (édition « Washi », claire, comme référence) ──── */
 :root {
-  --bg:          #0d0d0f;
-  --bg2:         #141417;
-  --bg3:         #1a1a1f;
-  --bg4:         #1f1f26;
-  --border:      rgba(255,255,255,0.07);
-  --border2:     rgba(255,255,255,0.12);
-  --orange:      #ff6b1a;
-  --orange2:     #ff8c42;
-  --orange-glow: rgba(255,107,26,0.25);
-  --text:        #f0f0f2;
-  --text2:       #a8a8b3;
-  --text3:       #8a8a96;   /* éclairci : ratio de contraste ≥ 4.5:1 sur fond sombre (a11y, audit A4) */
-  --green:       #22c55e;
-  --blue:        #3b82f6;
-  --red:         #ef4444;
-  --amber:      #f59e0b;
+  /* Palette nommée §13 */
+  --washi:       #eeece6;   /* fond de référence (édition claire) */
+  --sumi:        #111113;   /* fond de la seconde édition (sombre) */
+  --kakishibu:   #c1531b;   /* code couleur MANGA */
+  --ai:          #3d5170;   /* code couleur ROMAN */
+  --hanko:       #a83232;   /* signal fort (non-lu, action destructive, nouveau chapitre) */
+
+  /* Surfaces — édition claire (Washi) */
+  --bg:          #eeece6;
+  --bg2:         #e7e4da;
+  --bg3:         #ddd9cd;
+  --bg4:         #d1ccbe;
+  --border:      rgba(28,27,25,0.13);
+  --border2:     rgba(28,27,25,0.22);
+  --text:        #1c1b19;   /* Encre sur Washi */
+  --text2:       #4c4940;
+  --text3:       #6d685b;
+  --green:       #3f7d4e;
+  --blue:        #3d5170;
+  --red:         #a83232;
+  --amber:       #b5761b;
+
+  /* Accent FONCTIONNEL, jamais un seul accent de marque dominant (§13.2) :
+     défaut = Kakishibu (manga) ; un contexte roman le bascule sur Ai. Tout le
+     legacy `var(--orange)` est aliasé sur --accent → pas de refonte composant
+     par composant, et aucun glow (§13.2). */
+  --accent:      var(--kakishibu);
+  --orange:      var(--accent);
+  --orange2:     var(--accent);
+  --orange-glow: transparent;
+
   --radius:      10px;
   --radius2:     6px;
   --header-h:    56px;
-  --font-head:   'Syne', sans-serif;
-  --font-body:   'Inter', sans-serif;
-  --transition:  0.18s ease;
+  --font-head:   'Archivo Narrow', system-ui, sans-serif;   /* Display */
+  --font-body:   'IBM Plex Sans', system-ui, sans-serif;    /* Utilitaire */
+  --font-read:   'Bitter', Georgia, serif;                  /* Lecture longue */
+  --transition:  0.16s ease;
 }
 
-/* ── Thème AMOLED (noir pur, économie OLED) ────────────────── */
+/* Contenu ROMAN → l'accent bascule sur Ai (indigo). Via [data-content="novel"]
+   (posé sur <body> des pages roman) ou .is-novel (sur une carte/section roman). */
+[data-content="novel"], .is-novel { --accent: var(--ai); }
+
+/* ── Seconde édition « Sumi » (sombre), déclinée à partir de la claire ────── */
+html[data-theme="dark"] {
+  --bg:          #111113;
+  --bg2:         #17171b;
+  --bg3:         #1e1e23;
+  --bg4:         #26262c;
+  --border:      rgba(233,231,224,0.09);
+  --border2:     rgba(233,231,224,0.17);
+  --text:        #e9e7e0;   /* Encre sur Sumi */
+  --text2:       #b2afa5;
+  --text3:       #8b877c;
+}
+html[data-theme="dark"] body { background: var(--bg); color: var(--text); }
+
+/* ── AMOLED (noir pur, économie OLED) — variante de l'édition sombre ──────── */
 html[data-theme="amoled"] {
   --bg:      #000000;
-  --bg2:     #060608;
-  --bg3:     #0c0c10;
-  --bg4:     #141418;
-  --border:  rgba(255,255,255,0.06);
-  --border2: rgba(255,255,255,0.11);
+  --bg2:     #070708;
+  --bg3:     #0e0e11;
+  --bg4:     #17171b;
+  --border:  rgba(233,231,224,0.07);
+  --border2: rgba(233,231,224,0.13);
+  --text:    #e9e7e0;
+  --text2:   #b2afa5;
+  --text3:   #8b877c;
 }
 html[data-theme="amoled"] body { background: #000; }
 
-/* ── Thème clair ───────────────────────────────────────────── */
-html[data-theme="light"] {
-  --bg:          #f6f6f8;
-  --bg2:         #ffffff;
-  --bg3:         #f0f0f3;
-  --bg4:         #e6e6ec;
-  --border:      rgba(0,0,0,0.08);
-  --border2:     rgba(0,0,0,0.14);
-  --text:        #1a1a1f;
-  --text2:       #55555f;
-  --text3:       #9090a0;
-}
-html[data-theme="light"] body { background: var(--bg); color: var(--text); }
-html[data-theme="light"] ::-webkit-scrollbar-track { background: var(--bg3); }
-html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #cfcfda; }
+/* Thème clair explicite = édition Washi (identique à :root). */
+html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c7c2b4; }
 
 /* ── Reset ─────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -76,6 +103,23 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
 input, select, textarea { font-family: inherit; }
 ul, ol { list-style: none; }
 
+/* ── Signature §13.6 : la corne de page pliée ──────────────────
+   Un pli triangulaire sur le coin sup. droit de toute couverture qui a un
+   signet ou une progression de lecture. La texture screentone (points nets,
+   jamais de flou) apparaît DANS le pli — nulle part ailleurs. Placer sur un
+   conteneur en position:relative. Couleur = accent fonctionnel du contexte. */
+.dog-ear {
+  position: absolute; top: 0; right: 0; width: 30px; height: 30px; z-index: 3;
+  pointer-events: none;
+  background-color: var(--accent);
+  background-image: radial-gradient(rgba(255,255,255,0.4) 1px, transparent 1.3px);
+  background-size: 5px 5px;
+  clip-path: polygon(100% 0, 0 0, 100% 100%);   /* triangle du coin */
+  box-shadow: -1px 1px 0 rgba(28,27,25,0.18);
+}
+/* Variante roman : le pli prend l'indigo Ai même hors contexte [data-content] */
+.dog-ear.novel { background-color: var(--ai); }
+
 /* ── Scrollbar ─────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg2); }
@@ -88,9 +132,8 @@ ul, ol { list-style: none; }
 .site-header {
   position: fixed; top: 0; left: 0; right: 0;
   height: var(--header-h);
-  background: rgba(13,13,15,0.92);
-  backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border);
+  background: var(--bg2);           /* §13 : suit l'édition, plus de fond sombre codé en dur */
+  border-bottom: 1px solid var(--border);   /* §13 : gouttière fine, pas de flou */
   z-index: 1000;
   display: flex; align-items: center;
   padding: 0 24px; gap: 28px;
@@ -595,9 +638,7 @@ body.incognito-on::before {
   .mobile-nav {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 95;
     display: flex;
-    background: rgba(16, 16, 19, .92);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    background: var(--bg2);           /* §13 : suit l'édition, plus de flou */
     border-top: 1px solid var(--border);
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
