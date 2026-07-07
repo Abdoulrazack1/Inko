@@ -765,7 +765,10 @@ async function checkUpdates(req, res, next) {
             if (!src || typeof src.getChapters !== 'function') return null;
             let chaps = [];
             try {
-                const data = await src.getChapters(f.manga_id, { lang, limit: 200 });
+                // Pas de limite ici : sinon le compteur de non-lus plafonne (200)
+                // sur les longues séries. Les extensions renvoient la liste complète
+                // (mangadex pagine, les scrapers lisent toute la page de chapitres).
+                const data = await src.getChapters(f.manga_id, { lang });
                 chaps = data.results || [];
             } catch (e) { return null; }
             if (!chaps.length) return null;

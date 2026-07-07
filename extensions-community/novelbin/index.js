@@ -152,7 +152,9 @@ module.exports = {
     lang:         'en',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '1.0.0',
+    version:      '1.1.0',
+
+    unit:      'chapter',
     type:         'novel',
     description:  'NovelBin — light/web novels chinois, coréens et japonais traduits en anglais (cultivation, système, isekai, romance). Très grand catalogue, lecture en texte.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'text', 'tags'],

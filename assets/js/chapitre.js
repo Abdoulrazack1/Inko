@@ -112,6 +112,7 @@
             renderDetails();
             bindKeyboard();
             bindWheel();
+            bindTouch();
             applyInitialScroll();
             saveProgress();
             preloadNextChapter();
@@ -171,6 +172,9 @@
             <button class="reader-icon-btn" id="btnBookmark" title="Ajouter un signet sur cette page (B)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
             </button>
+            <button class="reader-icon-btn" id="btnShare" title="Partager ce chapitre">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
+            </button>
             <button class="reader-icon-btn" id="btnImmersive" title="Mode immersif — masquer l'interface (I)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
             </button>
@@ -197,6 +201,7 @@
         document.getElementById('btnMarkRead')?.addEventListener('click', markUpToHere);
         document.getElementById('btnBookmark')?.addEventListener('click', toggleBookmark);
         document.getElementById('btnImmersive')?.addEventListener('click', toggleImmersive);
+        document.getElementById('btnShare')?.addEventListener('click', shareChapter);
         refreshBookmarkBtn();
         wireDownloadBtn();
         updateAutoBtn();
@@ -585,6 +590,61 @@
             wheelLock = now;
             window.navStep(down ? 1 : -1);
         }, { passive: false });
+    }
+
+    // ── Gestes tactiles (mobile) — swipe de page + double-tap zoom ──
+    // Absents jusqu'ici malgré un usage mobile probable (audit §4).
+    function bindTouch() {
+        const area = document.getElementById('readerPagesArea');
+        if (!area || area.dataset.touchBound) return;
+        area.dataset.touchBound = '1';
+        let sx = 0, sy = 0, st = 0, moved = false, lastTap = 0;
+        area.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); moved = false;
+        }, { passive: true });
+        area.addEventListener('touchmove', (e) => {
+            if (e.touches.length !== 1) return;
+            if (Math.abs(e.touches[0].clientX - sx) > 10 || Math.abs(e.touches[0].clientY - sy) > 10) moved = true;
+        }, { passive: true });
+        area.addEventListener('touchend', (e) => {
+            const dt = Date.now() - st;
+            const t = e.changedTouches[0];
+            const dx = t.clientX - sx, dy = t.clientY - sy;
+            const adx = Math.abs(dx), ady = Math.abs(dy);
+            // Double-tap → bascule le zoom (immobile + tap rapide)
+            if (!moved && dt < 250) {
+                const now = Date.now();
+                if (now - lastTap < 300) { lastTap = 0; toggleTapZoom(); }
+                else lastTap = now;
+                return;
+            }
+            // Swipe horizontal franc → navigation (respecte le sens de lecture)
+            if (adx > 55 && adx > ady * 1.6 && dt < 700) {
+                const rtl = rs.direction === 'rtl';
+                const dir = (dx < 0 ? 1 : -1) * (rtl ? -1 : 1);   // swipe gauche = suivant (LTR)
+                if (readMode === 'scroll') goChapter(dir);        // webtoon : swipe = chapitre
+                else window.navStep(dir);
+            }
+        }, { passive: true });
+    }
+    function toggleTapZoom() {
+        if (readMode === 'scroll') return;
+        zoom = zoom > 110 ? 100 : 170;
+        const label = document.getElementById('zoomLabel'); if (label) label.textContent = zoom + '%';
+        document.querySelectorAll('.reader-page-wrapper').forEach(w => { w.style.transform = `scale(${zoom / 100})`; });
+        window.Storage?.setPref('zoom', zoom);
+    }
+
+    // ── Partager ce chapitre (audit §9) ──
+    function shareChapter() {
+        const url = `${location.origin}/chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(currentChap.id)}&source=${encodeURIComponent(API.sources.current)}`;
+        const title = `${manga.title} — ${MH.unitLabel(API.sources.current, { short: true })} ${currentChap.chapter}`;
+        if (navigator.share) {
+            navigator.share({ title, url }).catch(() => {});
+        } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(url).then(() => MH.toast?.('Lien du chapitre copié')).catch(() => MH.toast?.(url));
+        } else { MH.toast?.(url); }
     }
 
     // Re-render selon le mode courant (utilisé après changement de réglage)

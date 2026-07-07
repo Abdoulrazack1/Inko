@@ -85,7 +85,8 @@ module.exports = {
     lang:        'multi',
     baseUrl:     BASE,
     nsfw:        false,
-    version:     '1.0.0',
+    version:     '1.1.0',
+    unit:      'chapter',
     description: 'Source officielle MangaDex API (scanlations communautaires, 80 000+ titres)',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],
 

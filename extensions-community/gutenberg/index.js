@@ -80,7 +80,9 @@ module.exports = {
     lang:         'multi',
     baseUrl:      API,
     nsfw:         false,
-    version:      '1.0.0',
+    version:      '1.1.0',
+
+    unit:      'chapter',
     type:         'book',
     description:  'Project Gutenberg — 70 000+ livres et romans du domaine public (classiques FR/EN/DE/ES…). Lecture en texte, 100% légal et gratuit.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'text'],
