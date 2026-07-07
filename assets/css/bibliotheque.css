@@ -23,9 +23,12 @@
 .lib2-grid.lib2-grid--compact { grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:10px; }
 .lib2-grid--compact .lib2-title { font-size:11px; }
 .lib2-grid--compact .lib2-sub, .lib2-grid--compact .lib2-cat { display:none; }
-.lib2-card { position:relative; cursor:pointer; }
-.lib2-cover { aspect-ratio:3/4; border-radius:10px; overflow:hidden; background:var(--bg4); position:relative; }
-.lib2-cover img { width:100%; height:100%; object-fit:cover; }
+.lib2-card { position:relative; cursor:pointer; transition:transform .28s var(--ease-out); }
+.lib2-cover { aspect-ratio:3/4; border-radius:var(--radius); overflow:hidden; background:var(--bg4); position:relative; box-shadow:var(--shadow-1); transition:box-shadow .28s var(--ease-out); }
+.lib2-cover img { width:100%; height:100%; object-fit:cover; transition:transform .5s var(--ease-out); }
+.lib2-grid .lib2-card:hover { transform:translateY(-4px); }
+.lib2-grid .lib2-card:hover .lib2-cover { box-shadow:var(--shadow-3); }
+.lib2-grid .lib2-card:hover .lib2-cover img { transform:scale(1.06); }
 .lib2-badge { position:absolute; top:8px; left:8px; background:var(--hanko); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.4); z-index:4; }
 /* si un badge de statut occupe déjà le coin haut-gauche, on descend le compteur */
 .lib2-status + .lib2-badge, .lib2-status ~ .lib2-badge { top:34px; }

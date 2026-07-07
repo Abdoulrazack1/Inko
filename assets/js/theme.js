@@ -43,7 +43,9 @@
         const root = document.documentElement.style;
         // §13 : par défaut on laisse le double accent fonctionnel Kakishibu/Ai du CSS.
         // Un accent perso reste possible (power-user) mais écrase le double accent.
-        if (!accent || accent === '#c1531b') {
+        // '#ff6b1a' = ancien orange par défaut (jamais un choix délibéré) → traité comme
+        // « non défini » pour que les comptes existants héritent aussi du nouveau design.
+        if (!accent || accent === '#c1531b' || accent.toLowerCase() === '#ff6b1a') {
             root.removeProperty('--accent'); root.removeProperty('--orange'); root.removeProperty('--orange2'); root.removeProperty('--orange-glow');
             return;
         }

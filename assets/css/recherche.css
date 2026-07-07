@@ -12,9 +12,12 @@
 .se-gtag { font-size: 10.5px; padding: 2px 8px; border-radius: 5px; background: var(--bg3); color: var(--text2); text-transform: uppercase; font-weight: 600; }
 .se-gcount { font-size: 12px; color: var(--text3); margin-left: auto; }
 .se-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
-.se-card { cursor: pointer; position: relative; display: block; }
-.se-cover { aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background: var(--bg4); position: relative; }
-.se-cover img { width: 100%; height: 100%; object-fit: cover; }
+.se-card { cursor: pointer; position: relative; display: block; transition: transform .28s var(--ease-out); }
+.se-cover { aspect-ratio: 3/4; border-radius: var(--radius); overflow: hidden; background: var(--bg4); position: relative; box-shadow: var(--shadow-1); transition: box-shadow .28s var(--ease-out); }
+.se-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s var(--ease-out); }
+.se-card:hover { transform: translateY(-4px); }
+.se-card:hover .se-cover { box-shadow: var(--shadow-3); }
+.se-card:hover .se-cover img { transform: scale(1.06); }
 .se-title { font-size: 12.5px; font-weight: 500; margin-top: 7px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .se-empty { color: var(--text3); font-size: 13px; padding: 6px 0; }
 .se-err { color: #ef4444; font-size: 12.5px; }
