@@ -13,6 +13,7 @@ const Image   = require('../controllers/image.controller');
 const Ext     = require('../controllers/extensions.controller');
 const Admin   = require('../controllers/admin.controller');
 const Notif   = require('../controllers/notif.controller');
+const Notes   = require('../controllers/notes.controller');
 const Profile = require('../controllers/profile.controller');
 const Local   = require('../controllers/local.controller');
 
@@ -136,6 +137,13 @@ router.post  ('/admin/reports/:id/resolve',   auth.authRequired, adminRequired, 
 router.get   ('/ratings/:mangaId',        auth.authOptional, User.getMangaRating);
 router.put   ('/ratings/:mangaId',        auth.authRequired, User.setMangaRating);
 router.delete('/ratings/:mangaId',        auth.authRequired, User.deleteMangaRating);
+// ── Journal de lecture : notes personnelles ──
+router.get   ('/me/notes',                auth.authRequired, Notes.listNotes);
+router.get   ('/me/notes/stats',          auth.authRequired, Notes.notesStats);
+router.post  ('/me/notes',                auth.authRequired, Notes.createNote);
+router.put   ('/me/notes/:id',            auth.authRequired, Notes.updateNote);
+router.delete('/me/notes/:id',            auth.authRequired, Notes.deleteNote);
+
 router.get   ('/me/ratings',              auth.authRequired, User.getMyRatings);
 
 // ── Settings synchronisés ───────────────────────

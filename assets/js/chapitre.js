@@ -172,6 +172,9 @@
             <button class="reader-icon-btn" id="btnBookmark" title="Ajouter un signet sur cette page (B)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
             </button>
+            <button class="reader-icon-btn" id="btnNotes" title="Mes notes de lecture (J)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </button>
             <button class="reader-icon-btn" id="btnShare" title="Partager ce chapitre">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
             </button>
@@ -202,6 +205,8 @@
         document.getElementById('btnBookmark')?.addEventListener('click', toggleBookmark);
         document.getElementById('btnImmersive')?.addEventListener('click', toggleImmersive);
         document.getElementById('btnShare')?.addEventListener('click', shareChapter);
+        document.getElementById('btnNotes')?.addEventListener('click', openNotes);
+        window.NotesUI?.updateBadge?.(notesContext());
         refreshBookmarkBtn();
         wireDownloadBtn();
         updateAutoBtn();
@@ -647,6 +652,16 @@
         } else { MH.toast?.(url); }
     }
 
+    // ── Notes de lecture (journal) ──
+    function notesContext() {
+        return {
+            mangaId: manga.id, source: API.sources.current,
+            mangaTitle: manga.title, cover: manga.cover || manga.coverThumb,
+            chapterId: currentChap.id, chapterNum: currentChap.chapter, page: currentPage,
+        };
+    }
+    function openNotes() { window.NotesUI?.open(notesContext()); }
+
     // Re-render selon le mode courant (utilisé après changement de réglage)
     function rerender() {
         if (readMode === 'scroll') renderScroll();
@@ -755,6 +770,7 @@
                 case 's': case 'S': case '?': case 'h': case 'H': toggleReaderSettings(); return;
                 case 'a': case 'A': toggleAutoScroll(); return;
                 case 'b': case 'B': toggleBookmark(); return;
+                case 'j': case 'J': openNotes(); return;
                 case 'i': case 'I': toggleImmersive(); return;
                 case '[': bumpAutoSpeed(-0.2); return;
                 case ']': bumpAutoSpeed(0.2); return;

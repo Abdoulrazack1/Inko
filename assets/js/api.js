@@ -284,6 +284,15 @@
             markChapter:      (payload)    => post('/me/read-chapters', payload),
             markChaptersBulk: (mangaId, chapters) => post('/me/read-chapters/bulk', { mangaId, chapters }),
 
+            // ── Journal de lecture (notes personnelles) ──
+            notes:            (opts = {})  => get('/me/notes' + (opts.manga ? '?manga=' + encodeURIComponent(opts.manga)
+                                                    : (opts.q ? '?q=' + encodeURIComponent(opts.q) : '')))
+                                                .then(r => { (r.notes || []).forEach(n => { if (n.cover) n.cover = proxyCover(n.cover); }); return r; }),
+            notesStats:       ()           => get('/me/notes/stats'),
+            addNote:          (payload)    => post('/me/notes', payload),
+            updateNote:       (id, payload) => put('/me/notes/' + encodeURIComponent(id), payload),
+            removeNote:       (id)         => del('/me/notes/' + encodeURIComponent(id)),
+
             lists:            ()           => get('/me/lists').then(a => { (a || []).forEach(l => {
                 if (Array.isArray(l.covers)) l.covers = l.covers.map(proxyCover);
                 if (Array.isArray(l.items))  l.items.forEach(it => { if (it.cover) it.cover = proxyCover(it.cover); });

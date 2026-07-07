@@ -117,6 +117,27 @@ async function ensureSchema() {
     await modifyIf('list_items',    'cover',  'text', 'TEXT DEFAULT NULL');
     await modifyIf('users',         'avatar', 'varchar(255)', 'VARCHAR(255) DEFAULT NULL');       // emojis longs / URLs
 
+    // 7. Notes de lecture personnelles (journal du lecteur)
+    //    Privées, synchronisées, rattachées au contexte (série / chapitre / page).
+    await run(`CREATE TABLE IF NOT EXISTS reading_notes (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        user_id     INT NOT NULL,
+        manga_id    VARCHAR(191) NOT NULL,
+        source      VARCHAR(64) DEFAULT NULL,
+        manga_title VARCHAR(512) DEFAULT NULL,     -- dénormalisé pour le journal
+        cover       TEXT DEFAULT NULL,
+        chapter_id  VARCHAR(191) DEFAULT NULL,      -- NULL = note au niveau de la série
+        chapter_num DECIMAL(10,2) DEFAULT NULL,
+        page        INT DEFAULT NULL,               -- position dans le chapitre
+        body        TEXT NOT NULL,
+        mood        VARCHAR(24) DEFAULT NULL,        -- humeur / étiquette (optionnel)
+        created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_note_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX idx_note_user_manga (user_id, manga_id),
+        INDEX idx_note_user_time (user_id, created_at)
+    ) ENGINE=InnoDB`);
+
     // 6. Imports locaux (EPUB / CBZ / CBR téléversés par l'utilisateur)
     await run(`CREATE TABLE IF NOT EXISTS local_imports (
         id         INT AUTO_INCREMENT PRIMARY KEY,

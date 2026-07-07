@@ -140,6 +140,9 @@
             <button class="reader-icon-btn" id="btnNextChap" ${!next ? 'disabled' : ''} title="Chapitre suivant (→)">›</button>
         </div>
         <div class="toolbar-right">
+            <button class="reader-icon-btn" id="btnNotes" title="Mes notes de lecture (J)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </button>
             <button class="reader-icon-btn" id="btnMarkRead" title="Marquer ce chapitre (et les précédents) comme lus">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M20 6 9 17l-5-5"/></svg>
             </button>
@@ -155,8 +158,20 @@
         el.querySelector('#btnNovelSettings').addEventListener('click', toggleSettings);
         el.querySelector('#btnMarkRead').addEventListener('click', markUpToHere);
         el.querySelector('#btnNovelTTS').addEventListener('click', TTS.toggle);
+        el.querySelector('#btnNotes')?.addEventListener('click', openNotes);
+        window.NotesUI?.updateBadge?.(notesContext());
         wireDownload();
     }
+
+    // ── Notes de lecture (journal) ──
+    function notesContext() {
+        return {
+            mangaId: manga.id, source: API.sources.current,
+            mangaTitle: manga.title, cover: manga.cover || manga.coverThumb,
+            chapterId: currentChap.id, chapterNum: currentChap.chapter, page: null,
+        };
+    }
+    function openNotes() { window.NotesUI?.open(notesContext()); }
 
     // ── Synthèse vocale (Text-to-Speech, Web Speech API) ──
     const TTS = (function () {
@@ -357,6 +372,7 @@
                 case 'ArrowRight': case 'n': case 'N': goChapter(1); break;
                 case 'ArrowLeft':  case 'p': case 'P': goChapter(-1); break;
                 case 's': case 'S': toggleSettings(); break;
+                case 'j': case 'J': openNotes(); break;
                 case 'Escape': document.getElementById('novelSettings')?.remove(); break;
             }
         });

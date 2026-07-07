@@ -613,6 +613,7 @@
             <a href="accueil.html" class="${activePage === 'accueil' ? 'active' : ''}" data-i18n="nav.home">Accueil</a>
             <a href="catalogue.html" class="${['catalogue','serie','chapitre'].includes(activePage) ? 'active' : ''}" data-i18n="nav.catalog">Catalogue</a>
             <a href="bibliotheque.html" class="${activePage === 'bibliotheque' ? 'active' : ''}" style="position:relative"><span data-i18n="nav.library">Bibliothèque</span><span class="nav-badge" id="navLibBadge" style="display:none"></span></a>
+            <a href="notes.html" class="${activePage === 'notes' ? 'active' : ''}">Journal</a>
             <a href="#" id="navRandom" data-i18n="nav.random">Aléatoire</a>
             <a href="sources.html" class="${activePage === 'sources' ? 'active' : ''}" data-i18n="nav.sources">Sources</a>
             ${nsfwLink}
@@ -1121,6 +1122,7 @@
             { label: 'Accueil', icon: I('home'), go: 'accueil.html' },
             { label: 'Catalogue', icon: I('catalogue'), go: 'catalogue.html' },
             { label: 'Ma bibliothèque', icon: I('book'), go: 'bibliotheque.html' },
+            { label: 'Journal de lecture', icon: I('bookmark'), go: 'notes.html' },
             { label: 'Recherche globale', icon: I('search'), go: 'recherche.html' },
             { label: 'Statistiques', icon: I('chart'), go: 'stats.html' },
             { label: 'Collections', icon: I('folder'), go: 'collections.html' },

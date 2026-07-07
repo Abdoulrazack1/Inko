@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Journal de lecture</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#eeece6">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <link rel="stylesheet" href="assets/css/notes.css">
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+
+  <div class="jr-wrap">
+    <div class="jr-head">
+      <h1>Journal de lecture</h1>
+      <div class="jr-sub">Tes pensées, chapitre après chapitre — comme un carnet qui suit ta lecture.</div>
+      <div class="jr-stats" id="jrStats"></div>
+    </div>
+    <div class="jr-toolbar">
+      <input type="text" class="jr-search" id="jrSearch" placeholder="Rechercher dans mes notes…" autocomplete="off">
+    </div>
+    <div id="jrBody">
+      <div class="jr-empty"><div class="spinner-inline"></div></div>
+    </div>
+  </div>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/nsfw.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/notes.js"></script>
+  <script src="assets/js/eula.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>
