@@ -586,17 +586,21 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   animation: spin 0.8s linear infinite;
 }
 
-/* Toast */
+/* Toast — verre dépoli, liseré d'accent, apparition ressort */
 .toast {
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  background: var(--bg3); border: 1px solid var(--border2);
-  border-radius: var(--radius); padding: 12px 20px;
-  font-size: 13px; z-index: 9999;
-  box-shadow: 0 8px 32px rgba(0,0,0,.5);
-  animation: toastIn .25s ease;
+  position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+  background: color-mix(in srgb, var(--bg2) 88%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(16px);
+  backdrop-filter: saturate(1.4) blur(16px);
+  border: 1px solid var(--border2);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius); padding: 12px 20px 12px 17px;
+  font-size: 13px; font-weight: 500; color: var(--text); z-index: 9999;
+  box-shadow: var(--shadow-3);
+  animation: toastIn .34s var(--ease-spring);
   pointer-events: none;
 }
-@keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+@keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(14px) scale(.96)} to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)} }
 
 /* Responsive container */
 .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }

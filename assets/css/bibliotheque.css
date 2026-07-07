@@ -4,8 +4,9 @@
 .lib2-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
 .lib2-head h1 { font-family: var(--font-head); font-size: 26px; font-weight: 700; }
 .lib2-tabs { display:flex; gap:4px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:4px; }
-.lib2-tab { padding:8px 16px; border-radius:7px; font-size:13px; color:var(--text2); font-weight:500; position:relative; }
-.lib2-tab.active { background:var(--orange); color:#fff; }
+.lib2-tab { padding:8px 16px; border-radius:8px; font-size:13px; color:var(--text2); font-weight:500; position:relative; transition:color var(--transition), background var(--transition); }
+.lib2-tab:hover { color:var(--text); }
+.lib2-tab.active { background:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
 /* Compteur discret sur un onglet (Téléchargements) */
 .lib2-tab .tab-count { display:inline-block; margin-left:6px; font-size:11px; font-weight:700; background:var(--bg4); color:var(--text2); padding:1px 6px; border-radius:9px; }
 .lib2-tab.active .tab-count { background:rgba(255,255,255,.25); color:#fff; }
@@ -16,8 +17,9 @@
 
 /* Bascule Grille / Liste */
 .lib2-view { display:inline-flex; background:var(--bg3); border:1px solid var(--border2); border-radius:9px; padding:2px; gap:2px; }
-.lib2-view button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:30px; border:none; background:none; color:var(--text2); border-radius:7px; cursor:pointer; }
-.lib2-view button.on { background:var(--orange); color:#fff; }
+.lib2-view button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:30px; border:none; background:none; color:var(--text2); border-radius:7px; cursor:pointer; transition:color var(--transition), background var(--transition); }
+.lib2-view button:hover { color:var(--text); }
+.lib2-view button.on { background:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
 
 .lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:16px; }
 .lib2-grid.lib2-grid--compact { grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:10px; }
@@ -54,8 +56,8 @@
 /* Filtres (statuts / catégories) */
 .lib2-filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; width:100%; }
 .lib2-chip { padding:6px 13px; border-radius:20px; font-size:12.5px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; font-weight:500; transition:all .12s; }
-.lib2-chip:hover { color:var(--text); border-color:var(--border); }
-.lib2-chip.on { background:var(--orange); border-color:var(--orange); color:#fff; }
+.lib2-chip:hover { color:var(--text); border-color:var(--text3); }
+.lib2-chip.on { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
 .lib2-chip .cnt { opacity:.65; margin-left:5px; font-size:11px; }
 .lib2-chip-add { color:var(--text3); border-style:dashed; }
 .lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; color:#fff; }
@@ -66,7 +68,7 @@
 .lib2-kinds { display:inline-flex; background:var(--bg3); border:1px solid var(--border2); border-radius:20px; padding:3px; gap:2px; margin-right:6px; }
 .lib2-kind { padding:5px 14px; border-radius:18px; font-size:12.5px; font-weight:600; color:var(--text2); background:none; border:none; cursor:pointer; transition:all .12s; }
 .lib2-kind:hover { color:var(--text); }
-.lib2-kind.on { background:var(--orange); color:#fff; }
+.lib2-kind.on { background:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
 .lib2-kind .cnt { opacity:.7; margin-left:5px; font-size:11px; }
 
 /* Rangée « Reprendre où j'en étais » (audit §10.3) */
