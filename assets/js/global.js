@@ -599,10 +599,6 @@
         const adminBtn = (u && u.role === 'admin') ? `
           <a href="admin.html" class="header-icon-btn ${activePage === 'admin' ? 'active' : ''}" title="Administration" style="text-decoration:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></a>` : '';
 
-        // Accès discret +18 : visible uniquement si l'espace est activé
-        const nsfwLink = (window.NSFW?.isEnabled?.())
-            ? `<a href="secret.html" title="Espace +18" style="color:#ec4899;font-weight:700;font-size:12px">+18</a>` : '';
-
         return `
         <header class="site-header">
           <a href="accueil.html" class="header-logo">
@@ -616,7 +612,6 @@
             <a href="notes.html" class="${activePage === 'notes' ? 'active' : ''}">Journal</a>
             <a href="#" id="navRandom" data-i18n="nav.random">Aléatoire</a>
             <a href="sources.html" class="${activePage === 'sources' ? 'active' : ''}" data-i18n="nav.sources">Sources</a>
-            ${nsfwLink}
           </nav>
           <div class="header-search">
             <span class="header-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align:middle"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>

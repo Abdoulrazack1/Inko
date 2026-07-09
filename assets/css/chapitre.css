@@ -3,7 +3,16 @@
    Design : sombre, cinématographique, immersif
    ============================================================ */
 
-.page-body { background: #08080a; }
+/* Le lecteur est un environnement sombre par nature (confort de lecture des
+   planches). On force l'édition sombre (Sumi) sur tout l'habillage du lecteur,
+   quel que soit le thème de l'app — sinon en thème clair « Washi » le texte
+   sombre devient invisible sur ce fond noir (régression écran tout noir). */
+.page-body {
+  background: #08080a;
+  --bg: #08080a; --bg2: #111113; --bg3: #1a1a1f; --bg4: #24242b;
+  --text: #e9e7e0; --text2: #b2afa5; --text3: #8b877c;
+  --border: rgba(233,231,224,.10); --border2: rgba(233,231,224,.18);
+}
 
 /* ══════════════════════════════════════════════════════════
    TOOLBAR

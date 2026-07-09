@@ -9,17 +9,19 @@
 (function () {
     'use strict';
 
+    // Étiquettes d'humeur en TEXTE (pas d'emoji) + couleur.
     const MOODS = [
-        ['love', '❤️', 'Coup de cœur'],
-        ['wow', '😮', 'Waouh'],
-        ['laugh', '😂', 'Drôle'],
-        ['cry', '😢', 'Émouvant'],
-        ['angry', '😠', 'Rageant'],
-        ['fear', '😱', 'Stressant'],
-        ['think', '🤔', 'Réflexion'],
-        ['meh', '😐', 'Mitigé'],
+        ['love', 'Coup de cœur', '#a83232'],
+        ['wow', 'Waouh', '#c1531b'],
+        ['laugh', 'Drôle', '#b5761b'],
+        ['cry', 'Émouvant', '#3d5170'],
+        ['angry', 'Rageant', '#8a3a2a'],
+        ['fear', 'Stressant', '#5a4a6a'],
+        ['think', 'Réflexion', '#3f7d4e'],
+        ['meh', 'Mitigé', '#6d685b'],
     ];
-    const moodEmoji = (m) => (MOODS.find(x => x[0] === m) || [])[1] || '';
+    const moodLabel = (m) => (MOODS.find(x => x[0] === m) || [])[1] || '';
+    const moodColor = (m) => (MOODS.find(x => x[0] === m) || [])[2] || 'var(--accent)';
 
     const esc = (s) => window.MH?.esc ? MH.esc(s) : String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -42,7 +44,7 @@
                 <div class="notes-list" id="notesList"></div>
                 <form class="notes-composer" id="notesComposer">
                     <div class="notes-moods" id="notesMoods">
-                        ${MOODS.map(m => `<button type="button" class="notes-mood" data-mood="${m[0]}" title="${m[2]}">${m[1]}</button>`).join('')}
+                        ${MOODS.map(m => `<button type="button" class="notes-mood" data-mood="${m[0]}" style="--mc:${m[2]}">${m[1]}</button>`).join('')}
                     </div>
                     <textarea id="notesText" class="notes-text" rows="3" maxlength="5000" placeholder="Qu'est-ce que tu ressens à cet instant de l'histoire ?"></textarea>
                     <div class="notes-actions">
@@ -98,7 +100,7 @@
         const here = notes.filter(n => ctx.chapterId && n.chapterId === ctx.chapterId);
         const rest = notes.filter(n => !ctx.chapterId || n.chapterId !== ctx.chapterId);
         if (!notes.length) {
-            el.innerHTML = `<div class="notes-empty">Aucune note pour cette série pour l'instant.<br>Écris ta première impression ci-dessous ✍️</div>`;
+            el.innerHTML = `<div class="notes-empty">Aucune note pour cette série pour l'instant.<br>Écris ta première impression ci-dessous.</div>`;
             return;
         }
         el.innerHTML =
@@ -115,12 +117,12 @@
         return `
         <article class="note-item" data-id="${n.id}">
             <div class="note-item-head">
-                ${n.mood ? `<span class="note-mood">${moodEmoji(n.mood)}</span>` : ''}
+                ${n.mood ? `<span class="note-mood" style="color:${moodColor(n.mood)}">${moodLabel(n.mood)}</span>` : ''}
                 <span class="note-loc">${esc(loc || 'Série')}</span>
                 <span class="note-when">${esc(when)}</span>
                 <span class="note-tools">
-                    <button class="note-tool" data-edit="${n.id}" title="Modifier">✎</button>
-                    <button class="note-tool" data-del="${n.id}" title="Supprimer">🗑</button>
+                    <button class="note-tool" data-edit="${n.id}" title="Modifier" aria-label="Modifier"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+                    <button class="note-tool" data-del="${n.id}" title="Supprimer" aria-label="Supprimer"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                 </span>
             </div>
             <div class="note-body">${esc(n.body).replace(/\n/g, '<br>')}</div>

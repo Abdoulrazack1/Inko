@@ -9,7 +9,6 @@
         renderAccount();
         initSegments();
         initAccent();
-        renderNsfw();
         bindData();
         bindConnections();
         bindGoogleConfig();

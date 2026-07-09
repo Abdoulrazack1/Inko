@@ -2,7 +2,8 @@
 (function () {
     'use strict';
 
-    const MOOD_EMOJI = { love: '❤️', wow: '😮', laugh: '😂', cry: '😢', angry: '😠', fear: '😱', think: '🤔', meh: '😐' };
+    const MOOD_LABEL = { love: 'Coup de cœur', wow: 'Waouh', laugh: 'Drôle', cry: 'Émouvant', angry: 'Rageant', fear: 'Stressant', think: 'Réflexion', meh: 'Mitigé' };
+    const MOOD_COLOR = { love: '#a83232', wow: '#c1531b', laugh: '#b5761b', cry: '#3d5170', angry: '#8a3a2a', fear: '#5a4a6a', think: '#3f7d4e', meh: '#6d685b' };
     let allNotes = [];
     let searchTimer = null;
 
@@ -21,7 +22,6 @@
     function showLoggedOut() {
         document.getElementById('jrBody').innerHTML = `
             <div class="jr-empty">
-                <div class="ico">📔</div>
                 <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">Connexion requise</div>
                 <div style="margin-bottom:18px">Connecte-toi pour retrouver ton journal de lecture.</div>
                 <a href="page_login.html" class="btn btn-primary">Se connecter</a>
@@ -35,7 +35,7 @@
             document.getElementById('jrStats').innerHTML = `
                 <div class="jr-stat"><b>${s.total}</b><span>note${s.total > 1 ? 's' : ''}</span></div>
                 <div class="jr-stat"><b>${s.series}</b><span>série${s.series > 1 ? 's' : ''} annotée${s.series > 1 ? 's' : ''}</span></div>
-                ${topMood ? `<div class="jr-stat"><b>${MOOD_EMOJI[topMood[0]] || ''}</b><span>humeur dominante</span></div>` : ''}`;
+                ${topMood ? `<div class="jr-stat"><b style="color:${MOOD_COLOR[topMood[0]] || 'var(--accent)'};font-size:14px">${MOOD_LABEL[topMood[0]] || ''}</b><span>humeur dominante</span></div>` : ''}`;
         } catch (e) {}
     }
 
@@ -52,9 +52,9 @@
         if (!notes.length) {
             body.innerHTML = q
                 ? `<div class="jr-empty">Aucune note ne correspond à « ${MH.esc(q)} ».</div>`
-                : `<div class="jr-empty"><div class="ico">✍️</div>
+                : `<div class="jr-empty">
                     <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:6px">Ton journal est vide</div>
-                    <div style="margin-bottom:16px">Pendant que tu lis un chapitre, appuie sur l'icône ✎ (ou la touche J) pour noter ce que tu ressens.</div>
+                    <div style="margin-bottom:16px">Pendant que tu lis un chapitre, ouvre le bouton Notes (ou la touche J) pour noter ce que tu ressens.</div>
                     <a href="catalogue.html" class="btn btn-primary btn-sm">Commencer à lire →</a></div>`;
             return;
         }
@@ -98,12 +98,12 @@
         return `
         <article class="jr-note" data-id="${n.id}">
             <div class="jr-note-head">
-                ${n.mood ? `<span class="jr-note-mood">${MOOD_EMOJI[n.mood] || ''}</span>` : ''}
+                ${n.mood ? `<span class="jr-note-mood" style="color:${MOOD_COLOR[n.mood] || 'var(--accent)'}">${MOOD_LABEL[n.mood] || ''}</span>` : ''}
                 ${loc ? `<a class="jr-note-loc" href="${read}">${MH.esc(loc)}</a>` : ''}
                 <span class="jr-note-date">${MH.esc(when)}</span>
                 <span class="jr-note-tools">
-                    <button class="jr-note-tool" data-edit="${n.id}" title="Modifier">✎</button>
-                    <button class="jr-note-tool" data-del="${n.id}" title="Supprimer">🗑</button>
+                    <button class="jr-note-tool" data-edit="${n.id}" title="Modifier" aria-label="Modifier"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+                    <button class="jr-note-tool" data-del="${n.id}" title="Supprimer" aria-label="Supprimer"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                 </span>
             </div>
             <div class="jr-note-body" data-body="${n.id}">${MH.esc(n.body)}</div>

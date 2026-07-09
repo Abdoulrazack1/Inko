@@ -47,7 +47,7 @@
 }
 .note-item:hover { box-shadow: var(--shadow-1); }
 .note-item-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.note-mood { font-size: 15px; line-height: 1; }
+.note-mood { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .note-loc { font-size: 11px; font-weight: 600; color: var(--accent); }
 .note-when { font-size: 11px; color: var(--text3); }
 .note-tools { margin-left: auto; display: flex; gap: 2px; opacity: 0; transition: opacity var(--transition); }
@@ -58,13 +58,12 @@
 .note-body { font-size: 13.5px; line-height: 1.55; color: var(--text); white-space: pre-wrap; word-break: break-word; }
 
 .notes-composer { border-top: 1px solid var(--border); padding: 12px 20px 16px; background: var(--bg2); }
-.notes-moods { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
-.notes-mood { width: 34px; height: 34px; border-radius: 9px; font-size: 17px; line-height: 1;
-  border: 1px solid transparent; filter: grayscale(.5) opacity(.7);
-  transition: transform .12s var(--ease-spring), filter var(--transition), background var(--transition); }
-.notes-mood:hover { filter: none; transform: translateY(-2px); background: var(--bg3); }
-.notes-mood.on { filter: none; background: color-mix(in srgb, var(--accent) 14%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent); transform: translateY(-1px); }
+.notes-moods { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.notes-mood { padding: 5px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 600; line-height: 1;
+  border: 1px solid var(--border2); color: var(--text2); background: var(--bg);
+  transition: transform .12s var(--ease-out), color var(--transition), background var(--transition), border-color var(--transition); }
+.notes-mood:hover { color: var(--mc, var(--text)); border-color: var(--mc, var(--border2)); transform: translateY(-1px); }
+.notes-mood.on { color: #fff; background: var(--mc, var(--accent)); border-color: var(--mc, var(--accent)); }
 .notes-text {
   width: 100%; background: var(--bg); border: 1px solid var(--border2); color: var(--text);
   border-radius: var(--radius2); padding: 11px 13px; font-size: 14px; line-height: 1.5; resize: vertical;
@@ -106,8 +105,9 @@
 .jr-note::before { content: ''; position: absolute; left: -17px; top: 16px; width: 9px; height: 9px; border-radius: 50%;
   background: var(--accent); box-shadow: 0 0 0 3px var(--bg); }
 .jr-note-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.jr-note-mood { font-size: 16px; }
+.jr-note-mood { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .jr-note-loc { font-size: 11.5px; font-weight: 600; color: var(--accent); }
+.jr-note-tool svg, .note-tool svg { display: block; }
 .jr-note-date { font-size: 11px; color: var(--text3); }
 .jr-note-tools { margin-left: auto; display: flex; gap: 2px; }
 .jr-note-tool { width: 26px; height: 26px; border-radius: 6px; color: var(--text3); font-size: 13px;
