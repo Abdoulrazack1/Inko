@@ -186,6 +186,13 @@
                     return r.user;
                 } catch (e) { return null; }
             },
+            // Mode local (façon Mihon) : session automatique sur le compte
+            // propriétaire, aucun écran de connexion.
+            async local() {
+                const r = await post('/auth/local');
+                _user = r.user; _token = r.token; persist();
+                return r;
+            },
             async requestReset(email)   { return post('/auth/forgot', { email }); },
             async resetPassword(payload){ return post('/auth/reset',  payload); },
             async changePassword(payload){ return put('/auth/password', payload); },
@@ -224,6 +231,7 @@
             // Test de connectivité d'une source + santé globale (admin)
             test:         (id)    => get('/extensions/' + encodeURIComponent(id) + '/test'),
             health:       ()      => get('/extensions/health'),
+            installUrl:   (url)   => post('/extensions/install-url', { url }),
         },
 
         // ── Mangas (public, route automatiquement selon la source courante) ──
@@ -445,8 +453,19 @@
 
     window.API = API;
 
-    // ── Vérification asynchrone du token au démarrage ─────────
-    if (_token) {
-        API.auth.me().catch(() => { /* géré dans request() */ });
-    }
+    // ── Démarrage : session locale automatique (mode Mihon) ─────
+    // Plus d'écran de connexion : si aucune session n'est stockée, on en
+    // obtient une auprès du serveur (compte propriétaire). `API.ready` permet
+    // aux pages d'attendre la toute première authentification.
+    API.ready = (async () => {
+        if (_token) {
+            API.auth.me().catch(() => { /* géré dans request() */ });
+            return true;
+        }
+        try {
+            await API.auth.local();
+            try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch (e) {}
+            return true;
+        } catch (e) { return false; }   // serveur down / mode local désactivé
+    })();
 })();

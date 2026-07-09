@@ -4,14 +4,14 @@
 
 # Inko
 
-**Tes mangas, light novels et livres, partout. Lis, suis tes séries, reprends où tu t'es arrêté.**
+**Tes mangas, light novels et livres, partout. Lis, suis tes séries, note ce que tu ressens, reprends où tu t'es arrêté.**
 
-Un lecteur de **mangas, romans et livres** moderne — web, PWA installable, application
-desktop (Electron) et mobile (Capacitor) — construit sur un système d'extensions
-ouvert, dans l'esprit de Mihon / Tachiyomi. Lis des mangas en images, des
-light/web novels traduits **et** des classiques du domaine public (Project
-Gutenberg), avec profils publics, commentaires, notifications push et import
-de tes propres fichiers EPUB/CBZ.
+Un lecteur de **mangas, romans et livres** auto-hébergeable — web, PWA installable,
+application desktop (Electron) et mobile (Capacitor) — construit sur un système
+d'extensions ouvert, dans l'esprit de Mihon / Tachiyomi. Lis des mangas en images,
+des light/web novels traduits **et** des classiques du domaine public (Project
+Gutenberg), avec journal de lecture privé, notifications push de nouveaux
+chapitres, profils publics et import de tes propres fichiers EPUB/CBZ/PDF.
 
 [![Node](https://img.shields.io/badge/Node-%E2%89%A518-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express-4-000000?logo=express&logoColor=white)](https://expressjs.com/)
@@ -20,7 +20,7 @@ de tes propres fichiers EPUB/CBZ.
 [![Electron](https://img.shields.io/badge/Desktop-Electron-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-D22128?logo=apache&logoColor=white)](LICENSE)
 
-[Démarrer](#installation-en-2-minutes) · [Fonctionnalités](#fonctionnalités) · [Comparatif](#pourquoi-inko--comparatif) · [Extensions](#extensions) · [Desktop](#application-desktop) · [API](#api-rest)
+[Démarrer](#installation-en-2-minutes) · [Fonctionnalités](#fonctionnalités) · [Design](#design--lédition-washi) · [Extensions](#extensions) · [Desktop](#application-desktop) · [API](#api-rest)
 
 </div>
 
@@ -43,126 +43,95 @@ de tes propres fichiers EPUB/CBZ.
 
 ---
 
-## Pourquoi Inko — comparatif
+## Pourquoi Inko
 
-Les bons lecteurs sont souvent enfermés dans un seul OS (Mihon/Tachiyomi sur
-Android, Paperback sur iOS) ou demandent un serveur lourd (Komga/Kavita). Inko
-réunit tout dans **une seule base de code** — web, PWA, desktop, mobile — avec un
-système d'extensions que tu peux étendre toi-même, et reste **centré sur la
-lecture** (pas de réseau social).
-
-| | **Inko** | Mihon / Tachiyomi | Paperback | Komga / Kavita | MangaDex Web |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Plateformes | Web · PWA · Desktop · Mobile | Android | iOS | Serveur + web | Web |
-| Mangas **et** romans (texte) | ✅ | Manga | Manga | Les deux | Manga |
-| Œuvres JP/CN traduites | ✅ (EN + FR) | Selon ext. | Selon ext. | Selon import | Multi |
-| Extensions ouvertes | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Auto-hébergeable | ✅ (Node/MySQL) | ❌ | ❌ | ✅ (lourd) | ❌ |
-| Sync compte (favoris, progression) | ✅ | Partiel | Partiel | ✅ | ✅ |
-| Tracking AniList | ✅ (auto + manuel) | ✅ | ✅ | Partiel | — |
-| Lecture hors-ligne (images **+** texte) | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Bibliothèque visible hors connexion | ✅ (miroir local) | ✅ | ✅ | ❌ | ❌ |
-| Mode incognito (lecture privée) | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Filtres chapitres (lus / non lus) | ✅ | ✅ | ✅ | ✅ | Partiel |
-| Thèmes (clair / sombre / **AMOLED**) + accent | ✅ | ✅ | Partiel | ✅ | Partiel |
-| Palette de commandes (Ctrl/Cmd+K) | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Objectifs, défis & badges de lecture | ✅ | ❌ | ❌ | Partiel | ❌ |
-| Connexion Google (SSO) | ✅ | ❌ | ❌ | Selon | ✅ |
-| Musique pendant la lecture | ✅ (Spotify/YouTube/local) | ❌ | ❌ | ❌ | ❌ |
-| Sans framework lourd (forkable) | ✅ (Vanilla JS) | Kotlin | Swift | Kotlin/Angular | React |
+|  | **Inko** | Mihon | Suwayomi | Komga/Kavita | Sites de scan |
+|---|---|---|---|---|---|
+| Mangas **et** romans **et** livres | ✅ | ❌ (mangas) | ❌ (mangas) | ✅ (fichiers) | ❌ |
+| Extensions multi-sources | ✅ (simultanées) | ✅ | ✅ | ❌ | ❌ |
+| Journal de lecture privé | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Notifications push nouveaux chapitres | ✅ (app fermée incluse) | ✅ (mobile) | ❌ | ❌ | ❌ |
+| Web + desktop + mobile + PWA | ✅ | ❌ (Android) | ✅ (web) | ✅ (web) | ✅ |
+| Import local EPUB/CBZ/PDF | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Auto-hébergeable | ✅ (Node/MySQL) | ❌ | ✅ | ✅ (lourd) | ❌ |
+| Sans pub, sans télémétrie | ✅ | ✅ | ✅ | ✅ | ❌ |
 
 ---
 
 ## Fonctionnalités
 
-### Lecteur d'images (manga)
-- **Modes** : page, **double planche collée** (vraie spread, sens manga respecté),
-  webtoon (défilement vertical) — mémorisés **par série**
-- **Défilement retravaillé** : molette et flèches défilent *dans* une page trop
-  grande, puis **tournent la page** aux extrémités (les deux sens)
-- **Vrai plein écran** (OS) + **mode immersif** (interface masquée, touche `I`)
-- **Confort des yeux** : filtre lumière chaude (type f.lux), luminosité, fond
-  (sombre / noir / gris / sépia / clair), ajustement (original / largeur / hauteur)
-- **Garde l'écran allumé** pendant la lecture (Wake Lock)
-- **Minuteur de lecture** (pause auto après 15/30/45/60 min)
-- Défilement automatique (webtoon) à vitesse réglable, sens **RTL / LTR**
-- Reprise exacte à la page, préchargement du chapitre suivant, miniatures, scrubber
-- Sauts **Début / Fin**, **chapitre au hasard**, transition de fin de chapitre
-- Marquer **lu / non lu en un clic**, les précédents, ou tout le manga ; **signets** de page
-- **Temps de lecture restant estimé**
+### Lecture
+- **Lecteur manga** : page/page, défilement (webtoon), double-page, sens de
+  lecture RTL/LTR, zoom, plein écran, mode immersif, défilement automatique,
+  gestes tactiles (swipe de page, double-tap zoom), navigation clavier complète,
+  préchargement du chapitre suivant, partage de chapitre, téléchargement hors-ligne
+- **Lecteur de romans** : typographie réglable (police/taille/largeur/thème),
+  synthèse vocale (TTS) avec surlignage du paragraphe lu, progression fine
+- **Import local** : EPUB (TTS + navigation clavier + reprise), CBZ
+  (décompression parallèle), PDF (pdf.js) — progression sauvegardée partout
+- **Environnement du lecteur toujours sombre**, quel que soit le thème de l'app
 
-### Lecteur de romans (light/web novels)
-- Lecteur texte dédié : taille, interligne, largeur de colonne, police, thèmes
-- Téléchargement hors-ligne du texte, reprise au % de défilement
-- Sources JP / CN / KR traduites (EN + FR)
+### Journal de lecture *(nouveau)*
+- **Notes privées pendant la lecture** (touche `J`) : capture automatique du
+  contexte (série · chapitre · page), humeur (8 étiquettes), édition/suppression
+- **Page « Journal »** : toutes tes notes groupées par série en timeline,
+  recherche plein texte, statistiques (humeur dominante)
+- **« Mon avis »** par œuvre sur la fiche série, en plus de la note en étoiles
+- Tout est **privé par défaut** et synchronisé sur ton compte
 
-### Bibliothèque
-- Favoris **synchronisés** sur ton compte, **et visibles hors connexion** (miroir local)
-- Statuts (en cours, terminé, à lire, en pause, abandonné) et catégories
-- **Épingler** des séries · **barre de progression** par carte · résumé en-tête
-- Filtres : statut / catégorie / type / **source** / **non-lus** · densité compact/confort
-- Tris : récents, **récemment lus**, titre, non-lus, progression
-- **Notes personnelles** privées · **temps de lecture estimé** par série
-- **Au hasard dans ma bibliothèque**, bouton **Continuer** (reprise instantanée)
-- Onglet **Signets**, onglet **Mises à jour** (nouveaux chapitres + notifications navigateur)
-- **Export / Import JSON** (sauvegarde & restauration complète)
-
-### Objectifs, stats & gamification
-- **Objectif hebdomadaire** + **défi annuel** (façon Goodreads) avec progression
-- **Badges / accomplissements** (chapitres lus, séries, streak, sources, romans…)
-- Streak de jours d'affilée, répartition de la bibliothèque par statut,
-  heatmap d'activité, activité récente
+### Bibliothèque & suivi
+- Étagère unifiée : rangée « Reprendre où j'en étais », signaux directement sur
+  les cartes (badge non-lus, corne de page pliée si signet/reprise), vue
+  grille/liste, sélection multiple avec actions groupées, filtres
+  statut/catégorie/source, recherche instantanée, export/import JSON
+- **« Mettre à jour » intelligent** : ignore Terminé/Abandonné par défaut,
+  affiche les échecs de vérification (source bloquée ≠ série à jour),
+  vérification par série depuis sa fiche, garde-fou serveur anti-spam
+- **Notifications de nouveaux chapitres** : tâche de fond serveur + Web Push —
+  tu es prévenu même app fermée
+- Compteur de chapitres non lus **sans plafond** (One Piece 1100+ chapitres : ok)
 
 ### Découverte
-- Hero d'accueil : carrousel des **dernières sorties** (lecture directe du dernier
-  chapitre), illustrations officielles AniList, **fond toujours rempli** (dégradé de repli)
-- Recommandations d'après tes genres, recherche **multi-sources** avec filtre par
-  type, **historique** et **suggestions populaires**
-- Lecture aléatoire, aperçu riche au survol, couvertures proxifiées & mises en cache
+- Catalogue par source **ou « Toutes les sources » à la fois** (fusion + dédup
+  par titre, badge de provenance sur chaque carte)
+- Recherche globale multi-sources : live (débounce), dédupliquée par titre,
+  badge « Déjà dans ma bibliothèque », suggestions personnalisées
+- « Tu aimeras aussi » : recommandations AniList vérifiées sur tes sources
+  (lien direct vers la fiche quand l'œuvre y existe), motif affiché
+- Hero d'accueil en **3D temps réel** (three.js : particules d'encre, parallaxe)
 
-### Communauté & profils
-- **Commentaires threadés** : réponses, mentions `@pseudo` cliquables, signalement
-- **Profils publics** `u.html?u=pseudo` : stats, badges, streak — avec réglage **profil privé**
-- **Notifications** : cloche in-app + page dédiée + **Web Push** (VAPID, même app fermée)
-- **Dashboard admin** (`admin.html`, rôle admin) : modération des signalements,
-  gestion des utilisateurs (bannir, promouvoir), statistiques de la plateforme
+### Communauté & comptes
+- Profils publics, commentaires par chapitre/série (réponses, signalement),
+  notes et avis, listes/collections, objectifs et badges, heatmap de lecture
+- **Connexion Google (GSI)**, synchronisation **AniList** (progression/statut,
+  respectueuse des limites de l'API), lecteur **Spotify/YouTube** intégré
+- Admin : modération, rôles, **statut de santé des sources** (dernier succès,
+  dernier échec, échecs consécutifs)
 
-### Import local & livres
-- **Importe tes fichiers** : EPUB (romans), **PDF** (livres/BD, rendu pdf.js),
-  CBZ/CBR (BD/scans) par glisser-déposer, stockés sur ton compte, lus dans un
-  lecteur intégré (décompression et rendu **côté client**, tes fichiers restent privés)
-- **Project Gutenberg** : 70 000+ classiques du domaine public (FR/EN/DE/ES…),
-  gratuitement et légalement, dans le lecteur de texte
-- **Lecture audio** : synthèse vocale (Web Speech API) du lecteur de romans,
-  avec surlignage du paragraphe lu
-- **Page Téléchargements** dédiée : gère tes chapitres hors-ligne (par série,
-  espace utilisé, suppression)
+### Confort & vie privée
+- PWA installable, mode hors-ligne (téléchargements), thèmes Washi (clair) /
+  Sumi (sombre) / AMOLED, accent personnalisable, palette de commandes `Ctrl+K`
+- **RGPD** : export complet, suppression totale du compte, aucune télémétrie,
+  aucune publicité
 
-### Suivi & comptes
-- Inscription / connexion **email** ou **Google (Gmail)** en un clic
-- **AniList** : synchronisation automatique de progression & statuts pendant la
-  lecture (+ synchro manuelle de toute la bibliothèque)
-- **Configuration dans l'app, sans redémarrage** : colle ton Client ID Google /
-  AniList depuis les Paramètres (ou la carte de connexion) — pris en compte immédiatement
-- **Spotify** (OAuth) : playlists dans le lecteur de musique intégré
+---
 
-### Confort, design & vie privée
-- **Interface animée** (GSAP) : entrées de cartes, tilt 3D des couvertures —
-  désactivé automatiquement si tu préfères les mouvements réduits
-- **i18n FR/EN** : bascule de langue instantanée (footer), sans rechargement
-- **Accessibilité** : navigation clavier (focus visible, lien d'évitement),
-  lecteurs d'écran (aria), contrastes relevés
-- **Sécurité** : en-têtes durcis (helmet), limitation de débit anti brute-force,
-  proxy d'images anti-SSRF (résolution DNS), jetons Spotify chiffrés au repos
-- **RGPD** : export complet de tes données, suppression totale du compte,
-  politique de confidentialité, aucune télémétrie
-- Thèmes **clair / sombre / AMOLED / auto** + **couleur d'accent** personnalisable
-- **Palette de commandes** (`Ctrl/Cmd+K`) : recherche + navigation rapide
-- **Raccourcis clavier globaux** (`/` recherche, `r` aléatoire, `c` continuer, `b`
-  bibliothèque, `?` aide) · bouton flottant **Retour en haut**
-- **Mode incognito** : lecture privée, ne sauve ni progression ni historique
-- Icônes **SVG** (interface nette, sans dépendance), avatar **emoji** au choix
-- Espace adulte masqué (code), compte sécurisé (JWT + bcrypt), **aucune télémétrie**
+## Design — l'édition « Washi »
+
+Le design d'Inko suit une direction éditoriale précise, pensée comme un objet
+imprimé :
+
+- **Le mode clair est la référence** (« Washi », papier `#eeece6`) ; le sombre
+  (« Sumi », `#111113`) en est la seconde édition
+- **Deux accents fonctionnels, jamais une couleur de marque** : Kakishibu
+  `#c1531b` code le manga, Ai `#3d5170` code le roman ; Hanko `#a83232` est
+  réservé aux signaux forts (non-lu, destructif)
+- **Signature** : la corne de page pliée (screentone dans le pli) sur toute
+  couverture qui porte un signet ou une reprise de lecture
+- Typographie à 3 rôles : Archivo Narrow (display), IBM Plex Sans (interface),
+  Bitter (lecture longue)
+- Surfaces flottantes en **liquid glass** (verre translucide, arête spéculaire) ;
+  le lecteur, lui, reste strictement sobre
 
 ---
 
@@ -178,76 +147,60 @@ npm run init-db        # crée la base + un compte démo
 npm start              # http://localhost:8088
 ```
 
-Ouvre http://127.0.0.1:8088. Les sources de référence (mangas : WeebCentral,
-MangaDex, SushiScan ; romans : Royal Road, NovelFull, Chireads) sont incluses et
-chargées au démarrage.
-
-> Astuce : certaines sources (NovelFull, proxy de couvertures) passent par `curl`,
-> présent nativement sur Windows 10+, macOS et Linux.
-
 | Compte démo | |
 |---|---|
 | Email | `demo@inko.app` |
 | Mot de passe | `demo1234` |
 
+La configuration fine (JWT, CORS, SMTP pour « mot de passe oublié », rate
+limiting…) se fait dans `server/.env` — voir [`server/.env.example`](server/.env.example).
+
 ---
 
 ## Extensions
 
-Inko repose sur un framework d'extensions neutre : chaque source est un module
-indépendant que tu peux étendre.
+Les sources de contenu sont des **modules indépendants** (`server/extensions/<id>/index.js`),
+installables et **mises à jour en un clic** depuis la page Sources (rechargement
+à chaud, sans redémarrer — réservé aux admins). Chaque source peut être testée
+(« Tester la connexion »), désactivée, et son état de santé est journalisé.
 
 ```js
-// server/extensions/ma-source/index.js — source MANGA (images)
 module.exports = {
-  id: 'ma-source', name: 'Ma Source', lang: 'fr', version: '1.0.0',
-  type: 'manga',   // 'manga' (défaut) ou 'novel'
+  id: 'masource', name: 'Ma Source', lang: 'fr', version: '1.0.0',
+  baseUrl: 'https://…', nsfw: false,
+  type: 'manga',          // 'manga' (images) | 'novel' | 'book' (texte)
+  unit: 'chapter',        // 'chapter' | 'volume'  → affichage « Chap. » / « Tome »
   capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
-  async popular({ limit, offset })      { /* ... */ },
-  async latest ({ limit, offset })      { /* ... */ },
-  async search ({ q, limit, offset, filters }) { /* ... */ },
-  async getManga(id)                    { /* ... */ },
-  async getChapters(mangaId, { lang })  { /* ... */ },
-  async getPages(chapterId)             { /* ... */ },   // → { pages: [{ url }] }
+
+  async popular({ limit, offset })                    { /* → MangasPage  */ },
+  async latest({ limit, offset })                     { /* → MangasPage  */ },
+  async search({ q, limit, offset, filters })         { /* → MangasPage  */ },
+  async getManga(id)                                  { /* → Manga       */ },
+  async getChapters(mangaId, { lang, limit })         { /* → ChaptersPage — liste COMPLÈTE si pas de limit */ },
+  async getPages(chapterId)                           { /* → PagesPayload (manga) */ },
+  async getText(chapterId)                            { /* → TextPayload  (novel/book) */ },
 };
 ```
 
-Une source de **romans** déclare `type: 'novel'` et implémente `getText(chapterId)`
-(qui renvoie `{ title, content }`, HTML assaini) **au lieu** de `getPages`. Ses
-chapitres s'ouvrent automatiquement dans le lecteur de texte.
-
-Dépose un dossier dans `server/extensions/`, redémarre, et la source apparaît dans
-la page Sources.
-
-| Source | Langue | Type | Notes |
-|---|---|---|---|
-| WeebCentral | EN | Manga | Source par défaut, filtres genres/statut/tri natifs |
-| MangaDex | Multi | Manga | Très grand catalogue, métadonnées riches |
-| SushiScan | FR | Manga | Catalogue complet via index sitemap (~2100 séries) |
-| Royal Road | EN | **Roman** | Web novels originaux EN (LitRPG, fantasy) |
-| NovelFull | EN | **Roman** | Light novels JP / CN / KR traduits (xianxia, isekai…) |
-| NovelBin | EN | **Roman** | Très grand catalogue CN/KR/JP traduits (cultivation, système…) |
-| Chireads | FR | **Roman** | Novels chinois traduits en français (fantrad) |
-| Project Gutenberg | Multi | **Livre** | 70 000+ classiques du domaine public, 100% légal |
+Contrat complet : [`server/lib/source-interface.js`](server/lib/source-interface.js).
+Catalogue communautaire versionné : [`extensions-community/`](extensions-community/)
+(sources fournies : MangaDex, Weeb Central, SushiScan, Royal Road, NovelFull,
+NovelBin, Chireads, Project Gutenberg).
 
 ---
 
 ## Application desktop
 
-Application native via Electron, backend embarqué — un double-clic suffit.
-
 ```bash
 cd desktop
 npm install
 npm run dist          # Windows : dist/Inko-Setup-1.0.0.exe (NSIS) + mise à jour
-                      # automatique de l'app installée (déploiement local)
+                      # de l'app déjà installée (%LOCALAPPDATA%\Programs\Inko)
 # npm run build:win   -> build seul, sans déployer
 # npm run dist:mac    -> .dmg        npm run dist:linux -> AppImage + .deb
 ```
 
-> `npm run dist` reconstruit **et** met à jour l'app installée localement (copie
-> directe par-dessus `%LOCALAPPDATA%\Programs\Inko`) — fini les « retours à
-> l'ancienne version » après un build.
+L'app desktop embarque le serveur (il ne manque que MySQL sur `127.0.0.1:3306`).
 
 ## Application mobile
 
@@ -256,17 +209,21 @@ npm install -g @capacitor/cli
 npx cap add android && npx cap sync android && npx cap open android
 ```
 
+---
+
 ## Connexion Google & comptes liés
 
 Tout se configure **dans l'app, sans redémarrage** (ou via `server/.env`) :
 
 - **Google (Gmail)** — Paramètres → *Connexion Google* : colle un *OAuth Client ID*
-  « Application Web » créé sur `console.cloud.google.com/apis/credentials` (origines
-  JS autorisées : `http://127.0.0.1:8088` et `http://localhost:8088`). Vide = bouton
-  Google masqué proprement, l'email reste pleinement fonctionnel.
+  « Application Web » créé sur `console.cloud.google.com/apis/credentials`.
+  ⚠️ **Origines JavaScript autorisées : ajoute LES DEUX** — `http://localhost:8088`
+  **et** `http://127.0.0.1:8088` (le desktop charge 127.0.0.1 ; pour Google ce
+  sont deux origines différentes). Vide = bouton Google masqué proprement.
 - **AniList** — carte de connexion (Paramètres/Profil) : crée un client sur
   `anilist.co/settings/developer` (Redirect URL : `http://127.0.0.1:8088/anilist.html`),
-  colle l'**ID client**, puis « Connecter ». Implicit grant, le secret n'est pas requis.
+  colle l'**ID client**, puis « Connecter ». La synchro de bibliothèque respecte
+  la limite de l'API (~30 req/min) : elle s'espace et reprend seule en cas de 429.
 - **Spotify** — `server/.env` (`SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET`),
   Redirect URI `http://127.0.0.1:8088/api/spotify/callback`. Détails dans
   [`SPOTIFY_SETUP.md`](SPOTIFY_SETUP.md). Sans config, stations/YouTube restent dispos.
@@ -279,46 +236,30 @@ Les identifiants collés dans l'app sont stockés localement
 ## Architecture
 
 ```
-inko/
-  *.html                        pages (modules indépendants)
-  chapitre.html / lecture.html  lecteur d'images / lecteur de texte (romans)
-  assets/js/
-    api.js          client REST, cache du token, proxy des couvertures
-    global.js       header/nav, recherche, palette de commandes, comptes liés,
-                    icônes SVG (MH.icon), incognito, routage lecteur (MH.readerHref)
-    theme.js        thème clair/sombre/AMOLED + couleur d'accent
-    storage.js      préférences locales + miroir bibliothèque (hors-ligne)
-    userdata.js     notes, signets, épingles, objectifs (sync /me/settings + local)
-    nsfw.js, card-hover.js, music.js, downloads.js, anilist.js
-    {page}.js       logique de chaque page (vue pure)
-  service-worker.js PWA : network-first (code), cache des couvertures & chapitres
-  desktop/          application Electron (+ scripts/deploy-local.ps1)
-  extensions-community/  sources de référence (mangas + romans)
-  server/
-    routes, controllers, middleware
-    middleware/security.js            helmet + CORS + rate limiting
-    controllers/image.controller.js   proxy + cache des couvertures (curl, anti-SSRF)
-    controllers/{admin,notif,profile,local}.controller.js   modération, notifs, profils, imports
-    extensions/loader.js              chargement dynamique (type manga|novel|book)
-    lib/{push,notify,crypto,secret}.js  Web Push VAPID, notifications, chiffrement
-    config/                           clés Google/AniList/VAPID (gitignoré)
-    db/schema.sql + db/migrate.js     tables MySQL + migrations auto au démarrage
-    test/                             tests unitaires (npm test)
+Inko/
+├── *.html                  # Pages (vanilla JS, zéro framework, zéro build)
+├── assets/
+│   ├── css/                # global.css (design system Washi/Sumi) + 1 CSS/page
+│   ├── js/                 # api.js, global.js, 1 module/page, notes-ui, hero3d…
+│   └── vendor/             # jszip, pdf.js, three.js (tout en local, CSP stricte)
+├── server/                 # Express + MySQL
+│   ├── controllers/        # auth, manga, user, notes, extensions, admin…
+│   ├── extensions/         # sources chargées à chaud (contrat Mihon-like)
+│   ├── lib/                # mailer, push, notify, updates, source-health…
+│   ├── middleware/         # auth JWT, sécurité (CSP/HSTS prod, rate limit)
+│   └── db/                 # schema.sql + migrations idempotentes
+├── extensions-community/   # catalogue de sources versionné (versions.json)
+└── desktop/                # Electron (electron-builder, NSIS)
 ```
 
 ### Déploiement en ligne (Docker)
 
 ```bash
-docker compose up -d --build     # app + MySQL + Redis → http://localhost:8088
+docker compose up -d       # backend Node 22 + MySQL 8, HEALTHCHECK inclus
 ```
 
-En production : définis `JWT_SECRET`, `DB_PASSWORD` et `CORS_ORIGINS` (voir
-[`server/.env.example`](server/.env.example)). CI GitHub Actions incluse
-(audit sécurité + tests + build Docker).
-
-Principe : séparation stricte logique / vue. Chaque page ne fait que du DOM ; la
-logique vit dans `api.js` et le backend. Vanilla JS, **sans étape de build**,
-lisible et facile à forker.
+En production : `NODE_ENV=production` active CSP/HSTS ; configure `JWT_SECRET`,
+`CORS_ORIGINS`, et un SMTP (`SMTP_HOST`…) pour « mot de passe oublié ».
 
 ---
 
@@ -329,12 +270,14 @@ Base `/api`. Voir le [détail des routes](server/routes/index.js).
 ```
 Auth      POST /auth/register, /auth/login   PUT /auth/password, /auth/profile   POST /auth/delete
 Google    GET  /auth/providers   POST /auth/google   GET/PUT /auth/google-config
-Sources   GET  /sources    /sources/:id/mangas/*    GET/POST /extensions/{updates,update}
+Sources   GET  /sources    /sources/:id/mangas/*    GET /extensions/updates
+          POST /extensions/update (admin)   GET /extensions/:id/test   GET /extensions/health (admin)
 Mangas    GET  /mangas/{search,popular,latest,tags,:id,:id/chapters}    GET /search-all
 Lecture   GET  /chapters/:id/pages  (manga)    /chapters/:id/text  (roman / livre)
 Images    GET  /img?u=<url>         (proxy + cache des couvertures, anti-SSRF)
-Compte    GET/PUT /me/{favorites,library,progress,lists,settings,ratings,updates}   /me/export, /me/import
-          (notes, signets, épingles, objectifs : stockés dans /me/settings)
+Compte    GET/PUT /me/{favorites,library,progress,lists,settings,ratings}   /me/export, /me/import
+Updates   GET  /me/updates?scope=active|all&manga=<id>   (échecs remontés, cooldown serveur)
+Journal   GET/POST /me/notes   GET /me/notes/stats   PUT/DELETE /me/notes/:id
 Read      POST /me/read-chapters   /me/read-chapters/bulk   PUT /me/favorites/:id/category
 Stats     GET  /me/stats   /me/events   /ratings/:id
 Social    GET  /comments/:mangaId  POST /comments/:mangaId (réponses via parentId)
@@ -352,18 +295,16 @@ AniList   GET  /anilist/{config,similar}    PUT /anilist/config
 
 ## Légalité et confidentialité
 
-Inko est un framework de lecture neutre. Le projet ne distribue aucun contenu :
-les extensions agissent comme un client personnel, à la manière de Mihon ou
-Paperback, sous la responsabilité de l'utilisateur. Aucune image n'est stockée
-côté serveur, **aucune télémétrie**. Usage strictement personnel. Voir
-[`NOTICE.md`](NOTICE.md).
-
----
+Inko **n'héberge aucun contenu** : les extensions lisent des sources publiques
+tierces, et les fichiers importés restent sur **ton** serveur. Les notes du
+journal de lecture sont privées. Aucune télémétrie, aucune publicité, aucune
+revente de données. Voir [`confidentialite.html`](confidentialite.html).
 
 ## Contribuer
 
-Contributions bienvenues : nouvelles extensions (mangas, romans ou livres),
-support PDF/MOBI, traductions, thèmes, trackers supplémentaires (MAL, Kitsu).
-Ouvre une issue ou une pull request.
+Les PR sont bienvenues — en particulier de nouvelles extensions
+(voir [`extensions-community/README.md`](extensions-community/README.md)).
+CI : audit de sécurité npm, vérification de syntaxe, chargement des modules,
+tests unitaires, build Docker.
 
-Distribué sous licence **Apache 2.0**.
+**Licence** : [Apache 2.0](LICENSE) · © Abdoulrazack Abdillahi

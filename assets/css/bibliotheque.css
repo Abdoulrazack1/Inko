@@ -3,7 +3,7 @@
 .lib2-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
 .lib2-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
 .lib2-head h1 { font-family: var(--font-head); font-size: 26px; font-weight: 700; }
-.lib2-tabs { display:flex; gap:4px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:4px; }
+.lib2-tabs { display:flex; gap:4px; background:var(--glass-bg); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); box-shadow:var(--glass-inner); border-radius:12px; padding:4px; }
 .lib2-tab { padding:8px 16px; border-radius:8px; font-size:13px; color:var(--text2); font-weight:500; position:relative; transition:color var(--transition), background var(--transition); }
 .lib2-tab:hover { color:var(--text); }
 .lib2-tab.active { background:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
@@ -96,7 +96,7 @@
 .lib2-check { position:absolute; top:8px; left:8px; width:22px; height:22px; border-radius:6px; border:2px solid #fff; background:rgba(0,0,0,.45); z-index:2; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; }
 .lib2-card.selected .lib2-cover { outline:3px solid var(--orange); outline-offset:-1px; }
 .lib2-card.selected .lib2-check { background:var(--orange); border-color:var(--orange); }
-.lib2-bulkbar { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:50; display:flex; align-items:center; gap:10px; background:var(--bg2); border:1px solid var(--border); box-shadow:0 8px 30px rgba(0,0,0,.35); border-radius:14px; padding:10px 14px; }
+.lib2-bulkbar { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:50; display:flex; align-items:center; gap:10px; background:var(--glass-bg); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); box-shadow:var(--glass-inner), var(--shadow-3); border-radius:16px; padding:10px 14px; }
 .lib2-bulkbar .count { font-weight:700; font-size:13px; }
 .lib2-bulkbar.hidden { display:none; }
 

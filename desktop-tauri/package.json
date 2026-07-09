@@ -1,0 +1,13 @@
+{
+  "name": "inko-tauri",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "prep": "node prep.js",
+    "build": "node prep.js && tauri build",
+    "dev": "tauri dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

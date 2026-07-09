@@ -7,6 +7,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('profil');
 
+        await (window.API?.ready || Promise.resolve());
         if (!API.isLoggedIn()) {
             redirectGuest();
             return;
@@ -68,11 +69,9 @@
         const main = document.querySelector('.profil-main');
         if (main) main.innerHTML = `
             <div class="card" style="padding:60px;text-align:center">
-                <div style="font-size:48px;margin-bottom:16px"></div>
-                <div style="font-size:18px;font-weight:600;margin-bottom:8px">Connexion requise</div>
-                <div style="color:var(--text3);margin-bottom:24px">Connectez-vous pour accéder à votre profil, vos favoris et votre historique.</div>
-                <a href="page_login.html" class="btn btn-primary">Se connecter</a>
-                <a href="page_signup.html" class="btn btn-ghost" style="margin-left:8px">S'inscrire</a>
+                <div style="font-size:18px;font-weight:600;margin-bottom:8px">Serveur injoignable</div>
+                <div style="color:var(--text3);margin-bottom:24px">Impossible de joindre le serveur Inko.</div>
+                <button class="btn btn-primary" onclick="location.reload()">Réessayer</button>
             </div>`;
     }
 

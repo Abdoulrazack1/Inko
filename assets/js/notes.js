@@ -9,6 +9,7 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('notes');
+        await (window.API?.ready || Promise.resolve());   // session locale auto
         if (!API.isLoggedIn()) { showLoggedOut(); return; }
         await MH.loadSourceTypes?.();
         await loadStats();
@@ -22,9 +23,9 @@
     function showLoggedOut() {
         document.getElementById('jrBody').innerHTML = `
             <div class="jr-empty">
-                <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">Connexion requise</div>
-                <div style="margin-bottom:18px">Connecte-toi pour retrouver ton journal de lecture.</div>
-                <a href="page_login.html" class="btn btn-primary">Se connecter</a>
+                <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">Serveur injoignable</div>
+                <div style="margin-bottom:18px">Impossible de joindre le serveur Inko.</div>
+                <button class="btn btn-primary" onclick="location.reload()">Réessayer</button>
             </div>`;
     }
 

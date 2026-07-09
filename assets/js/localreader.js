@@ -68,7 +68,8 @@
     document.addEventListener('DOMContentLoaded', init);
 
     async function init() {
-        if (!window.API?.isLoggedIn?.()) { location.href = 'page_login.html'; return; }
+        await (window.API?.ready || Promise.resolve());
+        if (!window.API?.isLoggedIn?.()) { fail('Serveur Inko injoignable.'); return; }
         if (!id) { fail('Aucun fichier indiqué.'); return; }
         try {
             const res = await fetch(API.local.fileUrl(id), { headers: { Authorization: 'Bearer ' + API.token } });

@@ -5,11 +5,12 @@
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('stats');
         const body = document.getElementById('stBody');
+        await (window.API?.ready || Promise.resolve());
         if (!API.isLoggedIn()) {
             body.innerHTML = `<div class="st-empty">
-                <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px">Connexion requise</div>
-                <div style="margin-bottom:16px">Connecte-toi pour voir tes statistiques de lecture.</div>
-                <a href="page_login.html" class="btn btn-primary">Se connecter</a></div>`;
+                <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px">Serveur injoignable</div>
+                <div style="margin-bottom:16px">Impossible de joindre le serveur Inko.</div>
+                <button class="btn btn-primary" onclick="location.reload()">Réessayer</button></div>`;
             return;
         }
         try {

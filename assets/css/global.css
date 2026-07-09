@@ -62,10 +62,11 @@
   /* Anneau de focus accessible et élégant */
   --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
 
-  /* ── Liquid glass (surfaces flottantes translucides) ── */
-  --glass-bg:     color-mix(in srgb, var(--bg2) 52%, transparent);
-  --glass-border: color-mix(in srgb, #ffffff 26%, transparent);
-  --glass-inner:  inset 0 1px 0 rgba(255,255,255,.28), inset 0 -1px 0 rgba(0,0,0,.06);
+  /* ── Liquid glass (surfaces flottantes translucides) — prononcé ── */
+  --glass-bg:     color-mix(in srgb, var(--bg2) 46%, transparent);
+  --glass-border: color-mix(in srgb, #ffffff 30%, transparent);
+  --glass-inner:  inset 0 1px 0 rgba(255,255,255,.32), inset 0 -1px 0 rgba(0,0,0,.07);
+  --glass-blur:   blur(24px) saturate(1.9);
 }
 
 /* En édition sombre, les ombres repassent sur du noir profond. */
@@ -152,8 +153,8 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
    entières : backdrop-filter en masse coûte cher). */
 .liquid-glass {
   background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(18px) saturate(1.7);
-  backdrop-filter: blur(18px) saturate(1.7);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-inner), var(--shadow-2);
 }
@@ -190,11 +191,11 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
 .site-header {
   position: fixed; top: 0; left: 0; right: 0;
   height: var(--header-h);
-  background: color-mix(in srgb, var(--bg2) 82%, transparent);
-  -webkit-backdrop-filter: saturate(1.4) blur(14px);
-  backdrop-filter: saturate(1.4) blur(14px);   /* verre dépoli discret, standard moderne */
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 1px 0 rgba(28,27,25,.03), var(--shadow-1);
+  background: color-mix(in srgb, var(--bg2) 62%, transparent);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);   /* liquid glass prononcé */
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), var(--shadow-1);
   z-index: 1000;
   display: flex; align-items: center;
   padding: 0 24px; gap: 28px;
@@ -725,8 +726,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   .mobile-nav {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 95;
     display: flex;
-    background: var(--bg2);           /* §13 : suit l'édition, plus de flou */
-    border-top: 1px solid var(--border);
+    background: var(--glass-bg);      /* liquid glass */
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border-top: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .mnav-item {

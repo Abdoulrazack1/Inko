@@ -122,32 +122,63 @@
             }
         }
 
-        // Dégradé déterministe (repli quand aucune image / image protégée)
+        // ── Fond du hero : JAMAIS de vide ──────────────────────────────
+        // Un repli signature s'affiche immédiatement : duotone de marque
+        // (Kakishibu ou Ai selon l'œuvre) + trame screentone. L'illustration
+        // ne s'installe QUE quand elle a réellement fini de charger — fini
+        // les bandes noires quand la cover est absente ou bloquée (hotlink).
+        const HERO_DOTS = 'radial-gradient(rgba(233,231,224,.13) 1.1px, transparent 1.6px)';
         function heroGradient(m) {
             const s = ((m.id || '') + (m.title || '')).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-            const h = s % 360;
-            return `linear-gradient(135deg, hsl(${h},48%,20%) 0%, hsl(${(h + 45) % 360},52%,9%) 100%)`;
+            // Alterne les deux accents fonctionnels §13, en version profonde mais VISIBLE
+            const warm = s % 2 === 0;
+            const h  = warm ? 21 : 215;         // Kakishibu ↔ Ai
+            const h2 = warm ? 36 : 232;
+            return `linear-gradient(132deg, hsl(${h},46%,26%) 0%, hsl(${h2},40%,13%) 62%, hsl(${h2},42%,9%) 100%)`;
         }
-        // backgroundImage = image puis dégradé : si l'image manque/échoue, le dégradé reste peint
-        function heroBgValue(m) {
-            const url = m.banner || m.coverLarge || m.cover || m.coverThumb || '';
-            const grad = heroGradient(m);
-            return url ? `url('${url}'), ${grad}` : grad;
+        function paintBg(val, size, hasArt, isBanner, instant) {
+            hero.classList.toggle('has-banner', !!isBanner && hasArt);
+            hero.classList.toggle('hero-noart', !hasArt);
+            if (instant) {
+                bg.style.backgroundImage = val; bg.style.backgroundSize = size;
+                bgN.style.opacity = '0';
+            } else {
+                bgN.style.backgroundImage = val; bgN.style.backgroundSize = size;
+                bgN.style.opacity = '1';
+                setTimeout(() => { bg.style.backgroundImage = val; bg.style.backgroundSize = size; bgN.style.opacity = '0'; }, 700);
+            }
         }
         function show(idx, instant) {
             const m = heroMangas[idx]; if (!m) return;
             heroIdx = idx;
-            const bgVal = heroBgValue(m);
-            hero.classList.toggle('has-banner', !!m.banner);
-            // Crossfade du fond via la couche "next"
-            if (instant) {
-                bg.style.backgroundImage = bgVal;
-                bgN.style.opacity = '0';
-            } else {
-                bgN.style.backgroundImage = bgVal;
-                bgN.style.opacity = '1';
-                setTimeout(() => { bg.style.backgroundImage = bgVal; bgN.style.opacity = '0'; }, 700);
-            }
+            const url  = m.banner || m.coverLarge || m.cover || m.coverThumb || '';
+            const grad = heroGradient(m);
+
+            // 1) Le repli est peint tout de suite (aucun trou noir possible)
+            paintBg(`${HERO_DOTS}, ${grad}`, '7px 7px, cover', false, false, instant);
+            // 2) L'illustration ne remplace le repli que si elle charge vraiment ;
+            //    si elle échoue : 2e essai via le PROXY serveur (contourne le
+            //    hotlink/CF, comme les couvertures), puis 3e chance AniList.
+            const proxied = (u) => (!u || u.startsWith('/') || u.startsWith('data:') || u.includes('/api/img?'))
+                ? u : API.base + '/img?u=' + encodeURIComponent(u);
+            const tryArt = (artUrl, isBanner, onFail) => {
+                const im = new Image();
+                im.onload = () => {
+                    if (heroIdx !== idx) return;   // le slide a changé entre-temps
+                    paintBg(`url('${artUrl}'), ${HERO_DOTS}, ${grad}`, 'cover, 7px 7px, cover', true, isBanner, false);
+                };
+                im.onerror = () => { if (heroIdx === idx && onFail) onFail(); };
+                im.src = artUrl;
+            };
+            const secondChance = async () => {
+                try {
+                    const a = await API.art.get(m.title);
+                    const alt = a?.banner || a?.cover;
+                    if (alt && heroIdx === idx) tryArt(alt, !!a.banner, () => tryArt(proxied(alt), !!a.banner, null));
+                } catch (e) { /* le repli duotone reste — jamais de vide */ }
+            };
+            if (url) tryArt(url, !!m.banner, () => tryArt(proxied(url), !!m.banner, secondChance));
+            else secondChance();
             content.classList.add('hero-fading');
             setTimeout(() => {
                 content.innerHTML = slideHTML(m);
@@ -342,7 +373,7 @@
         if (!el) return;
         if (!API.isLoggedIn()) {
             el.innerHTML = `<div style="color:var(--text3);padding:14px;font-size:13px">
-                <a href="page_login.html" class="link-orange">Connectez-vous</a> pour synchroniser votre lecture.
+                Serveur injoignable — <a href="#" class="link-orange" onclick="location.reload();return false">réessayer</a>.
             </div>`;
             return;
         }
@@ -460,7 +491,7 @@
         if (!API.isLoggedIn()) {
             el.innerHTML = `<div class="sidebar-block-header"><span class="sidebar-block-title">Ta progression</span></div>
                 <div style="font-size:12.5px;color:var(--text3);padding:4px 0 2px">
-                    <a href="page_login.html" class="link-orange">Connecte-toi</a> pour suivre ta lecture.</div>`;
+                    Serveur injoignable — <a href="#" class="link-orange" onclick="location.reload();return false">réessayer</a>.</div>`;
             return;
         }
         try {

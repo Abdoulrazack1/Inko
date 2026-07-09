@@ -9,10 +9,11 @@
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('');
         const list = document.getElementById('ntList');
+        await (window.API?.ready || Promise.resolve());
         if (!API.isLoggedIn()) {
             list.innerHTML = `<div class="nt-empty">
-                <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px">Connexion requise</div>
-                <a href="page_login.html" class="btn btn-primary" style="margin-top:10px">Se connecter</a></div>`;
+                <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px">Serveur injoignable</div>
+                <button class="btn btn-primary" style="margin-top:10px" onclick="location.reload()">Réessayer</button></div>`;
             document.getElementById('ntMarkAll').style.display = 'none';
             return;
         }

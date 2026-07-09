@@ -40,6 +40,59 @@ function publicUser(u) {
     return { id: u.id, username: u.username, email: u.email, avatar: u.avatar || u.username[0].toUpperCase(), role: u.role || 'user', createdAt: u.created_at };
 }
 
+// ── Mode local (façon Mihon/Tachiyomi) ─────────────────────────
+// Plus d'écran de connexion : l'app s'authentifie toute seule sur le compte
+// « propriétaire ». Le choix est persisté dans config/local-owner.json ; au
+// premier lancement on prend le compte avec la plus grosse bibliothèque
+// (= les données existantes ne sont JAMAIS perdues), sinon on en crée un.
+// Le propriétaire est promu admin (gestion des extensions en local).
+const OWNER_CFG = path.join(__dirname, '..', 'config', 'local-owner.json');
+function localModeEnabled() {
+    // Activé par défaut : Inko est une app personnelle. Mettre LOCAL_MODE=0
+    // pour ré-exposer une instance multi-comptes (les endpoints login/register
+    // existent toujours côté serveur).
+    return process.env.LOCAL_MODE !== '0';
+}
+async function resolveOwner() {
+    // 1. Choix déjà persisté
+    try {
+        const j = JSON.parse(fs.readFileSync(OWNER_CFG, 'utf8'));
+        if (j.userId) {
+            const [[u]] = await pool.query('SELECT * FROM users WHERE id = ?', [j.userId]);
+            if (u) return u;
+        }
+    } catch (e) { /* pas encore choisi */ }
+    // 2. Le compte avec la plus grosse bibliothèque = le vrai compte de l'utilisateur
+    const [[best]] = await pool.query(
+        `SELECT u.* FROM users u
+         LEFT JOIN favorites f ON f.user_id = u.id
+         GROUP BY u.id ORDER BY COUNT(f.manga_id) DESC, u.id ASC LIMIT 1`);
+    let owner = best;
+    // 3. Base vierge : on crée le compte propriétaire
+    if (!owner) {
+        const randomHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+        const [r] = await pool.query(
+            'INSERT INTO users (username, email, password_hash, avatar) VALUES (?, ?, ?, ?)',
+            ['Lecteur', 'owner@inko.local', randomHash, 'L']);
+        [[owner]] = await pool.query('SELECT * FROM users WHERE id = ?', [r.insertId]);
+    }
+    try { fs.mkdirSync(path.dirname(OWNER_CFG), { recursive: true }); fs.writeFileSync(OWNER_CFG, JSON.stringify({ userId: owner.id })); } catch (e) {}
+    return owner;
+}
+async function localAuth(_req, res, next) {
+    try {
+        if (!localModeEnabled()) return res.status(403).json({ error: 'Mode local désactivé' });
+        const owner = await resolveOwner();
+        if (owner.role !== 'admin') {
+            await pool.query("UPDATE users SET role = 'admin' WHERE id = ?", [owner.id]);
+            owner.role = 'admin';
+        }
+        const token = sign(owner);
+        res.cookie('token', token, COOKIE_OPTS);
+        res.json({ user: publicUser(owner), token, localMode: true });
+    } catch (e) { next(e); }
+}
+
 async function register(req, res, next) {
     try {
         const { username, email, password } = req.body || {};
@@ -301,4 +354,5 @@ module.exports = {
     register, login, me, logout, requestReset, resetPassword,
     changePassword, updateProfile, deleteAccount,
     providers, googleAuth, getGoogleConfig, setGoogleConfig,
+    localAuth,
 };

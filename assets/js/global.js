@@ -308,7 +308,7 @@
             item('bibliotheque.html', 'bibliotheque', 'Bibliothèque', I.lib,
                  '<span class="nav-badge" id="navLibBadgeM" style="display:none"></span>') +
             item('recherche.html', 'recherche', 'Recherche', I.search) +
-            item(window.API?.isLoggedIn() ? 'profil.html' : 'page_login.html', 'profil', 'Profil', I.user);
+            item('profil.html', 'profil', 'Profil', I.user);
         document.body.appendChild(nav);
     }
 
@@ -517,40 +517,6 @@
 
     /* ── Connexion Google (Google Identity Services) ─────────
        Bouton « Sign in with Google » sur login/signup. */
-    window.MH.setupGoogleSignin = async function ({ container, divider } = {}) {
-        const box = document.getElementById(container);
-        const div = divider && document.getElementById(divider);
-        const reveal = () => { if (div) div.style.display = ''; };
-        if (!box || !window.API) { reveal(); return; }
-        let cfg;
-        try { cfg = await API.auth.providers(); } catch (e) { reveal(); return; }
-        if (!cfg.google || !cfg.googleClientId) {
-            box.style.display = 'none';   // non configuré : on garde juste l'email
-            reveal();
-            return;
-        }
-        reveal();
-        // Attend que la lib GIS soit prête
-        let n = 0;
-        const iv = setInterval(() => {
-            if (window.google?.accounts?.id) {
-                clearInterval(iv);
-                try {
-                    google.accounts.id.initialize({
-                        client_id: cfg.googleClientId,
-                        callback: async (resp) => {
-                            try {
-                                const r = await API.auth.google(resp.credential);
-                                MH.toast(`Bienvenue ${r.user.username} !`);
-                                setTimeout(() => { window.location.href = 'accueil.html'; }, 500);
-                            } catch (e) { MH.toast('Erreur Google : ' + e.message); }
-                        },
-                    });
-                    google.accounts.id.renderButton(box, { theme: 'filled_black', size: 'large', width: 320, text: 'continue_with', shape: 'pill' });
-                } catch (e) { box.style.display = 'none'; }
-            } else if (++n > 40) { clearInterval(iv); box.style.display = 'none'; }
-        }, 100);
-    };
 
     /* ── Reprendre la lecture (bouton « Continuer » du header) ── */
     let _lastReadPromise = null;
@@ -581,14 +547,12 @@
     /* ── Header HTML ─────────────────────────────────────── */
     const headerHTML = (activePage) => {
         const u = window.API?.user;
+        // Mode local : plus de connexion/déconnexion — juste le profil.
         const userBlock = u ? `
           <a href="profil.html" class="header-user" title="${esc(u.username)}">
             <div class="header-avatar">${esc(u.avatar || u.username[0].toUpperCase())}</div>
-            <div class="user-label">${esc(u.username)}<span class="user-sublabel">Connecté</span></div>
-          </a>
-          <button class="btn-connect btn" id="btnLogout" title="Se déconnecter">↩ Déconnexion</button>` : `
-          <a href="page_login.html" class="btn-connect btn">Se connecter</a>
-          <a href="page_signup.html" class="btn btn-primary btn-sm" style="margin-left:6px">Inscription</a>`;
+            <div class="user-label">${esc(u.username)}<span class="user-sublabel">Ma bibliothèque</span></div>
+          </a>` : '';
 
         // Cloche de notifications (connecté) + accès admin (role admin)
         const bell = u ? `
@@ -596,8 +560,9 @@
             <button class="header-icon-btn" id="btnNotif" title="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" style="display:none;position:absolute;top:1px;right:1px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;line-height:15px;text-align:center"></span></button>
             <div id="notifDropdown" style="display:none;position:absolute;right:0;top:44px;width:330px;max-height:440px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45);z-index:200"></div>
           </div>` : '';
-        const adminBtn = (u && u.role === 'admin') ? `
-          <a href="admin.html" class="header-icon-btn ${activePage === 'admin' ? 'active' : ''}" title="Administration" style="text-decoration:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></a>` : '';
+        // L'administration vivra dans une app dédiée (Inko Admin) — pas de
+        // page admin dans l'app de lecture.
+        const adminBtn = '';
 
         return `
         <header class="site-header">
@@ -1025,15 +990,6 @@
         window.MH.setIncognito(window.MH.isIncognito());   // applique l'état au chargement
         // Révèle le bouton si une lecture est en cours
         window.MH.refreshContinueButton();
-
-        document.addEventListener('click', async e => {
-            const btn = e.target.closest('#btnLogout');
-            if (!btn) return;
-            e.preventDefault();
-            await API.auth.logout();
-            MH.toast('Déconnecté avec succès');
-            setTimeout(() => { window.location.href = 'accueil.html'; }, 400);
-        });
 
         document.addEventListener('click', async e => {
             const btn = e.target.closest('#navRandom');

@@ -4,14 +4,15 @@
 
     const TYPE_ICON = { epub: '📖', cbz: '📚', cbr: '📚', pdf: '📄' };
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('bibliotheque');
         const body = document.getElementById('imBody');
+        await (window.API?.ready || Promise.resolve());
         if (!API.isLoggedIn()) {
             body.innerHTML = `<div class="im-empty">
-                <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px">Connexion requise</div>
-                <div style="margin-bottom:16px">Connecte-toi pour importer et lire tes fichiers.</div>
-                <a href="page_login.html" class="btn btn-primary">Se connecter</a></div>`;
+                <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px">Serveur injoignable</div>
+                <div style="margin-bottom:16px">Impossible de joindre le serveur Inko.</div>
+                <button class="btn btn-primary" onclick="location.reload()">Réessayer</button></div>`;
             return;
         }
         body.innerHTML = `

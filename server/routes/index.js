@@ -25,6 +25,7 @@ router.get ('/auth/providers',      Auth.providers);
 router.post('/auth/google',         Auth.googleAuth);
 router.get ('/auth/google-config',  auth.authRequired, Auth.getGoogleConfig);
 router.put ('/auth/google-config',  auth.authRequired, Auth.setGoogleConfig);
+router.post('/auth/local',          Auth.localAuth);   // mode local sans écran de connexion
 router.post('/auth/register',       authLimiter, Auth.register);
 router.post('/auth/login',          authLimiter, Auth.login);
 router.post('/auth/logout',         Auth.logout);
@@ -41,6 +42,7 @@ router.get('/sources',              Manga.listSources);
 // ── Extensions : mises à jour (modèle Mihon) ──────
 router.get ('/extensions/updates',  Ext.checkUpdates);
 router.get ('/extensions/health',   auth.authRequired, adminRequired, Ext.healthStatus);
+router.post('/extensions/install-url', auth.authRequired, adminRequired, Ext.installFromUrl);
 router.get ('/extensions/:id/test', auth.authRequired, Ext.testSource);
 // applyUpdates écrit des fichiers .js exécutés côté serveur pour toute l'instance :
 // exige un rôle admin, pas seulement une session valide (audit §7.3).

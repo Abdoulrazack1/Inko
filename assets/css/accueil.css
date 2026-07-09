@@ -19,11 +19,17 @@
 .recent-comment-text { font-size: 11.5px; color: var(--text2); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* ══ HERO — carrousel des dernières sorties ════════════════════ */
+/* Le hero est TOUJOURS un environnement sombre (illustration + scrim, ou
+   duotone profond) : on force l'encre claire quel que soit le thème —
+   sinon en édition Washi (claire) le titre devenait noir sur noir. */
 .hero {
   position: relative; height: 520px;
-  overflow: hidden; background: var(--bg2);
+  overflow: hidden; background: #141416;
   outline: none;
+  --text: #f2f0ea; --text2: #cfccc2; --text3: #a5a196;
+  color: var(--text);
 }
+.hero-title { color: #fff; }
 /* Fonds (couche courante + couche suivante pour le crossfade) */
 .hero-bg {
   position: absolute; inset: 0;
@@ -40,6 +46,12 @@
 /* Sans illustration large : on floute la cover pour faire une ambiance */
 .hero:not(.has-banner) .hero-bg { filter: blur(34px) brightness(.5) saturate(1.15); transform: scale(1.3); }
 .hero.has-banner .hero-bg { filter: brightness(.72) saturate(1.05); }
+/* Aucune illustration chargée : le repli signature (duotone + screentone)
+   s'affiche NET, sans le filtre qui l'écrasait en bande noire. */
+.hero.hero-noart .hero-bg {
+  filter: none; transform: none; animation: none;
+  background-position: center;
+}
 
 /* Dégradés de lisibilité */
 .hero-scrim {

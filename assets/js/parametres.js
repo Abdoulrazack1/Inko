@@ -6,12 +6,12 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('parametres');
+        await (window.API?.ready || Promise.resolve());
         renderAccount();
         initSegments();
         initAccent();
         bindData();
         bindConnections();
-        bindGoogleConfig();
         // Charge les settings serveur si connecté (override le local)
         if (API.isLoggedIn()) {
             try {
@@ -44,50 +44,6 @@
         el.querySelector('#accentCustom')?.addEventListener('input', (e) => choose(e.target.value));
     }
 
-    // ── CONNEXION GOOGLE (config du Client ID dans l'app) ──
-    async function bindGoogleConfig() {
-        const input = document.getElementById('googleClientId');
-        const pill  = document.getElementById('googlePill');
-        const hint  = document.getElementById('googleHint');
-        const save  = document.getElementById('btnGoogleSave');
-        const clear = document.getElementById('btnGoogleClear');
-        const origin = document.getElementById('googleOrigin');
-        if (!input) return;
-
-        if (!API.isLoggedIn()) {
-            hint.textContent = 'Connecte-toi pour configurer la connexion Google.';
-            input.disabled = save.disabled = clear.disabled = true;
-            return;
-        }
-        const paint = (cfg) => {
-            const on = !!cfg.configured;
-            pill.textContent = on ? 'Configurée' : 'Non configurée';
-            pill.className = 'pill ' + (on ? 'pill-on' : 'pill-off');
-            input.value = cfg.clientId || '';
-            if (origin && cfg.origin) origin.textContent = cfg.origin;
-            if (cfg.viaEnv) {
-                hint.textContent = 'Défini par variable d’environnement (GOOGLE_CLIENT_ID) — modifie le .env pour changer.';
-                input.disabled = save.disabled = clear.disabled = true;
-            } else {
-                hint.textContent = on ? 'Google est actif sur les pages de connexion et d’inscription.' : '';
-            }
-        };
-        try { paint(await API.auth.googleConfig()); } catch (e) { hint.textContent = 'Erreur : ' + e.message; }
-
-        save.addEventListener('click', async () => {
-            const v = input.value.trim();
-            if (v && !/\.apps\.googleusercontent\.com$/.test(v)) { MH.toast('Client ID invalide (doit finir par .apps.googleusercontent.com)'); return; }
-            save.disabled = true;
-            try { await API.auth.setGoogleConfig(v); MH.toast('Connexion Google ' + (v ? 'activée' : 'retirée')); paint(await API.auth.googleConfig()); }
-            catch (e) { MH.toast('Erreur : ' + e.message); }
-            finally { save.disabled = false; }
-        });
-        clear.addEventListener('click', async () => {
-            try { await API.auth.setGoogleConfig(''); MH.toast('Connexion Google retirée'); paint(await API.auth.googleConfig()); }
-            catch (e) { MH.toast('Erreur : ' + e.message); }
-        });
-    }
-
     // ── Sauvegarde d'une pref (locale + serveur si connecté) ──
     async function savePref(key, val) {
         window.Storage.setPref(key, val);
@@ -106,15 +62,16 @@
             body.innerHTML = `
                 <div style="text-align:center;padding:14px 0">
                     <p style="color:var(--text2);font-size:13px;margin-bottom:14px">
-                        Connecte-toi pour synchroniser tes réglages, favoris et progression.
+                        Serveur injoignable — impossible de charger ton profil local.
                     </p>
-                    <a href="page_login.html" class="btn btn-primary btn-sm">Se connecter</a>
-                    <a href="page_signup.html" class="btn btn-ghost btn-sm" style="margin-left:6px">S'inscrire</a>
+                    <button class="btn btn-primary btn-sm" onclick="location.reload()">Réessayer</button>
                 </div>`;
             return;
         }
 
-        dangerCard.style.display = '';
+        // Mode local : plus de mot de passe ni de connexion — juste l'identité
+        // du profil (nom affiché sur le profil public et les commentaires).
+        if (dangerCard) dangerCard.style.display = 'none';
         body.innerHTML = `
             <div class="set-field">
                 <label>Nom d'utilisateur</label>
@@ -122,23 +79,6 @@
                     <input class="set-input" id="inpUsername" value="${MH.esc(user.username)}">
                     <button class="btn btn-secondary btn-sm" id="btnSaveUsername" style="flex-shrink:0">Enregistrer</button>
                 </div>
-            </div>
-            <div class="set-field">
-                <label>Email</label>
-                <input class="set-input" value="${MH.esc(user.email)}" disabled style="opacity:.6">
-            </div>
-
-            <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:16px">
-                <div class="set-row-label" style="margin-bottom:12px">Changer le mot de passe</div>
-                <div class="set-field">
-                    <label>Mot de passe actuel</label>
-                    <input type="password" class="set-input" id="inpCurPwd" placeholder="••••••••">
-                </div>
-                <div class="set-field">
-                    <label>Nouveau mot de passe</label>
-                    <input type="password" class="set-input" id="inpNewPwd" placeholder="6 caractères min">
-                </div>
-                <button class="btn btn-primary btn-sm" id="btnChangePwd">Mettre à jour</button>
             </div>`;
 
         document.getElementById('btnSaveUsername').addEventListener('click', async () => {
@@ -148,18 +88,6 @@
                 await API.auth.updateProfile({ username });
                 toast('Profil mis à jour ✓');
                 window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: API.user } }));
-            } catch (e) { toast('Erreur : ' + e.message); }
-        });
-
-        document.getElementById('btnChangePwd').addEventListener('click', async () => {
-            const currentPassword = document.getElementById('inpCurPwd').value;
-            const newPassword     = document.getElementById('inpNewPwd').value;
-            if (!currentPassword || !newPassword) { toast('Remplis les deux champs'); return; }
-            try {
-                await API.auth.changePassword({ currentPassword, newPassword });
-                toast('Mot de passe modifié ✓');
-                document.getElementById('inpCurPwd').value = '';
-                document.getElementById('inpNewPwd').value = '';
             } catch (e) { toast('Erreur : ' + e.message); }
         });
     }
@@ -188,78 +116,6 @@
                 };
             });
         });
-    }
-
-    // ── ESPACE +18 ──
-    function renderNsfw() {
-        const body = document.getElementById('nsfwBody');
-        const pill = document.getElementById('nsfwPill');
-        const enabled = window.NSFW.isEnabled();
-
-        pill.textContent = enabled ? 'Activé' : 'Désactivé';
-        pill.className = 'pill ' + (enabled ? 'pill-on' : 'pill-off');
-
-        if (!enabled) {
-            body.innerHTML = `
-                <div class="set-field">
-                    <label>Définir un code (4 à 8 chiffres)</label>
-                    <input type="password" inputmode="numeric" class="set-input" id="nsfwPin" placeholder="••••" maxlength="8">
-                </div>
-                <button class="btn btn-primary btn-sm" id="btnNsfwEnable" style="background:#ec4899">
-                    Activer l'espace +18
-                </button>
-                <div style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.5">
-                    Une fois activé, une entrée discrète apparaît dans le menu. Le contenu adulte
-                    reste totalement masqué tant que tu n'as pas saisi ton code.
-                </div>`;
-            document.getElementById('btnNsfwEnable').addEventListener('click', async () => {
-                const pin = document.getElementById('nsfwPin').value;
-                try {
-                    await window.NSFW.enable(pin);
-                    toast('Espace +18 activé ');
-                    renderNsfw();
-                    window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: API.user } })); // refresh header
-                } catch (e) { toast(e.message); }
-            });
-        } else {
-            body.innerHTML = `
-                <div class="set-row" style="border-top:none">
-                    <div>
-                        <div class="set-row-label">Accéder à l'espace +18</div>
-                        <div class="set-row-desc">Ouvre le catalogue adulte (code requis)</div>
-                    </div>
-                    <a href="secret.html" class="btn btn-sm" style="background:#ec4899;color:#fff">Ouvrir</a>
-                </div>
-                <div class="set-row">
-                    <div>
-                        <div class="set-row-label">Changer le code</div>
-                    </div>
-                    <button class="btn btn-secondary btn-sm" id="btnNsfwChange">Modifier</button>
-                </div>
-                <div class="set-row">
-                    <div>
-                        <div class="set-row-label">Désactiver l'espace +18</div>
-                        <div class="set-row-desc">Masque à nouveau tout le contenu adulte</div>
-                    </div>
-                    <button class="btn-danger" id="btnNsfwDisable">Désactiver</button>
-                </div>`;
-
-            document.getElementById('btnNsfwChange').addEventListener('click', async () => {
-                const oldPin = prompt('Code actuel :');
-                if (oldPin === null) return;
-                const newPin = prompt('Nouveau code (4 à 8 chiffres) :');
-                if (newPin === null) return;
-                try { await window.NSFW.changePin(oldPin, newPin); toast('Code modifié ✓'); }
-                catch (e) { toast(e.message); }
-            });
-            document.getElementById('btnNsfwDisable').addEventListener('click', async () => {
-                const pin = prompt('Confirme avec ton code pour désactiver :');
-                if (pin === null) return;
-                try { await window.NSFW.disable(pin); toast('Espace +18 désactivé'); renderNsfw();
-                    window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: API.user } }));
-                } catch (e) { toast(e.message); }
-            });
-        }
     }
 
     // ── DONNÉES ──
