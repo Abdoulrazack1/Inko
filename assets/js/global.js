@@ -32,6 +32,18 @@
         bookmark:  '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
         moon:      '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
         incognito: '<path d="M2 12h20"/><path d="M5 12l1.5-5a2 2 0 0 1 1.9-1.4h7.2A2 2 0 0 1 19 7l1.5 5"/><circle cx="7.5" cy="15.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/><path d="M10 15.5c1-0.7 3-0.7 4 0"/>',
+        book:      '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+        comment:   '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+        award:     '<circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/>',
+        trophy:    '<path d="M6 9a6 6 0 0 0 12 0V3H6z"/><path d="M6 5H3v2a4 4 0 0 0 4 4"/><path d="M18 5h3v2a4 4 0 0 1-4 4"/><path d="M12 15v3"/><path d="M8 21h8"/>',
+        flame:     '<path d="M12 22c4.4 0 7-2.8 7-7 0-3-2-5.5-3.5-7C15 9.5 14 10 14 8c0-2.5-1-5-3.5-6C11 5 9 6 7.5 8.5 6 11 5 12.6 5 15c0 4.2 2.6 7 7 7z"/>',
+        heart:     '<path d="M20.8 6.6a5.5 5.5 0 0 0-7.8 0L12 7.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 22l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>',
+        star:      '<polygon points="12 2 15.1 8.3 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 8.9 8.3 12 2"/>',
+        calendar:  '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+        zap:       '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+        layers:    '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+        fileText:  '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/>',
+        target:    '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>',
     };
     window.MH.icon = function (name, size = 18) {
         const p = ICON_PATHS[name]; if (!p) return '';
@@ -757,7 +769,7 @@
         } else {
             dd.innerHTML = head + data.items.map(n => `
                 <a href="${esc(n.link || '#')}" data-nid="${n.id}" style="display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;background:${n.read ? 'transparent' : 'rgba(255,140,66,.07)'}">
-                    <div style="flex:0 0 auto;font-size:16px">${n.type === 'reply' ? '💬' : n.type === 'mention' ? '@' : n.type === 'chapter' ? '📖' : n.type === 'badge' ? '🏅' : '🔔'}</div>
+                    <div style="flex:0 0 auto;color:var(--accent)">${window.MH.icon(n.type === 'reply' ? 'comment' : n.type === 'mention' ? 'comment' : n.type === 'chapter' || n.type === 'new_chapter' ? 'book' : n.type === 'badge' ? 'award' : 'bell', 16)}</div>
                     <div style="min-width:0">
                         <div style="font-size:12.5px;font-weight:600;line-height:1.3">${esc(n.title || '')}</div>
                         ${n.body ? `<div style="font-size:11.5px;color:var(--text2);line-height:1.35;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(n.body)}</div>` : ''}

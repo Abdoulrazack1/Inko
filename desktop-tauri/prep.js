@@ -24,6 +24,11 @@ function robocopy(src, dst, extra = []) {
     }
 }
 
+// Repart d'un dossier PROPRE : sans purge, les fichiers supprimés du repo
+// (anciennes pages de connexion, admin…) resteraient embarqués dans l'app.
+console.log('[prep] nettoyage…');
+fs.rmSync(RES, { recursive: true, force: true });
+
 console.log('[prep] serveur…');
 robocopy(path.join(ROOT, 'server'), path.join(RES, 'server'),
     ['/XF', '.env', '.env.*', '/XD', 'test', 'uploads']);

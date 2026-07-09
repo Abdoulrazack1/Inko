@@ -366,20 +366,20 @@
             const chapters = t.chapters_read || 0;
             const streak = stats.streak?.current || 0;
             const BADGES = [
-                { ico: '📖', name: 'Premier pas',      desc: 'Lire son premier chapitre',     ok: chapters >= 1 },
-                { ico: '🔥', name: 'Lancé',            desc: '10 chapitres lus',              ok: chapters >= 10 },
-                { ico: '💯', name: 'Centurion',        desc: '100 chapitres lus',             ok: chapters >= 100 },
-                { ico: '🏆', name: 'Dévoreur',         desc: '1 000 chapitres lus',           ok: chapters >= 1000 },
-                { ico: '❤️', name: 'Coup de cœur',     desc: 'Ajouter un favori',             ok: (t.favorites || 0) >= 1 },
-                { ico: '📚', name: 'Collectionneur',   desc: '10 séries dans la bibliothèque', ok: (t.library || 0) >= 10 },
-                { ico: '⭐', name: 'Critique',         desc: 'Donner un avis',                ok: (t.ratings || 0) >= 1 },
-                { ico: '📅', name: 'Régulier',         desc: '7 jours de lecture actifs',     ok: activeDays >= 7 },
-                { ico: '⚡', name: 'En feu',           desc: '3 jours d\'affilée',            ok: streak >= 3 },
-                { ico: '🌙', name: 'Marathonien',      desc: '30 jours de lecture actifs',    ok: activeDays >= 30 },
+                { ico: 'book', name: 'Premier pas',      desc: 'Lire son premier chapitre',     ok: chapters >= 1 },
+                { ico: 'flame', name: 'Lancé',            desc: '10 chapitres lus',              ok: chapters >= 10 },
+                { ico: 'target', name: 'Centurion',        desc: '100 chapitres lus',             ok: chapters >= 100 },
+                { ico: 'trophy', name: 'Dévoreur',         desc: '1 000 chapitres lus',           ok: chapters >= 1000 },
+                { ico: 'heart', name: 'Coup de cœur',     desc: 'Ajouter un favori',             ok: (t.favorites || 0) >= 1 },
+                { ico: 'layers', name: 'Collectionneur',   desc: '10 séries dans la bibliothèque', ok: (t.library || 0) >= 10 },
+                { ico: 'star', name: 'Critique',         desc: 'Donner un avis',                ok: (t.ratings || 0) >= 1 },
+                { ico: 'calendar', name: 'Régulier',         desc: '7 jours de lecture actifs',     ok: activeDays >= 7 },
+                { ico: 'zap', name: 'En feu',           desc: '3 jours d\'affilée',            ok: streak >= 3 },
+                { ico: 'moon', name: 'Marathonien',      desc: '30 jours de lecture actifs',    ok: activeDays >= 30 },
             ];
             el.innerHTML = BADGES.map(b => `
                 <div class="card" style="padding:14px;text-align:center;${b.ok ? '' : 'opacity:.38;filter:grayscale(.7)'}">
-                    <div style="font-size:28px;margin-bottom:6px">${b.ico}</div>
+                    <div style="margin-bottom:6px;color:${b.ok ? 'var(--accent)' : 'var(--text3)'}">${MH.icon(b.ico, 28)}</div>
                     <div style="font-weight:700;font-size:13px">${b.name}</div>
                     <div style="font-size:11px;color:var(--text3);margin-top:3px">${b.desc}</div>
                     <div style="font-size:10px;font-weight:700;margin-top:8px;color:${b.ok ? 'var(--green)' : 'var(--text3)'}">${b.ok ? 'DÉBLOQUÉ' : 'VERROUILLÉ'}</div>

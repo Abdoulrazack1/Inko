@@ -857,7 +857,7 @@
         ov.id = 'sleepOverlay';
         ov.style.cssText = 'position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center';
         ov.innerHTML = `<div style="text-align:center;max-width:340px;padding:30px">
-            <div style="font-size:40px;margin-bottom:12px">🌙</div>
+            <div style="margin-bottom:12px;color:var(--accent)">${MH.icon('moon', 40)}</div>
             <div style="font-family:var(--font-head);font-size:20px;font-weight:800;margin-bottom:8px;color:#fff">Pause lecture</div>
             <div style="font-size:13.5px;color:rgba(255,255,255,.7);margin-bottom:20px">Tu lis depuis ${sleepMins} min. Le temps de souffler un peu ?</div>
             <div style="display:flex;gap:10px;justify-content:center">

@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    const ICONS = { reply: '💬', mention: '@', chapter: '📖', badge: '🏅', system: '🔔' };
+    const ICONS = { reply: 'comment', mention: 'comment', chapter: 'book', new_chapter: 'book', badge: 'award', system: 'bell' };
     let items = [];
     let filter = 'all';
 
@@ -59,7 +59,7 @@
         }
         list.innerHTML = shown.map(n => `
             <a class="nt-item ${n.read ? '' : 'unread'}" href="${MH.esc(n.link || '#')}" data-nid="${n.id}">
-                <div class="nt-ico">${ICONS[n.type] || '🔔'}</div>
+                <div class="nt-ico" style="color:var(--accent)">${MH.icon(ICONS[n.type] || 'bell', 18)}</div>
                 <div class="nt-body">
                     <div class="nt-title">${MH.esc(n.title || '')}</div>
                     ${n.body ? `<div class="nt-text">${MH.esc(n.body)}</div>` : ''}

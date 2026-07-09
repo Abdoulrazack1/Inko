@@ -30,6 +30,18 @@
   color: var(--text);
 }
 .hero-title { color: #fff; }
+/* Boutons du hero : secondaire en verre sombre (le blanc Washi jurait sur
+   l'illustration) — lisible et premium sur n'importe quel fond. */
+.hero .btn-secondary {
+  background: rgba(20,20,24,.45); color: #fff;
+  border: 1px solid rgba(255,255,255,.28);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
+}
+.hero .btn-secondary:hover { background: rgba(30,30,36,.6); border-color: rgba(255,255,255,.4); }
+.hero .btn-ghost { color: #fff; border-color: rgba(255,255,255,.3); }
+.hero .btn-ghost:hover { background: rgba(255,255,255,.12); color: #fff; }
 /* Fonds (couche courante + couche suivante pour le crossfade) */
 .hero-bg {
   position: absolute; inset: 0;
@@ -43,9 +55,10 @@
   from { transform: scale(1.06); }
   to   { transform: scale(1.14); }
 }
-/* Sans illustration large : on floute la cover pour faire une ambiance */
-.hero:not(.has-banner) .hero-bg { filter: blur(34px) brightness(.5) saturate(1.15); transform: scale(1.3); }
-.hero.has-banner .hero-bg { filter: brightness(.72) saturate(1.05); }
+/* Sans illustration large : la cover devient le décor — VISIBLE, pas une
+   bande noire (avant : brightness .5 + blur 34 = image invisible). */
+.hero:not(.has-banner) .hero-bg { filter: blur(14px) brightness(.82) saturate(1.2); transform: scale(1.18); }
+.hero.has-banner .hero-bg { filter: brightness(.8) saturate(1.05); }
 /* Aucune illustration chargée : le repli signature (duotone + screentone)
    s'affiche NET, sans le filtre qui l'écrasait en bande noire. */
 .hero.hero-noart .hero-bg {
@@ -258,12 +271,14 @@
   position: absolute; bottom: 0; left: 0; right: 0;
   background: linear-gradient(to top, rgba(0,0,0,.9) 0%, transparent 60%);
   padding: 12px 10px 10px;
+  color: #fff;   /* le texte vit sur un scrim sombre : encre claire, quel que soit le thème */
 }
 .trending-title {
-  font-size: 12.5px; font-weight: 600; line-height: 1.3;
+  font-size: 12.5px; font-weight: 600; line-height: 1.3; color: #fff;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  text-shadow: 0 1px 6px rgba(0,0,0,.5);
 }
-.trending-meta { font-size: 10.5px; color: var(--text2); margin-top: 2px; }
+.trending-meta { font-size: 10.5px; color: rgba(255,255,255,.78); margin-top: 2px; }
 
 /* ── Main split ────────────────────────────────────────────── */
 .main-split {

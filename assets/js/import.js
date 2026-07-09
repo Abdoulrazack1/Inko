@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    const TYPE_ICON = { epub: '📖', cbz: '📚', cbr: '📚', pdf: '📄' };
+    const TYPE_ICON = { epub: 'book', cbz: 'layers', cbr: 'layers', pdf: 'fileText' };
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('bibliotheque');
@@ -17,7 +17,7 @@
         }
         body.innerHTML = `
             <div class="im-drop" id="imDrop">
-                <div class="ic">⬆️</div>
+                <div class="ic" style="color:var(--accent)">${MH.icon('upload', 34)}</div>
                 <div style="font-size:15px;color:var(--text);font-weight:600">Glisse un fichier ici, ou clique pour choisir</div>
                 <div class="hint">EPUB · PDF · CBZ · CBR — jusqu'à 300 Mo</div>
                 <input type="file" id="imFile" accept=".epub,.pdf,.cbz,.cbr,.zip" multiple hidden>
@@ -61,7 +61,7 @@
         }
         list.innerHTML = items.map(it => `
             <div class="im-item" data-id="${it.id}">
-                <div class="im-cover">${TYPE_ICON[it.type] || '📄'}</div>
+                <div class="im-cover" style="color:var(--accent)">${MH.icon(TYPE_ICON[it.type] || 'fileText', 26)}</div>
                 <div class="im-meta">
                     <div class="im-title">${MH.esc(it.title)}</div>
                     <div class="im-sub"><span class="tag">${it.type}</span> · ${fmtSize(it.size)} · importé le ${new Date(it.createdAt).toLocaleDateString('fr-FR')}</div>

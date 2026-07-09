@@ -69,7 +69,7 @@
         const banner = document.createElement('div');
         banner.style.cssText = 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:10px;padding:11px 14px;margin-bottom:16px;font-size:13px;color:var(--text2)';
         const when = cache.at ? new Date(cache.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
-        banner.innerHTML = `<span style="flex:1;min-width:200px">📚 Aperçu local de ta bibliothèque${when ? ` (sauvegardé le ${when})` : ''}. Le serveur est injoignable : aperçu hors-ligne.</span>
+        banner.innerHTML = `<span style="flex:1;min-width:200px">Aperçu local de ta bibliothèque${when ? ` (sauvegardé le ${when})` : ''}. Le serveur est injoignable : aperçu hors-ligne.</span>
             <button class="btn btn-primary btn-sm" onclick="location.reload()">Réessayer</button>`;
         document.getElementById('tabLibrary').prepend(banner);
 
@@ -295,9 +295,9 @@
         await window.UserData?.ready?.();
         const items = window.UserData?.getBookmarks?.() || [];
         if (!items.length) {
-            el.innerHTML = `<div class="lib2-empty"><div class="ico">🔖</div>
+            el.innerHTML = `<div class="lib2-empty"><div class="ico" style="color:var(--accent)">${MH.icon('bookmark', 40)}</div>
                 <div style="font-size:14px;color:var(--text);font-weight:500;margin-bottom:6px">Aucun signet</div>
-                Sur une fiche série, clique sur le 🔖 d'un chapitre pour le retrouver ici.</div>`;
+                Sur une fiche série, clique sur l'icône signet d'un chapitre pour le retrouver ici.</div>`;
             return;
         }
         el.innerHTML = items.map(b => {
