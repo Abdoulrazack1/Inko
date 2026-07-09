@@ -243,6 +243,9 @@
             searchAll:(q)           => get('/search-all?q=' + encodeURIComponent(q || '')).then(mapMangaPage),
             popular:  (params = {}) => get(API.mangas._prefix() + '/mangas/popular' + API.mangas._qs(params)).then(mapMangaPage),
             latest:   (params = {}) => get(API.mangas._prefix() + '/mangas/latest'  + API.mangas._qs(params)).then(mapMangaPage),
+            // Variantes ciblant une source précise (catalogue « Toutes les sources »)
+            popularFor:(source, params = {}) => get('/sources/' + encodeURIComponent(source) + '/mangas/popular' + API.mangas._qs(params)).then(mapMangaPage),
+            searchFor: (source, params = {}) => get('/sources/' + encodeURIComponent(source) + '/mangas/search'  + API.mangas._qs(params)).then(mapMangaPage),
             tags:     ()            => get(API.mangas._prefix() + '/mangas/tags'),
             get:      (id)          => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
             getFrom:  (source, id)  => get((source ? `/sources/${encodeURIComponent(source)}` : '') + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
@@ -269,7 +272,20 @@
             }),
             removeFavorite:   (mangaId)    => del('/me/favorites/' + encodeURIComponent(mangaId)),
             setCategory:      (mangaId, payload) => put('/me/favorites/' + encodeURIComponent(mangaId) + '/category', payload),
-            updates:          (lang)       => get('/me/updates' + (lang ? '?lang=' + encodeURIComponent(lang) : '')).then(d => { (d && d.updates || []).forEach(u => { if (u.cover) u.cover = proxyCover(u.cover); }); return d; }),
+            // opts : string (lang, rétro-compat) ou { lang, scope: 'active'|'all', manga }
+            updates: (opts) => {
+                const o = typeof opts === 'string' ? { lang: opts } : (opts || {});
+                const sp = new URLSearchParams();
+                if (o.lang)  sp.set('lang', o.lang);
+                if (o.scope) sp.set('scope', o.scope);
+                if (o.manga) sp.set('manga', o.manga);
+                const qs = sp.toString();
+                return get('/me/updates' + (qs ? '?' + qs : '')).then(d => {
+                    (d && d.updates  || []).forEach(u => { if (u.cover) u.cover = proxyCover(u.cover); });
+                    (d && d.failures || []).forEach(u => { if (u.cover) u.cover = proxyCover(u.cover); });
+                    return d;
+                });
+            },
 
             library:          ()           => get('/me/library'),
             setLibrary:       (mangaId, status, rating) =>

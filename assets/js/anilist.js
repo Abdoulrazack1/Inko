@@ -37,8 +37,17 @@
         const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
         if (withAuth) { const t = token(); if (t) headers['Authorization'] = 'Bearer ' + t; }
         const r = await fetch(GQL, { method: 'POST', headers, body: JSON.stringify({ query, variables }) });
-        const j = await r.json();
-        if (j.errors) throw new Error(j.errors[0]?.message || 'Erreur AniList');
+        let j = null;
+        try { j = await r.json(); } catch (e) { j = {}; }
+        if (r.status === 429 || j.errors) {
+            // Expose le statut + Retry-After : indispensable pour que la synchro
+            // en masse puisse ATTENDRE au lieu d'échouer en silence (limite
+            // AniList ≈ 30 requêtes/min — c'était la cause du blocage à ~8 œuvres).
+            const err = new Error(j.errors?.[0]?.message || (r.status === 429 ? 'Limite AniList atteinte' : 'Erreur AniList'));
+            err.status = r.status;
+            err.retryAfter = parseInt(r.headers.get('Retry-After') || '0', 10) || (r.status === 429 ? 60 : 0);
+            throw err;
+        }
         return j.data;
     }
 

@@ -95,9 +95,13 @@
         } catch (e) { if (status) status.textContent = ''; }
     }
 
-    // ── Mise à jour des chapitres depuis l'onglet Bibliothèque ──
-    async function fetchUpdates() {
-        const data = await API.me.updates(window.Storage?.getPref('readingLang') || 'fr,en');
+    // ── Mise à jour des chapitres depuis l'onglet Bibliothèque (§15) ──
+    // scope 'active' (défaut) ignore Terminé/Abandonné ; 'all' revérifie tout.
+    async function fetchUpdates(scope) {
+        const data = await API.me.updates({
+            lang: window.Storage?.getPref('readingLang') || 'fr,en',
+            scope: scope || (includeFinished() ? 'all' : 'active'),
+        });
         (data.updates || []).forEach(u => {
             updatesByManga[u.mangaId] = { unreadCount: u.unreadCount, latest: u.latest, hasNew: u.hasNew };
             const f = favs.find(x => x.mangaId === u.mangaId);
@@ -705,11 +709,27 @@
         renderFilters(); render();
     }
 
+    // Case « Inclure terminé/abandonné » (§15.4-1) — persistée
+    function includeFinished() {
+        try { return localStorage.getItem('inko_upd_all') === '1'; } catch (e) { return false; }
+    }
+
     // ── MISES À JOUR ──
     function bindUpdates() {
         const btn = document.getElementById('btnCheckUpdates');
         const status = document.getElementById('updStatus');
         const listEl = document.getElementById('updList');
+
+        // Injecte la case à cocher à côté du bouton (évite de toucher au HTML)
+        if (btn && !document.getElementById('updScopeAll')) {
+            const label = document.createElement('label');
+            label.style.cssText = 'display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin-left:4px;cursor:pointer';
+            label.innerHTML = `<input type="checkbox" id="updScopeAll" ${includeFinished() ? 'checked' : ''}> Inclure terminé/abandonné`;
+            btn.after(label);
+            label.querySelector('input').addEventListener('change', (e) => {
+                try { localStorage.setItem('inko_upd_all', e.target.checked ? '1' : '0'); } catch (er) {}
+            });
+        }
 
         btn.addEventListener('click', async () => {
             btn.disabled = true;
@@ -718,14 +738,29 @@
             try {
                 const data = await fetchUpdates();
                 const ups = data.updates || [];
-                status.textContent = `${ups.length} série(s) suivie(s) · ${ups.filter(u => u.unreadCount > 0).length} avec des chapitres non lus`;
+                const fails = data.failures || [];
+                status.textContent = `${data.scanned ?? ups.length} vérifiée(s)`
+                    + (data.skipped ? ` · ${data.skipped} ignorée(s) (terminé/abandonné)` : '')
+                    + ` · ${ups.filter(u => u.unreadCount > 0).length} avec du non-lu`
+                    + (fails.length ? ` · ${fails.length} échec(s)` : '');
                 render(); // rafraîchit aussi les badges de l'onglet Bibliothèque
 
-                if (!ups.length) {
+                if (!ups.length && !fails.length) {
                     listEl.innerHTML = `<div class="lib2-empty"><div class="ico"></div>Aucune série suivie. Ajoute des favoris pour suivre leurs mises à jour.</div>`;
                     return;
                 }
-                listEl.innerHTML = ups.map(u => {
+                // §15.4-2 : les échecs de vérification sont visibles, plus jamais muets
+                const failsHtml = fails.map(f => `
+                    <div class="upd-row" style="border-left:3px solid var(--hanko)">
+                        <a class="upd-cover" href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}">
+                            <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
+                        </a>
+                        <div class="upd-info">
+                            <div class="upd-name">${MH.esc(f.title)} <span class="upd-new" style="background:rgba(168,50,50,.14);color:var(--hanko)">ÉCHEC</span></div>
+                            <div class="upd-meta" style="color:var(--hanko)">${MH.esc(f.error || 'Vérification impossible')}</div>
+                        </div>
+                    </div>`).join('');
+                listEl.innerHTML = failsHtml + ups.map(u => {
                     const src = encodeURIComponent(u.source || '');
                     return `
                     <div class="upd-row">

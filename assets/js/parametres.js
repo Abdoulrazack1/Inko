@@ -362,22 +362,54 @@
     }
 
     // Pousse la progression de la bibliothèque vers AniList (best-effort)
+    // Synchro complète vers AniList — version robuste.
+    // AniList limite à ~30 requêtes/min : on ESPACE les écritures (2,1 s) et on
+    // ATTEND Retry-After en cas de 429 au lieu d'échouer en silence (avant, la
+    // synchro « se bloquait » vers 8 œuvres : toutes les suivantes étaient des
+    // 429 avalés par un catch muet).
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     async function syncLibraryToAniList(btn) {
         if (!API.isLoggedIn()) { toast('Connecte-toi à Inko'); return; }
         btn.disabled = true; const orig = btn.textContent;
         try {
             const [favs, prog] = await Promise.all([API.me.favorites(), API.me.progress()]);
-            let ok = 0;
-            for (const f of favs) {
+            // Candidats : au moins une info à écrire (progression ou statut)
+            const targets = favs.map(f => {
                 const p = prog[f.mangaId];
                 const opts = {};
                 if (p?.chapter) opts.progress = Math.floor(p.chapter);
                 if (f.status) opts.status = f.status;
-                if (!opts.progress && !opts.status) continue;
-                btn.textContent = `Sync… ${ok + 1}/${favs.length}`;
-                if (await AniList.syncByTitle(f.title, opts)) ok++;
+                return (opts.progress || opts.status) ? { f, opts } : null;
+            }).filter(Boolean);
+            const skipped = favs.length - targets.length;
+
+            let ok = 0, notFound = 0, failed = 0;
+            for (let i = 0; i < targets.length; i++) {
+                const { f, opts } = targets[i];
+                btn.textContent = `Sync… ${i + 1}/${targets.length}`;
+                let attempt = 0;
+                while (attempt < 2) {
+                    attempt++;
+                    try {
+                        const mid = await AniList.mediaId(f.title);
+                        if (!mid) { notFound++; break; }
+                        await AniList.syncEntry(mid, opts);
+                        ok++; break;
+                    } catch (e) {
+                        if (e.status === 429 && attempt < 2) {
+                            const waitS = Math.min(120, e.retryAfter || 60);
+                            btn.textContent = `Limite AniList — pause ${waitS}s…`;
+                            await sleep(waitS * 1000);
+                        } else { failed++; break; }
+                    }
+                }
+                await sleep(2100);   // ~28 écritures/min, sous la limite AniList
             }
-            toast(`${ok} série(s) synchronisée(s) sur AniList`);
+            const bits = [`${ok} synchronisée(s)`];
+            if (notFound) bits.push(`${notFound} introuvable(s) sur AniList`);
+            if (failed)   bits.push(`${failed} échec(s)`);
+            if (skipped)  bits.push(`${skipped} sans progression/statut (ignorées)`);
+            toast(bits.join(' · '));
         } catch (e) { toast('Erreur : ' + e.message); }
         finally { btn.disabled = false; btn.textContent = orig; }
     }

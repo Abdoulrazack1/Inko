@@ -721,6 +721,7 @@
                 <div class="chapters-controls">
                     <input type="text" id="chapSearch" class="chap-search-input" placeholder="Chercher un chapitre…">
                     <button class="chap-sort-btn ic-btn" id="chapRandom" title="Ouvrir un chapitre au hasard">${MH.icon('dice', 14)} Au hasard</button>
+                    <button class="chap-sort-btn" id="chapCheckNew" title="Vérifier maintenant s'il y a de nouveaux chapitres sur cette série">↻ Vérifier</button>
                     <button class="chap-sort-btn" id="chapMarkAll" title="Marquer tous les chapitres comme lus">✓ Tout lu</button>
                     <button class="chap-sort-btn" id="chapSortBtn">${chapSortAsc ? '↑ Ancien' : '↓ Récent'}</button>
                 </div>
@@ -737,6 +738,22 @@
         const sortBtn = el.querySelector('#chapSortBtn');
         const markAll = el.querySelector('#chapMarkAll');
         const randBtn = el.querySelector('#chapRandom');
+
+        // §15.4-4 : vérification de CETTE série seulement (pas de cooldown côté serveur)
+        el.querySelector('#chapCheckNew')?.addEventListener('click', async (e) => {
+            if (!API.isLoggedIn()) { MH.toast('Connecte-toi pour vérifier tes séries'); return; }
+            const b = e.currentTarget; b.disabled = true; const lbl = b.textContent; b.textContent = '…';
+            try {
+                const d = await API.me.updates({ manga: manga.id, lang: window.Storage?.getPref('readingLang') || 'fr,en' });
+                const u = (d.updates || [])[0];
+                const f = (d.failures || [])[0];
+                if (f) MH.toast('Vérification impossible : ' + (f.error || 'source en échec'));
+                else if (u?.hasNew) MH.toast(`Nouveau chapitre ! Dernier : Ch. ${u.latest?.chapter}`);
+                else if (u) MH.toast(u.unreadCount > 0 ? `${u.unreadCount} chapitre(s) non lu(s)` : 'Série à jour');
+                else MH.toast('Ajoute la série en favori pour la suivre');
+            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            finally { b.disabled = false; b.textContent = lbl; }
+        });
         const list    = el.querySelector('#chapsList');
         const countEl = el.querySelector('#chapCount');
 
@@ -893,28 +910,53 @@
             ? `<strong style="color:var(--text);font-size:15px">${data.average.toFixed(1)}</strong>/5 · ${MH.fmt(data.count)} note${data.count > 1 ? 's' : ''}`
             : 'Aucune note pour l\'instant';
 
+        const myReview = data.mine?.review || '';
         body.innerHTML = `
             <div style="margin-bottom:10px">${avgTxt}</div>
             <div class="rate-stars" style="display:flex;gap:4px;font-size:24px;line-height:1">
                 ${[1,2,3,4,5].map(n => `<span class="rate-star" data-n="${n}" style="cursor:pointer;color:${n <= myStars ? '#f59e0b' : 'var(--bg4)'}">★</span>`).join('')}
             </div>
-            <div style="font-size:11px;color:var(--text3);margin-top:6px">${API.isLoggedIn() ? (myStars ? 'Ta note · clique pour changer' : 'Clique une étoile pour noter') : 'Connecte-toi pour noter'}</div>`;
+            <div style="font-size:11px;color:var(--text3);margin-top:6px">${API.isLoggedIn() ? (myStars ? 'Ta note · clique pour changer' : 'Clique une étoile pour noter') : 'Connecte-toi pour noter'}</div>
+            ${API.isLoggedIn() ? `
+            <div class="my-review" style="margin-top:14px">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Mon avis</label>
+                <textarea id="reviewText" rows="4" maxlength="4000" placeholder="Qu'as-tu pensé de cette œuvre ? (ton avis reste privé pour l'instant)"
+                    style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius2);padding:10px 12px;font-size:13px;line-height:1.5;resize:vertical;font-family:var(--font-read)">${MH.esc(myReview)}</textarea>
+                <div style="display:flex;justify-content:flex-end;margin-top:8px">
+                    <button class="btn btn-primary btn-sm" id="btnSaveReview">Enregistrer mon avis</button>
+                </div>
+            </div>` : ''}`;
 
         if (!API.isLoggedIn()) return;
 
+        let currentStars = myStars;
         const stars = [...body.querySelectorAll('.rate-star')];
         const paint = (n) => stars.forEach(s => s.style.color = (+s.dataset.n <= n) ? '#f59e0b' : 'var(--bg4)');
         stars.forEach(s => {
             s.addEventListener('mouseenter', () => paint(+s.dataset.n));
-            s.addEventListener('mouseleave', () => paint(myStars));
+            s.addEventListener('mouseleave', () => paint(currentStars));
             s.addEventListener('click', async () => {
                 const n = +s.dataset.n;
                 try {
-                    await API.ratings.set(manga.id, { rating: n });
-                    MH.toast(`Noté ${n}/5 `);
-                    renderRating();
+                    // On garde l'avis déjà saisi pour ne pas l'écraser en notant.
+                    const review = document.getElementById('reviewText')?.value.trim() || null;
+                    await API.ratings.set(manga.id, { rating: n, review });
+                    currentStars = n; paint(n);
+                    MH.toast(`Noté ${n}/5`);
                 } catch (e) { MH.toast('Erreur : ' + e.message); }
             });
+        });
+
+        // Enregistrer « Mon avis » (§16) — s'appuie sur ratings.review déjà en base.
+        document.getElementById('btnSaveReview')?.addEventListener('click', async (e) => {
+            if (!currentStars) { MH.toast('Choisis d\'abord une note (les étoiles) pour publier ton avis'); return; }
+            const review = document.getElementById('reviewText').value.trim();
+            e.target.disabled = true; const lbl = e.target.textContent; e.target.textContent = '…';
+            try {
+                await API.ratings.set(manga.id, { rating: currentStars, review: review || null });
+                MH.toast('Ton avis est enregistré');
+            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            finally { e.target.disabled = false; e.target.textContent = lbl; }
         });
     }
 })();

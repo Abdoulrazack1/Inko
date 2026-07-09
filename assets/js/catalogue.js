@@ -15,13 +15,17 @@
     let viewMode      = 'grid';       // grid | list
     let inFlight      = 0;
     let sourceInfo    = null;         // { id, name, lang } de la source active
+    let allSources    = false;        // mode « Toutes les sources » (agrégé)
+    let sourcesList   = [];           // manifest des sources installées
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('catalogue');
         restoreCtx();        // restaure le dernier contexte (filtres/tri/vue)
         readURLParams();     // l'URL (?q=, ?tag=, ?sort=) reste prioritaire
+        try { allSources = localStorage.getItem('inko_cat_allsrc') === '1'; } catch (e) {}
         renderQuickFilters();
         bindEvents();
+        renderSourceBar();   // bascule source unique / toutes les sources
 
         // Sections annexes : chargement non bloquant, en parallèle
         loadSourceInfo().then(renderChips).catch(() => {});
@@ -67,8 +71,90 @@
     // ── Source active (pour affichage honnête) ──
     async function loadSourceInfo() {
         const sources = await API.sources.list();
+        sourcesList = sources || [];
         const cur = API.sources.current;
-        sourceInfo = (sources || []).find(s => s.id === cur) || null;
+        sourceInfo = sourcesList.find(s => s.id === cur) || null;
+        renderSourceBar();   // re-rend maintenant que la liste est connue
+    }
+
+    // ── Bascule « Toutes les sources » / source par source ──────────────
+    // Permet d'utiliser plusieurs extensions EN MÊME TEMPS depuis le catalogue :
+    // en mode agrégé, populaires/recherche interrogent toutes les sources actives
+    // en parallèle et fusionnent les résultats (dédup par titre).
+    function enabledSources() {
+        return sourcesList.filter(s => window.MH?.isSourceEnabled ? MH.isSourceEnabled(s.id) : true);
+    }
+    function renderSourceBar() {
+        let bar = document.getElementById('sourceBar');
+        if (!bar) {
+            const anchor = document.getElementById('quickFilters');
+            if (!anchor) return;
+            bar = document.createElement('div');
+            bar.id = 'sourceBar';
+            bar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px';
+            anchor.parentNode.insertBefore(bar, anchor);
+        }
+        const chip = (label, on, data) =>
+            `<button class="quick-filter-btn ${on ? 'active' : ''}" ${data}>${MH.esc(label)}</button>`;
+        bar.innerHTML =
+            chip('Toutes les sources', allSources, 'data-allsrc="1"') +
+            enabledSources().map(s => chip(s.name, !allSources && s.id === API.sources.current, `data-src="${MH.esc(s.id)}"`)).join('');
+        bar.querySelectorAll('[data-allsrc]').forEach(b => b.addEventListener('click', async () => {
+            allSources = true;
+            try { localStorage.setItem('inko_cat_allsrc', '1'); } catch (e) {}
+            currentPage = 1; renderSourceBar();
+            await runSearch();
+        }));
+        bar.querySelectorAll('[data-src]').forEach(b => b.addEventListener('click', async () => {
+            allSources = false;
+            try { localStorage.setItem('inko_cat_allsrc', '0'); } catch (e) {}
+            API.sources.current = b.dataset.src;
+            currentPage = 1;
+            sourceInfo = sourcesList.find(s => s.id === b.dataset.src) || null;
+            renderSourceBar(); renderChips();
+            loadTags().then(renderFilterSidebar).catch(() => {});
+            await runSearch();
+        }));
+    }
+
+    // Recherche agrégée : interroge chaque source active en parallèle et fusionne.
+    function aggNormTitle(t) {
+        return (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+    }
+    async function runSearchAggregate(myReq) {
+        const grid = document.getElementById('resultsGrid');
+        const count = document.getElementById('resultsCount');
+        const srcs = enabledSources();
+        const per = Math.max(8, Math.ceil(PER_PAGE / Math.max(1, srcs.length)) * 2);
+        const settled = await Promise.allSettled(srcs.map(s => {
+            const params = { limit: per };
+            if (lastQuery) { params.q = lastQuery; return API.mangas.searchFor(s.id, params); }
+            return API.mangas.popularFor(s.id, params);
+        }));
+        if (myReq !== inFlight) return;
+        // Fusion + dédup par titre (la même œuvre sur 2 sources = 1 carte, 1re source gagne)
+        const seen = new Map();
+        settled.forEach((r, i) => {
+            if (r.status !== 'fulfilled') return;
+            (r.value.results || []).forEach(m => {
+                const key = aggNormTitle(m.title);
+                if (!key || seen.has(key)) return;
+                m._source = srcs[i].id; m._sourceName = srcs[i].name;
+                seen.set(key, m);
+            });
+        });
+        lastResults = [...seen.values()];
+        lastTotal = lastResults.length;
+        const okCount = settled.filter(r => r.status === 'fulfilled').length;
+        if (count) count.innerHTML = `<strong>${lastResults.length}</strong> séries · ${okCount}/${srcs.length} sources`;
+        if (!lastResults.length) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2)">Aucun résultat sur tes sources actives.</div>';
+        } else {
+            grid.innerHTML = lastResults.map(m => mangaCardHTML(m)).join('');
+            MH.markFavorites(grid);
+        }
+        const pag = document.getElementById('pagination');
+        if (pag) pag.innerHTML = '';   // pas de pagination croisée en mode agrégé
     }
 
     // ── Chips info ──
@@ -199,6 +285,16 @@
             <div style="margin-top:8px;font-size:12.5px">Recherche…</div>
         </div>`;
 
+        // Mode agrégé « Toutes les sources » : chemin dédié
+        if (allSources) {
+            try { await runSearchAggregate(myReq); }
+            catch (err) {
+                if (myReq !== inFlight) return;
+                grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#ef4444">Erreur : ${MH.esc(err.message)}</div>`;
+            }
+            return;
+        }
+
         try {
             const params = {
                 limit: PER_PAGE,
@@ -237,7 +333,8 @@
 
     // Bloc info (titre + sous-titre + méta) — réutilisé par le rendu et l'enrichissement
     function cardInfoHTML(m) {
-        const isNovel = MH.isNovelSource(API.sources.current);
+        const src = m._source || API.sources.current;
+        const isNovel = MH.isNovelSource(src);
         const tags = (m.tags || []).filter(Boolean).slice(0, 3);
         const statusLabel = STATUS_LABELS[m.status] || '';
         const sub = m.author || (tags.length ? tags.join(' · ') : (isNovel ? 'Roman' : ''));
@@ -245,6 +342,7 @@
         if (m.year) metaBits.push(`<span class="mc-year">${m.year}</span>`);
         if (m.demographic) metaBits.push(`<span class="mc-demo">${MH.esc(cap(m.demographic))}</span>`);
         if (statusLabel) metaBits.push(`<span class="mc-status mc-${m.status}">${statusLabel}</span>`);
+        if (m._sourceName && allSources) metaBits.push(`<span class="mc-demo">${MH.esc(m._sourceName)}</span>`);
         return `<div class="manga-card-title">${MH.esc(m.title)}</div>
                 ${sub ? `<div class="manga-card-author">${MH.esc(sub)}</div>` : ''}
                 ${metaBits.length ? `<div class="manga-card-meta">${metaBits.join('')}</div>` : ''}`;
@@ -254,9 +352,10 @@
     function isSparse(m) { return !m.author && !m.status && !(m.tags || []).length; }
 
     function mangaCardHTML(m) {
-        const isNovel = MH.isNovelSource(API.sources.current);
+        const src = m._source || API.sources.current;
+        const isNovel = MH.isNovelSource(src);
         return `
-        <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}" class="manga-card" data-manga-id="${MH.esc(m.id)}">
+        <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}" class="manga-card" data-manga-id="${MH.esc(m.id)}">
             <div class="manga-card-cover">
                 <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
