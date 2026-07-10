@@ -44,14 +44,6 @@
 
     // ── Cartes de bas de profil : valeurs réelles ──
     async function renderMiniCards() {
-        const spot = document.getElementById('miniSpotify');
-        const dl   = document.getElementById('miniDownloads');
-        if (spot) {
-            try {
-                const st = await API.spotify.status();
-                spot.textContent = st?.connected ? (st.profile?.name || 'Connecté') : 'Non connecté';
-            } catch (e) { spot.textContent = 'Non connecté'; }
-        }
         if (dl) {
             try {
                 if (window.Downloads) {
@@ -915,18 +907,17 @@
             });
         });
 
-        // Comptes connectés : Spotify → ouvre le lecteur de musique ; autres → site officiel
+        // Comptes connectés : ouvre le site officiel du service
         document.querySelectorAll('.connected-item').forEach(item => {
             const name = item.querySelector('.connected-name')?.textContent?.trim() || '';
             const btn = item.querySelector('button, .connected-status');
             const toggle = item.querySelector('.toggle');
             const act = () => {
-                if (/Spotify/i.test(name)) { MH.openMusic(); MH.toast('Lecteur de musique ouvert '); }
-                else if (/Discord/i.test(name)) window.open('https://discord.com/app', '_blank');
+                if (/Discord/i.test(name)) window.open('https://discord.com/app', '_blank');
                 else if (/Crunchyroll/i.test(name)) window.open('https://www.crunchyroll.com', '_blank');
             };
             btn?.addEventListener('click', act);
-            toggle?.addEventListener('click', () => { if (/Spotify/i.test(name)) MH.openMusic(); });
+            toggle?.addEventListener('click', act);
         });
 
         // "Ouvrir le lecteur" dans les préférences → lecteur de chapitre démo déjà un lien

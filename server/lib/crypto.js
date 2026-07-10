@@ -1,7 +1,7 @@
 // ============================================================
 // lib/crypto.js — Chiffrement applicatif au repos (audit S10/DB13)
 // ------------------------------------------------------------
-// AES-256-GCM, clé dérivée du secret JWT. Utilisé pour les tokens Spotify
+// AES-256-GCM, clé dérivée du secret JWT. Utilisé pour chiffrer les tokens de services liés.
 // stockés en base. decrypt() tolère le texte clair hérité (migration douce :
 // les anciens tokens non chiffrés restent lisibles, réécrits chiffrés au
 // prochain refresh).

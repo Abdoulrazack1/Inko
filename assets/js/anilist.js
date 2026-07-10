@@ -65,7 +65,7 @@
     // Ouvre la fenêtre d'autorisation et attend le token (déposé par anilist.html)
     async function connect() {
         const cfg = await getConfig();
-        if (!cfg.configured) throw new Error('AniList non configuré (ANILIST_CLIENT_ID manquant côté serveur)');
+        if (!cfg.configured) throw new Error('AniList indisponible dans cette version — mets à jour Inko');
         const url = `${cfg.authorizeBase}?client_id=${encodeURIComponent(cfg.clientId)}&response_type=token`;
         try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
         const w = window.open(url, 'inkoAniList', 'width=480,height=720');

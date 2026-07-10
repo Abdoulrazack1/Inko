@@ -36,7 +36,7 @@
       <li><strong>Compte</strong> : email et mot de passe (haché avec bcrypt, jamais en clair).</li>
       <li><strong>Activité de lecture</strong> : favoris, progression, chapitres lus, notes, commentaires — pour synchroniser ta bibliothèque entre appareils.</li>
       <li><strong>Préférences</strong> : thème, langue, réglages de lecture (stockés localement et/ou sur ton compte).</li>
-      <li><strong>Comptes liés (optionnels)</strong> : Google (connexion), Spotify et AniList si tu les relies. Les jetons d'accès Spotify sont <strong>chiffrés au repos</strong>.</li>
+      <li><strong>Comptes liés (optionnels)</strong>  Les jetons d'accès services externes sont <strong>chiffrés au repos</strong>.</li>
     </ul>
 
     <h2>2. Finalités</h2>
@@ -52,7 +52,7 @@
     <h2>4. Tiers</h2>
     <ul>
       <li><strong>Sources de contenu</strong> : les images/chapitres proviennent des sources que tu actives ; Inko agit comme client personnel.</li>
-      <li><strong>Google / Spotify / AniList</strong> : seulement si tu les relies, selon leurs propres politiques.</li>
+      <li><strong>Google / services externes / AniList</strong> : seulement si tu les relies, selon leurs propres politiques.</li>
     </ul>
 
     <h2>5. Conservation</h2>
@@ -67,7 +67,7 @@
     </ul>
 
     <h2>7. Sécurité</h2>
-    <p>Mots de passe hachés (bcrypt), jetons Spotify chiffrés (AES-256-GCM), en-têtes de sécurité
+    <p>Mots de passe hachés (bcrypt), jetons services externes chiffrés (AES-256-GCM), en-têtes de sécurité
     (helmet), limitation de débit anti-brute-force, et protection anti-SSRF sur le proxy d'images.</p>
 
     <h2>8. Contact</h2>

@@ -196,22 +196,7 @@ CREATE TABLE IF NOT EXISTS password_resets (
 ) ENGINE=InnoDB;
 
 -- ──────────────────────────────────────────────────────────────
--- Spotify : compte lié (OAuth) par utilisateur
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS spotify_accounts (
-  user_id       INT NOT NULL,
-  spotify_id    VARCHAR(128) DEFAULT NULL,
-  display_name  VARCHAR(255) DEFAULT NULL,
-  avatar        VARCHAR(512) DEFAULT NULL,
-  product       VARCHAR(32)  DEFAULT NULL,   -- premium / free
-  access_token  TEXT         DEFAULT NULL,
-  refresh_token TEXT         DEFAULT NULL,
-  expires_at    BIGINT       DEFAULT 0,
-  linked_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (user_id),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
 -- ──────────────────────────────────────────────────────────────
 -- Ratings (note d'un user sur un manga, 1..5)
 -- ──────────────────────────────────────────────────────────────

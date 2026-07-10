@@ -36,13 +36,13 @@
 
     // Nettoie TOUTES les données locales liées au compte (audit DF1) :
     // vie privée sur machine partagée — la déconnexion ne doit pas laisser
-    // préférences, miroir bibliothèque, signets, tokens AniList/Spotify, NSFW…
+    // préférences, miroir bibliothèque, signets, tokens AniList, NSFW…
     function clearLocalUserData() {
         try {
             for (let i = localStorage.length - 1; i >= 0; i--) {
                 const k = localStorage.key(i);
                 if (!k) continue;
-                if (/^(mh_|inko_)/i.test(k) || /anilist|spotify|nsfw|userdata|bookmark|mirror|music/i.test(k)) {
+                if (/^(mh_|inko_)/i.test(k) || /anilist|nsfw|userdata|bookmark|mirror|music/i.test(k)) {
                     localStorage.removeItem(k);
                 }
             }
@@ -86,7 +86,7 @@
             err.status = res.status;
             err.data = data;
             // Si token Inko invalide → déconnecte.
-            // (Les 401 de services tiers liés — Spotify, etc. — répondent 424,
+            // (Les 401 de services tiers liés — AniList, etc. — répondent 424,
             //  on ne purge donc la session que sur un vrai rejet d'auth Inko.)
             if (res.status === 401 && _token) {
                 _user = null; _token = null; persist();
@@ -433,24 +433,6 @@
             setConfig(clientId) { return put('/anilist/config', { clientId }); },
         },
 
-        // ── Spotify (linking de compte OAuth) ──
-        spotify: {
-            // URL d'autorisation (navigation top-level requise : window.open / location)
-            loginUrl() {
-                const t = _token ? ('?token=' + encodeURIComponent(_token)) : '';
-                return API_BASE + '/spotify/login' + t;
-            },
-            status:     ()  => get('/spotify/status'),
-            playlists:  ()  => get('/spotify/playlists'),
-            search:     (q) => get('/spotify/search?q=' + encodeURIComponent(q || '')),
-            recent:     ()  => get('/spotify/recent'),
-            top:        ()  => get('/spotify/top'),
-            saved:      ()  => get('/spotify/saved'),
-            nowPlaying: ()  => get('/spotify/now-playing'),
-            disconnect: ()  => post('/spotify/disconnect'),
-            getConfig:  ()  => get('/spotify/config'),
-            setConfig:  (clientId, clientSecret) => put('/spotify/config', { clientId, clientSecret }),
-        },
     };
 
     window.API = API;

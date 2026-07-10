@@ -9,7 +9,7 @@
 //     / DISABLE_HSTS=1 si un déploiement pose problème.
 //   - La CSP garde 'unsafe-inline' (le front vanilla a des handlers inline) mais
 //     verrouille object-src, base-uri, frame-ancestors et l'allowlist des SDK
-//     tiers réellement utilisés (Google GSI, embeds YouTube/Spotify, AniList).
+//     tiers réellement utilisés (Google GSI, embeds YouTube, AniList).
 //   - crossOriginResourcePolicy = cross-origin : le proxy d'images sert des
 //     couvertures consommées par des <img> (parfois cross-origin en mobile).
 // ============================================================
@@ -23,12 +23,11 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 const cspDirectives = {
     defaultSrc: ["'self'"],
     scriptSrc: ["'self'", "'unsafe-inline'",
-        'https://accounts.google.com', 'https://apis.google.com',
-        'https://open.spotify.com', 'https://www.youtube.com', 'https://s.ytimg.com'],
+        'https://accounts.google.com', 'https://apis.google.com', 'https://www.youtube.com', 'https://s.ytimg.com'],
     styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],  // Google Fonts CSS
     imgSrc: ["'self'", 'data:', 'blob:', 'https:'],   // couvertures proxifiées + externes
     connectSrc: ["'self'", 'https:'],                 // fetch API + AniList/Google
-    frameSrc: ['https://open.spotify.com', 'https://www.youtube.com',
+    frameSrc: [ 'https://www.youtube.com',
         'https://youtube.com', 'https://accounts.google.com'],
     fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],   // fichiers Google Fonts
     mediaSrc: ["'self'", 'data:', 'blob:', 'https:'],

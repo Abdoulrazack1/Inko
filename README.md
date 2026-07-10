@@ -50,7 +50,6 @@ Comme Mihon/Tachiyomi, **Inko n'a pas d'écran de connexion**. Chaque
 installation est personnelle : au premier lancement, l'app crée (ou adopte) ton
 profil local et tout t'appartient — bibliothèque, progression, notes, signets.
 Les seuls comptes externes sont **optionnels** : AniList (synchronisation de
-suivi) et Spotify (musique pendant la lecture).
 
 |  | **Inko** | Mihon | Suwayomi | Komga/Kavita |
 |---|---|---|---|---|
@@ -139,7 +138,7 @@ instance multi-comptes classique si tu veux héberger pour plusieurs personnes.
 ### Confort
 - PWA installable, hors-ligne (téléchargements), thèmes Washi/Sumi/AMOLED,
   accent personnalisable, palette de commandes `Ctrl+K`, lecteur musique
-  (stations, Spotify, YouTube), profil avec badges et heatmap — **iconographie
+
   100 % SVG**, zéro emoji
 - Export complet de tes données, suppression totale, aucune télémétrie
 
@@ -207,9 +206,6 @@ npx cap add android && npx cap sync android && npx cap open android
   `anilist.co/settings/developer` (Redirect URL : `http://127.0.0.1:8088/anilist.html`),
   colle l'ID client, « Connecter ». La synchro respecte la limite de l'API
   (~30 req/min) : elle s'espace et reprend seule en cas de 429.
-- **Spotify** — `server/.env` (`SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET`),
-  Redirect URI `http://127.0.0.1:8088/api/spotify/callback` — détails dans
-  [`SPOTIFY_SETUP.md`](SPOTIFY_SETUP.md). Sans config, stations/YouTube restent dispos.
 
 ---
 
@@ -268,7 +264,7 @@ Notifs    GET  /me/notifications{,/unread}   POST /me/notifications/{read-all,:i
           GET  /push/vapid   POST /me/push/subscribe   (Web Push)
 Local fs  POST /library/import/local   GET /library/local{,/:id/file}   DELETE /library/local/:id
 Artwork   GET  /artwork?title=...   (illustrations officielles AniList)
-Spotify   GET  /spotify/{login,callback,status,playlists,recent,top,saved,now-playing}
+
 AniList   GET  /anilist/{config,similar}    PUT /anilist/config
 ```
 

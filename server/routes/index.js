@@ -6,7 +6,6 @@ const { authLimiter, writeLimiter } = require('../middleware/security');
 const Auth    = require('../controllers/auth.controller');
 const Manga   = require('../controllers/manga.controller');
 const User    = require('../controllers/user.controller');
-const Spotify = require('../controllers/spotify.controller');
 const Artwork = require('../controllers/artwork.controller');
 const AniList = require('../controllers/anilist.controller');
 const Image   = require('../controllers/image.controller');
@@ -161,18 +160,5 @@ router.get   ('/me/events',               auth.authRequired, User.getEvents);
 router.get   ('/me/stats',                auth.authRequired, User.getStats);
 router.get   ('/me/updates',              auth.authRequired, User.checkUpdates);
 
-// ── Spotify (linking de compte OAuth) ───────────
-router.get   ('/spotify/login',           auth.authOptional, Spotify.login);     // ?token=<jwt>
-router.get   ('/spotify/callback',        Spotify.callback);                     // public (redir Spotify)
-router.get   ('/spotify/config',          auth.authRequired, Spotify.getConfig);
-router.put   ('/spotify/config',          auth.authRequired, Spotify.setConfig);
-router.get   ('/spotify/status',          auth.authRequired, Spotify.status);
-router.get   ('/spotify/playlists',       auth.authRequired, Spotify.playlists);
-router.get   ('/spotify/search',          auth.authRequired, Spotify.search);
-router.get   ('/spotify/recent',          auth.authRequired, Spotify.recent);
-router.get   ('/spotify/top',             auth.authRequired, Spotify.top);
-router.get   ('/spotify/saved',           auth.authRequired, Spotify.saved);
-router.get   ('/spotify/now-playing',     auth.authRequired, Spotify.nowPlaying);
-router.post  ('/spotify/disconnect',      auth.authRequired, Spotify.disconnect);
 
 module.exports = router;

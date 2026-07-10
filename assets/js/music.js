@@ -2,7 +2,7 @@
 // music.js — Lecteur de musique intégré (dock en bas de page)
 // ============================================================
 // Barre persistante + panneau dépliable. Stations un-clic
-// (YouTube IFrame API), fichiers locaux (audio natif) et Spotify
+// (YouTube IFrame API) et fichiers locaux (audio natif)
 // (embed). Injecté sur toutes les pages par global.js.
 // État conservé dans localStorage → reprend en changeant de page.
 // Expose window.Music.
@@ -23,7 +23,6 @@
         close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
         note:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
         folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>',
-        spotify:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/></svg>',
         youtube:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.5 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>',
         radio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1A10 10 0 0 1 4.9 4.9M19.1 4.9a10 10 0 0 1 0 14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4"/><circle cx="12" cy="12" r="2"/></svg>',
         timer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M9 2h6"/></svg>',
@@ -31,7 +30,7 @@
         repeat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>',
     };
 
-    // Stations (live, un clic). yt = YouTube IFrame API ; sp = embed Spotify.
+    // Stations (live, un clic) — YouTube IFrame API.
     const STATIONS = [
         { id: 'lofi',  name: 'Lofi Hip-Hop', sub: 'Détente & lecture', g: ['#fc5c7d', '#6a82fb'], yt: 'jfKfPfyJRdk' },
         { id: 'anime', name: 'Anime Lofi',   sub: 'Vibes asiatiques',  g: ['#f857a6', '#ff5858'], yt: 'Na0w3Mz46GA' },
@@ -63,7 +62,6 @@
             <div class="im-panel">
                 <div class="im-tabs">
                     <button class="im-tab" data-tab="stations">${ICON.radio}<span>Stations</span></button>
-                    <button class="im-tab" data-tab="spotify">${ICON.spotify}<span>Spotify</span></button>
                     <button class="im-tab" data-tab="youtube">${ICON.youtube}<span>YouTube</span></button>
                     <button class="im-tab" data-tab="local">${ICON.folder}<span>Fichiers</span></button>
                 </div>
@@ -137,7 +135,7 @@
     function setPlaying(v) { playing = v; root.querySelector('#im-pp').innerHTML = v ? ICON.pause : ICON.play; markStation(); updatePill(); }
     function markStation() {
         document.querySelectorAll('.im-station').forEach(el => {
-            const on = (S.mode === 'yt' && el.dataset.yt === S.ytId) || (S.mode === 'sp' && el.dataset.sp === S.spId);
+            const on = (S.mode === 'yt' && el.dataset.yt === S.ytId);
             el.classList.toggle('on', !!on);
             const eq = el.querySelector('.eq');
             if (eq) eq.style.display = on && playing ? 'flex' : 'none';
@@ -155,14 +153,13 @@
         const c = root.querySelector('#im-content');
         root.querySelectorAll('.im-tab').forEach(t => t.classList.toggle('on', t.dataset.tab === S.tab));
         if (S.tab === 'stations') return renderStations(c);
-        if (S.tab === 'spotify')  return renderSpotify(c);
         if (S.tab === 'youtube')  return renderYouTube(c);
         if (S.tab === 'local')    return renderLocal(c);
     }
 
     function renderStations(c) {
         c.innerHTML = `<div class="im-grid">` + STATIONS.map(st => `
-            <button class="im-station" data-id="${st.id}" ${st.yt ? `data-yt="${st.yt}"` : ''} ${st.sp ? `data-sp="${st.sp}"` : ''}
+            <button class="im-station" data-id="${st.id}" ${st.yt ? `data-yt="${st.yt}"` : ''}
                 style="background:linear-gradient(135deg,${st.g[0]},${st.g[1]})">
                 <span class="rd">${ICON.radio}</span>
                 <span class="eq" style="display:none"><i></i><i></i><i></i></span>
@@ -170,8 +167,7 @@
             </button>`).join('') + `</div>`;
         c.querySelectorAll('.im-station').forEach(el => el.onclick = () => {
             const st = STATIONS.find(s => s.id === el.dataset.id);
-            if (st.yt) playYouTube(st.yt, st.name, 'Station · ' + st.sub, st.g);
-            else playSpotify('playlist', st.sp, st.name, 'Spotify · ' + st.sub, st.g);
+            playYouTube(st.yt, st.name, 'Station · ' + st.sub, st.g);
         });
         markStation();
     }
@@ -216,138 +212,6 @@
         q.querySelectorAll('.im-li').forEach(el => el.onclick = () => playLocal(+el.dataset.i));
     }
 
-    function renderSpotify(c) {
-        c.innerHTML = `
-            <div id="im-spprofile"></div>
-            <div class="im-hint">Écoute immédiate (sans connexion) :</div>
-            <div class="im-grid" id="im-sppre"></div>
-            <div id="im-spconnected" style="margin-top:12px"></div>`;
-        const pres = [
-            ['37i9dQZF1DWWQRwui0ExPn', 'Lo-Fi Beats', ['#1db954', '#1ed760']],
-            ['37i9dQZF1DWYoYGBbGKurt', 'Lofi Chill', ['#643cc6', '#a445b2']],
-            ['37i9dQZF1DX4sWSpwq3LiO', 'Peaceful Piano', ['#2c3e50', '#4ca1af']],
-            ['37i9dQZF1DWZeKCadgRdKQ', 'Deep Focus', ['#11998e', '#38ef7d']],
-        ];
-        c.querySelector('#im-sppre').innerHTML = pres.map(([id, nm, g]) => `
-            <button class="im-station" data-sp="${id}" style="height:62px;background:linear-gradient(135deg,${g[0]},${g[1]})">
-                <span class="nm">${nm}</span><span class="sb">Spotify</span></button>`).join('');
-        c.querySelectorAll('#im-sppre .im-station').forEach(el => el.onclick = () =>
-            playSpotify('playlist', el.dataset.sp, el.querySelector('.nm').textContent, 'Spotify', ['#1db954', '#1ed760']));
-        renderSpotifyConnected();
-    }
-
-    let _spConnectPoll = null;
-    window.addEventListener('beforeunload', () => { clearInterval(_spConnectPoll); });
-    function connectSpotify() {
-        window.open(API.spotify.loginUrl(), 'inkoSpotifyAuth', 'width=480,height=760');
-        clearInterval(_spConnectPoll);
-        let n = 0;
-        _spConnectPoll = setInterval(async () => {
-            n++;
-            try { const s = await API.spotify.status(); if (s.linked) { clearInterval(_spConnectPoll); renderSpotify(root.querySelector('#im-content')); } } catch (e) {}
-            if (n > 90) clearInterval(_spConnectPoll);
-        }, 2000);
-    }
-    function spTrackRows(tracks) {
-        return (tracks || []).map(t =>
-            `<div class="im-li" data-sp="${t.id}" data-sptype="track" data-nm="${esc(t.name)}">
-                <img src="${t.image || ''}" alt="" onerror="this.style.visibility='hidden'">
-                <span class="n">${esc(t.name)}${t.artists ? ` · <span style="color:var(--text3,#7a7a86)">${esc(t.artists)}</span>` : ''}</span>
-            </div>`).join('');
-    }
-    function spPlRows(pls) {
-        return (pls || []).map(p =>
-            `<div class="im-li" data-sp="${p.id}" data-sptype="playlist" data-nm="${esc(p.name)}">
-                <img src="${p.image || ''}" alt="" onerror="this.style.visibility='hidden'">
-                <span class="n">${esc(p.name)}</span><span style="font-size:10.5px;color:var(--text3,#7a7a86)">${p.tracks || ''}</span>
-            </div>`).join('');
-    }
-    function bindSpRows(scope) {
-        if (!scope) return;
-        scope.querySelectorAll('.im-li[data-sp]').forEach(el => el.onclick = () =>
-            playSpotify(el.dataset.sptype, el.dataset.sp, el.dataset.nm,
-                el.dataset.sptype === 'track' ? 'Titre Spotify' : 'Playlist Spotify', ['#1db954', '#1ed760']));
-    }
-    async function renderSpotifyConnected() {
-        const box = root.querySelector('#im-spconnected');
-        const prof = root.querySelector('#im-spprofile');
-        if (!box || !window.API || !API.spotify) return;
-        let st;
-        try { st = await API.spotify.status(); } catch (e) { return; }
-        if (!st.configured) {
-            if (prof) prof.innerHTML = '';
-            box.innerHTML = `<div class="im-hint">Pour lier ton compte Spotify, configure SPOTIFY_CLIENT_ID/SECRET côté serveur puis reviens ici.</div>`;
-            return;
-        }
-        if (!st.linked) {
-            if (prof) prof.innerHTML = '';
-            box.innerHTML = `<button class="im-btn green" id="im-splink" style="width:100%">${ICON.spotify} Connecter mon compte Spotify</button>
-                <div class="im-hint" style="margin-top:8px">Accède à tes playlists, ta recherche et tes écoutes récentes.</div>`;
-            box.querySelector('#im-splink').onclick = connectSpotify;
-            return;
-        }
-        // Bandeau profil
-        if (prof) {
-            prof.innerHTML = `
-                <div class="im-spprof">
-                    ${st.profile?.avatar ? `<img src="${st.profile.avatar}" alt="">` : `<div class="im-spprof-ph">${ICON.spotify}</div>`}
-                    <div class="im-spprof-meta"><div class="nm">${esc(st.profile?.name || 'Spotify')}</div><div class="sb">${st.profile?.product === 'premium' ? 'Premium' : 'Connecté'}</div></div>
-                    <button class="im-spprof-x" id="im-spunlink">Déconnecter</button>
-                </div>`;
-            prof.querySelector('#im-spunlink').onclick = async () => {
-                if (!confirm('Déconnecter ton compte Spotify ?')) return;   // action destructrice (audit A10)
-                try { await API.spotify.disconnect(); } catch (e) {}
-                renderSpotify(root.querySelector('#im-content'));
-            };
-        }
-        // Recherche + sections
-        box.innerHTML = `
-            <div class="im-row"><input class="im-input" id="im-spq" placeholder="Rechercher un titre, une playlist…"><button class="im-btn green" id="im-spgo">Chercher</button></div>
-            <div id="im-spresults"></div>
-            <div class="im-hint" style="margin-top:10px">Tes titres du moment</div>
-            <div class="im-list" id="im-sptop"><div class="im-hint">Chargement…</div></div>
-            <div class="im-hint" style="margin-top:8px">Titres aimés</div>
-            <div class="im-list" id="im-spsaved"><div class="im-hint">Chargement…</div></div>
-            <div class="im-hint" style="margin-top:8px">Écoutés récemment</div>
-            <div class="im-list" id="im-sprecent"><div class="im-hint">Chargement…</div></div>
-            <div class="im-hint" style="margin-top:8px">Tes playlists</div>
-            <div class="im-list" id="im-sppl"><div class="im-hint">Chargement…</div></div>`;
-        const doSearch = async () => {
-            const q = box.querySelector('#im-spq').value.trim();
-            const res = box.querySelector('#im-spresults');
-            if (!q) { res.innerHTML = ''; return; }
-            res.innerHTML = `<div class="im-hint">Recherche…</div>`;
-            try {
-                const { tracks, playlists } = await API.spotify.search(q);
-                res.innerHTML = (tracks.length || playlists.length)
-                    ? spTrackRows(tracks) + spPlRows(playlists)
-                    : `<div class="im-hint">Aucun résultat.</div>`;
-                bindSpRows(res);
-            } catch (e) { res.innerHTML = `<div class="im-hint">Erreur de recherche.</div>`; }
-        };
-        box.querySelector('#im-spgo').onclick = doSearch;
-        box.querySelector('#im-spq').onkeydown = e => { if (e.key === 'Enter') doSearch(); };
-        // Chargeur générique de section "titres"
-        const loadTracks = async (sel, fn, emptyMsg) => {
-            const el = box.querySelector(sel); if (!el) return;
-            try {
-                const { tracks } = await fn();
-                el.innerHTML = (tracks && tracks.length) ? spTrackRows(tracks) : `<div class="im-hint">${emptyMsg}</div>`;
-                bindSpRows(el);
-            } catch (e) { el.innerHTML = `<div class="im-hint">${emptyMsg}</div>`; }
-        };
-        loadTracks('#im-sptop', () => API.spotify.top(), 'Pas encore de statistiques.');
-        loadTracks('#im-spsaved', () => API.spotify.saved(), 'Aucun titre aimé.');
-        loadTracks('#im-sprecent', () => API.spotify.recent(), "Rien pour l'instant.");
-        // Playlists
-        try {
-            const pls = await API.spotify.playlists();
-            const el = box.querySelector('#im-sppl');
-            el.innerHTML = pls.length ? spPlRows(pls) : `<div class="im-hint">Aucune playlist.</div>`;
-            bindSpRows(el);
-        } catch (e) { const el = box.querySelector('#im-sppl'); if (el) el.innerHTML = ''; }
-    }
-
     // ══════════════════════ LECTURE — YouTube (IFrame API) ══════════════════════
     function ensureYT(cb) {
         if (window.YT && window.YT.Player) return cb();
@@ -363,15 +227,8 @@
         if (!h) { h = document.createElement('div'); h.id = 'im-media'; h.style.cssText = 'position:fixed;left:-9999px;bottom:0;width:1px;height:1px;overflow:hidden'; document.body.appendChild(h); }
         return h;
     }
-    function showEmbedInPanel(node) {
-        // Affiche l'embed dans le panneau (Spotify) ; pour YouTube on garde l'audio en fond
-        const c = root.querySelector('#im-content');
-        let slot = c.querySelector('.im-embed');
-        if (!slot) { slot = document.createElement('div'); slot.className = 'im-embed'; c.appendChild(slot); }
-        slot.appendChild(node);
-    }
     function playYouTube(id, label, sub, g) {
-        stopLocal(); stopSpotify();
+        stopLocal();
         S.mode = 'yt'; S.ytId = id; S.label = label; S.sub = sub; save();
         setMeta(label, sub, ICON.youtube);
         if (g) root.querySelector('#im-art').style.background = `linear-gradient(135deg,${g[0]},${g[1]})`;
@@ -393,38 +250,10 @@
         show();
     }
 
-    // ══════════════════════ LECTURE — Spotify (IFrame API) ══════════════════════
-    let spCtrl = null, spApi = null;
-    function ensureSpotify(cb) {
-        if (spApi) return cb(spApi);
-        window.onSpotifyIframeApiReady = (api) => { spApi = api; cb(api); };
-        if (!document.getElementById('im-spapi')) { const s = document.createElement('script'); s.id = 'im-spapi'; s.src = 'https://open.spotify.com/embed/iframe-api/v1'; document.head.appendChild(s); }
-    }
-    function playSpotify(type, id, label, sub, g) {
-        stopLocal(); stopYouTube();
-        S.mode = 'sp'; S.spId = id; S.label = label; S.sub = sub; save();
-        setMeta(label, sub, ICON.spotify);
-        if (g) root.querySelector('#im-art').style.background = `linear-gradient(135deg,${g[0]},${g[1]})`;
-        const uri = `spotify:${type}:${id}`;
-        ensureSpotify(api => {
-            // Contrôleur monté hors-écran : la musique continue même barre réduite
-            const host = mediaContainer();
-            let slot = document.getElementById('im-spembed');
-            if (!slot) { slot = document.createElement('div'); slot.id = 'im-spembed'; host.appendChild(slot); }
-            slot.innerHTML = '';
-            api.createController(slot, { uri, width: '300', height: '80' }, ctrl => {
-                spCtrl = ctrl;
-                ctrl.addListener('playback_update', e => { if (e.data) setPlaying(!e.data.isPaused); });
-                ctrl.play();
-            });
-        });
-        show();
-    }
-
     // ══════════════════════ LECTURE — Fichiers locaux ══════════════════════
     function playLocal(i) {
         if (i < 0 || i >= localQueue.length) return;
-        stopYouTube(); stopSpotify();
+        stopYouTube();
         S.mode = 'local'; localIdx = i; save();
         localAudio.src = localQueue[i].url; localAudio.volume = S.vol; localAudio.play().catch(() => {});
         setMeta(localQueue[i].name, `${i + 1} / ${localQueue.length} · fichier local`, ICON.note);
@@ -436,28 +265,24 @@
     function togglePlay() {
         if (S.mode === 'local') { localAudio.paused ? localAudio.play() : localAudio.pause(); }
         else if (S.mode === 'yt' && ytPlayer) { playing ? ytPlayer.pauseVideo() : ytPlayer.playVideo(); }
-        else if (S.mode === 'sp' && spCtrl) { spCtrl.togglePlay(); }
         else if (!S.mode) { S.tab = 'stations'; open(); }
     }
     function skip(d) {
         if (S.mode === 'local') { if (localQueue.length) playLocal((localIdx + d + localQueue.length) % localQueue.length); return; }
         // stations : passe à la station suivante/précédente
         const list = STATIONS;
-        let idx = list.findIndex(s => (s.yt && s.yt === S.ytId) || (s.sp && s.sp === S.spId));
+        let idx = list.findIndex(s => s.yt === S.ytId);
         if (idx < 0) idx = 0; const st = list[(idx + d + list.length) % list.length];
-        if (st.yt) playYouTube(st.yt, st.name, 'Station · ' + st.sub, st.g);
-        else playSpotify('playlist', st.sp, st.name, 'Spotify · ' + st.sub, st.g);
+        playYouTube(st.yt, st.name, 'Station · ' + st.sub, st.g);
     }
     function setVolume(v) {
         S.vol = v; save(); localAudio.volume = v;
         if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(v * 100);
-        if (spCtrl && spCtrl.setVolume) try { spCtrl.setVolume(v); } catch (e) {}
         const sl = root.querySelector('#im-vol'); if (sl && +sl.value !== v) sl.value = v;
     }
     function stopYouTube() { try { if (ytPlayer) ytPlayer.stopVideo?.(); } catch (e) {} }
-    function stopSpotify() { try { if (spCtrl) spCtrl.pause?.(); } catch (e) {} const e = document.getElementById('im-spembed'); if (e) e.innerHTML = ''; }
     function stopLocal()   { try { localAudio.pause(); } catch (e) {} }
-    function stopAll() { stopYouTube(); stopSpotify(); stopLocal(); setPlaying(false); }
+    function stopAll() { stopYouTube(); stopLocal(); setPlaying(false); }
 
     // ══════════════════════ Minuterie de sommeil ══════════════════════
     let sleepMin = 0, sleepHandle = null;
@@ -508,10 +333,9 @@
         if (S.visible && S.min) root.classList.add('min');
         // Reprise inter-pages : recharge la dernière station (les flux live reprennent)
         if (S.visible && S.mode === 'yt' && S.ytId) playYouTube(S.ytId, S.label, S.sub);
-        else if (S.visible && S.mode === 'sp' && S.spId) playSpotify('playlist', S.spId, S.label, S.sub);
     }
 
-    window.Music = { open, close, toggle, show, playStationId: id => { const s = STATIONS.find(x => x.id === id); if (s) { s.yt ? playYouTube(s.yt, s.name, 'Station · ' + s.sub, s.g) : playSpotify('playlist', s.sp, s.name, 'Spotify · ' + s.sub, s.g); } } };
+    window.Music = { open, close, toggle, show, playStationId: id => { const s = STATIONS.find(x => x.id === id); if (s && s.yt) playYouTube(s.yt, s.name, 'Station · ' + s.sub, s.g); } };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();

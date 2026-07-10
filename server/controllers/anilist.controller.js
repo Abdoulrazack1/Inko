@@ -10,12 +10,23 @@ const axios = require('axios');
 const fs    = require('fs');
 const path  = require('path');
 
-// Client ID AniList : env prioritaire, sinon fichier config modifiable depuis l'app.
+// ── Client AniList officiel d'Inko (embarqué, façon Mihon) ──────
+// Enregistré sur anilist.co avec Redirect URL
+// http://127.0.0.1:8088/anilist.html — le port de l'app desktop.
+// Le consommateur n'a rien à configurer : « Connecter » suffit.
+// Reste remplaçable via ANILIST_CLIENT_ID (env) ou config/anilist.json
+// pour un self-host sur un autre port.
+const DEFAULT_CLIENT_ID = '';
+
+// Client ID AniList : env > fichier config > client embarqué.
 const ANILIST_CFG_PATH = path.join(__dirname, '..', 'config', 'anilist.json');
 function getAnilistClientId() {
     if (process.env.ANILIST_CLIENT_ID) return process.env.ANILIST_CLIENT_ID.trim();
-    try { return (JSON.parse(fs.readFileSync(ANILIST_CFG_PATH, 'utf8')).clientId || '').trim(); }
-    catch (e) { return ''; }
+    try {
+        const v = (JSON.parse(fs.readFileSync(ANILIST_CFG_PATH, 'utf8')).clientId || '').trim();
+        if (v) return v;
+    } catch (e) { /* pas de fichier : client embarqué */ }
+    return DEFAULT_CLIENT_ID;
 }
 function setAnilistClientIdFile(clientId) {
     fs.mkdirSync(path.dirname(ANILIST_CFG_PATH), { recursive: true });
@@ -66,6 +77,7 @@ function config(_req, res) {
         clientId,
         redirectUri,
         viaEnv: !!process.env.ANILIST_CLIENT_ID,
+        builtin: !!clientId && clientId === DEFAULT_CLIENT_ID,
         authorizeBase: 'https://anilist.co/api/v2/oauth/authorize',
     });
 }

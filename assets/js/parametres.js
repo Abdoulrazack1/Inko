@@ -172,28 +172,13 @@
         });
     }
 
-    // ── COMPTES LIÉS (Spotify + AniList) + Musique ──
+    // ── COMPTES LIÉS (AniList) + Musique ──
     async function bindConnections() {
         // Bouton "Ouvrir le lecteur" de musique
         document.getElementById('btnOpenMusic')?.addEventListener('click', () => {
             if (window.MH?.openMusic) MH.openMusic();
-            else window.open('player.html', 'inkoMusic', 'width=420,height=640');
+            
         });
-
-        // Si cette page est la popup d'auth Spotify → se fermer
-        const params = new URLSearchParams(location.search);
-        const sp = params.get('spotify');
-        if (sp) {
-            if (window.name === 'inkoSpotifyAuth' && window.opener) { window.close(); return; }
-            const msgs = { linked: 'Compte Spotify lié ✓', denied: 'Autorisation Spotify refusée.',
-                           error: 'Erreur lors du lien Spotify.', badstate: 'Session expirée, réessaie.' };
-            toast(msgs[sp] || 'Spotify : ' + sp);
-            history.replaceState({}, '', location.pathname);
-        }
-        if (params.get('anilist') === 'linked') {
-            toast('Compte AniList lié ✓');
-            history.replaceState({}, '', location.pathname);
-        }
 
         // Composant unifié + ligne de synchro AniList contextuelle
         const el = document.getElementById('settingsConnections');
