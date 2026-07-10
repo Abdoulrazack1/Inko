@@ -175,7 +175,9 @@
     // ── COMPTES LIÉS (AniList) + Musique ──
     async function bindConnections() {
         // Bouton "Ouvrir le lecteur" de musique
-        document.getElementById('btnOpenMusic')?.addEventListener('click', () => {
+        document.getElementById('btnReplayTour')?.addEventListener('click', () => MH.startTour());
+
+    document.getElementById('btnOpenMusic')?.addEventListener('click', () => {
             if (window.MH?.openMusic) MH.openMusic();
             
         });

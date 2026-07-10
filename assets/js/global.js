@@ -1157,4 +1157,21 @@
         document.getElementById('mhShortcutsClose')?.addEventListener('click', () => ov.remove());
     }
 
+    /* ── Visite guidée (première ouverture) ─────────────────
+       Chargée dynamiquement pour ne rien coûter aux lancements
+       suivants. MH.startTour() la rejoue (Paramètres). */
+    function loadTour(autostart) {
+        return new Promise((resolve) => {
+            if (window.InkoTour) return resolve();
+            const sc = document.createElement('script');
+            sc.src = 'assets/js/onboarding.js';
+            sc.onload = resolve;
+            document.head.appendChild(sc);
+        });
+    }
+    window.MH.startTour = async function () { await loadTour(); window.InkoTour?.start(); };
+    try {
+        if (!localStorage.getItem('inko_tour_done')) loadTour(true); // autostart interne
+    } catch (e) {}
+
 })();
