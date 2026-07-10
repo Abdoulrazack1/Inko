@@ -73,37 +73,8 @@
         allBtn.addEventListener('click', () => doUpdate(null, null));
         check();   // recherche automatique des mises à jour au chargement
 
-        // ── Installer une extension tierce par URL (admin, §7.3-5) ──
-        if (!document.getElementById('extUrlInstall')) {
-            const box3 = document.createElement('div');
-            box3.id = 'extUrlInstall';
-            box3.style.cssText = 'margin-top:16px;padding:14px;border:1px dashed var(--border2);border-radius:12px';
-            box3.innerHTML = `
-                <div style="font-weight:600;font-size:13px;margin-bottom:6px">Installer une extension par URL</div>
-                <div style="font-size:11.5px;color:var(--text3);margin-bottom:10px">
-                    ⚠ Une extension s'exécute côté serveur avec les mêmes droits qu'Inko :
-                    n'installe que du code dont tu connais la provenance.</div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <input type="url" id="extUrlInput" placeholder="https://…/index.js"
-                        style="flex:1;min-width:240px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:9px;padding:9px 12px;font-size:12.5px">
-                    <button class="btn btn-primary btn-sm" id="extUrlBtn">Installer</button>
-                </div>
-                <div id="extUrlStatus" style="font-size:11.5px;margin-top:8px;color:var(--text3)"></div>`;
-            (box.parentNode || document.querySelector('.sources-wrap') || document.body).appendChild(box3);
-            document.getElementById('extUrlBtn').addEventListener('click', async () => {
-                const url = document.getElementById('extUrlInput').value.trim();
-                const out = document.getElementById('extUrlStatus');
-                if (!url) return;
-                if (!confirm('Installer cette extension ? Elle s’exécutera côté serveur.\n\n' + url)) return;
-                out.textContent = 'Installation…';
-                try {
-                    const r = await API.sources.installUrl(url);
-                    out.style.color = '#3f7d4e';
-                    out.textContent = `✓ ${r.name} v${r.version} installée`;
-                    await render();
-                } catch (e) { out.style.color = 'var(--hanko, #a83232)'; out.textContent = '✗ ' + e.message; }
-            });
-        }
+        // Les extensions ne s'installent plus par URL : elles sont publiées
+        // uniquement via les nouvelles versions de l'app (logique release-only).
     }
 
     async function render() {

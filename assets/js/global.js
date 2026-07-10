@@ -714,7 +714,9 @@
         } else {
             dd.innerHTML = head + data.items.map(n => `
                 <a href="${esc(n.link || '#')}" data-nid="${n.id}" style="display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;background:${n.read ? 'transparent' : 'rgba(255,140,66,.07)'}">
-                    <div style="flex:0 0 auto;color:var(--accent)">${window.MH.icon(n.type === 'reply' ? 'comment' : n.type === 'mention' ? 'comment' : n.type === 'chapter' || n.type === 'new_chapter' ? 'book' : n.type === 'badge' ? 'award' : 'bell', 16)}</div>
+                    ${n.image
+                        ? `<img src="${esc(n.image)}" alt="" loading="lazy" style="flex:0 0 auto;width:34px;height:46px;object-fit:cover;border-radius:6px;background:var(--bg3)" onerror="this.style.display='none'">`
+                        : `<div style="flex:0 0 auto;color:var(--accent)">${window.MH.icon(n.type === 'reply' ? 'comment' : n.type === 'mention' ? 'comment' : n.type === 'chapter' || n.type === 'new_chapter' ? 'book' : n.type === 'badge' ? 'award' : 'bell', 16)}</div>`}
                     <div style="min-width:0">
                         <div style="font-size:12.5px;font-weight:600;line-height:1.3">${esc(n.title || '')}</div>
                         ${n.body ? `<div style="font-size:11.5px;color:var(--text2);line-height:1.35;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(n.body)}</div>` : ''}

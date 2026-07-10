@@ -12,6 +12,7 @@ use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 use std::io::Write;
+use std::os::windows::process::CommandExt;
 
 const PORT: u16 = 8088;
 
@@ -87,6 +88,17 @@ fn main() {
                         }
                     }
                 }
+                // La MariaDB embarquée survivrait au kill du sidecar (les
+                // handlers `exit` de node ne tournent pas sur TerminateProcess).
+                // On arrête UNIQUEMENT l'instance lancée depuis nos resources
+                // (jamais un MariaDB personnel de l'utilisateur).
+                let _ = std::process::Command::new("powershell")
+                    .args([
+                        "-NoProfile", "-Command",
+                        "Get-Process mariadbd -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\\Inko\\resources\\mariadb\\*' } | Stop-Process -Force",
+                    ])
+                    .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+                    .spawn();
             }
         })
         .run(tauri::generate_context!())

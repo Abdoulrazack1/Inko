@@ -35,7 +35,8 @@
     "externalBin": ["binaries/node"],
     "resources": {
       "resources/server": "resources/server",
-      "resources/frontend": "resources/frontend"
+      "resources/frontend": "resources/frontend",
+      "resources/mariadb": "resources/mariadb"
     },
     "windows": {
       "nsis": {

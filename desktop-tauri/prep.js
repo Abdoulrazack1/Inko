@@ -47,6 +47,44 @@ for (const f of fs.readdirSync(ROOT)) {
 }
 robocopy(path.join(ROOT, 'assets'), path.join(RES, 'frontend', 'assets'));
 
+// ── MariaDB embarquée (l'app doit marcher sans MySQL sur le PC) ──
+// Téléchargée une fois puis mise en cache ; seuls ~29 Mo utiles sont
+// embarqués (mariadbd + server.dll + install-db + share minimal).
+const MARIADB_VER = '11.8.8';
+const CACHE = path.join(__dirname, '.cache');
+const MDB_MIN = path.join(CACHE, 'mariadb-min-' + MARIADB_VER);
+if (!fs.existsSync(path.join(MDB_MIN, 'bin', 'mariadbd.exe'))) {
+    console.log('[prep] téléchargement MariaDB ' + MARIADB_VER + '…');
+    fs.mkdirSync(CACHE, { recursive: true });
+    const zip = path.join(CACHE, 'mariadb.zip');
+    const url = 'https://downloads.mariadb.org/rest-api/mariadb/' + MARIADB_VER + '/mariadb-' + MARIADB_VER + '-winx64.zip';
+    execSync('curl -sL -o "' + zip + '" "' + url + '"', { stdio: 'inherit' });
+    execSync('tar -xf "' + zip + '" -C "' + CACHE + '"', { stdio: 'inherit' });
+    const full = path.join(CACHE, 'mariadb-' + MARIADB_VER + '-winx64');
+    fs.mkdirSync(path.join(MDB_MIN, 'bin'), { recursive: true });
+    fs.mkdirSync(path.join(MDB_MIN, 'share'), { recursive: true });
+    for (const f of fs.readdirSync(path.join(full, 'bin'))) {
+        if (f === 'mariadbd.exe' || f === 'mariadb-install-db.exe' || f.endsWith('.dll')) {
+            fs.copyFileSync(path.join(full, 'bin', f), path.join(MDB_MIN, 'bin', f));
+        }
+    }
+    // mariadb-install-db cherche le binaire sous son nom historique
+    fs.copyFileSync(path.join(MDB_MIN, 'bin', 'mariadbd.exe'), path.join(MDB_MIN, 'bin', 'mysqld.exe'));
+    for (const d of ['english', 'charsets']) {
+        robocopy(path.join(full, 'share', d), path.join(MDB_MIN, 'share', d));
+    }
+    for (const f of fs.readdirSync(path.join(full, 'share'))) {
+        if (f.endsWith('.sql') && !f.startsWith('mariadb_test')) {
+            fs.copyFileSync(path.join(full, 'share', f), path.join(MDB_MIN, 'share', f));
+        }
+    }
+    fs.rmSync(full, { recursive: true, force: true });
+    fs.rmSync(zip, { force: true });
+    console.log('[prep] MariaDB min prête (cache)');
+}
+console.log('[prep] mariadb embarquée…');
+robocopy(MDB_MIN, path.join(RES, 'mariadb'));
+
 console.log('[prep] sidecar node…');
 fs.mkdirSync(BIN, { recursive: true });
 const nodeExe = process.execPath;

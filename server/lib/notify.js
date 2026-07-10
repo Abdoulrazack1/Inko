@@ -5,12 +5,12 @@ const { pool } = require('../config/db');
 const { sendPush } = require('./push');
 
 // Crée une notification (silencieux si la table n'existe pas encore) + push navigateur
-async function createNotification(userId, { type, title, body, link, actor } = {}) {
+async function createNotification(userId, { type, title, body, link, actor, image } = {}) {
     if (!userId || !type) return;
     try {
         await pool.query(
-            'INSERT INTO notifications (user_id, type, title, body, link, actor) VALUES (?, ?, ?, ?, ?, ?)',
-            [userId, type, title || null, body || null, link || null, actor || null]
+            'INSERT INTO notifications (user_id, type, title, body, link, actor, image) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [userId, type, title || null, body || null, link || null, actor || null, image || null]
         );
     } catch (e) { /* migration pas encore passée : on ignore */ }
     // Push navigateur — fire-and-forget, n'impacte jamais l'action métier

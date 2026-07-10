@@ -86,11 +86,16 @@ async function ensureSchema() {
         body       VARCHAR(512) DEFAULT NULL,
         link       VARCHAR(512) DEFAULT NULL,
         actor      VARCHAR(50)  DEFAULT NULL,      -- username de l'auteur de l'action
+        image      VARCHAR(512) DEFAULT NULL,      -- cover de l'oeuvre (nouveau chapitre)
         is_read    TINYINT(1) NOT NULL DEFAULT 0,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         INDEX idx_notif_user (user_id, is_read, created_at)
     ) ENGINE=InnoDB`);
+
+    if (!await columnExists('notifications', 'image')) {
+        await run('ALTER TABLE notifications ADD COLUMN image VARCHAR(512) DEFAULT NULL');
+    }
 
     // 5. Abonnements Web Push (notifications push navigateur)
     await run(`CREATE TABLE IF NOT EXISTS push_subscriptions (

@@ -131,47 +131,7 @@ async function healthStatus(_req, res, next) {
     } catch (e) { next(e); }
 }
 
-// POST /api/extensions/install-url { url } — installe une extension tierce
-// depuis une URL directe (admin). Façon Keiyoushi « dépôt externe » : sort de
-// la dépendance au catalogue officiel, avec garde-fous :
-//   · https uniquement, taille bornée, doit exporter une source VALIDE
-//   · id contraint par la même regex anti path-traversal
-//   · chargée d'abord dans un fichier temporaire avant d'être adoptée
-async function installFromUrl(req, res, next) {
-    try {
-        const url = String(req.body?.url || '').trim();
-        if (!/^https:\/\//i.test(url)) return res.status(400).json({ error: 'URL https requise' });
-        let code;
-        try {
-            const r = await axios.get(url, { timeout: 20000, maxContentLength: 512 * 1024, responseType: 'text' });
-            code = String(r.data || '');
-        } catch (e) { return res.status(400).json({ error: 'Téléchargement impossible : ' + e.message }); }
-        if (!/module\.exports/.test(code)) return res.status(400).json({ error: 'Fichier invalide (pas un module d’extension)' });
+// L'installation d'extensions par URL a été retirée : les extensions ne
+// sont publiées que par l'admin, via les nouvelles versions de l'app.
 
-        // Chargement d'essai dans un fichier temporaire
-        const os = require('os');
-        const tmp = path.join(os.tmpdir(), `inko-ext-${Date.now()}-${Math.random().toString(36).slice(2)}.js`);
-        fs.writeFileSync(tmp, code);
-        let src, v;
-        try {
-            src = require(tmp);
-            const { validateSource } = require('../lib/source-interface');
-            v = validateSource(src);
-        } catch (e) {
-            fs.unlink(tmp, () => {});
-            return res.status(400).json({ error: 'Extension invalide : ' + e.message });
-        }
-        delete require.cache[require.resolve(tmp)];
-        fs.unlink(tmp, () => {});
-        if (!v.ok) return res.status(400).json({ error: 'Contrat non respecté : ' + v.errors.join(', ') });
-        if (!VALID_ID.test(src.id)) return res.status(400).json({ error: 'Identifiant de source invalide' });
-
-        const dir = path.join(RUNTIME_DIR, src.id);
-        fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(path.join(dir, 'index.js'), code);
-        extensions.reload();
-        res.json({ ok: true, id: src.id, name: src.name, version: src.version });
-    } catch (e) { next(e); }
-}
-
-module.exports = { checkUpdates, applyUpdates, testSource, healthStatus, installFromUrl };
+module.exports = { checkUpdates, applyUpdates, testSource, healthStatus };

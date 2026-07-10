@@ -11,7 +11,7 @@ async function list(req, res, next) {
     try {
         const limit = Math.min(parseInt(req.query.limit || '30', 10), 100);
         const [rows] = await pool.query(
-            `SELECT id, type, title, body, link, actor, is_read, created_at
+            `SELECT id, type, title, body, link, actor, image, is_read, created_at
              FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
             [req.user.id, limit]
         );
@@ -22,7 +22,7 @@ async function list(req, res, next) {
             unread: c.n,
             items: rows.map(r => ({
                 id: r.id, type: r.type, title: r.title, body: r.body,
-                link: r.link, actor: r.actor, read: !!r.is_read, at: r.created_at,
+                link: r.link, actor: r.actor, image: r.image, read: !!r.is_read, at: r.created_at,
             })),
         });
     } catch (e) { next(e); }

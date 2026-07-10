@@ -59,7 +59,9 @@
         }
         list.innerHTML = shown.map(n => `
             <a class="nt-item ${n.read ? '' : 'unread'}" href="${MH.esc(n.link || '#')}" data-nid="${n.id}">
-                <div class="nt-ico" style="color:var(--accent)">${MH.icon(ICONS[n.type] || 'bell', 18)}</div>
+                ${n.image
+                    ? `<img class="nt-cover" src="${MH.esc(n.image)}" alt="" loading="lazy" style="width:38px;height:52px;object-fit:cover;border-radius:7px;background:var(--bg3);flex:0 0 auto" onerror="this.style.display='none'">`
+                    : `<div class="nt-ico" style="color:var(--accent)">${MH.icon(ICONS[n.type] || 'bell', 18)}</div>`}
                 <div class="nt-body">
                     <div class="nt-title">${MH.esc(n.title || '')}</div>
                     ${n.body ? `<div class="nt-text">${MH.esc(n.body)}</div>` : ''}

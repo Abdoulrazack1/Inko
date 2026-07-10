@@ -156,6 +156,7 @@ async function backgroundScan() {
                         title: 'Nouveau chapitre',
                         body: `${f.title} · Chap. ${f.latest.chapter}`,
                         link,
+                        image: f.cover || null,
                     });
                 }
             } catch (e) { /* utilisateur suivant */ }

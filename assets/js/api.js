@@ -231,7 +231,6 @@
             // Test de connectivité d'une source + santé globale (admin)
             test:         (id)    => get('/extensions/' + encodeURIComponent(id) + '/test'),
             health:       ()      => get('/extensions/health'),
-            installUrl:   (url)   => post('/extensions/install-url', { url }),
         },
 
         // ── Mangas (public, route automatiquement selon la source courante) ──
