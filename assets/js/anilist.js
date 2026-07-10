@@ -62,25 +62,18 @@
         try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch (e) {}
     }
 
-    // Ouvre la fenêtre d'autorisation et attend le token (déposé par anilist.html)
+    // Connexion : redirection pleine page vers AniList (flux OAuth classique).
+    // La page revient sur anilist.html qui stocke le token puis renvoie ici.
+    // (L'ancienne popup + polling échouait dans l'app desktop : la fenêtre
+    // s'ouvrait dans le navigateur système, le token n'arrivait jamais.)
     async function connect() {
         const cfg = await getConfig();
         if (!cfg.configured) throw new Error('AniList indisponible dans cette version — mets à jour Inko');
-        const url = `${cfg.authorizeBase}?client_id=${encodeURIComponent(cfg.clientId)}&response_type=token`;
         try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
-        const w = window.open(url, 'inkoAniList', 'width=480,height=720');
-        return new Promise((resolve, reject) => {
-            let n = 0;
-            const iv = setInterval(async () => {
-                n++;
-                if (token()) {
-                    clearInterval(iv);
-                    try { w && w.close(); } catch (e) {}
-                    try { await me(); resolve(true); } catch (e) { resolve(true); }
-                }
-                if (n > 150) { clearInterval(iv); reject(new Error('Délai dépassé')); } // ~5 min
-            }, 2000);
-        });
+        try { localStorage.setItem('anilist_return', location.pathname + location.search); } catch (e) {}
+        const url = `${cfg.authorizeBase}?client_id=${encodeURIComponent(cfg.clientId)}&response_type=token`;
+        window.location.assign(url);
+        return new Promise(() => {});   // la page part : rien à résoudre
     }
 
     // Résout l'id AniList d'un manga à partir de son titre

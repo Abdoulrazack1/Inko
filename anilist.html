@@ -35,8 +35,11 @@
         m.textContent = 'Tu peux fermer cette fenêtre.';
         // Si ouverte en popup, on se ferme ; sinon on revient aux paramètres
         setTimeout(function () {
-          if (window.opener) { try { window.close(); } catch (e) {} }
-          else { location.href = '/parametres.html?anilist=linked'; }
+          if (window.opener) { try { window.close(); } catch (e) {} return; }
+          var back = null;
+          try { back = localStorage.getItem('anilist_return'); localStorage.removeItem('anilist_return'); } catch (e) {}
+          if (back && back.indexOf('/anilist') === 0) back = null;   // jamais de boucle
+          location.href = (back || '/parametres.html') + (back && back.indexOf('?') > -1 ? '&' : '?') + 'anilist=linked';
         }, 900);
       } else {
         var err = params.get('error_description') || new URLSearchParams(location.search).get('error') || 'Autorisation annulée';

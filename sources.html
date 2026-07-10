@@ -58,12 +58,6 @@
     .source-cap { font-size: 10px; padding: 1px 6px; background: var(--bg3); border-radius: 4px; color: var(--text3); }
     .source-actions { flex-shrink: 0; display: flex; gap: 8px; align-items: center; }
     .source-active-badge { font-size: 11px; color: var(--orange); font-weight: 600; }
-    .install-help {
-      margin-top: 28px; padding: 18px 20px;
-      background: var(--bg2); border: 1px dashed var(--border);
-      border-radius: 10px; font-size: 13px; color: var(--text2); line-height: 1.55;
-    }
-    .install-help code { background: var(--bg4); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
     .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
   </style>
 </head>
@@ -96,15 +90,6 @@
       <div class="empty-state"><div class="spinner-inline"></div><div style="margin-top:10px">Chargement…</div></div>
     </div>
 
-    <div class="install-help">
-      <strong>Installer une nouvelle source</strong><br>
-      Ajoute un dossier dans <code>server/extensions/&lt;id&gt;/</code> contenant un
-      <code>index.js</code> qui exporte un objet conforme à
-      <code>server/lib/source-interface.js</code>. Le serveur charge automatiquement
-      toutes les extensions valides au démarrage.
-      <br><br>
-      Voir <code>server/extensions/README.md</code> pour un modèle complet.
-    </div>
   </div>
 
   <div id="footer-slot"></div>

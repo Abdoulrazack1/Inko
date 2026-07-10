@@ -453,6 +453,7 @@
             const u = AniList.user();
             pill('conn-al-pill', 'Connecté', 'ok');
             desc.textContent = 'Lié à ' + (u?.name || 'ton compte AniList');
+            if (!u) AniList.me().then(() => renderAniListConn(root, changed)).catch(() => {});
             const btn = document.createElement('button');
             btn.className = 'btn btn-ghost btn-sm conn-btn-danger';
             btn.textContent = 'Délier';
@@ -464,8 +465,8 @@
             btn.className = 'btn btn-sm conn-btn-anilist';
             btn.textContent = 'Connecter';
             btn.onclick = async () => {
-                btn.disabled = true; btn.textContent = 'En attente…';
-                try { await AniList.connect(); MH.toast('AniList connecté ✓'); renderAniListConn(root, changed); changed(); }
+                btn.disabled = true; btn.textContent = 'Redirection vers AniList…';
+                try { await AniList.connect(); }   // redirige la page ; ne revient pas
                 catch (e) { btn.disabled = false; btn.textContent = 'Connecter'; MH.toast('Erreur : ' + e.message); }
             };
             action.appendChild(btn);
@@ -1156,6 +1157,39 @@
         document.body.appendChild(ov);
         document.getElementById('mhShortcutsClose')?.addEventListener('click', () => ov.remove());
     }
+
+    /* ── Bandeau : base habituelle injoignable (repli embarqué) ── */
+    (async function () {
+        try {
+            if (sessionStorage.getItem('inko_dbfb_seen')) return;
+            const h = await fetch((window.API?.base || '/api') + '/health').then(r => r.json());
+            if (!h.dbFallback || document.getElementById('dbFallbackBar')) return;
+            const bar = document.createElement('div');
+            bar.id = 'dbFallbackBar';
+            bar.style.cssText = 'position:sticky;top:0;z-index:9998;background:#a83232;color:#fff;padding:10px 16px;font-size:13px;display:flex;gap:12px;align-items:center;justify-content:center;text-align:center';
+            bar.innerHTML = '<span>Ta base de données habituelle est injoignable — Inko tourne sur une base temporaire (ta bibliothèque n’est pas perdue). Redémarre MySQL puis relance Inko pour la retrouver.</span>' +
+                '<button style="background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px">OK</button>';
+            bar.querySelector('button').onclick = () => { bar.remove(); try { sessionStorage.setItem('inko_dbfb_seen', '1'); } catch (e) {} };
+            document.body.prepend(bar);
+        } catch (e) {}
+    })();
+
+    /* ── Retour de connexion AniList (redirection pleine page) ── */
+    (function () {
+        try {
+            const q = new URLSearchParams(location.search);
+            if (q.get('anilist') !== 'linked') return;
+            q.delete('anilist');
+            history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : ''));
+            (async () => {
+                await ensureAniList();
+                if (!window.AniList?.isLinked()) return;
+                try { await AniList.me(); } catch (e) {}
+                MH.toast('AniList connecté ✓');
+                document.querySelectorAll('.conn-list').forEach(el => MH.renderConnections(el));
+            })();
+        } catch (e) {}
+    })();
 
     /* ── Visite guidée (première ouverture) ─────────────────
        Chargée dynamiquement pour ne rien coûter aux lancements

@@ -45,7 +45,7 @@ function publicUser(u) {
 // premier lancement on prend le compte avec la plus grosse bibliothèque
 // (= les données existantes ne sont JAMAIS perdues), sinon on en crée un.
 // Le propriétaire est promu admin (gestion des extensions en local).
-const OWNER_CFG = path.join(__dirname, '..', 'config', 'local-owner.json');
+
 function localModeEnabled() {
     // Activé par défaut : Inko est une app personnelle. Mettre LOCAL_MODE=0
     // pour ré-exposer une instance multi-comptes (les endpoints login/register
@@ -53,14 +53,17 @@ function localModeEnabled() {
     return process.env.LOCAL_MODE !== '0';
 }
 async function resolveOwner() {
-    // 1. Choix déjà persisté
+    // 1. Choix persisté DANS la base (app_settings) : chaque base — MySQL
+    //    externe ou MariaDB embarquée — connaît son propre propriétaire.
+    //    (Un fichier local partagé désignait le mauvais compte après une
+    //    bascule externe ↔ embarquée : bibliothèque « vide » au réveil.)
     try {
-        const j = JSON.parse(fs.readFileSync(OWNER_CFG, 'utf8'));
-        if (j.userId) {
-            const [[u]] = await pool.query('SELECT * FROM users WHERE id = ?', [j.userId]);
+        const [[row]] = await pool.query("SELECT v FROM app_settings WHERE k = 'local_owner_id'");
+        if (row?.v) {
+            const [[u]] = await pool.query('SELECT * FROM users WHERE id = ?', [parseInt(row.v, 10)]);
             if (u) return u;
         }
-    } catch (e) { /* pas encore choisi */ }
+    } catch (e) { /* table pas encore migrée : heuristique */ }
     // 2. Le compte avec la plus grosse bibliothèque = le vrai compte de l'utilisateur
     const [[best]] = await pool.query(
         `SELECT u.* FROM users u
@@ -75,7 +78,11 @@ async function resolveOwner() {
             ['Lecteur', 'owner@inko.local', randomHash, 'L']);
         [[owner]] = await pool.query('SELECT * FROM users WHERE id = ?', [r.insertId]);
     }
-    try { fs.mkdirSync(path.dirname(OWNER_CFG), { recursive: true }); fs.writeFileSync(OWNER_CFG, JSON.stringify({ userId: owner.id })); } catch (e) {}
+    try {
+        await pool.query(
+            "INSERT INTO app_settings (k, v) VALUES ('local_owner_id', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)",
+            [String(owner.id)]);
+    } catch (e) { /* non bloquant */ }
     return owner;
 }
 async function localAuth(_req, res, next) {

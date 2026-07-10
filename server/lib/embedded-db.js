@@ -29,6 +29,25 @@ function mariadbDir() {
 
 // Les données de l'utilisateur SURVIVENT aux mises à jour et à la
 // désinstallation : %APPDATA%\Inko\db, jamais dans le dossier d'install.
+// Marqueur du dernier mode utilisé : si l'app tournait sur MySQL externe et
+// qu'il ne répond plus (Laragon pas démarré…), on bascule quand même sur
+// l'embarquée MAIS on lève un drapeau que le frontend affiche en bandeau —
+// sinon l'utilisateur croit avoir « perdu » sa bibliothèque.
+function modeMarkerPath() {
+    const base = process.env.APPDATA || path.join(os.homedir(), '.config');
+    return path.join(base, 'Inko', 'db-mode.json');
+}
+function readModeMarker() {
+    try { return JSON.parse(fs.readFileSync(modeMarkerPath(), 'utf8')).mode || null; }
+    catch (e) { return null; }
+}
+function writeModeMarker(mode) {
+    try {
+        fs.mkdirSync(path.dirname(modeMarkerPath()), { recursive: true });
+        fs.writeFileSync(modeMarkerPath(), JSON.stringify({ mode, at: new Date().toISOString() }));
+    } catch (e) {}
+}
+
 function dataDir() {
     const base = process.env.APPDATA || path.join(os.homedir(), '.config');
     return path.join(base, 'Inko', 'db');
@@ -131,6 +150,7 @@ async function ensureDatabase() {
         await ensureSchemaOn(conn);
         await conn.end();
         log(`MySQL externe utilisé (${cfg.host}:${cfg.port})`);
+        writeModeMarker('external');
         return { mode: 'external' };
     } catch (e) {
         log(`MySQL ${cfg.host}:${cfg.port} injoignable (${e.code || e.message}) → base embarquée`);
@@ -154,6 +174,13 @@ async function ensureDatabase() {
     process.env.DB_PORT = String(EMBEDDED_PORT);
     process.env.DB_USER = 'root';
     process.env.DB_PASSWORD = '';
+    if (readModeMarker() === 'external') {
+        // La base habituelle de cet utilisateur est ailleurs : bandeau côté UI.
+        process.env.INKO_DB_FALLBACK = '1';
+        log('⚠ repli : la base habituelle (MySQL externe) est injoignable');
+    } else {
+        writeModeMarker('embedded');
+    }
     return { mode: 'embedded' };
 }
 

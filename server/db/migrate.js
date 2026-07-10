@@ -93,6 +93,15 @@ async function ensureSchema() {
         INDEX idx_notif_user (user_id, is_read, created_at)
     ) ENGINE=InnoDB`);
 
+    // Réglages applicatifs par base (ex. local_owner_id) : le choix du
+    // propriétaire vit DANS la base — un fichier partagé entre la base
+    // externe et l'embarquée désignait le mauvais compte après une bascule.
+    await run(`CREATE TABLE IF NOT EXISTS app_settings (
+        k VARCHAR(64) PRIMARY KEY,
+        v TEXT,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB`);
+
     if (!await columnExists('notifications', 'image')) {
         await run('ALTER TABLE notifications ADD COLUMN image VARCHAR(512) DEFAULT NULL');
     }

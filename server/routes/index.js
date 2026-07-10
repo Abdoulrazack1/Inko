@@ -17,7 +17,10 @@ const Profile = require('../controllers/profile.controller');
 const Local   = require('../controllers/local.controller');
 
 // ── Healthcheck ─────────────────────────────────
-router.get('/health', (_req, res) => res.json({ ok: true, time: Date.now() }));
+router.get('/health', (_req, res) => res.json({
+    ok: true, time: Date.now(),
+    ...(process.env.INKO_DB_FALLBACK === '1' ? { dbFallback: true } : {}),
+}));
 
 // ── Auth ─────────────────────────────────────────
 router.get ('/auth/providers',      Auth.providers);

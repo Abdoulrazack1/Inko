@@ -267,9 +267,9 @@
             const label = alBtn.innerHTML;
             try {
                 if (!AniList.isLinked()) {
-                    MH.toast('Autorise Inko dans la fenêtre AniList…');
-                    await AniList.connect();
-                    alBtn.style.color = '#02a9ff';
+                    alBtn.textContent = 'Redirection vers AniList…';
+                    await AniList.connect();   // redirige la page ; au retour, re-cliquer synchronise
+                    return;
                 }
                 alBtn.disabled = true;
                 alBtn.textContent = 'Synchronisation…';
