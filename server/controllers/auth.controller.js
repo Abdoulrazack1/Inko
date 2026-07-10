@@ -6,7 +6,6 @@ const fs     = require('fs');
 const path   = require('path');
 const { pool } = require('../config/db');
 const { sign } = require('../middleware/auth');
-const mailer   = require('../lib/mailer');
 
 // Client ID Google : priorité à la variable d'environnement, sinon fichier de
 // config modifiable depuis l'app (Paramètres → Connexion Google) — pas besoin
@@ -236,20 +235,9 @@ async function requestReset(req, res, next) {
             [email.toLowerCase(), token, expires]
         );
 
-        // Audit S1 — le token ne doit jamais fuiter au client en prod.
-        // Si un SMTP est configuré : on envoie le lien par email (le seul vrai
-        // flux prod). Sinon on retombe sur le mode dev/desktop qui renvoie le
-        // token directement pour permettre le reset sans serveur mail.
-        if (mailer.isConfigured()) {
-            try {
-                await mailer.sendPasswordReset(email.toLowerCase(), token, req);
-            } catch (e) {
-                // Échec d'envoi : ne pas révéler l'existence du compte ni bloquer,
-                // mais tracer côté serveur pour diagnostic.
-                console.error('[mailer] échec envoi reset:', e.message);
-            }
-            return res.json({ ok: true });
-        }
+        // Mode local (sans comptes) : le reset par email n'existe plus.
+        // Le token ne doit jamais fuiter en prod ; en dev/desktop il est
+        // renvoyé directement pour permettre le reset sans serveur mail.
         if (process.env.NODE_ENV === 'production') return res.json({ ok: true });
         res.json({ ok: true, token });
     } catch (e) { next(e); }

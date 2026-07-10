@@ -21,6 +21,16 @@ fichiers EPUB/CBZ/PDF.
 [![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-D22128?logo=apache&logoColor=white)](LICENSE)
 
+<br>
+
+<a href="https://github.com/Abdoulrazack1/Inko/releases/latest/download/Inko-Setup.exe">
+  <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F_T%C3%A9l%C3%A9charger_pour_Windows-Inko--Setup.exe-c1531b?style=for-the-badge" alt="Télécharger Inko pour Windows">
+</a>
+
+*Un téléchargement, un double-clic, c'est installé — aucune dépendance, aucune configuration.*
+
+<br>
+
 [App Windows](#application-windows-tauri) · [Démarrer en dev](#démarrer-en-développement) · [Fonctionnalités](#fonctionnalités) · [Design](#design--lédition-washi) · [Extensions](#extensions) · [API](#api-rest)
 
 </div>

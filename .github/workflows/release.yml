@@ -1,0 +1,60 @@
+name: Release
+
+# Pousse un tag v* → build de l'installeur Windows et publication
+# automatique sur la release GitHub (façon Mihon : le repo suffit,
+# personne n'a besoin de builder quoi que ce soit).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop-tauri/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('desktop-tauri/src-tauri/Cargo.lock') }}
+
+      - name: Install server dependencies (embedded in the app)
+        working-directory: server
+        run: npm ci --omit=dev
+
+      - name: Install desktop dependencies
+        working-directory: desktop-tauri
+        run: npm ci
+
+      - name: Build Tauri app (prep + cargo + NSIS)
+        working-directory: desktop-tauri
+        run: npm run build
+
+      - name: Stable-name copy for the permanent download link
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem "desktop-tauri/src-tauri/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          Copy-Item $setup.FullName "Inko-Setup.exe"
+          "Asset: $($setup.Name)"
+
+      - name: Upload installers to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            desktop-tauri/src-tauri/target/release/bundle/nsis/*-setup.exe
+            Inko-Setup.exe

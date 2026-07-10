@@ -83,12 +83,12 @@ app.use(errorHandler);
     housekeeping();
     setInterval(housekeeping, 24 * 3600 * 1000).unref();
 
-    // Tâche de fond §15.3/15.7 : scanne les bibliothèques des utilisateurs
-    // ayant un abonnement push actif et notifie les nouveaux chapitres
-    // (in-app + Web Push). Toutes les 4h ; premier passage 5 min après le
-    // démarrage pour laisser DB/extensions se stabiliser.
+    // Tâche de fond §15.3/15.7 : scanne les bibliothèques et notifie les
+    // nouveaux chapitres (cloche in-app + Web Push si abonné). Toutes les
+    // 4h ; premier passage 90 s après le démarrage — l'app desktop vit le
+    // temps d'une session de lecture, 5 min ratait souvent le coche.
     const { backgroundScan } = require('./lib/updates');
-    setTimeout(backgroundScan, 5 * 60 * 1000).unref();
+    setTimeout(backgroundScan, 90 * 1000).unref();
     setInterval(backgroundScan, 4 * 3600 * 1000).unref();
 
     app.listen(PORT, () => {

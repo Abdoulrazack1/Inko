@@ -26,13 +26,9 @@ COPY --from=deps /app/server/node_modules ./node_modules
 # Code backend
 COPY server/ ./
 # Frontend statique (servi par Express en prod via FRONTEND_DIR)
-COPY accueil.html bibliotheque.html catalogue.html chapitre.html lecture.html \
-     recherche.html serie.html stats.html profil.html parametres.html \
-     sources.html player.html collections.html collection-detail.html \
-     page_login.html page_signup.html page_mdpoublie.html page_nouveaumdp.html \
-     anilist.html secret.html admin.html u.html import.html localreader.html \
-     offline.html manifest.webmanifest service-worker.js \
-     /app/frontend/
+# Toutes les pages via glob : plus de liste a maintenir quand une page
+# apparait ou disparait (c'est ce qui cassait le build Docker du CI)
+COPY *.html manifest.webmanifest service-worker.js /app/frontend/
 COPY assets/ /app/frontend/assets/
 
 # Dossier d'uploads inscriptible + droits au user non-root « node »

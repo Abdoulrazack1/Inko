@@ -124,27 +124,38 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
 }
 
 // ── §15.3/15.4-6/7 : tâche de fond → notification « nouveau chapitre » ──
-// Pour chaque utilisateur ayant un abonnement push actif, scanne sa
-// bibliothèque et notifie les séries avec du nouveau. createNotification()
-// enregistre la notif in-app ET envoie le Web Push (déjà câblés ensemble).
+// Pour chaque utilisateur ayant une bibliothèque, scanne ses séries et
+// notifie celles avec du nouveau. createNotification() enregistre la notif
+// in-app (cloche du header) ET tente le Web Push si un abonnement existe.
+// (Avant : seuls les abonnés push étaient scannés — dans l'app desktop
+// personne ne s'abonne au push, donc la cloche restait vide à jamais.)
 let scanRunning = false;
 async function backgroundScan() {
     if (scanRunning) return;   // jamais deux scans en parallèle
     scanRunning = true;
     try {
         const [users] = await pool.query(
-            'SELECT DISTINCT user_id FROM push_subscriptions'
+            'SELECT DISTINCT user_id FROM favorites'
         );
         for (const u of users) {
             try {
                 const { updates } = await scanUserUpdates(u.user_id, { scope: 'active' });
                 const fresh = updates.filter(x => x.hasNew && x.latest);
                 for (const f of fresh.slice(0, 5)) {   // au plus 5 notifs par cycle
+                    const link = `/chapitre.html?manga=${encodeURIComponent(f.mangaId)}&chapter=${encodeURIComponent(f.latest.id)}&source=${encodeURIComponent(f.source)}`;
+                    // Garde anti-doublon : même chapitre déjà notifié → on passe
+                    try {
+                        const [[dup]] = await pool.query(
+                            'SELECT id FROM notifications WHERE user_id = ? AND type = ? AND link = ? LIMIT 1',
+                            [u.user_id, 'new_chapter', link]
+                        );
+                        if (dup) continue;
+                    } catch (e) { /* table absente : createNotification l'ignorera aussi */ }
                     await createNotification(u.user_id, {
                         type: 'new_chapter',
                         title: 'Nouveau chapitre',
                         body: `${f.title} · Chap. ${f.latest.chapter}`,
-                        link: `/chapitre.html?manga=${encodeURIComponent(f.mangaId)}&chapter=${encodeURIComponent(f.latest.id)}&source=${encodeURIComponent(f.source)}`,
+                        link,
                     });
                 }
             } catch (e) { /* utilisateur suivant */ }
