@@ -151,6 +151,9 @@
                     </select>
                     <button class="btn btn-ghost btn-sm" id="btnCategory">${libCategory ? MH.esc(libCategory) : '+ Catégorie'}</button>
                     <button class="btn btn-ghost btn-sm" id="btnAddList">+ Liste</button>
+                    <button class="btn btn-ghost btn-sm" id="btnAniList" title="Suivi AniList — pousse ta progression, ton statut et ta note">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style="vertical-align:-2px;margin-right:5px"><path d="M6.361 2.943 0 21.056h4.942l1.077-3.133H11.4l1.052 3.133H22.9c.71 0 1.1-.392 1.1-1.101V17.53c0-.71-.39-1.101-1.1-1.101h-6.483V4.045c0-.71-.392-1.102-1.101-1.102h-2.422c-.71 0-1.101.392-1.101 1.102v1.064l-.758-2.166zm2.324 5.948 1.688 5.018H7.144z"/></svg>AniList
+                    </button>
                     <button class="btn btn-ghost btn-icon" id="btnShare" title="Partager">↗</button>
                 </div>
             </div>
@@ -254,6 +257,42 @@
         });
 
         document.getElementById('btnAddList')?.addEventListener('click', openListPicker);
+
+        // ── Suivi AniList (façon Mihon) : lie le compte au besoin puis pousse
+        //    progression (dernier chapitre lu) + statut + note vers AniList ──
+        const alBtn = document.getElementById('btnAniList');
+        if (alBtn && window.AniList?.isLinked?.()) alBtn.style.color = '#02a9ff';
+        alBtn?.addEventListener('click', async () => {
+            if (!window.AniList) { MH.toast('AniList indisponible'); return; }
+            const label = alBtn.innerHTML;
+            try {
+                if (!AniList.isLinked()) {
+                    MH.toast('Autorise Inko dans la fenêtre AniList…');
+                    await AniList.connect();
+                    alBtn.style.color = '#02a9ff';
+                }
+                alBtn.disabled = true;
+                alBtn.textContent = 'Synchronisation…';
+                const mid = await AniList.mediaId(manga.title);
+                if (!mid) throw new Error('œuvre introuvable sur AniList');
+                let prog = null;
+                for (const c of chapters) {
+                    if (readChapsSet.has(c.id) && Number.isFinite(+c.chapter)) prog = Math.max(prog ?? 0, +c.chapter);
+                }
+                let score = null;
+                try { const r = await API.ratings.get(manga.id); if (r.mine?.rating) score = r.mine.rating * 20; } catch (e) {}
+                const payload = { status: libStatus || 'reading' };
+                if (prog != null) payload.progress = prog;
+                if (score != null) payload.score = score;
+                await AniList.syncEntry(mid, payload);
+                MH.toast('Synchronisé avec AniList ✓');
+            } catch (err) {
+                MH.toast('AniList : ' + (err?.message || 'erreur'));
+            } finally {
+                alBtn.disabled = false;
+                alBtn.innerHTML = label;
+            }
+        });
     }
 
     // ── Sélecteur "Ajouter à une liste" ──

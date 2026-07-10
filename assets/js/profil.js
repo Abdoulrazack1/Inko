@@ -382,7 +382,7 @@
             if (mini) {
                 const unlocked = BADGES.filter(b => b.ok);
                 mini.innerHTML = unlocked.length
-                    ? unlocked.slice(-4).map(b => `<div class="badge-item" title="${b.name} — ${b.desc}">${b.ico}</div>`).join('')
+                    ? unlocked.slice(-4).map(b => `<div class="badge-item" title="${b.name} — ${b.desc}" style="color:var(--accent)">${MH.icon(b.ico, 24)}</div>`).join('')
                     : '<div style="color:var(--text3);font-size:12px;padding:6px 0">Lis ton premier chapitre pour débloquer un badge !</div>';
             }
         } catch (e) { el.innerHTML = ''; }
