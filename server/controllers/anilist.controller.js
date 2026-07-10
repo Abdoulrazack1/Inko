@@ -16,7 +16,7 @@ const path  = require('path');
 // Le consommateur n'a rien à configurer : « Connecter » suffit.
 // Reste remplaçable via ANILIST_CLIENT_ID (env) ou config/anilist.json
 // pour un self-host sur un autre port.
-const DEFAULT_CLIENT_ID = '';
+const DEFAULT_CLIENT_ID = '43907';
 
 // Client ID AniList : env > fichier config > client embarqué.
 const ANILIST_CFG_PATH = path.join(__dirname, '..', 'config', 'anilist.json');
