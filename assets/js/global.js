@@ -442,7 +442,27 @@
         catch (e) { pill('conn-sp-pill', 'Indisponible', 'muted'); return; }
         if (!st.configured) {
             pill('conn-sp-pill', 'Non configuré', 'muted');
-            desc.innerHTML = 'Clés Spotify manquantes côté serveur. Voir <code>SPOTIFY_SETUP.md</code>.';
+            // Config directement dans l'app (l'app installée n'a pas de .env) :
+            // crée une app sur developer.spotify.com, Redirect URI ci-dessous.
+            desc.innerHTML = `Crée une app sur <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener" class="link-orange">developer.spotify.com</a>,
+                ajoute la Redirect URI <code>http://127.0.0.1:8088/api/spotify/callback</code>, puis colle tes clés :
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+                    <input type="text" id="spCfgId" placeholder="Client ID" autocomplete="off"
+                        style="flex:1;min-width:170px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:8px 10px;font-size:12px">
+                    <input type="password" id="spCfgSecret" placeholder="Client Secret" autocomplete="off"
+                        style="flex:1;min-width:170px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:8px 10px;font-size:12px">
+                    <button class="btn btn-primary btn-sm" id="spCfgSave">Enregistrer</button>
+                </div>`;
+            desc.querySelector('#spCfgSave')?.addEventListener('click', async () => {
+                const id = desc.querySelector('#spCfgId').value.trim();
+                const secret = desc.querySelector('#spCfgSecret').value.trim();
+                if (!id || !secret) { MH.toast('Renseigne le Client ID et le Client Secret'); return; }
+                try {
+                    await API.spotify.setConfig(id, secret);
+                    MH.toast('Spotify configuré — tu peux connecter ton compte');
+                    renderSpotifyConn(root, changed);
+                } catch (e) { MH.toast('Erreur : ' + e.message); }
+            });
             return;
         }
         if (st.linked) {

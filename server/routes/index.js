@@ -164,6 +164,8 @@ router.get   ('/me/updates',              auth.authRequired, User.checkUpdates);
 // ── Spotify (linking de compte OAuth) ───────────
 router.get   ('/spotify/login',           auth.authOptional, Spotify.login);     // ?token=<jwt>
 router.get   ('/spotify/callback',        Spotify.callback);                     // public (redir Spotify)
+router.get   ('/spotify/config',          auth.authRequired, Spotify.getConfig);
+router.put   ('/spotify/config',          auth.authRequired, Spotify.setConfig);
 router.get   ('/spotify/status',          auth.authRequired, Spotify.status);
 router.get   ('/spotify/playlists',       auth.authRequired, Spotify.playlists);
 router.get   ('/spotify/search',          auth.authRequired, Spotify.search);

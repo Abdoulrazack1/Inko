@@ -15,9 +15,19 @@ const { pool } = require('../config/db');
 const { encrypt, decrypt } = require('../lib/crypto');   // tokens chiffrés au repos (S10)
 
 const SECRET   = require('../lib/secret');               // secret centralisé (S12)
-const CLIENT   = process.env.SPOTIFY_CLIENT_ID;
-const CSECRET  = process.env.SPOTIFY_CLIENT_SECRET;
-const REDIRECT = process.env.SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:8088/api/spotify/callback';
+
+// Identifiants : variable d'environnement en priorité, sinon fichier de
+// config modifiable DEPUIS L'APP (Paramètres → Spotify) — indispensable pour
+// l'app de bureau installée, qui n'a pas de .env.
+const fs   = require('fs');
+const path = require('path');
+const SPOTIFY_CFG_PATH = path.join(__dirname, '..', 'config', 'spotify.json');
+function readCfgFile() {
+    try { return JSON.parse(fs.readFileSync(SPOTIFY_CFG_PATH, 'utf8')); } catch (e) { return {}; }
+}
+function CLIENT()  { return (process.env.SPOTIFY_CLIENT_ID     || readCfgFile().clientId     || '').trim(); }
+function CSECRET() { return (process.env.SPOTIFY_CLIENT_SECRET || readCfgFile().clientSecret || '').trim(); }
+function REDIRECT(){ return process.env.SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:8088/api/spotify/callback'; }
 const SCOPES   = [
     'user-read-private', 'user-read-email',
     'playlist-read-private', 'playlist-read-collaborative',
@@ -26,7 +36,7 @@ const SCOPES   = [
     'user-top-read', 'streaming',
 ].join(' ');
 
-function configured() { return !!(CLIENT && CSECRET); }
+function configured() { return !!(CLIENT() && CSECRET()); }
 
 // Lit le user depuis req.user / req.userId (cookie ou Bearer via middleware)
 // ou ?token=<jwt> (navigation top-level, ex. window.open)
@@ -51,9 +61,9 @@ function login(req, res) {
         const state = jwt.sign({ uid }, SECRET, { expiresIn: '10m' });
         const url = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({
             response_type: 'code',
-            client_id: CLIENT,
+            client_id: CLIENT(),
             scope: SCOPES,
-            redirect_uri: REDIRECT,
+            redirect_uri: REDIRECT(),
             state,
             show_dialog: 'true',
         }).toString();
@@ -78,11 +88,11 @@ async function callback(req, res, next) {
             new URLSearchParams({
                 grant_type: 'authorization_code',
                 code,
-                redirect_uri: REDIRECT,
+                redirect_uri: REDIRECT(),
             }).toString(),
             { headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': 'Basic ' + Buffer.from(`${CLIENT}:${CSECRET}`).toString('base64'),
+                'Authorization': 'Basic ' + Buffer.from(`${CLIENT()}:${CSECRET()}`).toString('base64'),
             } }
         );
         const { access_token, refresh_token, expires_in } = tok.data;
@@ -127,7 +137,7 @@ async function validToken(uid) {
             new URLSearchParams({ grant_type: 'refresh_token', refresh_token: row.refresh_token }).toString(),
             { headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': 'Basic ' + Buffer.from(`${CLIENT}:${CSECRET}`).toString('base64'),
+                'Authorization': 'Basic ' + Buffer.from(`${CLIENT()}:${CSECRET()}`).toString('base64'),
             } }
         );
         const { access_token, expires_in, refresh_token } = tok.data;
@@ -300,4 +310,34 @@ async function nowPlaying(req, res, next) {
 }
 
 // `configured` reste un helper interne (non exporté — n'était routé nulle part, audit API7)
-module.exports = { login, callback, status, disconnect, playlists, search, recent, top, saved, nowPlaying };
+// ── Config in-app (Paramètres → Spotify) ──
+function getConfig(_req, res) {
+    const viaEnv = !!process.env.SPOTIFY_CLIENT_ID;
+    const id = CLIENT();
+    res.json({
+        configured: configured(), viaEnv,
+        clientId: id,
+        hasSecret: !!CSECRET(),
+        redirectUri: REDIRECT(),
+    });
+}
+function setConfig(req, res) {
+    if (process.env.SPOTIFY_CLIENT_ID)
+        return res.status(409).json({ error: 'Défini par variable d’environnement — modifie le .env.' });
+    const { clientId, clientSecret } = req.body || {};
+    try {
+        fs.mkdirSync(path.dirname(SPOTIFY_CFG_PATH), { recursive: true });
+        if (!clientId && !clientSecret) {
+            try { fs.unlinkSync(SPOTIFY_CFG_PATH); } catch (e) {}
+        } else {
+            const cur = readCfgFile();
+            fs.writeFileSync(SPOTIFY_CFG_PATH, JSON.stringify({
+                clientId: (clientId ?? cur.clientId ?? '').trim(),
+                clientSecret: (clientSecret ?? cur.clientSecret ?? '').trim(),
+            }, null, 2));
+        }
+        res.json({ ok: true, configured: configured() });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+}
+
+module.exports = { login, callback, status, disconnect, playlists, search, recent, top, saved, nowPlaying, getConfig, setConfig };

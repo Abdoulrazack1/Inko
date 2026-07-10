@@ -448,6 +448,8 @@
             saved:      ()  => get('/spotify/saved'),
             nowPlaying: ()  => get('/spotify/now-playing'),
             disconnect: ()  => post('/spotify/disconnect'),
+            getConfig:  ()  => get('/spotify/config'),
+            setConfig:  (clientId, clientSecret) => put('/spotify/config', { clientId, clientSecret }),
         },
     };
 
