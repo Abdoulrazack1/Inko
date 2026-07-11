@@ -29,6 +29,10 @@ fichiers EPUB/CBZ/PDF.
 
 *Un téléchargement, un double-clic, c'est installé — aucune dépendance, aucune configuration.*
 
+<sub>Windows peut afficher « éditeur inconnu » au premier lancement (l'installeur n'est pas
+signé — c'est le cas de la plupart des apps open source) : clique
+« Informations complémentaires » puis « Exécuter quand même ».</sub>
+
 <br>
 
 [App Windows](#application-windows-tauri) · [Démarrer en dev](#démarrer-en-développement) · [Fonctionnalités](#fonctionnalités) · [Design](#design--lédition-washi) · [Extensions](#extensions) · [API](#api-rest)
