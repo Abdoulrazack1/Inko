@@ -117,21 +117,27 @@
         <div class="overview-top-row">
           <div class="card last-read-card">
             <div class="last-read-label">DERNIÈRE LECTURE</div>
-            <div class="last-read-body">
+            <!-- Corps rempli par profil.js à partir de la vraie progression ;
+                 état vide affiché tant qu'il n'y a aucune lecture (pas de démo). -->
+            <div class="last-read-body" id="lastReadBody" style="display:none">
               <div class="last-read-cover">
-                <img src="" alt="" style="background:linear-gradient(135deg,#1a0d3d,#4d1a6a);min-width:80px;min-height:110px">
+                <img src="" alt="" style="background:var(--bg3);min-width:80px;min-height:110px">
               </div>
               <div class="last-read-info">
-                <div class="last-read-title">Jujutsu Kaisen</div>
-                <div class="last-read-chap">Chapitre 242</div>
+                <div class="last-read-title"></div>
+                <div class="last-read-chap"></div>
                 <div class="last-read-progress">
                   <div class="last-read-bar">
-                    <div class="last-read-fill" style="width:82%"></div>
+                    <div class="last-read-fill" style="width:0%"></div>
                   </div>
-                  <span>82%</span>
+                  <span>0%</span>
                 </div>
-                <a href="chapitre.html?manga=48&chapter=242" class="btn btn-primary btn-sm" style="margin-top:10px">▶ Reprendre</a>
+                <a href="#" class="btn btn-primary btn-sm" style="margin-top:10px">▶ Reprendre</a>
               </div>
+            </div>
+            <div id="lastReadEmpty" style="padding:22px 6px;color:var(--text3);font-size:13px;line-height:1.6">
+              Aucune lecture pour l'instant.<br>
+              <a href="catalogue.html" class="link-orange" style="font-size:12.5px">Explore le catalogue pour commencer →</a>
             </div>
           </div>
           <div class="card goal-card">
@@ -547,92 +553,33 @@
         </div>
 
         <div class="lists-layout">
-          <!-- Panel gauche : liste des collections -->
+          <!-- Panel gauche : listes (rempli par profil.js — données réelles) -->
           <div class="card lists-panel">
             <div class="lists-panel-header">
               <span class="lists-panel-title">MES COLLECTIONS</span>
-              <button class="btn btn-primary btn-xs">+</button>
+              <button class="btn btn-primary btn-xs" title="Créer une liste">+</button>
             </div>
             <div class="lists-section-label">SYSTÈME</div>
-            <div class="list-nav-item" data-list="favoris">
+            <div class="list-nav-item active" data-list="favoris">
               <span class="list-nav-icon"></span>
               <div>
                 <div class="list-nav-name">Favoris</div>
-                <div class="list-nav-count">142 mangas</div>
-              </div>
-            </div>
-            <div class="list-nav-item" data-list="alire">
-              <span class="list-nav-icon"></span>
-              <div>
-                <div class="list-nav-name">À lire plus tard</div>
-                <div class="list-nav-count">45 mangas</div>
+                <div class="list-nav-count">…</div>
               </div>
             </div>
             <div class="lists-section-label" style="margin-top:12px">PERSONNALISÉES</div>
-            <div class="list-nav-item active" data-list="shonen">
-              <span class="list-nav-icon" style="color:var(--orange)"></span>
-              <div>
-                <div class="list-nav-name">Shonen Incontournables</div>
-                <div class="list-nav-count">52 mangas</div>
-              </div>
-            </div>
-            <div class="list-nav-item" data-list="soir">
-              <span class="list-nav-icon"></span>
-              <div>
-                <div class="list-nav-name">Lectures du soir</div>
-                <div class="list-nav-count">18 mangas</div>
-              </div>
-            </div>
-            <div class="list-nav-item" data-list="fantasy">
-              <span class="list-nav-icon"></span>
-              <div>
-                <div class="list-nav-name">Fantasy &amp; Isekai</div>
-                <div class="list-nav-count">24 mangas</div>
-              </div>
-            </div>
-            <div class="list-nav-item" data-list="dark">
-              <span class="list-nav-icon"></span>
-              <div>
-                <div class="list-nav-name">Dark Fantasy</div>
-                <div class="list-nav-count">12 mangas</div>
-              </div>
-            </div>
+            <!-- listes personnalisées insérées ici par renderListsPanel() -->
           </div>
 
-          <!-- Panel droit : détail liste active -->
+          <!-- Panel droit : détail de la liste sélectionnée -->
           <div class="lists-detail">
             <div class="card list-detail-header-card">
               <div class="list-detail-icon"></div>
               <div class="list-detail-info">
-                <div class="list-detail-name">Shonen Incontournables</div>
-                <div class="list-detail-tags">
-                  <span class="tag" style="font-size:11px">Action</span>
-                  <span class="tag" style="font-size:11px">Aventure</span>
-                  <span class="tag" style="font-size:11px">Public</span>
-                </div>
-                <div class="list-detail-desc">Une collection des meilleurs shonen du moment, incluant les classiques et les nouvelles pépites.</div>
-                <div class="list-detail-stats">
-                  <div><div class="list-stat-num">52</div><div class="list-stat-label">TITRES</div></div>
-                  <div><div class="list-stat-num">384</div><div class="list-stat-label">CHAPITRES LUS</div></div>
-                  <div><div class="list-stat-num">92%</div><div class="list-stat-label">NOTE MOY.</div></div>
-                  <div><div class="list-stat-num">2h</div><div class="list-stat-label">MISE À JOUR</div></div>
-                </div>
+                <div class="list-detail-name" id="listDetailName">Favoris</div>
+                <div class="list-detail-desc" id="listDetailCount" style="color:var(--text3);font-size:12.5px;margin-top:4px"></div>
               </div>
-              <button class="btn btn-primary btn-sm" style="flex-shrink:0;align-self:flex-start">▶ Tout lire</button>
-            </div>
-
-            <div class="list-detail-toolbar">
-              <input type="text" placeholder="Filtrer dans la liste…" class="list-search-input">
-              <span style="color:var(--text3);font-size:13px">Trier par</span>
-              <select class="sort-select" style="height:32px;font-size:12px">
-                <option>Date d'ajout</option>
-                <option>Note</option>
-                <option>Titre</option>
-              </select>
-              <div class="view-toggle-btns">
-                <button class="view-toggle active">▦</button>
-                <button class="view-toggle">☰</button>
-              </div>
+              <button class="btn btn-ghost btn-sm" id="listDeleteBtn" style="flex-shrink:0;align-self:flex-start;display:none">Supprimer</button>
             </div>
 
             <div class="list-manga-grid" id="listMangaGrid"></div>

@@ -491,20 +491,25 @@
                 </div>`;
             }).join('');
 
-            // Last read card
+            // Last read card — vraie progression ou état vide (jamais de démo)
             const lastCard = document.querySelector('.last-read-card');
-            if (lastCard && items[0]) {
-                const m = mangas[0];
-                if (m) {
-                    const pct = pctOf(items[0]);
-                    lastCard.querySelector('.last-read-cover img').src = m.coverThumb || m.cover || '';
-                    lastCard.querySelector('.last-read-title').textContent = m.title;
-                    lastCard.querySelector('.last-read-chap').textContent = `Chapitre ${MH.chapNum(items[0].chapter)}`;
-                    lastCard.querySelector('.last-read-fill').style.width = pct + '%';
-                    lastCard.querySelector('.last-read-progress span').textContent = pct + '%';
-                    const a = lastCard.querySelector('a.btn-primary');
-                    if (a) a.href = MH.readerHref(m.id, items[0].chapterId, items[0].source);
-                }
+            const body  = document.getElementById('lastReadBody');
+            const empty = document.getElementById('lastReadEmpty');
+            const m = items[0] ? mangas[0] : null;
+            if (lastCard && m) {
+                const pct = pctOf(items[0]);
+                lastCard.querySelector('.last-read-cover img').src = m.coverThumb || m.cover || '';
+                lastCard.querySelector('.last-read-title').textContent = m.title;
+                lastCard.querySelector('.last-read-chap').textContent = `Chapitre ${MH.chapNum(items[0].chapter)}`;
+                lastCard.querySelector('.last-read-fill').style.width = pct + '%';
+                lastCard.querySelector('.last-read-progress span').textContent = pct + '%';
+                const a = lastCard.querySelector('a.btn-primary');
+                if (a) a.href = MH.readerHref(m.id, items[0].chapterId, items[0].source);
+                if (body) body.style.display = '';
+                if (empty) empty.style.display = 'none';
+            } else {
+                if (body) body.style.display = 'none';
+                if (empty) empty.style.display = '';
             }
         } catch(e) {
             el.innerHTML = `<div style="padding:14px;color:#ef4444;font-size:12px">Erreur</div>`;
@@ -734,33 +739,39 @@
         }
     }
 
+    let _lists = [];              // listes personnalisées (cache)
+    let _activeList = 'favoris';  // 'favoris' ou id numérique
+
     async function renderListsPanel() {
         const panel = document.querySelector('.lists-panel');
         if (!panel) return;
         try {
-            const lists = await API.me.lists();
-            const customLabel = panel.querySelector('.lists-section-label:nth-of-type(2)');
+            _lists = await API.me.lists();
+            const customLabel = panel.querySelectorAll('.lists-section-label')[1];
             if (customLabel) {
+                // Retire les anciennes entrées personnalisées puis réinjecte
                 let next = customLabel.nextElementSibling;
-                while (next && next.classList.contains('list-nav-item')) {
-                    const el = next; next = next.nextElementSibling; el.remove();
+                while (next) {
+                    const el = next; next = next.nextElementSibling;
+                    if (el.classList.contains('list-nav-item') || el.dataset.emptyLists) el.remove();
                 }
-                const html = lists.length ? lists.map(l => `
+                const html = _lists.length ? _lists.map(l => `
                     <div class="list-nav-item" data-list="${l.id}">
                         <span class="list-nav-icon"></span>
                         <div>
                             <div class="list-nav-name">${MH.esc(l.name)}</div>
-                            <div class="list-nav-count">${l.mangaIds.length} manga${l.mangaIds.length > 1 ? 's' : ''}</div>
+                            <div class="list-nav-count">${l.mangaIds.length} titre${l.mangaIds.length > 1 ? 's' : ''}</div>
                         </div>
-                    </div>`).join('') : `<div style="color:var(--text3);font-size:11.5px;padding:8px 4px">Aucune liste créée.</div>`;
+                    </div>`).join('') : `<div data-empty-lists="1" style="color:var(--text3);font-size:11.5px;padding:8px 4px">Aucune liste. Clique sur « + » pour en créer une.</div>`;
                 customLabel.insertAdjacentHTML('afterend', html);
             }
 
-            // Mise à jour favoris count (système)
+            // Compteur Favoris (système) réel
             const favCount = (await API.me.favorites()).length;
             const favItem = panel.querySelector('.list-nav-item[data-list="favoris"] .list-nav-count');
-            if (favItem) favItem.textContent = `${favCount} manga${favCount > 1 ? 's' : ''}`;
+            if (favItem) favItem.textContent = `${favCount} titre${favCount > 1 ? 's' : ''}`;
 
+            // Bouton créer
             const addBtn = panel.querySelector('.lists-panel-header button');
             if (addBtn && !addBtn.dataset.bound) {
                 addBtn.dataset.bound = '1';
@@ -768,49 +779,89 @@
                     const name = prompt('Nom de la nouvelle liste :');
                     if (name && name.trim()) {
                         try {
-                            await API.me.createList({ name: name.trim() });
+                            const l = await API.me.createList({ name: name.trim() });
                             MH.toast(`Liste « ${name.trim()} » créée`);
                             await renderListsPanel();
+                            selectList(l.id);
                         } catch(e) { MH.toast('Erreur : ' + e.message); }
                     }
                 });
             }
+
+            // Sélection d'une liste (délégation : re-bind à chaque rendu)
+            panel.querySelectorAll('.list-nav-item').forEach(item => {
+                item.addEventListener('click', () => selectList(item.dataset.list));
+            });
+
+            // Bouton supprimer (une seule fois)
+            const delBtn = document.getElementById('listDeleteBtn');
+            if (delBtn && !delBtn.dataset.bound) {
+                delBtn.dataset.bound = '1';
+                delBtn.addEventListener('click', async () => {
+                    if (_activeList === 'favoris') return;
+                    const l = _lists.find(x => String(x.id) === String(_activeList));
+                    if (!l || !confirm(`Supprimer la liste « ${l.name} » ?`)) return;
+                    try {
+                        await API.me.deleteList(_activeList);
+                        MH.toast('Liste supprimée');
+                        await renderListsPanel();
+                        selectList('favoris');
+                    } catch(e) { MH.toast('Erreur : ' + e.message); }
+                });
+            }
         } catch(e) {}
 
-        // Détail : favoris par défaut
-        await renderListDetail();
+        // Restaure la sélection courante (ou favoris par défaut)
+        selectList(_activeList);
     }
 
-    async function renderListDetail() {
+    function selectList(which) {
+        _activeList = which || 'favoris';
+        const panel = document.querySelector('.lists-panel');
+        panel?.querySelectorAll('.list-nav-item').forEach(el =>
+            el.classList.toggle('active', String(el.dataset.list) === String(_activeList)));
+        const isFav = _activeList === 'favoris';
+        const list = isFav ? null : _lists.find(l => String(l.id) === String(_activeList));
+        const nameEl = document.getElementById('listDetailName');
+        const countEl = document.getElementById('listDetailCount');
+        const delBtn = document.getElementById('listDeleteBtn');
+        if (nameEl)  nameEl.textContent = isFav ? 'Favoris' : (list?.name || 'Liste');
+        if (delBtn)  delBtn.style.display = isFav ? 'none' : '';
+        renderListDetail(isFav ? null : list, countEl);
+    }
+
+    async function renderListDetail(list, countEl) {
         const grid = document.getElementById('listMangaGrid');
         if (!grid) return;
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--text3)"><span class="spinner-inline"></span></div>`;
         try {
-            const favs = await API.me.favorites();
-            const ids = favs.map(f => f.mangaId).slice(0, 12);
+            // Favoris → toute la bibliothèque ; liste → ses mangaIds
+            const ids = list
+                ? (list.mangaIds || [])
+                : (await API.me.favorites()).map(f => f.mangaId);
+            if (countEl) countEl.textContent = `${ids.length} titre${ids.length > 1 ? 's' : ''}`;
             if (!ids.length) {
-                grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text3)">Cette liste est vide.</div>`;
+                grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text3)">${
+                    list ? 'Cette liste est vide. Ajoute des œuvres depuis leur fiche (« + Liste »).'
+                         : 'Aucun favori pour l\'instant.'}</div>`;
                 return;
             }
-            const mangas = await loadMangas(ids);
+            const mangas = await loadMangas(ids.slice(0, 60));
             const progress = await API.me.progress();
             grid.innerHTML = mangas.map(m => {
                 const p = progress[m.id];
                 const chapRead = p?.chapter || 0;
-                const pct = Math.min(100, Math.round((chapRead / 100) * 100));
                 return `
                 <div class="list-manga-item">
                     <a href="serie.html?id=${encodeURIComponent(m.id)}">
-                        <div class="list-manga-cover"><img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy"></div>
+                        <div class="list-manga-cover"><img src="${m.cover || m.coverThumb || ''}" alt="${MH.esc(m.title)}" loading="lazy"></div>
                         <div class="list-manga-name">${MH.esc(m.title)}</div>
-                        <div class="list-manga-meta">Ch. ${chapRead}</div>
-                        <div class="list-manga-progress">
-                            <div class="list-manga-prog-bar"><div class="list-manga-prog-fill green" style="width:${pct}%"></div></div>
-                        </div>
+                        <div class="list-manga-meta">${chapRead ? 'Ch. ' + MH.chapNum(chapRead) : '—'}</div>
                     </a>
                 </div>`;
             }).join('');
         } catch(e) {
-            grid.innerHTML = `<div style="padding:14px;color:#ef4444">Erreur</div>`;
+            grid.innerHTML = `<div style="padding:14px;color:#ef4444">Erreur de chargement</div>`;
         }
     }
 

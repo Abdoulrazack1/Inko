@@ -1181,26 +1181,30 @@
         },
         download() { window.open(UPDATE_EXE, '_blank'); },
     };
-    // Vérification silencieuse 1×/24 h → bandeau discret si nouvelle version
-    (async function () {
+    // Vérification À CHAQUE lancement (l'app desktop redémarre à chaque
+    // ouverture ; l'appel GitHub est léger). Le bandeau reste tant que la
+    // nouvelle version n'est pas installée ; « Plus tard » ne masque que
+    // CETTE version — une version encore plus récente ré-affiche le bandeau.
+    window.MH._maybeShowUpdateBar = async function () {
         try {
-            const last = +(localStorage.getItem('inko_upd_check') || 0);
-            if (Date.now() - last < 24 * 3600 * 1000) return;
+            if (document.getElementById('appUpdateBar')) return;
             const r = await MH.appUpdates.check();
-            localStorage.setItem('inko_upd_check', String(Date.now()));
-            if (!r.hasUpdate || document.getElementById('appUpdateBar')) return;
-            if (sessionStorage.getItem('inko_upd_dismiss') === r.latest) return;
+            if (!r.hasUpdate) return;
+            let dismissed = '';
+            try { dismissed = localStorage.getItem('inko_upd_dismissed') || ''; } catch (e) {}
+            if (dismissed && cmpVer(dismissed, r.latest) >= 0) return;   // déjà refusé cette version
             const bar = document.createElement('div');
             bar.id = 'appUpdateBar';
-            bar.style.cssText = 'position:sticky;top:0;z-index:9997;background:var(--accent,#c1531b);color:#fff;padding:9px 16px;font-size:13px;display:flex;gap:12px;align-items:center;justify-content:center';
-            bar.innerHTML = '<span>Nouvelle version d’Inko disponible (v' + r.latest + ')</span>' +
-                '<button id="updDl" style="background:rgba(255,255,255,.22);border:none;color:#fff;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:12.5px;font-weight:600">Télécharger</button>' +
-                '<button id="updLater" style="background:none;border:none;color:rgba(255,255,255,.75);cursor:pointer;font-size:12px">Plus tard</button>';
+            bar.style.cssText = 'position:sticky;top:0;z-index:9997;background:var(--accent,#c1531b);color:#fff;padding:10px 16px;font-size:13.5px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap';
+            bar.innerHTML = '<span>🎉 Une nouvelle version d’Inko est disponible — <strong>v' + esc(r.latest) + '</strong> (tu as la v' + esc(r.current) + ')</span>' +
+                '<button id="updDl" style="background:#fff;border:none;color:var(--accent,#c1531b);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:12.5px;font-weight:700">⬇ Télécharger</button>' +
+                '<button id="updLater" style="background:none;border:none;color:rgba(255,255,255,.8);cursor:pointer;font-size:12px">Plus tard</button>';
             bar.querySelector('#updDl').onclick = () => MH.appUpdates.download();
-            bar.querySelector('#updLater').onclick = () => { bar.remove(); try { sessionStorage.setItem('inko_upd_dismiss', r.latest); } catch (e) {} };
+            bar.querySelector('#updLater').onclick = () => { bar.remove(); try { localStorage.setItem('inko_upd_dismissed', r.latest); } catch (e) {} };
             document.body.prepend(bar);
         } catch (e) { /* hors-ligne : au prochain lancement */ }
-    })();
+    };
+    MH._maybeShowUpdateBar();
 
     /* ── Bandeau : base habituelle injoignable (repli embarqué) ── */
     (async function () {
