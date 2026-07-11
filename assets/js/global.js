@@ -1158,6 +1158,50 @@
         document.getElementById('mhShortcutsClose')?.addEventListener('click', () => ov.remove());
     }
 
+    /* ── Mises à jour de l'app (releases GitHub publiées par l'admin) ── */
+    const UPDATE_EXE = 'https://github.com/Abdoulrazack1/Inko/releases/latest/download/Inko-Setup.exe';
+    function cmpVer(a, b) {
+        const pa = String(a || '0').replace(/^v/, '').split('.'), pb = String(b || '0').replace(/^v/, '').split('.');
+        for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+            const d = (parseInt(pa[i], 10) || 0) - (parseInt(pb[i], 10) || 0);
+            if (d) return d;
+        }
+        return 0;
+    }
+    window.MH.appUpdates = {
+        exeUrl: UPDATE_EXE,
+        // → { current, latest, hasUpdate } ; current absent en dev (pas d'APP_VERSION)
+        async check() {
+            const h = await fetch((window.API?.base || '/api') + '/health').then(r => r.json());
+            if (!h.version) return { current: null, latest: null, hasUpdate: false };
+            const rel = await fetch('https://api.github.com/repos/Abdoulrazack1/Inko/releases/latest',
+                { headers: { Accept: 'application/vnd.github+json' } }).then(r => r.json());
+            const latest = (rel.tag_name || '').replace(/^v/, '');
+            return { current: h.version, latest, hasUpdate: !!latest && cmpVer(latest, h.version) > 0 };
+        },
+        download() { window.open(UPDATE_EXE, '_blank'); },
+    };
+    // Vérification silencieuse 1×/24 h → bandeau discret si nouvelle version
+    (async function () {
+        try {
+            const last = +(localStorage.getItem('inko_upd_check') || 0);
+            if (Date.now() - last < 24 * 3600 * 1000) return;
+            const r = await MH.appUpdates.check();
+            localStorage.setItem('inko_upd_check', String(Date.now()));
+            if (!r.hasUpdate || document.getElementById('appUpdateBar')) return;
+            if (sessionStorage.getItem('inko_upd_dismiss') === r.latest) return;
+            const bar = document.createElement('div');
+            bar.id = 'appUpdateBar';
+            bar.style.cssText = 'position:sticky;top:0;z-index:9997;background:var(--accent,#c1531b);color:#fff;padding:9px 16px;font-size:13px;display:flex;gap:12px;align-items:center;justify-content:center';
+            bar.innerHTML = '<span>Nouvelle version d’Inko disponible (v' + r.latest + ')</span>' +
+                '<button id="updDl" style="background:rgba(255,255,255,.22);border:none;color:#fff;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:12.5px;font-weight:600">Télécharger</button>' +
+                '<button id="updLater" style="background:none;border:none;color:rgba(255,255,255,.75);cursor:pointer;font-size:12px">Plus tard</button>';
+            bar.querySelector('#updDl').onclick = () => MH.appUpdates.download();
+            bar.querySelector('#updLater').onclick = () => { bar.remove(); try { sessionStorage.setItem('inko_upd_dismiss', r.latest); } catch (e) {} };
+            document.body.prepend(bar);
+        } catch (e) { /* hors-ligne : au prochain lancement */ }
+    })();
+
     /* ── Bandeau : base habituelle injoignable (repli embarqué) ── */
     (async function () {
         try {

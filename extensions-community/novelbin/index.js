@@ -22,7 +22,9 @@ let cheerio = null;
 try { cheerio = require('cheerio'); }
 catch (e) { console.warn('[novelbin] cheerio manquant — `cd server && npm install cheerio`'); }
 
-const BASE = 'https://novelbin.com';
+// novelbin.com ne résout plus ; .co est un domaine parqué ; .net exige du JS.
+// novel-bin.com est le miroir fonctionnel avec le même balisage.
+const BASE = 'https://novel-bin.com';
 const UA   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 const http = axios.create({
@@ -76,12 +78,14 @@ async function fetchHtml(url, ttl = 120_000) {
 }
 
 // ── Helpers ──
+// Le miroir actuel (novel-bin.com) sert les œuvres sous /novel-bin/<slug>/
+// (l'ancien domaine utilisait /b/<slug>) — on accepte les deux.
 function slugFromHref(href) {
-    const m = (href || '').match(/\/b\/([^/?#]+)/i);
+    const m = (href || '').match(/\/(?:novel-bin|b)\/([^/?#]+)/i);
     return m ? m[1] : null;
 }
 function chapterSlugFromHref(href, slug) {
-    const m = (href || '').match(new RegExp(`/b/${slug}/([^/?#]+)`, 'i'));
+    const m = (href || '').match(new RegExp(`/(?:novel-bin|b)/${slug}/([^/?#]+)`, 'i'));
     return m ? m[1] : null;
 }
 function chapterNumFromText(t) {
@@ -152,8 +156,7 @@ module.exports = {
     lang:         'en',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '1.1.0',
-
+    version:      '1.2.0',
     unit:      'chapter',
     type:         'novel',
     description:  'NovelBin — light/web novels chinois, coréens et japonais traduits en anglais (cultivation, système, isekai, romance). Très grand catalogue, lecture en texte.',
@@ -191,7 +194,7 @@ module.exports = {
 
     async getManga(id) {
         requireCheerio();
-        const html = await fetchHtml(`/b/${id}`, 300_000);
+        const html = await fetchHtml(`/novel-bin/${id}/`, 300_000);
         const $ = cheerio.load(html);
 
         const title  = ($('h3.title[itemprop="name"]').first().text()
@@ -230,21 +233,18 @@ module.exports = {
     // Liste COMPLÈTE en un appel via /ajax/chapter-archive
     async getChapters(id, { limit } = {}) {
         requireCheerio();
-        // novelId = data-novel-id de la fiche (souvent = slug)
-        let novelId = id;
-        try {
-            const page = await fetchHtml(`/b/${id}`, 300_000);
-            const m = page.match(/data-novel-id="([^"]+)"/);
-            if (m) novelId = m[1];
-        } catch (e) { /* on tente avec le slug */ }
-
-        const archive = await fetchHtml(`/ajax/chapter-archive?novelId=${encodeURIComponent(novelId)}`, 120_000);
-        const $ = cheerio.load(archive);
+        // Le miroir actuel liste TOUS les chapitres sur la fiche elle-même
+        // (les endpoints /ajax/chapter-archive et /ajax/chapter-option
+        // renvoient la page d'accueil : morts). On parse donc la fiche.
+        const page = await fetchHtml(`/novel-bin/${id}/`, 300_000);
+        const $ = cheerio.load(page);
+        const seen = new Set();
         const out = [];
-        $('a[href*="/b/"]').each((i, a) => {
+        $(`a[href*="/${id}/"]`).each((i, a) => {
             const href = $(a).attr('href') || '';
             const cslug = chapterSlugFromHref(href, id);
-            if (!cslug) return;
+            if (!cslug || seen.has(cslug)) return;
+            seen.add(cslug);
             const label = ($(a).attr('title') || $(a).text()).replace(/\s+/g, ' ').trim();
             out.push({
                 id:          `${id}:${cslug}`.slice(0, 191),
@@ -270,7 +270,7 @@ module.exports = {
         if (sep < 1) throw new Error('Identifiant de chapitre invalide');
         const slug  = String(chapterId).slice(0, sep);
         const cslug = String(chapterId).slice(sep + 1);
-        const html = await fetchHtml(`/b/${slug}/${cslug}`, 10 * 60_000);
+        const html = await fetchHtml(`/novel-bin/${slug}/${cslug}`, 10 * 60_000);
         const $ = cheerio.load(html);
         const root = $('#chr-content, .chr-c, #chapter-content').first();
         if (!root.length) throw new Error('Contenu du chapitre introuvable');

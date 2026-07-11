@@ -177,6 +177,33 @@
         // Bouton "Ouvrir le lecteur" de musique
         document.getElementById('btnReplayTour')?.addEventListener('click', () => MH.startTour());
 
+    // ── Carte Application : version + mises à jour ──
+    (async function () {
+        const vEl = document.getElementById('appVersion');
+        const st = document.getElementById('appUpdateStatus');
+        const btnDl = document.getElementById('btnDownloadUpdate');
+        const btnCk = document.getElementById('btnCheckUpdate');
+        if (!vEl) return;
+        async function check(manual) {
+            try {
+                if (manual) { btnCk.disabled = true; st.textContent = 'Vérification…'; }
+                const r = await MH.appUpdates.check();
+                vEl.textContent = r.current ? 'v' + r.current : '(développement)';
+                if (r.hasUpdate) {
+                    st.textContent = 'Nouvelle version disponible : v' + r.latest;
+                    btnDl.style.display = '';
+                } else {
+                    st.textContent = r.current ? 'Tu as la dernière version ✓' : 'Version de développement — mises à jour non applicables.';
+                    btnDl.style.display = 'none';
+                }
+            } catch (e) { st.textContent = 'Vérification impossible (hors-ligne ?)'; }
+            finally { btnCk.disabled = false; }
+        }
+        btnCk?.addEventListener('click', () => check(true));
+        btnDl?.addEventListener('click', () => { MH.appUpdates.download(); MH.toast('Téléchargement lancé dans ton navigateur'); });
+        check(false);
+    })();
+
     document.getElementById('btnOpenMusic')?.addEventListener('click', () => {
             if (window.MH?.openMusic) MH.openMusic();
             

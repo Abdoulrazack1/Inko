@@ -16,7 +16,9 @@ const path  = require('path');
 // Le consommateur n'a rien à configurer : « Connecter » suffit.
 // Reste remplaçable via ANILIST_CLIENT_ID (env) ou config/anilist.json
 // pour un self-host sur un autre port.
-const DEFAULT_CLIENT_ID = '43907';
+// 43908 = client « Inko » avec Redirect URL http://127.0.0.1:8088/anilist.html
+// vérifiée (le 43907 renvoyait un 404 AniList après login : redirect absente).
+const DEFAULT_CLIENT_ID = '43908';
 
 // Client ID AniList : env > fichier config > client embarqué.
 const ANILIST_CFG_PATH = path.join(__dirname, '..', 'config', 'anilist.json');

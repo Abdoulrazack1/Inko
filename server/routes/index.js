@@ -19,6 +19,7 @@ const Local   = require('../controllers/local.controller');
 // ── Healthcheck ─────────────────────────────────
 router.get('/health', (_req, res) => res.json({
     ok: true, time: Date.now(),
+    ...(process.env.APP_VERSION ? { version: process.env.APP_VERSION } : {}),
     ...(process.env.INKO_DB_FALLBACK === '1' ? { dbFallback: true } : {}),
 }));
 

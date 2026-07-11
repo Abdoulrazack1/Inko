@@ -9,8 +9,9 @@ const axios = require('axios');
 
 const BASE        = 'https://api.mangadex.org';
 const COVERS_BASE = 'https://uploads.mangadex.org/covers';
-// User-Agent neutre : on n'identifie pas Inko côté serveur tiers
-const UA          = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+// L'API MangaDex EXIGE un User-Agent identifiant le client (règle officielle) :
+// un UA de navigateur générique est rejeté par un 400 HTML.
+const UA          = 'Inko/2.2.1 (+https://github.com/Abdoulrazack1/Inko)';
 
 // ── Cache mémoire avec TTL ──
 const cache = new Map();
@@ -85,7 +86,7 @@ module.exports = {
     lang:        'multi',
     baseUrl:     BASE,
     nsfw:        false,
-    version:     '1.1.0',
+    version:     '1.2.0',
     unit:      'chapter',
     description: 'Source officielle MangaDex API (scanlations communautaires, 80 000+ titres)',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],

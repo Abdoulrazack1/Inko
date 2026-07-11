@@ -45,6 +45,7 @@ fn main() {
                 .sidecar("node")
                 .map_err(|e| { log(&format!("[inko] sidecar() error: {e}")); e })?
                 .args([server_js])
+                .env("APP_VERSION", env!("CARGO_PKG_VERSION"))
                 .env("PORT", PORT.to_string())
                 .env("LOCAL_MODE", "1")
                 .env("FRONTEND_DIR", frontend)
