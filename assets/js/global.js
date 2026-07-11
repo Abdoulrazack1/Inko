@@ -218,13 +218,16 @@
         const st = document.createElement('style');
         st.id = 'mhModalStyles';
         st.textContent = `
+        @keyframes mhVeilIn{from{opacity:0}to{opacity:1}}
+        @keyframes mhModalIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+        /* Affichage instantané et garanti (aucune animation d'entrée dont
+           dépend la visibilité). Fondu de sortie via .closing uniquement. */
         .mh-modal-veil{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;
           background:color-mix(in srgb, var(--bg,#111) 55%, transparent);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
-          opacity:0;transition:opacity .2s ease}
-        .mh-modal-veil.on{opacity:1}
+          opacity:1}
+        .mh-modal-veil.closing{opacity:0;transition:opacity .15s ease}
         .mh-modal{width:min(420px,94vw);background:var(--bg2,#1a1a1e);border:1px solid var(--border,#333);border-radius:18px;
-          padding:24px 24px 20px;box-shadow:0 24px 70px -18px rgba(0,0,0,.55);transform:translateY(10px) scale(.98);transition:transform .2s cubic-bezier(.2,.9,.3,1.2)}
-        .mh-modal-veil.on .mh-modal{transform:none}
+          padding:24px 24px 20px;box-shadow:0 24px 70px -18px rgba(0,0,0,.55)}
         .mh-modal-title{font-family:var(--font-head,inherit);font-size:17px;font-weight:700;color:var(--text,#eee);margin-bottom:8px}
         .mh-modal-msg{font-size:13.5px;line-height:1.55;color:var(--text2,#bbb);white-space:pre-line}
         .mh-modal-input{width:100%;margin-top:14px;background:var(--bg3,#222);border:1px solid var(--border2,#3a3a3a);color:var(--text,#eee);
@@ -259,13 +262,12 @@
                 </div>`;
             document.body.appendChild(veil);
             const inp = veil.querySelector('.mh-modal-input');
-            void veil.offsetWidth;               // reflow → la transition joue
-            veil.classList.add('on');
+            // L'animation CSS (mhVeilIn / mhModalIn) joue seule à l'insertion :
+            // pas de toggle de classe ni de rAF → affichage garanti.
             if (inp) { inp.focus(); inp.select(); }
-            setTimeout(() => { if (veil.isConnected) veil.style.opacity = '1'; }, 220);
             const close = (result) => {
-                veil.classList.remove('on');
-                setTimeout(() => veil.remove(), 200);
+                veil.classList.add('closing');
+                setTimeout(() => veil.remove(), 160);
                 document.removeEventListener('keydown', onKey);
                 resolve(result);
             };
