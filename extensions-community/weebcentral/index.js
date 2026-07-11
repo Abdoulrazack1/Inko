@@ -137,12 +137,15 @@ const STATUS_MAP = { ongoing: 'Ongoing', completed: 'Complete', hiatus: 'Hiatus'
 // Tri UI (normalisé) → valeurs WeebCentral
 const SORT_MAP = { popularity: 'Popularity', latest: 'Latest Updates', alpha: 'Alphabet', added: 'Recently Added' };
 
-// Tags fixes du site (liste stable, hors contenu adulte)
+// Liste complète des tags supportés par WeebCentral (les tags purement
+// pornographiques — Hentai/Lolicon/Shotacon/Smut — sont volontairement omis).
 const TAGS = [
-    'Action', 'Adventure', 'Comedy', 'Drama', 'Ecchi', 'Fantasy', 'Gender Bender',
-    'Harem', 'Historical', 'Horror', 'Isekai', 'Josei', 'Martial Arts', 'Mecha',
-    'Mystery', 'Psychological', 'Romance', 'School Life', 'Sci-fi', 'Seinen',
-    'Shoujo', 'Shounen', 'Slice of Life', 'Sports', 'Supernatural', 'Tragedy',
+    'Action', 'Adventure', 'Comedy', 'Doujinshi', 'Drama', 'Ecchi', 'Fantasy',
+    'Gender Bender', 'Harem', 'Historical', 'Horror', 'Isekai', 'Josei',
+    'Martial Arts', 'Mature', 'Mecha', 'Mystery', 'Psychological', 'Romance',
+    'School Life', 'Sci-fi', 'Seinen', 'Shoujo', 'Shoujo Ai', 'Shounen',
+    'Shounen Ai', 'Slice of Life', 'Sports', 'Supernatural', 'Tragedy',
+    'Yaoi', 'Yuri',
 ];
 
 // ── Source export ──
@@ -152,7 +155,7 @@ module.exports = {
     lang:         'en',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '1.1.0',
+    version:      '1.2.0',
     unit:      'chapter',
     description:  'Weeb Central — large catalogue anglais de scans (HTMX). Recherche, chapitres et lecture.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],

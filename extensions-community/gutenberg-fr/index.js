@@ -1,24 +1,25 @@
 // ============================================================
-// Project Gutenberg — extension Inko (type 'book', livres du domaine public)
+// Livres en français — extension Inko (type 'book', domaine public FR)
 // ============================================================
-// ⚠ Extension communautaire. Utilise l'API Gutendex (gutendex.com), un
-// front REST libre pour Project Gutenberg : ~70 000 livres du domaine
-// public (classiques FR/EN/DE/ES…). Aucune clé requise.
-//   - listes    : /books?sort=popular | ?sort=descending  (32/page)
-//   - recherche : /books?search=…
+// ⚠ Extension communautaire. Même moteur que Project Gutenberg
+// (API Gutendex, gutendex.com) mais VERROUILLÉE sur les livres en
+// français : ~4 000 classiques du domaine public (Hugo, Zola, Balzac,
+// Dumas, Verne, Flaubert, Maupassant…). Aucune clé requise, texte
+// intégral, 100 % légal et gratuit.
+//   - listes    : /books?languages=fr&sort=popular | ?sort=descending
+//   - recherche : /books?languages=fr&search=…
 //   - livre     : /books/<id>
-//   - texte     : formats['text/plain; charset=utf-8'] (livre entier = 1 chapitre)
+//   - texte     : miroir /cache/epub/<id>/pg<id>.txt (fiable)
 //
 // IDs : livre = id numérique Gutenberg ; chapitre = "<id>:full".
-// Type 'book' → ouvert dans le lecteur de texte (comme les novels).
 // ============================================================
 const { execFile } = require('child_process');
 
 const API  = 'https://gutendex.com';
 const UA   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const PER  = 32;
+const LANG = 'fr';   // ← la seule différence de fond avec l'extension Gutenberg
 
-// GET via curl (-L : Gutendex redirige ; gutenberg.org sert le texte)
 function curlGet(url, maxBuffer = 32 * 1024 * 1024) {
     return new Promise((resolve, reject) => {
         execFile('curl', ['-s', '-f', '-L', '--compressed', '-m', '30', '-A', UA, url],
@@ -54,23 +55,22 @@ function mapBook(b) {
         titleAlt: '',
         author: (b.authors || []).map(a => a.name).join(', '),
         description: (b.summaries && b.summaries[0]) || (b.subjects || []).slice(0, 4).join(' · ') || '',
-        status: 'completed',                       // œuvres achevées (domaine public)
+        status: 'completed',
         year: null, demographic: null,
         tags: (b.subjects || []).slice(0, 8),
         cover, coverLarge: cover, coverThumb: cover,
         contentRating: 'safe',
-        langs: b.languages || [],
+        langs: b.languages || ['fr'],
     };
 }
 
 async function browse({ limit = PER, offset = 0 } = {}, extra = '') {
     const page = Math.floor((+offset || 0) / PER) + 1;
-    const data = await getJson(`${API}/books?page=${page}${extra}`);
+    const data = await getJson(`${API}/books?languages=${LANG}&page=${page}${extra}`);
     const results = (data.results || []).map(mapBook);
     return { total: data.count || results.length, results: results.slice(0, +limit || PER) };
 }
 
-// Retire l'en-tête/pied de licence Gutenberg et met en paragraphes HTML
 function textToHtml(raw) {
     let t = raw;
     const start = t.search(/\*\*\*\s*START OF (THE|THIS) PROJECT GUTENBERG.*?\*\*\*/i);
@@ -82,19 +82,19 @@ function textToHtml(raw) {
 }
 
 module.exports = {
-    id:           'gutenberg',
-    name:         'Project Gutenberg',
-    lang:         'multi',
+    id:           'gutenberg-fr',
+    name:         'Livres en français',
+    lang:         'fr',
     baseUrl:      API,
     nsfw:         false,
-    version:      '1.2.0',
-    unit:      'chapter',
+    version:      '1.0.0',
+    unit:         'chapter',
     type:         'book',
-    description:  'Project Gutenberg — 70 000+ livres et romans du domaine public (classiques FR/EN/DE/ES…). Lecture en texte, 100% légal et gratuit.',
+    description:  'Livres du domaine public en français — ~4 000 classiques (Hugo, Zola, Balzac, Dumas, Verne, Flaubert, Maupassant…) via Project Gutenberg. Lecture en texte intégral, 100 % légal et gratuit.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'text'],
 
     async popular(opts = {}) { return browse(opts, '&sort=popular'); },
-    async latest(opts = {})  { return browse(opts, '&sort=descending'); },   // ids récents = ajouts récents
+    async latest(opts = {})  { return browse(opts, '&sort=descending'); },
 
     async search({ q, limit = PER, offset = 0 } = {}) {
         if (!q) return this.popular({ limit, offset });
@@ -106,24 +106,21 @@ module.exports = {
         return mapBook(b);
     },
 
-    // Un livre Gutenberg = une seule « unité » de lecture
     async getChapters(id) {
         return { total: 1, results: [{
             id: `${id}:full`, chapter: 1, volume: null,
-            title: 'Livre complet', lang: '', pages: 0, publishedAt: null,
+            title: 'Livre complet', lang: 'fr', pages: 0, publishedAt: null,
         }] };
     },
 
     async getPages() {
-        throw new Error('Project Gutenberg est une source de livres : utiliser getText()');
+        throw new Error('« Livres en français » est une source de livres : utiliser getText()');
     },
 
     async getText(chapterId) {
         const id = String(chapterId).split(':')[0];
         const b = await getJson(`${API}/books/${encodeURIComponent(id)}`);
         const f = b.formats || {};
-        // Le chemin /ebooks/<id>.txt.utf-8 fourni par Gutendex est souvent bloqué ;
-        // le miroir /cache/epub/<id>/pg<id>.txt(.utf8) répond de façon fiable.
         const candidates = [
             `https://www.gutenberg.org/cache/epub/${id}/pg${id}.txt`,
             `https://www.gutenberg.org/cache/epub/${id}/pg${id}.txt.utf8`,

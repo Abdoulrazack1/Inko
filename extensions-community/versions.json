@@ -1,10 +1,11 @@
 {
-  "weebcentral": "1.1.0",
+  "weebcentral": "1.2.0",
   "mangadex": "1.2.0",
   "sushiscan": "0.5.0",
   "royalroad": "1.1.0",
   "novelfull": "1.1.0",
   "chireads": "1.1.0",
   "novelbin": "1.2.0",
-  "gutenberg": "1.1.0"
+  "gutenberg": "1.2.0",
+  "gutenberg-fr": "1.0.0"
 }

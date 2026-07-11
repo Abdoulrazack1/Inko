@@ -243,15 +243,16 @@
         btn.disabled = true; const orig = btn.textContent;
         try {
             const [favs, prog] = await Promise.all([API.me.favorites(), API.me.progress()]);
-            // Candidats : au moins une info à écrire (progression ou statut)
+            // TOUTE la bibliothèque est poussée vers AniList : chaque œuvre sans
+            // statut explicite est marquée « planned » (À lire / Planning) pour
+            // qu'elle apparaisse quand même sur AniList. Avant, seules les œuvres
+            // avec progression OU statut partaient (→ la plupart étaient ignorées).
             const targets = favs.map(f => {
                 const p = prog[f.mangaId];
-                const opts = {};
+                const opts = { status: f.status || 'planned' };
                 if (p?.chapter) opts.progress = Math.floor(p.chapter);
-                if (f.status) opts.status = f.status;
-                return (opts.progress || opts.status) ? { f, opts } : null;
-            }).filter(Boolean);
-            const skipped = favs.length - targets.length;
+                return { f, opts };
+            });
 
             let ok = 0, notFound = 0, failed = 0;
             for (let i = 0; i < targets.length; i++) {
@@ -275,10 +276,9 @@
                 }
                 await sleep(2100);   // ~28 écritures/min, sous la limite AniList
             }
-            const bits = [`${ok} synchronisée(s)`];
+            const bits = [`${ok} synchronisée(s) sur ${targets.length}`];
             if (notFound) bits.push(`${notFound} introuvable(s) sur AniList`);
             if (failed)   bits.push(`${failed} échec(s)`);
-            if (skipped)  bits.push(`${skipped} sans progression/statut (ignorées)`);
             toast(bits.join(' · '));
         } catch (e) { toast('Erreur : ' + e.message); }
         finally { btn.disabled = false; btn.textContent = orig; }

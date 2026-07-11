@@ -220,16 +220,29 @@
     }
 
     // ── Sidebar (rendu pur — les listeners sont délégués dans bindEvents) ──
+    function renderTagGroup(el, items, emptyMsg) {
+        if (!el) return;
+        el.innerHTML = items.length
+            ? items.map(g =>
+                `<button class="filter-tag ${activeTags.has(g.id) ? 'active' : ''}" data-tag="${MH.esc(g.id)}">${MH.esc(g.name)}</button>`
+              ).join('')
+            : (emptyMsg ? `<div style="font-size:12px;color:var(--text3);padding:8px">${emptyMsg}</div>` : '');
+    }
     function renderFilterSidebar() {
-        const genresEl = document.getElementById('filterGenres');
-        if (genresEl) {
-            const genres = allTags.filter(t => !t.group || t.group === 'genre').slice(0, 26);
-            genresEl.innerHTML = genres.length
-                ? genres.map(g =>
-                    `<button class="filter-tag ${activeTags.has(g.id) ? 'active' : ''}" data-tag="${MH.esc(g.id)}">${MH.esc(g.name)}</button>`
-                  ).join('')
-                : '<div style="font-size:12px;color:var(--text3);padding:8px">Pas de filtres par genre pour cette source.</div>';
-        }
+        // Tous les tags disponibles, répartis par groupe (genre / thème / format).
+        // Plus de plafond : MangaDex expose 25 genres + 38 thèmes + 12 formats,
+        // tous filtrables (includedTags accepte n'importe quel tag).
+        const byGroup = (g) => allTags.filter(t => (t.group || 'genre') === g);
+        const genres = allTags.filter(t => !t.group || t.group === 'genre');
+        renderTagGroup(document.getElementById('filterGenres'), genres,
+            'Pas de filtres par genre pour cette source.');
+        // Sections thèmes/format masquées quand la source n'en fournit pas
+        const themes = byGroup('theme');
+        const formats = byGroup('format');
+        renderTagGroup(document.getElementById('filterThemes'), themes, '');
+        renderTagGroup(document.getElementById('filterFormats'), formats, '');
+        toggleSection('filterThemes', themes.length);
+        toggleSection('filterFormats', formats.length);
 
         const statusEl = document.getElementById('filterStatus');
         if (statusEl) {
@@ -254,13 +267,20 @@
         updateFiltersCount();
     }
 
+    // Masque une section de filtres (et son libellé) quand elle est vide
+    function toggleSection(gridId, hasItems) {
+        const grid = document.getElementById(gridId);
+        const section = grid && grid.closest('.filter-section');
+        if (section) section.style.display = hasItems ? '' : 'none';
+    }
+
     // Resynchronise l'état visuel de la sidebar (plusieurs filtres actifs possibles)
     function syncSidebarState() {
         document.querySelectorAll('#filterStatus [data-status]').forEach(b =>
             b.classList.toggle('active', activeStatus.has(b.dataset.status)));
         document.querySelectorAll('#filterDemo [data-demo]').forEach(i =>
             { i.checked = activeDemo.has(i.dataset.demo); });
-        document.querySelectorAll('#filterGenres [data-tag]').forEach(b =>
+        document.querySelectorAll('#filterGenres [data-tag], #filterThemes [data-tag], #filterFormats [data-tag]').forEach(b =>
             b.classList.toggle('active', activeTags.has(b.dataset.tag)));
         updateFiltersCount();
     }
@@ -503,8 +523,8 @@
 
     // ══ Événements (tous bindés UNE fois) ═════════════════════
     function bindEvents() {
-        // Genres (délégation : le contenu est re-rendu, le listener reste)
-        document.getElementById('filterGenres')?.addEventListener('click', async e => {
+        // Tags (genres, thèmes, formats — même set activeTags, délégation)
+        const onTagClick = async e => {
             const btn = e.target.closest('[data-tag]');
             if (!btn) return;
             const id = btn.dataset.tag;
@@ -514,7 +534,9 @@
             currentPage = 1;
             updateFiltersCount();
             await runSearch();
-        });
+        };
+        ['filterGenres', 'filterThemes', 'filterFormats'].forEach(id =>
+            document.getElementById(id)?.addEventListener('click', onTagClick));
 
         // Statut (multi : on ajoute/retire du set)
         document.getElementById('filterStatus')?.addEventListener('click', async e => {

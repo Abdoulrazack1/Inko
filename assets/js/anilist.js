@@ -76,15 +76,59 @@
         return new Promise(() => {});   // la page part : rien à résoudre
     }
 
-    // Résout l'id AniList d'un manga à partir de son titre
+    // Normalise un titre pour comparaison souple (casse, accents, ponctuation)
+    function norm(s) {
+        return (s || '').toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')   // enlève les accents
+            .replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+    // Variantes d'un titre à tenter successivement : brut, puis sans suffixes
+    // d'édition (« (Official Colored) », « : Season 2 », « - Tome 1 »…).
+    function titleVariants(title) {
+        const v = [title];
+        const cleaned = title
+            .replace(/\([^)]*\)/g, '')                 // (Official Colored), (Colored)…
+            .replace(/[:\-–—].*$/, '')                 // sous-titres / tomes / saisons
+            .replace(/\b(official|colored|full color|digital|complete|edition)\b/gi, '')
+            .replace(/\s+/g, ' ').trim();
+        if (cleaned && norm(cleaned) !== norm(title)) v.push(cleaned);
+        return v;
+    }
+
+    // Recherche AniList directe (CORS ouvert) : renvoie plusieurs candidats,
+    // on choisit la meilleure correspondance par titre/synonymes.
+    const SEARCH_Q = `query ($s: String) {
+        Page(perPage: 6) { media(search: $s, type: MANGA) {
+            id title { romaji english native } synonyms
+        } }
+    }`;
+    async function searchMedia(term) {
+        try {
+            const d = await gql(SEARCH_Q, { s: term }, false);
+            return d?.Page?.media || [];
+        } catch (e) { return []; }
+    }
+
+    // Résout l'id AniList d'un manga à partir de son titre — robuste :
+    // essaie chaque variante, prend une correspondance exacte si possible,
+    // sinon le premier résultat de la recherche (AniList trie par pertinence).
     async function mediaId(title) {
         if (!title) return null;
         if (idCache[title] != null) return idCache[title];
-        try {
-            const a = await API.art.get(title);
-            idCache[title] = a?.id || null;
-            return idCache[title];
-        } catch (e) { return null; }
+        let fallback = null;
+        for (const variant of titleVariants(title)) {
+            const media = await searchMedia(variant);
+            if (!media.length) continue;
+            if (fallback == null) fallback = media[0].id;   // meilleur résultat global
+            const target = norm(variant);
+            const exact = media.find(m => {
+                const names = [m.title?.romaji, m.title?.english, m.title?.native, ...(m.synonyms || [])];
+                return names.some(n => norm(n) === target);
+            });
+            if (exact) { idCache[title] = exact.id; return exact.id; }
+        }
+        idCache[title] = fallback;   // pas d'exact : on garde le plus pertinent
+        return fallback;
     }
 
     async function syncEntry(mid, { progress, status, score } = {}) {
