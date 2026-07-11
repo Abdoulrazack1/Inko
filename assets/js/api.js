@@ -442,7 +442,22 @@
     // aux pages d'attendre la toute première authentification.
     API.ready = (async () => {
         if (_token) {
-            API.auth.me().catch(() => { /* géré dans request() */ });
+            // Réconciliation avec le compte propriétaire : une session en
+            // cache peut pointer un AUTRE compte que celui résolu côté
+            // serveur (ex. correction du propriétaire en base) — l'utilisateur
+            // croirait alors sa bibliothèque disparue. On revalide, et si le
+            // compte a changé on adopte la bonne session puis on recharge.
+            try {
+                const before = _user?.id;
+                const r = await API.auth.local();
+                if (r?.user?.id && before && r.user.id !== before) {
+                    try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch (e) {}
+                    setTimeout(() => window.location.reload(), 80);
+                }
+            } catch (e) {
+                // Mode local désactivé (multi-comptes) : session existante conservée
+                API.auth.me().catch(() => { /* géré dans request() */ });
+            }
             return true;
         }
         try {
