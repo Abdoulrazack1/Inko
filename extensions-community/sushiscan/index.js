@@ -162,12 +162,8 @@ async function buildCatalogIndex() {
     if (_catalogBuilding) return _catalogBuilding;
     _catalogBuilding = (async () => {
         const byId = new Map();
-        for (let i = 1; i <= 15; i++) {
-            let xml;
-            try { xml = await fetchHtml(`/manga-sitemap${i}.xml`, 6 * 3600_000); }
-            catch (e) { break; }
-            if (!xml || !/<url>/.test(xml)) break;
-            // Un bloc <url> par série : on extrait loc (slug) et image:loc (cover) séparément
+        const ingest = (xml) => {
+            if (!xml || !/<url>/.test(xml)) return false;
             for (const block of xml.split('<url>')) {
                 const loc = block.match(/<loc>[^<]*\/catalogue\/([^<]+?)\/<\/loc>/);
                 if (!loc) continue;
@@ -182,8 +178,20 @@ async function buildCatalogIndex() {
                     contentRating: 'safe', langs: ['fr'],
                 });
             }
-            if (xml.length < 200) break;
-        }
+            return true;
+        };
+        // La 1re sitemap confirme l'existence, puis on récupère les 2..15 EN
+        // PARALLÈLE (avant : séquentiel → ~15 s, pile sur le timeout de la
+        // recherche multi-sources ; désormais quelques secondes).
+        try {
+            const first = await fetchHtml('/manga-sitemap1.xml', 6 * 3600_000);
+            ingest(first);
+        } catch (e) { /* pas de sitemap : index vide, la recherche renverra 0 */ }
+        const rest = await Promise.allSettled(
+            Array.from({ length: 14 }, (_, k) =>
+                fetchHtml(`/manga-sitemap${k + 2}.xml`, 6 * 3600_000))
+        );
+        rest.forEach(r => { if (r.status === 'fulfilled') ingest(r.value); });
         _catalog = { list: [...byId.values()], byId, builtAt: Date.now() };
         _catalogBuilding = null;
         return _catalog;
@@ -315,6 +323,19 @@ async function buildAdultIndex() {
 
 const isAdultFlag = (a) => a === 'only' || a === '1' || a === 'all' || a === true;
 
+// Index adulte SANS blocage : renvoie le cache s'il est prêt, sinon null et
+// lance la construction en arrière-plan. Évite que la recherche attende ~12 s
+// (le build de l'index adulte) et tombe sur le timeout de la recherche.
+function peekAdultIndex() {
+    if (_adultCache.set && _adultCache.expires > Date.now()) return _adultCache;
+    if (!_building) buildAdultIndex().catch(() => {});   // build en fond
+    return null;
+}
+// Filtre de repli instantané tant que l'index adulte n'est pas prêt : masque
+// les slugs contenant un mot-clé adulte évident (couvre l'essentiel).
+const ADULT_SLUG_RE = /(^|[-_])(hentai|hentaï|smut|erotique|erotik|pornhwa|porn|adulte|adult|nsfw|ecchi|18|xxx)([-_]|$)/i;
+const looksAdult = (m) => ADULT_SLUG_RE.test(m.id || '') || ADULT_SLUG_RE.test(m.title || '');
+
 // ── Source export ──
 module.exports = {
     id:           'sushiscan',
@@ -322,10 +343,17 @@ module.exports = {
     lang:         'fr',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '0.5.0',
+    version:      '0.6.0',
     unit:      'chapter',
     description:  '⚠ Expérimental — scrape sushiscan.fr (Madara/TS). Populaires & dernières sorties distinctes, dates de sortie des chapitres, recherche sur tout le catalogue, contenu adulte filtré hors espace +18.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
+
+    // Pré-chauffage : construit l'index du catalogue en arrière-plan dès le
+    // démarrage, pour que la 1re recherche soit instantanée (avant, le build
+    // à froid ~15 s tombait pile sur le timeout de la recherche multi-sources).
+    async warmup() {
+        try { await Promise.all([buildCatalogIndex(), buildAdultIndex()]); } catch (e) {}
+    },
 
     // Catalogue trié & paginé : SushiScan accepte ?order=popular|update|title
     // et pagine via ?page=N (PAS /page/N/ qui renvoie toujours la 1re page).
@@ -374,11 +402,18 @@ module.exports = {
             });
         } catch (e) { list = []; }
 
-        const idx = await buildAdultIndex();
         if (isAdultFlag(adult)) {
+            // Espace +18 explicite : on attend l'index adulte (l'utilisateur
+            // le demande), mais borné pour ne pas bloquer indéfiniment.
+            const idx = await buildAdultIndex();
             list = list.filter(m => idx.set.has(m.id)).map(m => ({ ...m, contentRating: 'pornographic' }));
         } else {
-            list = list.filter(m => !idx.set.has(m.id));
+            // Catalogue normal : NON bloquant. Index prêt → filtre complet ;
+            // sinon repli instantané par mots-clés (la recherche reste rapide).
+            const idx = peekAdultIndex();
+            list = idx
+                ? list.filter(m => !idx.set.has(m.id))
+                : list.filter(m => !looksAdult(m));
         }
         // Tri : les correspondances en début de titre d'abord
         const qn = norm(q);

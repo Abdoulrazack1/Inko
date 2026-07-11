@@ -71,6 +71,15 @@ app.use(errorHandler);
         console.log(`${count} extension(s) chargée(s)`);
     }
 
+    // Pré-chauffage des extensions qui exposent warmup() (ex. SushiScan, qui
+    // construit un gros index de catalogue) — en arrière-plan, non bloquant,
+    // pour que la 1re recherche de l'utilisateur soit rapide.
+    for (const s of extensions.getAll()) {
+        if (typeof s.warmup === 'function') {
+            Promise.resolve().then(() => s.warmup()).catch(() => {});
+        }
+    }
+
     // Ménage quotidien (RGPD art. 5(1)(e), audit P5) : purge les tokens de
     // reset expirés et borne l'historique d'events (la heatmap couvre 365 j).
     const { pool } = require('./config/db');
