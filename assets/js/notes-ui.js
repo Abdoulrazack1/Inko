@@ -178,7 +178,7 @@
     }
 
     async function removeNote(id) {
-        if (!confirm('Supprimer cette note ?')) return;
+        if (!await MH.confirm('Supprimer cette note ?', { danger: true, okText: 'Supprimer' })) return;
         try { await API.me.removeNote(id); await loadList(); updateBadge(); MH.toast?.('Note supprimée'); }
         catch (e) { MH.toast?.('Erreur : ' + e.message); }
     }

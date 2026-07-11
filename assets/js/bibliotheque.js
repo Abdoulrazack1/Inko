@@ -208,7 +208,7 @@
             if (!f) return;
             try {
                 const data = JSON.parse(await f.text());
-                if (!confirm('Restaurer cette sauvegarde ? Tes favoris, progression et listes seront fusionnés avec les données importées.')) { iFile.value = ''; return; }
+                if (!await MH.confirm('Restaurer cette sauvegarde ? Tes favoris, progression et listes seront fusionnés avec les données importées.', { okText: 'Restaurer' })) { iFile.value = ''; return; }
                 await API.me.importData(data);
                 MH.toast?.('Sauvegarde restaurée');
                 setTimeout(() => window.location.reload(), 700);
@@ -618,7 +618,7 @@
             e.preventDefault(); e.stopPropagation();
             if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour modifier ta bibliothèque'); return; }
             const id = btn.dataset.del;
-            if (!confirm(`Retirer « ${btn.dataset.title || id} » de ta bibliothèque ?`)) return;
+            if (!await MH.confirm(`Retirer « ${btn.dataset.title || id} » de ta bibliothèque ?`, { danger: true, okText: 'Retirer' })) return;
             try {
                 await API.me.removeFavorite(id);
                 favs = favs.filter(f => f.mangaId !== id);
@@ -677,7 +677,7 @@
     }
     async function bulkDelete() {
         if (!selected.size) { MH.toast?.('Rien de sélectionné'); return; }
-        if (!confirm(`Retirer ${selected.size} série(s) de ta bibliothèque ?`)) return;
+        if (!await MH.confirm(`Retirer ${selected.size} série(s) de ta bibliothèque ?`, { danger: true, okText: 'Retirer' })) return;
         const ids = [...selected];
         for (const id of ids) {
             try { await API.me.removeFavorite(id); favs = favs.filter(f => f.mangaId !== id); }
@@ -693,7 +693,7 @@
         if (!selected.size) { MH.toast?.('Rien de sélectionné'); return; }
         const choices = Object.keys(STATUS).map((s, i) => `${i + 1}. ${STATUS[s][0]}`).join('\n');
         const keys = Object.keys(STATUS);
-        const ans = prompt(`Nouveau statut pour ${selected.size} série(s) :\n${choices}\n\nEntre un numéro (1-${keys.length}) :`);
+        const ans = await MH.prompt(`Nouveau statut pour ${selected.size} série(s)`, { message: choices, placeholder: `Numéro 1-${keys.length}`, okText: 'Appliquer' });
         const idx = parseInt(ans, 10) - 1;
         if (isNaN(idx) || idx < 0 || idx >= keys.length) return;
         const status = keys[idx];

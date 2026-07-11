@@ -9,7 +9,7 @@
             return;
         }
         document.getElementById('dlClearAll').addEventListener('click', async () => {
-            if (!confirm('Supprimer TOUS les chapitres téléchargés ?')) return;
+            if (!await MH.confirm('Supprimer TOUS les chapitres téléchargés ?', { danger: true, okText: 'Tout supprimer' })) return;
             const all = await window.Downloads.list();
             await Promise.all(all.map(c => window.Downloads.remove(c.chapterId)));
             MH.toast?.('Téléchargements supprimés');
@@ -76,7 +76,7 @@
         }).join('');
 
         body.querySelectorAll('[data-delmanga]').forEach(b => b.addEventListener('click', async () => {
-            if (!confirm('Supprimer tous les chapitres de cette série ?')) return;
+            if (!await MH.confirm('Supprimer tous les chapitres de cette série ?', { danger: true, okText: 'Supprimer' })) return;
             await window.Downloads.removeManga(b.dataset.delmanga);
             MH.toast?.('Série supprimée des téléchargements'); render();
         }));

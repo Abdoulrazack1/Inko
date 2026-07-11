@@ -114,7 +114,7 @@
     async function editNote(id) {
         const n = allNotes.find(x => String(x.id) === String(id));
         if (!n) return;
-        const next = prompt('Modifier la note :', n.body);
+        const next = await MH.prompt('Modifier la note', { value: n.body, okText: 'Enregistrer' });
         if (next == null || !next.trim() || next.trim() === n.body) return;
         try {
             await API.me.updateNote(id, { body: next.trim(), mood: n.mood });
@@ -126,7 +126,7 @@
     }
 
     async function removeNote(id) {
-        if (!confirm('Supprimer cette note ?')) return;
+        if (!await MH.confirm('Supprimer cette note ?', { danger: true, okText: 'Supprimer' })) return;
         try {
             await API.me.removeNote(id);
             allNotes = allNotes.filter(x => String(x.id) !== String(id));

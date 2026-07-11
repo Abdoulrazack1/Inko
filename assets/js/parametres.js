@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    const toast = (m) => window.MH?.toast(m) || alert(m);
+    const toast = (m) => window.MH?.toast(m);
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('parametres');
@@ -156,13 +156,13 @@
 
         document.getElementById('btnClearHistory').addEventListener('click', async () => {
             if (!API.isLoggedIn()) { toast('Connecte-toi'); return; }
-            if (!confirm('Effacer tout ton historique de lecture ? (favoris conservés)')) return;
+            if (!await MH.confirm('Effacer tout ton historique de lecture ? (favoris conservés)', { danger: true, okText: 'Effacer' })) return;
             try { await API.me.clearHistory(); toast('Historique effacé ✓'); }
             catch (e) { toast('Erreur : ' + e.message); }
         });
 
         document.getElementById('btnDeleteAccount')?.addEventListener('click', async () => {
-            const password = prompt('Action irréversible.\nEntre ton mot de passe pour confirmer la suppression :');
+            const password = await MH.prompt('Supprimer le compte', { message: 'Action irréversible. Entre ton mot de passe pour confirmer.', placeholder: 'Mot de passe', okText: 'Supprimer' });
             if (password === null) return;
             try {
                 await API.auth.deleteAccount(password);
@@ -200,7 +200,7 @@
             finally { btnCk.disabled = false; }
         }
         btnCk?.addEventListener('click', () => check(true));
-        btnDl?.addEventListener('click', () => { MH.appUpdates.download(); MH.toast('Téléchargement lancé dans ton navigateur'); });
+        btnDl?.addEventListener('click', () => MH.appUpdates.install());
         check(false);
     })();
 

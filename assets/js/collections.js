@@ -96,7 +96,7 @@
     async function deleteList(id) {
         const l = lists.find(x => String(x.id) === String(id));
         if (!l) return;
-        if (!confirm(`Supprimer la liste « ${l.name} » ? Cette action est définitive.`)) return;
+        if (!await MH.confirm(`Supprimer la liste « ${l.name} » ? Cette action est définitive.`, { danger: true, okText: 'Supprimer' })) return;
         try {
             await API.me.deleteList(id);
             MH.toast?.('Liste supprimée');

@@ -4,6 +4,7 @@ const auth    = require('../middleware/auth');
 const { adminRequired } = require('../middleware/admin');
 const { authLimiter, writeLimiter } = require('../middleware/security');
 const Auth    = require('../controllers/auth.controller');
+const Update  = require('../controllers/update.controller');
 const Manga   = require('../controllers/manga.controller');
 const User    = require('../controllers/user.controller');
 const Artwork = require('../controllers/artwork.controller');
@@ -22,6 +23,7 @@ router.get('/health', (_req, res) => res.json({
     ...(process.env.APP_VERSION ? { version: process.env.APP_VERSION } : {}),
     ...(process.env.INKO_DB_FALLBACK === '1' ? { dbFallback: true } : {}),
 }));
+router.post('/app/update', Update.runUpdate);   // MAJ intégrée (app desktop)
 
 // ── Auth ─────────────────────────────────────────
 router.get ('/auth/providers',      Auth.providers);

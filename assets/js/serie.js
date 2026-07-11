@@ -236,7 +236,7 @@
 
         document.getElementById('btnCategory')?.addEventListener('click', async () => {
             if (!API.isLoggedIn()) { MH.toast('Connecte-toi'); return; }
-            const name = prompt('Catégorie (laisse vide pour aucune) :', libCategory || '');
+            const name = await MH.prompt('Catégorie', { message: 'Laisse vide pour aucune.', value: libCategory || '', okText: 'Enregistrer' });
             if (name === null) return;
             const cat = name.trim();
             try {
@@ -573,14 +573,14 @@
     }
 
     async function reportComment(id) {
-        const reason = prompt('Pourquoi signales-tu ce commentaire ? (optionnel)');
+        const reason = await MH.prompt('Signaler ce commentaire', { message: 'Raison (optionnel)', placeholder: 'Spam, spoiler…', okText: 'Signaler' });
         if (reason === null) return; // annulé
         try { await API.comments.report(+id, reason || ''); MH.toast?.('Commentaire signalé. Merci.'); }
         catch (e) { MH.toast?.('Erreur : ' + e.message); }
     }
 
     async function deleteComment(id) {
-        if (!confirm('Supprimer ce commentaire ?')) return;
+        if (!await MH.confirm('Supprimer ce commentaire ?', { danger: true, okText: 'Supprimer' })) return;
         try { await API.comments.remove(+id); await loadComments(); MH.toast?.('Commentaire supprimé'); }
         catch (e) { MH.toast?.('Erreur : ' + e.message); }
     }

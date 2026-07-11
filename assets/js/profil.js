@@ -203,8 +203,8 @@
         const edit = document.getElementById('goalEdit');
         if (edit && !edit.dataset.bound) {
             edit.dataset.bound = '1';
-            edit.addEventListener('click', () => {
-                const v = prompt('Objectif de chapitres par semaine :', String(goal));
+            edit.addEventListener('click', async () => {
+                const v = await MH.prompt('Objectif de lecture', { message: 'Combien de chapitres par semaine ?', value: String(goal), okText: 'Enregistrer' });
                 if (v === null) return;
                 const n = parseInt(v, 10);
                 if (!n || n < 1) { MH.toast('Valeur invalide'); return; }
@@ -776,7 +776,7 @@
             if (addBtn && !addBtn.dataset.bound) {
                 addBtn.dataset.bound = '1';
                 addBtn.addEventListener('click', async () => {
-                    const name = prompt('Nom de la nouvelle liste :');
+                    const name = await MH.prompt('Nouvelle liste', { placeholder: 'Nom de la liste', okText: 'Créer' });
                     if (name && name.trim()) {
                         try {
                             const l = await API.me.createList({ name: name.trim() });
@@ -800,7 +800,8 @@
                 delBtn.addEventListener('click', async () => {
                     if (_activeList === 'favoris') return;
                     const l = _lists.find(x => String(x.id) === String(_activeList));
-                    if (!l || !confirm(`Supprimer la liste « ${l.name} » ?`)) return;
+                    if (!l) return;
+                    if (!await MH.confirm(`Supprimer la liste « ${l.name} » ?`, { danger: true, okText: 'Supprimer' })) return;
                     try {
                         await API.me.deleteList(_activeList);
                         MH.toast('Liste supprimée');
@@ -930,9 +931,9 @@
         actions.forEach(btn => {
             const txt = btn.textContent;
             if (/Éditer|Editer/.test(txt)) {
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', async () => {
                     const u = API.user; if (!u) { MH.toast('Connecte-toi'); return; }
-                    const name = prompt('Nouveau pseudo :', u.username);
+                    const name = await MH.prompt('Modifier le pseudo', { value: u.username, okText: 'Enregistrer' });
                     if (name && name.trim()) API.auth.updateProfile({ username: name.trim() })
                         .then(() => { MH.toast('Profil mis à jour ✓'); renderHeroAndStats(); })
                         .catch(e => MH.toast('Erreur : ' + e.message));
@@ -948,11 +949,11 @@
 
         // Boutons sociaux : enregistrer une URL
         document.querySelectorAll('.profil-social-btn').forEach(a => {
-            a.addEventListener('click', (e) => {
+            a.addEventListener('click', async (e) => {
                 e.preventDefault();
                 const key = 'social_' + (a.title || 'link');
                 const cur = window.Storage?.getPref(key) || '';
-                const url = prompt(`Lien ${a.title || ''} :`, cur);
+                const url = await MH.prompt(`Lien ${a.title || ''}`, { value: cur, placeholder: 'https://…', okText: 'Enregistrer' });
                 if (url === null) return;
                 if (url) { window.Storage?.setPref(key, url); window.open(url, '_blank'); }
             });

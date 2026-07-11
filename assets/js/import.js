@@ -70,7 +70,7 @@
                 <button class="btn btn-sm" data-del="${it.id}" style="color:#ef4444">Supprimer</button>
             </div>`).join('');
         list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
-            if (!confirm('Supprimer ce fichier importé ?')) return;
+            if (!await MH.confirm('Supprimer ce fichier importé ?', { danger: true, okText: 'Supprimer' })) return;
             try { await API.local.remove(b.dataset.del); MH.toast?.('Supprimé'); loadList(); }
             catch (e) { MH.toast?.('Erreur : ' + e.message); }
         }));

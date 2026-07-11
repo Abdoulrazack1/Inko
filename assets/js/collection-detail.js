@@ -78,7 +78,7 @@
             else MH.toast?.(url);
         });
         document.getElementById('cdDelete')?.addEventListener('click', async () => {
-            if (!confirm(`Supprimer la liste « ${list.name} » ?`)) return;
+            if (!await MH.confirm(`Supprimer la liste « ${list.name} » ?`, { danger: true, okText: 'Supprimer' })) return;
             try { await API.me.deleteList(list.id); MH.toast?.('Liste supprimée'); location.href = 'collections.html'; }
             catch (e) { MH.toast?.('Erreur : ' + e.message); }
         });

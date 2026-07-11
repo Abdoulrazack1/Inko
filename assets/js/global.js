@@ -211,6 +211,80 @@
         setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, duration);
     };
 
+    /* ── Modales premium (remplacent alert/confirm/prompt natifs) ────
+       Aucune fenêtre système : overlay glass, animé, clavier (Entrée/Échap),
+       promesses. MH.confirm → bool, MH.prompt → string|null, MH.alert → void. */
+    if (!document.getElementById('mhModalStyles')) {
+        const st = document.createElement('style');
+        st.id = 'mhModalStyles';
+        st.textContent = `
+        .mh-modal-veil{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;
+          background:color-mix(in srgb, var(--bg,#111) 55%, transparent);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
+          opacity:0;transition:opacity .2s ease}
+        .mh-modal-veil.on{opacity:1}
+        .mh-modal{width:min(420px,94vw);background:var(--bg2,#1a1a1e);border:1px solid var(--border,#333);border-radius:18px;
+          padding:24px 24px 20px;box-shadow:0 24px 70px -18px rgba(0,0,0,.55);transform:translateY(10px) scale(.98);transition:transform .2s cubic-bezier(.2,.9,.3,1.2)}
+        .mh-modal-veil.on .mh-modal{transform:none}
+        .mh-modal-title{font-family:var(--font-head,inherit);font-size:17px;font-weight:700;color:var(--text,#eee);margin-bottom:8px}
+        .mh-modal-msg{font-size:13.5px;line-height:1.55;color:var(--text2,#bbb);white-space:pre-line}
+        .mh-modal-input{width:100%;margin-top:14px;background:var(--bg3,#222);border:1px solid var(--border2,#3a3a3a);color:var(--text,#eee);
+          border-radius:10px;padding:11px 13px;font-size:14px;outline:none;transition:border-color .15s}
+        .mh-modal-input:focus{border-color:var(--accent,#c1531b)}
+        .mh-modal-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:20px}
+        .mh-modal-btn{border:none;cursor:pointer;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600;transition:filter .15s,background .15s}
+        .mh-modal-btn.ghost{background:var(--bg3,#222);color:var(--text2,#bbb)}
+        .mh-modal-btn.ghost:hover{color:var(--text,#eee)}
+        .mh-modal-btn.primary{background:var(--accent,#c1531b);color:#fff}
+        .mh-modal-btn.primary:hover{filter:brightness(1.08)}
+        .mh-modal-btn.danger{background:var(--hanko,#a83232);color:#fff}
+        .mh-modal-btn.danger:hover{filter:brightness(1.1)}`;
+        document.head.appendChild(st);
+    }
+    function mhModal({ title, message, input, value, placeholder, okText, cancelText, danger, showCancel }) {
+        return new Promise((resolve) => {
+            const veil = document.createElement('div');
+            veil.className = 'mh-modal-veil';
+            const inputHtml = input
+                ? `<input class="mh-modal-input" type="text" value="${(value || '').replace(/"/g, '&quot;')}" placeholder="${(placeholder || '').replace(/"/g, '&quot;')}">`
+                : '';
+            veil.innerHTML = `
+                <div class="mh-modal" role="dialog" aria-modal="true">
+                    ${title ? `<div class="mh-modal-title">${esc(title)}</div>` : ''}
+                    ${message ? `<div class="mh-modal-msg">${esc(message)}</div>` : ''}
+                    ${inputHtml}
+                    <div class="mh-modal-actions">
+                        ${showCancel ? `<button class="mh-modal-btn ghost" data-act="cancel">${esc(cancelText || 'Annuler')}</button>` : ''}
+                        <button class="mh-modal-btn ${danger ? 'danger' : 'primary'}" data-act="ok">${esc(okText || 'OK')}</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(veil);
+            const inp = veil.querySelector('.mh-modal-input');
+            void veil.offsetWidth;               // reflow → la transition joue
+            veil.classList.add('on');
+            if (inp) { inp.focus(); inp.select(); }
+            setTimeout(() => { if (veil.isConnected) veil.style.opacity = '1'; }, 220);
+            const close = (result) => {
+                veil.classList.remove('on');
+                setTimeout(() => veil.remove(), 200);
+                document.removeEventListener('keydown', onKey);
+                resolve(result);
+            };
+            const onOk = () => close(input ? (inp ? inp.value : '') : true);
+            const onCancel = () => close(input ? null : false);
+            function onKey(e) {
+                if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+                else if (e.key === 'Enter' && (input || !showCancel)) { e.preventDefault(); onOk(); }
+            }
+            document.addEventListener('keydown', onKey);
+            veil.querySelector('[data-act="ok"]').onclick = onOk;
+            veil.querySelector('[data-act="cancel"]')?.addEventListener('click', onCancel);
+            veil.addEventListener('click', (e) => { if (e.target === veil) onCancel(); });
+        });
+    }
+    window.MH.confirm = (message, opts = {}) => mhModal({ message, showCancel: true, okText: opts.okText || 'Confirmer', cancelText: opts.cancelText, danger: opts.danger, title: opts.title });
+    window.MH.prompt  = (message, opts = {}) => mhModal({ message, input: true, showCancel: true, value: opts.value, placeholder: opts.placeholder, okText: opts.okText || 'Valider', cancelText: opts.cancelText, title: opts.title });
+    window.MH.alert   = (message, opts = {}) => mhModal({ message, showCancel: false, okText: opts.okText || 'OK', title: opts.title });
+
     /* ── Star renderer ───────────────────────────────────── */
     window.MH.stars = function (rating) {
         const full = Math.floor(rating);
@@ -1180,6 +1254,26 @@
             return { current: h.version, latest, hasUpdate: !!latest && cmpVer(latest, h.version) > 0 };
         },
         download() { window.open(UPDATE_EXE, '_blank'); },
+        // Télécharge ET installe directement (app desktop) : le backend récupère
+        // l'installeur et le lance ; NSIS ferme Inko, met à jour, relance.
+        // Repli navigateur si l'endpoint n'est pas dispo (hors app installée).
+        async install() {
+            const ok = await MH.confirm('Installer la mise à jour maintenant ?', {
+                message: 'Inko va se fermer quelques secondes pour installer la nouvelle version, puis rouvrir automatiquement.',
+                okText: 'Installer maintenant',
+            });
+            if (!ok) return;
+            try {
+                const r = await fetch((window.API?.base || '/api') + '/app/update', { method: 'POST' })
+                    .then(x => x.json());
+                if (r.ok) { MH.toast('Téléchargement de la mise à jour… Inko va redémarrer.', 6000); return; }
+                throw new Error(r.error || 'échec');
+            } catch (e) {
+                // Pas d'app desktop (ou erreur) → téléchargement navigateur
+                MH.toast('Téléchargement de l’installeur dans ton navigateur…');
+                window.open(UPDATE_EXE, '_blank');
+            }
+        },
     };
     // Vérification À CHAQUE lancement (l'app desktop redémarre à chaque
     // ouverture ; l'appel GitHub est léger). Le bandeau reste tant que la
@@ -1199,7 +1293,7 @@
             bar.innerHTML = '<span>🎉 Une nouvelle version d’Inko est disponible — <strong>v' + esc(r.latest) + '</strong> (tu as la v' + esc(r.current) + ')</span>' +
                 '<button id="updDl" style="background:#fff;border:none;color:var(--accent,#c1531b);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:12.5px;font-weight:700">⬇ Télécharger</button>' +
                 '<button id="updLater" style="background:none;border:none;color:rgba(255,255,255,.8);cursor:pointer;font-size:12px">Plus tard</button>';
-            bar.querySelector('#updDl').onclick = () => MH.appUpdates.download();
+            bar.querySelector('#updDl').onclick = () => MH.appUpdates.install();
             bar.querySelector('#updLater').onclick = () => { bar.remove(); try { localStorage.setItem('inko_upd_dismissed', r.latest); } catch (e) {} };
             document.body.prepend(bar);
         } catch (e) { /* hors-ligne : au prochain lancement */ }
