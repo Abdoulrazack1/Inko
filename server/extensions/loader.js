@@ -5,15 +5,36 @@
 // qui exportent une source valide. Expose un registre interrogeable.
 // ============================================================
 const fs   = require('fs');
+const os   = require('os');
 const path = require('path');
 const { validateSource } = require('../lib/source-interface');
 
 const EXT_DIR = __dirname;
 const registry = new Map(); // id → source
 
+// Liste des extensions DÉSINSTALLÉES par l'utilisateur (issue #2). Stockée dans
+// un dossier inscriptible qui SURVIT aux mises à jour de l'app (les extensions
+// sont bundlées : les supprimer physiquement ne tiendrait pas). Le loader
+// ignore simplement ces ids au chargement.
+function uninstalledPath() {
+    const base = process.env.APPDATA || path.join(os.homedir(), '.config');
+    return path.join(base, 'Inko', 'uninstalled-extensions.json');
+}
+function readUninstalled() {
+    try { return new Set(JSON.parse(fs.readFileSync(uninstalledPath(), 'utf8'))); }
+    catch (e) { return new Set(); }
+}
+function writeUninstalled(set) {
+    try {
+        fs.mkdirSync(path.dirname(uninstalledPath()), { recursive: true });
+        fs.writeFileSync(uninstalledPath(), JSON.stringify([...set]));
+    } catch (e) {}
+}
+
 function loadAll() {
     if (registry.size) return registry; // déjà chargé
 
+    const uninstalled = readUninstalled();
     let entries;
     try { entries = fs.readdirSync(EXT_DIR, { withFileTypes: true }); }
     catch (e) { console.warn('[ext] impossible de lire le dossier extensions:', e.message); return registry; }
@@ -23,6 +44,7 @@ function loadAll() {
         .forEach(d => {
             const indexPath = path.join(EXT_DIR, d.name, 'index.js');
             if (!fs.existsSync(indexPath)) return;
+            if (uninstalled.has(d.name)) return;   // désinstallée par l'utilisateur
             try {
                 // Force le re-require (utile en dev)
                 delete require.cache[require.resolve(indexPath)];
@@ -32,6 +54,7 @@ function loadAll() {
                     console.warn(`[ext] "${d.name}" rejeté: ${v.errors.join(', ')}`);
                     return;
                 }
+                if (uninstalled.has(src.id)) return;   // désinstallée (par id)
                 registry.set(src.id, src);
                 console.log(`[ext] ✓ ${src.id} v${src.version} (${src.name})`);
             } catch (e) {
@@ -94,4 +117,16 @@ function reload() {
     return loadAll();
 }
 
-module.exports = { loadAll, getAll, get, manifest, defaultSource, reload };
+// Désinstalle / réinstalle une extension (issue #2) — persistant, puis reload.
+function uninstall(id) {
+    const set = readUninstalled(); set.add(id); writeUninstalled(set); reload();
+    return [...set];
+}
+function reinstall(id) {
+    const set = readUninstalled(); set.delete(id); writeUninstalled(set); reload();
+    return [...set];
+}
+function isUninstalled(id) { return readUninstalled().has(id); }
+function uninstalledList() { return [...readUninstalled()]; }
+
+module.exports = { loadAll, getAll, get, manifest, defaultSource, reload, uninstall, reinstall, isUninstalled, uninstalledList };

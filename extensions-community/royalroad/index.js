@@ -118,7 +118,7 @@ module.exports = {
     lang:         'en',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '1.1.0',
+    version:      '1.2.0',
     unit:      'chapter',
     type:         'novel',
     description:  'Royal Road — la plus grande plateforme de web novels anglophones (LitRPG, fantasy, isekai). Lecture en texte.',
@@ -132,9 +132,14 @@ module.exports = {
         return browse('/fictions/latest-updates', opts, 120_000);
     },
 
-    async search({ q, limit = 20, offset = 0 } = {}) {
+    async search({ q, limit = 20, offset = 0, filters = {} } = {}) {
         requireCheerio();
-        if (!q) return this.popular({ limit, offset });
+        if (!q) {
+            // Navigation sans recherche : on respecte le TRI choisi (issue #1)
+            const sort = (filters && filters.sort) || '';
+            if (/latest|updat|nouveau|added|recent|new/i.test(sort)) return this.latest({ limit, offset });
+            return this.popular({ limit, offset });
+        }
         return browse(`/fictions/search?title=${encodeURIComponent(q)}`, { limit, offset }, 120_000);
     },
 

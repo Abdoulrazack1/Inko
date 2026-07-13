@@ -759,6 +759,10 @@
                 <div class="chapters-block-title">Tous les chapitres · <span id="chapCount">${chapters.length}</span></div>
                 <div class="chapters-controls">
                     <input type="text" id="chapSearch" class="chap-search-input" placeholder="Chercher un chapitre…">
+                    <select id="chapLang" class="chap-sort-btn" title="Langue des chapitres" style="cursor:pointer">
+                        ${[['fr,en','🌐 Toutes'],['fr','🇫🇷 Français'],['en','🇬🇧 Anglais'],['fr,en,ja','+ 日本語']].map(([v,l]) =>
+                            `<option value="${v}" ${(window.Storage?.getPref('readingLang')||'fr,en')===v?'selected':''}>${l}</option>`).join('')}
+                    </select>
                     <button class="chap-sort-btn ic-btn" id="chapRandom" title="Ouvrir un chapitre au hasard">${MH.icon('dice', 14)} Au hasard</button>
                     <button class="chap-sort-btn" id="chapCheckNew" title="Vérifier maintenant s'il y a de nouveaux chapitres sur cette série">↻ Vérifier</button>
                     <button class="chap-sort-btn" id="chapMarkAll" title="Marquer tous les chapitres comme lus">✓ Tout lu</button>
@@ -777,6 +781,17 @@
         const sortBtn = el.querySelector('#chapSortBtn');
         const markAll = el.querySelector('#chapMarkAll');
         const randBtn = el.querySelector('#chapRandom');
+
+        // Langue des chapitres (issue #3) : choisir FR / EN / toutes sur les
+        // sources multilingues. Persiste readingLang puis recharge la liste.
+        el.querySelector('#chapLang')?.addEventListener('change', (e) => {
+            window.Storage?.setPref('readingLang', e.target.value);
+            if (API.isLoggedIn()) API.me.saveSettings?.({ readingLang: e.target.value }).catch(() => {});
+            MH.toast('Langue : ' + e.target.options[e.target.selectedIndex].text.replace(/^[^\s]+\s/, ''));
+            chapters = [];
+            renderTab('chapitres');   // spinner
+            loadChapters();           // recharge avec la nouvelle langue
+        });
 
         // §15.4-4 : vérification de CETTE série seulement (pas de cooldown côté serveur)
         el.querySelector('#chapCheckNew')?.addEventListener('click', async (e) => {

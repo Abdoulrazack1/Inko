@@ -51,6 +51,9 @@ router.get ('/extensions/:id/test', auth.authRequired, Ext.testSource);
 // applyUpdates écrit des fichiers .js exécutés côté serveur pour toute l'instance :
 // exige un rôle admin, pas seulement une session valide (audit §7.3).
 router.post('/extensions/update',   auth.authRequired, adminRequired, Ext.applyUpdates);
+router.post('/extensions/:id/uninstall', auth.authRequired, Ext.uninstall);
+router.post('/extensions/:id/reinstall', auth.authRequired, Ext.reinstall);
+router.get ('/extensions/uninstalled', (_q, res) => res.json(require('../extensions/loader').uninstalledList()));
 
 // ── Proxy de couvertures (cache + anti-hotlink) ───
 router.get('/img',                  Image.proxy);

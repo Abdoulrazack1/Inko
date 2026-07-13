@@ -991,6 +991,26 @@ body.reader-immersive::after {
   scrollbar-width: thin;
   scrollbar-color: var(--bg4) transparent;
 }
+
+/* Mode DÉFILEMENT : la zone grandit à la hauteur totale des images empilées
+   et c'est la FENÊTRE qui défile. Surtout pas de flex-center + overflow:hidden
+   (qui rognait le haut/bas) ni de transform:scale (qui laissait le bas
+   inatteignable). Bloc simple, débordement visible. */
+.reader-pages-area.reader-scrollmode {
+  display: block;
+  overflow: visible;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  cursor: default;
+  align-items: initial;
+  justify-content: initial;
+}
+.reader-pages-area.reader-scrollmode .reader-scroll-wrapper .reader-page-img {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
 .reader-pages-area.paged::-webkit-scrollbar { width: 8px; }
 .reader-pages-area.paged::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
 /* En plein écran / immersif, la page occupe toute la hauteur */

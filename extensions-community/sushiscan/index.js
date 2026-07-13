@@ -343,7 +343,7 @@ module.exports = {
     lang:         'fr',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '0.6.0',
+    version:      '0.7.0',
     unit:      'chapter',
     description:  '⚠ Expérimental — scrape sushiscan.fr (Madara/TS). Populaires & dernières sorties distinctes, dates de sortie des chapitres, recherche sur tout le catalogue, contenu adulte filtré hors espace +18.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
@@ -387,7 +387,11 @@ module.exports = {
     async search({ q, limit = 20, offset = 0, filters = {} } = {}) {
         requireCheerio();
         const adult = filters.adult;
-        if (!q) return this.popular({ limit, offset, adult });
+        if (!q) {
+            const sort = (filters && filters.sort) || '';
+            if (/latest|updat|nouveau|added|recent|new/i.test(sort)) return this.latest({ limit, offset, adult });
+            return this.popular({ limit, offset, adult });
+        }
 
         // Recherche dans l'index complet du catalogue (le moteur du site est HS).
         // On normalise (sans accents/tirets) pour matcher « arslan senki », etc.

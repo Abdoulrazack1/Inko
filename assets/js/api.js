@@ -212,6 +212,9 @@
         // ── Sources (extensions installées) ──
         sources: {
             list:    ()             => get('/sources'),
+            uninstall:  (id) => post('/extensions/' + encodeURIComponent(id) + '/uninstall'),
+            reinstall:  (id) => post('/extensions/' + encodeURIComponent(id) + '/reinstall'),
+            uninstalled:()   => get('/extensions/uninstalled'),
             // Source active : préférence locale, défaut = WeebCentral
             // (pages des titres populaires lisibles, contrairement à MangaDex
             //  qui en licencie beaucoup en externalUrl). Modifiable via /sources.

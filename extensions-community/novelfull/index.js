@@ -145,7 +145,7 @@ module.exports = {
     lang:         'en',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '1.1.0',
+    version:      '1.2.0',
     unit:      'chapter',
     type:         'novel',
     description:  'NovelFull — light novels japonais, chinois et coréens traduits en anglais (xianxia, wuxia, isekai). Lecture en texte.',
@@ -177,7 +177,12 @@ module.exports = {
         if (!q && tags.length) {
             return browse(`/genre/${encodeURIComponent(tags[0].replace(/ /g, '+'))}`, { limit, offset }, 300_000);
         }
-        if (!q) return this.popular({ limit, offset });
+        if (!q) {
+            // Navigation sans recherche : on respecte le TRI choisi (issue #1)
+            const sort = (filters && filters.sort) || '';
+            if (/latest|updat|nouveau|added|recent|new/i.test(sort)) return this.latest({ limit, offset });
+            return this.popular({ limit, offset });
+        }
         return browse(`/search?keyword=${encodeURIComponent(q)}`, { limit, offset }, 120_000);
     },
 

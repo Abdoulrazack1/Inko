@@ -115,7 +115,7 @@ module.exports = {
     lang:         'fr',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '1.1.0',
+    version:      '1.2.0',
     unit:      'chapter',
     type:         'novel',
     description:  'Chireads — novels chinois traduits en FRANÇAIS par des équipes de fantrad (xianxia, romance, intrigue). Lecture en texte.',
@@ -130,9 +130,14 @@ module.exports = {
         return browse('/category/translatedtales/', opts, 120_000);
     },
 
-    async search({ q, limit = 20, offset = 0 } = {}) {
+    async search({ q, limit = 20, offset = 0, filters = {} } = {}) {
         requireCheerio();
-        if (!q) return this.popular({ limit, offset });
+        if (!q) {
+            // Navigation sans recherche : on respecte le TRI choisi (issue #1)
+            const sort = (filters && filters.sort) || '';
+            if (/latest|updat|nouveau|added|recent|new/i.test(sort)) return this.latest({ limit, offset });
+            return this.popular({ limit, offset });
+        }
         const html = await fetchHtml(`/search?x=0&y=0&name=${encodeURIComponent(q)}`, 120_000);
         const results = parseList(cheerio.load(html));
         return { total: results.length, results: results.slice(0, +limit || 20) };

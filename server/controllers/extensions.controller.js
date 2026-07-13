@@ -134,4 +134,21 @@ async function healthStatus(_req, res, next) {
 // L'installation d'extensions par URL a été retirée : les extensions ne
 // sont publiées que par l'admin, via les nouvelles versions de l'app.
 
-module.exports = { checkUpdates, applyUpdates, testSource, healthStatus };
+// Désinstalle / réinstalle une extension (issue #2). Persistant (survit aux
+// mises à jour), le loader ignore les extensions désinstallées.
+function uninstall(req, res, next) {
+    try {
+        const id = String(req.params.id || '');
+        if (!extensions.get(id)) return res.status(404).json({ error: 'Extension introuvable ou déjà désinstallée' });
+        extensions.uninstall(id);
+        res.json({ ok: true, uninstalled: extensions.uninstalledList() });
+    } catch (e) { next(e); }
+}
+function reinstall(req, res, next) {
+    try {
+        extensions.reinstall(String(req.params.id || ''));
+        res.json({ ok: true, uninstalled: extensions.uninstalledList() });
+    } catch (e) { next(e); }
+}
+
+module.exports = { checkUpdates, applyUpdates, testSource, healthStatus, uninstall, reinstall };

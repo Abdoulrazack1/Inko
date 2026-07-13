@@ -129,6 +129,7 @@
                         : `<button class="btn btn-primary btn-sm" data-activate="${MH.esc(s.id)}">Activer</button>`)}
                 <button class="btn btn-secondary btn-sm" data-test="${MH.esc(s.id)}" title="Vérifier que la source répond">Tester</button>
                 <button class="btn btn-secondary btn-sm" data-toggle-src="${MH.esc(s.id)}" title="${disabled ? 'Réactiver cette source' : 'Ne plus utiliser cette source (masquée en recherche)'}">${disabled ? 'Réactiver' : 'Désactiver'}</button>
+                <button class="btn btn-ghost btn-sm" data-uninstall-src="${MH.esc(s.id)}" title="Désinstaller complètement cette extension" style="color:var(--hanko,#a83232)">Désinstaller</button>
                 <span class="source-test-result" data-test-result="${MH.esc(s.id)}" style="font-size:11px;margin-left:6px"></span>
             </div>
         </div>`;
@@ -147,9 +148,54 @@
                 ${list.map(card).join('')}
             </div>` : '';
 
+        // Extensions désinstallées (issue #2) : section pour réinstaller
+        let uninstalled = [];
+        try { uninstalled = await API.sources.uninstalled(); } catch (e) {}
+        const reinstallSection = uninstalled.length ? `
+            <div class="sources-group">
+                <div class="sources-group-head">
+                    <h2 class="sources-group-title">Désinstallées</h2>
+                    <span class="sources-group-sub">Extensions que tu as retirées — tu peux les réinstaller</span>
+                    <span class="sources-group-count">${uninstalled.length}</span>
+                </div>
+                ${uninstalled.map(id => `
+                    <div class="source-card" style="opacity:.6">
+                        <div class="source-icon">${MH.esc(id[0].toUpperCase())}</div>
+                        <div class="source-meta"><div class="source-name">${MH.esc(id)}</div>
+                            <div class="source-desc">Extension désinstallée.</div></div>
+                        <div class="source-actions">
+                            <button class="btn btn-primary btn-sm" data-reinstall-src="${MH.esc(id)}">Réinstaller</button>
+                        </div>
+                    </div>`).join('')}
+            </div>` : '';
+
         el.innerHTML =
             group('Mangas', 'Lecture en images', mangas) +
-            group('Romans', 'Light novels & web novels — lecture en texte', novels);
+            group('Romans', 'Light novels & web novels — lecture en texte', novels) +
+            reinstallSection;
+
+        // Désinstaller (retire l'extension, persiste, recharge le serveur)
+        el.querySelectorAll('[data-uninstall-src]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.uninstallSrc;
+                if (!await MH.confirm(`Désinstaller l'extension « ${id} » ?`, { message: 'Elle sera retirée de tes sources. Tu pourras la réinstaller ici à tout moment.', danger: true, okText: 'Désinstaller' })) return;
+                try {
+                    await API.sources.uninstall(id);
+                    if (API.sources.current === id) {
+                        const fb = sources.find(s => s.id !== id && MH.isSourceEnabled(s.id));
+                        if (fb) API.sources.current = fb.id;
+                    }
+                    MH.toast('Extension désinstallée');
+                    render();
+                } catch (e) { MH.toast('Erreur : ' + e.message); }
+            });
+        });
+        el.querySelectorAll('[data-reinstall-src]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                try { await API.sources.reinstall(btn.dataset.reinstallSrc); MH.toast('Extension réinstallée ✓'); render(); }
+                catch (e) { MH.toast('Erreur : ' + e.message); }
+            });
+        });
 
         el.querySelectorAll('[data-activate]').forEach(btn => {
             btn.addEventListener('click', () => {

@@ -296,6 +296,7 @@
 
         const p = pages[num - 1];
         if (!p) return;
+        el.classList.remove('reader-scrollmode');   // retour en mode paginé
         el.classList.add('paged');   // défilement interne quand la page dépasse l'écran
         const leftTarget  = rs.direction === 'rtl' ? num + 1 : num - 1;
         const rightTarget = rs.direction === 'rtl' ? num - 1 : num + 1;
@@ -314,12 +315,33 @@
     function renderScroll() {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
-        el.classList.remove('paged');   // défilement natif de la fenêtre (images empilées)
+        el.classList.remove('paged');
+        el.classList.add('reader-scrollmode');   // block + overflow visible : la fenêtre scrolle, jamais de coupe
+        // Le zoom passe par la LARGEUR (pas transform:scale, qui laisserait le
+        // bas du chapitre déborder sous la zone scrollable et inatteignable).
+        const widthPct = Math.max(20, Math.min(100, zoom));
+        // Défilement : les 6 premières pages en eager, les suivantes en lazy
+        // mais avec un rootMargin large (préchargées bien avant d'être visibles)
+        // → jamais de « trou » ni de chapitre incomplet en scrollant vite.
         el.innerHTML = `
-        <div class="reader-page-wrapper" style="display:flex;flex-direction:column;gap:${rs.gap}px;transform:scale(${zoom/100});transform-origin:top center">
-            ${pages.map((p, i) => pageImg(i, `data-page="${i+1}"`, i >= 3)).join('')}
+        <div class="reader-page-wrapper reader-scroll-wrapper" style="display:flex;flex-direction:column;align-items:center;gap:${rs.gap}px;width:${widthPct}%;margin:0 auto">
+            ${pages.map((p, i) => pageImg(i, `data-page="${i+1}"`, i >= 6)).join('')}
         </div>
         <div class="page-counter-badge"><strong>${totalPages}</strong> pages — défilement</div>`;
+
+        // Préchargement anticipé : dès qu'une page approche (2000px avant), on
+        // force son chargement — indépendant du lazy natif, qui pouvait tarder.
+        if ('IntersectionObserver' in window) {
+            const pre = new IntersectionObserver((ents, obs) => {
+                ents.forEach(en => {
+                    if (!en.isIntersecting) return;
+                    const im = en.target;
+                    if (im.loading === 'lazy') im.loading = 'eager';   // force le fetch
+                    obs.unobserve(im);
+                });
+            }, { rootMargin: '2000px 0px' });
+            el.querySelectorAll('.reader-page-img').forEach(im => pre.observe(im));
+        }
 
         if ('IntersectionObserver' in window) {
             const io = new IntersectionObserver(entries => {
@@ -342,6 +364,7 @@
         if (!el) return;
         if (num < 1) num = 1;
         doubleBase = num;              // ancre de la planche (navigation par 2)
+        el.classList.remove('reader-scrollmode');
         el.classList.add('paged');     // défilement interne si la planche dépasse l'écran
         const cur  = pages[num - 1];   // page courante (num)
         const next = pages[num];       // page suivante (num+1)
@@ -581,6 +604,13 @@
         const area = document.getElementById('readerPagesArea');
         if (!area) return;
         area.addEventListener('wheel', (e) => {
+            // Ctrl + molette → zoom (ergonomie demandée en issue #4), dans tous
+            // les modes. On empêche le zoom natif du navigateur/page.
+            if (e.ctrlKey) {
+                e.preventDefault();
+                window.changeZoom(e.deltaY < 0 ? 10 : -10);
+                return;
+            }
             if (readMode === 'scroll') return;   // défilement natif des images empilées
             const down = e.deltaY > 0;
             const canScroll = area.scrollHeight > area.clientHeight + 2;
@@ -712,7 +742,16 @@
         const label = document.getElementById('zoomLabel');
         if (label) label.textContent = `${zoom}%`;
         const wrapper = document.querySelector('.reader-page-wrapper');
-        if (wrapper) wrapper.style.transform = `scale(${zoom / 100})`;
+        if (wrapper) {
+            if (readMode === 'scroll') {
+                // En défilement, le zoom passe par la LARGEUR (jamais transform:scale,
+                // qui laisserait le bas du chapitre inatteignable — bug corrigé).
+                wrapper.style.transform = '';
+                wrapper.style.width = `${Math.max(20, Math.min(100, zoom))}%`;
+            } else {
+                wrapper.style.transform = `scale(${zoom / 100})`;
+            }
+        }
         window.Storage?.setPref('zoom', zoom);
     };
 
