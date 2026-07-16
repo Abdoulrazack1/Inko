@@ -273,8 +273,27 @@
                 }
                 alBtn.disabled = true;
                 alBtn.textContent = 'Synchronisation…';
-                const mid = await AniList.mediaId(manga.title);
+                let mid = await AniList.mediaId(manga.title);
                 if (!mid) throw new Error('œuvre introuvable sur AniList');
+                // Audit N56 : si le rattachement vient d'une correspondance
+                // APPROXIMATIVE (pas de titre exact), on le fait valider une fois
+                // — sinon la progression peut partir vers la mauvaise fiche sans
+                // que rien ne le signale.
+                const link = await AniList.getLink(manga.title);
+                if (link && link.exact === false) {
+                    const info = await AniList.mediaInfo(mid);
+                    const name = info?.title?.romaji || info?.title?.english || ('fiche #' + mid);
+                    const ok = await MH.confirm(
+                        `Inko a lié cette série à « ${MH.esc(name)} » sur AniList (correspondance approximative). Est-ce la bonne fiche ?`,
+                        { okText: 'Oui, c\'est elle', cancelText: 'Choisir la bonne', title: 'Rattachement AniList' });
+                    if (ok) {
+                        await AniList.setLink(manga.title, mid);   // confirme le lien
+                    } else {
+                        const chosen = await pickAniListMedia();
+                        if (!chosen) { MH.toast('Synchronisation annulée'); return; }
+                        mid = chosen;
+                    }
+                }
                 let prog = null;
                 for (const c of chapters) {
                     if (readChapsSet.has(c.id) && Number.isFinite(+c.chapter)) prog = Math.max(prog ?? 0, +c.chapter);
@@ -293,6 +312,34 @@
                 alBtn.innerHTML = label;
             }
         });
+        // Clic droit sur le bouton AniList : voir / corriger le rattachement (audit N56)
+        alBtn?.addEventListener('contextmenu', async (e) => {
+            e.preventDefault();
+            if (!window.AniList) return;
+            const link = await AniList.getLink(manga.title);
+            if (!link) { MH.toast('Pas encore de fiche AniList liée — lance une synchro d\'abord.'); return; }
+            const info = await AniList.mediaInfo(link.id);
+            const name = info?.title?.romaji || info?.title?.english || ('fiche #' + link.id);
+            const keep = await MH.confirm(
+                `Cette série est liée à « ${MH.esc(name)} » sur AniList${link.exact === false ? ' (correspondance approximative)' : ''}. Garder ce rattachement ?`,
+                { okText: 'Garder', cancelText: 'Changer de fiche', title: 'Rattachement AniList' });
+            if (!keep) await pickAniListMedia();
+        });
+    }
+
+    // Sélecteur de fiche AniList (audit N56) : liste les meilleurs résultats,
+    // l'utilisateur choisit, le lien est persisté pour toutes les synchros à venir.
+    async function pickAniListMedia() {
+        const media = await AniList.searchMedia(manga.title);
+        if (!media.length) { MH.toast('Aucun résultat AniList pour ce titre'); return null; }
+        const lines = media.map((m, i) => `${i + 1}. ${m.title?.romaji || m.title?.english || ('#' + m.id)}`).join('\n');
+        const ans = await MH.prompt('Quelle est la bonne fiche AniList ?', {
+            message: lines, placeholder: `Numéro 1-${media.length}`, okText: 'Lier' });
+        const idx = parseInt(ans, 10) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= media.length) return null;
+        await AniList.setLink(manga.title, media[idx].id);
+        MH.toast(`Liée à « ${media[idx].title?.romaji || media[idx].title?.english} » ✓`);
+        return media[idx].id;
     }
 
     // ── Sélecteur "Ajouter à une liste" ──
@@ -440,12 +487,20 @@
         const j = Math.floor(h / 24); if (j < 30) return `il y a ${j} j`;
         return new Date(d).toLocaleDateString('fr-FR');
     }
-    async function loadComments() {
+    // Pagination par fil (audit N51) : on garde en mémoire les fils déjà chargés,
+    // et « Voir les commentaires précédents » va chercher les fils plus anciens.
+    const COMMENTS_PAGE = 50;
+    let commentItems = [];      // commentaires chargés (racines + réponses)
+    let commentHasMore = false;
+    let commentTotal = 0;
+
+    async function loadComments(opts = {}) {
+        const more = !!opts.more;
         const listEl = document.getElementById('commentsList');
         const formEl = document.getElementById('commentForm');
         const countEl = document.getElementById('commentCount');
         if (!listEl) return;
-        if (formEl) {
+        if (!more && formEl) {
             if (API.isLoggedIn()) {
                 formEl.innerHTML = `
                     <div class="comment-compose">
@@ -477,14 +532,30 @@
                 formEl.innerHTML = `<div class="comment-login-hint">Connecte-toi pour laisser un commentaire.</div>`;
             }
         }
-        let comments = [];
-        try { comments = await API.comments.list(manga.id); } catch (e) { comments = []; }
-        if (countEl) countEl.textContent = comments.length ? `· ${comments.length}` : '';
-        if (!comments.length) {
+        const rootsLoaded = commentItems.filter(c => !c.parentId).length;
+        let res;
+        try {
+            res = more
+                ? await API.comments.list(manga.id, { limit: COMMENTS_PAGE, offset: rootsLoaded })
+                // rafraîchissement : on recharge autant de fils qu'affichés pour ne pas rétrécir la vue
+                : await API.comments.list(manga.id, { limit: Math.max(COMMENTS_PAGE, rootsLoaded) });
+        } catch (e) { res = { items: [], total: 0, hasMore: false }; }
+        // Tolère l'ancien format tableau (réponse encore en cache Service Worker)
+        const items = Array.isArray(res) ? res : (res.items || []);
+        commentHasMore = Array.isArray(res) ? false : !!res.hasMore;
+        commentTotal   = Array.isArray(res) ? items.length : (res.total || 0);
+        if (more) {
+            const seen = new Set(commentItems.map(c => c.id));
+            commentItems = commentItems.concat(items.filter(c => !seen.has(c.id)));
+        } else {
+            commentItems = items;
+        }
+        if (countEl) countEl.textContent = commentTotal ? `· ${commentTotal}` : '';
+        if (!commentItems.length) {
             listEl.innerHTML = `<div class="comment-empty">Aucun commentaire pour l'instant. Sois le premier à donner ton avis.</div>`;
             return;
         }
-        renderCommentTree(listEl, comments);
+        renderCommentTree(listEl, commentItems);
     }
 
     // Transforme @username en lien vers le profil public (sur texte déjà échappé)
@@ -537,6 +608,16 @@
             const replies = (repliesByRoot.get(r.id) || []).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
             return one(r, false) + replies.map(rep => one(rep, true)).join('');
         }).join('');
+
+        if (commentHasMore) {
+            const moreBtn = document.createElement('button');
+            moreBtn.type = 'button';
+            moreBtn.className = 'btn btn-sm';
+            moreBtn.style.cssText = 'display:block;margin:12px auto 0';
+            moreBtn.textContent = 'Voir les commentaires précédents';
+            moreBtn.onclick = () => { moreBtn.disabled = true; loadComments({ more: true }); };
+            listEl.appendChild(moreBtn);
+        }
 
         // Interactions (handler unique, ré-assigné à chaque rendu)
         listEl.onclick = async (e) => {

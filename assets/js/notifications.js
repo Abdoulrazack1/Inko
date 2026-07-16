@@ -1,10 +1,14 @@
-// notifications.js — Page dédiée des notifications (audit §6.1)
+// notifications.js — Page dédiée des notifications (audit §6.1 ; refonte Partie G)
 (function () {
     'use strict';
 
     const ICONS = { reply: 'comment', mention: 'comment', chapter: 'book', new_chapter: 'book', badge: 'award', system: 'bell' };
+    const FILTER_KEY = 'inko_notif_filter';   // filtre persisté (audit G.6)
     let items = [];
+    let loadError = false;                    // distinguer erreur réseau et vide (audit N9-notif / G.3)
+    let loadedAt = null;
     let filter = 'all';
+    try { filter = localStorage.getItem(FILTER_KEY) || 'all'; } catch (e) {}
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('');
@@ -18,9 +22,13 @@
             return;
         }
 
+        // Ré-applique le filtre persisté sur les pastilles
+        document.querySelectorAll('.nt-pill').forEach(p => p.classList.toggle('active', p.dataset.f === filter));
+
         document.getElementById('ntFilters').addEventListener('click', (e) => {
             const b = e.target.closest('.nt-pill'); if (!b) return;
             filter = b.dataset.f;
+            try { localStorage.setItem(FILTER_KEY, filter); } catch (e2) {}
             document.querySelectorAll('.nt-pill').forEach(p => p.classList.toggle('active', p === b));
             render();
         });
@@ -29,14 +37,39 @@
             try { await API.notifications.markAll(); items.forEach(n => { n.read = true; }); render(); MH.toast?.('Tout est lu ✓'); }
             catch (e) { MH.toast?.('Erreur : ' + e.message); }
         });
+        // Bouton Actualiser (audit N8 / G.2) — état de chargement le temps de l'appel
+        document.getElementById('ntRefresh')?.addEventListener('click', () => load());
+
+        // Un push reçu pendant que la page est ouverte recharge la liste (audit G.4)
+        try {
+            navigator.serviceWorker?.addEventListener('message', (e) => {
+                if (e.data && e.data.type === 'notif:new') load();
+            });
+        } catch (e) {}
 
         await load();
     });
 
     async function load() {
-        try { items = (await API.notifications.list(100)).items || []; }
-        catch (e) { items = []; }
+        const btn = document.getElementById('ntRefresh');
+        if (btn) { btn.disabled = true; btn.textContent = '↻ …'; }
+        try {
+            items = (await API.notifications.list(100)).items || [];
+            loadError = false;
+            loadedAt = Date.now();
+        } catch (e) {
+            loadError = true;   // on garde les items déjà affichés le cas échéant
+        }
+        if (btn) { btn.disabled = false; btn.textContent = '↻ Actualiser'; }
+        renderFreshness();
         render();
+        window.MH.refreshNotifBadge?.();
+    }
+
+    function renderFreshness() {
+        const el = document.getElementById('ntFreshness');
+        if (!el) return;
+        el.textContent = loadError ? '' : (loadedAt ? `Actualisé ${timeAgo(loadedAt)}` : '');
     }
 
     function timeAgo(d) {
@@ -50,6 +83,14 @@
 
     function render() {
         const list = document.getElementById('ntList');
+        // Erreur réseau ≠ « aucune notification » (audit G.3)
+        if (loadError && !items.length) {
+            list.innerHTML = `<div class="nt-empty">
+                <div style="font-size:14px;color:var(--text);font-weight:600;margin-bottom:8px">Impossible de charger les notifications</div>
+                <button class="btn btn-primary btn-sm" id="ntRetry">Réessayer</button></div>`;
+            list.querySelector('#ntRetry')?.addEventListener('click', () => load());
+            return;
+        }
         let shown = items;
         if (filter === 'unread') shown = items.filter(n => !n.read);
         else if (filter !== 'all') shown = items.filter(n => n.type === filter);

@@ -31,7 +31,9 @@
   <div class="nt-wrap">
     <div class="nt-head">
       <h1>Notifications</h1>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="ntFreshness" style="font-size:11.5px;color:var(--text3)"></span>
+        <button class="btn btn-sm" id="ntRefresh" title="Actualiser" aria-label="Actualiser les notifications">↻ Actualiser</button>
         <button class="btn btn-sm" id="ntEnablePush" title="Recevoir les notifications même Inko fermé">🔔 Activer le push</button>
         <button class="btn btn-sm" id="ntMarkAll">Tout marquer lu</button>
       </div>

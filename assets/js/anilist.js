@@ -109,12 +109,65 @@
         } catch (e) { return []; }
     }
 
+    // ── Rattachement persisté titre → mediaId (audit N56) ──
+    // Avant : recherche floue refaite à chaque session, premier résultat mis en
+    // cache silencieusement en l'absence de correspondance exacte — toute la
+    // progression pouvait partir vers la mauvaise fiche AniList sans indice ni
+    // moyen de corriger. Le lien résolu est désormais persisté côté serveur
+    // (user_settings.anilistLinks, fusion JSON_MERGE_PATCH) avec un drapeau
+    // `exact`, et corrigeable manuellement via setLink().
+    let _links = null;   // { "<titre normalisé>": { id, exact } }
+    async function loadLinks() {
+        if (_links) return _links;
+        try {
+            const s = await window.API?.me?.settings?.();
+            _links = (s && s.anilistLinks) || {};
+        } catch (e) { _links = {}; }
+        return _links;
+    }
+    async function persistLink(title, id, exact) {
+        const key = norm(title);
+        if (!key || id == null) return;
+        (_links || (_links = {}))[key] = { id, exact: !!exact };
+        try { await window.API?.me?.saveSettings?.({ anilistLinks: { [key]: { id, exact: !!exact } } }); } catch (e) {}
+    }
+    // Lien actuel (persisté) pour un titre — null si jamais résolu
+    async function getLink(title) {
+        const links = await loadLinks();
+        return links[norm(title)] || null;
+    }
+    // Force (ou efface avec id=null) le rattachement d'un titre
+    async function setLink(title, id) {
+        const key = norm(title);
+        if (!key) return;
+        if (id == null) {
+            if (_links) delete _links[key];
+            delete idCache[title];
+            // JSON_MERGE_PATCH : une clé à null est supprimée côté serveur
+            try { await window.API?.me?.saveSettings?.({ anilistLinks: { [key]: null } }); } catch (e) {}
+            return;
+        }
+        idCache[title] = id;
+        await persistLink(title, id, true);
+    }
+    // Détail d'une fiche (pour afficher « liée à … » dans l'UI)
+    async function mediaInfo(id) {
+        if (!id) return null;
+        try {
+            const d = await gql('query ($id:Int){ Media(id:$id){ id siteUrl title { romaji english native } } }', { id }, false);
+            return d?.Media || null;
+        } catch (e) { return null; }
+    }
+
     // Résout l'id AniList d'un manga à partir de son titre — robuste :
-    // essaie chaque variante, prend une correspondance exacte si possible,
-    // sinon le premier résultat de la recherche (AniList trie par pertinence).
+    // lien persisté d'abord, sinon recherche (correspondance exacte si possible,
+    // sinon le premier résultat, persisté avec exact:false pour que l'UI puisse
+    // proposer une correction).
     async function mediaId(title) {
         if (!title) return null;
         if (idCache[title] != null) return idCache[title];
+        const saved = await getLink(title);
+        if (saved && saved.id) { idCache[title] = saved.id; return saved.id; }
         let fallback = null;
         for (const variant of titleVariants(title)) {
             const media = await searchMedia(variant);
@@ -125,9 +178,10 @@
                 const names = [m.title?.romaji, m.title?.english, m.title?.native, ...(m.synonyms || [])];
                 return names.some(n => norm(n) === target);
             });
-            if (exact) { idCache[title] = exact.id; return exact.id; }
+            if (exact) { idCache[title] = exact.id; persistLink(title, exact.id, true); return exact.id; }
         }
         idCache[title] = fallback;   // pas d'exact : on garde le plus pertinent
+        if (fallback != null) persistLink(title, fallback, false);
         return fallback;
     }
 
@@ -154,5 +208,6 @@
         } catch (e) { return false; }
     }
 
-    window.AniList = { getConfig, clearConfigCache, isLinked, user, token, me, connect, disconnect, syncEntry, syncByTitle, mediaId, STATUS_MAP };
+    window.AniList = { getConfig, clearConfigCache, isLinked, user, token, me, connect, disconnect, syncEntry, syncByTitle, mediaId, STATUS_MAP,
+        getLink, setLink, mediaInfo, searchMedia };   // rattachement corrigeable (audit N56)
 })();

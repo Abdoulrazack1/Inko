@@ -116,6 +116,24 @@
                 };
             });
         });
+
+        // Contenu adulte (audit N20) — stocké à part (MH.nsfwAllowed, lu par
+        // les cartes de l'accueil/catalogue/recherche), pas dans les prefs lecteur
+        const segNsfw = document.getElementById('segNsfw');
+        if (segNsfw) {
+            const cur = window.MH.nsfwAllowed() ? '1' : '0';
+            segNsfw.querySelectorAll('button').forEach(b => {
+                b.classList.toggle('active', b.dataset.val === cur);
+                b.onclick = () => {
+                    segNsfw.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+                    b.classList.add('active');
+                    window.MH.setNsfwAllowed(b.dataset.val === '1');
+                    toast(b.dataset.val === '1'
+                        ? 'Contenu adulte visible (flou retiré)'
+                        : 'Contenu adulte flouté ✓', 1600);
+                };
+            });
+        }
     }
 
     // ── DONNÉES ──

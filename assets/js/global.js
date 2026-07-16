@@ -315,6 +315,34 @@
         return `<span class="badge ${cls}">${label}</span>`;
     };
 
+    // ── Contenu adulte (audit N20) ──────────────────────────────
+    // Réglage global (désactivé par défaut, parametres.html) : tant qu'il est
+    // désactivé, les œuvres classées adultes sont floutées et l'ouverture
+    // demande une confirmation — avant, rien ne filtrait côté interface.
+    window.MH.nsfwAllowed = function () {
+        try { return localStorage.getItem('inko_nsfw_show') === '1'; } catch (e) { return false; }
+    };
+    window.MH.setNsfwAllowed = function (on) {
+        try { localStorage.setItem('inko_nsfw_show', on ? '1' : '0'); } catch (e) {}
+    };
+    window.MH.isAdultManga = function (m, srcNsfw) {
+        return !!srcNsfw || /^(erotica|pornographic|adult|hentai|nsfw|smut)$/i.test((m && m.contentRating) || '');
+    };
+    // Attributs à poser sur la carte (<a>) d'une œuvre adulte quand le filtre est actif
+    window.MH.nsfwCardAttrs = function (m, srcNsfw) {
+        return (!window.MH.nsfwAllowed() && window.MH.isAdultManga(m, srcNsfw)) ? ' data-nsfw="1"' : '';
+    };
+    // Confirmation d'ouverture (délégué global, une seule fois par page)
+    document.addEventListener('click', async (e) => {
+        const card = e.target.closest('a[data-nsfw]');
+        if (!card) return;
+        e.preventDefault();
+        const ok = await window.MH.confirm(
+            'Cette œuvre est classée contenu adulte (+18). L\'ouvrir quand même ?',
+            { okText: 'Ouvrir', danger: true, title: 'Contenu adulte' });
+        if (ok) window.location.href = card.href;
+    });
+
     // Placeholder local (SVG data URL) — pas de requête réseau, déterministe par seed
     window.MH.placeholderCover = function (seed) {
         const s = String(seed || 'manga');
@@ -673,11 +701,11 @@
       </div>
       <div class="footer-bottom">
         <p>© 2026 Inko. Tous droits réservés. Données issues de MangaDex.</p>
-        <div class="footer-lang" style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text3)">
-          <span data-i18n="common.language">Langue</span>
-          <button type="button" data-setlang="fr" class="footer-lang-btn" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:3px 8px;cursor:pointer">FR</button>
-          <button type="button" data-setlang="en" class="footer-lang-btn" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:3px 8px;cursor:pointer">EN</button>
-        </div>
+        <!-- Sélecteur de langue retiré temporairement (audit N40) : seuls 6
+             éléments data-i18n / 18 clés existent — « English » ne traduisait
+             que la barre de navigation, promesse trompeuse. L'infra i18n
+             (MH.loadI18n/setLang, assets/i18n/*.json) reste en place : remettre
+             les boutons data-setlang ici quand les dictionnaires couvriront l'app. -->
       </div>
     </footer>`;
 
@@ -783,6 +811,7 @@
         const head = `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)">
             <strong style="font-size:13.5px">Notifications</strong>
             <span style="display:flex;gap:12px;align-items:center">
+                <button id="notifRefresh" title="Actualiser" aria-label="Actualiser les notifications" style="background:none;border:none;color:var(--text3);font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px">↻ Actualiser</button>
                 ${data.items.length ? `<button id="notifMarkAll" style="background:none;border:none;color:var(--orange);font-size:11.5px;cursor:pointer">Tout marquer lu</button>` : ''}
                 <a href="notifications.html" style="color:var(--text3);font-size:11.5px;text-decoration:none">Voir tout →</a>
             </span></div>`;
@@ -809,12 +838,38 @@
                 a.addEventListener('click', () => { window.API.notifications.markRead(a.dataset.nid).catch(() => {}); });
             });
         }
+        // Bouton Actualiser (refonte notifications, audit G.2) — présent aussi à vide
+        dd.querySelector('#notifRefresh')?.addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            renderNotifDropdown();
+        });
     }
     function initNotifications() {
         const btn = document.getElementById('btnNotif');
         if (!btn || !window.API?.isLoggedIn?.()) return;
-        // Compteur initial
-        window.API.notifications.unread().then(d => setNotifBadge(d.unread || 0)).catch(() => {});
+        const refreshBadge = () =>
+            window.API.notifications.unread().then(d => setNotifBadge(d.unread || 0)).catch(() => {});
+        refreshBadge();
+        window.MH.refreshNotifBadge = refreshBadge;
+        // Refonte notifications (audit G.1/G.4) : avant, le badge n'était requêté
+        // qu'une fois par chargement de page. Sondage léger UNIQUEMENT onglet
+        // visible + rafraîchissement immédiat quand l'onglet redevient actif ou
+        // qu'un push arrive (message du Service Worker). Les listeners globaux ne
+        // sont posés qu'une fois, même si le header est reconstruit (auth:change).
+        if (!window.MH._notifPollBound) {
+            window.MH._notifPollBound = true;
+            setInterval(() => {
+                if (document.visibilityState === 'visible' && window.API?.isLoggedIn?.()) window.MH.refreshNotifBadge?.();
+            }, 75_000);
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && window.API?.isLoggedIn?.()) window.MH.refreshNotifBadge?.();
+            });
+            try {
+                navigator.serviceWorker?.addEventListener('message', (e) => {
+                    if (e.data && e.data.type === 'notif:new') window.MH.refreshNotifBadge?.();
+                });
+            } catch (e) {}
+        }
         const dd = document.getElementById('notifDropdown');
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -985,10 +1040,8 @@
         if (headerButtonsBound) return;
         headerButtonsBound = true;
 
-        document.addEventListener('click', e => {
-            const btn = e.target.closest('.notif-dot');
-            if (btn) MH.toast('Aucune nouvelle notification ');
-        });
+        // (résidu .notif-dot retiré — audit N11/F.4 : gestionnaire mort d'une
+        //  ancienne UI de notifications, la classe n'existait dans aucun DOM)
 
         // Bouton musique : ouvre/refocus la fenêtre popout (reste en lecture pendant la nav)
         document.addEventListener('click', e => {

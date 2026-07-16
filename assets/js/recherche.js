@@ -132,7 +132,9 @@
         sub.textContent = `Recherche de « ${q} »…`;
         out.innerHTML = `<div class="se-loading"><div class="spinner-inline"></div> Recherche en cours…</div>`;
         try {
-            const data = await API.mangas.searchAll(q);
+            // Page dédiée : plafond relevé à 36/source (audit N38 — le défaut de
+            // 12 tronquait silencieusement les recherches sur mots courants)
+            const data = await API.mangas.searchAll(q, 36);
             if (my !== reqSeq) return;   // une frappe plus récente a pris le relais
             lastMerged = mergeByTitle(data.groups || []);
             renderResults(q);
@@ -164,10 +166,12 @@
                     map.set(key, {
                         title: m.title, cover: m.cover || m.coverThumb || '',
                         status: m.status || null, year: m.year || null,
+                        adult: false,   // contenu adulte (audit N20)
                         sources: [], inLibrary: false, libSource: null,
                     });
                 }
                 const w = map.get(key);
+                if (MH.isAdultManga?.(m)) w.adult = true;
                 if (!w.cover && (m.cover || m.coverThumb)) w.cover = m.cover || m.coverThumb;
                 if (!w.status && m.status) w.status = m.status;
                 w.sources.push({ source: g.source, sourceName: g.sourceName, id: m.id, isNovel });
@@ -208,10 +212,18 @@
             typeFilter = b.dataset.type; renderResults(q);
         }));
         // Navigation : clic sur une puce de source → cette source ; sinon → source principale.
-        out.querySelectorAll('.se-card[data-href]').forEach(card => card.addEventListener('click', (e) => {
+        out.querySelectorAll('.se-card[data-href]').forEach(card => card.addEventListener('click', async (e) => {
             const chip = e.target.closest('.se-src-chip');
             const href = chip ? chip.dataset.href : card.dataset.href;
-            if (href) { e.preventDefault(); window.location.href = href; }
+            if (!href) return;
+            e.preventDefault();
+            // Confirmation contenu adulte (audit N20)
+            if (card.dataset.nsfw && !MH.nsfwAllowed?.()) {
+                const ok = await MH.confirm('Cette œuvre est classée contenu adulte (+18). L\'ouvrir quand même ?',
+                    { okText: 'Ouvrir', danger: true, title: 'Contenu adulte' });
+                if (!ok) return;
+            }
+            window.location.href = href;
         }));
     }
 
@@ -230,8 +242,9 @@
         const meta = [w.year, w.status && STATUS_LABEL[w.status]].filter(Boolean).join(' · ');
         const srcChips = w.sources.map(s =>
             `<span class="se-src-chip ${s.isNovel ? 'novel' : ''}" data-href="${serieHref(s.source, s.id)}">${MH.esc(s.sourceName || s.source)}</span>`).join('');
+        const nsfw = w.adult && !MH.nsfwAllowed?.() ? ' data-nsfw="1"' : '';
         return `
-        <div class="se-card" data-href="${primaryHref}">
+        <div class="se-card" data-href="${primaryHref}"${nsfw}>
             <div class="se-cover">
                 <img src="${w.cover || MH.placeholderCover(primary.id)}" alt="${MH.esc(w.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(primary.id)}'">
                 ${st}${lib}${multi}

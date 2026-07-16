@@ -121,29 +121,36 @@
     function aggNormTitle(t) {
         return (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
     }
-    async function runSearchAggregate(myReq) {
+    // État du mode agrégé (audit N47) : offset PAR SOURCE + fusion cumulée —
+    // avant, le mode « Toutes les sources » affichait un lot unique figé, sans
+    // jamais proposer de page suivante.
+    let aggOffset = 0;
+    let aggSeen = new Map();
+
+    async function runSearchAggregate(myReq, more = false) {
         const grid = document.getElementById('resultsGrid');
         const count = document.getElementById('resultsCount');
         const srcs = enabledSources();
         const per = Math.max(8, Math.ceil(PER_PAGE / Math.max(1, srcs.length)) * 2);
+        if (!more) { aggOffset = 0; aggSeen = new Map(); }
         const settled = await Promise.allSettled(srcs.map(s => {
-            const params = { limit: per };
+            const params = { limit: per, offset: aggOffset };
             if (lastQuery) { params.q = lastQuery; return API.mangas.searchFor(s.id, params); }
             return API.mangas.popularFor(s.id, params);
         }));
         if (myReq !== inFlight) return;
         // Fusion + dédup par titre (la même œuvre sur 2 sources = 1 carte, 1re source gagne)
-        const seen = new Map();
         settled.forEach((r, i) => {
             if (r.status !== 'fulfilled') return;
             (r.value.results || []).forEach(m => {
                 const key = aggNormTitle(m.title);
-                if (!key || seen.has(key)) return;
+                if (!key || aggSeen.has(key)) return;
                 m._source = srcs[i].id; m._sourceName = srcs[i].name;
-                seen.set(key, m);
+                aggSeen.set(key, m);
             });
         });
-        lastResults = [...seen.values()];
+        aggOffset += per;
+        lastResults = [...aggSeen.values()];
         lastTotal = lastResults.length;
         const okCount = settled.filter(r => r.status === 'fulfilled').length;
         if (count) count.innerHTML = `<strong>${lastResults.length}</strong> séries · ${okCount}/${srcs.length} sources`;
@@ -153,8 +160,19 @@
             grid.innerHTML = lastResults.map(m => mangaCardHTML(m)).join('');
             MH.markFavorites(grid);
         }
+        // « Charger plus » tant qu'au moins une source a rempli sa page
         const pag = document.getElementById('pagination');
-        if (pag) pag.innerHTML = '';   // pas de pagination croisée en mode agrégé
+        if (!pag) return;
+        const anyMore = settled.some(r => r.status === 'fulfilled' && (r.value.results || []).length >= per);
+        if (!anyMore) { pag.innerHTML = ''; return; }
+        pag.innerHTML = `<button class="btn" id="aggMore" style="display:block;margin:16px auto">Charger plus</button>`;
+        pag.querySelector('#aggMore').addEventListener('click', async () => {
+            const b = pag.querySelector('#aggMore');
+            b.disabled = true; b.textContent = 'Chargement…';
+            inFlight++;
+            try { await runSearchAggregate(inFlight, true); }
+            catch (e) { b.disabled = false; b.textContent = 'Charger plus'; }
+        });
     }
 
     // ── Chips info ──
@@ -374,8 +392,9 @@
     function mangaCardHTML(m) {
         const src = m._source || API.sources.current;
         const isNovel = MH.isNovelSource(src);
+        const srcNsfw = (sourcesList.find(s => s.id === src) || {}).nsfw;
         return `
-        <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}" class="manga-card" data-manga-id="${MH.esc(m.id)}">
+        <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}" class="manga-card" data-manga-id="${MH.esc(m.id)}"${MH.nsfwCardAttrs(m, srcNsfw)}>
             <div class="manga-card-cover">
                 <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
@@ -397,7 +416,12 @@
     // liste n'expose pas l'auteur/statut, ex. SushiScan, Chireads). Throttlé + caché serveur.
     async function enrichSparseCards(list, reqId) {
         const src = API.sources.current;
-        const need = list.filter(isSparse);
+        // Plafond (audit N48) : sans lui, jusqu'à 24 requêtes getManga
+        // supplémentaires partaient par page affichée vers des sites de
+        // scraping déjà fragiles (SushiScan + Cloudflare). 8 suffisent à
+        // enrichir le haut de la grille ; le reste s'affine à l'ouverture
+        // de la fiche.
+        const need = list.filter(isSparse).slice(0, 8);
         if (!need.length) return;
         let i = 0;
         const worker = async () => {

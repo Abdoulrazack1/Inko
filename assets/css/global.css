@@ -654,15 +654,21 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .arrow-btn:hover { background: var(--bg4); color: var(--text); border-color: var(--border2); }
 .arrow-btn:disabled { opacity: 0.3; pointer-events: none; }
 
-/* Notification dot */
-.notif-dot {
-  position: relative;
+/* ── Contenu adulte flouté (audit N20) ───────────────────── */
+a[data-nsfw] .manga-card-cover,
+.se-card[data-nsfw] .se-cover { position: relative; }
+a[data-nsfw] .manga-card-cover img,
+.se-card[data-nsfw] .se-cover img { filter: blur(16px) saturate(.6); }
+a[data-nsfw] .manga-card-cover::after,
+.se-card[data-nsfw] .se-cover::after {
+  content: '+18';
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 15px; letter-spacing: .5px;
+  color: #fff; background: rgba(0,0,0,.35);
+  border-radius: inherit; pointer-events: none;
 }
-.notif-dot::after {
-  content: ''; position: absolute; top: 6px; right: 6px;
-  width: 7px; height: 7px; background: var(--orange);
-  border-radius: 50%; border: 1.5px solid var(--bg);
-}
+
 /* ── Méta des cartes (statut / année / démographie) ──────── */
 .manga-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
 .manga-card-meta .mc-year { font-size: 11px; color: var(--text3); }

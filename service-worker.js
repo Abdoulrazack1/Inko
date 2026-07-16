@@ -3,7 +3,7 @@
 //             stale-while-revalidate pour assets statiques
 //             cache des couvertures mangadex (bande passante)
 
-const CACHE_VERSION = 'inko-v15';
+const CACHE_VERSION = 'inko-v16';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -72,7 +72,6 @@ const STATIC_ASSETS = [
     '/assets/i18n/en.json',
     '/assets/js/userdata.js',
     '/assets/js/theme.js',
-    '/assets/js/nsfw.js',
     '/manifest.webmanifest',
     '/assets/css/global.css',
     '/assets/css/accueil.css',
@@ -86,16 +85,11 @@ const STATIC_ASSETS = [
     '/assets/js/global.js',
     '/assets/js/music.js',
     '/assets/js/downloads.js',
-    '/assets/js/password-strength.js',
     '/assets/js/accueil.js',
     '/assets/js/catalogue.js',
     '/assets/js/serie.js',
     '/assets/js/chapitre.js',
     '/assets/js/profil.js',
-    '/assets/js/page_login.js',
-    '/assets/js/page_signup.js',
-    '/assets/js/page_mdpoublie.js',
-    '/assets/js/page_nouveaumdp.js',
     '/assets/img/icon.svg',
     '/assets/img/icon-192.png',
     '/assets/img/icon-512.png',
@@ -245,6 +239,14 @@ self.addEventListener('push', (event) => {
     try { data = event.data ? event.data.json() : {}; }
     catch (e) { data = { body: event.data && event.data.text() }; }
     const title = data.title || 'Inko';
+    // Réveil des onglets ouverts (audit G.4) : le badge de la cloche se
+    // rafraîchit immédiatement sans attendre le prochain sondage.
+    event.waitUntil((async () => {
+        try {
+            const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            all.forEach(c => { try { c.postMessage({ type: 'notif:new' }); } catch (e) {} });
+        } catch (e) {}
+    })());
     event.waitUntil(self.registration.showNotification(title, {
         body:  data.body || '',
         icon:  '/assets/img/icon-192.png',
