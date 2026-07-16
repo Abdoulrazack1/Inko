@@ -41,6 +41,15 @@ function setC(k, v, ms) { cache.set(k, { value: v, expires: Date.now() + ms }); 
 
 function requireCheerio() { if (!cheerio) throw new Error('cheerio non installé — `cd server && npm install cheerio`'); }
 
+// Messages lisibles pour les limites HTTP (audit F.15) : avant, un 429/503
+// du site remontait comme une erreur axios brute qui ressemblait a un bug.
+function friendlyHttpError(e) {
+    const st = e && e.response && e.response.status;
+    if (st === 429 || st === 503) return new Error('Source momentanement limitee - reessaie dans un instant');
+    if (st) return new Error(`Site source indisponible (HTTP ${st})`);
+    return e;
+}
+
 async function fetchHtml(url, { ttl = 120_000, hx = false, referer } = {}) {
     const key = url + (hx ? '#hx' : '');
     const c = getC(key);
@@ -48,7 +57,9 @@ async function fetchHtml(url, { ttl = 120_000, hx = false, referer } = {}) {
     const headers = {};
     if (hx) headers['HX-Request'] = 'true';
     if (referer) headers['Referer'] = referer;
-    const { data } = await http.get(url, { responseType: 'text', headers });
+    let data;
+    try { ({ data } = await http.get(url, { responseType: 'text', headers })); }
+    catch (e) { throw friendlyHttpError(e); }
     setC(key, data, ttl);
     return data;
 }
@@ -155,7 +166,7 @@ module.exports = {
     lang:         'en',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '1.2.0',
+    version:      '1.2.1',
     unit:      'chapter',
     description:  'Weeb Central — large catalogue anglais de scans (HTMX). Recherche, chapitres et lecture.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],
@@ -164,16 +175,20 @@ module.exports = {
         return TAGS.map(t => ({ id: t, name: t, group: 'genre' }));
     },
 
+    // Total « page pleine » (audit N-EXT-2) : l'ancien total figé à 5000
+    // faisait proposer à l'UI des pages qui n'existent pas.
     async popular({ limit = 24, offset = 0 } = {}) {
         requireCheerio();
         const html = await fetchHtml(searchUrl({ sort: 'Popularity', order: 'Descending', limit, offset }), { ttl: 600_000, hx: true });
-        return { total: 5000, results: parseList(cheerio.load(html)) };
+        const results = parseList(cheerio.load(html));
+        return { total: (+offset || 0) + results.length + (results.length >= limit ? limit : 0), results };
     },
 
     async latest({ limit = 24, offset = 0 } = {}) {
         requireCheerio();
         const html = await fetchHtml(searchUrl({ sort: 'Latest Updates', order: 'Descending', limit, offset }), { ttl: 120_000, hx: true });
-        return { total: 5000, results: parseList(cheerio.load(html)) };
+        const results = parseList(cheerio.load(html));
+        return { total: (+offset || 0) + results.length + (results.length >= limit ? limit : 0), results };
     },
 
     async search({ q, limit = 24, offset = 0, filters = {} } = {}) {
@@ -214,11 +229,15 @@ module.exports = {
         else if (/complete|terminé/.test(statusTxt))  status = 'completed';
         else if (/hiatus|paused/.test(statusTxt))     status = 'hiatus';
         else if (/cancel/.test(statusTxt))            status = 'cancelled';
-        const yearM = html.match(/(\d{4})/);
+        // Année : uniquement depuis le lien de filtre « released » de la fiche
+        // (audit N-EXT-1 : l'ancien regex sur TOUTE la page attrapait le premier
+        // nombre à 4 chiffres venu — ID, version, copyright…). Pas de lien →
+        // null, plutôt qu'une année fausse.
+        const relM = ($('a[href*="released"], a[href*="Released"]').first().text() || '').match(/(19|20)\d{2}/);
 
         return {
             id, title, titleAlt: '', author, description,
-            status, year: yearM ? parseInt(yearM[1]) : null,
+            status, year: relM ? parseInt(relM[0], 10) : null,
             demographic: null, tags,
             cover: COVER(id), coverLarge: COVER(id), coverThumb: COVER(id),
             contentRating: 'safe', langs: ['en'],

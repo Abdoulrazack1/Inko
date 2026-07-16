@@ -1,11 +1,11 @@
 {
-  "weebcentral": "1.2.0",
-  "mangadex": "1.2.0",
-  "sushiscan": "0.7.0",
-  "royalroad": "1.2.0",
-  "novelfull": "1.2.0",
-  "chireads": "1.2.0",
-  "novelbin": "1.2.0",
-  "gutenberg": "1.2.0",
-  "gutenberg-fr": "1.0.0"
+  "weebcentral": "1.2.1",
+  "mangadex": "1.2.1",
+  "sushiscan": "0.7.2",
+  "royalroad": "1.2.2",
+  "novelfull": "1.2.2",
+  "chireads": "1.2.2",
+  "novelbin": "1.2.2",
+  "gutenberg": "1.2.2",
+  "gutenberg-fr": "1.0.2"
 }

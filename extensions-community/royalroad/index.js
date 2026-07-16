@@ -39,10 +39,21 @@ function setC(k, v, ms) { cache.set(k, { value: v, expires: Date.now() + ms }); 
 
 function requireCheerio() { if (!cheerio) throw new Error('cheerio non installé — `cd server && npm install cheerio`'); }
 
+// Messages lisibles pour les limites HTTP (audit F.15) : avant, un 429/503
+// du site remontait comme une erreur axios brute qui ressemblait a un bug.
+function friendlyHttpError(e) {
+    const st = e && e.response && e.response.status;
+    if (st === 429 || st === 503) return new Error('Source momentanement limitee - reessaie dans un instant');
+    if (st) return new Error(`Site source indisponible (HTTP ${st})`);
+    return e;
+}
+
 async function fetchHtml(url, ttl = 120_000) {
     const c = getC(url);
     if (c) return c;
-    const { data } = await http.get(url, { responseType: 'text' });
+    let data;
+    try { ({ data } = await http.get(url, { responseType: 'text' })); }
+    catch (e) { throw friendlyHttpError(e); }
     setC(url, data, ttl);
     return data;
 }
@@ -79,16 +90,31 @@ function parseList($) {
     return out;
 }
 
-// Pagination RR : 20 fictions / page
+// Pagination RR : 20 fictions / page côté site. On boucle sur les pages du
+// site jusqu'à réunir `limit` résultats (audit N-EXT-13 : une seule page
+// laissait la grille Catalogue incomplète), garde-fou de 5 requêtes par appel.
+const SITE_PER  = 20;
+const MAX_PAGES = 5;
 async function browse(pathBase, { limit = 20, offset = 0 } = {}, ttl) {
     requireCheerio();
-    const page = Math.floor((+offset || 0) / 20) + 1;
-    const html = await fetchHtml(`${pathBase}${pathBase.includes('?') ? '&' : '?'}page=${page}`, ttl);
-    const results = parseList(cheerio.load(html));
-    // RR ne donne pas de total exploitable : pagination "tant que la page est pleine"
-    const off = +offset || 0;
-    const total = results.length < 20 ? off + results.length : off + results.length + 20;
-    return { total, results: results.slice(0, +limit || 20) };
+    const off = Math.max(0, +offset || 0);
+    const lim = Math.max(1, +limit || 20);
+    const sep = pathBase.includes('?') ? '&' : '?';
+    let page  = Math.floor(off / SITE_PER) + 1;
+    let skip  = off % SITE_PER;          // entrées déjà servies sur la 1re page
+    const seen = new Set();
+    const acc  = [];
+    let siteExhausted = false;
+    for (let n = 0; n < MAX_PAGES && acc.length < lim; n++, page++) {
+        const results = parseList(cheerio.load(await fetchHtml(`${pathBase}${sep}page=${page}`, ttl)));
+        results.slice(skip).forEach(m => { if (!seen.has(m.id)) { seen.add(m.id); acc.push(m); } });
+        skip = 0;
+        if (results.length < SITE_PER) { siteExhausted = true; break; }
+    }
+    // RR ne donne pas de total exploitable : "une page de plus" tant que la
+    // dernière page lue était pleine.
+    const total = off + acc.length + (siteExhausted ? 0 : SITE_PER);
+    return { total, results: acc.slice(0, lim) };
 }
 
 // Retire les paragraphes-filigranes anti-vol injectés par RR dans les chapitres
@@ -118,7 +144,7 @@ module.exports = {
     lang:         'en',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '1.2.0',
+    version:      '1.2.2',
     unit:      'chapter',
     type:         'novel',
     description:  'Royal Road — la plus grande plateforme de web novels anglophones (LitRPG, fantasy, isekai). Lecture en texte.',

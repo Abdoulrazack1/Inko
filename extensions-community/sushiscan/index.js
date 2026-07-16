@@ -59,12 +59,24 @@ function curlGet(url) {
     });
 }
 
+// Messages lisibles pour les limites HTTP (audit F.15) : avant, un 429/503
+// du site remontait comme une erreur axios brute qui ressemblait a un bug.
+function friendlyHttpError(e) {
+    const st = e && e.response && e.response.status;
+    if (st === 429 || st === 503) return new Error('Source momentanement limitee - reessaie dans un instant');
+    if (st) return new Error(`Site source indisponible (HTTP ${st})`);
+    return e;
+}
+
 async function fetchHtml(url, ttlMs = 60_000) {
     const cached = getC(url);
     if (cached) return cached;
     let data;
     try { data = await curlGet(url); }
-    catch (e) { ({ data } = await http.get(url, { responseType: 'text' })); }
+    catch (e) {
+        try { ({ data } = await http.get(url, { responseType: 'text' })); }
+        catch (e2) { throw friendlyHttpError(e2); }
+    }
     setC(url, data, ttlMs);
     return data;
 }
@@ -343,7 +355,7 @@ module.exports = {
     lang:         'fr',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '0.7.0',
+    version:      '0.7.2',
     unit:      'chapter',
     description:  '⚠ Expérimental — scrape sushiscan.fr (Madara/TS). Populaires & dernières sorties distinctes, dates de sortie des chapitres, recherche sur tout le catalogue, contenu adulte filtré hors espace +18.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
@@ -366,19 +378,35 @@ module.exports = {
             const off = +offset || 0;
             return { total: idx.list.length, results: idx.list.slice(off, off + (+limit || 24)) };
         }
-        const idx  = await buildAdultIndex();
-        const page = Math.floor((+offset || 0) / (+limit || 24)) + 1;
-        const ord  = order === 'popular' ? 'popular' : 'update';
-        const qp   = `order=${ord}` + (page > 1 ? `&page=${page}` : '');
-        const url  = `/catalogue/?${qp}`;
-        let items  = [];
-        try { items = parseMangaList(cheerio.load(await fetchHtml(url, 300_000))); }
-        catch (e) {}
-        const sfw = items.filter(m => !idx.set.has(m.id));
-        // Pas d'items → au-delà de la dernière page : total = position réelle.
-        // Sinon : total généreux pour garder le bouton « page suivante » actif.
-        const total = items.length ? Math.max((+offset || 0) + 480, 1000) : (+offset || 0);
-        return { total, results: sfw };
+        const idx = await buildAdultIndex();
+        const lim = +limit || 24;
+        const off = +offset || 0;
+        const ord = order === 'popular' ? 'popular' : 'update';
+        // Audit N-EXT-12 : le retrait du contenu adulte APRÈS récupération
+        // laissait des pages incomplètes (déficit erratique selon la proportion
+        // +18 de la page du site). On boucle désormais sur les pages suivantes
+        // pour combler le déficit, garde-fou de 4 requêtes par appel. La
+        // correspondance offset→page du site reste approximative (le site ne
+        // sépare pas le contenu adulte en amont) : de rares doublons entre
+        // pages consécutives sont possibles, mais chaque page rend désormais
+        // le nombre demandé.
+        let page = Math.floor(off / lim) + 1;
+        const seen = new Set();
+        const sfw  = [];
+        let sawItems = false;
+        for (let n = 0; n < 4 && sfw.length < lim; n++, page++) {
+            const qp = `order=${ord}` + (page > 1 ? `&page=${page}` : '');
+            let items = [];
+            try { items = parseMangaList(cheerio.load(await fetchHtml(`/catalogue/?${qp}`, 300_000))); }
+            catch (e) {}
+            if (!items.length) break;   // fin réelle du catalogue (ou site HS)
+            sawItems = true;
+            items.forEach(m => { if (!idx.set.has(m.id) && !seen.has(m.id)) { seen.add(m.id); sfw.push(m); } });
+        }
+        // Pas d'items du tout → au-delà de la dernière page : total = position
+        // réelle. Sinon : total généreux pour garder « page suivante » actif.
+        const total = sawItems ? Math.max(off + 480, 1000) : off;
+        return { total, results: sfw.slice(0, lim) };
     },
 
     async popular(opts = {}) { requireCheerio(); return this._browse('popular', opts); },

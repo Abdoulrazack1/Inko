@@ -10,8 +10,9 @@ const axios = require('axios');
 const BASE        = 'https://api.mangadex.org';
 const COVERS_BASE = 'https://uploads.mangadex.org/covers';
 // L'API MangaDex EXIGE un User-Agent identifiant le client (règle officielle) :
-// un UA de navigateur générique est rejeté par un 400 HTML.
-const UA          = 'Inko/2.2.1 (+https://github.com/Abdoulrazack1/Inko)';
+// un UA de navigateur générique est rejeté par un 400 HTML. Version reprise de
+// l'app quand elle est connue (audit : l'ancienne valeur figée dérivait).
+const UA          = `Inko/${process.env.APP_VERSION || '2.2'} (+https://github.com/Abdoulrazack1/Inko)`;
 
 // ── Cache mémoire avec TTL ──
 const cache = new Map();
@@ -28,7 +29,24 @@ async function call(path, params = {}, ttlMs = 60_000) {
     const key = `${path}?${JSON.stringify(params)}`;
     const cached = getCache(key);
     if (cached) return cached;
-    const { data } = await http.get(path, { params });
+    // Rate-limit (audit F.15) : un seul réessai après Retry-After (borné 10 s)
+    // sur 429/503, et un message lisible plutôt qu'une erreur axios brute.
+    let data;
+    try {
+        ({ data } = await http.get(path, { params }));
+    } catch (e) {
+        const st = e.response?.status;
+        if (st !== 429 && st !== 503) throw e;
+        const wait = Math.min(parseInt(e.response.headers?.['retry-after'], 10) || 2, 10) * 1000;
+        await new Promise(r => setTimeout(r, wait));
+        try {
+            ({ data } = await http.get(path, { params }));
+        } catch (e2) {
+            const st2 = e2.response?.status;
+            if (st2 === 429 || st2 === 503) throw new Error('MangaDex limite temporairement les requêtes — réessaie dans un instant');
+            throw e2;
+        }
+    }
     setCache(key, data, ttlMs);
     return data;
 }
@@ -86,7 +104,7 @@ module.exports = {
     lang:        'multi',
     baseUrl:     BASE,
     nsfw:        false,
-    version:     '1.2.0',
+    version:     '1.2.1',
     unit:      'chapter',
     description: 'Source officielle MangaDex API (scanlations communautaires, 80 000+ titres)',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],

@@ -20,10 +20,10 @@ const UA   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 const PER  = 32;
 const LANG = 'fr';   // ← la seule différence de fond avec l'extension Gutenberg
 
-function curlGet(url, maxBuffer = 32 * 1024 * 1024) {
+function curlGet(url, maxBuffer = 32 * 1024 * 1024, asBuffer = false) {
     return new Promise((resolve, reject) => {
         execFile('curl', ['-s', '-f', '-L', '--compressed', '-m', '30', '-A', UA, url],
-            { maxBuffer, windowsHide: true }, (err, stdout) => {
+            { maxBuffer, windowsHide: true, encoding: asBuffer ? 'buffer' : 'utf8' }, (err, stdout) => {
                 if (err) return reject(new Error('curl : ' + err.message));
                 if (!stdout || !stdout.length) return reject(new Error('réponse vide'));
                 resolve(stdout);
@@ -64,11 +64,42 @@ function mapBook(b) {
     };
 }
 
+// Boucle sur les pages Gutendex (32/page) jusqu'à réunir `limit` résultats
+// (audit N-EXT-13 : un appel limit > 32, ex. le bouton « Aléatoire », ne
+// recevait qu'une page), garde-fou de 4 requêtes par appel.
 async function browse({ limit = PER, offset = 0 } = {}, extra = '') {
-    const page = Math.floor((+offset || 0) / PER) + 1;
-    const data = await getJson(`${API}/books?languages=${LANG}&page=${page}${extra}`);
-    const results = (data.results || []).map(mapBook);
-    return { total: data.count || results.length, results: results.slice(0, +limit || PER) };
+    const off = Math.max(0, +offset || 0);
+    const lim = Math.max(1, +limit || PER);
+    let page  = Math.floor(off / PER) + 1;
+    let skip  = off % PER;               // entrées déjà servies sur la 1re page
+    const acc = [];
+    let total = 0, more = true;
+    for (let n = 0; n < 4 && acc.length < lim && more; n++, page++) {
+        const data = await getJson(`${API}/books?languages=${LANG}&page=${page}${extra}`);
+        const results = (data.results || []).map(mapBook);
+        total = data.count || total;
+        acc.push(...results.slice(skip));
+        skip = 0;
+        more = !!data.next && results.length > 0;
+    }
+    return { total: total || off + acc.length, results: acc.slice(0, lim) };
+}
+
+// Décode un texte Gutenberg selon son encodage RÉEL (audit N-EXT-10) : une
+// partie des classiques (surtout FR) est en ISO-8859-1 — forcer l'UTF-8 y
+// corrompt les accentués (é, à, ç, œ…). 1) l'en-tête du fichier déclare
+// souvent « Character set encoding: … » ; 2) sinon décodage UTF-8, repli
+// Latin-1 si des caractères de remplacement (U+FFFD) apparaissent.
+function decodeBook(buf) {
+    if (typeof buf === 'string') return buf;   // repli si jamais on reçoit du texte
+    const head = buf.slice(0, 4096).toString('latin1');
+    const m = head.match(/Character set encoding\s*:\s*([\w-]+)/i);
+    const declared = (m && m[1] || '').toLowerCase();
+    if (/8859|latin|1252/.test(declared)) return buf.toString('latin1');
+    if (/utf-?8|ascii/.test(declared))    return buf.toString('utf8');
+    const utf8 = buf.toString('utf8');
+    const bad = (utf8.match(/�/g) || []).length;
+    return bad > 2 ? buf.toString('latin1') : utf8;
 }
 
 function textToHtml(raw) {
@@ -87,7 +118,7 @@ module.exports = {
     lang:         'fr',
     baseUrl:      API,
     nsfw:         false,
-    version:      '1.0.0',
+    version:      '1.0.2',
     unit:         'chapter',
     type:         'book',
     description:  'Livres du domaine public en français — ~4 000 classiques (Hugo, Zola, Balzac, Dumas, Verne, Flaubert, Maupassant…) via Project Gutenberg. Lecture en texte intégral, 100 % légal et gratuit.',
@@ -129,11 +160,11 @@ module.exports = {
         let raw = null;
         for (const url of candidates) {
             try {
-                const r = await curlGet(url, 48 * 1024 * 1024);
+                const r = await curlGet(url, 48 * 1024 * 1024, true);   // Buffer brut
                 if (r && r.length > 500) { raw = r; break; }
             } catch (e) { /* essaie le suivant */ }
         }
         if (!raw) throw new Error('Texte du livre indisponible');
-        return { title: b.title || null, content: textToHtml(raw.toString('utf8')) };
+        return { title: b.title || null, content: textToHtml(decodeBook(raw)) };
     },
 };
