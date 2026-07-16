@@ -10,7 +10,9 @@
     const fmt = n => n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : n;
     const esc = s => (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-    window.MH = { $, $$, fmt, esc };
+    // Fusion (pas remplacement) : i18n.js se charge AVANT et pose déjà
+    // MH.t / MH.loadI18n / MH.setLang sur window.MH (audit N40 v2).
+    window.MH = Object.assign(window.MH || {}, { $, $$, fmt, esc });
 
     /* ── Icônes SVG (remplace les emojis d'interface) ──────── */
     const ICON_PATHS = {
@@ -701,47 +703,20 @@
       </div>
       <div class="footer-bottom">
         <p>© 2026 Inko. Tous droits réservés. Données issues de MangaDex.</p>
-        <!-- Sélecteur de langue retiré temporairement (audit N40) : seuls 6
-             éléments data-i18n / 18 clés existent — « English » ne traduisait
-             que la barre de navigation, promesse trompeuse. L'infra i18n
-             (MH.loadI18n/setLang, assets/i18n/*.json) reste en place : remettre
-             les boutons data-setlang ici quand les dictionnaires couvriront l'app. -->
+        <!-- Sélecteur restauré (audit N40 v2) : la traduction runtime par texte
+             source (i18n.js) couvre désormais toute l'interface. -->
+        <div class="footer-lang" style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text3)">
+          <span data-i18n="common.language">Langue</span>
+          <button type="button" data-setlang="fr" class="footer-lang-btn" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:3px 8px;cursor:pointer">FR</button>
+          <button type="button" data-setlang="en" class="footer-lang-btn" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:3px 8px;cursor:pointer">EN</button>
+        </div>
       </div>
     </footer>`;
 
-    /* ── i18n (dictionnaires JSON, traduction dynamique sans reload) ── */
-    (function initI18nModule() {
-        const KEY = 'inko_lang';
-        let dict = {};
-        window.MH.lang = (() => { try { return localStorage.getItem(KEY) || 'fr'; } catch (e) { return 'fr'; } })();
-        window.MH.t = (k, fb) => dict[k] || fb || k;
-        window.MH.applyI18n = (root) => {
-            const r = root || document;
-            r.querySelectorAll('[data-i18n]').forEach(el => { const v = dict[el.getAttribute('data-i18n')]; if (v) el.textContent = v; });
-            r.querySelectorAll('[data-i18n-ph]').forEach(el => { const v = dict[el.getAttribute('data-i18n-ph')]; if (v) el.placeholder = v; });
-        };
-        window.MH.loadI18n = async (lang) => {
-            lang = lang || window.MH.lang || 'fr';
-            try { const res = await fetch('/assets/i18n/' + lang + '.json'); dict = await res.json(); }
-            catch (e) { dict = {}; }
-            window.MH.lang = lang;
-            window.MH.applyI18n(document);
-        };
-        window.MH.setLang = async (lang) => {
-            try { localStorage.setItem(KEY, lang); } catch (e) {}
-            await window.MH.loadI18n(lang);
-            try { document.documentElement.lang = lang; } catch (e) {}
-            window.dispatchEvent(new CustomEvent('i18n:change', { detail: { lang } }));
-        };
-        // Sélecteur de langue (footer) — délégué, marche sur toutes les pages
-        document.addEventListener('click', (e) => {
-            const b = e.target.closest('[data-setlang]');
-            if (!b) return;
-            e.preventDefault();
-            window.MH.setLang(b.getAttribute('data-setlang'));
-            window.MH.toast?.(b.getAttribute('data-setlang') === 'en' ? 'Language: English' : 'Langue : Français');
-        });
-    })();
+    /* ── i18n : moteur complet déplacé dans assets/js/i18n.js (audit N40 v2) ──
+       Traduction runtime par texte source (dictionnaire exact + motifs +
+       MutationObserver) — chargé par toutes les pages, y compris celles sans
+       global.js. MH.t / MH.applyI18n / MH.loadI18n / MH.setLang y sont définis. */
 
     /* ── Inject header & footer ──────────────────────────── */
     window.MH.initPage = function (activePage) {
