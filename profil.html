@@ -66,7 +66,9 @@
           <a href="#" class="sidebar-nav-item" data-tab="overview">
             <span class="sidebar-nav-icon">⊞</span> Vue d'ensemble
           </a>
-          <a href="#" class="sidebar-nav-item" data-tab="library">
+          <!-- Audit N4/F.7 : l'onglet interne (compteurs factices, donuts jamais
+               mis à jour) est remplacé par un lien direct vers la page dédiée -->
+          <a href="bibliotheque.html" class="sidebar-nav-item">
             <span class="sidebar-nav-icon"></span> Ma bibliothèque
           </a>
           <a href="#" class="sidebar-nav-item" data-tab="history">
@@ -352,66 +354,9 @@
       </div><!-- /tab-overview -->
 
 
-      <!-- ══════════════════════════════════════════════════
-           TAB : MA BIBLIOTHÈQUE
-      ══════════════════════════════════════════════════ -->
-      <div class="tab-content" id="tab-library">
-        <div class="tab-header-row">
-          <h2 class="tab-title">Ma bibliothèque</h2>
-          <div class="library-sort">
-            Trié par <button class="sort-btn">↕ Dernière activité</button>
-          </div>
-        </div>
-
-        <div class="library-filters">
-          <button class="lib-filter-btn active" data-libfilter="all">Tout (48)</button>
-          <button class="lib-filter-btn" data-libfilter="en_cours">En cours (18)</button>
-          <button class="lib-filter-btn" data-libfilter="a_commencer">À commencer (9)</button>
-          <button class="lib-filter-btn" data-libfilter="termine">Terminés (21)</button>
-        </div>
-
-        <div class="library-grid" id="libraryGrid"></div>
-
-        <!-- Listes personnalisées -->
-        <div class="lib-bottom-row">
-          <div class="card lib-lists-card">
-            <div class="card-title-row">
-              <span class="card-title">Listes personnalisées</span>
-              <a href="#" class="card-link" data-goto="lists">Gérer</a>
-            </div>
-            <div id="libListsMini"><div class="lib-list-sub" style="padding:8px 0">Chargement…</div></div>
-          </div>
-          <div class="card lib-status-card">
-            <div class="card-title">Statuts</div>
-            <div class="status-circles">
-              <div class="status-circle">
-                <svg viewBox="0 0 60 60">
-                  <circle cx="30" cy="30" r="24" stroke="var(--bg4)" stroke-width="5" fill="none"/>
-                  <circle cx="30" cy="30" r="24" stroke="var(--green)" stroke-width="5" fill="none"
-                    stroke-dasharray="150" stroke-dashoffset="37" stroke-linecap="round"
-                    transform="rotate(-90 30 30)"/>
-                </svg>
-                <div class="status-circle-num">18</div>
-              </div>
-              <div class="status-circle">
-                <svg viewBox="0 0 60 60">
-                  <circle cx="30" cy="30" r="24" stroke="var(--bg4)" stroke-width="5" fill="none"/>
-                  <circle cx="30" cy="30" r="24" stroke="var(--orange)" stroke-width="5" fill="none"
-                    stroke-dasharray="150" stroke-dashoffset="80" stroke-linecap="round"
-                    transform="rotate(-90 30 30)"/>
-                </svg>
-                <div class="status-circle-num">21</div>
-              </div>
-            </div>
-            <div class="card-title" style="margin-top:16px">Badges récents</div>
-            <div class="badges-grid" style="margin-top:8px">
-              <div class="badge-item"></div>
-              <div class="badge-item"></div>
-              <div class="badge-item"></div>
-            </div>
-          </div>
-        </div>
-      </div><!-- /tab-library -->
+      <!-- Onglet « Ma bibliothèque » supprimé (audit N4/N5/N7/F.7) : compteurs
+           codés en dur, donuts SVG jamais mis à jour, boutons inertes — la page
+           dédiée bibliotheque.html fait référence, le lien de la sidebar y mène. -->
 
 
       <!-- ══════════════════════════════════════════════════

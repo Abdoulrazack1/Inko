@@ -19,11 +19,9 @@
             renderHeroAndStats(),
             renderFavs(),
             renderHistoryMini(),
-            renderLibraryGrid(),
             renderHistoryTimeline(),
             renderHeatmap(),
             renderListsPanel(),
-            renderLibListsMini(),
             renderHistorySummary(),
             renderMyReviews(),
             renderBadges(),
@@ -34,7 +32,6 @@
         ]);
         initToggles();
         initPrefBtns();
-        initLibFilters();
         initHistoryFilters();
         initViewToggles();
         initListNav();
@@ -516,86 +513,8 @@
         }
     }
 
-    // ── Library ──
-    async function renderLibraryGrid(filter = 'all') {
-        const el = document.getElementById('libraryGrid');
-        if (!el) return;
-        try {
-            const library = await API.me.library();
-            let entries = library;
-            if (filter === 'en_cours')    entries = entries.filter(e => e.status === 'reading');
-            if (filter === 'a_commencer') entries = entries.filter(e => e.status === 'planned');
-            if (filter === 'termine')     entries = entries.filter(e => e.status === 'completed');
-
-            if (!entries.length) {
-                el.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text3)">
-                    <p style="margin-bottom:12px">Aucun manga dans cette catégorie.</p>
-                    <a href="catalogue.html" class="btn btn-primary btn-sm">Explorer le catalogue →</a>
-                </div>`;
-                return;
-            }
-
-            // Métadonnées depuis les favoris (titre/cover/source stockés) — correct
-            // en multi-sources ; fallback fetch source courante pour le reste.
-            const [favs, progress] = await Promise.all([API.me.favorites(), API.me.progress()]);
-            const favMap = new Map((favs || []).map(f => [String(f.mangaId), f]));
-            const toFetch = entries.filter(e => !favMap.has(String(e.mangaId)));
-            const fetched = await Promise.allSettled(toFetch.map(e => API.mangas.get(e.mangaId)));
-            const fetchedMap = new Map();
-            toFetch.forEach((e, i) => { if (fetched[i].status === 'fulfilled') fetchedMap.set(String(e.mangaId), fetched[i].value); });
-
-            el.innerHTML = entries.map((e) => {
-                const fav = favMap.get(String(e.mangaId));
-                const m = fav
-                    ? { id: e.mangaId, title: fav.title || e.mangaId, cover: fav.cover, source: fav.source, tags: [] }
-                    : fetchedMap.get(String(e.mangaId));
-                if (!m) return '';
-                const p = progress[m.id];
-                const chapRead = p?.chapter || 0;
-                const pct = Math.min(100, Math.round((chapRead / 100) * 100)); // approximation
-                const labels = { reading:'En cours', completed:'Terminé', planned:'À lire', paused:'En pause', dropped:'Abandonné' };
-                const colors = { reading:'#22c55e', completed:'#9ca3af', planned:'#3b82f6', paused:'#f59e0b', dropped:'#ef4444' };
-                return `
-                <div class="lib-manga-card">
-                    <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(m.source || '')}">
-                        <div class="manga-card-cover" style="aspect-ratio:3/4;border-radius:var(--radius);overflow:hidden;position:relative">
-                            <img src="${m.cover || MH.placeholderCover(m.id)}" alt="${MH.esc(m.title)}" style="width:100%;height:100%;object-fit:cover" onerror="this.src='${MH.placeholderCover(m.id)}'">
-                        </div>
-                        <div class="lib-manga-progress-label" style="margin-top:6px">
-                            <span style="font-size:12.5px;font-weight:500;color:var(--text)">${MH.esc(m.title)}</span>
-                            <span style="color:${colors[e.status]};font-size:11px">${labels[e.status] || e.status}</span>
-                        </div>
-                        <div style="font-size:11.5px;color:var(--text2);margin-top:1px">Ch. ${chapRead} · ${(m.tags || [])[0] || ''}</div>
-                        <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
-                            <div style="flex:1;height:3px;background:var(--bg4);border-radius:2px">
-                                <div style="height:100%;width:${pct}%;background:${e.status === 'completed' ? 'var(--green)' : 'var(--orange)'};border-radius:2px"></div>
-                            </div>
-                            <span style="font-size:10.5px;color:var(--text3)">${pct}%</span>
-                        </div>
-                    </a>
-                </div>`;
-            }).join('');
-
-            // Update filter counts
-            const btns = document.querySelectorAll('.lib-filter-btn');
-            if (btns[0]) btns[0].textContent = `Tout (${library.length})`;
-            if (btns[1]) btns[1].textContent = `En cours (${library.filter(e => e.status === 'reading').length})`;
-            if (btns[2]) btns[2].textContent = `À commencer (${library.filter(e => e.status === 'planned').length})`;
-            if (btns[3]) btns[3].textContent = `Terminés (${library.filter(e => e.status === 'completed').length})`;
-        } catch(e) {
-            el.innerHTML = `<div style="padding:14px;color:#ef4444">Erreur de chargement</div>`;
-        }
-    }
-
-    function initLibFilters() {
-        document.querySelectorAll('.lib-filter-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                document.querySelectorAll('.lib-filter-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                await renderLibraryGrid(btn.dataset.libfilter);
-            });
-        });
-    }
+    // (renderLibraryGrid/initLibFilters supprimés — audit N4/F.7 : l'onglet
+    //  « Ma bibliothèque » du profil est remplacé par la page bibliotheque.html)
 
     // ── Timeline ──
     async function renderHistoryTimeline() {
@@ -713,30 +632,6 @@
                 }
             }
         } catch (e) { /* silencieux */ }
-    }
-
-    // Vignettes des listes personnalisées dans l'onglet Bibliothèque (données réelles, audit B9)
-    async function renderLibListsMini() {
-        const el = document.getElementById('libListsMini');
-        if (!el) return;
-        try {
-            const lists = await API.me.lists();
-            if (!lists.length) {
-                el.innerHTML = `<div class="lib-list-sub" style="padding:8px 0;color:var(--text3)">Aucune liste. Crée-en une dans l'onglet « Mes listes ».</div>`;
-                return;
-            }
-            const grad = ['135deg,#1a0d3d,#4d1a6a', '135deg,#3d0a0a,#6e1a1a', '135deg,#0a1a3d,#1a4d8a', '135deg,#0d3d1a,#1a6a3d'];
-            el.innerHTML = lists.slice(0, 4).map((l, i) => `
-                <div class="lib-list-item" data-goto="lists" style="cursor:pointer">
-                    <div class="lib-list-cover" style="background:linear-gradient(${grad[i % grad.length]});width:40px;height:54px;border-radius:4px"></div>
-                    <div class="lib-list-info">
-                        <div class="lib-list-name">${MH.esc(l.name)}</div>
-                        <div class="lib-list-meta">${l.mangaIds.length} série${l.mangaIds.length > 1 ? 's' : ''}${l.description ? ' • ' + MH.esc(l.description) : ''}</div>
-                    </div>
-                </div>`).join('');
-        } catch (e) {
-            el.innerHTML = '';
-        }
     }
 
     let _lists = [];              // listes personnalisées (cache)

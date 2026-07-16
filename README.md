@@ -255,6 +255,34 @@ docker compose up -d       # backend Node 22 + MySQL 8, HEALTHCHECK inclus
 En production multi-comptes : `LOCAL_MODE=0`, `NODE_ENV=production` (active
 CSP/HSTS), `JWT_SECRET`, `CORS_ORIGINS`, et un SMTP pour « mot de passe oublié ».
 
+### Le mode « hub à la maison » (toujours allumé)
+
+Inko a deux profils d'usage, tous deux légitimes :
+
+| | App de bureau | Hub à la maison |
+|---|---|---|
+| **Où ça tourne** | Ton PC, le temps d'une session | NAS, Raspberry Pi, mini-PC, VPS — 24h/24 |
+| **Comment** | Installeur Windows (Tauri) | `docker compose up -d` |
+| **Notifications** | Seulement quand l'app est ouverte | **Fiables** : le scan de nouveautés (toutes les 4 h) et le Web Push tournent en continu |
+| **Multi-appareils** | Non | Oui : n'importe quel navigateur/PWA du réseau voit la même bibliothèque, la même progression |
+
+Le hub ne demande **aucun changement de code** : c'est le même `docker-compose.yml`
+(qui fixe déjà `NODE_ENV=production`). Une sauvegarde JSON de tous les comptes est
+écrite chaque nuit dans `server/backups/` (rotation 14 jours, `DISABLE_BACKUPS=1`
+pour couper, `BACKUP_DIR` pour déplacer).
+
+**Accès hors de la maison (sans ouvrir de port)** — deux pistes éprouvées :
+
+- **Tailscale** (le plus simple) : installe Tailscale sur la machine du hub et sur
+  ton téléphone → le hub est joignable via son IP Tailscale (`http://100.x.y.z:8088`)
+  de partout, chiffré de bout en bout, zéro configuration réseau.
+- **Cloudflare Tunnel** : expose le hub sur un sous-domaine à toi sans IP publique.
+  Un sidecar Docker optionnel est prêt en commentaire dans `docker-compose.yml`
+  (renseigne `TUNNEL_TOKEN` dans `.env` et décommente-le).
+
+La PWA s'installe ensuite depuis le navigateur du téléphone (« Ajouter à l'écran
+d'accueil ») et parle au hub comme n'importe quel client.
+
 ---
 
 ## API REST

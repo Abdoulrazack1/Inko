@@ -33,7 +33,12 @@ services:
       inko-db:
         condition: service_healthy
     environment:
+      # Profil de déploiement "always-on" : en production, requestReset ne
+      # renvoie jamais le token de reset dans la réponse HTTP (audit N19/F.5).
+      NODE_ENV: production
       PORT: 8080
+      # Fuseau utilisé pour la heatmap et les séries de lecture (audit N55)
+      STATS_TZ: ${STATS_TZ:-Europe/Paris}
       DB_HOST: inko-db
       DB_PORT: 3306
       DB_USER: root
@@ -55,6 +60,24 @@ services:
     container_name: inko-cache
     restart: unless-stopped
     networks: [inko]
+
+  # ── Accès distant SANS ouverture de port (optionnel — Partie H de l'audit) ──
+  # Cloudflare Tunnel : expose le hub sur ton sous-domaine sans IP publique.
+  # 1. Crée un tunnel sur one.dash.cloudflare.com (Zero Trust → Tunnels),
+  #    pointe-le vers http://inko-app:8080, copie le token dans .env :
+  #    TUNNEL_TOKEN=eyJh…
+  # 2. Décommente le bloc ci-dessous puis `docker compose up -d`.
+  # (Alternative encore plus simple sans domaine : installer Tailscale sur la
+  #  machine hôte — voir README « Le mode hub à la maison ».)
+  # inko-tunnel:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: inko-tunnel
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+  #   depends_on: [inko-app]
+  #   networks: [inko]
 
 volumes:
   inko-db-data:
