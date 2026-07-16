@@ -100,6 +100,11 @@ app.use(errorHandler);
     setTimeout(backgroundScan, 90 * 1000).unref();
     setInterval(backgroundScan, 4 * 3600 * 1000).unref();
 
+    // Sauvegarde automatique quotidienne (audit N35) : dump JSON de tous les
+    // comptes dans server/backups/ avec rotation — désactivable via
+    // DISABLE_BACKUPS=1, dossier configurable via BACKUP_DIR.
+    require('./lib/backup').scheduleBackups();
+
     app.listen(PORT, () => {
         console.log(`Inko backend → http://localhost:${PORT}`);
         console.log(`   API base  → http://localhost:${PORT}/api`);

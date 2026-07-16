@@ -3,6 +3,7 @@ server/node_modules/
 server/.env
 server/.env.local
 server/uploads/
+server/backups/
 server/config/google.json
 server/config/anilist.json
 server/config/vapid.json

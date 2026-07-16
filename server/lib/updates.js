@@ -141,7 +141,16 @@ async function backgroundScan() {
             try {
                 const { updates } = await scanUserUpdates(u.user_id, { scope: 'active' });
                 const fresh = updates.filter(x => x.hasNew && x.latest);
-                for (const f of fresh.slice(0, 5)) {   // au plus 5 notifs par cycle
+                // Audit N46 : l'ancien `fresh.slice(0, 5)` budgétisait AVANT le
+                // garde anti-doublon — des séries déjà notifiées consommaient le
+                // quota, et tout ce qui dépassait la 5e place était abandonné
+                // (jamais reporté). Désormais : on écarte d'abord les doublons,
+                // on notifie jusqu'à 5 NOUVELLES séries, et le surplus reste
+                // non-notifié → il sera repris au cycle suivant (le chapitre
+                // reste « nouveau » tant qu'il n'est pas lu).
+                let sent = 0;
+                for (const f of fresh) {
+                    if (sent >= 5) break;   // au plus 5 notifs par cycle, le reste au cycle suivant
                     const link = `/chapitre.html?manga=${encodeURIComponent(f.mangaId)}&chapter=${encodeURIComponent(f.latest.id)}&source=${encodeURIComponent(f.source)}`;
                     // Garde anti-doublon : même chapitre déjà notifié → on passe
                     try {
@@ -158,6 +167,7 @@ async function backgroundScan() {
                         link,
                         image: f.cover || null,
                     });
+                    sent++;
                 }
             } catch (e) { /* utilisateur suivant */ }
         }

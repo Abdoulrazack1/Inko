@@ -46,3 +46,41 @@ test('parseMentions : extrait les @username uniques', () => {
     assert.deepEqual(parseMentions('aucune mention ici'), []);
     assert.deepEqual(parseMentions('@a trop court'), []); // < 2 caractères
 });
+
+// ── Chemins sensibles (audit v3 F.14 : zones ex-failles de sécurité) ──
+const { adminRequired } = require('../middleware/admin');
+
+function fakeRes() {
+    const res = { statusCode: null, body: null };
+    res.status = (c) => { res.statusCode = c; return res; };
+    res.json = (b) => { res.body = b; return res; };
+    return res;
+}
+
+test('adminRequired : 403 sans utilisateur', () => {
+    const res = fakeRes(); let passed = false;
+    adminRequired({ user: null }, res, () => { passed = true; });
+    assert.equal(res.statusCode, 403);
+    assert.equal(passed, false);
+});
+
+test('adminRequired : 403 pour un simple utilisateur', () => {
+    const res = fakeRes(); let passed = false;
+    adminRequired({ user: { id: 2, role: 'user' } }, res, () => { passed = true; });
+    assert.equal(res.statusCode, 403);
+    assert.equal(passed, false);
+});
+
+test('adminRequired : 403 même avec un role approchant (pas de laxisme)', () => {
+    const res = fakeRes(); let passed = false;
+    adminRequired({ user: { id: 3, role: 'Admin' } }, res, () => { passed = true; }); // casse différente
+    assert.equal(res.statusCode, 403);
+    assert.equal(passed, false);
+});
+
+test('adminRequired : laisse passer un admin', () => {
+    const res = fakeRes(); let passed = false;
+    adminRequired({ user: { id: 1, role: 'admin' } }, res, () => { passed = true; });
+    assert.equal(passed, true);
+    assert.equal(res.statusCode, null);
+});

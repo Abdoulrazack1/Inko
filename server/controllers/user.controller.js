@@ -325,18 +325,42 @@ async function removeFromList(req, res, next) {
 // ──────────────────────────────────────────────────────────────
 async function getComments(req, res, next) {
     try {
-        // Tous les commentaires de l'œuvre (parents + réponses) ; le front
-        // reconstruit l'arbre via parentId. Compte aussi les signalements
-        // ouverts pour les admins (sinon 0).
+        // Pagination par fil de discussion (audit N51) : l'ancien plafond dur
+        // (300 plus anciens, jamais d'offset) faisait disparaître tout commentaire
+        // au-delà du seuil — y compris celui qu'on venait de poster. On pagine
+        // désormais les commentaires RACINE du plus récent au plus ancien, et on
+        // ramène l'intégralité des réponses de chaque fil affiché pour ne jamais
+        // couper un arbre en deux. Le front reconstruit l'arbre via parentId.
         const isAdmin = req.user?.role === 'admin';
-        const [rows] = await pool.query(
-            `SELECT c.id, c.text, c.chapter_id, c.parent_id, c.created_at,
-                    c.user_id, u.username, u.avatar
-             FROM comments c
-             JOIN users u ON u.id = c.user_id
-             WHERE c.manga_id = ?
-             ORDER BY c.created_at ASC
-             LIMIT 300`,
+        const limit   = Math.min(Math.max(parseInt(req.query.limit  || '50', 10) || 50, 1), 100);
+        const offset  = Math.max(parseInt(req.query.offset || '0', 10) || 0, 0);
+        const [roots] = await pool.query(
+            `SELECT id FROM comments
+             WHERE manga_id = ? AND parent_id IS NULL
+             ORDER BY created_at DESC
+             LIMIT ? OFFSET ?`,
+            [req.params.mangaId, limit, offset]
+        );
+        let rows = [];
+        if (roots.length) {
+            [rows] = await pool.query(
+                `WITH RECURSIVE thread AS (
+                     SELECT id FROM comments WHERE id IN (?)
+                     UNION ALL
+                     SELECT c.id FROM comments c JOIN thread t ON c.parent_id = t.id
+                 )
+                 SELECT c.id, c.text, c.chapter_id, c.parent_id, c.created_at,
+                        c.user_id, u.username, u.avatar
+                 FROM comments c
+                 JOIN users u ON u.id = c.user_id
+                 WHERE c.id IN (SELECT id FROM thread)
+                 ORDER BY c.created_at ASC`,
+                [roots.map(r => r.id)]
+            );
+        }
+        const [[counts]] = await pool.query(
+            `SELECT COUNT(*) AS total, COALESCE(SUM(parent_id IS NULL), 0) AS roots
+             FROM comments WHERE manga_id = ?`,
             [req.params.mangaId]
         );
         let reportCounts = {};
@@ -348,13 +372,17 @@ async function getComments(req, res, next) {
             );
             reps.forEach(r => { reportCounts[r.comment_id] = r.n; });
         }
-        res.json(rows.map(r => ({
-            id: r.id, text: r.text, chapterId: r.chapter_id,
-            parentId: r.parent_id || null,
-            user: r.username, avatar: r.avatar || r.username[0].toUpperCase(),
-            createdAt: r.created_at,
-            reports: reportCounts[r.id] || 0,
-        })));
+        res.json({
+            items: rows.map(r => ({
+                id: r.id, text: r.text, chapterId: r.chapter_id,
+                parentId: r.parent_id || null,
+                user: r.username, avatar: r.avatar || r.username[0].toUpperCase(),
+                createdAt: r.created_at,
+                reports: reportCounts[r.id] || 0,
+            })),
+            total: Number(counts.total) || 0,
+            hasMore: offset + roots.length < Number(counts.roots),
+        });
     } catch (e) { next(e); }
 }
 
@@ -497,21 +525,39 @@ async function getStats(req, res, next) {
             [uid, uid, uid, uid, uid, uid]
         );
 
-        const [days] = await pool.query(
-            `SELECT DATE(read_at) AS day, COUNT(*) AS c
-             FROM read_chapters WHERE user_id = ? AND read_at > NOW() - INTERVAL 365 DAY
-             GROUP BY DATE(read_at)`,
+        // Heatmap + streak dans le fuseau de l'utilisateur (audit N55) : l'ancien
+        // découpage DATE()/toISOString était 100% UTC — un chapitre lu à 0h30
+        // heure de Paris comptait pour la veille, cassait les séries de lecture
+        // et allumait la mauvaise case. Le regroupement par jour se fait donc en
+        // Node (pas de CONVERT_TZ : les tables timezone de MySQL ne sont pas
+        // chargées dans l'image Docker) avec un fuseau configurable.
+        const TZ = process.env.STATS_TZ || 'Europe/Paris';
+        const dayFmt = new Intl.DateTimeFormat('en-CA', {   // en-CA → YYYY-MM-DD
+            timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+        });
+        const dayKey = d => dayFmt.format(d);
+        const [reads] = await pool.query(
+            `SELECT read_at FROM read_chapters
+             WHERE user_id = ? AND read_at > NOW() - INTERVAL 365 DAY`,
             [uid]
         );
         const heatmap = {};
-        days.forEach(d => { heatmap[d.day.toISOString().slice(0, 10)] = d.c; });
+        reads.forEach(r => {
+            const k = dayKey(r.read_at);
+            heatmap[k] = (heatmap[k] || 0) + 1;
+        });
 
-        // Séries de lecture (streak)
+        // Séries de lecture (streak) — arithmétique calendaire sur les clés
+        // YYYY-MM-DD elles-mêmes (minuit UTC), indépendante du fuseau du serveur.
         const set = new Set(Object.keys(heatmap));
-        const iso = d => d.toISOString().slice(0, 10);
-        let current = 0; const cur = new Date();
-        if (!set.has(iso(cur))) cur.setDate(cur.getDate() - 1);
-        while (set.has(iso(cur))) { current++; cur.setDate(cur.getDate() - 1); }
+        const prevKey = k => {
+            const d = new Date(k + 'T00:00:00Z');
+            d.setUTCDate(d.getUTCDate() - 1);
+            return d.toISOString().slice(0, 10);
+        };
+        let current = 0; let k = dayKey(new Date());
+        if (!set.has(k)) k = prevKey(k);
+        while (set.has(k)) { current++; k = prevKey(k); }
         const sorted = [...set].sort();
         let longest = 0, run = 0, prev = null;
         sorted.forEach(d => {
@@ -519,7 +565,7 @@ async function getStats(req, res, next) {
             longest = Math.max(longest, run); prev = d;
         });
 
-        res.json({ totals, heatmap, streak: { current, longest } });
+        res.json({ totals, heatmap, streak: { current, longest }, timezone: TZ });
     } catch (e) { next(e); }
 }
 

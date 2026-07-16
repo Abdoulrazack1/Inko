@@ -12,7 +12,9 @@ const multer = require('multer');
 const { pool } = require('../config/db');
 
 const UPLOAD_ROOT = path.join(__dirname, '..', 'uploads');
-const ALLOWED = { '.cbz': 'cbz', '.cbr': 'cbr', '.epub': 'epub', '.zip': 'cbz', '.pdf': 'pdf' };
+// .cbr retiré (audit N9) : le lecteur intégré ne lit pas le RAR — refuser à
+// l'upload avec un message clair plutôt que de laisser découvrir à la lecture.
+const ALLOWED = { '.cbz': 'cbz', '.epub': 'epub', '.zip': 'cbz', '.pdf': 'pdf' };
 
 const storage = multer.diskStorage({
     destination(req, _file, cb) {
@@ -31,7 +33,8 @@ const upload = multer({
     fileFilter(_req, file, cb) {
         const ext = (path.extname(file.originalname) || '').toLowerCase();
         if (ALLOWED[ext]) return cb(null, true);
-        cb(new Error('Format non supporté (EPUB, CBZ, CBR uniquement)'));
+        if (ext === '.cbr') return cb(new Error('CBR (archive RAR) non supporté : convertis-le en CBZ (ZIP)'));
+        cb(new Error('Format non supporté (EPUB, PDF, CBZ uniquement)'));
     },
 }).single('file');
 

@@ -64,7 +64,10 @@ async function search(req, res, next) {
 // Recherche agrégée sur TOUTES les sources installées (façon Mihon)
 async function searchAll(req, res, next) {
     try {
-        const { q, limit = 12 } = req.query;
+        const { q } = req.query;
+        // Plafond paramétrable (audit N38) : 12 par défaut (aperçu header),
+        // jusqu'à 50 pour la page de recherche dédiée.
+        const limit = Math.min(Math.max(parseInt(req.query.limit || '12', 10) || 12, 1), 50);
         if (!q || !q.trim()) return res.json({ query: '', groups: [] });
         const sources = extensions.getAll().filter(s => supports(s, 'search'));
         const groups = await Promise.all(sources.map(async s => {
