@@ -38,8 +38,11 @@
         { id: 'jazz',  name: 'Jazz Café',    sub: 'Piano lent',        g: ['#c79081', '#dfa579'], yt: 'Dx5qFachd3A' },
         { id: 'synth', name: 'Synthwave',    sub: 'Rétro nocturne',    g: ['#7028e4', '#e5b2ca'], yt: '4xDzrJKXOOY' },
         { id: 'rain',  name: 'Pluie',        sub: 'Ambiance nature',   g: ['#2c3e50', '#3f5efb'], yt: 'yIQd2Ya0Ziw' },
-        { id: 'focus', name: 'Deep Focus',   sub: 'Concentration',     g: ['#11998e', '#38ef7d'], sp: '37i9dQZF1DWZeKCadgRdKQ' },
-        { id: 'piano', name: 'Piano',        sub: 'Classique doux',    g: ['#2c3e50', '#4ca1af'], sp: '37i9dQZF1DX4sWSpwq3LiO' },
+        // Ex-stations Spotify (résidu audit F.1) : re-câblées sur de vrais flux
+        // YouTube — un champ `sp:` seul faisait playYouTube(undefined) (aucun son,
+        // UI « en lecture » quand même).
+        { id: 'focus', name: 'Deep Focus',   sub: 'Concentration',     g: ['#11998e', '#38ef7d'], yt: 'lTRiuFIWV54' },
+        { id: 'piano', name: 'Piano',        sub: 'Piano paisible',    g: ['#2c3e50', '#4ca1af'], yt: '4oStw0r33so' },
     ];
 
     // ── État ──
@@ -71,19 +74,19 @@
                 <div class="im-art" id="im-art">${ICON.note}</div>
                 <div class="im-meta"><div class="t" id="im-t">Choisis une ambiance</div><div class="s" id="im-s">Lecteur Inko</div></div>
                 <div class="im-ctr">
-                    <button class="im-ico" id="im-prev" title="Précédent">${ICON.prev}</button>
-                    <button class="im-ico pp" id="im-pp" title="Lecture/Pause">${ICON.play}</button>
-                    <button class="im-ico" id="im-next" title="Suivant">${ICON.next}</button>
+                    <button class="im-ico" id="im-prev" title="Précédent" aria-label="Piste ou station précédente">${ICON.prev}</button>
+                    <button class="im-ico pp" id="im-pp" title="Lecture/Pause" aria-label="Lecture / pause">${ICON.play}</button>
+                    <button class="im-ico" id="im-next" title="Suivant" aria-label="Piste ou station suivante">${ICON.next}</button>
                 </div>
-                <div class="im-vol">${ICON.vol}<input type="range" id="im-vol" min="0" max="1" step="0.01" value="${S.vol}"></div>
-                <button class="im-ico" id="im-repeat" title="Répéter">${ICON.repeat}</button>
-                <button class="im-ico" id="im-timer" title="Minuterie de sommeil">${ICON.timer}</button>
-                <button class="im-ico im-chev" id="im-exp" title="Agrandir">${ICON.chevron}</button>
-                <button class="im-ico" id="im-min" title="Réduire en pastille">${ICON.minus}</button>
-                <button class="im-ico im-x" id="im-close" title="Fermer et arrêter">${ICON.close}</button>
+                <div class="im-vol">${ICON.vol}<input type="range" id="im-vol" min="0" max="1" step="0.01" value="${S.vol}" aria-label="Volume"></div>
+                <button class="im-ico" id="im-repeat" title="Répéter" aria-label="Mode répétition">${ICON.repeat}</button>
+                <button class="im-ico" id="im-timer" title="Minuterie de sommeil" aria-label="Minuterie de sommeil">${ICON.timer}</button>
+                <button class="im-ico im-chev" id="im-exp" title="Agrandir" aria-label="Agrandir le lecteur">${ICON.chevron}</button>
+                <button class="im-ico" id="im-min" title="Réduire en pastille" aria-label="Réduire le lecteur en pastille">${ICON.minus}</button>
+                <button class="im-ico im-x" id="im-close" title="Fermer et arrêter" aria-label="Fermer le lecteur et arrêter la musique">${ICON.close}</button>
                 <div class="im-progress" id="im-prog" style="display:none"><i></i></div>
             </div>
-            <button class="im-pill" id="im-pill" title="Rouvrir le lecteur">${ICON.note}<span class="peq" style="display:none"><i></i><i></i><i></i></span></button>`;
+            <button class="im-pill" id="im-pill" title="Rouvrir le lecteur" aria-label="Rouvrir le lecteur musique">${ICON.note}<span class="peq" style="display:none"><i></i><i></i><i></i></span></button>`;
         document.body.appendChild(root);
         bar = root.querySelector('.im-bar');
         panel = root.querySelector('.im-panel');
@@ -167,7 +170,7 @@
             </button>`).join('') + `</div>`;
         c.querySelectorAll('.im-station').forEach(el => el.onclick = () => {
             const st = STATIONS.find(s => s.id === el.dataset.id);
-            playYouTube(st.yt, st.name, 'Station · ' + st.sub, st.g);
+            if (st && st.yt) playYouTube(st.yt, st.name, 'Station · ' + st.sub, st.g);
         });
         markStation();
     }
@@ -192,6 +195,9 @@
         c.querySelector('#im-pick').onclick = () => c.querySelector('#im-file').click();
         c.querySelector('#im-file').onchange = e => {
             const files = [...e.target.files]; if (!files.length) return;
+            // Libère les blob URLs de l'ancienne file avant d'en créer une
+            // nouvelle (audit F.2 : fuite mémoire cumulative à chaque import)
+            localQueue.forEach(t => { try { URL.revokeObjectURL(t.url); } catch (err) {} });
             localQueue = files.map(f => ({ name: f.name.replace(/\.[^.]+$/, ''), url: URL.createObjectURL(f) }));
             playLocal(0); renderQueue();
         };

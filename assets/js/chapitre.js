@@ -436,8 +436,15 @@
     let saveTimer;
     function debouncedSave() {
         clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => { saveProgress(); }, 400);   // currentPage déjà à jour
+        saveTimer = setTimeout(() => { saveTimer = null; saveProgress(); }, 400);   // currentPage déjà à jour
     }
+    // Audit N52 : une sauvegarde debouncée encore en attente était perdue si on
+    // quittait le lecteur dans les 400 ms (retour, fermeture, chapitre suivant).
+    // On la force au départ de la page — le keepalive d'api.js fait survivre la
+    // requête à la navigation.
+    window.addEventListener('pagehide', () => {
+        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; saveProgress(); }
+    });
 
     async function saveProgress() {
         if (window.MH?.isIncognito?.()) return;   // lecture privée : pas de progression
@@ -454,19 +461,24 @@
     async function markChapterRead() {
         if (window.MH?.isIncognito?.()) return;   // lecture privée : pas de marquage
         if (!API.isLoggedIn() || !manga || !currentChap) return;
-        try {
-            await API.me.markChapter({
-                mangaId:   manga.id,
-                chapterId: currentChap.id,
-                chapter:   currentChap.chapter,
-                read:      true,
-            });
-        } catch(e) {}
+        // Audit N53 : au double-appui « chapitre suivant » (le geste que l'écran
+        // de transition suggère), la navigation interrompait cette requête et le
+        // chapitre terminé n'était pas compté. markChapter est désormais envoyé
+        // en keepalive (api.js) → il survit à la navigation. On lance les deux
+        // appels tout de suite (sans await séquentiel) pour maximiser leurs
+        // chances de partir avant le départ de la page.
+        const req = API.me.markChapter({
+            mangaId:   manga.id,
+            chapterId: currentChap.id,
+            chapter:   currentChap.chapter,
+            read:      true,
+        }).catch(() => {});
         // Synchro AniList (best-effort, silencieux)
         try {
             const n = parseFloat(currentChap.chapter);
             window.AniList?.syncByTitle(manga.title, { progress: isNaN(n) ? undefined : n, status: 'reading' });
         } catch (e) {}
+        await req;
     }
 
     // ── Miniatures ──
@@ -779,7 +791,18 @@
     });
 
     function neighborChapter(delta) {
-        const asc = [...chapters].sort((a, b) => a.chapter - b.chapter);
+        // Tri robuste aux numéros non numériques (« Extra », « Bonus 1 »… — audit
+        // N54) : a.chapter - b.chapter donnait NaN → ordre imprévisible et
+        // « chapitre suivant » pouvant sauter au mauvais endroit. Les entrées non
+        // numériques sont classées en fin de liste, entre elles par texte.
+        const num = c => { const n = parseFloat(c.chapter); return isNaN(n) ? null : n; };
+        const asc = [...chapters].sort((a, b) => {
+            const na = num(a), nb = num(b);
+            if (na !== null && nb !== null) return na - nb;
+            if (na !== null) return -1;
+            if (nb !== null) return 1;
+            return String(a.chapter).localeCompare(String(b.chapter), 'fr');
+        });
         const idx = asc.findIndex(c => c.id === currentChap.id);
         const t = idx + delta;
         return (t >= 0 && t < asc.length) ? asc[t] : null;

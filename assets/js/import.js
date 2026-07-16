@@ -19,8 +19,8 @@
             <div class="im-drop" id="imDrop">
                 <div class="ic" style="color:var(--accent)">${MH.icon('upload', 34)}</div>
                 <div style="font-size:15px;color:var(--text);font-weight:600">Glisse un fichier ici, ou clique pour choisir</div>
-                <div class="hint">EPUB · PDF · CBZ · CBR — jusqu'à 300 Mo</div>
-                <input type="file" id="imFile" accept=".epub,.pdf,.cbz,.cbr,.zip" multiple hidden>
+                <div class="hint">EPUB · PDF · CBZ — jusqu'à 300 Mo (CBR non supporté : convertis-le en CBZ)</div>
+                <input type="file" id="imFile" accept=".epub,.pdf,.cbz,.zip" multiple hidden>
             </div>
             <div class="im-bar" id="imBar"><div></div></div>
             <div class="im-list" id="imList"></div>`;
@@ -40,6 +40,11 @@
         const bar = document.getElementById('imBar');
         const fill = bar.firstElementChild;
         for (const file of files) {
+            // CBR (RAR) : refus clair AU CHOIX du fichier, pas à la lecture (audit N9)
+            if (/\.cbr$/i.test(file.name)) {
+                MH.toast?.(`« ${file.name} » est un CBR (archive RAR), non lisible par le lecteur intégré. Convertis-le en CBZ (ZIP).`);
+                continue;
+            }
             bar.style.display = 'block'; fill.style.width = '0';
             try {
                 await API.local.upload(file, '', (p) => { fill.style.width = Math.round(p * 100) + '%'; });

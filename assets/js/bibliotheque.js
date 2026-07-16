@@ -233,6 +233,25 @@
             } catch (e) { MH.toast?.('Erreur : ' + e.message); }
             finally { xBtn.disabled = false; xBtn.textContent = lbl; }
         });
+
+        // Export CSV (audit N36) : format lisible ailleurs (tableur, migration)
+        // en plus de la sauvegarde JSON complète. BOM + « ; » pour Excel FR.
+        document.getElementById('btnLibExportCsv')?.addEventListener('click', () => {
+            if (!favs.length) { MH.toast?.('Ta bibliothèque est vide'); return; }
+            const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+            const rows = [
+                ['titre', 'source', 'statut', 'note', 'dernier_chapitre', 'id'],
+                ...favs.map(f => [f.title || f.mangaId, f.source || '', f.status || '', f.rating ?? '', f.last_chapter ?? '', f.mangaId]),
+            ];
+            const csv = '﻿' + rows.map(r => r.map(esc).join(';')).join('\r\n');
+            const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `inko-bibliotheque-${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            MH.toast?.('CSV téléchargé');
+        });
     }
 
     function wireLibRandom() {
@@ -390,13 +409,17 @@
             return;
         }
 
-        // Pour les favoris sans titre/cover stockés (anciens), on complète via l'API
+        // Pour les favoris sans titre/cover stockés (anciens), on complète via
+        // l'API en interrogeant LA SOURCE DU FAVORI (audit N49 : l'ancien code
+        // passait par la source courante de l'app — mauvais catalogue dès que le
+        // favori venait d'ailleurs, échec silencieux à chaque visite).
         const missing = favs.filter(f => !f.title || !f.cover);
         if (missing.length) {
             await Promise.allSettled(missing.map(async f => {
                 try {
-                    const id = API.sources.current; // restore après
-                    const m = await API.mangas.get(f.mangaId); // utilise source courante (best-effort)
+                    const m = f.source
+                        ? await API.mangas.getFrom(f.source, f.mangaId)
+                        : await API.mangas.get(f.mangaId);   // très ancien favori sans source : best-effort
                     f.title = f.title || m.title;
                     f.cover = f.cover || m.cover || m.coverThumb;
                 } catch (e) {}
@@ -675,11 +698,18 @@
         const c = document.getElementById('bulkCount');
         if (c) c.textContent = `${selected.size} sélectionné(s)`;
     }
+    // Progression des actions groupées (audit N50) — réutilise le compteur de la barre
+    function bulkProgress(done, total) {
+        const c = document.getElementById('bulkCount');
+        if (c) c.textContent = `${done} / ${total}…`;
+    }
     async function bulkDelete() {
         if (!selected.size) { MH.toast?.('Rien de sélectionné'); return; }
         if (!await MH.confirm(`Retirer ${selected.size} série(s) de ta bibliothèque ?`, { danger: true, okText: 'Retirer' })) return;
         const ids = [...selected];
+        let done = 0;
         for (const id of ids) {
+            bulkProgress(++done, ids.length);   // retour visuel (audit N50)
             try { await API.me.removeFavorite(id); favs = favs.filter(f => f.mangaId !== id); }
             catch (e) { /* on continue */ }
         }
@@ -697,8 +727,13 @@
         const idx = parseInt(ans, 10) - 1;
         if (isNaN(idx) || idx < 0 || idx >= keys.length) return;
         const status = keys[idx];
+        // Confirmation avant application en masse (audit N50 : bulkDelete
+        // confirmait, bulkStatus s'appliquait instantanément sans retour arrière)
+        if (!await MH.confirm(`Passer ${selected.size} série(s) en « ${STATUS[status][0]} » ?`, { okText: 'Appliquer' })) return;
         const ids = [...selected];
+        let done = 0;
         for (const id of ids) {
+            bulkProgress(++done, ids.length);   // retour visuel (audit N50)
             try {
                 await API.me.setLibrary(id, status);
                 const f = favs.find(x => x.mangaId === id);

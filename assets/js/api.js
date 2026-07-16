@@ -53,7 +53,7 @@
     // Timeout via AbortController : sans ça, un serveur qui ne répond pas
     // fige l'UI indéfiniment (audit API1/DF4, critique).
     const DEFAULT_TIMEOUT = 30000;
-    async function request(method, path, body, { timeout = DEFAULT_TIMEOUT } = {}) {
+    async function request(method, path, body, { timeout = DEFAULT_TIMEOUT, keepalive = false } = {}) {
         const ctrl  = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeout);
         const opts = {
@@ -61,6 +61,9 @@
             credentials: 'include',
             headers: { 'Accept': 'application/json' },
             signal: ctrl.signal,
+            // keepalive : la requête survit à la navigation (audit N52/N53 —
+            // sauvegarde de progression / marquage lu au moment de quitter la page)
+            keepalive,
         };
         if (_token) opts.headers['Authorization'] = `Bearer ${_token}`;
         if (body)   { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
@@ -250,7 +253,8 @@
             },
             _prefix()          { const id = API.sources.current; return id ? `/sources/${encodeURIComponent(id)}` : ''; },
             search:   (params = {}) => get(API.mangas._prefix() + '/mangas/search'  + API.mangas._qs(params)).then(mapMangaPage),
-            searchAll:(q)           => get('/search-all?q=' + encodeURIComponent(q || '')).then(mapMangaPage),
+            // limit : 12 par défaut (aperçu), plus généreux sur recherche.html (audit N38)
+            searchAll:(q, limit = 12) => get('/search-all?q=' + encodeURIComponent(q || '') + '&limit=' + limit).then(mapMangaPage),
             popular:  (params = {}) => get(API.mangas._prefix() + '/mangas/popular' + API.mangas._qs(params)).then(mapMangaPage),
             latest:   (params = {}) => get(API.mangas._prefix() + '/mangas/latest'  + API.mangas._qs(params)).then(mapMangaPage),
             // Variantes ciblant une source précise (catalogue « Toutes les sources »)
@@ -302,12 +306,14 @@
                 put('/me/library/' + encodeURIComponent(mangaId), { status, rating }),
 
             progress:         ()           => get('/me/progress'),
+            // keepalive : survivent à une navigation immédiate (audit N52/N53)
             setProgress:      (mangaId, payload) =>
-                put('/me/progress/' + encodeURIComponent(mangaId), { source: API.sources.current, ...payload }),
+                request('PUT', '/me/progress/' + encodeURIComponent(mangaId),
+                    { source: API.sources.current, ...payload }, { keepalive: true }),
             removeProgress:   (mangaId)    => del('/me/progress/' + encodeURIComponent(mangaId)),
 
             readChapters:     ()           => get('/me/read-chapters'),
-            markChapter:      (payload)    => post('/me/read-chapters', payload),
+            markChapter:      (payload)    => request('POST', '/me/read-chapters', payload, { keepalive: true }),
             markChaptersBulk: (mangaId, chapters) => post('/me/read-chapters/bulk', { mangaId, chapters }),
 
             // ── Journal de lecture (notes personnelles) ──
@@ -351,7 +357,9 @@
         },
 
         comments: {
-            list:   (mangaId)         => get('/comments/' + encodeURIComponent(mangaId)),
+            // Paginé par fil (audit N51) : renvoie { items, total, hasMore }
+            list:   (mangaId, { limit = 50, offset = 0 } = {}) =>
+                get('/comments/' + encodeURIComponent(mangaId) + `?limit=${limit}&offset=${offset}`),
             add:    (mangaId, payload)=> post('/comments/' + encodeURIComponent(mangaId), payload),
             reply:  (mangaId, parentId, text) => post('/comments/' + encodeURIComponent(mangaId), { text, parentId }),
             report: (commentId, reason) => post('/comments/' + commentId + '/report', { reason }),

@@ -175,8 +175,11 @@
         const cells = [];
         const d = new Date(start);
         const max = Math.max(1, ...Object.values(map));
+        // Clé en date LOCALE (audit N55) : toISOString basculait la case en UTC —
+        // avant 1h/2h du matin heure de Paris, la grille pointait sur la veille.
+        const localKey = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
         while (d <= today) {
-            const key = d.toISOString().slice(0, 10);
+            const key = localKey(d);
             const c = map[key] || 0;
             const lvl = c === 0 ? 0 : c >= max * 0.75 ? 4 : c >= max * 0.5 ? 3 : c >= max * 0.25 ? 2 : 1;
             cells.push(`<i class="${lvl ? 'l' + lvl : ''}" title="${key} : ${c} chapitre(s)"></i>`);
