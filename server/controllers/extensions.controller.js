@@ -6,15 +6,37 @@
 // en prod/desktop (où ce dossier n'est pas packagé), on récupère
 // depuis le dépôt GitHub officiel (raw), épinglé — pas d'URL arbitraire.
 // ============================================================
-const fs    = require('fs');
-const path  = require('path');
-const axios = require('axios');
+const fs     = require('fs');
+const path   = require('path');
+const crypto = require('crypto');
+const axios  = require('axios');
 const extensions = require('../extensions/loader');
 const health     = require('../lib/source-health');
 
-const REPO_RAW       = 'https://raw.githubusercontent.com/Abdoulrazack1/Inko/main';
+// Audit S-2 : on ne tire plus depuis la branche mutable `main` (un commit
+// poussé par erreur ou un compte compromis se propageait instantanément à
+// toutes les instances). On récupère depuis un TAG DE RELEASE immuable —
+// la dernière release publiée, résolue via l'API GitHub — avec un repli figé.
+const REPO           = 'Abdoulrazack1/Inko';
+const DEFAULT_EXT_REF = 'v2.3.0';    // repli si l'API GitHub est injoignable (bumpé par release)
+const rawUrl = (ref, p) => `https://raw.githubusercontent.com/${REPO}/${ref}/${p}`;
 const COMMUNITY_DIR  = path.join(__dirname, '..', '..', 'extensions-community');
 const RUNTIME_DIR    = path.join(__dirname, '..', 'extensions');
+
+let _refCache = null;   // { ref, at }
+async function resolveRef() {
+    if (process.env.EXT_UPDATE_REF) return process.env.EXT_UPDATE_REF;   // épinglage manuel
+    if (_refCache && Date.now() - _refCache.at < 3600_000) return _refCache.ref;
+    let ref = DEFAULT_EXT_REF;
+    try {
+        const r = await axios.get(`https://api.github.com/repos/${REPO}/releases/latest`,
+            { timeout: 10000, headers: { 'User-Agent': 'Inko' } });
+        if (r.data && r.data.tag_name) ref = r.data.tag_name;   // tag immuable
+    } catch (e) { /* API injoignable : on garde le repli figé */ }
+    _refCache = { ref, at: Date.now() };
+    return ref;
+}
+const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 
 // Un id d'extension ne peut être qu'un slug simple : empêche le path-traversal
 // (ex. "../../server" écrirait du code hors du dossier extensions = RCE).
@@ -39,16 +61,44 @@ async function getLatestManifest() {
         try { return JSON.parse(fs.readFileSync(local, 'utf8')); } catch (e) {}
     }
     try {
-        const r = await axios.get(`${REPO_RAW}/extensions-community/versions.json`, { timeout: 10000 });
+        const ref = await resolveRef();
+        const r = await axios.get(rawUrl(ref, 'extensions-community/versions.json'), { timeout: 10000 });
         return typeof r.data === 'object' ? r.data : JSON.parse(r.data);
     } catch (e) { return {}; }
 }
 
-async function getLatestSource(id) {
+// Empreintes SHA-256 attendues (audit S-2), depuis le même tag que les sources.
+async function getExpectedHashes() {
+    const local = path.join(COMMUNITY_DIR, 'hashes.json');
+    if (fs.existsSync(local)) {
+        try { return JSON.parse(fs.readFileSync(local, 'utf8')); } catch (e) {}
+    }
+    try {
+        const ref = await resolveRef();
+        const r = await axios.get(rawUrl(ref, 'extensions-community/hashes.json'), { timeout: 10000 });
+        return typeof r.data === 'object' ? r.data : JSON.parse(r.data);
+    } catch (e) { return {}; }
+}
+
+// Récupère la source d'une extension et VÉRIFIE son empreinte (audit S-2).
+// Quand un hash attendu existe pour cet id, un contenu qui ne correspond pas
+// est rejeté (fail-closed) — protège d'un CDN raw altéré ou d'un tag reforgé.
+async function getLatestSource(id, expectedHash) {
     const local = path.join(COMMUNITY_DIR, id, 'index.js');
-    if (fs.existsSync(local)) return fs.readFileSync(local, 'utf8');
-    const r = await axios.get(`${REPO_RAW}/extensions-community/${encodeURIComponent(id)}/index.js`, { timeout: 20000 });
-    return r.data;
+    let src;
+    if (fs.existsSync(local)) {
+        src = fs.readFileSync(local, 'utf8');
+    } else {
+        const ref = await resolveRef();
+        const r = await axios.get(rawUrl(ref, `extensions-community/${encodeURIComponent(id)}/index.js`),
+            { timeout: 20000, responseType: 'text', transformResponse: [(d) => d] });
+        src = typeof r.data === 'string' ? r.data : String(r.data);
+    }
+    if (expectedHash) {
+        const got = sha256(Buffer.from(src, 'utf8'));
+        if (got !== expectedHash) throw new Error('empreinte SHA-256 invalide (source rejetée)');
+    }
+    return src;
 }
 
 // GET /api/extensions/updates — état des MAJ disponibles
@@ -76,6 +126,7 @@ async function applyUpdates(req, res, next) {
     try {
         const reqIds = Array.isArray(req.body && req.body.ids) ? req.body.ids : null;
         const latest = await getLatestManifest();
+        const hashes = await getExpectedHashes();
         const installed = extensions.manifest();
         const byId = Object.fromEntries(installed.map(s => [s.id, s]));
         // Cibles : celles demandées, sinon toutes celles avec MAJ ou nouvelles
@@ -88,7 +139,7 @@ async function applyUpdates(req, res, next) {
         for (const id of targets) {
             try {
                 if (!VALID_ID.test(id)) throw new Error('identifiant invalide');
-                const src = await getLatestSource(id);
+                const src = await getLatestSource(id, hashes[id]);   // vérifie le SHA-256 si connu
                 if (!src || !/module\.exports/.test(src)) throw new Error('source invalide');
                 const dir = path.join(RUNTIME_DIR, id);
                 fs.mkdirSync(dir, { recursive: true });

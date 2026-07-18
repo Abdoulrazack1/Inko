@@ -1,10 +1,16 @@
 # ============================================================
-# Inko — orchestration de production (app + MySQL + Redis)
+# Inko — orchestration de production (app + MySQL)
 # ============================================================
 # Démarrage :  docker compose up -d --build
 # Accès      :  http://localhost:8088
-# Personnalise les mots de passe via un fichier .env à côté de ce fichier
-# (DB_PASSWORD=...) ou en éditant les valeurs ci-dessous.
+#
+# ⚠ AVANT LE PREMIER DÉMARRAGE (audit S-1) : crée un fichier .env à côté de ce
+#   fichier avec AU MINIMUM un secret JWT fort — sans lui, le conteneur refuse
+#   de démarrer (plus de secret par défaut devinable) :
+#     JWT_SECRET=$(openssl rand -hex 32)
+#     DB_PASSWORD=un-mot-de-passe-solide
+#   Et si tu exposes l'instance en ligne, ajoute la liste blanche CORS :
+#     CORS_ORIGINS=https://inko.exemple.com
 
 services:
   inko-db:
@@ -44,22 +50,23 @@ services:
       DB_USER: root
       DB_PASSWORD: ${DB_PASSWORD:-inko_root}
       DB_NAME: ${DB_NAME:-inko}
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
-      # Liste blanche CORS en prod (laisser vide = permissif). Ex :
+      # PAS de valeur par défaut (audit S-1) : si JWT_SECRET est vide, le
+      # conteneur s'arrête au démarrage plutôt que de tourner avec un secret
+      # public. Définis-le dans .env — voir l'en-tête de ce fichier.
+      JWT_SECRET: ${JWT_SECRET:?definis JWT_SECRET dans un fichier .env — voir en-tete}
+      # Liste blanche CORS quand l'instance est exposée en ligne. Sans elle, en
+      # prod, les origines tierces sont refusées (audit S-1). Ex :
       # CORS_ORIGINS: "https://inko.exemple.com"
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
       TRUST_PROXY: 1
-      REDIS_URL: redis://inko-cache:6379
     ports:
       - "8088:8080"
     networks: [inko]
 
-  # Réservé pour un cache partagé (couvertures, sessions) — l'app peut
-  # l'adopter plus tard via REDIS_URL ; non bloquant s'il est absent.
-  inko-cache:
-    image: redis:7-alpine
-    container_name: inko-cache
-    restart: unless-stopped
-    networks: [inko]
+  # (audit B-5) inko-cache/REDIS_URL retirés : aucun code serveur n'utilise
+  # Redis (pas de dépendance, pas de require) — un conteneur Redis inutile
+  # pesait sur les petits auto-hébergements (Raspberry Pi, NAS). À réintroduire
+  # le jour où un vrai cache partagé sera câblé.
 
   # ── Accès distant SANS ouverture de port (optionnel — Partie H de l'audit) ──
   # Cloudflare Tunnel : expose le hub sur ton sous-domaine sans IP publique.

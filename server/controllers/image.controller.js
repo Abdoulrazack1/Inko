@@ -49,31 +49,37 @@ function ipIsPrivate(ip) {
     return true; // format inconnu → on refuse par prudence
 }
 
-// Anti-SSRF robuste : résout le DNS et vérifie TOUTES les IP renvoyées.
-// Bloque le « DNS rebinding » (un domaine public qui pointe vers 127.0.0.1/10.x…).
-async function hostResolvesPrivate(host) {
+// Anti-SSRF robuste : résout le DNS UNE SEULE FOIS et vérifie TOUTES les IP.
+// Renvoie l'IP publique retenue pour la réutiliser côté curl — c'est ce qui
+// ferme la fenêtre de DNS rebinding (audit S-3) : sans ça, curl refaisait sa
+// propre résolution après notre check, laissant un domaine à TTL court basculer
+// vers 169.254.169.254 (métadonnées cloud) entre la vérification et le fetch.
+// Retour : { ok, ip } — ip=null pour une IP littérale (curl tape déjà la bonne).
+async function resolveSafeHost(host) {
     const bare = host.replace(/^\[|\]$/g, '');                  // retire les crochets IPv6
-    if (net.isIP(bare)) return ipIsPrivate(bare);               // IP littérale
-    if (/^localhost$/i.test(bare) || bare.endsWith('.localhost')) return true;
+    if (net.isIP(bare)) return { ok: !ipIsPrivate(bare), ip: null };   // IP littérale : rien à réépingler
+    if (/^localhost$/i.test(bare) || bare.endsWith('.localhost')) return { ok: false, ip: null };
     try {
         const addrs = await dns.lookup(bare, { all: true });
-        return addrs.length === 0 || addrs.some(a => ipIsPrivate(a.address));
+        if (!addrs.length || addrs.some(a => ipIsPrivate(a.address))) return { ok: false, ip: null };
+        return { ok: true, ip: addrs[0].address };              // 1re IP publique retenue
     } catch {
-        return true; // résolution impossible → on refuse
+        return { ok: false, ip: null };                          // résolution impossible → on refuse
     }
 }
 
-function fetchImage(url) {
+function fetchImage(url, pinnedIp) {
     if (inflight.has(url)) return inflight.get(url);
-    const origin = (() => { try { return new URL(url).origin + '/'; } catch { return ''; } })();
+    let origin = '', host = '', port = '';
+    try { const u = new URL(url); origin = u.origin + '/'; host = u.hostname; port = u.port || (u.protocol === 'https:' ? '443' : '80'); } catch { /* laissé vide */ }
+    // --resolve host:port:ip force curl à taper l'IP vérifiée par Node, tout en
+    // gardant le SNI/Host d'origine (donc le certificat TLS reste validé).
+    const args = ['-s', '-L', '--max-redirs', '4', '--compressed', '-m', '20', '-A', UA, '-e', origin,
+        '-H', 'Accept: image/avif,image/webp,image/*,*/*;q=0.8'];
+    if (pinnedIp && host && port) args.push('--resolve', `${host}:${port}:${pinnedIp}`);
+    args.push(url);
     const p = new Promise((resolve, reject) => {
-        execFile('curl', [
-            '-s', '-L', '--max-redirs', '4', '--compressed', '-m', '20',
-            '-A', UA,
-            '-e', origin,                          // Referer = origine de l'image
-            '-H', 'Accept: image/avif,image/webp,image/*,*/*;q=0.8',
-            url,
-        ], { encoding: 'buffer', maxBuffer: 25 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
+        execFile('curl', args, { encoding: 'buffer', maxBuffer: 25 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
             if (err) return reject(err);
             if (!stdout || stdout.length < 64) return reject(new Error('image vide'));
             resolve({ buf: stdout, type: contentTypeFor(url), expires: Date.now() + TTL });
@@ -88,7 +94,8 @@ async function proxy(req, res) {
     if (!url || !/^https?:\/\//i.test(url)) return res.status(400).end();
     let host;
     try { host = new URL(url).hostname; } catch (e) { return res.status(400).end(); }
-    if (await hostResolvesPrivate(host)) return res.status(403).end();
+    const safe = await resolveSafeHost(host);
+    if (!safe.ok) return res.status(403).end();
 
     // Cache hit
     const hit = cache.get(url);
@@ -100,7 +107,7 @@ async function proxy(req, res) {
     }
 
     try {
-        const img = await fetchImage(url);
+        const img = await fetchImage(url, safe.ip);
         // Insère dans le cache (éviction FIFO simple)
         if (cache.size >= MAX) cache.delete(cache.keys().next().value);
         cache.set(url, img);
@@ -109,11 +116,15 @@ async function proxy(req, res) {
         res.set('X-Inko-Cache', 'MISS');
         res.end(img.buf);
     } catch (e) {
-        // 1x1 transparent en repli (jamais d'image cassée visible)
+        // Audit B-8 : on renvoyait un GIF 1×1 « valide » → le onerror des <img>
+        // ne se déclenchait jamais, donc pas de placeholder thématique côté
+        // front, juste une case vide indistincte d'une vraie image manquante.
+        // On renvoie désormais un vrai échec sans corps image : le onerror des
+        // cartes (this.src = placeholderCover) prend le relais proprement.
         res.status(502)
-           .set('Content-Type', 'image/gif')
            .set('Cache-Control', 'no-store')
-           .end(Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64'));
+           .set('X-Inko-Proxy', 'source-error')
+           .end();
     }
 }
 

@@ -16,8 +16,16 @@ function errorHandler(err, _req, res, _next) {
         });
     }
     const status = err.status || 500;
-    if (process.env.NODE_ENV !== 'production') {
-        console.error('[err]', err);
+    // Audit B-9 : on logue TOUJOURS les 5xx côté serveur — c'est en production
+    // qu'on a le plus besoin d'observabilité (un Docker qui plante en silence
+    // était indiagnosticable). En prod on logue une trace compacte (message +
+    // stack), en dev l'objet complet. Le client, lui, ne reçoit jamais la stack.
+    if (status >= 500) {
+        if (process.env.NODE_ENV === 'production') {
+            console.error('[err]', status, err.code || '', err.message || err, err.stack ? '\n' + err.stack : '');
+        } else {
+            console.error('[err]', err);
+        }
     }
     res.status(status).json({
         error: err.message || 'Erreur interne',

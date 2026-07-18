@@ -21,20 +21,29 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
     console.log('▸ Exécution du schema…');
     await conn.query(sql);
 
-    console.log('▸ Création du compte démo…');
     const dbName = process.env.DB_NAME;
     await conn.query(`USE \`${dbName}\``);
 
-    const [rows] = await conn.query('SELECT id FROM users WHERE email = ?', ['demo@inko.app']);
-    if (!rows.length) {
-        const hash = await bcrypt.hash('demo1234', 10);
-        await conn.query(
-            'INSERT INTO users (username, email, password_hash, avatar) VALUES (?, ?, ?, ?)',
-            ['Kaito', 'demo@inko.app', hash, 'K']
-        );
-        console.log('  Compte demo cree : demo@inko.app / demo1234');
+    // Compte démo (audit S-4) : identifiants triviaux (demo@inko.app/demo1234)
+    // codés en dur — une porte d'entrée publique si on repasse en LOCAL_MODE=0.
+    // On ne le crée QUE sur demande explicite (SEED_DEMO=1). En mode local
+    // (défaut), resolveOwner() crée de toute façon un propriétaire avec un mot
+    // de passe aléatoire au premier appel API — aucun seed nécessaire.
+    if (process.env.SEED_DEMO === '1') {
+        console.log('▸ Création du compte démo (SEED_DEMO=1)…');
+        const [rows] = await conn.query('SELECT id FROM users WHERE email = ?', ['demo@inko.app']);
+        if (!rows.length) {
+            const hash = await bcrypt.hash('demo1234', 10);
+            await conn.query(
+                'INSERT INTO users (username, email, password_hash, avatar) VALUES (?, ?, ?, ?)',
+                ['Kaito', 'demo@inko.app', hash, 'K']
+            );
+            console.log('  Compte demo cree : demo@inko.app / demo1234');
+        } else {
+            console.log('  ↻ Compte démo déjà présent.');
+        }
     } else {
-        console.log('  ↻ Compte démo déjà présent.');
+        console.log('▸ Compte démo non créé (SEED_DEMO≠1) — le propriétaire local est créé automatiquement.');
     }
 
     await conn.end();

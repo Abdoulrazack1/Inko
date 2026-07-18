@@ -17,6 +17,23 @@ const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
+// Mode desktop (app Tauri installée) : le sidecar Node tourne en http local
+// sans NODE_ENV=production, mais le compte propriétaire y a de facto les droits
+// admin — la CSP doit donc s'y appliquer aussi (audit S-6). On la déclenche
+// dès que l'app tourne en desktop (APP_VERSION posé par le lanceur Tauri) OU
+// en production.
+const IS_DESKTOP = !!process.env.APP_VERSION;
+const CSP_ON = (IS_PROD || IS_DESKTOP) && process.env.DISABLE_CSP !== '1';
+
+// Audit S-1 : en production exposée, un CORS permissif combiné à
+// credentials:true laisse n'importe quel site lire les données de la victime.
+// On refuse donc le mode permissif par défaut en prod, sauf opt-in explicite.
+const CORS_ALLOW_ANY = process.env.CORS_ALLOW_ANY === '1';
+if (IS_PROD && !CORS_ALLOW_ANY && !(process.env.CORS_ORIGINS || '').trim()) {
+    console.warn('[cors] ⚠ NODE_ENV=production sans CORS_ORIGINS : mode permissif REFUSÉ.');
+    console.warn('       Définis CORS_ORIGINS="https://ton-domaine" (liste blanche recommandée),');
+    console.warn('       ou CORS_ALLOW_ANY=1 pour autoriser explicitement toutes les origines (déconseillé).');
+}
 
 // CSP compatible avec le front vanilla (inline autorisé) mais restreignant les
 // origines externes aux seuls tiers réellement utilisés par l'app.
@@ -38,7 +55,7 @@ const cspDirectives = {
 
 // En-têtes de sécurité sûrs (noSniff, frameguard, referrerPolicy, etc.)
 const securityHeaders = helmet({
-    contentSecurityPolicy: (IS_PROD && process.env.DISABLE_CSP !== '1')
+    contentSecurityPolicy: CSP_ON
         ? { directives: cspDirectives }
         : false,
     crossOriginEmbedderPolicy: false,
@@ -55,12 +72,16 @@ const securityHeaders = helmet({
 function corsOptions() {
     const allow = (process.env.CORS_ORIGINS || '')
         .split(',').map(s => s.trim()).filter(Boolean);
+    // En prod sans liste blanche : permissif UNIQUEMENT si CORS_ALLOW_ANY=1
+    // (audit S-1). Sinon on n'autorise que les requêtes sans Origin (apps
+    // natives, curl, same-origin) et on bloque tout site tiers.
+    const permissiveOk = !IS_PROD || CORS_ALLOW_ANY;
     return {
         credentials: true,
         origin(origin, cb) {
             if (!origin) return cb(null, true);          // apps natives / curl / same-origin
-            if (!allow.length) return cb(null, true);    // mode permissif (défaut, dev/local)
-            return cb(null, allow.includes(origin));     // mode strict (prod)
+            if (allow.length) return cb(null, allow.includes(origin));   // liste blanche stricte
+            return cb(null, permissiveOk);               // permissif seulement hors prod ou opt-in
         },
     };
 }
