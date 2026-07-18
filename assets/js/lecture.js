@@ -230,12 +230,12 @@
         function stop() {
             playing = false; setBtn(false);
             clearInterval(keepAlive);
-            try { synth.cancel(); } catch (e) {}
+            try { synth.cancel(); } catch (e) { window.MH?.err?.('lecture.js', e); }
             highlight(null);
         }
         function toggle() { playing ? stop() : start(); }
 
-        window.addEventListener('beforeunload', () => { try { synth.cancel(); } catch (e) {} });
+        window.addEventListener('beforeunload', () => { try { synth.cancel(); } catch (e) { window.MH?.err?.('lecture.js', e); } });
         return { toggle, stop };
     })();
 
@@ -294,7 +294,7 @@
                 chapter:   currentChap.chapter,
                 page:      Math.max(1, pct),   // % de défilement (1–100)
             });
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('lecture.js', e); }
     }
     async function restoreScroll() {
         if (!API.isLoggedIn()) return;
@@ -306,7 +306,7 @@
                 const max = h.scrollHeight - h.clientHeight;
                 window.scrollTo({ top: (prog.page / 100) * max, behavior: 'instant' in window ? 'instant' : 'auto' });
             }
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('lecture.js', e); }
     }
     async function markChapterRead() {
         if (window.MH?.isIncognito?.()) return;   // lecture privée
@@ -316,7 +316,7 @@
                 mangaId: manga.id, chapterId: currentChap.id,
                 chapter: currentChap.chapter, read: true,
             });
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('lecture.js', e); }
     }
     function markUpToHere() {
         if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour suivre ta lecture'); return; }

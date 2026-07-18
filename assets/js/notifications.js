@@ -8,7 +8,7 @@
     let loadError = false;                    // distinguer erreur réseau et vide (audit N9-notif / G.3)
     let loadedAt = null;
     let filter = 'all';
-    try { filter = localStorage.getItem(FILTER_KEY) || 'all'; } catch (e) {}
+    try { filter = localStorage.getItem(FILTER_KEY) || 'all'; } catch (e) { window.MH?.err?.('notifications.js', e); }
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('');
@@ -28,7 +28,7 @@
         document.getElementById('ntFilters').addEventListener('click', (e) => {
             const b = e.target.closest('.nt-pill'); if (!b) return;
             filter = b.dataset.f;
-            try { localStorage.setItem(FILTER_KEY, filter); } catch (e2) {}
+            try { localStorage.setItem(FILTER_KEY, filter); } catch (e2) { window.MH?.err?.('notifications.js', e2); }
             document.querySelectorAll('.nt-pill').forEach(p => p.classList.toggle('active', p === b));
             render();
         });
@@ -45,7 +45,7 @@
             navigator.serviceWorker?.addEventListener('message', (e) => {
                 if (e.data && e.data.type === 'notif:new') load();
             });
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('notifications.js', e); }
 
         await load();
     });

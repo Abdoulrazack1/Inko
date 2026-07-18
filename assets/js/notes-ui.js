@@ -197,7 +197,7 @@
                 if (!dot) { dot = document.createElement('span'); dot.className = 'notes-dot'; btn.appendChild(dot); }
                 dot.textContent = n > 9 ? '9+' : n;
             } else if (dot) dot.remove();
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('notes-ui.js', e); }
     }
 
     function open(context) {

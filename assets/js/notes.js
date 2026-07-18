@@ -37,7 +37,7 @@
                 <div class="jr-stat"><b>${s.total}</b><span>note${s.total > 1 ? 's' : ''}</span></div>
                 <div class="jr-stat"><b>${s.series}</b><span>série${s.series > 1 ? 's' : ''} annotée${s.series > 1 ? 's' : ''}</span></div>
                 ${topMood ? `<div class="jr-stat"><b style="color:${MOOD_COLOR[topMood[0]] || 'var(--accent)'};font-size:14px">${MOOD_LABEL[topMood[0]] || ''}</b><span>humeur dominante</span></div>` : ''}`;
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('notes.js', e); }
     }
 
     async function loadNotes() {

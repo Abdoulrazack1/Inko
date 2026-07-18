@@ -22,7 +22,7 @@
         MH.initPage('catalogue');
         restoreCtx();        // restaure le dernier contexte (filtres/tri/vue)
         readURLParams();     // l'URL (?q=, ?tag=, ?sort=) reste prioritaire
-        try { allSources = localStorage.getItem('inko_cat_allsrc') === '1'; } catch (e) {}
+        try { allSources = localStorage.getItem('inko_cat_allsrc') === '1'; } catch (e) { window.MH?.err?.('catalogue.js', e); }
         renderQuickFilters();
         bindEvents();
         renderSourceBar();   // bascule source unique / toutes les sources
@@ -53,10 +53,10 @@
                 tags: [...activeTags], status: [...activeStatus], demo: [...activeDemo],
                 sort: activeSort, view: viewMode, source: API.sources.current,
             }));
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('catalogue.js', e); }
     }
     function restoreCtx() {
-        let c; try { c = JSON.parse(localStorage.getItem(CTX_KEY)); } catch (e) {}
+        let c; try { c = JSON.parse(localStorage.getItem(CTX_KEY)); } catch (e) { window.MH?.err?.('catalogue.js', e); }
         if (!c) return;
         // Ne restaure les filtres que si on revient sur la même source
         if (c.source && c.source === API.sources.current) {
@@ -101,13 +101,13 @@
             enabledSources().map(s => chip(s.name, !allSources && s.id === API.sources.current, `data-src="${MH.esc(s.id)}"`)).join('');
         bar.querySelectorAll('[data-allsrc]').forEach(b => b.addEventListener('click', async () => {
             allSources = true;
-            try { localStorage.setItem('inko_cat_allsrc', '1'); } catch (e) {}
+            try { localStorage.setItem('inko_cat_allsrc', '1'); } catch (e) { window.MH?.err?.('catalogue.js', e); }
             currentPage = 1; renderSourceBar();
             await runSearch();
         }));
         bar.querySelectorAll('[data-src]').forEach(b => b.addEventListener('click', async () => {
             allSources = false;
-            try { localStorage.setItem('inko_cat_allsrc', '0'); } catch (e) {}
+            try { localStorage.setItem('inko_cat_allsrc', '0'); } catch (e) { window.MH?.err?.('catalogue.js', e); }
             API.sources.current = b.dataset.src;
             currentPage = 1;
             sourceInfo = sourcesList.find(s => s.id === b.dataset.src) || null;
@@ -435,7 +435,7 @@
                         .find(c => c.dataset.mangaId === String(m.id));
                     const info = card?.querySelector('.manga-card-info');
                     if (info) info.innerHTML = cardInfoHTML(full);
-                } catch (e) {}
+                } catch (e) { window.MH?.err?.('catalogue.js', e); }
             }
         };
         await Promise.all([worker(), worker(), worker()]);   // 3 requêtes en parallèle max

@@ -229,7 +229,7 @@
                 }
                 await API.me.setLibrary(manga.id, status || null);
                 libStatus = status || null;
-                if (status) { try { window.AniList?.syncByTitle(manga.title, { status }); } catch (e) {} }
+                if (status) { try { window.AniList?.syncByTitle(manga.title, { status }); } catch (e) { window.MH?.err?.('serie.js', e); } }
                 MH.toast(status ? 'Statut : ' + e.target.options[e.target.selectedIndex].text : 'Statut retiré');
             } catch (err) { MH.toast('Erreur : ' + err.message); }
         });
@@ -299,7 +299,7 @@
                     if (readChapsSet.has(c.id) && Number.isFinite(+c.chapter)) prog = Math.max(prog ?? 0, +c.chapter);
                 }
                 let score = null;
-                try { const r = await API.ratings.get(manga.id); if (r.mine?.rating) score = r.mine.rating * 20; } catch (e) {}
+                try { const r = await API.ratings.get(manga.id); if (r.mine?.rating) score = r.mine.rating * 20; } catch (e) { window.MH?.err?.('serie.js', e); }
                 const payload = { status: libStatus || 'reading' };
                 if (prog != null) payload.progress = prog;
                 if (score != null) payload.score = score;
@@ -1038,7 +1038,7 @@
         const body = document.getElementById('ratingBody');
         if (!body) return;
         let data = { average: null, count: 0, mine: null };
-        try { data = await API.ratings.get(manga.id); } catch (e) {}
+        try { data = await API.ratings.get(manga.id); } catch (e) { window.MH?.err?.('serie.js', e); }
 
         const myStars = data.mine?.rating || 0;
         const avgTxt = data.average != null

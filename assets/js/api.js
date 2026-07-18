@@ -24,14 +24,14 @@
             _user  = o.user  || null;
             _token = o.token || null;
         }
-    } catch (e) {}
+    } catch (e) { window.MH?.err?.('api.js', e); }
 
     function persist() {
         try {
             if (_user) localStorage.setItem('mh_session', JSON.stringify({ user: _user, token: _token }));
             else localStorage.removeItem('mh_session');
-        } catch (e) {}
-        try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch(e) {}
+        } catch (e) { window.MH?.err?.('api.js', e); }
+        try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch (e) { window.MH?.err?.('api.js', e); }
     }
 
     // Nettoie TOUTES les données locales liées au compte (audit DF1) :
@@ -46,7 +46,7 @@
                     localStorage.removeItem(k);
                 }
             }
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('api.js', e); }
     }
 
     // ── Fetch helper ──────────────────────────────────────────
@@ -76,7 +76,7 @@
                 ? 'Délai dépassé — le serveur met trop de temps à répondre.'
                 : 'Connexion impossible — vérifie ta connexion réseau.');
             err.status = 0; err.network = true;
-            try { window.dispatchEvent(new CustomEvent('api:error', { detail: err })); } catch (_) {}
+            try { window.dispatchEvent(new CustomEvent('api:error', { detail: err })); } catch (_) { window.MH?.err?.('api.js', _); }
             throw err;
         } finally {
             clearTimeout(timer);
@@ -94,7 +94,7 @@
             if (res.status === 401 && _token) {
                 _user = null; _token = null; persist();
             }
-            try { window.dispatchEvent(new CustomEvent('api:error', { detail: err })); } catch(e) {}
+            try { window.dispatchEvent(new CustomEvent('api:error', { detail: err })); } catch (e) { window.MH?.err?.('api.js', e); }
             throw err;
         }
         return data;
@@ -177,7 +177,7 @@
             googleConfig()            { return get('/auth/google-config'); },
             setGoogleConfig(clientId) { return put('/auth/google-config', { clientId }); },
             async logout() {
-                try { await post('/auth/logout'); } catch (e) {}
+                try { await post('/auth/logout'); } catch (e) { window.MH?.err?.('api.js', e); }
                 _user = null; _token = null;
                 clearLocalUserData();   // vie privée : purge les données locales du compte
                 persist();
@@ -229,7 +229,7 @@
                     if (id) localStorage.setItem('mh_source', id);
                     else    localStorage.removeItem('mh_source');
                     window.dispatchEvent(new CustomEvent('source:change', { detail: { id } }));
-                } catch(e) {}
+                } catch (e) { window.MH?.err?.('api.js', e); }
             },
             // Mises à jour des extensions (modèle Mihon)
             checkUpdates: ()      => get('/extensions/updates'),
@@ -275,7 +275,7 @@
                 (a || []).forEach(f => { if (f.cover) f.cover = proxyCover(f.cover); });
                 // Rafraîchit le miroir hors-ligne à CHAQUE fetch (audit DF3 :
                 // sinon inko_lib_mirror reste périmé après ajout/suppression).
-                try { window.Storage?.cacheLibrary?.(a); } catch (e) {}
+                try { window.Storage?.cacheLibrary?.(a); } catch (e) { window.MH?.err?.('api.js', e); }
                 return a;
             }),
             addFavorite:      (mangaId, meta = {}) => post('/me/favorites', {
@@ -462,7 +462,7 @@
                 const before = _user?.id;
                 const r = await API.auth.local();
                 if (r?.user?.id && before && r.user.id !== before) {
-                    try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch (e) {}
+                    try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch (e) { window.MH?.err?.('api.js', e); }
                     setTimeout(() => window.location.reload(), 80);
                 }
             } catch (e) {
@@ -473,7 +473,7 @@
         }
         try {
             await API.auth.local();
-            try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch (e) {}
+            try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch (e) { window.MH?.err?.('api.js', e); }
             return true;
         } catch (e) { return false; }   // serveur down / mode local désactivé
     })();

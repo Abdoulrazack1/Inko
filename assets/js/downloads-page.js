@@ -44,7 +44,7 @@
             } else {
                 document.getElementById('dlStorage').textContent = `${total} chapitre(s) disponibles hors-ligne.`;
             }
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('downloads-page.js', e); }
 
         if (!groups.length) {
             body.innerHTML = `<div class="dl-empty">

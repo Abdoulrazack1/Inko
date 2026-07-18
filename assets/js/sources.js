@@ -150,7 +150,7 @@
 
         // Extensions désinstallées (issue #2) : section pour réinstaller
         let uninstalled = [];
-        try { uninstalled = await API.sources.uninstalled(); } catch (e) {}
+        try { uninstalled = await API.sources.uninstalled(); } catch (e) { window.MH?.err?.('sources.js', e); }
         const reinstallSection = uninstalled.length ? `
             <div class="sources-group">
                 <div class="sources-group-head">

@@ -166,7 +166,7 @@
             }
 
             renderWeeklyGoal(heat);
-        } catch(e) {}
+        } catch (e) { window.MH?.err?.('profil.js', e); }
 
         // Bouton éditer profil
         const editBtn = document.querySelector('.profil-actions .btn-ghost');
@@ -318,7 +318,7 @@
                     <div class="genre-bar-track"><div class="genre-bar-fill" style="width:${pct}%;background:${colors[i]}"></div></div>
                 </div>`;
             }).join('');
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('profil.js', e); }
     }
 
     // ── Dernier avis (aperçu overview) ──
@@ -334,7 +334,7 @@
                 <div class="review-preview-manga">${MH.esc(m?.title || r.mangaId)}</div>
                 <div style="color:#f59e0b;font-size:13px;margin:4px 0">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
                 ${r.review ? `<div class="review-preview-text">«&nbsp;${MH.esc(r.review)}&nbsp;»</div>` : ''}`;
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('profil.js', e); }
     }
 
     // ── Comptes connectés (composant unifié, actions réelles) ──
@@ -406,7 +406,7 @@
             const total = Object.values(buckets).reduce((s, v) => s + v, 0);
             const countEl = document.querySelector('.activity-count');
             if (countEl) countEl.textContent = `${total} chapitres récents`;
-        } catch(e) {}
+        } catch (e) { window.MH?.err?.('profil.js', e); }
 
         // History mini heatmap
         const historyEl = document.getElementById('historyHeatmap');
@@ -425,7 +425,7 @@
                     html += `<div class="history-mini-cell" style="background:${colors[lvl]}" title="${key} · ${c} chap."></div>`;
                 }
                 historyEl.innerHTML = html;
-            } catch(e) {}
+            } catch (e) { window.MH?.err?.('profil.js', e); }
         }
     }
 
@@ -705,7 +705,7 @@
                     } catch(e) { MH.toast('Erreur : ' + e.message); }
                 });
             }
-        } catch(e) {}
+        } catch (e) { window.MH?.err?.('profil.js', e); }
 
         // Restaure la sélection courante (ou favoris par défaut)
         selectList(_activeList);
@@ -767,7 +767,7 @@
     async function initToggles() {
         // Charge l'état réel des toggles de confidentialité
         let privacy = {};
-        try { privacy = (await API.me.settings())?.privacy || {}; } catch (e) {}
+        try { privacy = (await API.me.settings())?.privacy || {}; } catch (e) { window.MH?.err?.('profil.js', e); }
         document.querySelectorAll('.toggle[data-privacy]').forEach(t => {
             const key = t.dataset.privacy;
             const on = key === 'privateProfile' ? !!privacy[key] : (privacy[key] !== false); // défaut visible
@@ -810,7 +810,7 @@
                         if (val) {
                             window.Storage?.setPref(cfg.key, val);
                             if (cfg.key === 'theme') window.Theme?.apply(val);
-                            if (API.isLoggedIn()) { try { await API.me.saveSettings({ [cfg.key]: val }); } catch(e){} }
+                            if (API.isLoggedIn()) { try { await API.me.saveSettings({ [cfg.key]: val }); } catch (e) { window.MH?.err?.('profil.js', e); } }
                             MH.toast('Préférence enregistrée ✓', 1200);
                         }
                     }

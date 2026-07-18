@@ -19,7 +19,7 @@
                 Object.entries(s).forEach(([k, v]) => window.Storage.setPref(k, v));
                 if (s.theme) window.Theme.apply(s.theme);
                 initSegments(); // re-sync l'état actif
-            } catch (e) {}
+            } catch (e) { window.MH?.err?.('parametres.js', e); }
         }
     });
 
@@ -48,7 +48,7 @@
     async function savePref(key, val) {
         window.Storage.setPref(key, val);
         if (API.isLoggedIn()) {
-            try { await API.me.saveSettings({ [key]: val }); } catch (e) {}
+            try { await API.me.saveSettings({ [key]: val }); } catch (e) { window.MH?.err?.('parametres.js', e); }
         }
     }
 

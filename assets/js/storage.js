@@ -26,7 +26,7 @@
                 v++;
             }
             localStorage.setItem(SCHEMA_KEY, String(v));
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('storage.js', e); }
     })();
 
     const PREF_KEY = 'mh_prefs';
@@ -46,7 +46,7 @@
     }
     function set(key, val) {
         try { localStorage.setItem(key, JSON.stringify(val)); }
-        catch(e) {}
+        catch (e) { window.MH?.err?.('storage.js', e); }
     }
 
     // Miroir local de la bibliothèque : permet de continuer à voir ses séries
@@ -67,12 +67,12 @@
                     lastChapter: f.lastChapter,
                 }));
                 set(LIB_KEY, { at: Date.now(), favs: slim });
-            } catch (e) {}
+            } catch (e) { window.MH?.err?.('storage.js', e); }
         },
         getCachedLibrary() {
             const c = get(LIB_KEY, null);
             return c && Array.isArray(c.favs) ? c : null;
         },
-        clearLibraryCache() { try { localStorage.removeItem(LIB_KEY); } catch (e) {} },
+        clearLibraryCache() { try { localStorage.removeItem(LIB_KEY); } catch (e) { window.MH?.err?.('storage.js', e); } },
     };
 })();

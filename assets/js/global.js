@@ -14,6 +14,22 @@
     // MH.t / MH.loadI18n / MH.setLang sur window.MH (audit N40 v2).
     window.MH = Object.assign(window.MH || {}, { $, $$, fmt, esc });
 
+    // Journal d'erreurs non fatales (audit B-3) : les nombreux catch qui
+    // avalaient silencieusement une erreur passent désormais par ici. Rien
+    // d'intrusif pour l'utilisateur (pas de toast), mais l'erreur est visible
+    // en console (verbeux) et gardée dans un petit tampon inspectable via
+    // `MH.errors` — de quoi diagnostiquer « l'action ne fait rien » sans
+    // deviner. `window.MH?.err?.(...)` est appelable même avant global.js.
+    const _errRing = [];
+    window.MH.errors = _errRing;
+    window.MH.err = function (ctx, e) {
+        try {
+            _errRing.push({ at: Date.now(), ctx, msg: e && e.message ? e.message : String(e) });
+            if (_errRing.length > 100) _errRing.shift();
+            if (console && console.debug) console.debug('[inko]', ctx, e);
+        } catch (_) { /* le logger ne doit jamais lever */ }
+    };
+
     /* ── Icônes SVG (remplace les emojis d'interface) ──────── */
     const ICON_PATHS = {
         home:      '<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/>',
@@ -59,7 +75,7 @@
         try { return sessionStorage.getItem('inko_incognito') === '1'; } catch (e) { return false; }
     };
     window.MH.setIncognito = function (on) {
-        try { sessionStorage.setItem('inko_incognito', on ? '1' : '0'); } catch (e) {}
+        try { sessionStorage.setItem('inko_incognito', on ? '1' : '0'); } catch (e) { window.MH?.err?.('global.js', e); }
         document.body.classList.toggle('incognito-on', !!on);
         document.querySelectorAll('#btnIncognito').forEach(b => b.classList.toggle('on', !!on));
     };
@@ -150,8 +166,8 @@
     window.MH.setSourceDisabled = function (id, disabled) {
         const set = readDisabled();
         if (disabled) set.add(id); else set.delete(id);
-        try { localStorage.setItem(DISABLED_KEY, JSON.stringify([...set])); } catch (e) {}
-        try { window.dispatchEvent(new CustomEvent('source:change', { detail: { id } })); } catch (e) {}
+        try { localStorage.setItem(DISABLED_KEY, JSON.stringify([...set])); } catch (e) { window.MH?.err?.('global.js', e); }
+        try { window.dispatchEvent(new CustomEvent('source:change', { detail: { id } })); } catch (e) { window.MH?.err?.('global.js', e); }
         return set.has(id);
     };
     // URL du lecteur adapté au type de la source (texte pour les romans)
@@ -325,7 +341,7 @@
         try { return localStorage.getItem('inko_nsfw_show') === '1'; } catch (e) { return false; }
     };
     window.MH.setNsfwAllowed = function (on) {
-        try { localStorage.setItem('inko_nsfw_show', on ? '1' : '0'); } catch (e) {}
+        try { localStorage.setItem('inko_nsfw_show', on ? '1' : '0'); } catch (e) { window.MH?.err?.('global.js', e); }
     };
     window.MH.isAdultManga = function (m, srcNsfw) {
         return !!srcNsfw || /^(erotica|pornographic|adult|hentai|nsfw|smut)$/i.test((m && m.contentRating) || '');
@@ -393,7 +409,7 @@
 
     // Badge "nouveaux chapitres" sur les liens Bibliothèque (header + nav mobile)
     window.MH.updateLibBadge = function () {
-        let n = 0; try { n = +localStorage.getItem('inko_lib_newcount') || 0; } catch (e) {}
+        let n = 0; try { n = +localStorage.getItem('inko_lib_newcount') || 0; } catch (e) { window.MH?.err?.('global.js', e); }
         document.querySelectorAll('#navLibBadge, #navLibBadgeM').forEach(b => {
             if (n > 0) { b.textContent = n > 99 ? '99+' : String(n); b.style.display = ''; }
             else { b.style.display = 'none'; }
@@ -448,9 +464,9 @@
             try {
                 localStorage.setItem('inko_lib_newcount', String(newCount));
                 localStorage.setItem('inko_lib_lastcheck', String(Date.now()));
-            } catch (e) {}
+            } catch (e) { window.MH?.err?.('global.js', e); }
             window.MH.updateLibBadge();
-            try { window.dispatchEvent(new CustomEvent('updates:checked', { detail: data })); } catch (e) {}
+            try { window.dispatchEvent(new CustomEvent('updates:checked', { detail: data })); } catch (e) { window.MH?.err?.('global.js', e); }
             if (!silent) {
                 if (fresh.length) {
                     const names = fresh.slice(0, 2).map(u => u.title).filter(Boolean).join(', ');
@@ -480,9 +496,9 @@
 
     // Au lancement : une fois par session, en silence.
     async function launchUpdateCheck() {
-        try { if (sessionStorage.getItem('inko_launch_checked')) return; } catch (e) {}
+        try { if (sessionStorage.getItem('inko_launch_checked')) return; } catch (e) { window.MH?.err?.('global.js', e); }
         if (!window.API?.isLoggedIn()) return;
-        try { sessionStorage.setItem('inko_launch_checked', '1'); } catch (e) {}
+        try { sessionStorage.setItem('inko_launch_checked', '1'); } catch (e) { window.MH?.err?.('global.js', e); }
         window.MH.checkUpdates({ silent: false });
     }
 
@@ -516,7 +532,7 @@
                 </div>
                 <div class="conn-action" id="conn-al-action"></div>
             </div>`;
-        const changed = () => { try { opts.onChange && opts.onChange(); } catch (e) {} };
+        const changed = () => { try { opts.onChange && opts.onChange(); } catch (e) { window.MH?.err?.('global.js', e); } };
         renderAniListConn(el, changed);
     };
 
@@ -781,7 +797,7 @@
         if (!dd) return;
         dd.innerHTML = `<div style="padding:18px;text-align:center;color:var(--text3);font-size:13px">Chargement…</div>`;
         let data = { items: [], unread: 0 };
-        try { data = await window.API.notifications.list(30); } catch (e) {}
+        try { data = await window.API.notifications.list(30); } catch (e) { window.MH?.err?.('global.js', e); }
         setNotifBadge(data.unread || 0);
         const head = `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)">
             <strong style="font-size:13.5px">Notifications</strong>
@@ -806,7 +822,7 @@
                 </a>`).join('');
             dd.querySelector('#notifMarkAll')?.addEventListener('click', async (e) => {
                 e.preventDefault(); e.stopPropagation();
-                try { await window.API.notifications.markAll(); } catch (_) {}
+                try { await window.API.notifications.markAll(); } catch (_) { window.MH?.err?.('global.js', _); }
                 setNotifBadge(0); renderNotifDropdown();
             });
             dd.querySelectorAll('[data-nid]').forEach(a => {
@@ -843,7 +859,7 @@
                 navigator.serviceWorker?.addEventListener('message', (e) => {
                     if (e.data && e.data.type === 'notif:new') window.MH.refreshNotifBadge?.();
                 });
-            } catch (e) {}
+            } catch (e) { window.MH?.err?.('global.js', e); }
         }
         const dd = document.getElementById('notifDropdown');
         btn.addEventListener('click', (e) => {
@@ -898,7 +914,7 @@
             <button id="inkoConsentOk" class="btn btn-primary btn-sm">J'ai compris</button>`;
         document.body.appendChild(bar);
         bar.querySelector('#inkoConsentOk').addEventListener('click', () => {
-            try { localStorage.setItem('inko_consent', '1'); } catch (e) {}
+            try { localStorage.setItem('inko_consent', '1'); } catch (e) { window.MH?.err?.('global.js', e); }
             bar.remove();
         });
     }
@@ -1191,7 +1207,7 @@
                     go: `serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current||'')}`,
                 }));
                 items = filterNav(q).concat(results); paint();
-            } catch (e) {}
+            } catch (e) { window.MH?.err?.('global.js', e); }
         }
         let t; input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(update, 220); });
         ov.addEventListener('keydown', e => {
@@ -1315,7 +1331,7 @@
             const r = await MH.appUpdates.check();
             if (!r.hasUpdate) return;
             let dismissed = '';
-            try { dismissed = localStorage.getItem('inko_upd_dismissed') || ''; } catch (e) {}
+            try { dismissed = localStorage.getItem('inko_upd_dismissed') || ''; } catch (e) { window.MH?.err?.('global.js', e); }
             if (dismissed && cmpVer(dismissed, r.latest) >= 0) return;   // déjà refusé cette version
             const bar = document.createElement('div');
             bar.id = 'appUpdateBar';
@@ -1324,7 +1340,7 @@
                 '<button id="updDl" style="background:#fff;border:none;color:var(--accent,#c1531b);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:12.5px;font-weight:700">⬇ Télécharger</button>' +
                 '<button id="updLater" style="background:none;border:none;color:rgba(255,255,255,.8);cursor:pointer;font-size:12px">Plus tard</button>';
             bar.querySelector('#updDl').onclick = () => MH.appUpdates.install();
-            bar.querySelector('#updLater').onclick = () => { bar.remove(); try { localStorage.setItem('inko_upd_dismissed', r.latest); } catch (e) {} };
+            bar.querySelector('#updLater').onclick = () => { bar.remove(); try { localStorage.setItem('inko_upd_dismissed', r.latest); } catch (e) { window.MH?.err?.('global.js', e); } };
             document.body.prepend(bar);
         } catch (e) { /* hors-ligne : au prochain lancement */ }
     };
@@ -1341,9 +1357,9 @@
             bar.style.cssText = 'position:sticky;top:0;z-index:9998;background:#a83232;color:#fff;padding:10px 16px;font-size:13px;display:flex;gap:12px;align-items:center;justify-content:center;text-align:center';
             bar.innerHTML = '<span>Ta base de données habituelle est injoignable — Inko tourne sur une base temporaire (ta bibliothèque n’est pas perdue). Redémarre MySQL puis relance Inko pour la retrouver.</span>' +
                 '<button style="background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px">OK</button>';
-            bar.querySelector('button').onclick = () => { bar.remove(); try { sessionStorage.setItem('inko_dbfb_seen', '1'); } catch (e) {} };
+            bar.querySelector('button').onclick = () => { bar.remove(); try { sessionStorage.setItem('inko_dbfb_seen', '1'); } catch (e) { window.MH?.err?.('global.js', e); } };
             document.body.prepend(bar);
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('global.js', e); }
     })();
 
     /* ── Retour de connexion AniList (redirection pleine page) ── */
@@ -1356,11 +1372,11 @@
             (async () => {
                 await ensureAniList();
                 if (!window.AniList?.isLinked()) return;
-                try { await AniList.me(); } catch (e) {}
+                try { await AniList.me(); } catch (e) { window.MH?.err?.('global.js', e); }
                 MH.toast('AniList connecté ✓');
                 document.querySelectorAll('.conn-list').forEach(el => MH.renderConnections(el));
             })();
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('global.js', e); }
     })();
 
     /* ── Visite guidée (première ouverture) ─────────────────
@@ -1378,6 +1394,6 @@
     window.MH.startTour = async function () { await loadTour(); window.InkoTour?.start(); };
     try {
         if (!localStorage.getItem('inko_tour_done')) loadTour(true); // autostart interne
-    } catch (e) {}
+    } catch (e) { window.MH?.err?.('global.js', e); }
 
 })();

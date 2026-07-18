@@ -136,13 +136,13 @@
             dict = {}; strMap = {}; patterns = [];
         }
         MH.lang = lang;
-        try { document.documentElement.lang = lang; } catch (e) {}
+        try { document.documentElement.lang = lang; } catch (e) { window.MH?.err?.('i18n.js', e); }
         MH.applyI18n(document);
         if (active) startObserver();
     };
 
     MH.setLang = async (lang) => {
-        try { localStorage.setItem(KEY, lang); } catch (e) {}
+        try { localStorage.setItem(KEY, lang); } catch (e) { window.MH?.err?.('i18n.js', e); }
         // Retour au français : les textes déjà traduits ne peuvent pas être
         // « détraduits » de façon fiable → rechargement (le HTML source est FR).
         if (lang === 'fr' && MH.lang !== 'fr') { window.location.reload(); return; }

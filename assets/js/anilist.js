@@ -59,7 +59,7 @@
     }
 
     function disconnect() {
-        try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch (e) {}
+        try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch (e) { window.MH?.err?.('anilist.js', e); }
     }
 
     // Connexion : redirection pleine page vers AniList (flux OAuth classique).
@@ -69,8 +69,8 @@
     async function connect() {
         const cfg = await getConfig();
         if (!cfg.configured) throw new Error('AniList indisponible dans cette version — mets à jour Inko');
-        try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
-        try { localStorage.setItem('anilist_return', location.pathname + location.search); } catch (e) {}
+        try { localStorage.removeItem(TOKEN_KEY); } catch (e) { window.MH?.err?.('anilist.js', e); }
+        try { localStorage.setItem('anilist_return', location.pathname + location.search); } catch (e) { window.MH?.err?.('anilist.js', e); }
         const url = `${cfg.authorizeBase}?client_id=${encodeURIComponent(cfg.clientId)}&response_type=token`;
         window.location.assign(url);
         return new Promise(() => {});   // la page part : rien à résoudre
@@ -129,7 +129,7 @@
         const key = norm(title);
         if (!key || id == null) return;
         (_links || (_links = {}))[key] = { id, exact: !!exact };
-        try { await window.API?.me?.saveSettings?.({ anilistLinks: { [key]: { id, exact: !!exact } } }); } catch (e) {}
+        try { await window.API?.me?.saveSettings?.({ anilistLinks: { [key]: { id, exact: !!exact } } }); } catch (e) { window.MH?.err?.('anilist.js', e); }
     }
     // Lien actuel (persisté) pour un titre — null si jamais résolu
     async function getLink(title) {
@@ -144,7 +144,7 @@
             if (_links) delete _links[key];
             delete idCache[title];
             // JSON_MERGE_PATCH : une clé à null est supprimée côté serveur
-            try { await window.API?.me?.saveSettings?.({ anilistLinks: { [key]: null } }); } catch (e) {}
+            try { await window.API?.me?.saveSettings?.({ anilistLinks: { [key]: null } }); } catch (e) { window.MH?.err?.('anilist.js', e); }
             return;
         }
         idCache[title] = id;

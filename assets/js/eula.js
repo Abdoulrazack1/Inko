@@ -91,7 +91,7 @@
 
         yes.addEventListener('click', () => {
             try { localStorage.setItem(KEY, JSON.stringify({ acceptedAt: Date.now(), version: 1 })); }
-            catch (e) {}
+            catch (e) { window.MH?.err?.('eula.js', e); }
             overlay.remove();
         });
 

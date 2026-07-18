@@ -3,7 +3,7 @@
 //             stale-while-revalidate pour assets statiques
 //             cache des couvertures mangadex (bande passante)
 
-const CACHE_VERSION = 'inko-v17';
+const CACHE_VERSION = 'inko-v18';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -42,16 +42,12 @@ const STATIC_ASSETS = [
     '/lecture.html',
     '/assets/js/lecture.js',
     '/assets/css/lecture.css',
-    '/player.html',
     '/anilist.html',
     '/assets/js/anilist.js',
-    '/page_login.html',
-    '/page_signup.html',
-    '/page_mdpoublie.html',
-    '/page_nouveaumdp.html',
-    // Pages & modules récents (audit SW2 : liste tenue à jour)
-    '/admin.html',
-    '/assets/js/admin.js',
+    // (audit B-1) Entrées mortes retirées : player.html, page_login/signup/
+    // mdpoublie/nouveaumdp.html (ancien flux de connexion) et admin.html/
+    // admin.js (panneau admin supprimé) — fichiers absents du dépôt, 404 inutiles
+    // au précache.
     '/u.html',
     '/assets/js/u.js',
     '/import.html',

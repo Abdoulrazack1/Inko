@@ -32,7 +32,7 @@
         }
 
         initTabs();
-        try { viewMode = window.Storage?.getPref?.('libView') === 'list' ? 'list' : 'grid'; } catch (e) {}
+        try { viewMode = window.Storage?.getPref?.('libView') === 'list' ? 'list' : 'grid'; } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
         await loadLibrary();
         bindUpdates();
         wireNotifyButton();
@@ -84,14 +84,14 @@
     async function maybeAutoCheck() {
         if (!favs.length) return;
         const KEY = 'inko_lib_lastcheck';
-        let last = 0; try { last = +localStorage.getItem(KEY) || 0; } catch (e) {}
+        let last = 0; try { last = +localStorage.getItem(KEY) || 0; } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
         if (Date.now() - last < 6 * 3600 * 1000) return;
         const status = document.getElementById('libRefreshStatus');
         if (status) status.innerHTML = '<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span> Recherche de nouveautés…';
         try {
             await fetchUpdates();
             render();
-            try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {}
+            try { localStorage.setItem(KEY, String(Date.now())); } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
             if (status) status.textContent = `À jour · ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
         } catch (e) { if (status) status.textContent = ''; }
     }
@@ -110,7 +110,7 @@
         });
         // Badge de navigation : nombre de séries avec des chapitres non lus
         const newCount = (data.updates || []).filter(u => u.unreadCount > 0).length;
-        try { localStorage.setItem('inko_lib_newcount', String(newCount)); } catch (e) {}
+        try { localStorage.setItem('inko_lib_newcount', String(newCount)); } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
         window.MH?.updateLibBadge?.();
         maybeNotify(data.updates || []);
         return data;
@@ -123,7 +123,7 @@
     function maybeNotify(updates) {
         if (!notifyEnabled() || !('Notification' in window) || Notification.permission !== 'granted') return;
         let notified = {};
-        try { notified = JSON.parse(localStorage.getItem('inko_notified') || '{}'); } catch (e) {}
+        try { notified = JSON.parse(localStorage.getItem('inko_notified') || '{}'); } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
         const fresh = updates.filter(u => u.hasNew && u.latest && notified[u.mangaId] !== u.latest.id).slice(0, 5);
         fresh.forEach(u => {
             try {
@@ -132,10 +132,10 @@
                     icon: u.cover || '/assets/img/icon.svg', tag: 'inko-' + u.mangaId,
                 });
                 n.onclick = () => { window.focus(); window.location.href = MH.readerHref(u.mangaId, u.latest.id, u.source); };
-            } catch (e) {}
+            } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
             notified[u.mangaId] = u.latest.id;
         });
-        try { localStorage.setItem('inko_notified', JSON.stringify(notified)); } catch (e) {}
+        try { localStorage.setItem('inko_notified', JSON.stringify(notified)); } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
     }
     function wireNotifyButton() {
         const btn = document.getElementById('btnNotify');
@@ -159,7 +159,7 @@
                 paint(); return;
             }
             let perm = Notification.permission;
-            if (perm !== 'granted') { try { perm = await Notification.requestPermission(); } catch (e) {} }
+            if (perm !== 'granted') { try { perm = await Notification.requestPermission(); } catch (e) { window.MH?.err?.('bibliotheque.js', e); } }
             if (perm === 'granted') {
                 window.Storage?.setPref?.('notifyNewChapters', true);
                 MH.toast?.('Notifications activées — tu seras prévenu des nouveaux chapitres');
@@ -188,7 +188,7 @@
             if (dBtn) { dBtn.classList.add('ic-btn'); dBtn.innerHTML = gridIcon + (compact ? 'Confort' : 'Compact'); }
         };
         let compact = false;
-        try { compact = window.Storage?.getPref?.('libDensity') === 'compact'; } catch (e) {}
+        try { compact = window.Storage?.getPref?.('libDensity') === 'compact'; } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
         apply(compact);
         dBtn?.addEventListener('click', () => {
             compact = !compact;
@@ -422,7 +422,7 @@
                         : await API.mangas.get(f.mangaId);   // très ancien favori sans source : best-effort
                     f.title = f.title || m.title;
                     f.cover = f.cover || m.cover || m.coverThumb;
-                } catch (e) {}
+                } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
             }));
         }
 
@@ -645,7 +645,7 @@
             try {
                 await API.me.removeFavorite(id);
                 favs = favs.filter(f => f.mangaId !== id);
-                try { const set = await MH.getFavSet?.(); set?.delete(String(id)); } catch (er) {}
+                try { const set = await MH.getFavSet?.(); set?.delete(String(id)); } catch (er) { window.MH?.err?.('bibliotheque.js', er); }
                 window.Storage?.cacheLibrary?.(favs);
                 MH.toast?.('Retiré de ta bibliothèque');
                 renderSummary(); renderFilters(); render();
@@ -670,7 +670,7 @@
         paint();
         box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
             viewMode = b.dataset.view;
-            try { window.Storage?.setPref?.('libView', viewMode); } catch (e) {}
+            try { window.Storage?.setPref?.('libView', viewMode); } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
             paint(); render();
         }));
     }
@@ -713,7 +713,7 @@
             try { await API.me.removeFavorite(id); favs = favs.filter(f => f.mangaId !== id); }
             catch (e) { /* on continue */ }
         }
-        try { const set = await MH.getFavSet?.(); ids.forEach(id => set?.delete(String(id))); } catch (e) {}
+        try { const set = await MH.getFavSet?.(); ids.forEach(id => set?.delete(String(id))); } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
         window.Storage?.cacheLibrary?.(favs);
         MH.toast?.(`${ids.length} série(s) retirée(s)`);
         setSelectMode(false);
@@ -763,7 +763,7 @@
             label.innerHTML = `<input type="checkbox" id="updScopeAll" ${includeFinished() ? 'checked' : ''}> Inclure terminé/abandonné`;
             btn.after(label);
             label.querySelector('input').addEventListener('change', (e) => {
-                try { localStorage.setItem('inko_upd_all', e.target.checked ? '1' : '0'); } catch (er) {}
+                try { localStorage.setItem('inko_upd_all', e.target.checked ? '1' : '0'); } catch (er) { window.MH?.err?.('bibliotheque.js', er); }
             });
         }
 

@@ -14,8 +14,22 @@
 const fs = require('fs');
 const path = require('path');
 
-const EXT_DIR = path.join(__dirname, '..', 'server', 'extensions');
+// Dossier des extensions : server/extensions par défaut (copies installées),
+// mais surchargeable via EXT_DIR — la CI (audit B-6) pointe sur
+// extensions-community/ qui a besoin de cheerio ; on le résout depuis
+// server/node_modules pour ne pas dupliquer l'install.
+const EXT_DIR = process.env.EXT_DIR
+    ? path.resolve(process.env.EXT_DIR)
+    : path.join(__dirname, '..', 'server', 'extensions');
 const TIMEOUT = 45_000;
+// Les extensions font require('axios')/require('cheerio') : ces deps vivent dans
+// server/node_modules. On étend le chemin de résolution des modules pour que
+// check-sources.js puisse charger extensions-community/ (audit B-6).
+const serverModules = path.join(__dirname, '..', 'server', 'node_modules');
+if (fs.existsSync(serverModules)) {
+    process.env.NODE_PATH = (process.env.NODE_PATH ? process.env.NODE_PATH + path.delimiter : '') + serverModules;
+    require('module').Module._initPaths();
+}
 
 const onlyIdx = process.argv.indexOf('--only');
 const only = onlyIdx !== -1 ? process.argv[onlyIdx + 1] : null;

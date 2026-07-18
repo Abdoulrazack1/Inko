@@ -53,6 +53,15 @@
             try { return !!(await getMeta(chapterId)); } catch (e) { return false; }
         },
 
+        // Annulation en cours (audit B-4) : un jeton par chapitre en téléchargement.
+        _active: new Map(),      // chapterId -> { cancelled }
+        isDownloading(chapterId) { return this._active.has(chapterId); },
+        cancel(chapterId) {
+            const tok = this._active.get(chapterId);
+            if (tok) { tok.cancelled = true; return true; }
+            return false;
+        },
+
         // info : { mangaId, chapterId, chapterNum, mangaTitle, cover, source }
         // pages : [{ url, urlSaver }]  (déjà résolues)
         async download(info, pages, onProgress) {
@@ -60,6 +69,12 @@
             const cache = await caches.open(CACHE);
             const urls = pages.map(p => p.url).filter(Boolean);
             const sleep = ms => new Promise(r => setTimeout(r, ms));
+            const token = { cancelled: false };
+            this._active.set(info.chapterId, token);
+            // Nettoie les pages déjà mises en cache si on abandonne en cours de route.
+            const cleanupPartial = async (cachedUrls) => {
+                await Promise.all(cachedUrls.map(u => cache.delete(u).catch(() => {})));
+            };
 
             // Récupère une page avec un STATUT LISIBLE (audit — un 403/404 ne doit plus
             // être compté comme « téléchargé »). L'ancien fetch no-cors renvoyait une
@@ -85,31 +100,40 @@
             }
 
             let done = 0, failed = 0;
-            for (const url of urls) {
-                let resp = null;
-                for (let attempt = 0; attempt < 2 && !resp; attempt++) {
-                    resp = await fetchPage(url);
-                    if (!resp && attempt === 0) await sleep(300);
+            const cached = [];
+            try {
+                for (const url of urls) {
+                    if (token.cancelled) {                 // annulation demandée (audit B-4)
+                        await cleanupPartial(cached);
+                        throw new Error('__cancelled__');
+                    }
+                    let resp = null;
+                    for (let attempt = 0; attempt < 2 && !resp; attempt++) {
+                        resp = await fetchPage(url);
+                        if (!resp && attempt === 0) await sleep(300);
+                    }
+                    if (resp) { try { await cache.put(url, resp); cached.push(url); } catch (e) { failed++; } }
+                    else failed++;
+                    done++;
+                    if (onProgress) onProgress(done, urls.length);
+                    await sleep(60);   // ménage le CDN (évite le rate-limit)
                 }
-                if (resp) { try { await cache.put(url, resp); } catch (e) { failed++; } }
-                else failed++;
-                done++;
-                if (onProgress) onProgress(done, urls.length);
-                await sleep(60);   // ménage le CDN (évite le rate-limit)
+
+                const okCount = urls.length - failed;
+                // Rien n'a pu être récupéré → vrai échec, on ne prétend pas avoir téléchargé.
+                if (urls.length && okCount === 0) throw new Error('Aucune page n\'a pu être téléchargée');
+
+                await putMeta({
+                    chapterId: info.chapterId, mangaId: info.mangaId,
+                    chapterNum: info.chapterNum ?? null, mangaTitle: info.mangaTitle || '',
+                    cover: info.cover || '', source: info.source || '',
+                    pages: urls, count: urls.length, savedAt: Date.now(),
+                    incomplete: failed > 0, failed,
+                });
+                return { count: urls.length, failed };
+            } finally {
+                this._active.delete(info.chapterId);
             }
-
-            const okCount = urls.length - failed;
-            // Rien n'a pu être récupéré → vrai échec, on ne prétend pas avoir téléchargé.
-            if (urls.length && okCount === 0) throw new Error('Aucune page n\'a pu être téléchargée');
-
-            await putMeta({
-                chapterId: info.chapterId, mangaId: info.mangaId,
-                chapterNum: info.chapterNum ?? null, mangaTitle: info.mangaTitle || '',
-                cover: info.cover || '', source: info.source || '',
-                pages: urls, count: urls.length, savedAt: Date.now(),
-                incomplete: failed > 0, failed,
-            });
-            return { count: urls.length, failed };
         },
 
         // Téléchargement d'un chapitre de ROMAN (texte) — stocké dans IndexedDB.
@@ -159,7 +183,7 @@
                     const e = await navigator.storage.estimate();
                     return { usage: e.usage || 0, quota: e.quota || 0 };
                 }
-            } catch (e) {}
+            } catch (e) { window.MH?.err?.('downloads.js', e); }
             return { usage: 0, quota: 0 };
         },
 

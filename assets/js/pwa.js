@@ -26,7 +26,7 @@
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        try { window.dispatchEvent(new CustomEvent('pwa:installable')); } catch (e) {}
+        try { window.dispatchEvent(new CustomEvent('pwa:installable')); } catch (e) { window.MH?.err?.('pwa.js', e); }
         // Affiche un toast incitatif (1 seule fois)
         try {
             if (localStorage.getItem('mh_install_dismissed')) return;
@@ -46,6 +46,6 @@
                 localStorage.setItem('mh_install_dismissed', '1');
                 t.remove();
             });
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('pwa.js', e); }
     });
 })();

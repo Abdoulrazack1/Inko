@@ -47,9 +47,9 @@
 
     // ── État ──
     let S = { mode: null, ytId: null, spId: null, label: '', sub: '', art: null, vol: 0.7, expanded: false, tab: 'stations', visible: false, min: false, repeat: 'off' };
-    try { Object.assign(S, JSON.parse(localStorage.getItem(SKEY) || '{}')); } catch (e) {}
+    try { Object.assign(S, JSON.parse(localStorage.getItem(SKEY) || '{}')); } catch (e) { window.MH?.err?.('music.js', e); }
     S.expanded = false; // toujours replié au chargement
-    function save() { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} }
+    function save() { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) { window.MH?.err?.('music.js', e); } }
 
     let root, bar, panel, mediaHost, ytPlayer, ytReadyCb = [], localAudio, localQueue = [], localIdx = -1, playing = false;
 
@@ -119,7 +119,7 @@
     }
     // Réserve la place du dock sous le contenu (audit A15 : le dock fixe
     // cachait le bas de page, surtout en mobile).
-    function setBodyPad(on) { try { document.body.style.paddingBottom = on ? '84px' : ''; } catch (e) {} }
+    function setBodyPad(on) { try { document.body.style.paddingBottom = on ? '84px' : ''; } catch (e) { window.MH?.err?.('music.js', e); } }
     function open()  { S.visible = true; S.min = false; root.classList.remove('min'); root.style.display = 'flex'; setExpanded(true); setBodyPad(true); save(); }
     function show()  { S.visible = true; if (!S.min) root.style.display = 'flex'; save(); }
     function close() { stopAll(); S.visible = false; S.min = false; root.classList.remove('min'); root.style.display = 'none'; setBodyPad(false); save(); }
@@ -197,7 +197,7 @@
             const files = [...e.target.files]; if (!files.length) return;
             // Libère les blob URLs de l'ancienne file avant d'en créer une
             // nouvelle (audit F.2 : fuite mémoire cumulative à chaque import)
-            localQueue.forEach(t => { try { URL.revokeObjectURL(t.url); } catch (err) {} });
+            localQueue.forEach(t => { try { URL.revokeObjectURL(t.url); } catch (err) { window.MH?.err?.('music.js', err); } });
             localQueue = files.map(f => ({ name: f.name.replace(/\.[^.]+$/, ''), url: URL.createObjectURL(f) }));
             playLocal(0); renderQueue();
         };
@@ -286,8 +286,8 @@
         if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(v * 100);
         const sl = root.querySelector('#im-vol'); if (sl && +sl.value !== v) sl.value = v;
     }
-    function stopYouTube() { try { if (ytPlayer) ytPlayer.stopVideo?.(); } catch (e) {} }
-    function stopLocal()   { try { localAudio.pause(); } catch (e) {} }
+    function stopYouTube() { try { if (ytPlayer) ytPlayer.stopVideo?.(); } catch (e) { window.MH?.err?.('music.js', e); } }
+    function stopLocal()   { try { localAudio.pause(); } catch (e) { window.MH?.err?.('music.js', e); } }
     function stopAll() { stopYouTube(); stopLocal(); setPlaying(false); }
 
     // ══════════════════════ Minuterie de sommeil ══════════════════════

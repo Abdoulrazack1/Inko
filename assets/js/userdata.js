@@ -22,14 +22,14 @@
         try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(LKEY)) || {}); }
         catch (e) { return Object.assign({}, DEFAULTS); }
     }
-    function persistLocal() { try { localStorage.setItem(LKEY, JSON.stringify(data)); } catch (e) {} }
+    function persistLocal() { try { localStorage.setItem(LKEY, JSON.stringify(data)); } catch (e) { window.MH?.err?.('userdata.js', e); } }
 
     function scheduleSync() {
         persistLocal();
         if (!window.API?.isLoggedIn?.()) return;
         clearTimeout(saveTimer);
         saveTimer = setTimeout(async () => {
-            try { await API.me.saveSettings({ userdata: data }); } catch (e) {}
+            try { await API.me.saveSettings({ userdata: data }); } catch (e) { window.MH?.err?.('userdata.js', e); }
         }, 700);
     }
 

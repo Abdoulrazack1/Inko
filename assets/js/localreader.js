@@ -22,7 +22,7 @@
     function progSave(data) {
         if (!id) return;
         const all = progAll(); all[id] = Object.assign({ at: Date.now() }, data);
-        try { localStorage.setItem(PROG_KEY, JSON.stringify(all)); } catch (e) {}
+        try { localStorage.setItem(PROG_KEY, JSON.stringify(all)); } catch (e) { window.MH?.err?.('localreader.js', e); }
     }
 
     // Suit la page (image/canvas) en haut du viewport dans un conteneur empilé et
@@ -199,7 +199,7 @@
             const m = manifest[k];
             if (m.type && m.type.startsWith('image/')) {
                 try { imgMap[normalize(opfDir + m.href)] = mkUrl(await zip.files[normalize(opfDir + m.href)].async('blob')); }
-                catch (e) {}
+                catch (e) { window.MH?.err?.('localreader.js', e); }
             }
         }
 

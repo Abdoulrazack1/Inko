@@ -98,7 +98,7 @@
                     if (prog && prog.chapterId === chapterId && prog.page > 1) {
                         currentPage = Math.min(prog.page, totalPages);
                     }
-                } catch(e) {}
+                } catch (e) { window.MH?.err?.('chapitre.js', e); }
             }
 
             doubleBase = currentPage;   // ancre de la planche double (reprise correcte)
@@ -477,7 +477,7 @@
         try {
             const n = parseFloat(currentChap.chapter);
             window.AniList?.syncByTitle(manga.title, { progress: isNaN(n) ? undefined : n, status: 'reading' });
-        } catch (e) {}
+        } catch (e) { window.MH?.err?.('chapitre.js', e); }
         await req;
     }
 
@@ -773,7 +773,7 @@
         if (!inReal && !inFallback) {
             // Entrer : vrai plein écran OS si possible, sinon repli plein cadre
             let req;
-            try { req = document.documentElement.requestFullscreen?.(); } catch (e) {}
+            try { req = document.documentElement.requestFullscreen?.(); } catch (e) { window.MH?.err?.('chapitre.js', e); }
             if (req && req.catch) req.catch(() => { document.body.classList.add('reader-fullscreen'); rerender(); });
             else if (!req) { document.body.classList.add('reader-fullscreen'); rerender(); }
         } else if (inReal) {
@@ -1120,13 +1120,18 @@
         if (!window.Downloads) { btn.style.display = 'none'; return; }
         setDlIcon(await window.Downloads.has(currentChap.id));
         btn.onclick = async () => {
+            // Téléchargement en cours → le clic ANNULE (audit B-4)
+            if (window.Downloads.isDownloading?.(currentChap.id)) {
+                window.Downloads.cancel(currentChap.id);
+                return;
+            }
             if (await window.Downloads.has(currentChap.id)) {
                 await window.Downloads.remove(currentChap.id);
                 setDlIcon(false); MH.toast?.('Téléchargement supprimé');
                 return;
             }
             if (!pages.length) { MH.toast?.('Aucune page à télécharger'); return; }
-            btn.disabled = true;
+            btn.title = 'Annuler le téléchargement';
             try {
                 const r = await window.Downloads.download(
                     { mangaId: manga.id, chapterId: currentChap.id, chapterNum: currentChap.chapter,
@@ -1138,8 +1143,11 @@
                 MH.toast?.(r?.failed
                     ? `Téléchargé avec ${r.failed} page(s) manquante(s) sur ${r.count}`
                     : 'Chapitre téléchargé pour le hors-ligne');
-            } catch (e) { setDlIcon(false); MH.toast?.('Erreur : ' + e.message); }
-            finally { btn.disabled = false; }
+            } catch (e) {
+                setDlIcon(false);
+                MH.toast?.(e.message === '__cancelled__' ? 'Téléchargement annulé' : 'Erreur : ' + e.message);
+            }
+            finally { btn.title = 'Télécharger pour lire hors-ligne'; }
         };
     }
 

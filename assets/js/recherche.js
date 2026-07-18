@@ -16,7 +16,7 @@
         MH.initPage('recherche');
         MH.loadSourceTypes();
         await window.UserData?.ready?.();
-        try { favSet = await MH.getFavSet(); } catch (e) {}
+        try { favSet = await MH.getFavSet(); } catch (e) { window.MH?.err?.('recherche.js', e); }
 
         const input = document.getElementById('seInput');
         const q = new URLSearchParams(location.search).get('q') || '';
@@ -95,7 +95,7 @@
                                 <div class="se-title">${MH.esc(f.title || f.mangaId)}</div>
                             </a>`).join('')}</div></div>`;
                 }
-            } catch (e) {}
+            } catch (e) { window.MH?.err?.('recherche.js', e); }
         }
         try {
             const data = await API.mangas.popular({ limit: 18 });

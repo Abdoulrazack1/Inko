@@ -59,7 +59,7 @@
         const list = document.getElementById('imList');
         list.innerHTML = `<div class="im-empty"><div class="spinner-inline"></div></div>`;
         let items = [];
-        try { items = await API.local.list(); } catch (e) {}
+        try { items = await API.local.list(); } catch (e) { window.MH?.err?.('import.js', e); }
         if (!items.length) {
             list.innerHTML = `<div class="im-empty">Aucun fichier importé pour l'instant.</div>`;
             return;

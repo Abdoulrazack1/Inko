@@ -64,7 +64,7 @@
         window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
             if ((window.Storage?.getPref('theme') || 'dark') === 'auto') apply('auto');
         });
-    } catch (e) {}
+    } catch (e) { window.MH?.err?.('theme.js', e); }
 
     window.Theme = {
         apply,

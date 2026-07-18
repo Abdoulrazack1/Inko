@@ -102,7 +102,7 @@
     let idx = 0, veil = null;
 
     function done() {
-        try { localStorage.setItem(FLAG, '1'); } catch (e) {}
+        try { localStorage.setItem(FLAG, '1'); } catch (e) { window.MH?.err?.('onboarding.js', e); }
         if (!veil) return;
         veil.style.opacity = '';   // rend la main à la transition de sortie
         veil.classList.remove('on');
