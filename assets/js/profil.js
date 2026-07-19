@@ -478,7 +478,7 @@
                 if (!m) return '';
                 return `
                 <div class="history-entry">
-                    <div class="history-entry-cover"><img src="${m.coverThumb || m.cover || ''}" alt=""></div>
+                    <div class="history-entry-cover"><img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" decoding="async"></div>
                     <div class="history-entry-info">
                         <div class="history-entry-title">${MH.esc(m.title)}</div>
                         <div class="history-entry-chap">Chapitre ${MH.chapNum(p.chapter)}</div>
@@ -622,7 +622,7 @@
                     cont.innerHTML = top.map(([id, n], i) => {
                         const m = mangas[i] || {};
                         return `<div class="top-series-item">
-                            <img src="${m.coverThumb || m.cover || ''}" alt="" style="min-width:36px;min-height:50px;border-radius:4px;object-fit:cover;background:var(--bg4)" onerror="this.style.visibility='hidden'">
+                            <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" decoding="async" style="min-width:36px;min-height:50px;border-radius:4px;object-fit:cover;background:var(--bg4)" onerror="this.style.visibility='hidden'">
                             <div>
                                 <div class="top-series-name">${MH.esc(m.title || id)}</div>
                                 <div class="top-series-count">${n} chapitre${n > 1 ? 's' : ''} cette semaine</div>

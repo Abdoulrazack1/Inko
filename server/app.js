@@ -2,6 +2,7 @@
 // le pool MySQL de config/db lit process.env au moment du require)
 const path         = require('path');
 const express      = require('express');
+const compression  = require('compression');
 const cookieParser = require('cookie-parser');
 const cors         = require('cors');
 const { ping }     = require('./config/db');
@@ -18,6 +19,10 @@ const PORT = parseInt(process.env.PORT || '8088', 10);
 // req.ip fiable pour le rate limiting. Inactif en local par défaut.
 if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
 
+// Compression gzip (optimisation) : les gros modules JS (global.js ~88 Ko,
+// chapitre/serie ~64 Ko) tombent à ~1/4 sur le réseau. Gain direct au 1er
+// chargement et sur mobile/hub distant.
+app.use(compression());
 app.use(securityHeaders);
 app.use(cors(corsOptions()));
 app.use(express.json({ limit: '12mb' }));   // import de sauvegarde possible
@@ -38,7 +43,25 @@ app.use('/api', routes);
 // FRONTEND_DIR est défini par Electron en prod (resources/frontend/).
 // Sinon fallback dev : dossier parent du server (inko/).
 const FRONTEND_DIR = process.env.FRONTEND_DIR || path.join(__dirname, '..');
-app.use(express.static(FRONTEND_DIR, { extensions: ['html'], index: 'accueil.html' }));
+app.use(express.static(FRONTEND_DIR, {
+    extensions: ['html'],
+    index: 'accueil.html',
+    etag: true,
+    // Cache différencié (optimisation) : les assets immuables (polices, images,
+    // libs vendorisées, icônes) sont mis en cache 30 jours — ils ne changent
+    // pas entre deux versions. Le HTML/JS/CSS applicatif reste en revalidation
+    // (ETag, max-age=0) pour que les mises à jour soient prises immédiatement,
+    // sans risque de servir du code périmé (le Service Worker gère l'offline).
+    setHeaders(res, filePath) {
+        const isVendorDir = /[\\/]assets[\\/](vendor|img|fonts)[\\/]/i.test(filePath);
+        const isAssetExt  = /\.(woff2?|ttf|otf|png|jpe?g|gif|webp|svg|ico)$/i.test(filePath);
+        if (isVendorDir || isAssetExt) {
+            res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');   // 30 j
+        } else {
+            res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+        }
+    },
+}));
 
 // Fallback : si la requête n'est pas /api/* et que le fichier n'existe pas → accueil
 app.get(/^(?!\/api).*$/, (req, res, next) => {

@@ -111,7 +111,13 @@
             show();
             let m = detailCache.get(id);
             if (!m) {
-                try { m = await window.API.mangas.get(id); detailCache.set(id, m); }
+                try {
+                    m = await window.API.mangas.get(id);
+                    // Borne le cache (optimisation mémoire) : le survol de
+                    // centaines de cartes ne doit pas faire grossir la Map sans fin.
+                    if (detailCache.size >= 200) detailCache.delete(detailCache.keys().next().value);
+                    detailCache.set(id, m);
+                }
                 catch (e) { m = null; }
             }
             if (currentId !== id) return;   // l'utilisateur est passé à une autre card
