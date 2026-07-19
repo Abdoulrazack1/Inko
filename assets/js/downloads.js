@@ -53,28 +53,36 @@
             try { return !!(await getMeta(chapterId)); } catch (e) { return false; }
         },
 
-        // Annulation en cours (audit B-4) : un jeton par chapitre en téléchargement.
-        _active: new Map(),      // chapterId -> { cancelled }
+        // État des téléchargements en cours (audit B-4 + pause/reprise).
+        // Machine à états par chapitre : 'running' | 'paused' | 'cancelled'.
+        _active: new Map(),      // chapterId -> { state }
         isDownloading(chapterId) { return this._active.has(chapterId); },
-        cancel(chapterId) {
-            const tok = this._active.get(chapterId);
-            if (tok) { tok.cancelled = true; return true; }
-            return false;
-        },
+        state(chapterId) { return this._active.get(chapterId)?.state || null; },
+        cancel(chapterId) { const t = this._active.get(chapterId); if (t) { t.state = 'cancelled'; return true; } return false; },
+        pause(chapterId)  { const t = this._active.get(chapterId); if (t && t.state === 'running') { t.state = 'paused'; return true; } return false; },
+        resume(chapterId) { const t = this._active.get(chapterId); if (t && t.state === 'paused') { t.state = 'running'; return true; } return false; },
 
         // info : { mangaId, chapterId, chapterNum, mangaTitle, cover, source }
         // pages : [{ url, urlSaver }]  (déjà résolues)
+        // Reprend là où un précédent essai s'était arrêté : les pages déjà en
+        // cache sont sautées (permet la reprise après pause ET la relance d'un
+        // téléchargement incomplet sans re-télécharger ce qui existe).
         async download(info, pages, onProgress) {
             if (!('caches' in window)) throw new Error('Cache API indisponible');
             const cache = await caches.open(CACHE);
             const urls = pages.map(p => p.url).filter(Boolean);
             const sleep = ms => new Promise(r => setTimeout(r, ms));
-            const token = { cancelled: false };
+            const token = { state: 'running' };
             this._active.set(info.chapterId, token);
-            // Nettoie les pages déjà mises en cache si on abandonne en cours de route.
+            // Nettoie les pages mises en cache si on ANNULE (pas si on met en pause).
             const cleanupPartial = async (cachedUrls) => {
                 await Promise.all(cachedUrls.map(u => cache.delete(u).catch(() => {})));
             };
+            // Bloque tant que l'état est 'paused' ; retourne false si annulé pendant la pause.
+            async function waitIfPaused() {
+                while (token.state === 'paused') await sleep(250);
+                return token.state !== 'cancelled';
+            }
 
             // Récupère une page avec un STATUT LISIBLE (audit — un 403/404 ne doit plus
             // être compté comme « téléchargé »). L'ancien fetch no-cors renvoyait une
@@ -103,10 +111,11 @@
             const cached = [];
             try {
                 for (const url of urls) {
-                    if (token.cancelled) {                 // annulation demandée (audit B-4)
-                        await cleanupPartial(cached);
-                        throw new Error('__cancelled__');
-                    }
+                    // Pause : on attend ici sans consommer de réseau ; annulation possible pendant la pause.
+                    if (!(await waitIfPaused())) { await cleanupPartial(cached); throw new Error('__cancelled__'); }
+                    if (token.state === 'cancelled') { await cleanupPartial(cached); throw new Error('__cancelled__'); }
+                    // Page déjà présente (reprise / relance) : on la compte sans re-télécharger.
+                    if (await cache.match(url)) { cached.push(url); done++; if (onProgress) onProgress(done, urls.length); continue; }
                     let resp = null;
                     for (let attempt = 0; attempt < 2 && !resp; attempt++) {
                         resp = await fetchPage(url);

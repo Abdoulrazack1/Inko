@@ -58,20 +58,24 @@
             const cover = g.cover || (chaps[0] && chaps[0].cover) || '';
             return `<div class="dl-group" data-manga="${MH.esc(g.mangaId)}">
                 <div class="dl-ghead">
-                    <img class="dl-gcover" src="${MH.esc(cover)}" alt="" onerror="this.style.visibility='hidden'">
+                    <img class="dl-gcover" src="${MH.esc(cover)}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
                     <div class="dl-gtitle">${MH.esc(g.mangaTitle || g.mangaId)}
                         <div class="dl-gcount">${chaps.length} chapitre(s)</div>
                     </div>
                     <button class="btn btn-sm" data-delmanga="${MH.esc(g.mangaId)}" style="color:#ef4444">Supprimer la série</button>
                 </div>
-                ${chaps.map(c => `
+                ${chaps.map(c => {
+                    const incomplete = c.kind !== 'novel' && c.incomplete && c.failed > 0;
+                    return `
                     <div class="dl-chap">
                         <span class="tag">${c.kind === 'novel' ? 'texte' : 'manga'}</span>
                         <a class="grow" href="${MH.readerHref(c.mangaId, c.chapterId, c.source)}" style="text-decoration:none;color:inherit">
                             ${MH.esc(c.chapterTitle || ('Chapitre ' + c.chapterNum))}
+                            ${incomplete ? `<span style="color:#f59e0b;font-size:11px;margin-left:6px" data-dlprog="${MH.esc(c.chapterId)}">⚠ ${c.failed} page(s) manquante(s)</span>` : ''}
                         </a>
+                        ${incomplete ? `<button class="btn btn-sm" data-retry="${MH.esc(c.chapterId)}" style="color:var(--accent)">Relancer</button>` : ''}
                         <button class="btn btn-sm" data-delchap="${MH.esc(c.chapterId)}">✕</button>
-                    </div>`).join('')}
+                    </div>`; }).join('')}
             </div>`;
         }).join('');
 
@@ -83,6 +87,27 @@
         body.querySelectorAll('[data-delchap]').forEach(b => b.addEventListener('click', async () => {
             await window.Downloads.remove(b.dataset.delchap);
             MH.toast?.('Chapitre supprimé'); render();
+        }));
+        // Relance d'un téléchargement incomplet : re-fetch UNIQUEMENT les pages
+        // manquantes (les pages déjà en cache sont sautées par download()).
+        body.querySelectorAll('[data-retry]').forEach(b => b.addEventListener('click', async () => {
+            const id = b.dataset.retry;
+            const meta = await window.Downloads.get(id);
+            if (!meta || !(meta.pages || []).length) { MH.toast?.('Impossible de relancer ce chapitre'); return; }
+            b.disabled = true; b.textContent = '…';
+            const prog = body.querySelector(`[data-dlprog="${CSS.escape(id)}"]`);
+            try {
+                const r = await window.Downloads.download(
+                    { mangaId: meta.mangaId, chapterId: id, chapterNum: meta.chapterNum,
+                      mangaTitle: meta.mangaTitle, cover: meta.cover, source: meta.source },
+                    meta.pages.map(u => ({ url: u })),
+                    (d, n) => { if (prog) prog.textContent = `${Math.round(d / n * 100)}%`; }
+                );
+                MH.toast?.(r?.failed ? `Toujours ${r.failed} page(s) manquante(s)` : 'Chapitre complété ✓');
+            } catch (e) {
+                MH.toast?.(e.message === '__cancelled__' ? 'Relance annulée' : 'Erreur : ' + e.message);
+            }
+            render();
         }));
     }
 })();

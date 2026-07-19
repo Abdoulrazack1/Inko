@@ -519,7 +519,7 @@
     "Ajouter aux favoris": "Add to favorites",
     "Retirer de ma bibliothèque": "Remove from my library",
     "Retirer de la liste": "Remove from the list",
-    "Supprimer la série": "Remove the series",
+    "Supprimer la série": "Remove series",
     "Ajouter à une liste": "Add to a list",
     "Statut de lecture": "Reading status",
     "Voir la fiche": "View details",
@@ -668,7 +668,22 @@
     "Précédent": "Previous",
     "Suivant": "Next",
     "Volume": "Volume",
-    "Mode répétition": "Repeat mode"
+    "Mode répétition": "Repeat mode",
+    "Téléchargement en pause": "Download paused",
+    "Téléchargement repris": "Download resumed",
+    "Téléchargement annulé": "Download cancelled",
+    "Téléchargement supprimé": "Download removed",
+    "Reprendre le téléchargement": "Resume download",
+    "Mettre en pause": "Pause",
+    "Annuler le téléchargement": "Cancel download",
+    "Relancer": "Retry",
+    "Relance annulée": "Retry cancelled",
+    "Chapitre complété ✓": "Chapter completed ✓",
+    "Aucune page à télécharger": "No pages to download",
+    "Impossible de relancer ce chapitre": "Cannot retry this chapter",
+    "Chapitre téléchargé pour le hors-ligne": "Chapter downloaded for offline",
+    "Série supprimée des téléchargements": "Series removed from downloads",
+    "Chapitre supprimé": "Chapter removed"
   },
   "patterns": [
     [
@@ -874,6 +889,22 @@
     [
       "^il y a (\\d+) jours?$",
       "$1 day(s) ago"
+    ],
+    [
+      "^Téléchargé avec (\\d+) page\\(s\\) manquante\\(s\\) sur (\\d+)$",
+      "Downloaded with $1 missing page(s) out of $2"
+    ],
+    [
+      "^Toujours (\\d+) page\\(s\\) manquante\\(s\\)$",
+      "Still $1 missing page(s)"
+    ],
+    [
+      "^⚠ (\\d+) page\\(s\\) manquante\\(s\\)$",
+      "⚠ $1 missing page(s)"
+    ],
+    [
+      "^(\\d+) chapitre\\(s\\) disponibles hors-ligne\\.$",
+      "$1 chapter(s) available offline."
     ]
   ]
 }

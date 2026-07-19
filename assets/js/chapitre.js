@@ -1119,25 +1119,25 @@
         if (!btn) return;
         if (!window.Downloads) { btn.style.display = 'none'; return; }
         setDlIcon(await window.Downloads.has(currentChap.id));
+        const showPct = (d, n) => { btn.innerHTML = `<span style="font-size:10px;font-weight:700">${Math.round(d / n * 100)}%</span>`; };
         btn.onclick = async () => {
-            // Téléchargement en cours → le clic ANNULE (audit B-4)
-            if (window.Downloads.isDownloading?.(currentChap.id)) {
-                window.Downloads.cancel(currentChap.id);
-                return;
-            }
+            // Téléchargement en cours : le clic bascule pause ↔ reprise ;
+            // maintenir (contextmenu / appui long non géré ici) annule.
+            const st = window.Downloads.state?.(currentChap.id);
+            if (st === 'running') { window.Downloads.pause(currentChap.id); btn.title = 'Reprendre le téléchargement'; MH.toast?.('Téléchargement en pause'); return; }
+            if (st === 'paused')  { window.Downloads.resume(currentChap.id); btn.title = 'Mettre en pause'; MH.toast?.('Téléchargement repris'); return; }
             if (await window.Downloads.has(currentChap.id)) {
                 await window.Downloads.remove(currentChap.id);
                 setDlIcon(false); MH.toast?.('Téléchargement supprimé');
                 return;
             }
             if (!pages.length) { MH.toast?.('Aucune page à télécharger'); return; }
-            btn.title = 'Annuler le téléchargement';
+            btn.title = 'Mettre en pause';
             try {
                 const r = await window.Downloads.download(
                     { mangaId: manga.id, chapterId: currentChap.id, chapterNum: currentChap.chapter,
                       mangaTitle: manga.title, cover: manga.cover || manga.coverThumb, source: API.sources.current },
-                    pages,
-                    (d, n) => { btn.innerHTML = `<span style="font-size:10px;font-weight:700">${Math.round(d / n * 100)}%</span>`; }
+                    pages, showPct
                 );
                 setDlIcon(true);
                 MH.toast?.(r?.failed
@@ -1148,6 +1148,10 @@
                 MH.toast?.(e.message === '__cancelled__' ? 'Téléchargement annulé' : 'Erreur : ' + e.message);
             }
             finally { btn.title = 'Télécharger pour lire hors-ligne'; }
+        };
+        // Appui long / clic droit sur le bouton = annuler le téléchargement en cours
+        btn.oncontextmenu = (e) => {
+            if (window.Downloads.isDownloading?.(currentChap.id)) { e.preventDefault(); window.Downloads.cancel(currentChap.id); }
         };
     }
 
