@@ -4,7 +4,7 @@
   "description": "Fenêtre principale Inko : lancement du backend Node (sidecar) + contrôles de fenêtre (barre de titre custom sur la fenêtre sans bordure OS).",
   "windows": ["main"],
   "remote": {
-    "urls": ["http://127.0.0.1:8088", "http://localhost:8088"]
+    "urls": ["http://127.0.0.1:8088/*", "http://localhost:8088/*"]
   },
   "permissions": [
     "core:default",
