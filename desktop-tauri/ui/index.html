@@ -23,9 +23,19 @@
   .bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #c1531b, #e07a3f); border-radius: 3px; transition: width .45s ease; }
   .pct { font-size: 11px; color: #6f6c63; margin-top: 8px; font-variant-numeric: tabular-nums; }
   .err { color: #d98b7a; font-size: 12.5px; margin-top: 14px; max-width: 360px; display: none; line-height: 1.5; }
+  /* Fenêtre sans bordure OS : le splash est déplaçable, avec une croix de secours */
+  .tb-close-boot {
+    position: fixed; top: 8px; right: 10px; width: 32px; height: 28px; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: 0; color: #8d8a80; cursor: pointer; border-radius: 6px;
+  }
+  .tb-close-boot:hover { background: #e81123; color: #fff; }
 </style>
 </head>
-<body>
+<body data-tauri-drag-region>
+  <button class="tb-close-boot" id="bootClose" title="Fermer" aria-label="Fermer">
+    <svg viewBox="0 0 12 12" width="12" height="12"><line x1="3" y1="3" x2="9" y2="9" stroke="currentColor" stroke-width="1.4"/><line x1="9" y1="3" x2="3" y2="9" stroke="currentColor" stroke-width="1.4"/></svg>
+  </button>
   <div class="boot">
     <div class="mark"><img src="logo.svg" alt="Inko"></div>
     <div class="txt" id="txt">Démarrage d'Inko…</div>
@@ -81,6 +91,15 @@
   }
   const clock = setInterval(tick, 450);
   tick();
+
+  // Croix de secours (fenêtre sans bordure) : ferme proprement pendant le boot
+  document.getElementById('bootClose').onclick = () => {
+    try {
+      const T = window.__TAURI__;
+      const w = T && T.window && (T.window.getCurrentWindow || T.window.getCurrent).call(T.window);
+      if (w) w.close(); else window.close();
+    } catch (e) { window.close(); }
+  };
 
   let tries = 0;
   (function poll() {

@@ -1,10 +1,20 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Fenêtre principale Inko : autorise le lancement du backend Node (sidecar).",
+  "description": "Fenêtre principale Inko : lancement du backend Node (sidecar) + contrôles de fenêtre (barre de titre custom sur la fenêtre sans bordure OS).",
   "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:8088", "http://localhost:8088"]
+  },
   "permissions": [
     "core:default",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-is-maximized",
     {
       "identifier": "shell:allow-execute",
       "allow": [
