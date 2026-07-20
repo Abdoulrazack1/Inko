@@ -581,7 +581,7 @@
     "Connecte-toi pour créer tes listes": "Sign in to create your lists",
     "Ajoute la série en favori pour la suivre": "Add the series to favorites to follow it",
     "Aucune lecture en cours": "Nothing currently reading",
-    "Aucune lecture en cours pour le moment": "Nothing currently reading right now",
+    "Aucune lecture en cours pour le moment": "Nothing currently being read",
     "Aucune lecture en cours.": "Nothing currently reading.",
     "Retiré de « Reprendre la lecture »": "Removed from “Resume reading”",
     "Bientôt disponible !": "Coming soon!",
@@ -683,7 +683,9 @@
     "Impossible de relancer ce chapitre": "Cannot retry this chapter",
     "Chapitre téléchargé pour le hors-ligne": "Chapter downloaded for offline",
     "Série supprimée des téléchargements": "Series removed from downloads",
-    "Chapitre supprimé": "Chapter removed"
+    "Chapitre supprimé": "Chapter removed",
+    "Recherche de nouveaux chapitres…": "Searching for new chapters…",
+    "Certaines sources sont lentes — réessaie dans un moment.": "Some sources are slow — try again in a moment."
   },
   "patterns": [
     [

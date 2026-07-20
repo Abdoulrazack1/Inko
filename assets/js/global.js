@@ -455,6 +455,8 @@
         if (_checkInFlight) return null;
         _checkInFlight = true;
         setRefreshSpinning(true);
+        // Retour immédiat au clic manuel : le scan peut durer (toutes les sources).
+        if (!silent && force) MH.toast('Recherche de nouveaux chapitres…');
         try {
             const lang = window.Storage?.getPref('readingLang') || 'fr,en';
             const data = await API.me.updates(lang);
@@ -479,7 +481,13 @@
             }
             return data;
         } catch (e) {
-            if (!silent && force) MH.toast('Actualisation impossible : ' + e.message);
+            if (!silent && force) {
+                // Message clair selon la cause réelle (le scan est long par nature)
+                const msg = e.network || /délai|too long|met trop de temps/i.test(e.message || '')
+                    ? 'Certaines sources sont lentes — réessaie dans un moment.'
+                    : 'Actualisation impossible : ' + (e.message || 'erreur');
+                MH.toast(msg);
+            }
             return null;
         } finally {
             _checkInFlight = false;
@@ -735,7 +743,50 @@
        global.js. MH.t / MH.applyI18n / MH.loadI18n / MH.setLang y sont définis. */
 
     /* ── Inject header & footer ──────────────────────────── */
+    // ── Barre de titre custom (app desktop premium, fenêtre sans bordure OS) ──
+    // Ne s'affiche QUE dans l'app Tauri (window.__TAURI__ présent). Dans le
+    // navigateur, rien n'est injecté. Filet de sécurité : si l'IPC Tauri
+    // n'était pas disponible, Alt+F4 ferme toujours et les bords restent
+    // redimensionnables — la fenêtre ne peut pas devenir « bloquée ».
+    function tauriWindow() {
+        const T = window.__TAURI__;
+        if (!T || !T.window) return null;
+        try { return (T.window.getCurrentWindow || T.window.getCurrent)?.call(T.window) || null; }
+        catch (e) { return null; }
+    }
+    function injectTitlebar() {
+        if (!window.__TAURI__ || document.getElementById('inko-titlebar')) return;
+        document.documentElement.classList.add('tauri-app');
+        const bar = document.createElement('div');
+        bar.id = 'inko-titlebar';
+        bar.setAttribute('data-tauri-drag-region', '');
+        bar.innerHTML = `
+            <div class="tb-brand" data-tauri-drag-region>
+                <img src="/assets/img/icon.svg" alt="" class="tb-logo" draggable="false">
+                <span class="tb-title">Inko</span>
+            </div>
+            <div class="tb-controls">
+                <button class="tb-btn" id="tbMin" title="Réduire" aria-label="Réduire">
+                    <svg viewBox="0 0 12 12" width="11" height="11"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.2"/></svg>
+                </button>
+                <button class="tb-btn" id="tbMax" title="Agrandir" aria-label="Agrandir">
+                    <svg viewBox="0 0 12 12" width="11" height="11"><rect x="2.5" y="2.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+                </button>
+                <button class="tb-btn tb-close" id="tbClose" title="Fermer" aria-label="Fermer">
+                    <svg viewBox="0 0 12 12" width="11" height="11"><line x1="3" y1="3" x2="9" y2="9" stroke="currentColor" stroke-width="1.3"/><line x1="9" y1="3" x2="3" y2="9" stroke="currentColor" stroke-width="1.3"/></svg>
+                </button>
+            </div>`;
+        document.body.prepend(bar);
+        const w = () => tauriWindow();
+        bar.querySelector('#tbMin').onclick = () => { try { w()?.minimize(); } catch (e) { window.MH?.err?.('titlebar', e); } };
+        bar.querySelector('#tbMax').onclick = () => { try { w()?.toggleMaximize(); } catch (e) { window.MH?.err?.('titlebar', e); } };
+        bar.querySelector('#tbClose').onclick = () => { try { w()?.close(); } catch (e) { window.MH?.err?.('titlebar', e); } };
+        // Double-clic sur la barre = agrandir/restaurer (comportement natif attendu)
+        bar.addEventListener('dblclick', (e) => { if (e.target.closest('.tb-controls')) return; try { w()?.toggleMaximize(); } catch (err) { window.MH?.err?.('titlebar', err); } });
+    }
+
     window.MH.initPage = function (activePage) {
+        injectTitlebar();
         const headerSlot = document.getElementById('header-slot');
         const footerSlot = document.getElementById('footer-slot');
         if (headerSlot) headerSlot.outerHTML = headerHTML(activePage);
@@ -1039,7 +1090,7 @@
             const btn = e.target.closest('#btnMusic');
             if (!btn) return;
             e.preventDefault();
-            window.MH.openMusic();
+            try { window.MH.openMusic?.(); } catch (err) { window.MH?.err?.('global.js:music', err); }
         });
 
         // Bouton actualiser : relance la vérification des nouveaux chapitres à la demande
@@ -1294,9 +1345,17 @@
         async check() {
             const h = await fetch((window.API?.base || '/api') + '/health').then(r => r.json());
             if (!h.version) return { current: null, latest: null, hasUpdate: false };
-            const rel = await fetch('https://api.github.com/repos/Abdoulrazack1/Inko/releases/latest',
-                { headers: { Accept: 'application/vnd.github+json' } }).then(r => r.json());
-            const latest = (rel.tag_name || '').replace(/^v/, '');
+            // Timeout sur l'API GitHub (peut être lente/dégradée) : on renvoie au
+            // moins la version courante plutôt que de faire tourner le bouton.
+            let latest = '';
+            try {
+                const ctrl = new AbortController();
+                const t = setTimeout(() => ctrl.abort(), 12000);
+                const rel = await fetch('https://api.github.com/repos/Abdoulrazack1/Inko/releases/latest',
+                    { headers: { Accept: 'application/vnd.github+json' }, signal: ctrl.signal }).then(r => r.json());
+                clearTimeout(t);
+                latest = (rel.tag_name || '').replace(/^v/, '');
+            } catch (e) { window.MH?.err?.('appUpdates.check', e); }
             return { current: h.version, latest, hasUpdate: !!latest && cmpVer(latest, h.version) > 0 };
         },
         download() { window.open(UPDATE_EXE, '_blank'); },

@@ -294,7 +294,11 @@
                 if (o.scope) sp.set('scope', o.scope);
                 if (o.manga) sp.set('manga', o.manga);
                 const qs = sp.toString();
-                return get('/me/updates' + (qs ? '?' + qs : '')).then(d => {
+                // Timeout long (3 min) : un scan de bibliothèque interroge toutes
+                // les sources de scraping (SushiScan/Cloudflare…) et dépasse
+                // facilement le défaut de 30 s → ne plus afficher « serveur trop
+                // long » alors que le scan travaille encore.
+                return request('GET', '/me/updates' + (qs ? '?' + qs : ''), null, { timeout: 180000 }).then(d => {
                     (d && d.updates  || []).forEach(u => { if (u.cover) u.cover = proxyCover(u.cover); });
                     (d && d.failures || []).forEach(u => { if (u.cover) u.cover = proxyCover(u.cover); });
                     return d;

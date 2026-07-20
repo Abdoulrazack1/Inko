@@ -80,6 +80,15 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
         (readByManga[r.manga_id] = readByManga[r.manga_id] || new Set()).add(r.chapter_number);
     });
 
+    // Timeout par série (robustesse) : une source lente/bloquée (Cloudflare,
+    // site HS) ne doit pas figer tout le scan. Chaque getChapters est borné ;
+    // au-delà, la série est marquée en échec et le scan continue.
+    const PER_SERIES_MS = 20000;
+    const withTimeout = (p, ms) => Promise.race([
+        p,
+        new Promise((_, rej) => setTimeout(() => rej(new Error('délai dépassé (source lente)')), ms)),
+    ]);
+
     const failures = [];
     const results = await mapLimit(targets, 4, async (f) => {
         const src = extensions.get(f.source || 'mangadex') || extensions.defaultSource();
@@ -89,7 +98,7 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
         }
         let chaps = [];
         try {
-            const data = await src.getChapters(f.manga_id, { lang });
+            const data = await withTimeout(src.getChapters(f.manga_id, { lang }), PER_SERIES_MS);
             chaps = data.results || [];
         } catch (e) {
             // §15.2 : l'échec est remonté, plus jamais avalé en silence
