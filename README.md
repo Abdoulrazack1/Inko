@@ -35,7 +35,7 @@ signé — c'est le cas de la plupart des apps open source) : clique
 
 <br>
 
-[App Windows](#application-windows-tauri) · [Démarrer en dev](#démarrer-en-développement) · [Fonctionnalités](#fonctionnalités) · [Design](#design--lédition-washi) · [Extensions](#extensions) · [API](#api-rest)
+[App Windows](#application-windows-tauri) · [Démarrer en dev](#démarrer-en-développement) · [Fonctionnalités](#fonctionnalités) · [Design](#design--lédition-washi) · [Extensions](#extensions) · [API](#api-rest) · [Journal des versions](CHANGELOG.md)
 
 </div>
 
@@ -63,7 +63,9 @@ signé — c'est le cas de la plupart des apps open source) : clique
 Comme Mihon/Tachiyomi, **Inko n'a pas d'écran de connexion**. Chaque
 installation est personnelle : au premier lancement, l'app crée (ou adopte) ton
 profil local et tout t'appartient — bibliothèque, progression, notes, signets.
-Les seuls comptes externes sont **optionnels** : AniList (synchronisation de
+Le seul compte externe est **optionnel** : AniList, pour synchroniser ta
+progression, tes statuts et tes notes (voir [Comptes liés](#comptes-liés-optionnels)).
+L'interface est disponible en **français et en anglais** (sélecteur au pied de page).
 
 |  | **Inko** | Mihon | Suwayomi | Komga/Kavita |
 |---|---|---|---|---|
@@ -71,7 +73,8 @@ Les seuls comptes externes sont **optionnels** : AniList (synchronisation de
 | Sans compte, local d'abord | ✅ | ✅ | ✅ | ❌ (comptes) |
 | Journal de lecture privé | ✅ | ❌ | ❌ | ❌ |
 | Notifications push nouveaux chapitres | ✅ (app fermée incluse) | ✅ (mobile) | ❌ | ❌ |
-| App Windows native (WebView2) + web + PWA | ✅ | ❌ (Android) | ✅ (web) | ✅ (web) |
+| App Windows native premium (WebView2, fenêtre sans bordure) + web + PWA | ✅ | ❌ (Android) | ✅ (web) | ✅ (web) |
+| Interface bilingue FR / EN | ✅ | ✅ | ❌ | partiel |
 | Import local EPUB/CBZ/PDF | ✅ | ✅ | ❌ | ✅ |
 | Sans pub, sans télémétrie | ✅ | ✅ | ✅ | ✅ |
 
@@ -87,8 +90,13 @@ un installeur d'environ 30 Mo, un démarrage rapide.
 cd desktop-tauri
 npm install
 npm run build      # prep (ressources + sidecar node) + tauri build
-# → src-tauri/target/release/bundle/nsis/Inko_2.0.0_x64-setup.exe
+# → src-tauri/target/release/bundle/nsis/Inko_<version>_x64-setup.exe
 ```
+
+> La fenêtre est **sans bordure système** : la barre de titre (déplacer,
+> réduire, agrandir, fermer) est dessinée par l'app pour un rendu cohérent avec
+> le thème. Sur le web/PWA, cette barre n'apparaît pas (le navigateur gère la
+> fenêtre).
 
 Architecture : le backend Node (Express + extensions) est embarqué en
 **sidecar** ; au lancement, un écran de démarrage attend `/api/health` puis
@@ -150,11 +158,17 @@ instance multi-comptes classique si tu veux héberger pour plusieurs personnes.
 - Hero d'accueil en **3D temps réel** (three.js, local)
 
 ### Confort
-- PWA installable, hors-ligne (téléchargements), thèmes Washi/Sumi/AMOLED,
-  accent personnalisable, palette de commandes `Ctrl+K`, lecteur musique
-
-  100 % SVG**, zéro emoji
-- Export complet de tes données, suppression totale, aucune télémétrie
+- **App de bureau premium** : fenêtre sans bordure système, barre de titre
+  intégrée dans le thème (Tauri, WebView2 natif)
+- **Interface bilingue FR / EN** (sélecteur au pied de page), traduction au vol
+  sans jamais toucher aux titres d'œuvres ni au contenu des chapitres
+- **Filtre de contenu adulte** : œuvres +18 floutées par défaut avec confirmation
+  d'ouverture, réglable dans les paramètres
+- **Téléchargements hors-ligne** avec pause / reprise / annulation et relance des
+  chapitres incomplets
+- PWA installable, thèmes Washi/Sumi/AMOLED, accent personnalisable, palette de
+  commandes `Ctrl+K`, lecteur de musique ambiant, icônes 100 % SVG
+- Export/import complet de tes données, suppression totale, **aucune télémétrie**
 
 ---
 
@@ -179,8 +193,8 @@ Les sources de contenu sont des **modules indépendants**
 (`server/extensions/<id>/index.js`), installables et mises à jour **en un
 clic** depuis la page Sources (rechargement à chaud). Chaque source peut être
 testée (« Tester la connexion »), désactivée, et son état de santé est
-journalisé. On peut aussi **installer une extension tierce par URL directe**
-(avec avertissement de sécurité).
+journalisé. Les mises à jour sont récupérées depuis une **release figée** du
+dépôt et **vérifiées par empreinte SHA-256** avant écriture sur disque.
 
 ```js
 module.exports = {
@@ -202,17 +216,17 @@ module.exports = {
 
 Contrat complet : [`server/lib/source-interface.js`](server/lib/source-interface.js).
 Catalogue communautaire versionné : [`extensions-community/`](extensions-community/)
-— sources fournies : MangaDex, Weeb Central, SushiScan, Royal Road, NovelFull,
-NovelBin, Chireads, Project Gutenberg.
+— 9 sources fournies : MangaDex, Weeb Central, SushiScan, Royal Road, NovelFull,
+NovelBin, Chireads, Project Gutenberg (EN) et Livres en français (Gutenberg FR).
 
 ---
 
-## Application mobile
+## Mobile & multi-appareils
 
-```bash
-npm install -g @capacitor/cli
-npx cap add android && npx cap sync android && npx cap open android
-```
+Il n'y a pas (encore) d'app mobile native. Sur téléphone, Inko s'utilise en
+**PWA** : ouvre l'instance dans le navigateur (ton hub à la maison — voir plus
+bas) et « Ajouter à l'écran d'accueil ». La PWA parle au hub comme n'importe quel
+client : même bibliothèque, même progression, notifications incluses.
 
 ## Comptes liés (optionnels)
 
@@ -292,8 +306,8 @@ Base `/api`. Voir le [détail des routes](server/routes/index.js).
 ```
 Local     POST /auth/local          (session automatique du propriétaire — mode local)
 Sources   GET  /sources    /sources/:id/mangas/*    GET /extensions/updates
-          POST /extensions/update (admin)   GET /extensions/:id/test
-          GET  /extensions/health (admin)   POST /extensions/install-url (admin)
+          POST /extensions/update (admin, MAJ vérifiées SHA-256)   GET /extensions/:id/test
+          GET  /extensions/health (admin)
 Mangas    GET  /mangas/{search,popular,latest,tags,:id,:id/chapters}    GET /search-all
 Lecture   GET  /chapters/:id/pages  (manga)    /chapters/:id/text  (roman / livre)
 Images    GET  /img?u=<url>         (proxy + cache des couvertures, anti-SSRF)
@@ -324,6 +338,9 @@ données. Voir [`confidentialite.html`](confidentialite.html).
 Les PR sont bienvenues — en particulier de nouvelles extensions
 (voir [`extensions-community/README.md`](extensions-community/README.md)).
 CI : audit de sécurité npm, vérification de syntaxe, chargement des modules,
-tests unitaires, build Docker.
+tests unitaires, **lint frontend (ESLint)**, build Docker, plus un contrôle
+hebdomadaire de l'état des sources de scraping.
+
+Historique complet des versions : [`CHANGELOG.md`](CHANGELOG.md).
 
 **Licence** : [Apache 2.0](LICENSE) · © Abdoulrazack Abdillahi
