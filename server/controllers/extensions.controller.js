@@ -18,7 +18,7 @@ const health     = require('../lib/source-health');
 // toutes les instances). On récupère depuis un TAG DE RELEASE immuable —
 // la dernière release publiée, résolue via l'API GitHub — avec un repli figé.
 const REPO           = 'Abdoulrazack1/Inko';
-const DEFAULT_EXT_REF = 'v2.3.1';    // repli si l'API GitHub est injoignable (bumpé par release)
+const DEFAULT_EXT_REF = 'v2.3.2';    // repli si l'API GitHub est injoignable (bumpé par release)
 const rawUrl = (ref, p) => `https://raw.githubusercontent.com/${REPO}/${ref}/${p}`;
 const COMMUNITY_DIR  = path.join(__dirname, '..', '..', 'extensions-community');
 const RUNTIME_DIR    = path.join(__dirname, '..', 'extensions');
