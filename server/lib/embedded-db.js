@@ -74,12 +74,28 @@ function writeDbPassword(pw) {
 }
 
 // Pose (ou re-pose) le mot de passe sur le compte root effectivement utilisé.
+// BEST-EFFORT : un échec ici ne DOIT jamais empêcher le backend de démarrer
+// (sinon écran noir pour tout desktop sur base embarquée). En cas d'échec on
+// repart en mot de passe vide — le bind 127.0.0.1 reste la protection de base.
 async function secureEmbedded(conn) {
-    let pw = readDbPassword();
-    if (!pw) { pw = crypto.randomBytes(24).toString('hex'); writeDbPassword(pw); }
-    await conn.query("SET PASSWORD = PASSWORD(?)", [pw]);
-    log('mot de passe root de la base embarquée posé ✓ (audit S12)');
-    return pw;
+    try {
+        const existing = readDbPassword();
+        const pw  = existing || crypto.randomBytes(24).toString('hex');
+        const esc = conn.escape(pw);   // littéral échappé (placeholders refusés par SET PASSWORD sur certaines versions)
+        // ALTER USER = forme portable (MariaDB 10.2+/MySQL 8) ; repli SET PASSWORD
+        // pour les serveurs plus anciens où PASSWORD() existe encore.
+        try {
+            await conn.query(`ALTER USER 'root'@'localhost' IDENTIFIED BY ${esc}`);
+        } catch (e1) {
+            await conn.query(`SET PASSWORD = PASSWORD(${esc})`);
+        }
+        if (!existing) writeDbPassword(pw);   // n'écrit le fichier qu'après un succès RÉEL
+        log('mot de passe root de la base embarquée posé ✓ (audit S12)');
+        return pw;
+    } catch (e) {
+        log(`⚠ mot de passe embarqué non posé (${e.code || e.message}) — démarrage en mot de passe vide, bind 127.0.0.1 conservé`);
+        return '';   // le backend démarre quand même
+    }
 }
 
 // Connexion à l'embarquée : essaie le mot de passe stocké, sinon l'héritage
@@ -239,4 +255,4 @@ async function ensureDatabase() {
     return { mode: 'embedded' };
 }
 
-module.exports = { ensureDatabase };
+module.exports = { ensureDatabase, secureEmbedded, __test: { secureEmbedded } };
