@@ -43,6 +43,17 @@ app.use('/api', routes);
 // FRONTEND_DIR est défini par Electron en prod (resources/frontend/).
 // Sinon fallback dev : dossier parent du server (inko/).
 const FRONTEND_DIR = process.env.FRONTEND_DIR || path.join(__dirname, '..');
+
+// Audit S1 : quand FRONTEND_DIR retombe sur la racine du dépôt (quick-start
+// `cd Inko/server && npm start` sans variable d'env), express.static servirait
+// TOUT le dépôt — y compris server/backups/*.json (dump de tous les comptes)
+// et server/config/vapid.json (clé privée Web Push). On refuse explicitement
+// les dossiers qui n'ont rien à faire côté client, quel que soit le mode.
+const BLOCKED_DIRS = /^\/(server|node_modules|desktop|desktop-tauri|tools|promo|\.git|\.github)([\\/]|$)/i;
+app.use((req, res, next) => {
+    if (BLOCKED_DIRS.test(req.path)) return res.status(404).json({ error: 'Not found' });
+    next();
+});
 app.use(express.static(FRONTEND_DIR, {
     extensions: ['html'],
     index: 'accueil.html',

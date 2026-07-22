@@ -38,12 +38,27 @@ const upload = multer({
     },
 }).single('file');
 
+// Audit §5 : plafond CUMULÉ par utilisateur (300 Mo max par fichier ne
+// bornait pas le volume total — un compte pouvait remplir le disque du hub).
+const QUOTA_MB = parseInt(process.env.LOCAL_IMPORT_QUOTA_MB || '2048', 10);   // 2 Go par défaut
+
 // POST /api/library/import/local — téléverse un fichier
 function importLocal(req, res, next) {
     upload(req, res, async (err) => {
         if (err) return res.status(400).json({ error: err.message });
         if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
         try {
+            const [[used]] = await pool.query(
+                'SELECT COALESCE(SUM(size), 0) AS total FROM local_imports WHERE user_id = ?',
+                [req.user.id]
+            );
+            if (Number(used.total) + req.file.size > QUOTA_MB * 1024 * 1024) {
+                fs.unlink(req.file.path, () => {});
+                const usedMb = Math.round(Number(used.total) / 1048576);
+                return res.status(413).json({
+                    error: `Quota de stockage atteint (${usedMb} Mo utilisés sur ${QUOTA_MB} Mo). Supprime d'anciens imports pour libérer de la place.`,
+                });
+            }
             const ext  = (path.extname(req.file.originalname) || '').toLowerCase();
             const type = ALLOWED[ext] || 'cbz';
             const title = (req.body.title || path.basename(req.file.originalname, ext) || 'Sans titre')

@@ -637,13 +637,18 @@
         box.dataset.open = '1';
         box.innerHTML = `
             <div style="margin-top:8px">
-                <textarea class="comment-textarea" rows="2" maxlength="1000" placeholder="Répondre à @${MH.esc(replyUser)}…">@${replyUser} </textarea>
+                <textarea class="comment-textarea" rows="2" maxlength="1000" placeholder="Répondre à @${MH.esc(replyUser)}…"></textarea>
                 <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px">
                     <button class="btn btn-sm" data-replycancel="${parentId}">Annuler</button>
                     <button class="btn btn-primary btn-sm" data-replysend="${parentId}">Répondre</button>
                 </div>
             </div>`;
-        const ta = box.querySelector('textarea'); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+        // Audit S3 : le préfixe « @pseudo » est posé via .value (DOM), jamais
+        // interpolé dans le HTML — un pseudo contenant </textarea> cassait le
+        // parsing RCDATA et injectait un élément réel (XSS stocké).
+        const ta = box.querySelector('textarea');
+        ta.value = `@${replyUser} `;
+        ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
         box.querySelector('[data-replycancel]').onclick = () => { box.innerHTML = ''; box.dataset.open = ''; };
         box.querySelector('[data-replysend]').onclick = async (ev) => {
             const text = ta.value.trim(); if (!text) return;

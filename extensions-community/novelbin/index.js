@@ -160,11 +160,19 @@ async function browse(pathBase, { limit = 20, offset = 0 } = {}, ttl) {
 const JUNK_RE = /(novelbin|read (latest|the latest|free)|please (support|bookmark)|bookmark this|fastest update|translator|tap the screen|chapter content)/i;
 
 function sanitizeChapterHtml($, root) {
-    root.find('script, style, iframe, form, input, button, ins, .ads, .ads-holder, [id^="ads"], [class*="adsbygoogle"], .unlock-buttons, .schedule-text').remove();
+    root.find('script, style, iframe, form, input, button, base, object, embed, ins, .ads, .ads-holder, [id^="ads"], [class*="adsbygoogle"], .unlock-buttons, .schedule-text').remove();
     root.find('*').each((_, el) => {
         const attribs = el.attribs || {};
         Object.keys(attribs).forEach(name => {
             if (/^on/i.test(name) || name === 'style' || name === 'class' || name === 'id') delete el.attribs[name];
+        });
+        // Audit S4 : neutralise les URLs javascript:/data:/vbscript: sur les
+        // attributs de navigation — un lien piégé dans le texte du chapitre
+        // exécutait du JS au clic dans le lecteur.
+        ['href', 'src', 'xlink:href', 'action', 'formaction'].forEach(a => {
+            const v = el.attribs && el.attribs[a];
+            const clean = String(v).split('').filter(ch => ch.charCodeAt(0) > 32).join('');
+            if (/^(javascript|data|vbscript):/i.test(clean)) delete el.attribs[a];
         });
     });
     root.find('p, div, span').each((_, el) => {

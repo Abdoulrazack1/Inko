@@ -31,6 +31,12 @@ function writeUninstalled(set) {
     } catch (e) {}
 }
 
+// Canal officiel (vérifié par SHA-256 à l'installation/MAJ) — audit S13
+const OFFICIAL_IDS = new Set([
+    'mangadex', 'weebcentral', 'sushiscan', 'novelfull', 'novelbin',
+    'royalroad', 'chireads', 'gutenberg', 'gutenberg-fr',
+]);
+
 function loadAll() {
     if (registry.size) return registry; // déjà chargé
 
@@ -57,6 +63,13 @@ function loadAll() {
                 if (uninstalled.has(src.id)) return;   // désinstallée (par id)
                 registry.set(src.id, src);
                 console.log(`[ext] ✓ ${src.id} v${src.version} (${src.name})`);
+                // Audit S13 : une extension = du JS exécuté avec les pleins
+                // pouvoirs Node dans ce process. Le canal officiel est vérifié
+                // par SHA-256 ; tout id hors canal est signalé clairement pour
+                // que l'admin sache qu'il fait confiance à du code tiers.
+                if (!OFFICIAL_IDS.has(src.id)) {
+                    console.warn(`[ext] ⚠ "${src.id}" n'est pas une extension officielle : code tiers non vérifié, exécuté avec les droits du serveur (audit S13)`);
+                }
             } catch (e) {
                 console.warn(`[ext] "${d.name}" échec de chargement:`, e.message);
             }

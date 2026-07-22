@@ -19,10 +19,42 @@
     const PROG_KEY = 'inko_lr_progress_v1';
     function progAll() { try { return JSON.parse(localStorage.getItem(PROG_KEY) || '{}'); } catch (e) { return {}; } }
     function progLoad() { return (id && progAll()[id]) || null; }
+    // Audit MD2 : le fichier importé vit déjà côté serveur, mais la position
+    // de lecture restait purement locale — reprendre le même EPUB sur un
+    // autre appareil repartait de zéro. On réplique désormais la progression
+    // au compte via user_settings (clé localReaderProgress), comme les autres
+    // réglages synchronisés. Fusion par fraîcheur (champ `at`).
+    const PROG_SYNC_MAX = 100;   // borne le blob synchronisé aux 100 fichiers les plus récents
+    let progPushTimer = null;
+    function pruneProg(all) {
+        const entries = Object.entries(all).sort((a, b) => (b[1].at || 0) - (a[1].at || 0)).slice(0, PROG_SYNC_MAX);
+        return Object.fromEntries(entries);
+    }
     function progSave(data) {
         if (!id) return;
         const all = progAll(); all[id] = Object.assign({ at: Date.now() }, data);
         try { localStorage.setItem(PROG_KEY, JSON.stringify(all)); } catch (e) { window.MH?.err?.('localreader.js', e); }
+        if (window.API?.isLoggedIn?.()) {
+            clearTimeout(progPushTimer);
+            progPushTimer = setTimeout(() => {
+                window.API.me.saveSettings({ localReaderProgress: pruneProg(all) })
+                    .catch(e => window.MH?.err?.('localreader.js', e));
+            }, 1200);
+        }
+    }
+    async function progPull() {
+        if (!window.API?.isLoggedIn?.()) return;
+        try {
+            const s = await window.API.me.settings();
+            const remote = s && s.localReaderProgress;
+            if (remote && typeof remote === 'object' && !Array.isArray(remote)) {
+                const all = progAll();
+                for (const [k, v] of Object.entries(remote)) {
+                    if (v && typeof v === 'object' && (!all[k] || (v.at || 0) > (all[k].at || 0))) all[k] = v;
+                }
+                localStorage.setItem(PROG_KEY, JSON.stringify(all));
+            }
+        } catch (e) { /* hors-ligne : la position locale reste valable */ }
     }
 
     // Suit la page (image/canvas) en haut du viewport dans un conteneur empilé et
@@ -69,9 +101,14 @@
 
     async function init() {
         await (window.API?.ready || Promise.resolve());
-        if (!window.API?.isLoggedIn?.()) { fail('Serveur Inko injoignable.'); return; }
+        if (!window.API?.isLoggedIn?.()) {
+            // Audit N1 : message honnête (le lecteur local exige une session)
+            fail('Connexion requise — recharge la page pour rétablir la session.');
+            return;
+        }
         if (!id) { fail('Aucun fichier indiqué.'); return; }
         try {
+            await progPull();   // audit MD2 : reprend la position la plus récente du compte
             const res = await fetch(API.local.fileUrl(id), { headers: { Authorization: 'Bearer ' + API.token } });
             if (!res.ok) throw new Error('Fichier introuvable (' + res.status + ')');
             const buf = await res.arrayBuffer();
@@ -307,7 +344,7 @@
         const doc = new DOMParser().parseFromString(html, 'application/xhtml+xml');
         const root = doc.body || doc.documentElement;
         if (!root) return '<p>(vide)</p>';
-        root.querySelectorAll('script, style, link, iframe').forEach(n => n.remove());
+        root.querySelectorAll('script, style, link, iframe, base, object, embed, form').forEach(n => n.remove());
         root.querySelectorAll('img, image').forEach(img => {
             const src = img.getAttribute('src') || img.getAttribute('xlink:href') || '';
             const resolved = normalize(dir + src);
@@ -315,7 +352,17 @@
             else img.remove();
         });
         root.querySelectorAll('*').forEach(el => {
-            [...el.attributes].forEach(a => { if (/^on/i.test(a.name)) el.removeAttribute(a.name); });
+            [...el.attributes].forEach(a => {
+                if (/^on/i.test(a.name)) { el.removeAttribute(a.name); return; }
+                // Audit S5 : un EPUB piégé (téléchargé hors source officielle)
+                // pouvait exécuter du JS via href="javascript:…" au clic sur
+                // un lien interne du livre.
+                const an = a.name.toLowerCase();
+                if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(an)) {
+                    const v = String(a.value).split('').filter(ch => ch.charCodeAt(0) > 32).join('');
+                    if (/^(javascript|data|vbscript):/i.test(v)) el.removeAttribute(a.name);
+                }
+            });
         });
         return root.innerHTML;
     }

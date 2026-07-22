@@ -24,13 +24,16 @@ function setGoogleClientIdFile(clientId) {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-// App locale / self-hostée : pas de HTTPS public → cookie non-Secure
-// (sinon le cookie n'est jamais posé sur http://localhost en prod).
+// Cookie Secure conditionné à NODE_ENV, comme la CSP/HSTS (audit S10) :
+// en production (hub derrière HTTPS — Cloudflare Tunnel, Caddy…) le cookie
+// ne doit jamais transiter en clair. En local/desktop (http://127.0.0.1),
+// Secure empêcherait de le poser — COOKIE_SECURE=0 permet aussi de forcer
+// le mode non-Secure pour un hub LAN en http pur.
 // L'auth repose de toute façon aussi sur le token Bearer (localStorage).
 const COOKIE_OPTS = {
     httpOnly: true,
     sameSite: 'lax',
-    secure:   false,
+    secure:   process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== '0',
     maxAge:   30 * 24 * 3600 * 1000,
     path:     '/',
 };
@@ -104,6 +107,11 @@ async function register(req, res, next) {
         const { username, email, password } = req.body || {};
         if (!username || username.trim().length < 2)
             return res.status(400).json({ error: "Nom d'utilisateur trop court (2 caractères min)" });
+        // Audit S3 (défense en profondeur) : pseudo = lettres/chiffres/espaces
+        // et ponctuation inoffensive uniquement. Un pseudo contenant < > " '
+        // servait de vecteur XSS stocké via le bouton « Répondre ».
+        if (username.trim().length > 32 || !/^[\p{L}\p{N} ._-]+$/u.test(username.trim()))
+            return res.status(400).json({ error: "Nom d'utilisateur invalide (lettres, chiffres, espaces, . _ - uniquement, 32 caractères max)" });
         if (!EMAIL_RE.test(email || ''))
             return res.status(400).json({ error: 'Email invalide' });
         if (!password || password.length < 6)
@@ -231,6 +239,19 @@ async function requestReset(req, res, next) {
         if (!EMAIL_RE.test(email || ''))
             return res.status(400).json({ error: 'Email invalide' });
 
+        const mailer = require('../lib/mailer');
+
+        // Audit S8 : en production SANS SMTP configuré, on répondait {ok:true}
+        // sans jamais rien envoyer — l'utilisateur attendait un email fantôme.
+        // On répond désormais honnêtement, AVANT toute consultation du compte
+        // (donc sans révéler son existence). Le recours reste la CLI
+        // `npm run reset-password` côté serveur.
+        if (process.env.NODE_ENV === 'production' && !mailer.isConfigured()) {
+            return res.status(503).json({
+                error: 'La réinitialisation par email n\'est pas configurée sur ce serveur. Contacte l\'administrateur (commande : npm run reset-password).',
+            });
+        }
+
         const [[user]] = await pool.query('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
         // On retourne toujours OK pour ne pas révéler l'existence d'un compte
         if (!user) return res.json({ ok: true });
@@ -242,10 +263,20 @@ async function requestReset(req, res, next) {
             [email.toLowerCase(), token, expires]
         );
 
-        // Mode local (sans comptes) : le reset par email n'existe plus.
-        // Le token ne doit jamais fuiter en prod ; en dev/desktop il est
-        // renvoyé directement pour permettre le reset sans serveur mail.
-        if (process.env.NODE_ENV === 'production') return res.json({ ok: true });
+        // SMTP configuré (hub) : envoi réel de l'email (audit S8).
+        if (mailer.isConfigured()) {
+            try {
+                await mailer.sendPasswordReset(email.toLowerCase(), token);
+            } catch (e) {
+                console.error('[mailer] envoi échoué :', e.message);
+                return res.status(502).json({ error: 'L\'envoi de l\'email a échoué. Réessaie plus tard ou contacte l\'administrateur.' });
+            }
+            return res.json({ ok: true });
+        }
+
+        // Dev/desktop sans serveur mail : le token est renvoyé directement
+        // pour permettre le reset local. Jamais atteint en production
+        // (bloqué plus haut si SMTP absent).
         res.json({ ok: true, token });
     } catch (e) { next(e); }
 }
@@ -301,6 +332,9 @@ async function updateProfile(req, res, next) {
         if (username !== undefined) {
             if (!username || username.trim().length < 2)
                 return res.status(400).json({ error: "Nom d'utilisateur trop court" });
+            // Même règle qu'à l'inscription (audit S3) : pas de < > " ' etc.
+            if (username.trim().length > 32 || !/^[\p{L}\p{N} ._-]+$/u.test(username.trim()))
+                return res.status(400).json({ error: "Nom d'utilisateur invalide (lettres, chiffres, espaces, . _ - uniquement, 32 caractères max)" });
             sets.push('username = ?'); vals.push(username.trim());
         }
         if (avatar !== undefined) {

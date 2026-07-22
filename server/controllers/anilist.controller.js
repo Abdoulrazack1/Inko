@@ -35,8 +35,11 @@ function setAnilistClientIdFile(clientId) {
     fs.writeFileSync(ANILIST_CFG_PATH, JSON.stringify({ clientId: (clientId || '').trim() }, null, 2));
 }
 
-const _simCache = new Map();
+// Cache borné (audit §3) : même correction qu'artwork.controller — l'ancienne
+// Map sans éviction fuyait lentement sur un hub 24/7.
+const BoundedCache = require('../lib/bounded-cache');
 const SIM_TTL = 24 * 3600 * 1000;
+const _simCache = new BoundedCache({ max: 500, ttl: SIM_TTL });
 const SIM_QUERY = `query ($s: String) {
   Media(search: $s, type: MANGA, sort: SEARCH_MATCH) {
     recommendations(sort: RATING_DESC, perPage: 14) {
@@ -51,7 +54,7 @@ async function similar(req, res, next) {
         if (!title) return res.json({ items: [] });
         const key = title.toLowerCase();
         const hit = _simCache.get(key);
-        if (hit && hit.exp > Date.now()) return res.json(hit.data);
+        if (hit) return res.json(hit);
         let items = [];
         try {
             const r = await axios.post('https://graphql.anilist.co',
@@ -65,7 +68,7 @@ async function similar(req, res, next) {
             })).filter(x => x.title);
         } catch (e) { /* AniList indispo */ }
         const data = { items };
-        _simCache.set(key, { data, exp: Date.now() + SIM_TTL });
+        _simCache.set(key, data);
         res.json(data);
     } catch (e) { next(e); }
 }

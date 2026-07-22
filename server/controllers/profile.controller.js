@@ -38,7 +38,21 @@ async function publicProfile(req, res, next) {
             isOwner,
         };
         if (isPrivate && !isOwner) {
-            return res.json({ ...base, hidden: true, stats: null, badges: [] });
+            // Audit B2 : « profil privé » doit masquer TOUT le profil, pas
+            // seulement stats et badges — avant, avatar, bio et date
+            // d'inscription fuyaient malgré le réglage. Seul le username
+            // (déjà connu du visiteur : il est dans l'URL) est renvoyé.
+            return res.json({
+                username: u.username,
+                avatar:   null,
+                bio:      null,
+                memberSince: null,
+                private:  true,
+                isOwner:  false,
+                hidden:   true,
+                stats:    null,
+                badges:   [],
+            });
         }
 
         const [[t]] = await pool.query(

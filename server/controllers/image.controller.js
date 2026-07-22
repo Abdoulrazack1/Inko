@@ -17,8 +17,52 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 const TTL    = 7 * 24 * 3600 * 1000;   // 7 jours
 const MAX    = 500;                     // nb max d'entrées en cache
+// Audit S6 : borne aussi le POIDS total du cache (le pire cas 500 × 25 Mo
+// = ~12 Go de RAM pouvait coucher un Raspberry Pi/NAS en mode hub).
+const MAX_BYTES = parseInt(process.env.IMG_CACHE_MB || '150', 10) * 1024 * 1024;
+let cacheBytes = 0;
 const cache  = new Map();               // url -> { buf, type, expires }
 const inflight = new Map();             // url -> Promise
+
+// ── Audit S6 : liste blanche de domaines ─────────────────────
+// Le proxy n'était restreint par rien : n'importe qui pouvait relayer
+// n'importe quelle image publique via l'IP du hub (vol de bande passante,
+// relais anonymisant). Domaines autorisés = ceux des extensions installées
+// (baseUrl) + les CDN d'images connus des sources + IMG_PROXY_ALLOW (env,
+// séparés par des virgules). IMG_PROXY_OPEN=1 désactive la restriction.
+const EXTRA_ALLOWED = [
+    'mangadex.org', 'mangadex.network',      // couvertures + serveurs MD@Home
+    'anilist.co',                            // artwork hero (artwork.controller)
+    'royalroadcdn.com',                      // couvertures RoyalRoad
+    'gutenberg.org',                         // couvertures Gutenberg
+    'compsci88.com', 'lowee.us',             // CDN WeebCentral
+    'wp.com', 'gravatar.com',                // médias WordPress (Chireads & co)
+];
+function registrableDomain(host) {
+    const parts = String(host || '').toLowerCase().split('.').filter(Boolean);
+    return parts.length <= 2 ? parts.join('.') : parts.slice(-2).join('.');
+}
+function allowedDomains() {
+    const set = new Set(EXTRA_ALLOWED);
+    try {
+        for (const s of require('../extensions/loader').getAll()) {
+            try { set.add(registrableDomain(new URL(s.baseUrl).hostname)); } catch (e) { /* baseUrl absent */ }
+        }
+    } catch (e) { /* loader pas encore prêt : liste statique seule */ }
+    for (const d of (process.env.IMG_PROXY_ALLOW || '').split(',')) {
+        const t = d.trim().toLowerCase();
+        if (t) set.add(t);
+    }
+    return set;
+}
+function hostAllowed(host) {
+    if (process.env.IMG_PROXY_OPEN === '1') return true;
+    const h = String(host || '').toLowerCase();
+    for (const d of allowedDomains()) {
+        if (h === d || h.endsWith('.' + d)) return true;
+    }
+    return false;
+}
 
 function contentTypeFor(url) {
     const ext = (url.split('?')[0].match(/\.(\w{3,4})$/) || [])[1]?.toLowerCase();
@@ -79,7 +123,9 @@ function fetchImage(url, pinnedIp) {
     if (pinnedIp && host && port) args.push('--resolve', `${host}:${port}:${pinnedIp}`);
     args.push(url);
     const p = new Promise((resolve, reject) => {
-        execFile('curl', args, { encoding: 'buffer', maxBuffer: 25 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
+        // 10 Mo suffisent largement pour une couverture/page (audit S6 : 25 Mo
+        // × 500 entrées = pire cas mémoire intenable sur NAS/Raspberry Pi).
+        execFile('curl', args, { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
             if (err) return reject(err);
             if (!stdout || stdout.length < 64) return reject(new Error('image vide'));
             resolve({ buf: stdout, type: contentTypeFor(url), expires: Date.now() + TTL });
@@ -94,6 +140,16 @@ async function proxy(req, res) {
     if (!url || !/^https?:\/\//i.test(url)) return res.status(400).end();
     let host;
     try { host = new URL(url).hostname; } catch (e) { return res.status(400).end(); }
+    // Audit S6 : domaine hors des sources connues → refus (log une fois par
+    // hôte pour permettre d'étendre IMG_PROXY_ALLOW si un CDN légitime manque).
+    if (!hostAllowed(host)) {
+        if (!proxy._warned) proxy._warned = new Set();
+        if (!proxy._warned.has(host)) {
+            proxy._warned.add(host);
+            console.warn(`[img] domaine refusé : ${host} — ajouter à IMG_PROXY_ALLOW si légitime`);
+        }
+        return res.status(403).set('X-Inko-Proxy', 'domain-blocked').end();
+    }
     const safe = await resolveSafeHost(host);
     if (!safe.ok) return res.status(403).end();
 
@@ -108,9 +164,14 @@ async function proxy(req, res) {
 
     try {
         const img = await fetchImage(url, safe.ip);
-        // Insère dans le cache (éviction FIFO simple)
-        if (cache.size >= MAX) cache.delete(cache.keys().next().value);
+        // Insère dans le cache (éviction FIFO, bornée en nombre ET en octets — audit S6)
+        while (cache.size && (cache.size >= MAX || cacheBytes + img.buf.length > MAX_BYTES)) {
+            const oldest = cache.keys().next().value;
+            cacheBytes -= cache.get(oldest).buf.length;
+            cache.delete(oldest);
+        }
         cache.set(url, img);
+        cacheBytes += img.buf.length;
         res.set('Content-Type', img.type);
         res.set('Cache-Control', 'public, max-age=604800, immutable');
         res.set('X-Inko-Cache', 'MISS');

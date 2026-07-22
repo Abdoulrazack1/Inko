@@ -12,6 +12,7 @@
 const fs   = require('fs');
 const os   = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const { spawn, spawnSync } = require('child_process');
 const mysql = require('mysql2/promise');
 
@@ -51,6 +52,49 @@ function writeModeMarker(mode) {
 function dataDir() {
     const base = process.env.APPDATA || path.join(os.homedir(), '.config');
     return path.join(base, 'Inko', 'db');
+}
+
+// ── Audit S12 : mot de passe root de la base embarquée ───────
+// root/mot de passe vide protégeait d'un accès réseau (bind 127.0.0.1)
+// mais pas d'un AUTRE compte Windows du même PC familial. Un mot de passe
+// aléatoire est généré au premier lancement et stocké dans le profil de
+// l'utilisateur courant (%APPDATA%\Inko) — illisible pour les autres
+// comptes non-admin de la machine.
+function credsPath() {
+    const base = process.env.APPDATA || path.join(os.homedir(), '.config');
+    return path.join(base, 'Inko', 'db-credentials.json');
+}
+function readDbPassword() {
+    try { return JSON.parse(fs.readFileSync(credsPath(), 'utf8')).password || ''; }
+    catch (e) { return ''; }
+}
+function writeDbPassword(pw) {
+    fs.mkdirSync(path.dirname(credsPath()), { recursive: true });
+    fs.writeFileSync(credsPath(), JSON.stringify({ password: pw, at: new Date().toISOString() }));
+}
+
+// Pose (ou re-pose) le mot de passe sur le compte root effectivement utilisé.
+async function secureEmbedded(conn) {
+    let pw = readDbPassword();
+    if (!pw) { pw = crypto.randomBytes(24).toString('hex'); writeDbPassword(pw); }
+    await conn.query("SET PASSWORD = PASSWORD(?)", [pw]);
+    log('mot de passe root de la base embarquée posé ✓ (audit S12)');
+    return pw;
+}
+
+// Connexion à l'embarquée : essaie le mot de passe stocké, sinon l'héritage
+// « mot de passe vide » (anciennes installations) qu'on sécurise au passage.
+async function connectEmbedded(timeout = 2500) {
+    const stored = readDbPassword();
+    if (stored) {
+        try {
+            const conn = await tryConnect({ host: '127.0.0.1', port: EMBEDDED_PORT, user: 'root', password: stored, timeout });
+            return { conn, password: stored };
+        } catch (e) { /* datadir recréé sans le fichier de creds : tente vide */ }
+    }
+    const conn = await tryConnect({ host: '127.0.0.1', port: EMBEDDED_PORT, user: 'root', password: '', timeout });
+    const password = await secureEmbedded(conn);   // migration douce des installs existantes
+    return { conn, password };
 }
 
 async function tryConnect({ host, port, user, password, timeout = 2500 }) {
@@ -131,7 +175,15 @@ async function startEmbedded() {
     process.on('SIGINT', () => { stop(); process.exit(0); });
     process.on('SIGTERM', () => { stop(); process.exit(0); });
 
-    return waitForDb({ host: '127.0.0.1', port: EMBEDDED_PORT, user: 'root', password: '' }, 45000);
+    // Attend que l'embarquée réponde, avec le mot de passe stocké ou
+    // l'héritage vide (sécurisé au passage — audit S12).
+    const until = Date.now() + 45000;
+    let lastErr;
+    while (Date.now() < until) {
+        try { return await connectEmbedded(1500); }
+        catch (e) { lastErr = e; await new Promise(r => setTimeout(r, 700)); }
+    }
+    throw lastErr || new Error('délai dépassé');
 }
 
 // Point d'entrée : garantit une base joignable et fixe process.env.DB_*
@@ -157,14 +209,17 @@ async function ensureDatabase() {
     }
 
     // 2. Une MariaDB embarquée tourne déjà (instance précédente) ? On la réutilise.
+    let embeddedPassword = '';
     try {
-        const conn = await tryConnect({ host: '127.0.0.1', port: EMBEDDED_PORT, user: 'root', password: '', timeout: 1200 });
+        const { conn, password } = await connectEmbedded(1200);
+        embeddedPassword = password;
         await ensureSchemaOn(conn);
         await conn.end();
         log(`MariaDB embarquée déjà active (port ${EMBEDDED_PORT})`);
     } catch (e) {
         // 3. Démarrage de l'embarquée
-        const conn = await startEmbedded();
+        const { conn, password } = await startEmbedded();
+        embeddedPassword = password;
         await ensureSchemaOn(conn);
         await conn.end();
         log('MariaDB embarquée prête ✓');
@@ -173,7 +228,7 @@ async function ensureDatabase() {
     process.env.DB_HOST = '127.0.0.1';
     process.env.DB_PORT = String(EMBEDDED_PORT);
     process.env.DB_USER = 'root';
-    process.env.DB_PASSWORD = '';
+    process.env.DB_PASSWORD = embeddedPassword;   // audit S12 : plus jamais vide
     if (readModeMarker() === 'external') {
         // La base habituelle de cet utilisateur est ailleurs : bandeau côté UI.
         process.env.INKO_DB_FALLBACK = '1';

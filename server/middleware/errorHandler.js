@@ -27,8 +27,12 @@ function errorHandler(err, _req, res, _next) {
             console.error('[err]', err);
         }
     }
+    // Audit S11 : ne jamais renvoyer err.message brut sur un 5xx en prod —
+    // fuite potentielle de détails internes (chemins, SQL, libs). Les 4xx
+    // attendus (validation, 404…) gardent leur message utile au client.
+    const exposeMessage = status < 500 || process.env.NODE_ENV !== 'production';
     res.status(status).json({
-        error: err.message || 'Erreur interne',
+        error: exposeMessage ? (err.message || 'Erreur interne') : 'Erreur interne du serveur',
         code:  err.code,
     });
 }

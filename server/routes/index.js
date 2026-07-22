@@ -2,7 +2,7 @@
 const router  = require('express').Router();
 const auth    = require('../middleware/auth');
 const { adminRequired } = require('../middleware/admin');
-const { authLimiter, writeLimiter } = require('../middleware/security');
+const { authLimiter, writeLimiter, searchLimiter, imgLimiter } = require('../middleware/security');
 const Auth    = require('../controllers/auth.controller');
 const Update  = require('../controllers/update.controller');
 const Manga   = require('../controllers/manga.controller');
@@ -23,7 +23,10 @@ router.get('/health', (_req, res) => res.json({
     ...(process.env.APP_VERSION ? { version: process.env.APP_VERSION } : {}),
     ...(process.env.INKO_DB_FALLBACK === '1' ? { dbFallback: true } : {}),
 }));
-router.post('/app/update', Update.runUpdate);   // MAJ intégrée (app desktop)
+// MAJ intégrée (app desktop). authRequired (audit S2) : sans lui, n'importe
+// quelle page web ouverte pendant que l'app tourne pouvait POST ici (CSRF
+// simple request) et déclencher fermeture + réinstallation silencieuse.
+router.post('/app/update', auth.authRequired, Update.runUpdate);
 
 // ── Auth ─────────────────────────────────────────
 router.get ('/auth/providers',      Auth.providers);
@@ -45,18 +48,22 @@ router.post('/auth/delete',   auth.authRequired, Auth.deleteAccount);
 router.get('/sources',              Manga.listSources);
 
 // ── Extensions : mises à jour (modèle Mihon) ──────
-router.get ('/extensions/updates',  Ext.checkUpdates);
+// Audit SRC1 : updates/uninstalled exigent désormais au moins une session.
+router.get ('/extensions/updates',  auth.authRequired, Ext.checkUpdates);
 router.get ('/extensions/health',   auth.authRequired, adminRequired, Ext.healthStatus);
 router.get ('/extensions/:id/test', auth.authRequired, Ext.testSource);
 // applyUpdates écrit des fichiers .js exécutés côté serveur pour toute l'instance :
 // exige un rôle admin, pas seulement une session valide (audit §7.3).
 router.post('/extensions/update',   auth.authRequired, adminRequired, Ext.applyUpdates);
-router.post('/extensions/:id/uninstall', auth.authRequired, Ext.uninstall);
-router.post('/extensions/:id/reinstall', auth.authRequired, Ext.reinstall);
-router.get ('/extensions/uninstalled', (_q, res) => res.json(require('../extensions/loader').uninstalledList()));
+// Audit S9 : uninstall/reinstall désactivent une source pour TOUTE l'instance
+// (même impact qu'applyUpdates) — adminRequired, pas seulement une session.
+// Sans conséquence en mode local (compte unique = admin de facto).
+router.post('/extensions/:id/uninstall', auth.authRequired, adminRequired, Ext.uninstall);
+router.post('/extensions/:id/reinstall', auth.authRequired, adminRequired, Ext.reinstall);
+router.get ('/extensions/uninstalled', auth.authRequired, (_q, res) => res.json(require('../extensions/loader').uninstalledList()));
 
 // ── Proxy de couvertures (cache + anti-hotlink) ───
-router.get('/img',                  Image.proxy);
+router.get('/img',                  imgLimiter, Image.proxy);   // rate-limit (audit S14)
 
 // ── Artwork officiel (AniList) pour le hero ───────
 router.get('/artwork',              Artwork.artwork);
@@ -68,7 +75,7 @@ router.get('/anilist/similar',      AniList.similar);
 
 // ── Mangas (relais vers source active, ?source=<id> pour cibler) ──
 router.get('/mangas/search',        Manga.search);
-router.get('/search-all',           Manga.searchAll);   // recherche multi-sources
+router.get('/search-all',           searchLimiter, Manga.searchAll);   // recherche multi-sources (rate-limit audit S14)
 router.get('/mangas/popular',       Manga.popular);
 router.get('/mangas/latest',        Manga.latest);
 router.get('/mangas/tags',          Manga.tags);

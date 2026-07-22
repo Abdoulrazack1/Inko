@@ -6,9 +6,12 @@
 // Réponses mises en cache 24h (AniList limite à ~90 req/min).
 // ============================================================
 const axios = require('axios');
+const BoundedCache = require('../lib/bounded-cache');
 
-const cache = new Map();           // titre (lower) -> { data, exp }
+// Cache borné (audit §3) : l'ancienne Map sans éviction grossissait d'une
+// entrée par titre consulté, sans limite, sur un hub qui tourne 24/7.
 const TTL = 24 * 3600 * 1000;
+const cache = new BoundedCache({ max: 500, ttl: TTL });   // titre (lower) -> data
 const QUERY = `query ($s: String) {
   Media(search: $s, type: MANGA, sort: SEARCH_MATCH) {
     id
@@ -25,7 +28,7 @@ async function artwork(req, res, next) {
 
         const key = title.toLowerCase();
         const hit = cache.get(key);
-        if (hit && hit.exp > Date.now()) return res.json(hit.data);
+        if (hit) return res.json(hit);
 
         let data = { banner: null, cover: null, title: null };
         try {
@@ -41,7 +44,7 @@ async function artwork(req, res, next) {
             };
         } catch (e) { /* AniList indispo : on renvoie null, le front retombe sur le cover */ }
 
-        cache.set(key, { data, exp: Date.now() + TTL });
+        cache.set(key, data);
         res.json(data);
     } catch (e) { next(e); }
 }

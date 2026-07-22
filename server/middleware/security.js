@@ -106,4 +106,23 @@ const writeLimiter = rateLimit({
     message: { error: 'Trop de requêtes. Ralentis un peu.' },
 });
 
-module.exports = { securityHeaders, corsOptions, authLimiter, writeLimiter };
+// Audit S14 : /api/search-all et /api/img n'avaient aucun rate-limit —
+// surface d'abus (déni de service par ricochet vers les sites scrapés,
+// vol de bande passante via le proxy d'images). Fenêtres larges pour ne
+// pas gêner l'usage normal (une page catalogue charge ~24 couvertures).
+const searchLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: parseInt(process.env.SEARCH_RATE_MAX || '30', 10),   // 30 recherches multi-sources / min / IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Trop de recherches. Patiente quelques secondes.' },
+});
+const imgLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: parseInt(process.env.IMG_RATE_MAX || '300', 10),     // 300 images / min / IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Trop de requêtes images.' },
+});
+
+module.exports = { securityHeaders, corsOptions, authLimiter, writeLimiter, searchLimiter, imgLimiter };

@@ -121,12 +121,20 @@ async function browse(pathBase, { limit = 20, offset = 0 } = {}, ttl) {
 const WATERMARK_RE = /(unauthorized|without (the author'?s? )?permission|stolen (from|work|story|content)|report (any|this).*(violation|theft|infringement)|royal\s*road|amazon)/i;
 
 function sanitizeChapterHtml($, root) {
-    root.find('script, style, iframe, form, input, button').remove();
+    root.find('script, style, iframe, form, input, button, base, object, embed').remove();
     // Attributs dangereux / inutiles
     root.find('*').each((_, el) => {
         const attribs = el.attribs || {};
         Object.keys(attribs).forEach(name => {
             if (/^on/i.test(name) || name === 'style' || name === 'class' || name === 'id') delete el.attribs[name];
+        });
+        // Audit S4 : neutralise les URLs javascript:/data:/vbscript: sur les
+        // attributs de navigation — un lien piégé dans le texte du chapitre
+        // exécutait du JS au clic dans le lecteur.
+        ['href', 'src', 'xlink:href', 'action', 'formaction'].forEach(a => {
+            const v = el.attribs && el.attribs[a];
+            const clean = String(v).split('').filter(ch => ch.charCodeAt(0) > 32).join('');
+            if (/^(javascript|data|vbscript):/i.test(clean)) delete el.attribs[a];
         });
     });
     // Filigranes : courts paragraphes au contenu suspect

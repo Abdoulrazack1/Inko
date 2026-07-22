@@ -32,16 +32,23 @@ async function listNotes(req, res, next) {
         const uid = req.user.id;
         const manga = req.query.manga;
         const q = (req.query.q || '').trim();
-        const limit = Math.min(parseInt(req.query.limit || '500', 10), 1000);
+        const limit  = Math.min(parseInt(req.query.limit || '500', 10), 1000);
+        // Audit J2/J3 : offset + total — au-delà de la limite, les notes les
+        // plus anciennes disparaissaient silencieusement du Journal (et de sa
+        // recherche), sans indicateur ni « charger plus ».
+        const offset = Math.max(0, parseInt(req.query.offset || '0', 10));
         const where = ['user_id = ?'];
         const params = [uid];
         if (manga) { where.push('manga_id = ?'); params.push(manga); }
         if (q) { where.push('(body LIKE ? OR manga_title LIKE ?)'); params.push('%' + q + '%', '%' + q + '%'); }
         const [rows] = await pool.query(
-            `SELECT * FROM reading_notes WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT ${limit}`,
+            `SELECT * FROM reading_notes WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
             params
         );
-        res.json({ notes: rows.map(mapNote) });
+        const [[tot]] = await pool.query(
+            `SELECT COUNT(*) AS n FROM reading_notes WHERE ${where.join(' AND ')}`, params
+        );
+        res.json({ notes: rows.map(mapNote), total: tot.n });
     } catch (e) { next(e); }
 }
 
@@ -90,10 +97,18 @@ async function updateNote(req, res, next) {
         const body = String(b.body || '').trim();
         if (!body) return res.status(400).json({ error: 'La note est vide' });
         if (body.length > 5000) return res.status(400).json({ error: 'Note trop longue (5000 caractères max)' });
-        const mood = MOODS.includes(b.mood) ? b.mood : (b.mood === null ? null : undefined);
+        // Audit B1 : COALESCE(?, mood) rendait l'humeur ineffaçable — un
+        // mood:null explicite (décocher l'humeur) était ignoré par MySQL.
+        // Trois cas distincts : humeur valide → SET, null explicite → efface,
+        // absent du payload → inchangée.
+        const sets = ['body = ?'];
+        const vals = [body];
+        if (MOODS.includes(b.mood)) { sets.push('mood = ?'); vals.push(b.mood); }
+        else if (b.mood === null)   { sets.push('mood = NULL'); }
+        vals.push(req.params.id, req.user.id);
         const [r] = await pool.query(
-            'UPDATE reading_notes SET body = ?, mood = COALESCE(?, mood) WHERE id = ? AND user_id = ?',
-            [body, mood === undefined ? null : mood, req.params.id, req.user.id]
+            `UPDATE reading_notes SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`,
+            vals
         );
         if (!r.affectedRows) return res.status(404).json({ error: 'Note introuvable' });
         const [[row]] = await pool.query('SELECT * FROM reading_notes WHERE id = ?', [req.params.id]);

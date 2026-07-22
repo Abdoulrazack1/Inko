@@ -246,7 +246,21 @@
         const title = textData.title || currentChap.title || ('Chapitre ' + currentChap.chapter);
         el.innerHTML = `<h1 class="novel-chap-title">${MH.esc(title)}</h1>` + (textData.content || '');
         // Sécurité : retire tout script résiduel (le serveur assainit déjà)
-        el.querySelectorAll('script, iframe, object, embed').forEach(n => n.remove());
+        el.querySelectorAll('script, iframe, object, embed, base, form').forEach(n => n.remove());
+        // Audit S4 (défense en profondeur, en plus du serveur) : neutralise
+        // les URLs javascript:/data:/vbscript: et les handlers on* résiduels —
+        // une source scrapée compromise ne doit pas pouvoir exécuter du JS
+        // via un lien cliqué dans le texte du chapitre.
+        el.querySelectorAll('*').forEach(n => {
+            for (const at of Array.from(n.attributes)) {
+                const name = at.name.toLowerCase();
+                if (name.startsWith('on')) { n.removeAttribute(at.name); continue; }
+                if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(name)) {
+                    const v = String(at.value).split('').filter(ch => ch.charCodeAt(0) > 32).join('');
+                    if (/^(javascript|data|vbscript):/i.test(v)) n.removeAttribute(at.name);
+                }
+            }
+        });
     }
 
     function renderEnd() {
