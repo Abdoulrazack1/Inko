@@ -1487,7 +1487,7 @@ dependencies = [
 
 [[package]]
 name = "inko"
-version = "2.3.0"
+version = "2.3.3"
 dependencies = [
  "tauri",
  "tauri-build",

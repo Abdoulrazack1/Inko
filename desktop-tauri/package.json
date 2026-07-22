@@ -1,6 +1,6 @@
 {
   "name": "inko-tauri",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "private": true,
   "scripts": {
     "prep": "node prep.js",

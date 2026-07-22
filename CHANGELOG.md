@@ -3,6 +3,61 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.3.3 — Audit de juillet : sécurité, synchro multi-appareils & radio
+
+**Sécurité (audit du 21-22 juillet, traité en entier)**
+- Trois vecteurs XSS fermés : pseudo piégé via le bouton « Répondre », liens
+  `javascript:` dans les chapitres de romans scrapés (assainis côté serveur ET
+  côté lecteur) et dans les EPUB importés.
+- Le déploiement « hub sans Docker » ne peut plus exposer `server/` (sauvegardes,
+  clé Web Push) ; la mise à jour intégrée exige désormais une session (anti-CSRF).
+- Proxy d'images restreint aux domaines des sources connues (`IMG_PROXY_ALLOW`
+  pour étendre), rate-limit sur la recherche multi-sources et les images,
+  cache d'images borné en mémoire.
+- « Mot de passe oublié » envoie un **vrai email** quand un SMTP est configuré ;
+  sans SMTP en production, la réponse est honnête au lieu d'un faux succès.
+  Le formulaire newsletter du pied de page (qui ne faisait rien) est retiré.
+- Désinstallation/réinstallation d'extensions réservées aux admins ; cookie de
+  session `Secure` en production ; les erreurs 5xx ne fuient plus de détails
+  internes ; base embarquée protégée par mot de passe aléatoire.
+- Profil privé : plus aucune fuite (avatar, bio, date d'inscription).
+
+**Accès distant & multi-appareils**
+- **L'accès via Cloudflare Tunnel fonctionne** (détection d'origine corrigée).
+- L'état activé/désactivé des sources et la **position de lecture des fichiers
+  importés** suivent désormais le compte d'un appareil à l'autre.
+- Les actions faites hors-ligne (marquer lu, progression) sont **rejouées
+  automatiquement** au retour du réseau.
+
+**Interface & accessibilité**
+- Journal, Sources, Statistiques et Collections enfin accessibles sur mobile
+  (bouton « Plus » dans la barre du bas) ; l'app installée n'est plus verrouillée
+  en portrait.
+- Aperçu des cartes et suggestions de recherche utilisables **au clavier**
+  (flèches, Échap) avec la sémantique d'accessibilité correspondante ; le
+  carrousel d'accueil respecte « réduire les animations » et se met en pause
+  au focus clavier.
+- Messages honnêtes : « Connexion requise » remplace le trompeur « Serveur
+  injoignable » sur 8 pages.
+
+**Contenu & données**
+- « Tendances » affiche les séries **réellement mises à jour récemment**
+  (distinctes du Top manga) ; genres populaires calculés depuis la source active.
+- Pourcentage de lecture exact (fini le « 20 pages » deviné) ; pagination du
+  Journal, des notifications et de l'historique ; humeur d'une note enfin
+  effaçable ; import de sauvegarde beaucoup plus rapide (batché).
+- Page profil : 5× moins d'appels serveur au chargement, panneau « Top séries »
+  réparé, double fenêtre d'édition corrigée.
+
+**Musique**
+- Nouvel onglet **Radio** : des milliers de stations via l'annuaire libre
+  Radio Browser (recherche + genres), sans inscription ni clé.
+
+**Sous le capot**
+- Migrations de base versionnées, quota de stockage par utilisateur sur les
+  imports, alertes de stockage avant téléchargement, caches mémoire bornés,
+  Dependabot, **28 tests** (unitaires + intégration MySQL).
+
 ## 2.3.2 — Fenêtre premium, actualisation fiable & MAJ robustes
 
 **Interface bureau**
