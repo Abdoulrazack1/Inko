@@ -1,11 +1,11 @@
 {
   "name": "Inko — Lecteur de mangas",
   "short_name": "Inko",
-  "description": "Catalogue MangaDex, bibliothèque personnelle et lecteur intégré.",
+  "description": "Lecteur de mangas et romans multi-sources : bibliothèque personnelle, lecture en ligne et hors-ligne, imports EPUB/CBZ.",
   "start_url": "/accueil.html",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#0d0d0f",
   "theme_color": "#ff6b1a",
   "lang": "fr",

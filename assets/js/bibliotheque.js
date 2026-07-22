@@ -55,13 +55,8 @@
         initTabs();
 
         if (!cache || !cache.favs.length) {
-            document.getElementById('tabLibrary').innerHTML = `
-                <div class="lib2-empty">
-                    <div class="ico"></div>
-                    <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">Serveur injoignable</div>
-                    <div style="margin-bottom:18px">Impossible de joindre le serveur Inko. Vérifie que MySQL/le backend tournent.</div>
-                    <button class="btn btn-primary" onclick="location.reload()">Réessayer</button>
-                </div>`;
+            // Audit N1 : message honnête (non connecté ≠ serveur en panne)
+            document.getElementById('tabLibrary').innerHTML = `<div class="lib2-empty">${MH.guestNotice()}</div>`;
             return;
         }
 

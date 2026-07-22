@@ -65,6 +65,7 @@
             <div class="im-panel">
                 <div class="im-tabs">
                     <button class="im-tab" data-tab="stations">${ICON.radio}<span>Stations</span></button>
+                    <button class="im-tab" data-tab="radio">${ICON.radio}<span>Radio</span></button>
                     <button class="im-tab" data-tab="youtube">${ICON.youtube}<span>YouTube</span></button>
                     <button class="im-tab" data-tab="local">${ICON.folder}<span>Fichiers</span></button>
                 </div>
@@ -156,8 +157,67 @@
         const c = root.querySelector('#im-content');
         root.querySelectorAll('.im-tab').forEach(t => t.classList.toggle('on', t.dataset.tab === S.tab));
         if (S.tab === 'stations') return renderStations(c);
+        if (S.tab === 'radio')    return renderRadio(c);
         if (S.tab === 'youtube')  return renderYouTube(c);
         if (S.tab === 'local')    return renderLocal(c);
+    }
+
+    // ══════════════════════ RADIO — Radio Browser API ══════════════════════
+    // Audit §5 : la bibliothèque était limitée à 8 flux YouTube codés en dur.
+    // Radio Browser (radio-browser.info) = annuaire communautaire libre, zéro
+    // inscription/clé — identifié comme la meilleure option depuis la v2.1.0.
+    // Flux https uniquement (compatibles CSP media-src en production).
+    const RB_BASE = 'https://all.api.radio-browser.info/json';
+    const RB_TAGS = ['lofi', 'jazz', 'anime', 'jpop', 'chill', 'classical', 'electronic', 'ambient'];
+    let radioResults = [];   // derniers résultats (pour next/prev)
+
+    async function rbSearch(params) {
+        const qs = new URLSearchParams(Object.assign({
+            limit: '24', hidebroken: 'true', order: 'clickcount', reverse: 'true', is_https: 'true',
+        }, params));
+        const r = await fetch(`${RB_BASE}/stations/search?${qs}`, { headers: { 'User-Agent': 'Inko' } });
+        if (!r.ok) throw new Error('Radio Browser indisponible (' + r.status + ')');
+        return r.json();
+    }
+
+    function renderRadio(c) {
+        c.innerHTML = `
+            <div class="im-row"><input class="im-input" id="im-rbq" placeholder="Rechercher une radio (nom)…"><button class="im-btn" id="im-rbgo">Chercher</button></div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0">
+                ${RB_TAGS.map(t => `<button class="im-btn" data-rbtag="${t}" style="padding:4px 10px;font-size:11.5px">${t}</button>`).join('')}
+            </div>
+            <div id="im-rblist"><div class="im-hint">Choisis un genre ou cherche une radio — annuaire libre Radio Browser, des milliers de stations.</div></div>`;
+        const listEl = c.querySelector('#im-rblist');
+        const paint = () => {
+            if (!radioResults.length) { listEl.innerHTML = '<div class="im-hint">Aucune station trouvée.</div>'; return; }
+            listEl.innerHTML = radioResults.map((st, i) => `
+                <button class="im-station im-rb" data-rbi="${i}" style="width:100%;text-align:left;margin-bottom:5px">
+                    <span style="font-weight:600">${MH.esc(st.name || 'Sans nom')}</span>
+                    <span style="font-size:10.5px;color:var(--text3);display:block">${MH.esc([st.country, (st.tags || '').split(',').slice(0, 3).join(', ')].filter(Boolean).join(' · '))}</span>
+                </button>`).join('');
+            listEl.querySelectorAll('[data-rbi]').forEach(b => b.onclick = () => playRadio(radioResults[+b.dataset.rbi]));
+        };
+        const search = async (params) => {
+            listEl.innerHTML = '<div class="im-hint">Recherche…</div>';
+            try { radioResults = await rbSearch(params); paint(); }
+            catch (e) { listEl.innerHTML = `<div class="im-hint" style="color:#ef4444">${MH.esc(e.message)}</div>`; }
+        };
+        c.querySelector('#im-rbgo').onclick = () => { const q = c.querySelector('#im-rbq').value.trim(); if (q) search({ name: q }); };
+        c.querySelector('#im-rbq').onkeydown = e => { if (e.key === 'Enter') c.querySelector('#im-rbgo').click(); };
+        c.querySelectorAll('[data-rbtag]').forEach(b => b.onclick = () => search({ tag: b.dataset.rbtag }));
+        if (radioResults.length) paint();   // restaure la dernière recherche
+    }
+
+    function playRadio(st) {
+        if (!st || !(st.url_resolved || st.url)) return;
+        stopYouTube();
+        S.mode = 'radio'; S.label = st.name || 'Radio'; S.sub = 'Radio · ' + (st.country || 'Radio Browser'); save();
+        localAudio.src = st.url_resolved || st.url;
+        localAudio.volume = S.vol;
+        localAudio.play().catch(() => window.MH?.toast?.('Flux injoignable — essaie une autre station'));
+        setMeta(S.label, S.sub, ICON.radio);
+        root.querySelector('#im-art').style.background = 'linear-gradient(135deg,#134e5e,#71b280)';
+        show();
     }
 
     function renderStations(c) {
@@ -269,12 +329,20 @@
 
     // ══════════════════════ CONTRÔLES UNIFIÉS ══════════════════════
     function togglePlay() {
-        if (S.mode === 'local') { localAudio.paused ? localAudio.play() : localAudio.pause(); }
+        if (S.mode === 'local' || S.mode === 'radio') { localAudio.paused ? localAudio.play() : localAudio.pause(); }
         else if (S.mode === 'yt' && ytPlayer) { playing ? ytPlayer.pauseVideo() : ytPlayer.playVideo(); }
         else if (!S.mode) { S.tab = 'stations'; open(); }
     }
     function skip(d) {
         if (S.mode === 'local') { if (localQueue.length) playLocal((localIdx + d + localQueue.length) % localQueue.length); return; }
+        if (S.mode === 'radio') {
+            // radio : navigue dans les derniers résultats Radio Browser
+            if (!radioResults.length) return;
+            let idx = radioResults.findIndex(st => (st.url_resolved || st.url) === localAudio.src);
+            if (idx < 0) idx = 0;
+            playRadio(radioResults[(idx + d + radioResults.length) % radioResults.length]);
+            return;
+        }
         // stations : passe à la station suivante/précédente
         const list = STATIONS;
         let idx = list.findIndex(s => s.yt === S.ytId);

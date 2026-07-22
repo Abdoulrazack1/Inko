@@ -2,9 +2,10 @@
 (function () {
     'use strict';
 
-    const ICONS = { reply: 'comment', mention: 'comment', chapter: 'book', new_chapter: 'book', badge: 'award', system: 'bell' };
     const FILTER_KEY = 'inko_notif_filter';   // filtre persisté (audit G.6)
+    const PAGE_SIZE = 100;
     let items = [];
+    let total = 0;                            // total serveur (pagination, audit N3)
     let loadError = false;                    // distinguer erreur réseau et vide (audit N9-notif / G.3)
     let loadedAt = null;
     let filter = 'all';
@@ -15,9 +16,8 @@
         const list = document.getElementById('ntList');
         await (window.API?.ready || Promise.resolve());
         if (!API.isLoggedIn()) {
-            list.innerHTML = `<div class="nt-empty">
-                <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px">Serveur injoignable</div>
-                <button class="btn btn-primary" style="margin-top:10px" onclick="location.reload()">Réessayer</button></div>`;
+            // Audit N1 : message honnête (non connecté ≠ serveur en panne)
+            list.innerHTML = `<div class="nt-empty">${MH.guestNotice()}</div>`;
             document.getElementById('ntMarkAll').style.display = 'none';
             return;
         }
@@ -54,7 +54,9 @@
         const btn = document.getElementById('ntRefresh');
         if (btn) { btn.disabled = true; btn.textContent = '↻ …'; }
         try {
-            items = (await API.notifications.list(100)).items || [];
+            const data = await API.notifications.list(PAGE_SIZE);
+            items = data.items || [];
+            total = data.total ?? items.length;
             loadError = false;
             loadedAt = Date.now();
         } catch (e) {
@@ -64,6 +66,17 @@
         renderFreshness();
         render();
         window.MH.refreshNotifBadge?.();
+    }
+
+    // Audit N3 : « charger plus » — l'historique au-delà des 100 plus
+    // récentes était invisible sans aucun indicateur.
+    async function loadMore() {
+        try {
+            const data = await API.notifications.list(PAGE_SIZE, items.length);
+            items = items.concat(data.items || []);
+            total = data.total ?? total;
+            render();
+        } catch (e) { MH.toast?.('Erreur : ' + e.message); }
     }
 
     function renderFreshness() {
@@ -98,17 +111,16 @@
             list.innerHTML = `<div class="nt-empty">Aucune notification${filter !== 'all' ? ' dans ce filtre' : ''}.</div>`;
             return;
         }
-        list.innerHTML = shown.map(n => `
-            <a class="nt-item ${n.read ? '' : 'unread'}" href="${MH.esc(n.link || '#')}" data-nid="${n.id}">
-                ${n.image
-                    ? `<img class="nt-cover" src="${MH.esc(n.image)}" alt="" loading="lazy" style="width:38px;height:52px;object-fit:cover;border-radius:7px;background:var(--bg3);flex:0 0 auto" onerror="this.style.display='none'">`
-                    : `<div class="nt-ico" style="color:var(--accent)">${MH.icon(ICONS[n.type] || 'bell', 18)}</div>`}
-                <div class="nt-body">
-                    <div class="nt-title">${MH.esc(n.title || '')}</div>
-                    ${n.body ? `<div class="nt-text">${MH.esc(n.body)}</div>` : ''}
-                    <div class="nt-when">${timeAgo(n.at)}</div>
-                </div>
-            </a>`).join('');
+        // Gabarit partagé avec la cloche du header (audit N2)
+        list.innerHTML = shown.map(n => MH.notifItemHTML(n, { variant: 'page', timeAgo })).join('');
+        // Pagination (audit N3) : bouton « charger plus » tant que le serveur
+        // a plus de notifications que ce qui est chargé, avec compteur honnête.
+        if (filter === 'all' && items.length < total) {
+            list.innerHTML += `<div style="text-align:center;padding:14px">
+                <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">${items.length} sur ${total}</div>
+                <button class="btn btn-secondary btn-sm" id="ntMore">Charger plus</button></div>`;
+            list.querySelector('#ntMore')?.addEventListener('click', loadMore);
+        }
         list.querySelectorAll('[data-nid]').forEach(a => {
             a.addEventListener('click', () => { API.notifications.markRead(a.dataset.nid).catch(() => {}); });
         });

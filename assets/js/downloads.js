@@ -69,6 +69,21 @@
         // téléchargement incomplet sans re-télécharger ce qui existe).
         async download(info, pages, onProgress) {
             if (!('caches' in window)) throw new Error('Cache API indisponible');
+            // Audit M5 : garde-fou de stockage — sur téléphone surtout, aucun
+            // avertissement n'existait avant de saturer l'appareil.
+            try {
+                const st = await this.storage();
+                if (st.quota && st.usage / st.quota > 0.9) {
+                    window.MH?.toast?.(`Stockage presque plein (${Math.round(st.usage / 1048576)} Mo utilisés) — supprime d'anciens téléchargements.`);
+                    throw new Error('Stockage de l\'appareil presque plein');
+                }
+                if (st.quota && st.usage / st.quota > 0.75) {
+                    window.MH?.toast?.('Attention : le stockage de l\'appareil se remplit.');
+                }
+            } catch (e) {
+                if (/presque plein/.test(e.message)) throw e;
+                window.MH?.err?.('downloads.js', e);   // estimate() indisponible : on continue
+            }
             const cache = await caches.open(CACHE);
             const urls = pages.map(p => p.url).filter(Boolean);
             const sleep = ms => new Promise(r => setTimeout(r, ms));

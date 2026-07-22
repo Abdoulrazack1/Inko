@@ -15,10 +15,17 @@
     const detailCache = new Map();   // id → manga
     let tip, currentId, showTimer, hideTimer;
 
+    // Sélecteur unique des cartes reconnues (audit C4 : centralisé pour que
+    // les 4 variantes + les listeners clavier restent synchronisés).
+    const CARD_SEL = '.manga-card[data-manga-id], .lib2-card[data-manga-id], .trending-card[data-manga-id], .top-manga-item[data-manga-id]';
+
     function ensureTip() {
         if (tip) return tip;
         tip = document.createElement('div');
         tip.id = 'card-hover-tip';
+        // Audit C2 : sémantique ARIA — la tooltip est annoncée par les
+        // lecteurs d'écran via aria-describedby posé sur la carte active.
+        tip.setAttribute('role', 'tooltip');
         tip.style.cssText = `
             position: fixed; z-index: 9998; width: 320px; max-width: 86vw;
             background: var(--bg2, #141417); border: 1px solid var(--border2, rgba(255,255,255,.12));
@@ -129,13 +136,33 @@
 
     // Délégation : couvre toutes les cards présentes et futures
     document.addEventListener('mouseover', e => {
-        const card = e.target.closest('.manga-card[data-manga-id], .lib2-card[data-manga-id], .trending-card[data-manga-id], .top-manga-item[data-manga-id]');
+        const card = e.target.closest(CARD_SEL);
         if (card && card.dataset.mangaId !== currentId) onEnter(card);
     });
     document.addEventListener('mouseout', e => {
         const card = e.target.closest('.manga-card, .lib2-card, .trending-card, .top-manga-item');
         const to = e.relatedTarget;
         if (card && (!to || (!card.contains(to) && to !== tip && !(tip && tip.contains(to))))) hide();
+    });
+    // Audit C1 : équivalents clavier — un utilisateur qui navigue les cartes
+    // au Tab obtient le même aperçu riche qu'à la souris. focusin/focusout
+    // remontent (contrairement à focus/blur), compatibles avec la délégation.
+    document.addEventListener('focusin', e => {
+        const card = e.target.closest(CARD_SEL);
+        if (!card) return;
+        card.setAttribute('aria-describedby', 'card-hover-tip');   // audit C2
+        if (card.dataset.mangaId !== currentId) onEnter(card);
+    });
+    document.addEventListener('focusout', e => {
+        const card = e.target.closest(CARD_SEL);
+        if (!card) return;
+        card.removeAttribute('aria-describedby');
+        const to = e.relatedTarget;
+        if (!to || (!card.contains(to) && to !== tip && !(tip && tip.contains(to)))) hide();
+    });
+    // Échap ferme l'aperçu (attendu du pattern tooltip WAI-ARIA)
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && tip && tip.style.opacity === '1') hide();
     });
     window.addEventListener('scroll', () => { if (tip && tip.style.opacity === '1') hide(); }, { passive: true });
 })();

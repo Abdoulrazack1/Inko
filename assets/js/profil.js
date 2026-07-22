@@ -56,12 +56,8 @@
     function redirectGuest() {
         document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
         const main = document.querySelector('.profil-main');
-        if (main) main.innerHTML = `
-            <div class="card" style="padding:60px;text-align:center">
-                <div style="font-size:18px;font-weight:600;margin-bottom:8px">Serveur injoignable</div>
-                <div style="color:var(--text3);margin-bottom:24px">Impossible de joindre le serveur Inko.</div>
-                <button class="btn btn-primary" onclick="location.reload()">Réessayer</button>
-            </div>`;
+        // Audit N1/P4 : message honnête (non connecté ≠ serveur en panne)
+        if (main) main.innerHTML = `<div class="card">${MH.guestNotice()}</div>`;
     }
 
     // ── Helpers ──
@@ -79,6 +75,19 @@
     async function loadMangas(ids) {
         const results = await Promise.all(ids.map(id => loadManga(id)));
         return results.filter(Boolean);
+    }
+
+    // Audit P3 : un seul fetch de /me/stats partagé entre les 5 fonctions de
+    // rendu qui tournent en parallèle au chargement (hero, badges, heatmap ×2,
+    // résumé historique) — le serveur recalculait heatmap + streak 5 fois.
+    let _statsPromise = null;
+    function fetchStats() {
+        if (!_statsPromise) {
+            _statsPromise = API.me.stats();
+            // Une erreur ne doit pas empoisonner le cache pour les appels suivants
+            _statsPromise.catch(() => { _statsPromise = null; });
+        }
+        return _statsPromise;
     }
 
     // ── Tabs ──
@@ -109,7 +118,9 @@
         const sinceEl  = document.querySelector('.profil-since');
         if (avatarEl) avatarEl.textContent = avatarText(u.avatar, u.username);
         if (nameEl)   nameEl.textContent   = u.username;
-        if (handleEl) handleEl.textContent = '@' + u.username.toLowerCase().replace(/\s+/g, '_');
+        // Audit P7 : le handle dérivé du pseudo n'était pas unique (deux
+        // « John Doe » affichaient le même @john_doe). Suffixe #id = unique.
+        if (handleEl) handleEl.textContent = '@' + u.username.toLowerCase().replace(/\s+/g, '_') + (u.id ? '#' + u.id : '');
         if (sinceEl)  sinceEl.textContent  = u.createdAt
             ? 'Membre depuis ' + new Date(u.createdAt).toLocaleDateString('fr-FR', { month:'short', year:'numeric' })
             : '';
@@ -118,7 +129,7 @@
     async function renderHeroAndStats() {
         renderHeroIdentity();
         try {
-            const stats = await API.me.stats();
+            const stats = await fetchStats();
             const t = stats.totals || {};
             const heat = stats.heatmap || {};
             const statsEls = document.querySelectorAll('.profil-stat .profil-stat-num');
@@ -300,7 +311,13 @@
         try {
             const favs = await API.me.favorites();
             if (!favs.length) return; // garde le message par défaut
-            const mangas = await loadMangas(favs.slice(0, 20).map(f => f.mangaId));
+            // Audit P6 : échantillon RÉPARTI sur toute la bibliothèque (60 max,
+            // pas les 20 premiers) — les genres reflètent l'ensemble des goûts
+            // sans marteler les sources d'un appel par favori pour autant.
+            const SAMPLE = 60;
+            const step = Math.max(1, Math.ceil(favs.length / SAMPLE));
+            const sample = favs.filter((_, i) => i % step === 0).slice(0, SAMPLE);
+            const mangas = await loadMangas(sample.map(f => f.mangaId));
             const counts = {};
             let total = 0;
             mangas.filter(Boolean).forEach(m => (m.tags || []).slice(0, 6).forEach(t => {
@@ -348,7 +365,7 @@
         const el = document.getElementById('badgesGrid');
         if (!el) return;
         try {
-            const stats = await API.me.stats();
+            const stats = await fetchStats();
             const t = stats.totals || {};
             const heat = stats.heatmap || {};
             const activeDays = Object.keys(heat).length;
@@ -390,7 +407,7 @@
         const el = document.getElementById('heatmap');
         if (!el) return;
         try {
-            const stats = await API.me.stats();
+            const stats = await fetchStats();
             const buckets = stats.heatmap || {};
             const colors = ['var(--bg4)', 'rgba(255,107,26,.2)', 'rgba(255,107,26,.4)', 'rgba(255,107,26,.7)', 'var(--orange)'];
             const today = new Date();
@@ -412,7 +429,7 @@
         const historyEl = document.getElementById('historyHeatmap');
         if (historyEl) {
             try {
-                const stats = await API.me.stats();
+                const stats = await fetchStats();
                 const buckets = stats.heatmap || {};
                 const colors = ['var(--bg4)', 'rgba(255,107,26,.2)', 'rgba(255,107,26,.45)', 'rgba(255,107,26,.75)', 'var(--orange)'];
                 const today = new Date();
@@ -472,7 +489,14 @@
             // Récupère chaque œuvre depuis SA source (manga ou roman)
             const settled = await Promise.allSettled(items.map(i => API.mangas.getFrom(i.source, i.mangaId)));
             const mangas = settled.map(r => r.status === 'fulfilled' ? r.value : null);
-            const pctOf = (p) => MH.isNovelSource(p.source) ? Math.min(100, p.page || 0) : Math.min(100, Math.round((p.page / 20) * 100));
+            // Audit HIST2 : % exact basé sur le nombre réel de pages du chapitre
+            // (persisté par le lecteur). Sans donnée (ancienne progression),
+            // on n'affiche pas un faux % basé sur « 20 pages » deviné.
+            const pctOf = (p) => {
+                if (MH.isNovelSource(p.source)) return Math.min(100, p.page || 0);
+                if (p.totalPages > 0) return Math.min(100, Math.round((p.page / p.totalPages) * 100));
+                return null;   // inconnu : l'appelant masque le pourcentage
+            };
             el.innerHTML = items.map((p, i) => {
                 const m = mangas[i];
                 if (!m) return '';
@@ -498,8 +522,11 @@
                 lastCard.querySelector('.last-read-cover img').src = m.coverThumb || m.cover || '';
                 lastCard.querySelector('.last-read-title').textContent = m.title;
                 lastCard.querySelector('.last-read-chap').textContent = `Chapitre ${MH.chapNum(items[0].chapter)}`;
-                lastCard.querySelector('.last-read-fill').style.width = pct + '%';
-                lastCard.querySelector('.last-read-progress span').textContent = pct + '%';
+                // pct=null : nombre de pages inconnu (ancienne progression) —
+                // on affiche la page atteinte plutôt qu'un faux % (audit HIST2)
+                lastCard.querySelector('.last-read-fill').style.width = (pct ?? 0) + '%';
+                lastCard.querySelector('.last-read-progress span').textContent =
+                    pct != null ? pct + '%' : `Page ${items[0].page || 1}`;
                 const a = lastCard.querySelector('a.btn-primary');
                 if (a) a.href = MH.readerHref(m.id, items[0].chapterId, items[0].source);
                 if (body) body.style.display = '';
@@ -517,11 +544,19 @@
     //  « Ma bibliothèque » du profil est remplacé par la page bibliotheque.html)
 
     // ── Timeline ──
+    // Audit HIST3 : la frise était tronquée à 30 événements sans « charger
+    // plus » — on affiche par tranches et on recharge une fenêtre plus large
+    // à la demande (plafond serveur : 500 événements).
+    let histShown = 30;
+    // Audit P8 : le bouton « ↕ Plus récent en premier » ne triait rien
+    // (toast « Fonctionnalité à venir ») — il inverse désormais la frise.
+    let histAsc = false;
     async function renderHistoryTimeline() {
         const el = document.getElementById('historyTimeline');
         if (!el) return;
         try {
-            const events = await API.me.events(50);
+            const fetchCount = Math.min(500, Math.max(50, histShown + 20));
+            const events = await API.me.events(fetchCount);
             const readEvents = events.filter(e => e.type === 'read');
             if (!readEvents.length) {
                 el.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Aucune activité enregistrée. Lis un chapitre pour démarrer.</div>`;
@@ -533,8 +568,9 @@
             const yStr = yesterday.toDateString();
             const weekAgo = Date.now() - 7 * 86400000;
 
+            const shown = readEvents.slice(0, histShown);
             const groups = { "Aujourd'hui": [], 'Hier': [], 'Cette semaine': [], 'Plus ancien': [] };
-            readEvents.slice(0, 30).forEach(e => {
+            shown.forEach(e => {
                 const d = new Date(e.at);
                 const ds = d.toDateString();
                 if (ds === today) groups["Aujourd'hui"].push(e);
@@ -543,11 +579,17 @@
                 else groups['Plus ancien'].push(e);
             });
 
-            const allMangaIds = [...new Set(readEvents.map(e => e.mangaId))];
+            const allMangaIds = [...new Set(shown.map(e => e.mangaId))];
             const mangas = await loadMangas(allMangaIds);
             const mangaMap = new Map(mangas.map(m => [m.id, m]));
 
-            el.innerHTML = Object.entries(groups).map(([label, items]) => {
+            let groupEntries = Object.entries(groups);
+            if (histAsc) {
+                // « Plus ancien en premier » : groupes ET événements inversés
+                groupEntries = groupEntries.reverse();
+                groupEntries.forEach(([, items]) => items.reverse());
+            }
+            el.innerHTML = groupEntries.map(([label, items]) => {
                 if (!items.length) return '';
                 const itemsHTML = items.map(item => {
                     const m = mangaMap.get(item.mangaId);
@@ -566,6 +608,16 @@
                 }).join('');
                 return `<div class="timeline-group-label">${label}</div>${itemsHTML}`;
             }).join('') || `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Aucune activité récente.</div>`;
+
+            // « Charger plus » tant qu'il reste des événements de lecture
+            if (readEvents.length > histShown && histShown < 500) {
+                el.innerHTML += `<div style="text-align:center;padding:14px">
+                    <button class="btn btn-secondary btn-sm" id="histMore">Charger plus</button></div>`;
+                el.querySelector('#histMore')?.addEventListener('click', () => {
+                    histShown += 30;
+                    renderHistoryTimeline();
+                });
+            }
         } catch(e) {
             el.innerHTML = `<div style="padding:14px;color:#ef4444">Erreur</div>`;
         }
@@ -578,7 +630,7 @@
         const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
         try {
             const [stats, events] = await Promise.all([
-                API.me.stats().catch(() => ({})),
+                fetchStats().catch(() => ({})),
                 API.me.events(500).catch(() => []),
             ]);
             const t = stats.totals || {};
@@ -613,7 +665,10 @@
             const cont = document.getElementById('topSeries7');
             if (cont) {
                 const counts = {};
-                reads7.forEach(e => { if (e.mangaId) counts[e.mangaId] = (counts[e.mangaId] || 0) + 1; });
+                // Audit B4 : `reads7` n'existait pas (la variable s'appelle
+                // reads7ev) — ReferenceError avalée par le catch silencieux,
+                // le panneau « Top séries cette semaine » ne s'affichait jamais.
+                reads7ev.forEach(e => { if (e.mangaId) counts[e.mangaId] = (counts[e.mangaId] || 0) + 1; });
                 const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
                 if (!top.length) {
                     cont.innerHTML = `<div style="color:var(--text3);font-size:11.5px;padding:8px 4px">Aucune lecture cette semaine.</div>`;
@@ -631,7 +686,7 @@
                     }).join('');
                 }
             }
-        } catch (e) { /* silencieux */ }
+        } catch (e) { window.MH?.err?.('profil.js', e); /* non bloquant, mais loggé (audit B4) */ }
     }
 
     let _lists = [];              // listes personnalisées (cache)
@@ -821,19 +876,13 @@
 
     // ── Wire tous les boutons restants (edit/share/social/connect) ──
     function wireExtraButtons() {
-        // Hero : Éditer + Partager
+        // Hero : Partager. (Audit B5 : le bouton « Éditer » est câblé UNIQUEMENT
+        // par renderHeroAndStats → openEditProfile — un second handler ici
+        // ouvrait un MH.prompt concurrent par-dessus la modale au même clic.)
         const actions = document.querySelectorAll('.profil-actions .btn-ghost');
         actions.forEach(btn => {
             const txt = btn.textContent;
-            if (/Éditer|Editer/.test(txt)) {
-                btn.addEventListener('click', async () => {
-                    const u = API.user; if (!u) { MH.toast('Connecte-toi'); return; }
-                    const name = await MH.prompt('Modifier le pseudo', { value: u.username, okText: 'Enregistrer' });
-                    if (name && name.trim()) API.auth.updateProfile({ username: name.trim() })
-                        .then(() => { MH.toast('Profil mis à jour ✓'); renderHeroAndStats(); })
-                        .catch(e => MH.toast('Erreur : ' + e.message));
-                });
-            } else if (/Partager/.test(txt)) {
+            if (/Partager/.test(txt)) {
                 btn.addEventListener('click', async () => {
                     const url = location.origin + '/profil.html';
                     try { await navigator.clipboard.writeText(url); MH.toast('Lien du profil copié ✓'); }
@@ -854,18 +903,9 @@
             });
         });
 
-        // Comptes connectés : ouvre le site officiel du service
-        document.querySelectorAll('.connected-item').forEach(item => {
-            const name = item.querySelector('.connected-name')?.textContent?.trim() || '';
-            const btn = item.querySelector('button, .connected-status');
-            const toggle = item.querySelector('.toggle');
-            const act = () => {
-                if (/Discord/i.test(name)) window.open('https://discord.com/app', '_blank');
-                else if (/Crunchyroll/i.test(name)) window.open('https://www.crunchyroll.com', '_blank');
-            };
-            btn?.addEventListener('click', act);
-            toggle?.addEventListener('click', act);
-        });
+        // (Audit P5) Bloc « comptes connectés Discord/Crunchyroll » supprimé :
+        // ce pattern UI (.connected-item) n'existe plus — les comptes connectés
+        // passent uniquement par MH.renderConnections() (AniList).
 
         // "Ouvrir le lecteur" dans les préférences → lecteur de chapitre démo déjà un lien
         // Boutons "Voir tout", "Gérer", etc. avec data-goto déjà gérés par initTabs.
@@ -887,6 +927,16 @@
                 btn.classList.add('active');
             });
         });
+        // Audit P8 : câble le tri de la ligne du temps (avant : toast générique)
+        const sortBtn = document.querySelector('.history-timeline-header .sort-btn');
+        if (sortBtn && !sortBtn.dataset.wired) {
+            sortBtn.dataset.wired = '1';
+            sortBtn.addEventListener('click', () => {
+                histAsc = !histAsc;
+                sortBtn.textContent = histAsc ? '↕ Plus ancien en premier' : '↕ Plus récent en premier';
+                renderHistoryTimeline();
+            });
+        }
     }
     function initViewToggles() {
         document.querySelectorAll('.view-toggle-btns').forEach(group => {

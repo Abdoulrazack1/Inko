@@ -451,9 +451,10 @@
         if (!API.isLoggedIn() || !manga || !currentChap) return;
         try {
             await API.me.setProgress(manga.id, {
-                chapterId: currentChap.id,
-                chapter:   currentChap.chapter,
-                page:      currentPage,
+                chapterId:  currentChap.id,
+                chapter:    currentChap.chapter,
+                page:       currentPage,
+                totalPages: totalPages || null,   // audit HIST2 : % exact sur le profil
             });
         } catch(e) { /* silencieux */ }
     }

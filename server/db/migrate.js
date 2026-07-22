@@ -49,7 +49,44 @@ async function modifyIf(table, col, wantSubstr, ddlType) {
     await run(`ALTER TABLE \`${table}\` MODIFY \`${col}\` ${ddlType}`);
 }
 
+// ── Audit §4 : historique de migrations versionné ────────────
+// Avant, ensureSchema() refaisait ~15 requêtes information_schema à CHAQUE
+// démarrage. La table schema_migrations trace ce qui est appliqué : un
+// schéma à jour = 1 seule requête au boot, et « quel est le schéma
+// appliqué ? » a désormais une réponse directe (SELECT * FROM
+// schema_migrations). Chaque nouvelle évolution = une entrée de plus dans
+// MIGRATIONS (jamais modifier une migration déjà livrée : en ajouter une).
+const MIGRATIONS = [
+    { version: 1, name: 'socle-historique (threads, reports, notifications, notes, imports, index, types)', apply: legacySchema },
+    { version: 2, name: 'progress.total_pages (audit HIST2)', apply: async () => {
+        if (!(await columnExists('progress', 'total_pages'))) {
+            await run('ALTER TABLE progress ADD COLUMN total_pages INT DEFAULT NULL');
+        }
+    } },
+];
+
 async function ensureSchema() {
+    await run(`CREATE TABLE IF NOT EXISTS schema_migrations (
+        version    INT PRIMARY KEY,
+        name       VARCHAR(255) DEFAULT NULL,
+        applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB`);
+    let current = 0;
+    try {
+        const [[row]] = await pool.query('SELECT MAX(version) AS v FROM schema_migrations');
+        current = row?.v || 0;
+    } catch (e) { /* table toute neuve */ }
+    for (const m of MIGRATIONS) {
+        if (m.version <= current) continue;
+        await m.apply();
+        await run(`INSERT IGNORE INTO schema_migrations (version, name) VALUES (${m.version}, ${pool.escape(m.name)})`);
+        console.log(`[migrate] migration ${m.version} appliquée : ${m.name}`);
+    }
+}
+
+// Migration 1 : tout l'historique idempotent d'avant le versionnage.
+// (Sûre à rejouer sur une base existante : gardes IF NOT EXISTS partout.)
+async function legacySchema() {
     // 1. Commentaires hiérarchiques (threads) : comments.parent_id
     if (!(await columnExists('comments', 'parent_id'))) {
         await run('ALTER TABLE comments ADD COLUMN parent_id INT DEFAULT NULL');

@@ -9,17 +9,24 @@ function vapid(_req, res) {
 
 async function list(req, res, next) {
     try {
-        const limit = Math.min(parseInt(req.query.limit || '30', 10), 100);
+        const limit  = Math.min(parseInt(req.query.limit || '30', 10), 100);
+        // Pagination (audit N3) : offset + total pour un « charger plus » —
+        // avant, tout au-delà des 100 plus récentes était inaccessible.
+        const offset = Math.max(0, parseInt(req.query.offset || '0', 10));
         const [rows] = await pool.query(
             `SELECT id, type, title, body, link, actor, image, is_read, created_at
-             FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
-            [req.user.id, limit]
+             FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+            [req.user.id, limit, offset]
         );
         const [[c]] = await pool.query(
             'SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND is_read = 0', [req.user.id]
         );
+        const [[tot]] = await pool.query(
+            'SELECT COUNT(*) AS n FROM notifications WHERE user_id = ?', [req.user.id]
+        );
         res.json({
             unread: c.n,
+            total:  tot.n,
             items: rows.map(r => ({
                 id: r.id, type: r.type, title: r.title, body: r.body,
                 link: r.link, actor: r.actor, image: r.image, read: !!r.is_read, at: r.created_at,

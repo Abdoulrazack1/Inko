@@ -21,12 +21,8 @@
     });
 
     function showLoggedOut() {
-        document.getElementById('jrBody').innerHTML = `
-            <div class="jr-empty">
-                <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">Serveur injoignable</div>
-                <div style="margin-bottom:18px">Impossible de joindre le serveur Inko.</div>
-                <button class="btn btn-primary" onclick="location.reload()">Réessayer</button>
-            </div>`;
+        // Audit N1 : message honnête (non connecté ≠ serveur en panne)
+        document.getElementById('jrBody').innerHTML = `<div class="jr-empty">${MH.guestNotice()}</div>`;
     }
 
     async function loadStats() {
@@ -40,10 +36,27 @@
         } catch (e) { window.MH?.err?.('notes.js', e); }
     }
 
+    let notesTotal = 0;   // total serveur (pagination, audit J2)
+
     async function loadNotes() {
-        try { allNotes = (await API.me.notes()).notes || []; }
+        try {
+            const r = await API.me.notes();
+            allNotes = r.notes || [];
+            notesTotal = r.total ?? allNotes.length;
+        }
         catch (e) { document.getElementById('jrBody').innerHTML = `<div class="jr-empty" style="color:#a83232">Erreur : ${MH.esc(e.message)}</div>`; return; }
         render('');
+    }
+
+    // Audit J2 : « charger plus » — les notes au-delà des 500 plus récentes
+    // disparaissaient silencieusement du Journal (et de sa recherche, J3).
+    async function loadMoreNotes() {
+        try {
+            const r = await API.me.notes({ offset: allNotes.length });
+            allNotes = allNotes.concat(r.notes || []);
+            notesTotal = r.total ?? notesTotal;
+            render((document.getElementById('jrSearch')?.value || '').trim().toLowerCase());
+        } catch (e) { MH.toast?.('Erreur : ' + e.message); }
     }
 
     function render(q) {
@@ -66,6 +79,17 @@
             groups.get(n.mangaId).notes.push(n);
         });
         body.innerHTML = [...groups.values()].map(renderGroup).join('');
+
+        // Pagination (audit J2) : indicateur honnête + « charger plus ».
+        // En recherche (J3), rappelle que seules les notes chargées sont filtrées.
+        if (allNotes.length < notesTotal) {
+            body.innerHTML += `<div style="text-align:center;padding:16px">
+                <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">
+                    ${allNotes.length} note${allNotes.length > 1 ? 's' : ''} chargée${allNotes.length > 1 ? 's' : ''} sur ${notesTotal}${q ? ' — la recherche ne porte que sur les notes chargées' : ''}
+                </div>
+                <button class="btn btn-secondary btn-sm" id="jrMore">Charger plus</button></div>`;
+            body.querySelector('#jrMore')?.addEventListener('click', loadMoreNotes);
+        }
 
         body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => removeNote(b.dataset.del)));
         body.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editNote(b.dataset.edit)));

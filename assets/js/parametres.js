@@ -59,13 +59,8 @@
         const user = API.user;
 
         if (!user) {
-            body.innerHTML = `
-                <div style="text-align:center;padding:14px 0">
-                    <p style="color:var(--text2);font-size:13px;margin-bottom:14px">
-                        Serveur injoignable — impossible de charger ton profil local.
-                    </p>
-                    <button class="btn btn-primary btn-sm" onclick="location.reload()">Réessayer</button>
-                </div>`;
+            // Audit N1 : message honnête (non connecté ≠ serveur en panne)
+            body.innerHTML = MH.guestNotice();
             return;
         }
 

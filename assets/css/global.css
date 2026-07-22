@@ -468,6 +468,17 @@ body.incognito-on::before {
   transform: translateY(-4px);
   box-shadow: var(--shadow-3);
 }
+/* Audit C3 : lien « étendu » — la carte est un <div>, le lien un calque
+   au-dessus du contenu, et le cœur favori (frère, plus enfant du lien)
+   reste cliquable au-dessus. */
+.manga-card-link {
+  position: absolute; inset: 0; z-index: 2;
+  border-radius: inherit;
+}
+.manga-card-link:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.manga-card .card-fav-btn { z-index: 3; }
 .manga-card-cover {
   position: relative; overflow: hidden;
   aspect-ratio: 3/4;

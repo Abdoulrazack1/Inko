@@ -30,6 +30,24 @@
         } catch (_) { /* le logger ne doit jamais lever */ }
     };
 
+    // Gabarit partagé « non connecté » (audit N1) : 8 pages affichaient
+    // « Serveur injoignable » alors que le serveur répondait très bien —
+    // la vraie cause était l'absence de session (mode hub, session expirée).
+    // Message honnête + action adaptée, factorisé pour ne plus dériver.
+    window.MH.guestNotice = function ({ compact = false } = {}) {
+        const title = 'Connexion requise';
+        const body  = 'Ta session a expiré ou tu n\'es pas connecté. Recharge la page pour rétablir la session.';
+        if (compact) {
+            return `<div style="font-size:12.5px;color:var(--text3);padding:4px 0 2px">
+                ${title} — <a href="#" class="link-orange" onclick="location.reload();return false">se reconnecter</a>.</div>`;
+        }
+        return `<div style="text-align:center;padding:34px 16px">
+            <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">${title}</div>
+            <div style="color:var(--text3);margin-bottom:18px">${body}</div>
+            <button class="btn btn-primary" onclick="location.reload()">Se reconnecter</button>
+        </div>`;
+    };
+
     /* ── Icônes SVG (remplace les emojis d'interface) ──────── */
     const ICON_PATHS = {
         home:      '<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/>',
@@ -168,7 +186,31 @@
         if (disabled) set.add(id); else set.delete(id);
         try { localStorage.setItem(DISABLED_KEY, JSON.stringify([...set])); } catch (e) { window.MH?.err?.('global.js', e); }
         try { window.dispatchEvent(new CustomEvent('source:change', { detail: { id } })); } catch (e) { window.MH?.err?.('global.js', e); }
+        // Audit MD1 : réplique l'état au compte (user_settings) — désactiver
+        // une source sur le téléphone la désactive aussi sur le desktop du
+        // même compte en mode hub, comme les autres réglages synchronisés.
+        try {
+            if (window.API?.isLoggedIn?.()) {
+                window.API.me.saveSettings({ disabledSources: [...set] })
+                    .catch(e => window.MH?.err?.('global.js', e));
+            }
+        } catch (e) { window.MH?.err?.('global.js', e); }
         return set.has(id);
+    };
+    // Rapatrie l'état serveur au chargement (fusion simple : le compte fait foi)
+    window.MH.syncDisabledSources = async function () {
+        if (!window.API?.isLoggedIn?.()) return;
+        try {
+            const s = await window.API.me.settings();
+            if (Array.isArray(s.disabledSources)) {
+                const local = JSON.stringify([...readDisabled()].sort());
+                const remote = JSON.stringify([...s.disabledSources].sort());
+                if (local !== remote) {
+                    localStorage.setItem(DISABLED_KEY, JSON.stringify(s.disabledSources));
+                    window.dispatchEvent(new CustomEvent('source:change', { detail: {} }));
+                }
+            }
+        } catch (e) { /* hors-ligne : l'état local reste valable */ }
     };
     // URL du lecteur adapté au type de la source (texte pour les romans)
     window.MH.readerHref = function (mangaId, chapterId, source) {
@@ -428,6 +470,7 @@
             lib:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>',
             search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
             user:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+            menu:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>',
         };
         const item = (href, id, label, svg, extra = '') =>
             `<a href="${href}" class="mnav-item ${activePage === id ? 'active' : ''}" aria-label="${label}">
@@ -436,14 +479,23 @@
         const nav = document.createElement('nav');
         nav.id = 'inkoMobileNav';
         nav.className = 'mobile-nav';
+        // Audit NAV1/M2 : « Plus » = déclencheur tactile de la palette de
+        // commandes — sans lui, Journal, Sources, Statistiques et Collections
+        // étaient injoignables sur mobile/tablette (la palette n'était
+        // accessible que par Ctrl/Cmd+K, inexistant au toucher).
         nav.innerHTML =
             item('accueil.html', 'accueil', 'Accueil', I.home) +
             item('catalogue.html', 'catalogue', 'Catalogue', I.book) +
             item('bibliotheque.html', 'bibliotheque', 'Bibliothèque', I.lib,
                  '<span class="nav-badge" id="navLibBadgeM" style="display:none"></span>') +
             item('recherche.html', 'recherche', 'Recherche', I.search) +
-            item('profil.html', 'profil', 'Profil', I.user);
+            item('profil.html', 'profil', 'Profil', I.user) +
+            `<button type="button" class="mnav-item" id="mnavMore" aria-label="Plus de sections" aria-haspopup="dialog"
+                style="background:none;border:none;font:inherit;color:inherit;cursor:pointer">
+                <span class="mnav-icon">${I.menu}</span><span class="mnav-label">Plus</span>
+            </button>`;
         document.body.appendChild(nav);
+        nav.querySelector('#mnavMore')?.addEventListener('click', () => window.MH.openCommandPalette());
     }
 
     // ── Vérification des nouveaux chapitres ──
@@ -691,13 +743,9 @@
         <div class="footer-brand">
           <div class="footer-logo"><img src="/assets/img/icon.svg" alt="Inko" style="width:24px;height:24px;border-radius:6px;vertical-align:middle;margin-right:6px">Inko</div>
           <p class="footer-desc">Lecteur de mangas open-source. Découvre, lis et organise ta bibliothèque, sur toutes tes plateformes.</p>
-          <div class="footer-stay">
-            <h4>Restez informé</h4>
-            <div class="footer-email-form">
-              <input type="email" id="footerEmailInput" placeholder="Votre email…">
-              <button id="footerEmailBtn">S'inscrire</button>
-            </div>
-          </div>
+          <!-- Audit S15 : formulaire newsletter retiré — il affichait
+               « Inscription confirmée ! » sans jamais envoyer la donnée
+               nulle part (aucune route serveur, aucun appel réseau). -->
         </div>
         <div class="footer-col">
           <h4>Explorer</h4>
@@ -726,7 +774,7 @@
         </div>
       </div>
       <div class="footer-bottom">
-        <p>© 2026 Inko. Tous droits réservés. Données issues de MangaDex.</p>
+        <p>© 2026 Inko. Tous droits réservés. Données issues des sources installées (MangaDex, RoyalRoad, Gutenberg…).</p>
         <!-- Sélecteur restauré (audit N40 v2) : la traduction runtime par texte
              source (i18n.js) couvre désormais toute l'interface. -->
         <div class="footer-lang" style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text3)">
@@ -804,6 +852,7 @@
         renderMobileNav(activePage);
         window.MH.updateLibBadge();
         window.MH.loadSourceTypes();   // pré-charge les types pour le routage lecteur
+        window.MH.syncDisabledSources();   // audit MD1 : état des sources suivi par compte
         // Check des nouveautés au lancement (pas pendant la lecture : priorité aux pages)
         if (activePage !== 'chapitre') launchUpdateCheck();
 
@@ -843,6 +892,44 @@
         if (n > 0) { b.textContent = n > 99 ? '99+' : n; b.style.display = ''; }
         else b.style.display = 'none';
     }
+    /* Rendu partagé d'une notification (audit N2) : la cloche déroulante et
+       la page notifications.html dupliquaient le même gabarit (icône par
+       type, image, titre, corps, horodatage) — toute évolution devait être
+       répliquée aux deux endroits. Source unique désormais. */
+    window.MH.notifIconName = t => ({
+        reply: 'comment', mention: 'comment',
+        chapter: 'book', new_chapter: 'book', badge: 'award',
+    }[t] || 'bell');
+    window.MH.notifItemHTML = function (n, { variant = 'page', timeAgo } = {}) {
+        const ago = (timeAgo || notifTimeAgo)(n.at);
+        const iconName = window.MH.notifIconName(n.type);
+        if (variant === 'dropdown') {
+            return `
+                <a href="${esc(n.link || '#')}" data-nid="${n.id}" style="display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;background:${n.read ? 'transparent' : 'rgba(255,140,66,.07)'}">
+                    ${n.image
+                        ? `<img src="${esc(n.image)}" alt="" loading="lazy" style="flex:0 0 auto;width:34px;height:46px;object-fit:cover;border-radius:6px;background:var(--bg3)" onerror="this.style.display='none'">`
+                        : `<div style="flex:0 0 auto;color:var(--accent)">${window.MH.icon(iconName, 16)}</div>`}
+                    <div style="min-width:0">
+                        <div style="font-size:12.5px;font-weight:600;line-height:1.3">${esc(n.title || '')}</div>
+                        ${n.body ? `<div style="font-size:11.5px;color:var(--text2);line-height:1.35;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(n.body)}</div>` : ''}
+                        <div style="font-size:10.5px;color:var(--text3);margin-top:3px">${ago}</div>
+                    </div>
+                </a>`;
+        }
+        // variant 'page' (notifications.html)
+        return `
+            <a class="nt-item ${n.read ? '' : 'unread'}" href="${esc(n.link || '#')}" data-nid="${n.id}">
+                ${n.image
+                    ? `<img class="nt-cover" src="${esc(n.image)}" alt="" loading="lazy" style="width:38px;height:52px;object-fit:cover;border-radius:7px;background:var(--bg3);flex:0 0 auto" onerror="this.style.display='none'">`
+                    : `<div class="nt-ico" style="color:var(--accent)">${window.MH.icon(iconName, 18)}</div>`}
+                <div class="nt-body">
+                    <div class="nt-title">${esc(n.title || '')}</div>
+                    ${n.body ? `<div class="nt-text">${esc(n.body)}</div>` : ''}
+                    <div class="nt-when">${ago}</div>
+                </div>
+            </a>`;
+    };
+
     async function renderNotifDropdown() {
         const dd = document.getElementById('notifDropdown');
         if (!dd) return;
@@ -860,17 +947,7 @@
         if (!data.items.length) {
             dd.innerHTML = head + `<div style="padding:26px 16px;text-align:center;color:var(--text3);font-size:13px">Aucune notification.</div>`;
         } else {
-            dd.innerHTML = head + data.items.map(n => `
-                <a href="${esc(n.link || '#')}" data-nid="${n.id}" style="display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;background:${n.read ? 'transparent' : 'rgba(255,140,66,.07)'}">
-                    ${n.image
-                        ? `<img src="${esc(n.image)}" alt="" loading="lazy" style="flex:0 0 auto;width:34px;height:46px;object-fit:cover;border-radius:6px;background:var(--bg3)" onerror="this.style.display='none'">`
-                        : `<div style="flex:0 0 auto;color:var(--accent)">${window.MH.icon(n.type === 'reply' ? 'comment' : n.type === 'mention' ? 'comment' : n.type === 'chapter' || n.type === 'new_chapter' ? 'book' : n.type === 'badge' ? 'award' : 'bell', 16)}</div>`}
-                    <div style="min-width:0">
-                        <div style="font-size:12.5px;font-weight:600;line-height:1.3">${esc(n.title || '')}</div>
-                        ${n.body ? `<div style="font-size:11.5px;color:var(--text2);line-height:1.35;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(n.body)}</div>` : ''}
-                        <div style="font-size:10.5px;color:var(--text3);margin-top:3px">${notifTimeAgo(n.at)}</div>
-                    </div>
-                </a>`).join('');
+            dd.innerHTML = head + data.items.map(n => window.MH.notifItemHTML(n, { variant: 'dropdown' })).join('');
             dd.querySelector('#notifMarkAll')?.addEventListener('click', async (e) => {
                 e.preventDefault(); e.stopPropagation();
                 try { await window.API.notifications.markAll(); } catch (_) { window.MH?.err?.('global.js', _); }
@@ -1004,12 +1081,41 @@
         const dropdown = document.getElementById('searchDropdown');
         if (!input || !dropdown) return;
 
+        // Audit R2 : sémantique ARIA combobox — le champ est annoncé comme
+        // « recherche avec suggestions », le dropdown comme listbox, et
+        // l'option active est suivie via aria-activedescendant.
+        input.setAttribute('role', 'combobox');
+        input.setAttribute('aria-expanded', 'false');
+        input.setAttribute('aria-controls', 'searchDropdown');
+        input.setAttribute('aria-autocomplete', 'list');
+        dropdown.setAttribute('role', 'listbox');
+
+        let selIdx = -1;   // option surlignée au clavier (audit R1)
+
+        function openDropdown()  { dropdown.classList.add('open');    input.setAttribute('aria-expanded', 'true'); }
+        function closeDropdown() { dropdown.classList.remove('open'); input.setAttribute('aria-expanded', 'false'); selIdx = -1; input.removeAttribute('aria-activedescendant'); }
+
+        function options() { return [...dropdown.querySelectorAll('a.search-result-item')]; }
+        function highlight() {
+            const opts = options();
+            opts.forEach((o, i) => {
+                o.classList.toggle('kbd-active', i === selIdx);
+                o.style.background = i === selIdx ? 'var(--bg4)' : '';
+                o.setAttribute('aria-selected', i === selIdx ? 'true' : 'false');
+            });
+            if (selIdx >= 0 && opts[selIdx]) {
+                input.setAttribute('aria-activedescendant', opts[selIdx].id);
+                opts[selIdx].scrollIntoView({ block: 'nearest' });
+            } else input.removeAttribute('aria-activedescendant');
+        }
+
         function render(results, q) {
+            selIdx = -1;
             if (!results.length) {
                 dropdown.innerHTML = `<div style="padding:14px;text-align:center;color:var(--text3);font-size:13px">Aucun résultat${q ? ` pour « ${esc(q)} »` : ''}</div>`;
             } else {
-                dropdown.innerHTML = results.map(m => `
-                  <a href="serie.html?id=${encodeURIComponent(m.id)}" class="search-result-item">
+                dropdown.innerHTML = results.map((m, i) => `
+                  <a href="serie.html?id=${encodeURIComponent(m.id)}" class="search-result-item" role="option" id="searchOpt${i}" aria-selected="false">
                       <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" onerror="this.style.display='none'">
                       <div class="search-result-info">
                           <div class="title">${esc(m.title)}</div>
@@ -1018,22 +1124,43 @@
                   </a>`).join('');
             }
             if (q && q.length > 0) {
-                dropdown.innerHTML += `<a href="catalogue.html?q=${encodeURIComponent(q)}" class="search-result-item" style="justify-content:center;color:var(--orange);font-size:12.5px;font-weight:500;border-top:1px solid var(--border);padding:10px">Voir tous les résultats →</a>`;
+                dropdown.innerHTML += `<a href="catalogue.html?q=${encodeURIComponent(q)}" class="search-result-item" role="option" id="searchOptAll" aria-selected="false" style="justify-content:center;color:var(--orange);font-size:12.5px;font-weight:500;border-top:1px solid var(--border);padding:10px">Voir tous les résultats →</a>`;
             }
-            dropdown.classList.add('open');
+            openDropdown();
         }
 
         let timeout, lastQ;
+        let popularCache = null;   // audit R4 : les suggestions « populaires » du focus ne sont chargées qu'une fois
+        // Audit R3 : quand le catalogue est en mode « Toutes les sources »,
+        // la recherche rapide interroge l'agrégat multi-sources — fini le
+        // « Aucun résultat » sur un titre présent sur une autre source.
+        function allSourcesMode() {
+            try { return localStorage.getItem('inko_cat_allsrc') === '1'; } catch (e) { return false; }
+        }
         async function go(q) {
             lastQ = q;
             try {
-                const data = q
-                    ? await API.mangas.search({ q, limit: 6 })
-                    : await API.mangas.popular({ limit: 6 });
-                if (q === lastQ) render(data.results || [], q);
+                let results;
+                if (q && allSourcesMode() && API.mangas.searchAll) {
+                    const data = await API.mangas.searchAll(q, 4);
+                    // Dédoublonne par titre normalisé, 6 suggestions max
+                    const seen = new Set();
+                    results = (data.results || []).filter(m => {
+                        const k = (m.title || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+                        if (!k || seen.has(k)) return false;
+                        seen.add(k); return true;
+                    }).slice(0, 6);
+                } else if (q) {
+                    const data = await API.mangas.search({ q, limit: 6 });
+                    results = data.results || [];
+                } else {
+                    if (!popularCache) popularCache = (await API.mangas.popular({ limit: 6 })).results || [];
+                    results = popularCache;
+                }
+                if (q === lastQ) render(results, q);
             } catch(e) {
                 dropdown.innerHTML = `<div style="padding:14px;text-align:center;color:#ef4444;font-size:12.5px">Erreur de recherche</div>`;
-                dropdown.classList.add('open');
+                openDropdown();
             }
         }
 
@@ -1044,30 +1171,41 @@
             timeout = setTimeout(() => go(q), 250);
         });
         document.addEventListener('click', e => {
-            if (!input.closest('.header-search').contains(e.target)) dropdown.classList.remove('open');
+            if (!input.closest('.header-search').contains(e.target)) closeDropdown();
         });
         input.addEventListener('keydown', e => {
-            if (e.key === 'Escape') { dropdown.classList.remove('open'); input.blur(); }
-            if (e.key === 'Enter' && input.value.trim()) {
-                dropdown.classList.remove('open');
-                window.location.href = `recherche.html?q=${encodeURIComponent(input.value.trim())}`;
+            const open = dropdown.classList.contains('open');
+            // Audit R1 : navigation clavier dans les suggestions
+            if (e.key === 'ArrowDown' && open) {
+                e.preventDefault();
+                selIdx = Math.min(options().length - 1, selIdx + 1);
+                highlight(); return;
+            }
+            if (e.key === 'ArrowUp' && open) {
+                e.preventDefault();
+                selIdx = Math.max(-1, selIdx - 1);
+                highlight(); return;
+            }
+            if (e.key === 'Escape') { closeDropdown(); input.blur(); return; }
+            if (e.key === 'Enter') {
+                const opts = options();
+                if (open && selIdx >= 0 && opts[selIdx]) {
+                    closeDropdown();
+                    window.location.href = opts[selIdx].href;   // suggestion choisie au clavier
+                    return;
+                }
+                if (input.value.trim()) {
+                    closeDropdown();
+                    window.location.href = `recherche.html?q=${encodeURIComponent(input.value.trim())}`;
+                }
             }
         });
     }
 
     /* ── Footer ──────────────────────────────────────────── */
     function initFooterButtons() {
-        const emailBtn   = document.getElementById('footerEmailBtn');
-        const emailInput = document.getElementById('footerEmailInput');
-        if (emailBtn && emailInput) {
-            emailBtn.addEventListener('click', () => {
-                const v = emailInput.value.trim();
-                if (!v) { MH.toast('Entrez votre adresse email.'); return; }
-                if (!API.auth.validateEmail(v)) { MH.toast('Email invalide.'); return; }
-                MH.toast('Inscription confirmée ! ');
-                emailInput.value = '';
-            });
-        }
+        // (audit S15) handler newsletter retiré avec le formulaire — il
+        // confirmait un succès sans jamais envoyer l'email nulle part.
         document.addEventListener('click', e => {
             const link = e.target.closest('.footer-coming');
             if (!link) return;

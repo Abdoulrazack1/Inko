@@ -27,14 +27,19 @@
         try {
             const [pop, latest] = await Promise.all([
                 API.mangas.popular({ limit: 12 }),
-                API.mangas.latest({ limit: 8 }),
+                API.mangas.latest({ limit: 12 }),
             ]);
             popularCache = pop.results || [];
             const hasCover = m => m.banner || m.coverLarge || m.cover || m.coverThumb;
             const fresh = (latest.results || []).filter(hasCover);
             const pool  = fresh.length ? fresh : popularCache.filter(hasCover);
             heroMangas = (pool.length ? pool : popularCache).slice(0, 6);
-            renderTrending(popularCache.slice(0, 10));
+            // Audit TOP1/TOP2 : « Tendances » = séries mises à jour récemment
+            // (donnée réellement temporelle), distinctes du « Top manga » de la
+            // sidebar (classement popularité). Avant, les deux blocs affichaient
+            // les mêmes 10 titres et « de la semaine » ne calculait rien.
+            const trendPool = fresh.length ? fresh : popularCache;
+            renderTrending(trendPool.slice(0, 10));
             renderReco(popularCache.slice(4, 7));
             await MH.loadSourceTypes();
             renderHero();
@@ -191,7 +196,14 @@
         }
 
         function go(idx) { show((idx + heroMangas.length) % heroMangas.length); restart(); }
-        function start() { heroTimer = setInterval(() => show((heroIdx + 1) % heroMangas.length), HERO_MS); restartProgress(); }
+        // Audit H1 : respecte prefers-reduced-motion, comme hero3d.js juste
+        // à côté — l'auto-rotation ne démarre pas pour un utilisateur
+        // sensible au mouvement (navigation manuelle toujours possible).
+        const REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        function start() {
+            if (REDUCED_MOTION) return;
+            heroTimer = setInterval(() => show((heroIdx + 1) % heroMangas.length), HERO_MS); restartProgress();
+        }
         function restart() { clearInterval(heroTimer); start(); }
         function restartProgress() {
             if (!prog) return;
@@ -230,9 +242,14 @@
 
         if (!hero.dataset.heroBound) {
             hero.dataset.heroBound = '1';
-            // Pause au survol
-            hero.addEventListener('mouseenter', () => { clearInterval(heroTimer); if (prog) { prog.style.transition = 'none'; } });
+            // Pause au survol — et au focus clavier (audit H2, WCAG 2.2.2 :
+            // un utilisateur qui Tab sur « Lire » ne doit pas voir le
+            // contenu changer sous lui pendant qu'il le lit).
+            const pause = () => { clearInterval(heroTimer); if (prog) { prog.style.transition = 'none'; } };
+            hero.addEventListener('mouseenter', pause);
             hero.addEventListener('mouseleave', restart);
+            hero.addEventListener('focusin', pause);
+            hero.addEventListener('focusout', e => { if (!hero.contains(e.relatedTarget)) restart(); });
             // Clavier
             hero.setAttribute('tabindex', '0');
             hero.addEventListener('keydown', e => {
@@ -273,7 +290,9 @@
             trendOffset = Math.max(0, trendOffset - 1); update();
         });
         document.getElementById('trendNext')?.addEventListener('click', () => {
-            trendOffset = Math.min(mangas.length - 5, trendOffset + 1); update();
+            // Audit H3 : borne plancher 0 — avec moins de 5 tendances,
+            // (length - 5) devenait négatif et translatait la piste à l'envers.
+            trendOffset = Math.min(Math.max(0, mangas.length - 5), trendOffset + 1); update();
         });
     }
 
@@ -372,9 +391,8 @@
         const el = document.getElementById('resumeList');
         if (!el) return;
         if (!API.isLoggedIn()) {
-            el.innerHTML = `<div style="color:var(--text3);padding:14px;font-size:13px">
-                Serveur injoignable — <a href="#" class="link-orange" onclick="location.reload();return false">réessayer</a>.
-            </div>`;
+            // Audit N1 : message honnête (non connecté ≠ serveur en panne)
+            el.innerHTML = `<div style="padding:10px 14px">${MH.guestNotice({ compact: true })}</div>`;
             return;
         }
         try {
@@ -399,8 +417,11 @@
                 if (r.status !== 'fulfilled' || !r.value || !r.value.title) return '';
                 const m = r.value;
                 const isNovel = MH.isNovelSource(e.source);
-                // Pour un roman, "page" = % de défilement ; pour un manga, ~20 pages/chapitre
-                const pct = isNovel ? Math.min(100, e.page || 0) : Math.min(100, Math.round((e.page / 20) * 100));
+                // Pour un roman, "page" = % de défilement ; pour un manga, %
+                // exact via le nombre réel de pages persisté (audit HIST2) —
+                // repli 0 (barre neutre) si la progression date d'avant.
+                const pct = isNovel ? Math.min(100, e.page || 0)
+                    : (e.totalPages > 0 ? Math.min(100, Math.round((e.page / e.totalPages) * 100)) : 0);
                 const sub = isNovel ? `Chapitre ${MH.chapNum(e.chapter)} · ${pct}%` : `Chapitre ${MH.chapNum(e.chapter)} · Page ${e.page}`;
                 return `
                 <div class="resume-item" data-resume="${MH.esc(m.id)}" style="position:relative">
@@ -458,13 +479,26 @@
                 </a>`).join('');
         }
 
-        // Genres populaires (lien vers le filtre par tag du catalogue)
+        // Genres populaires (audit TOP3) : construits à partir des genres
+        // réellement présents sur les œuvres populaires de la source active,
+        // au lieu d'une liste anglaise figée sans lien avec la source.
         const genreEl = document.getElementById('genreCloud');
         if (genreEl) {
-            const popular = ['Action','Adventure','Drama','Fantasy','Romance','Comedy','Slice of Life','Horror','Mystery','Sci-Fi'];
-            genreEl.innerHTML = popular.map(g =>
-                `<a href="catalogue.html?tag=${encodeURIComponent(g)}" class="tag">${g}</a>`
-            ).join('');
+            const counts = new Map();
+            (popularCache || []).concat(latestCache || []).forEach(m =>
+                (m.tags || []).forEach(t => counts.set(t, (counts.get(t) || 0) + 1)));
+            let genres = [...counts.entries()]
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .map(([g]) => g);
+            if (!genres.length) {
+                // Source sans tags sur ses listes : repli sur l'endpoint tags
+                try { genres = ((await API.mangas.tags()).results || []).slice(0, 10).map(t => t.name || t); }
+                catch (e) { genres = []; }
+            }
+            genreEl.innerHTML = genres.map(g =>
+                `<a href="catalogue.html?tag=${encodeURIComponent(g)}" class="tag">${MH.esc(g)}</a>`
+            ).join('') || '<span style="font-size:12px;color:var(--text3)">Aucun genre disponible sur cette source.</span>';
         }
 
         renderStatsMini();
@@ -489,9 +523,9 @@
         const el = document.getElementById('pollBlock');
         if (!el) return;
         if (!API.isLoggedIn()) {
+            // Audit N1 : message honnête (non connecté ≠ serveur en panne)
             el.innerHTML = `<div class="sidebar-block-header"><span class="sidebar-block-title">Ta progression</span></div>
-                <div style="font-size:12.5px;color:var(--text3);padding:4px 0 2px">
-                    Serveur injoignable — <a href="#" class="link-orange" onclick="location.reload();return false">réessayer</a>.</div>`;
+                ${MH.guestNotice({ compact: true })}`;
             return;
         }
         try {
@@ -524,8 +558,12 @@
         if (m.year) metaBits.push(`<span class="mc-year">${m.year}</span>`);
         if (m.demographic) metaBits.push(`<span class="mc-demo">${MH.esc(cap(m.demographic))}</span>`);
         if (statusLabel) metaBits.push(`<span class="mc-status mc-${m.status}">${statusLabel}</span>`);
+        // Audit C3 : le bouton favori n'est plus DANS le lien (HTML invalide,
+        // arbre d'accessibilité incorrect) — la carte est un <div> avec un
+        // lien « étendu » (.manga-card-link) et le cœur en frère au-dessus.
         return `
-        <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}" class="manga-card" data-manga-id="${m.id}"${MH.nsfwCardAttrs(m)}>
+        <div class="manga-card" data-manga-id="${m.id}">
+            <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}" class="manga-card-link" aria-label="${MH.esc(m.title)}"${MH.nsfwCardAttrs(m)}></a>
             <div class="manga-card-cover">
                 <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
@@ -544,7 +582,7 @@
                 ${sub ? `<div class="manga-card-author">${MH.esc(sub)}</div>` : ''}
                 ${metaBits.length ? `<div class="manga-card-meta">${metaBits.join('')}</div>` : ''}
             </div>
-        </a>`;
+        </div>`;
     }
 
     // Le toggle des favoris (cœurs de cartes) est géré globalement dans global.js.

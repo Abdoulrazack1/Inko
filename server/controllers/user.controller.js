@@ -122,17 +122,18 @@ async function setLibraryStatus(req, res, next) {
 async function getAllProgress(req, res, next) {
     try {
         const [rows] = await pool.query(
-            'SELECT manga_id, chapter_id, chapter_number, page, source, updated_at FROM progress WHERE user_id = ? ORDER BY updated_at DESC',
+            'SELECT manga_id, chapter_id, chapter_number, page, total_pages, source, updated_at FROM progress WHERE user_id = ? ORDER BY updated_at DESC',
             [req.user.id]
         );
         const map = {};
         rows.forEach(r => {
             map[r.manga_id] = {
-                chapterId: r.chapter_id,
-                chapter:   r.chapter_number,
-                page:      r.page,
-                source:    r.source || null,
-                updatedAt: r.updated_at,
+                chapterId:  r.chapter_id,
+                chapter:    r.chapter_number,
+                page:       r.page,
+                totalPages: r.total_pages || null,   // audit HIST2
+                source:     r.source || null,
+                updatedAt:  r.updated_at,
             };
         });
         res.json(map);
@@ -141,17 +142,22 @@ async function getAllProgress(req, res, next) {
 
 async function setProgress(req, res, next) {
     try {
-        const { chapterId, chapter, page, source } = req.body;
+        const { chapterId, chapter, page, totalPages, source } = req.body;
         const mangaId = req.params.mangaId;
+        // total_pages (audit HIST2) : persiste le vrai nombre de pages du
+        // chapitre pour que le profil calcule un % exact au lieu de deviner 20.
+        const tp = Number.isFinite(parseInt(totalPages, 10)) && parseInt(totalPages, 10) > 0
+            ? parseInt(totalPages, 10) : null;
         await pool.query(
-            `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, source)
-             VALUES (?, ?, ?, ?, ?, ?)
+            `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, total_pages, source)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 chapter_id     = VALUES(chapter_id),
                 chapter_number = VALUES(chapter_number),
                 page           = VALUES(page),
+                total_pages    = VALUES(total_pages),
                 source         = COALESCE(VALUES(source), source)`,
-            [req.user.id, mangaId, chapterId || null, chapter || null, page || 1, source || null]
+            [req.user.id, mangaId, chapterId || null, chapter || null, page || 1, tp, source || null]
         );
         await pushEvent(req.user.id, 'read',
             { mangaId, chapterId, metadata: { chapter, page } });
@@ -707,52 +713,72 @@ async function importData(req, res, next) {
         const d = req.body || {};
         const counts = { favorites: 0, library: 0, progress: 0, readChapters: 0, ratings: 0 };
 
-        for (const f of (d.favorites || [])) {
-            if (!f.manga_id && !f.mangaId) continue;
-            const mid = f.manga_id || f.mangaId;
-            await pool.query(
-                `INSERT INTO favorites (user_id, manga_id, source, title, cover, category, last_chapter)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE source=COALESCE(VALUES(source),source),
-                   title=COALESCE(VALUES(title),title), cover=COALESCE(VALUES(cover),cover),
-                   category=COALESCE(VALUES(category),category)`,
-                [uid, mid, f.source || null, f.title || null, f.cover || null, f.category || null, f.last_chapter ?? null]
-            ).then(() => counts.favorites++).catch(() => {});
+        // Audit B3 : import batché (INSERT ... VALUES ? multi-lignes, par
+        // paquets de 500) au pattern de markChaptersBulk — l'ancienne version
+        // faisait une requête await-ée PAR entrée : sur une sauvegarde de
+        // plusieurs milliers d'items, l'import durait des dizaines de
+        // secondes et risquait un timeout côté front.
+        const CHUNK = 500;
+        async function bulk(sql, rows, cb) {
+            for (let i = 0; i < rows.length; i += CHUNK) {
+                const slice = rows.slice(i, i + CHUNK);
+                try {
+                    await pool.query(sql, [slice]);
+                    cb(slice.length);
+                } catch (e) {
+                    // Un paquet en erreur (donnée corrompue) n'annule pas le reste
+                    console.warn('[import] paquet ignoré :', e.code || e.message);
+                }
+            }
         }
-        for (const l of (d.library || [])) {
-            const mid = l.manga_id || l.mangaId; if (!mid) continue;
-            await pool.query(
-                `INSERT INTO library (user_id, manga_id, status, rating) VALUES (?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE status=VALUES(status), rating=VALUES(rating)`,
-                [uid, mid, l.status || 'reading', l.rating ?? null]
-            ).then(() => counts.library++).catch(() => {});
-        }
-        for (const p of (d.progress || [])) {
-            const mid = p.manga_id || p.mangaId; if (!mid) continue;
-            await pool.query(
-                `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, source)
-                 VALUES (?, ?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE chapter_id=VALUES(chapter_id), chapter_number=VALUES(chapter_number),
-                   page=VALUES(page), source=COALESCE(VALUES(source),source)`,
-                [uid, mid, p.chapter_id || p.chapterId || null, p.chapter_number ?? p.chapter ?? null, p.page || 1, p.source || null]
-            ).then(() => counts.progress++).catch(() => {});
-        }
-        for (const r of (d.readChapters || [])) {
-            const mid = r.manga_id || r.mangaId, cid = r.chapter_id || r.chapterId;
-            if (!mid || !cid) continue;
-            await pool.query(
-                `INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?, ?, ?, ?)`,
-                [uid, mid, cid, r.chapter_number ?? r.chapter ?? null]
-            ).then(() => counts.readChapters++).catch(() => {});
-        }
-        for (const r of (d.ratings || [])) {
-            const mid = r.manga_id || r.mangaId; if (!mid || r.rating == null) continue;
-            await pool.query(
-                `INSERT INTO ratings (user_id, manga_id, rating, review) VALUES (?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE rating=VALUES(rating), review=VALUES(review)`,
-                [uid, mid, r.rating, r.review || null]
-            ).then(() => counts.ratings++).catch(() => {});
-        }
+
+        const favRows = (d.favorites || [])
+            .filter(f => f.manga_id || f.mangaId)
+            .map(f => [uid, f.manga_id || f.mangaId, f.source || null, f.title || null,
+                       f.cover || null, f.category || null, f.last_chapter ?? null]);
+        await bulk(
+            `INSERT INTO favorites (user_id, manga_id, source, title, cover, category, last_chapter)
+             VALUES ?
+             ON DUPLICATE KEY UPDATE source=COALESCE(VALUES(source),source),
+               title=COALESCE(VALUES(title),title), cover=COALESCE(VALUES(cover),cover),
+               category=COALESCE(VALUES(category),category)`,
+            favRows, n => counts.favorites += n);
+
+        const libRows = (d.library || [])
+            .filter(l => l.manga_id || l.mangaId)
+            .map(l => [uid, l.manga_id || l.mangaId, l.status || 'reading', l.rating ?? null]);
+        await bulk(
+            `INSERT INTO library (user_id, manga_id, status, rating) VALUES ?
+             ON DUPLICATE KEY UPDATE status=VALUES(status), rating=VALUES(rating)`,
+            libRows, n => counts.library += n);
+
+        const progRows = (d.progress || [])
+            .filter(p => p.manga_id || p.mangaId)
+            .map(p => [uid, p.manga_id || p.mangaId, p.chapter_id || p.chapterId || null,
+                       p.chapter_number ?? p.chapter ?? null, p.page || 1, p.source || null]);
+        await bulk(
+            `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, source)
+             VALUES ?
+             ON DUPLICATE KEY UPDATE chapter_id=VALUES(chapter_id), chapter_number=VALUES(chapter_number),
+               page=VALUES(page), source=COALESCE(VALUES(source),source)`,
+            progRows, n => counts.progress += n);
+
+        const readRows = (d.readChapters || [])
+            .filter(r => (r.manga_id || r.mangaId) && (r.chapter_id || r.chapterId))
+            .map(r => [uid, r.manga_id || r.mangaId, r.chapter_id || r.chapterId,
+                       r.chapter_number ?? r.chapter ?? null]);
+        await bulk(
+            'INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES ?',
+            readRows, n => counts.readChapters += n);
+
+        const rateRows = (d.ratings || [])
+            .filter(r => (r.manga_id || r.mangaId) && r.rating != null)
+            .map(r => [uid, r.manga_id || r.mangaId, r.rating, r.review || null]);
+        await bulk(
+            `INSERT INTO ratings (user_id, manga_id, rating, review) VALUES ?
+             ON DUPLICATE KEY UPDATE rating=VALUES(rating), review=VALUES(review)`,
+            rateRows, n => counts.ratings += n);
+
         res.json({ ok: true, imported: counts });
     } catch (e) { next(e); }
 }

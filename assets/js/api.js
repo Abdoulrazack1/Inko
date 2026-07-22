@@ -7,9 +7,15 @@
 (function () {
     'use strict';
 
-    // Si l'app est servie par le backend Node : même origine.
-    // Si servie par http-server statique : backend séparé.
-    const SAME_ORIGIN_BACKEND = ['8088'].includes(location.port);
+    // Si l'app est servie par le backend Node : même origine — c'est le cas
+    // en local (:8088), en Docker direct (:8088→8080) ET derrière un
+    // reverse-proxy HTTPS standard (Cloudflare Tunnel, Caddy… port implicite),
+    // où le backend sert aussi le frontend (audit S7 : l'ancienne détection
+    // « port === 8088 » cassait l'accès distant via tunnel).
+    // Seul cas de backend séparé : serveur statique de dev (Live Server & co).
+    const DEV_STATIC_PORTS = ['5500', '5501', '5173', '4173', '3000'];
+    const SAME_ORIGIN_BACKEND = location.protocol !== 'file:'
+        && !DEV_STATIC_PORTS.includes(location.port);
     const API_BASE = SAME_ORIGIN_BACKEND
         ? '/api'
         : 'http://localhost:8088/api';
@@ -76,6 +82,10 @@
                 ? 'Délai dépassé — le serveur met trop de temps à répondre.'
                 : 'Connexion impossible — vérifie ta connexion réseau.');
             err.status = 0; err.network = true;
+            // Audit M8 : les écritures de lecture faites hors-ligne (marquer
+            // lu, progression) étaient simplement perdues — elles sont
+            // désormais mises en file et rejouées au retour du réseau.
+            queueOffline(method, path, body);
             try { window.dispatchEvent(new CustomEvent('api:error', { detail: err })); } catch (_) { window.MH?.err?.('api.js', _); }
             throw err;
         } finally {
@@ -117,6 +127,55 @@
     const post = (p, body) => request('POST', p, body);
     const put  = (p, body) => request('PUT', p, body);
     const del  = (p)       => request('DELETE', p);
+
+    // ── File offline → online (audit M8) ─────────────────────
+    // Seules les écritures de lecture, idempotentes et rejouables sans
+    // risque, sont mises en file : progression (PUT écrase), marquage lu
+    // (INSERT IGNORE côté serveur). Rejouées dans l'ordre au retour du
+    // réseau ; entrées > 7 jours abandonnées ; file bornée à 200.
+    const OFFLINE_KEY = 'inko_offline_queue_v1';
+    const OFFLINE_OK = [
+        { method: 'PUT',  re: /^\/me\/progress\// },
+        { method: 'POST', re: /^\/me\/read-chapters(\/bulk)?$/ },
+    ];
+    function readQueue() {
+        try { return JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]'); }
+        catch (e) { return []; }
+    }
+    function writeQueue(q) {
+        try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(q.slice(-200))); }
+        catch (e) { window.MH?.err?.('api.js', e); }
+    }
+    function queueOffline(method, path, body) {
+        if (!OFFLINE_OK.some(r => r.method === method && r.re.test(path))) return;
+        const q = readQueue();
+        // Dédoublonne la progression : une seule entrée par œuvre (la dernière gagne)
+        const filtered = method === 'PUT' ? q.filter(e => !(e.method === 'PUT' && e.path === path)) : q;
+        filtered.push({ method, path, body, at: Date.now() });
+        writeQueue(filtered);
+    }
+    let _flushing = false;
+    async function flushOfflineQueue() {
+        if (_flushing || !navigator.onLine || !_token) return;
+        const q = readQueue().filter(e => Date.now() - e.at < 7 * 86400000);
+        if (!q.length) { writeQueue([]); return; }
+        _flushing = true;
+        const remaining = [];
+        for (const e of q) {
+            try { await request(e.method, e.path, e.body); }
+            catch (err) {
+                if (err.network) { remaining.push(e); }   // toujours hors-ligne : on garde
+                // erreur applicative (4xx/5xx) : on abandonne l'entrée (pas de boucle)
+            }
+        }
+        writeQueue(remaining);
+        _flushing = false;
+        if (q.length > remaining.length) {
+            window.MH?.toast?.(`${q.length - remaining.length} action(s) hors-ligne synchronisée(s) ✓`);
+        }
+    }
+    window.addEventListener('online', () => setTimeout(flushOfflineQueue, 1500));
+    setTimeout(flushOfflineQueue, 4000);   // rattrapage au chargement de page
 
     // ── Proxy de couvertures ──────────────────────────────────
     // Réécrit vers /api/img (cache serveur + bon Referer + compat Cloudflare)
@@ -321,9 +380,16 @@
             markChaptersBulk: (mangaId, chapters) => post('/me/read-chapters/bulk', { mangaId, chapters }),
 
             // ── Journal de lecture (notes personnelles) ──
-            notes:            (opts = {})  => get('/me/notes' + (opts.manga ? '?manga=' + encodeURIComponent(opts.manga)
-                                                    : (opts.q ? '?q=' + encodeURIComponent(opts.q) : '')))
-                                                .then(r => { (r.notes || []).forEach(n => { if (n.cover) n.cover = proxyCover(n.cover); }); return r; }),
+            notes:            (opts = {})  => {
+                                                // Pagination (audit J2) : offset/limit cumulables avec manga/q
+                                                const qs = [];
+                                                if (opts.manga)  qs.push('manga='  + encodeURIComponent(opts.manga));
+                                                if (opts.q)      qs.push('q='      + encodeURIComponent(opts.q));
+                                                if (opts.limit)  qs.push('limit='  + opts.limit);
+                                                if (opts.offset) qs.push('offset=' + opts.offset);
+                                                return get('/me/notes' + (qs.length ? '?' + qs.join('&') : ''))
+                                                    .then(r => { (r.notes || []).forEach(n => { if (n.cover) n.cover = proxyCover(n.cover); }); return r; });
+                                              },
             notesStats:       ()           => get('/me/notes/stats'),
             addNote:          (payload)    => post('/me/notes', payload),
             updateNote:       (id, payload) => put('/me/notes/' + encodeURIComponent(id), payload),
@@ -373,7 +439,7 @@
 
         // ── Notifications in-app + Web Push ──
         notifications: {
-            list:      (limit = 30) => get('/me/notifications?limit=' + limit),
+            list:      (limit = 30, offset = 0) => get('/me/notifications?limit=' + limit + (offset ? '&offset=' + offset : '')),
             unread:    ()           => get('/me/notifications/unread'),
             markRead:  (id)         => post('/me/notifications/' + id + '/read'),
             markAll:   ()           => post('/me/notifications/read-all'),

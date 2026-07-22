@@ -7,10 +7,8 @@
         const body = document.getElementById('stBody');
         await (window.API?.ready || Promise.resolve());
         if (!API.isLoggedIn()) {
-            body.innerHTML = `<div class="st-empty">
-                <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px">Serveur injoignable</div>
-                <div style="margin-bottom:16px">Impossible de joindre le serveur Inko.</div>
-                <button class="btn btn-primary" onclick="location.reload()">Réessayer</button></div>`;
+            // Audit N1 : message honnête (non connecté ≠ serveur en panne)
+            body.innerHTML = `<div class="st-empty">${MH.guestNotice()}</div>`;
             return;
         }
         try {

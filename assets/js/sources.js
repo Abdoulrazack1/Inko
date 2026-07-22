@@ -99,6 +99,10 @@
         }
 
         const active = API.sources.current || sources[0].id;
+        // Audit S9/CAT5 : désinstaller/réinstaller impactent toute l'instance —
+        // le serveur exige désormais un rôle admin, l'UI s'aligne (les boutons
+        // n'apparaissent plus pour un simple compte d'un hub multi-utilisateurs).
+        const isAdmin = API.user?.role === 'admin';
 
         const card = (s) => {
         const disabled = !MH.isSourceEnabled(s.id);
@@ -129,7 +133,7 @@
                         : `<button class="btn btn-primary btn-sm" data-activate="${MH.esc(s.id)}">Activer</button>`)}
                 <button class="btn btn-secondary btn-sm" data-test="${MH.esc(s.id)}" title="Vérifier que la source répond">Tester</button>
                 <button class="btn btn-secondary btn-sm" data-toggle-src="${MH.esc(s.id)}" title="${disabled ? 'Réactiver cette source' : 'Ne plus utiliser cette source (masquée en recherche)'}">${disabled ? 'Réactiver' : 'Désactiver'}</button>
-                <button class="btn btn-ghost btn-sm" data-uninstall-src="${MH.esc(s.id)}" title="Désinstaller complètement cette extension" style="color:var(--hanko,#a83232)">Désinstaller</button>
+                ${isAdmin ? `<button class="btn btn-ghost btn-sm" data-uninstall-src="${MH.esc(s.id)}" title="Désinstaller complètement cette extension" style="color:var(--hanko,#a83232)">Désinstaller</button>` : ''}
                 <span class="source-test-result" data-test-result="${MH.esc(s.id)}" style="font-size:11px;margin-left:6px"></span>
             </div>
         </div>`;
@@ -149,8 +153,11 @@
             </div>` : '';
 
         // Extensions désinstallées (issue #2) : section pour réinstaller
+        // (admins uniquement — audit S9 : la réinstallation impacte l'instance)
         let uninstalled = [];
-        try { uninstalled = await API.sources.uninstalled(); } catch (e) { window.MH?.err?.('sources.js', e); }
+        if (isAdmin) {
+            try { uninstalled = await API.sources.uninstalled(); } catch (e) { window.MH?.err?.('sources.js', e); }
+        }
         const reinstallSection = uninstalled.length ? `
             <div class="sources-group">
                 <div class="sources-group-head">

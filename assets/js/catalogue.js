@@ -393,8 +393,10 @@
         const src = m._source || API.sources.current;
         const isNovel = MH.isNovelSource(src);
         const srcNsfw = (sourcesList.find(s => s.id === src) || {}).nsfw;
+        // Audit C3 : lien « étendu » + cœur en frère (plus de bouton dans un lien)
         return `
-        <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}" class="manga-card" data-manga-id="${MH.esc(m.id)}"${MH.nsfwCardAttrs(m, srcNsfw)}>
+        <div class="manga-card" data-manga-id="${MH.esc(m.id)}">
+            <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}" class="manga-card-link" aria-label="${MH.esc(m.title)}"${MH.nsfwCardAttrs(m, srcNsfw)}></a>
             <div class="manga-card-cover">
                 <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
@@ -409,7 +411,7 @@
                 </div>
             </div>
             <div class="manga-card-info">${cardInfoHTML(m)}</div>
-        </a>`;
+        </div>`;
     }
 
     // Enrichit en arrière-plan les cartes "pauvres" via getManga (sources dont la
@@ -486,7 +488,10 @@
             const data = await API.mangas.popular({ limit: 10 });
             const list = data.results || [];
             if (!list.length) { el.remove(); return; }
-            const m = list[Math.floor(Math.random() * list.length)];
+            // Audit CAT2 : « du moment » = stable sur la journée (seed = date),
+            // plus un tirage aléatoire différent à chaque rechargement.
+            const daySeed = Math.floor(Date.now() / 86400000);
+            const m = list[daySeed % list.length];
             el.innerHTML = `
                 <div class="focus-label">Focus du moment</div>
                 <div class="focus-cover"><img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"></div>
