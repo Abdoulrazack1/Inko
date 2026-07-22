@@ -53,7 +53,7 @@ jobs:
           "Asset: $($setup.Name)"
 
       - name: Upload installers to the release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             desktop-tauri/src-tauri/target/release/bundle/nsis/*-setup.exe
