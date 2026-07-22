@@ -219,6 +219,14 @@ Catalogue communautaire versionné : [`extensions-community/`](extensions-commun
 — 9 sources fournies : MangaDex, Weeb Central, SushiScan, Royal Road, NovelFull,
 NovelBin, Chireads, Project Gutenberg (EN) et Livres en français (Gutenberg FR).
 
+> ⚠️ **Sécurité des extensions** : une extension est du JavaScript exécuté avec
+> les pleins droits du serveur (disque, réseau) — le modèle « façon Mihon »
+> n'est pas sandboxé. Le canal officiel est protégé (tag de release figé +
+> vérification SHA-256 fail-closed), mais une extension **installée à la main**
+> revient à faire tourner du code tiers de confiance : n'installe que du code
+> que tu as lu ou dont tu connais l'auteur. Le serveur signale au démarrage
+> toute extension hors canal officiel.
+
 ---
 
 ## Mobile & multi-appareils
@@ -227,6 +235,26 @@ Il n'y a pas (encore) d'app mobile native. Sur téléphone, Inko s'utilise en
 **PWA** : ouvre l'instance dans le navigateur (ton hub à la maison — voir plus
 bas) et « Ajouter à l'écran d'accueil ». La PWA parle au hub comme n'importe quel
 client : même bibliothèque, même progression, notifications incluses.
+
+### Ce qui synchronise entre appareils (mode hub)
+
+Tout ce qui transite par le compte suit d'un appareil à l'autre :
+
+- ✅ favoris, bibliothèque, progression de lecture (mangas ET romans en ligne) ;
+- ✅ notes de journal, avis, réglages du compte, historique ;
+- ✅ état activé/désactivé de chaque source ;
+- ✅ position de lecture des **fichiers importés** (EPUB/CBZ/PDF) — le fichier
+  vit sur le hub, la reprise « page où j'en étais » suit le compte ;
+- ✅ les actions faites **hors-ligne** (marquer lu, progression) sont mises en
+  file et rejouées automatiquement au retour du réseau.
+
+Ce qui reste volontairement **par appareil** :
+
+- 📱 les téléchargements hors-ligne (cache local pour l'avion/le métro) —
+  « téléchargé » sur un appareil ne veut pas dire « disponible hors-ligne »
+  sur les autres ;
+- 🖥️ en mode desktop pur (sans hub), chaque installation a sa propre base :
+  la continuité entre deux PC passe par Exporter/Importer (Paramètres).
 
 ## Comptes liés (optionnels)
 

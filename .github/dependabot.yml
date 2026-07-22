@@ -1,0 +1,37 @@
+# Audit §4 : les mises à jour de dépendances (126 côté serveur) étaient
+# entièrement manuelles. Dependabot ouvre des PR hebdomadaires groupées.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      server-deps:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      tooling:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: cargo
+    directory: /desktop-tauri/src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
