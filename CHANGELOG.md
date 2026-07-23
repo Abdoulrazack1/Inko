@@ -3,6 +3,28 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.3.4 — Lecture fluide sur les longs chapitres et les volumes
+
+**Lecteur**
+- **Le mode défilement ne charge plus tout le chapitre d'un coup.** Toutes les
+  pages étaient réclamées en même temps dès l'ouverture : supportable sur un
+  chapitre court, ingérable sur un chapitre long — et catastrophique sur un
+  **volume complet**. Les pages sont désormais chargées au fil du défilement,
+  par petits paquets, et celles qu'on a laissées loin derrière sont libérées.
+- **La barre de défilement est juste dès l'ouverture** : chaque page réserve sa
+  place avant même d'être chargée, donc plus de sauts pendant la lecture.
+- **Fichiers importés (CBZ) : gros gain sur les volumes.** Chaque page était
+  décompressée et gardée en mémoire jusqu'à la fermeture du fichier. Sur un
+  volume de 300 pages, la mémoire utilisée passe d'environ **1 Go à 8 Mo**.
+- Une page qui a échoué se recharge proprement avec « Réessayer », sans
+  relancer tout le chapitre.
+
+**Paramètres**
+- Nouveau bouton **« Vider le cache »** (section Application) : remet l'app à
+  neuf si l'affichage reste figé ou incohérent après une mise à jour. Ton
+  compte, ta bibliothèque, ta progression et tes **chapitres téléchargés
+  hors-ligne sont conservés**.
+
 ## 2.3.3 — Audit de juillet : sécurité, synchro multi-appareils & radio
 
 **Sécurité (audit du 21-22 juillet, traité en entier)**
