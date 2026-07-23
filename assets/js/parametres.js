@@ -190,6 +190,50 @@
         // Bouton "Ouvrir le lecteur" de musique
         document.getElementById('btnReplayTour')?.addEventListener('click', () => MH.startTour());
 
+    // ── Vider le cache ──
+    // Après une mise à jour, la fenêtre desktop (ou la PWA) peut rester sur
+    // d'anciens fichiers en cache et afficher un écran figé/incohérent. Ce
+    // bouton remet l'app à neuf SANS toucher aux données : on préserve la
+    // session, les réglages et le cache hors-ligne des chapitres téléchargés.
+    (function () {
+        const btn = document.getElementById('btnClearCache');
+        const st  = document.getElementById('cacheStatus');
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+            const ok = await MH.confirm(
+                "L'app va se recharger à neuf. Ton compte, ta bibliothèque, ta progression et tes chapitres téléchargés hors-ligne sont conservés.",
+                { title: 'Vider le cache ?', okText: 'Vider le cache' }
+            );
+            if (!ok) return;
+            btn.disabled = true;
+            const before = st.textContent;
+            st.textContent = 'Nettoyage en cours…';
+            try {
+                let n = 0;
+                if ('caches' in window) {
+                    for (const k of await caches.keys()) {
+                        // 'inko-offline' = chapitres téléchargés par l'utilisateur : on n'y touche pas
+                        if (k === 'inko-offline') continue;
+                        if (await caches.delete(k)) n++;
+                    }
+                }
+                // Force le service worker à repartir sur la version courante
+                if ('serviceWorker' in navigator) {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(regs.map(r => r.update().catch(() => r.unregister())));
+                }
+                st.textContent = `${n} cache(s) vidé(s) — rechargement…`;
+                MH.toast('Cache vidé ✓');
+                setTimeout(() => location.reload(true), 900);
+            } catch (e) {
+                window.MH?.err?.('parametres.js', e);
+                st.textContent = before;
+                btn.disabled = false;
+                MH.toast('Impossible de vider le cache');
+            }
+        });
+    })();
+
     // ── Carte Application : version + mises à jour ──
     (async function () {
         const vEl = document.getElementById('appVersion');
