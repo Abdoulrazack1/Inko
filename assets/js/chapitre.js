@@ -256,6 +256,68 @@
                  onload="this.classList.add('loaded')" onerror="window.imgFail&&window.imgFail(this)"
                  decoding="async" loading="${lazy ? 'lazy' : 'eager'}" ${extra}>`;
     }
+
+    // ── Défilement virtualisé (chapitres longs ET volumes entiers) ──
+    // Avant : toutes les pages étaient créées sans hauteur, tombaient donc
+    // toutes dans la marge de préchargement et partaient EN MÊME TEMPS —
+    // supportable sur 18 pages, intenable sur un volume de 300-500 pages
+    // (autant de requêtes d'un coup sur une source de scraping + autant
+    // d'images décodées en mémoire → trous, blocages, crash mobile).
+    // Maintenant : hauteur réservée d'emblée, fenêtre glissante de chargement,
+    // déchargement des pages lointaines et concurrence bornée.
+    const RATIO_DEFAUT = 1.45;              // hauteur/largeur typique d'une planche
+    const pageRatios   = new Map();         // idx -> ratio réel une fois connu
+    const LOAD_NEAR    = 3;                 // pages chargées de part et d'autre
+    const KEEP_LOADED  = 10;                // au-delà : on décharge (mémoire)
+    const MAX_PARALLEL = 3;                 // requêtes simultanées max
+    let   loadQueue = [], loadActive = 0, scrollObservers = [];
+
+    function ratioOf(idx) { return pageRatios.get(idx) || RATIO_DEFAUT; }
+
+    // Marque-place : une image SANS src mais avec sa hauteur réservée
+    function placeholderImg(idx) {
+        return `<img class="reader-page-img" data-idx="${idx}" data-page="${idx + 1}"
+                 alt="Page ${idx + 1}" decoding="async"
+                 style="width:100%;aspect-ratio:1/${ratioOf(idx)};background:var(--bg2,#141414)"
+                 onerror="window.imgFail&&window.imgFail(this)">`;
+    }
+
+    function enqueueLoad(img) {
+        if (img.dataset.state === 'loading' || img.dataset.state === 'loaded') return;
+        img.dataset.state = 'loading';
+        loadQueue.push(img);
+        pumpQueue();
+    }
+    function pumpQueue() {
+        while (loadActive < MAX_PARALLEL && loadQueue.length) {
+            const img = loadQueue.shift();
+            if (!img.isConnected) continue;
+            const idx = +img.dataset.idx;
+            const p = pages[idx];
+            if (!p) continue;
+            loadActive++;
+            const done = () => { loadActive--; pumpQueue(); };
+            img.onload = () => {
+                img.classList.add('loaded');
+                img.dataset.state = 'loaded';
+                if (img.naturalWidth) {
+                    // Hauteur exacte mémorisée : le déchargement ne fera plus sauter la page
+                    const r = img.naturalHeight / img.naturalWidth;
+                    pageRatios.set(idx, r);
+                    img.style.aspectRatio = `1/${r}`;
+                }
+                done();
+            };
+            img.addEventListener('error', done, { once: true });
+            img.src = pageSrc(p);   // échange explicite : déclenche vraiment le fetch
+        }
+    }
+    function unloadImg(img) {
+        if (img.dataset.state !== 'loaded') return;
+        img.dataset.state = '';
+        img.classList.remove('loaded');
+        img.removeAttribute('src');      // libère l'image décodée, la hauteur reste réservée
+    }
     // Les images déjà en cache peuvent être "complete" avant le binding
     function armImages(root) {
         (root || document).querySelectorAll('.reader-page-img').forEach(im => {
@@ -281,8 +343,9 @@
             delete img.dataset.triedSaver;
             div.remove();
             img.style.display = '';
-            const url = pageSrc(p);
-            img.src = ''; img.src = url;   // force un vrai re-fetch
+            img.dataset.state = '';        // repasse en « à charger » (défilement virtualisé)
+            img.removeAttribute('src');
+            enqueueLoad(img);              // repasse par la file bornée
         };
         img.style.display = 'none';
         img.after(div);
@@ -320,42 +383,54 @@
         // Le zoom passe par la LARGEUR (pas transform:scale, qui laisserait le
         // bas du chapitre déborder sous la zone scrollable et inatteignable).
         const widthPct = Math.max(20, Math.min(100, zoom));
-        // Défilement : les 6 premières pages en eager, les suivantes en lazy
-        // mais avec un rootMargin large (préchargées bien avant d'être visibles)
-        // → jamais de « trou » ni de chapitre incomplet en scrollant vite.
+        // Toutes les pages sont créées en marque-place (hauteur réservée, pas de
+        // src) : la barre de défilement est juste dès le départ, même sur un
+        // volume de 500 pages, et seules les pages proches sont réellement
+        // téléchargées (voir enqueueLoad / unloadImg plus haut).
+        scrollObservers.forEach(o => { try { o.disconnect(); } catch (e) { /* déjà libéré */ } });
+        scrollObservers = [];
+        loadQueue = []; loadActive = 0;
         el.innerHTML = `
         <div class="reader-page-wrapper reader-scroll-wrapper" style="display:flex;flex-direction:column;align-items:center;gap:${rs.gap}px;width:${widthPct}%;margin:0 auto">
-            ${pages.map((p, i) => pageImg(i, `data-page="${i+1}"`, i >= 6)).join('')}
+            ${pages.map((p, i) => placeholderImg(i)).join('')}
         </div>
         <div class="page-counter-badge"><strong>${totalPages}</strong> pages — défilement</div>`;
 
-        // Préchargement anticipé : dès qu'une page approche (2000px avant), on
-        // force son chargement — indépendant du lazy natif, qui pouvait tarder.
-        if ('IntersectionObserver' in window) {
-            const pre = new IntersectionObserver((ents, obs) => {
-                ents.forEach(en => {
-                    if (!en.isIntersecting) return;
-                    const im = en.target;
-                    if (im.loading === 'lazy') im.loading = 'eager';   // force le fetch
-                    obs.unobserve(im);
-                });
-            }, { rootMargin: '2000px 0px' });
-            el.querySelectorAll('.reader-page-img').forEach(im => pre.observe(im));
+        const imgs = [...el.querySelectorAll('.reader-page-img')];
+
+        // Recalcule la fenêtre : charge autour de la page visible, décharge loin.
+        function refreshWindow(centerIdx) {
+            for (const im of imgs) {
+                const d = Math.abs(+im.dataset.idx - centerIdx);
+                if (d <= LOAD_NEAR) enqueueLoad(im);
+                else if (d > KEEP_LOADED) unloadImg(im);
+            }
         }
 
         if ('IntersectionObserver' in window) {
+            // Déclenche le chargement des pages qui approchent (~1 écran avant)
+            const near = new IntersectionObserver((ents) => {
+                ents.forEach(en => { if (en.isIntersecting) enqueueLoad(en.target); });
+            }, { rootMargin: '150% 0px' });
+            imgs.forEach(im => near.observe(im));
+            scrollObservers.push(near);
+
+            // Suit la page visible (avance ET retours arrière) + pilote la fenêtre
             const io = new IntersectionObserver(entries => {
                 entries.forEach(en => {
-                    if (en.isIntersecting) {
-                        // Suit la page visible (lecture avant ET retours arrière / sauts)
-                        const p = +en.target.dataset.page;
-                        if (p !== currentPage) { currentPage = p; updateUIPage(p); }
-                    }
+                    if (!en.isIntersecting) return;
+                    const p = +en.target.dataset.page;
+                    if (p !== currentPage) { currentPage = p; updateUIPage(p); }
+                    refreshWindow(p - 1);
                 });
-            }, { threshold: 0.5 });
-            el.querySelectorAll('[data-page]').forEach(img => io.observe(img));
+            }, { threshold: 0.3 });
+            imgs.forEach(im => io.observe(im));
+            scrollObservers.push(io);
+        } else {
+            imgs.forEach(im => enqueueLoad(im));   // repli : navigateurs sans IO
         }
-        armImages(el);
+
+        refreshWindow(Math.max(0, currentPage - 1));   // amorce autour de la position courante
         updateUIPage(currentPage);
     }
 

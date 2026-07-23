@@ -181,31 +181,90 @@
         const cont = document.getElementById('lrImages');
 
         // 1) Structure affichée immédiatement : tous les <img> sont créés d'abord,
-        //    la page n'attend plus la décompression séquentielle (audit — l'ancienne
-        //    boucle `await` bloquait l'affichage plusieurs secondes sur un gros CBZ).
+        //    avec une hauteur RÉSERVÉE (aspect-ratio) — la barre de défilement est
+        //    juste dès le départ et la page n'attend aucune décompression.
         const imgs = names.map((_, i) => {
             const im = new Image();
-            im.loading = 'lazy'; im.dataset.idx = i; im.alt = 'Page ' + (i + 1);
+            im.dataset.idx = i; im.alt = 'Page ' + (i + 1);
+            im.style.width = '100%';
+            im.style.aspectRatio = '1/1.45';   // affiné à la vraie valeur une fois décompressée
             cont.appendChild(im);
             return im;
         });
 
-        // 2) Décompression avec concurrence limitée (parallélise sans saturer le CPU).
-        let next = 0;
-        const CONCURRENCY = 4;
-        const worker = async () => {
-            while (next < names.length) {
-                const i = next++;
-                try { imgs[i].src = mkUrl(await zip.files[names[i]].async('blob')); }
-                catch (e) { imgs[i].alt = 'Page ' + (i + 1) + ' illisible'; }
+        // 2) Décompression VIRTUALISÉE : un volume complet (300-500 pages) ne tient
+        //    pas en mémoire si on décompresse tout. Avant, chaque page était
+        //    décompressée en blob et son objectURL n'était libéré qu'à la fermeture
+        //    → ~400 Mo retenus sur un volume. Désormais : seules les pages proches
+        //    sont décompressées, les lointaines sont libérées (revokeObjectURL).
+        const NEAR = 3, KEEP = 10, CONCURRENCY = 4;
+        const urls = new Map();                 // idx -> objectURL vivant
+        let queue = [], active = 0;
+
+        function unload(i) {
+            const u = urls.get(i);
+            if (!u) return;
+            URL.revokeObjectURL(u);             // libère vraiment la mémoire
+            urls.delete(i);
+            imgs[i].removeAttribute('src');
+            imgs[i].dataset.state = '';
+        }
+        function enqueue(i) {
+            const im = imgs[i];
+            if (!im || im.dataset.state) return;   // 'loading' ou 'loaded'
+            im.dataset.state = 'loading';
+            queue.push(i);
+            pump();
+        }
+        function pump() {
+            while (active < CONCURRENCY && queue.length) {
+                const i = queue.shift();
+                active++;
+                zip.files[names[i]].async('blob')
+                    .then(blob => {
+                        if (imgs[i].dataset.state !== 'loading') return;   // déchargée entre-temps
+                        const u = URL.createObjectURL(blob);
+                        urls.set(i, u);
+                        imgs[i].onload = () => {
+                            if (imgs[i].naturalWidth) {
+                                imgs[i].style.aspectRatio = `1/${imgs[i].naturalHeight / imgs[i].naturalWidth}`;
+                            }
+                        };
+                        imgs[i].src = u;
+                        imgs[i].dataset.state = 'loaded';
+                    })
+                    .catch(() => { imgs[i].alt = 'Page ' + (i + 1) + ' illisible'; imgs[i].dataset.state = ''; })
+                    .finally(() => { active--; pump(); });
             }
-        };
+        }
+        function refresh(center) {
+            for (let i = 0; i < imgs.length; i++) {
+                const d = Math.abs(i - center);
+                if (d <= NEAR) enqueue(i);
+                else if (d > KEEP) unload(i);
+            }
+        }
+
+        if ('IntersectionObserver' in window) {
+            const io = new IntersectionObserver(ents => {
+                ents.forEach(e => { if (e.isIntersecting) refresh(+e.target.dataset.idx); });
+            }, { threshold: 0.1, rootMargin: '150% 0px' });
+            imgs.forEach(im => io.observe(im));
+        } else {
+            imgs.forEach((_, i) => enqueue(i));
+        }
 
         trackPages(cont, 'img');
-        await Promise.all(Array.from({ length: Math.min(CONCURRENCY, names.length) }, worker));
 
         const saved = progLoad();
-        if (saved && saved.mode === 'page' && saved.page) restoreToChild(cont, saved.page);
+        if (saved && saved.mode === 'page' && saved.page) {
+            restoreToChild(cont, saved.page);
+            refresh(Math.max(0, saved.page - 1));
+        } else {
+            refresh(0);
+        }
+        // Libère tout ce qui reste à la fermeture du fichier
+        window.addEventListener('beforeunload', () => urls.forEach(u => URL.revokeObjectURL(u)));
     }
 
     // ── EPUB : texte (spine OPF) ──
