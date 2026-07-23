@@ -10,6 +10,6 @@
     "check-sources": "node tools/check-sources.js"
   },
   "devDependencies": {
-    "eslint": "^9.9.0"
+    "eslint": "^10.7.0"
   }
 }
