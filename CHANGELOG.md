@@ -56,7 +56,9 @@ publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releas
 **Sous le capot**
 - Migrations de base versionnées, quota de stockage par utilisateur sur les
   imports, alertes de stockage avant téléchargement, caches mémoire bornés,
-  Dependabot, **28 tests** (unitaires + intégration MySQL).
+  Dependabot, **32 tests** (unitaires + intégration MySQL).
+- Démarrage de la base embarquée à toute épreuve : le durcissement du mot de
+  passe root est best-effort et ne peut jamais empêcher l'app de se lancer.
 
 ## 2.3.2 — Fenêtre premium, actualisation fiable & MAJ robustes
 
