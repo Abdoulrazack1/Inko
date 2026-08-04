@@ -39,6 +39,11 @@ const ALWAYS = [
     '/assets/img/icon-512.png',
     '/assets/js/onboarding.js',   // chargé dynamiquement par global.js
     '/assets/css/music.css',      // injecté par music.js (injectCSS)
+    // Importé par @import DANS global.css : invisible pour un scan du HTML.
+    // Les .woff2 eux-mêmes ne sont pas précachés (634 Ko pour 27 coupes
+    // alourdiraient l'installation) — le service worker les met en cache au
+    // premier usage via staleWhileRevalidate, ce qui suffit pour le hors-ligne.
+    '/assets/css/fonts.css',
 ];
 
 // Libs vendor lourdes chargées à la demande : on ne les précache pas toutes.

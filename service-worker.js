@@ -33,6 +33,7 @@ const STATIC_ASSETS = [
     '/assets/css/chapitre.css',
     '/assets/css/collection-detail.css',
     '/assets/css/collections.css',
+    '/assets/css/fonts.css',
     '/assets/css/global.css',
     '/assets/css/lecture.css',
     '/assets/css/music.css',

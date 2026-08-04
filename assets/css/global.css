@@ -5,8 +5,18 @@
 
 /* Typographie §13 — 3 rôles, aucun par défaut générique :
    Display = grotesque condensée anguleuse ; Lecture = serif à faible contraste
-   pensée écran ; Utilitaire = sans-serif neutre à chasse resserrée. */
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Bitter:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+   pensée écran ; Utilitaire = sans-serif neutre à chasse resserrée.
+
+   Audit PERF-07 : cette ligne était un @import vers fonts.googleapis.com.
+   Trois défauts cumulés — un appel à Google sur CHAQUE page alors que le projet
+   annonce « local d'abord » et pose <meta referrer="no-referrer"> ; une
+   typographie perdue hors-ligne (le service worker précache global.css, mais
+   l'@import allait chercher la feuille chez Google à l'exécution) ; et des
+   requêtes SÉRIALISÉES sur le chemin critique (global.css → css2 → woff2).
+   Les polices sont désormais dans assets/font/ et déclarées dans fonts.css,
+   importé ici — un @import local ne sort pas sur le réseau.
+   Régénérer avec : npm run fetch-fonts */
+@import url('./fonts.css');
 
 /* ── Variables — Refonte §13 (édition « Washi », claire, comme référence) ──── */
 :root {

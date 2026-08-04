@@ -22,14 +22,34 @@
     // relevées sur profil.html, src = ".../profil.html"). Ce helper renvoie le
     // premier candidat non vide — échappé — ou un GIF 1×1 transparent.
     const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+
+    // Audit PERF-08 : les couvertures partaient EN DIRECT vers les CDN des
+    // sources — 326 des 367 images de la bibliothèque. L'IP de l'utilisateur
+    // était donc exposée aux sites scrapés à chaque page, et le proxy
+    // /api/img (liste blanche, cache borné, rate-limit) ne servait qu'à une
+    // minorité d'images. On y route désormais toute URL externe.
+    // Les PAGES DE CHAPITRE restent en direct : proxifier un volume de 326
+    // planches ferait transiter des centaines de Mo par le serveur, ce qui
+    // pénaliserait un hub modeste (Raspberry Pi, NAS) pour un gain marginal.
+    const proxify = (u) => {
+        if (!u || typeof u !== 'string') return u;
+        if (u.startsWith('data:') || u.startsWith('blob:')) return u;
+        if (u.startsWith('/') || u.includes('/api/img?')) return u;   // déjà local ou proxifié
+        if (!/^https?:\/\//i.test(u)) return u;
+        try {
+            if (new URL(u).origin === location.origin) return u;
+        } catch (e) { return u; }
+        const base = (window.API && window.API.base) ? window.API.base : '/api';
+        return base + '/img?u=' + encodeURIComponent(u);
+    };
     const cover = (...candidates) => {
-        for (const c of candidates) if (c) return esc(c);
+        for (const c of candidates) if (c) return esc(proxify(c));
         return BLANK_IMG;
     };
 
     // Fusion (pas remplacement) : i18n.js se charge AVANT et pose déjà
     // MH.t / MH.loadI18n / MH.setLang sur window.MH (audit N40 v2).
-    window.MH = Object.assign(window.MH || {}, { $, $$, fmt, esc, cover, BLANK_IMG });
+    window.MH = Object.assign(window.MH || {}, { $, $$, fmt, esc, cover, proxify, BLANK_IMG });
 
     // Journal d'erreurs non fatales (audit B-3) : les nombreux catch qui
     // avalaient silencieusement une erreur passent désormais par ici. Rien
