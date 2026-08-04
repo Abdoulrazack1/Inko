@@ -26,11 +26,26 @@
   --border2:     rgba(28,27,25,0.22);
   --text:        #1c1b19;   /* Encre sur Washi */
   --text2:       #4c4940;
-  --text3:       #6d685b;
+  /* Audit A11Y-02 : #6d685b sur --bg2 donnait 4.37:1 — juste sous le seuil AA
+     de 4.5:1, et c'était la cause la plus répandue (34 occurrences : années des
+     cartes, sous-titres, pied de page). Assombri jusqu'à passer. */
+  --text3:       #5b5649;
   --green:       #3f7d4e;
   --blue:        #3d5170;
   --red:         #a83232;
   --amber:       #b5761b;
+
+  /* Audit A11Y-02 — variantes pour TEXTE de petite taille.
+     --accent (#c1531b) et --green sont calibrés pour des aplats et des bordures.
+     Posés en texte de 10-13px sur fond clair, ils tombaient entre 3.29:1 et
+     3.93:1. Ces variantes ne servent QUE au texte ; les aplats gardent les
+     couleurs de marque. */
+  --accent-text: #9d3f11;
+  --green-text:  #2c6339;
+  --blue-text:   #2c4360;
+  --amber-text:  #7a4f0c;
+  --red-text:    #8f2626;
+  --badge-grey:  #4f545c;
 
   /* Accent FONCTIONNEL, jamais un seul accent de marque dominant (§13.2) :
      défaut = Kakishibu (manga) ; un contexte roman le bascule sur Ai. Tout le
@@ -91,6 +106,13 @@ html[data-theme="dark"] {
   --text:        #e9e7e0;   /* Encre sur Sumi */
   --text2:       #b2afa5;
   --text3:       #8b877c;
+  /* Sur fond sombre le contraste se gagne en éclaircissant (audit A11Y-02). */
+  --accent-text: #f08a4b;
+  --green-text:  #7ee2a0;
+  --blue-text:   #93bdff;
+  --amber-text:  #ffc766;
+  --red-text:    #ff9d9d;
+  --badge-grey:  #c3c8d0;
 }
 html[data-theme="dark"] body { background: var(--bg); color: var(--text); }
 
@@ -105,6 +127,12 @@ html[data-theme="amoled"] {
   --text:    #e9e7e0;
   --text2:   #b2afa5;
   --text3:   #8b877c;
+  --accent-text: #f08a4b;
+  --green-text:  #7ee2a0;
+  --blue-text:   #93bdff;
+  --amber-text:  #ffc766;
+  --red-text:    #ff9d9d;
+  --badge-grey:  #c3c8d0;
 }
 html[data-theme="amoled"] body { background: #000; }
 
@@ -317,7 +345,7 @@ body.incognito-on::before {
 }
 .header-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .user-label { line-height: 1; }
-.user-sublabel { font-size: 10px; color: var(--orange); display: block; }
+.user-sublabel { font-size: 10px; color: var(--accent-text); display: block; }   /* audit A11Y-02 : 3.29:1 avant */
 .btn-connect {
   height: 34px; padding: 0 16px;
   background: var(--orange); color: #fff;
@@ -429,7 +457,7 @@ body.incognito-on::before {
 .badge-exclu  { background: rgba(59,130,246,.15); color: var(--blue); }
 .badge-top    { background: rgba(255,107,26,.15); color: var(--orange); }
 .badge-orange { background: var(--orange); color: #fff; }
-.badge-termine { background: rgba(107,114,128,.2); color: #9ca3af; }
+.badge-termine { background: rgba(107,114,128,.2); color: var(--badge-grey); }   /* audit A11Y-02 : #9ca3af donnait 1.60:1 */
 .badge-cours  { background: rgba(34,197,94,.1); color: var(--green); }
 .badge-pause  { background: rgba(245,158,11,.1); color: var(--amber); }
 
@@ -450,7 +478,8 @@ body.incognito-on::before {
 .section-title-icon { color: var(--orange); font-size: 16px; }
 .section-subtitle { font-size: 12px; color: var(--text2); margin-top: 2px; }
 .section-link {
-  font-size: 12.5px; color: var(--orange); font-weight: 500;
+  /* audit A11Y-02 : l'accent de marque en texte 12.5px donnait 3.93:1 */
+  font-size: 12.5px; color: var(--accent-text); font-weight: 500;
   display: flex; align-items: center; gap: 4px;
   transition: opacity var(--transition);
 }
@@ -718,10 +747,13 @@ a[data-nsfw] .manga-card-cover::after,
   display: inline-flex; align-items: center; gap: 4px;
 }
 .manga-card-meta .mc-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-.mc-status.mc-ongoing   { color: var(--green); background: rgba(34,197,94,.12); }
-.mc-status.mc-completed  { color: var(--blue); background: rgba(59,130,246,.12); }
-.mc-status.mc-hiatus     { color: var(--amber); background: rgba(245,158,11,.12); }
-.mc-status.mc-cancelled  { color: var(--red); background: rgba(239,68,68,.12); }
+.mc-status.mc-ongoing   { color: var(--green-text); background: rgba(34,197,94,.12); }   /* audit A11Y-02 : 3.58:1 avant */
+/* audit A11Y-02 : ces trois-là restaient sous le seuil en édition sombre —
+   du bleu/rouge/ambre calibrés pour du texte sur fond clair, posés en 10px
+   sur fond sombre (« Terminé » mesurait 1.93:1). */
+.mc-status.mc-completed  { color: var(--blue-text); background: rgba(59,130,246,.12); }
+.mc-status.mc-hiatus     { color: var(--amber-text); background: rgba(245,158,11,.12); }
+.mc-status.mc-cancelled  { color: var(--red-text); background: rgba(239,68,68,.12); }
 
 /* ── Comptes connectés (AniList) ───────────────── */
 .conn-list { display: flex; flex-direction: column; gap: 10px; }

@@ -14,12 +14,17 @@
     let selectMode = false;    // mode sélection multiple (audit §10.3)
     const selected = new Set(); // mangaIds sélectionnés
 
+    // Audit A11Y-02 : ces pastilles portent du texte BLANC en 9px sur un aplat
+    // plein — le contraste dépend donc entièrement du fond. Les teintes vives
+    // d'origine donnaient 2.28:1 (vert), 2.15:1 (ambre) et 3.68:1 (bleu), pour
+    // un seuil AA de 4.5:1. Teintes assombries jusqu'à franchir le seuil, en
+    // gardant la même sémantique de couleur.
     const STATUS = {
-        reading:   ['En cours',  '#22c55e'],
-        completed: ['Terminé',   '#3b82f6'],
-        planned:   ['À lire',    '#a855f7'],
-        paused:    ['En pause',  '#f59e0b'],
-        dropped:   ['Abandonné', '#ef4444'],
+        reading:   ['En cours',  '#15703a'],
+        completed: ['Terminé',   '#1d4ed8'],
+        planned:   ['À lire',    '#7e22ce'],
+        paused:    ['En pause',  '#8a5108'],
+        dropped:   ['Abandonné', '#b3261e'],
     };
 
     document.addEventListener('DOMContentLoaded', async () => {

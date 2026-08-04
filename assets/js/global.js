@@ -1111,7 +1111,7 @@
         bar.innerHTML = `
             <div style="flex:1;min-width:220px;font-size:13px;color:var(--text2);line-height:1.5">
                 Inko stocke des données locales (session, préférences) pour fonctionner et synchroniser ta bibliothèque.
-                Aucune télémétrie, aucune publicité. <a href="confidentialite.html" style="color:var(--orange)">En savoir plus</a>.
+                Aucune télémétrie, aucune publicité. <a href="confidentialite.html" style="color:var(--accent-text);text-decoration:underline">En savoir plus</a>.
             </div>
             <button id="inkoConsentOk" class="btn btn-primary btn-sm">J'ai compris</button>`;
         document.body.appendChild(bar);
