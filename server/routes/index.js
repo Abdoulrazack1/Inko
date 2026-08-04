@@ -167,6 +167,11 @@ router.delete('/library/local/:id',       auth.authRequired, Local.deleteLocal);
 
 // ── Profils publics ─────────────────────────────
 router.get   ('/users/profile/:username', auth.authOptional, Profile.publicProfile);
+// Audit BUG-09 : `lists.is_public` était un drapeau mort — aucune route ne
+// l'exposait, donc marquer une liste « publique » ne la rendait publique nulle
+// part. Lecture seule, sans session (c'est le sens du mot), et une liste privée
+// répond 404 plutôt que 403 pour ne pas révéler son existence.
+router.get   ('/lists/:id',               Profile.publicList);
 
 // ── Notifications in-app + Web Push ─────────────
 router.get   ('/me/notifications',            auth.authRequired, Notif.list);

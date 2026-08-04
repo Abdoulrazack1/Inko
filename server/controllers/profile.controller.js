@@ -72,12 +72,63 @@ async function publicProfile(req, res, next) {
         if (!set.has(iso(cur))) cur.setDate(cur.getDate() - 1);
         while (set.has(iso(cur))) { streak++; cur.setDate(cur.getDate() - 1); }
 
+        // Audit BUG-09 : `lists.is_public` existait, le bouton « publique » de
+        // l'interface le positionnait bien en base… et AUCUNE route ne l'exposait
+        // (/api/lists/public → 404, le profil public ne renvoyait pas les listes).
+        // L'utilisateur pouvait marquer une liste publique sans que rien ne la
+        // rende publique. Elles apparaissent désormais sur le profil.
+        const [lists] = await pool.query(
+            `SELECT l.id, l.name, l.description, l.created_at,
+                    (SELECT COUNT(*) FROM list_items li WHERE li.list_id = l.id) AS items
+             FROM lists l WHERE l.user_id = ? AND l.is_public = 1
+             ORDER BY l.created_at DESC LIMIT 50`, [u.id]);
+
         res.json({
             ...base,
             stats:  { chapters: t.chapters, series: t.series, favorites: t.favorites, ratings: t.ratings, streak },
             badges: computeBadges(t, streak),
+            lists:  lists.map(l => ({
+                id: l.id, name: l.name, description: l.description,
+                items: l.items, createdAt: l.created_at,
+            })),
         });
     } catch (e) { next(e); }
 }
 
-module.exports = { publicProfile };
+// GET /api/lists/:id — contenu d'une liste PUBLIQUE (audit BUG-09).
+// Sans authentification : c'est précisément ce que « publique » veut dire.
+// Une liste privée renvoie 404 — pas 403, pour ne pas révéler son existence.
+async function publicList(req, res, next) {
+    try {
+        const id = parseInt(req.params.id, 10);
+        if (!Number.isFinite(id)) return res.status(404).json({ error: 'Liste introuvable' });
+
+        const [[l]] = await pool.query(
+            `SELECT l.id, l.name, l.description, l.created_at, u.username AS owner
+             FROM lists l JOIN users u ON u.id = l.user_id
+             WHERE l.id = ? AND l.is_public = 1`, [id]);
+        if (!l) return res.status(404).json({ error: 'Liste introuvable' });
+
+        // Respecte le réglage « profil privé » du propriétaire : rendre une
+        // liste publique ne doit pas contourner la confidentialité du compte.
+        const [[srow]] = await pool.query(
+            `SELECT s.data FROM user_settings s JOIN lists l2 ON l2.user_id = s.user_id
+             WHERE l2.id = ?`, [id]);
+        if (srow) {
+            const st = typeof srow.data === 'string' ? JSON.parse(srow.data) : srow.data;
+            if (st?.privacy?.privateProfile) return res.status(404).json({ error: 'Liste introuvable' });
+        }
+
+        const [items] = await pool.query(
+            `SELECT manga_id, source, title, cover, position
+             FROM list_items WHERE list_id = ? ORDER BY position, added_at`, [id]);
+
+        res.json({
+            id: l.id, name: l.name, description: l.description,
+            owner: l.owner, createdAt: l.created_at,
+            items: items.map(i => ({ id: i.manga_id, source: i.source, title: i.title, cover: i.cover })),
+        });
+    } catch (e) { next(e); }
+}
+
+module.exports = { publicProfile, publicList };
