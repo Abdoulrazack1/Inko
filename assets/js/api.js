@@ -21,6 +21,18 @@
         : 'http://localhost:8088/api';
 
     // ── État courant ──────────────────────────────────────────
+    // Audit SEC-06 : le JWT était persisté dans localStorage EN PLUS du cookie
+    // httpOnly. Le cookie protège justement du vol par XSS — la copie en
+    // localStorage annulait cette protection : toute injection pouvait lire
+    // `mh_session` et repartir avec un jeton valide 30 jours.
+    //
+    // Le cookie suffit dans le cas nominal (même origine : local, Docker,
+    // desktop, tunnel HTTPS). Le Bearer n'est nécessaire QUE lorsque le
+    // frontend est servi par un serveur statique de dev, sur une autre origine
+    // que l'API — c'est déjà ce que détecte SAME_ORIGIN_BACKEND ci-dessus.
+    // Dans ce cas seulement, le jeton est gardé EN MÉMOIRE (perdu au
+    // rechargement, ce qui est acceptable pour du développement).
+    const PERSIST_TOKEN = !SAME_ORIGIN_BACKEND;
     let _user  = null;
     let _token = null;
     try {
@@ -28,14 +40,23 @@
         if (saved) {
             const o = JSON.parse(saved);
             _user  = o.user  || null;
+            // Migration silencieuse : on relit l'ancien jeton une dernière fois
+            // pour ne pas déconnecter les sessions existantes, puis on cesse de
+            // l'écrire (la réécriture ci-dessous ne le remettra pas).
             _token = o.token || null;
         }
     } catch (e) { window.MH?.err?.('api.js', e); }
 
     function persist() {
         try {
-            if (_user) localStorage.setItem('mh_session', JSON.stringify({ user: _user, token: _token }));
-            else localStorage.removeItem('mh_session');
+            if (_user) {
+                const payload = PERSIST_TOKEN
+                    ? { user: _user, token: _token }
+                    : { user: _user };          // le jeton reste en mémoire
+                localStorage.setItem('mh_session', JSON.stringify(payload));
+            } else {
+                localStorage.removeItem('mh_session');
+            }
         } catch (e) { window.MH?.err?.('api.js', e); }
         try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch (e) { window.MH?.err?.('api.js', e); }
     }

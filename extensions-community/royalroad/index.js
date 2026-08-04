@@ -48,12 +48,30 @@ function friendlyHttpError(e) {
     return e;
 }
 
+// Audit EXT-04 : aucun reessai. Un scan de bibliotheque enchaine des dizaines
+// de requetes sur un site scrape : un hoquet reseau isole faisait echouer toute
+// la serie et remontait comme une source cassee. On ne reessaie QUE ce qui est
+// transitoire (reseau, 5xx, 429), jamais un 404/403 qui ne changera pas.
+function isTransient(e) {
+    const s = e && e.response && e.response.status;
+    if (s) return s === 429 || (s >= 500 && s <= 599);
+    return true;   // pas de reponse : DNS, timeout, connexion coupee
+}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 async function fetchHtml(url, ttl = 120_000) {
     const c = getC(url);
     if (c) return c;
-    let data;
-    try { ({ data } = await http.get(url, { responseType: 'text' })); }
-    catch (e) { throw friendlyHttpError(e); }
+    let data, lastErr;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try { ({ data } = await http.get(url, { responseType: 'text' })); lastErr = null; break; }
+        catch (e) {
+            lastErr = e;
+            if (attempt === 2 || !isTransient(e)) break;
+            await sleep(700);
+        }
+    }
+    if (lastErr) throw friendlyHttpError(lastErr);
     setC(url, data, ttl);
     return data;
 }

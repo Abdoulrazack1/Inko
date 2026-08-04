@@ -50,6 +50,19 @@ function friendlyHttpError(e) {
     return e;
 }
 
+// Audit EXT-04 : 7 sources sur 9 n'avaient AUCUN réessai. Or un scan de
+// bibliothèque enchaîne des dizaines de requêtes sur des sites scrapés : un
+// hoquet réseau isolé faisait échouer toute la série, et l'échec remontait à
+// l'utilisateur comme une source cassée. Deux tentatives suffisent à absorber
+// l'essentiel — on ne réessaie QUE ce qui est transitoire (réseau, 5xx, 429),
+// jamais un 404 ou un 403 qui ne changeront pas.
+function isTransient(e) {
+    const s = e && e.response && e.response.status;
+    if (s) return s === 429 || (s >= 500 && s <= 599);
+    return true;   // pas de réponse du tout : DNS, timeout, connexion coupée
+}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 async function fetchHtml(url, { ttl = 120_000, hx = false, referer } = {}) {
     const key = url + (hx ? '#hx' : '');
     const c = getC(key);
@@ -57,9 +70,16 @@ async function fetchHtml(url, { ttl = 120_000, hx = false, referer } = {}) {
     const headers = {};
     if (hx) headers['HX-Request'] = 'true';
     if (referer) headers['Referer'] = referer;
-    let data;
-    try { ({ data } = await http.get(url, { responseType: 'text', headers })); }
-    catch (e) { throw friendlyHttpError(e); }
+    let data, lastErr;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try { ({ data } = await http.get(url, { responseType: 'text', headers })); lastErr = null; break; }
+        catch (e) {
+            lastErr = e;
+            if (attempt === 2 || !isTransient(e)) break;
+            await sleep(700);
+        }
+    }
+    if (lastErr) throw friendlyHttpError(lastErr);
     setC(key, data, ttl);
     return data;
 }
