@@ -17,13 +17,41 @@
         } catch (e) { return 'dark'; }
     }
 
+    // Audit A11Y-02 : au changement de thème, les propriétés qui portent une
+    // `transition` gardaient l'ANCIENNE couleur. Mesuré : en basculant en clair,
+    // les liens du pied de page (`.footer-col a`, qui a `transition: color`)
+    // restaient à #b2afa5 — la valeur du thème sombre — sur fond clair #e7e4da,
+    // soit 1.73:1 alors que le seuil AA est 4.5:1. Les éléments SANS transition
+    // (.footer-desc, même variable) se mettaient bien à jour, ce qui rendait le
+    // défaut invisible en lecture de code.
+    // Correctif : on neutralise les transitions le temps du basculement, puis on
+    // force un recalcul de style avant de les réactiver.
+    function suspendTransitions() {
+        const style = document.createElement('style');
+        style.id = 'theme-switching';
+        style.textContent = '*,*::before,*::after{transition:none !important}';
+        document.head.appendChild(style);
+        return () => {
+            void document.documentElement.offsetHeight;   // force le recalcul
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => style.remove());
+            });
+        };
+    }
+
+    let booted = false;
     function apply(theme) {
         // §13 : l'édition claire « Washi » est la référence → défaut clair.
         const t = resolve(theme || (window.Storage?.getPref('theme')) || 'light');
+        // Au tout premier appel (avant peinture) rien n'a encore de transition
+        // en cours : inutile de payer le suspend.
+        const restore = booted ? suspendTransitions() : null;
         document.documentElement.setAttribute('data-theme', t);
         // Met aussi à jour la meta theme-color pour la PWA
         const meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.content = t === 'light' ? '#eeece6' : (t === 'amoled' ? '#000000' : '#111113');
+        if (restore) restore();
+        booted = true;
     }
 
     // ── Couleur d'accent personnalisable ──
