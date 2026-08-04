@@ -41,6 +41,13 @@
 
     // ── Cartes de bas de profil : valeurs réelles ──
     async function renderMiniCards() {
+        // Audit QUAL-04 : `dl` était utilisé sans jamais être déclaré — la
+        // fonction levait donc une ReferenceError dès sa première ligne, et la
+        // carte « Téléchargements » du profil restait sur son tiret. Même
+        // classe de bug que le `reads7`/`reads7ev` déjà relevé : invisible en
+        // lecture, avalée à l'exécution. C'est exactement ce que la règle
+        // no-undef, réactivée, attrape.
+        const dl = document.getElementById('miniDownloads');
         if (dl) {
             try {
                 if (window.Downloads) {

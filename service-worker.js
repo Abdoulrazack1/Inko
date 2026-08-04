@@ -120,7 +120,7 @@ self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
         // Navigation preload : la requête part pendant le réveil du SW (audit SW6)
         if (self.registration.navigationPreload) {
-            try { await self.registration.navigationPreload.enable(); } catch (e) {}
+            try { await self.registration.navigationPreload.enable(); } catch (e) { /* navigationPreload non supporte */ }
         }
         const keys = await caches.keys();
         await Promise.all(keys
@@ -173,7 +173,7 @@ async function trimCache(cacheName, max) {
         const keys = await cache.keys();
         if (keys.length <= max) return;
         await Promise.all(keys.slice(0, keys.length - max).map(k => cache.delete(k)));
-    } catch (e) {}
+    } catch (e) { /* cache indisponible : on reessaiera au prochain passage */ }
 }
 
 async function offlineImage(req, url) {
@@ -181,7 +181,7 @@ async function offlineImage(req, url) {
         const off = await caches.open(OFFLINE_CACHE);
         const hit = await off.match(req, { ignoreVary: true });
         if (hit) return hit;
-    } catch (e) {}
+    } catch (e) { /* cache hors-ligne absent : on tente le reseau */ }
     // Couvertures (proxifiées /api/img + hôtes de covers connus) : cache-first
     if ((url.origin === self.location.origin && url.pathname === '/api/img')
         || isCoverHost(url.hostname)) {
@@ -253,8 +253,8 @@ self.addEventListener('push', (event) => {
     event.waitUntil((async () => {
         try {
             const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-            all.forEach(c => { try { c.postMessage({ type: 'notif:new' }); } catch (e) {} });
-        } catch (e) {}
+            all.forEach(c => { try { c.postMessage({ type: 'notif:new' }); } catch (e) { /* onglet ferme entre-temps */ } });
+        } catch (e) { /* aucun client a reveiller */ }
     })());
     event.waitUntil(self.registration.showNotification(title, {
         body:  data.body || '',
@@ -271,7 +271,7 @@ self.addEventListener('notificationclick', (event) => {
     event.waitUntil((async () => {
         const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
         for (const c of all) {
-            if ('focus' in c) { try { await c.navigate(link); } catch (e) {} return c.focus(); }
+            if ('focus' in c) { try { await c.navigate(link); } catch (e) { /* navigation refusee : on focus quand meme */ } return c.focus(); }
         }
         if (self.clients.openWindow) return self.clients.openWindow(link);
     })());

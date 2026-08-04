@@ -4,8 +4,8 @@
   "private": true,
   "description": "Inko — lecteur de mangas et romans (frontend vanilla + backend Express dans server/)",
   "scripts": {
-    "lint": "eslint assets/js",
-    "lint:fix": "eslint assets/js --fix",
+    "lint": "eslint assets/js service-worker.js",
+    "lint:fix": "eslint assets/js service-worker.js --fix",
     "gen-ext-hashes": "node scripts-ci/gen-ext-hashes.js",
     "check-sources": "node scripts-ci/check-sources.js",
     "gen-precache": "node scripts-ci/gen-precache.js",
