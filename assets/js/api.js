@@ -81,6 +81,11 @@
     // fige l'UI indéfiniment (audit API1/DF4, critique).
     const DEFAULT_TIMEOUT = 30000;
     async function request(method, path, body, { timeout = DEFAULT_TIMEOUT, keepalive = false } = {}) {
+        // Audit PERF-02 : toute écriture périme le cache de lectures partagées.
+        // Sans ça, « ajouter aux favoris » puis relire la liste dans la seconde
+        // qui suit renverrait l'ancienne. On vide tout plutôt que de raisonner
+        // par préfixe : une écriture est rare, une lecture périmée est un bug.
+        if (method !== 'GET') sharedCache.clear();
         const ctrl  = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeout);
         const opts = {
@@ -150,7 +155,59 @@
         }
     }
 
-    const get  = (p)       => getWithRetry(p);
+    // ── Lectures partagées (audit PERF-02) ───────────────────
+    // Mesuré sur l'accueil : 39 appels /api, dont /me/progress ×4,
+    // /me/notifications/unread ×3, /me/favorites ×2, /health ×2. Personne ne
+    // les demandait deux fois « exprès » : global.js (en-tête, cloche, avatar)
+    // et le script de page interrogent les mêmes ressources sans se connaître,
+    // et rien ne les met en commun. Le problème n'est donc pas sur l'accueil,
+    // il est ici — chaque page le reproduit à sa façon.
+    //
+    // Ces routes sont des lectures idempotentes et propres à l'utilisateur :
+    // deux demandes à quelques centaines de ms d'intervalle ont, par
+    // construction, la même réponse. On coalesce donc les appels concurrents
+    // sur une seule requête réseau, et on garde le résultat pendant une fenêtre
+    // très courte pour couvrir les appels séquentiels du chargement de page.
+    //
+    // Volontairement PAS mis en commun : /sources/*/mangas/* (dépend d'une
+    // source tierce et peut être long), les recherches (paramétrées), et tout
+    // ce qui n'est pas un GET.
+    const SHARED_GET = [
+        /^\/me\/favorites$/,
+        /^\/me\/progress$/,
+        /^\/me\/settings$/,
+        /^\/me\/stats$/,
+        /^\/me\/notifications\/unread$/,
+        /^\/sources$/,
+        /^\/health$/,
+    ];
+    const SHARED_TTL = 3000;
+    const sharedCache = new Map();   // chemin → { at, promise }
+
+    // Les appelants reçoivent une COPIE : plusieurs modules partagent désormais
+    // la même réponse, et il suffirait qu'un seul trie ou filtre le tableau
+    // en place pour corrompre la vue des autres — un bug qui ne se manifeste
+    // qu'en présence de deux consommateurs, donc quasi introuvable.
+    const copy = (d) => {
+        if (d == null || typeof d !== 'object') return d;
+        try { return structuredClone(d); }
+        catch (e) { try { return JSON.parse(JSON.stringify(d)); } catch (_) { return d; } }
+    };
+
+    function getShared(p) {
+        const hit = sharedCache.get(p);
+        if (hit && (Date.now() - hit.at) < SHARED_TTL) return hit.promise.then(copy);
+        const promise = getWithRetry(p);
+        sharedCache.set(p, { at: Date.now(), promise });
+        // Un échec ne doit pas être resservi pendant 3 s : on le retire aussitôt
+        // pour que le prochain appelant retente vraiment.
+        promise.catch(() => {
+            if (sharedCache.get(p)?.promise === promise) sharedCache.delete(p);
+        });
+        return promise.then(copy);
+    }
+
+    const get  = (p)       => (SHARED_GET.some(re => re.test(p.split('?')[0])) ? getShared(p) : getWithRetry(p));
     const post = (p, body) => request('POST', p, body);
     const put  = (p, body) => request('PUT', p, body);
     const del  = (p)       => request('DELETE', p);
@@ -241,6 +298,13 @@
         get user()   { return _user; },
         get token()  { return _token; },
         isLoggedIn() { return !!_user; },
+
+        // Audit PERF-02 : /health était appelé par deux `fetch()` bruts dans
+        // global.js (bandeau de mise à jour, bandeau de repli base) qui
+        // court-circuitaient api.js — donc ni réessai, ni mise en commun.
+        // Exposé ici, il bénéficie du cache partagé et n'est plus demandé
+        // qu'une fois par chargement.
+        health: () => get('/health'),
 
         // ── Auth ──
         auth: {

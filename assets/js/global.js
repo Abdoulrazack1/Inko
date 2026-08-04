@@ -1593,7 +1593,7 @@
         exeUrl: UPDATE_EXE,
         // → { current, latest, hasUpdate } ; current absent en dev (pas d'APP_VERSION)
         async check() {
-            const h = await fetch((window.API?.base || '/api') + '/health').then(r => r.json());
+            const h = await window.API.health();
             if (!h.version) return { current: null, latest: null, hasUpdate: false };
             // Timeout sur l'API GitHub (peut être lente/dégradée) : on renvoie au
             // moins la version courante plutôt que de faire tourner le bouton.
@@ -1659,7 +1659,7 @@
     (async function () {
         try {
             if (sessionStorage.getItem('inko_dbfb_seen')) return;
-            const h = await fetch((window.API?.base || '/api') + '/health').then(r => r.json());
+            const h = await window.API.health();
             if (!h.dbFallback || document.getElementById('dbFallbackBar')) return;
             const bar = document.createElement('div');
             bar.id = 'dbFallbackBar';

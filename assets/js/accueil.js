@@ -9,6 +9,7 @@
     let latestCount = 8;
     let popularCache = null;
     let latestCache = null;
+    const LATEST_LIMIT = 16;   // hero (6) + tendances (10) + grille — un seul appel
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('accueil');
@@ -25,11 +26,17 @@
     async function loadHeroAndTrending() {
         // Tendances/reco s'appuient sur le populaire ; le hero sur les dernières sorties
         try {
+            // Audit PERF-02 : « dernières sorties » était demandé DEUX fois au
+            // chargement — limit 12 ici (hero + tendances) puis limit 16 dans
+            // loadLatest(). Deux allers-retours vers une source tierce pour des
+            // données qui se recouvrent à 75 %. On demande 16 une seule fois :
+            // le hero en prend 6, les tendances 10, la grille les 16.
             const [pop, latest] = await Promise.all([
                 API.mangas.popular({ limit: 12 }),
-                API.mangas.latest({ limit: 12 }),
+                API.mangas.latest({ limit: LATEST_LIMIT }),
             ]);
             popularCache = pop.results || [];
+            latestCache = latest.results || [];
             const hasCover = m => m.banner || m.coverLarge || m.cover || m.coverThumb;
             const fresh = (latest.results || []).filter(hasCover);
             const pool  = fresh.length ? fresh : popularCache.filter(hasCover);
@@ -43,18 +50,31 @@
             renderReco(popularCache.slice(4, 7));
             await MH.loadSourceTypes();
             renderHero();
-            // Illustration large officielle (banner AniList) en arrière-plan
-            heroMangas.forEach((m, i) => {
-                API.art.get(m.title).then(a => {
-                    if (a && a.banner) {
-                        heroMangas[i] = Object.assign({}, heroMangas[i], { banner: a.banner });
-                        if (heroIdx === i && heroShow) heroShow(i, true);
-                    }
-                }).catch(() => {});
-            });
+            // Audit PERF-02 : les 6 illustrations larges (banner AniList) étaient
+            // demandées d'un coup au chargement — 6 appels /api/artwork pour UNE
+            // diapositive visible, les 5 autres n'étant utiles qu'après 7 s,
+            // 14 s, 21 s… ou jamais si l'utilisateur clique ailleurs.
+            // Désormais : celle qui s'affiche, plus celle d'après en avance.
+            ensureBanner(0);
         } catch (e) {
             showError('hero', "Impossible de charger l'accueil. Le backend est-il lancé ?");
         }
+    }
+
+    // Illustration large d'une diapositive du hero, récupérée à la demande et
+    // une seule fois (audit PERF-02). Repeint la diapositive si elle est encore
+    // à l'écran quand la réponse arrive ; sinon la valeur reste en mémoire et
+    // servira au prochain passage.
+    const bannerAsked = new Set();
+    function ensureBanner(i) {
+        const m = heroMangas[i];
+        if (!m || bannerAsked.has(i)) return;
+        bannerAsked.add(i);
+        API.art.get(m.title).then(a => {
+            if (!a || !a.banner) return;
+            heroMangas[i] = Object.assign({}, heroMangas[i], { banner: a.banner });
+            if (heroIdx === i && heroShow) heroShow(i, true);
+        }).catch(() => {});
     }
 
     // Récupère (et cache) le dernier chapitre d'une série pour le CTA de lecture
@@ -156,6 +176,10 @@
         function show(idx, instant) {
             const m = heroMangas[idx]; if (!m) return;
             heroIdx = idx;
+            // Celle-ci si elle manque encore, et la suivante en avance pour
+            // qu'elle soit prête avant la rotation (audit PERF-02).
+            ensureBanner(idx);
+            ensureBanner((idx + 1) % heroMangas.length);
             const url  = m.banner || m.coverLarge || m.cover || m.coverThumb || '';
             const grad = heroGradient(m);
 
@@ -335,8 +359,9 @@
     // ── Dernières sorties ────────────────────────────────
     async function loadLatest() {
         try {
-            const data = await API.mangas.latest({ limit: 16 });
-            latestCache = data.results || [];
+            // Déjà rempli par loadHeroAndTrending(), qui tourne avant (audit
+            // PERF-02). On ne redemande que si ce chargement a échoué.
+            if (!latestCache) latestCache = (await API.mangas.latest({ limit: LATEST_LIMIT })).results || [];
             renderLatest();
         } catch(e) {
             showError('latest', 'Impossible de charger les nouveautés');
