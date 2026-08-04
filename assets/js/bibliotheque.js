@@ -46,6 +46,7 @@
         wireLibExtras();
         wireViewToggle();
         wireSelect();
+        wireGridDelegation();
         maybeAutoCheck();
     });
 
@@ -581,7 +582,75 @@
             return;
         }
 
-        grid.innerHTML = list.map(f => {
+        renderList = list;
+        renderBmSet = bmSet;
+        renderedCount = 0;
+        // Le rendu repart de zéro : l'observateur pointe sur une sentinelle qui
+        // va disparaître, et des tranches du rendu précédent peuvent encore être
+        // en attente dans la file d'inactivité. Le jeton les neutralise, sans
+        // quoi un tri rapidement suivi d'un autre mélangerait les deux listes.
+        chunkObserver?.disconnect();
+        const token = ++renderToken;
+        grid.innerHTML = '';
+        appendChunk(token);
+    }
+
+    // ── Rendu progressif (audit PERF-05) ─────────────────────
+    // 373 séries produisaient 4 913 nœuds en un seul `innerHTML`, et chaque
+    // changement de tri reconstruisait le tout (27 ms bloquants mesurés).
+    //
+    // Une pagination classique aurait été une régression d'usage : on parcourt
+    // une bibliothèque en faisant défiler, pas en cliquant « page 4 ». Un
+    // défilement infini pur, lui, fait dépendre l'accès au contenu d'un
+    // déclencheur : si l'observateur ne se déclenche pas (conteneur défilant
+    // inattendu, onglet en arrière-plan, recherche Ctrl+F du navigateur), la
+    // bibliothèque paraît s'arrêter à 60 séries. Un défaut de performance
+    // deviendrait un défaut de contenu — bien pire.
+    //
+    // On peint donc une première tranche tout de suite, et les suivantes se
+    // posent d'elles-mêmes pendant les temps morts du navigateur. L'observateur
+    // ne fait qu'accélérer les choses quand l'utilisateur descend vite : rien
+    // ne dépend de lui. Tout finit rendu, mais réparti au lieu d'être bloquant.
+    //
+    // Aucun appel réseau supplémentaire : la liste est déjà entièrement en
+    // mémoire, seul le travail DOM est étalé.
+    const CHUNK = 60;
+    const idle = window.requestIdleCallback
+        ? (fn) => window.requestIdleCallback(fn, { timeout: 500 })
+        : (fn) => setTimeout(fn, 32);
+    let renderList = [];
+    let renderBmSet = new Set();
+    let renderedCount = 0;
+    let renderToken = 0;          // invalide les tranches d'un rendu abandonné
+    let chunkObserver = null;
+
+    function appendChunk(token) {
+        if (token !== renderToken) return;         // un nouveau tri a eu lieu
+        const grid = document.getElementById('libGrid');
+        if (!grid) return;
+        const slice = renderList.slice(renderedCount, renderedCount + CHUNK);
+        if (!slice.length) return;
+
+        document.getElementById('libGridSentinel')?.remove();
+        grid.insertAdjacentHTML('beforeend', slice.map(f => cardHTML(f, renderBmSet)).join(''));
+        renderedCount += slice.length;
+        if (renderedCount >= renderList.length) return;
+
+        // La sentinelle vit DANS la grille : la sortir la placerait hors du
+        // flux observé et l'observateur ne se déclencherait jamais.
+        grid.insertAdjacentHTML('beforeend',
+            '<div id="libGridSentinel" style="grid-column:1/-1;height:1px"></div>');
+        const sentinel = document.getElementById('libGridSentinel');
+        if (!chunkObserver) {
+            chunkObserver = new IntersectionObserver((entries) => {
+                if (entries.some(e => e.isIntersecting)) appendChunk(renderToken);
+            }, { rootMargin: '600px' });
+        }
+        chunkObserver.observe(sentinel);
+        idle(() => appendChunk(token));
+    }
+
+    function cardHTML(f, bmSet) {
             const prog = progressByManga[f.mangaId];
             const u = unreadCount(f);
             const isPin = window.UserData?.isPinned?.(f.mangaId, f.source);
@@ -621,11 +690,48 @@
                     ${f.category ? `<div class="lib2-cat">${MH.esc(f.category)}</div>` : ''}
                 </div>
             </a>`;
-        }).join('');
+    }
 
-        // En mode sélection : le clic sur une carte (de)sélectionne au lieu de naviguer.
-        if (selectMode) {
-            grid.querySelectorAll('.lib2-card').forEach(card => card.addEventListener('click', (e) => {
+    // ── Écouteurs délégués (audit PERF-05) ───────────────────
+    // Chaque carte recevait jusqu'à trois écouteurs (épingle, retrait, et le
+    // clic de sélection) : ~1 100 écouteurs pour 373 séries, recréés à chaque
+    // tri ou changement de filtre. Avec un rendu par tranches, il aurait fallu
+    // en plus les recâbler après chaque ajout. Un seul écouteur sur la grille
+    // règle les deux problèmes, et vaut pour les cartes pas encore peintes.
+    function wireGridDelegation() {
+        const grid = document.getElementById('libGrid');
+        if (!grid) return;
+
+        grid.addEventListener('click', async (e) => {
+            const pin = e.target.closest('.lib2-pin');
+            if (pin) {
+                e.preventDefault(); e.stopPropagation();
+                const nowPinned = window.UserData?.togglePin?.(pin.dataset.pin, pin.dataset.src);
+                MH.toast?.(nowPinned ? 'Épinglé en haut de la bibliothèque' : 'Désépinglé');
+                render();
+                return;
+            }
+
+            const del = e.target.closest('.lib2-del');
+            if (del) {
+                e.preventDefault(); e.stopPropagation();
+                if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour modifier ta bibliothèque'); return; }
+                const id = del.dataset.del;
+                if (!await MH.confirm(`Retirer « ${del.dataset.title || id} » de ta bibliothèque ?`, { danger: true, okText: 'Retirer' })) return;
+                try {
+                    await API.me.removeFavorite(id);
+                    favs = favs.filter(f => f.mangaId !== id);
+                    try { const set = await MH.getFavSet?.(); set?.delete(String(id)); } catch (er) { window.MH?.err?.('bibliotheque.js', er); }
+                    window.Storage?.cacheLibrary?.(favs);
+                    MH.toast?.('Retiré de ta bibliothèque');
+                    renderSummary(); renderFilters(); render();
+                } catch (err) { MH.toast?.('Erreur : ' + err.message); }
+                return;
+            }
+
+            // En mode sélection : le clic sur une carte (dé)sélectionne au lieu de naviguer.
+            const card = selectMode && e.target.closest('.lib2-card');
+            if (card) {
                 e.preventDefault();
                 const id = card.dataset.mangaId;
                 if (selected.has(id)) selected.delete(id); else selected.add(id);
@@ -633,30 +739,8 @@
                 const chk = card.querySelector('.lib2-check');
                 if (chk) chk.textContent = selected.has(id) ? '✓' : '';
                 renderBulkBar();
-            }));
-        }
-
-        grid.querySelectorAll('.lib2-pin').forEach(btn => btn.addEventListener('click', (e) => {
-            e.preventDefault(); e.stopPropagation();
-            const nowPinned = window.UserData?.togglePin?.(btn.dataset.pin, btn.dataset.src);
-            MH.toast?.(nowPinned ? 'Épinglé en haut de la bibliothèque' : 'Désépinglé');
-            render();
-        }));
-
-        grid.querySelectorAll('.lib2-del').forEach(btn => btn.addEventListener('click', async (e) => {
-            e.preventDefault(); e.stopPropagation();
-            if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour modifier ta bibliothèque'); return; }
-            const id = btn.dataset.del;
-            if (!await MH.confirm(`Retirer « ${btn.dataset.title || id} » de ta bibliothèque ?`, { danger: true, okText: 'Retirer' })) return;
-            try {
-                await API.me.removeFavorite(id);
-                favs = favs.filter(f => f.mangaId !== id);
-                try { const set = await MH.getFavSet?.(); set?.delete(String(id)); } catch (er) { window.MH?.err?.('bibliotheque.js', er); }
-                window.Storage?.cacheLibrary?.(favs);
-                MH.toast?.('Retiré de ta bibliothèque');
-                renderSummary(); renderFilters(); render();
-            } catch (err) { MH.toast?.('Erreur : ' + err.message); }
-        }));
+            }
+        });
     }
 
     // re-render on search (debounce, audit §2 — évite un render complet à chaque frappe) / sort
