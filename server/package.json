@@ -37,9 +37,7 @@
     "multer": "^2.2.0",
     "mysql2": "^3.23.1",
     "nodemailer": "^9.0.3",
-    "web-push": "^3.6.7"
-  },
-  "optionalDependencies": {
+    "web-push": "^3.6.7",
     "cheerio": "^1.2.0"
   }
 }

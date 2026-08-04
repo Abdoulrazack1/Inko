@@ -251,7 +251,7 @@ async function legacySchema() {
         id         INT AUTO_INCREMENT PRIMARY KEY,
         user_id    INT NOT NULL,
         title      VARCHAR(512) NOT NULL,
-        type       VARCHAR(16) NOT NULL,            -- cbz | cbr | epub
+        type       VARCHAR(16) NOT NULL,            -- cbz | epub | pdf (audit BUG-17 : jamais cbr, refusé à l'upload)
         filename   VARCHAR(255) NOT NULL,           -- nom du fichier sur disque
         size       BIGINT DEFAULT 0,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

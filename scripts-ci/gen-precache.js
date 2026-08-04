@@ -29,7 +29,10 @@ const CHECK = process.argv.includes('--check');
 const ALWAYS = [
     '/',
     '/manifest.webmanifest',
-    '/assets/i18n/fr.json',
+    // Audit BUG-19 : fr.json a été supprimé — i18n.js ne le chargeait JAMAIS
+    // (loadI18n ne fetch que si lang !== 'fr', le français étant la langue
+    // source du HTML), et il utilisait un schéma incompatible avec en.json
+    // (0 clé en commun). Il était livré et précaché pour rien.
     '/assets/i18n/en.json',
     '/assets/img/icon.svg',
     '/assets/img/icon-192.png',

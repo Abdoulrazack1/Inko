@@ -409,9 +409,15 @@ async function deleteAccount(req, res, next) {
         const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
         if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
-        // Le compte démo ne peut pas être supprimé
-        if (user.email === 'demo@inko.app' || user.email === 'demo@mangahub.app')
-            return res.status(403).json({ error: 'Le compte démo ne peut pas être supprimé' });
+        // Audit BUG-18 : ce garde-fou visait le compte de démonstration d'une
+        // instance publique — mais en mode local, `demo@inko.app` EST le compte
+        // propriétaire résolu par resolveOwner(). L'utilisateur principal de
+        // l'app desktop ne pouvait donc pas supprimer son compte, dans le bloc
+        // même qui invoque le droit à l'effacement (RGPD art. 17).
+        // La protection ne s'applique plus qu'aux instances multi-comptes.
+        const isDemoAccount = user.email === 'demo@inko.app' || user.email === 'demo@mangahub.app';
+        if (isDemoAccount && process.env.LOCAL_MODE === '0')
+            return res.status(403).json({ error: 'Le compte démo ne peut pas être supprimé sur cette instance' });
 
         if (!password) return res.status(400).json({ error: 'Mot de passe requis pour confirmer' });
         const ok = await bcrypt.compare(password, user.password_hash);

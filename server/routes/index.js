@@ -155,7 +155,11 @@ router.post  ('/comments/:mangaId',       auth.authRequired, writeLimiter, User.
 router.post  ('/comments/:commentId/report', auth.authRequired, writeLimiter, User.reportComment);
 router.delete('/comments/:commentId',     auth.authRequired, User.deleteComment);
 
-// ── Import local (EPUB / CBZ / CBR) ─────────────
+// ── Import local (EPUB / PDF / CBZ) ─────────────
+// Audit BUG-17 : ce commentaire annonçait « CBR » — un format que le
+// contrôleur REFUSE explicitement (le lecteur ne sait pas lire le RAR) — et
+// omettait le PDF, qui lui est réellement accepté. Voir ALLOWED dans
+// local.controller.js, seule source de vérité.
 router.post  ('/library/import/local',    auth.authRequired, Local.importLocal);
 router.get   ('/library/local',           auth.authRequired, Local.listLocal);
 router.get   ('/library/local/:id/file',  auth.authRequired, Local.getLocalFile);

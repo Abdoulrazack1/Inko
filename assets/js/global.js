@@ -816,18 +816,25 @@
           </ul>
         </div>
         <div class="footer-col">
-          <h4>Communauté</h4>
+          <h4>Projet</h4>
           <ul>
-            <li><a href="#" class="footer-coming">Forum</a></li>
-            <li><a href="#" class="footer-coming">Discord</a></li>
-            <li><a href="#" class="footer-coming">Contact</a></li>
+            <!-- Audit UX-03 : « Forum », « Discord » et « Contact » pointaient
+                 vers href="#" et affichaient « Bientôt disponible » — trois
+                 liens morts sur les 22 pages, pour des espaces qui n'existent
+                 pas. Remplacés par les seuls canaux réels du projet. -->
+            <li><a href="https://github.com/Abdoulrazack1/Inko" target="_blank" rel="noopener noreferrer">Code source</a></li>
+            <li><a href="https://github.com/Abdoulrazack1/Inko/issues" target="_blank" rel="noopener noreferrer">Signaler un bug</a></li>
+            <li><a href="https://github.com/Abdoulrazack1/Inko/releases" target="_blank" rel="noopener noreferrer">Versions</a></li>
           </ul>
         </div>
         <div class="footer-col">
           <h4>Légal</h4>
           <ul>
+            <!-- Audit UX-04 : « Conditions » pointait vers la politique de
+                 confidentialité. Deux libellés, une seule page : la licence
+                 (Apache-2.0) est le vrai texte qui régit l'usage du logiciel. -->
             <li><a href="confidentialite.html">Confidentialité</a></li>
-            <li><a href="confidentialite.html">Conditions</a></li>
+            <li><a href="https://github.com/Abdoulrazack1/Inko/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Licence</a></li>
           </ul>
         </div>
       </div>
@@ -1273,12 +1280,9 @@
     function initFooterButtons() {
         // (audit S15) handler newsletter retiré avec le formulaire — il
         // confirmait un succès sans jamais envoyer l'email nulle part.
-        document.addEventListener('click', e => {
-            const link = e.target.closest('.footer-coming');
-            if (!link) return;
-            e.preventDefault();
-            MH.toast('Bientôt disponible !');
-        });
+        // (audit UX-03) handler `.footer-coming` retiré avec les trois liens
+        // morts qu'il servait : le pied de page ne pointe plus que vers des
+        // destinations réelles.
     }
 
     /* ── Header buttons ──────────────────────────────────── */
