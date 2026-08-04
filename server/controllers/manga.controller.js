@@ -7,6 +7,38 @@
 // ============================================================
 const extensions = require('../extensions/loader');
 const health     = require('../lib/source-health');
+const BoundedCache = require('../lib/bounded-cache');
+
+// ── Cache de relais (audit AMEL-64 / PERF-03) ────────────────
+// getOne() et getChapters() étaient de purs relais : chaque appel déclenchait
+// un scrape du site distant. Une seule ouverture de /profil.html provoquait
+// ainsi 201 requêtes sortantes vers weebcentral.com — lenteur, et surtout
+// risque réel de bannissement d'IP. Les fiches d'œuvres changent lentement :
+// un TTL court suffit à écraser les rafales sans jamais servir de contenu
+// vraiment périmé. Bornes ajustables par variables d'environnement.
+const META_TTL  = parseInt(process.env.SOURCE_META_TTL_MS  || String(15 * 60 * 1000), 10);  // fiches : 15 min
+const CHAP_TTL  = parseInt(process.env.SOURCE_CHAP_TTL_MS  || String(5  * 60 * 1000), 10);  // chapitres : 5 min
+const metaCache = new BoundedCache({ max: 800, ttl: META_TTL });
+const chapCache = new BoundedCache({ max: 400, ttl: CHAP_TTL });
+
+// Déduplication des requêtes simultanées : 24 onglets qui demandent la même
+// fiche en même temps ne doivent produire qu'UN scrape (même principe que le
+// proxy d'images).
+const inflight = new Map();
+async function cached(cache, key, produce) {
+    const hit = cache.get(key);
+    if (hit !== undefined) return hit;
+    if (inflight.has(key)) return inflight.get(key);
+    const p = (async () => {
+        try {
+            const v = await produce();
+            cache.set(key, v);
+            return v;
+        } finally { inflight.delete(key); }
+    })();
+    inflight.set(key, p);
+    return p;
+}
 
 function resolveSource(req) {
     const sid = req.query.source || req.params.sourceId;
@@ -95,7 +127,9 @@ async function getOne(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'manga')) return notSupported(res, src, 'manga');
-        res.json(await health.track(src.id, () => src.getManga(req.params.id)));
+        const out = await cached(metaCache, `m:${src.id}:${req.params.id}`,
+            () => health.track(src.id, () => src.getManga(req.params.id)));
+        res.json(out);
     } catch (e) { next(e); }
 }
 
@@ -103,7 +137,12 @@ async function chapters(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'chapters')) return notSupported(res, src, 'chapters');
-        res.json(await health.track(src.id, () => src.getChapters(req.params.id, req.query)));
+        // La langue et la pagination font partie de la clé : deux vues
+        // différentes du même manga ne doivent pas se servir mutuellement.
+        const k = `c:${src.id}:${req.params.id}:${req.query.lang || ''}:${req.query.limit || ''}:${req.query.offset || ''}`;
+        const out = await cached(chapCache, k,
+            () => health.track(src.id, () => src.getChapters(req.params.id, req.query)));
+        res.json(out);
     } catch (e) { next(e); }
 }
 

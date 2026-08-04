@@ -51,17 +51,31 @@
     // « Serveur injoignable » alors que le serveur répondait très bien —
     // la vraie cause était l'absence de session (mode hub, session expirée).
     // Message honnête + action adaptée, factorisé pour ne plus dériver.
+    // Audit BUG-04 : le front assimilait TOUT échec d'authentification à une
+    // session expirée. Quand la base de données tombe, /api/auth/local répond
+    // 503 et l'utilisateur lisait « Ta session a expiré, recharge la page » —
+    // il se reconnecte en boucle pour un problème qui n'a rien à voir.
+    // On distingue désormais l'indisponibilité serveur de l'absence de session.
+    // MH.lastApiError est renseigné par api.js à chaque erreur.
+    window.MH.serverIsDown = function () {
+        const e = window.MH.lastApiError;
+        return !!e && (e.network || (e.status >= 500 && e.status <= 599));
+    };
     window.MH.guestNotice = function ({ compact = false } = {}) {
-        const title = 'Connexion requise';
-        const body  = 'Ta session a expiré ou tu n\'es pas connecté. Recharge la page pour rétablir la session.';
+        const down  = window.MH.serverIsDown();
+        const title = down ? 'Serveur indisponible' : 'Connexion requise';
+        const body  = down
+            ? 'Le serveur ne répond pas (base de données injoignable ou service arrêté). Tes données sont intactes — réessaie dans un instant.'
+            : 'Ta session a expiré ou tu n\'es pas connecté. Recharge la page pour rétablir la session.';
+        const cta   = down ? 'Réessayer' : 'Se reconnecter';
         if (compact) {
             return `<div style="font-size:12.5px;color:var(--text3);padding:4px 0 2px">
-                ${title} — <a href="#" class="link-orange" onclick="location.reload();return false">se reconnecter</a>.</div>`;
+                ${title} — <a href="#" class="link-orange" onclick="location.reload();return false">${cta.toLowerCase()}</a>.</div>`;
         }
         return `<div style="text-align:center;padding:34px 16px">
             <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">${title}</div>
             <div style="color:var(--text3);margin-bottom:18px">${body}</div>
-            <button class="btn btn-primary" onclick="location.reload()">Se reconnecter</button>
+            <button class="btn btn-primary" onclick="location.reload()">${cta}</button>
         </div>`;
     };
 

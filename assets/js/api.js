@@ -82,6 +82,9 @@
                 ? 'Délai dépassé — le serveur met trop de temps à répondre.'
                 : 'Connexion impossible — vérifie ta connexion réseau.');
             err.status = 0; err.network = true;
+            // Audit BUG-04 : mémorise la dernière erreur pour que l'UI puisse
+            // distinguer « pas de session » de « serveur/base en panne ».
+            try { (window.MH = window.MH || {}).lastApiError = err; } catch (_) { /* noop */ }
             // Audit M8 : les écritures de lecture faites hors-ligne (marquer
             // lu, progression) étaient simplement perdues — elles sont
             // désormais mises en file et rejouées au retour du réseau.
@@ -98,6 +101,9 @@
             const err = new Error(data?.error || `HTTP ${res.status}`);
             err.status = res.status;
             err.data = data;
+            // Audit BUG-04 : un 5xx (base morte) ne doit pas être présenté
+            // comme une session expirée.
+            try { (window.MH = window.MH || {}).lastApiError = err; } catch (_) { /* noop */ }
             // Si token Inko invalide → déconnecte.
             // (Les 401 de services tiers liés — AniList, etc. — répondent 424,
             //  on ne purge donc la session que sur un vrai rejet d'auth Inko.)

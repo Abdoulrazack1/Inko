@@ -63,7 +63,64 @@ const MIGRATIONS = [
             await run('ALTER TABLE progress ADD COLUMN total_pages INT DEFAULT NULL');
         }
     } },
+    { version: 3, name: 'users.username UNIQUE + dédoublonnage (audit BUG-01)', apply: uniqueUsernames },
+    { version: 4, name: 'users.token_version — révocation des JWT (audit SEC-05)', apply: async () => {
+        if (!(await columnExists('users', 'token_version'))) {
+            await run('ALTER TABLE users ADD COLUMN token_version INT NOT NULL DEFAULT 0');
+        }
+    } },
 ];
+
+// ── Migration 3 : unicité des pseudos (audit BUG-01) ──────────
+// `users.username` n'avait qu'un INDEX, pas de contrainte UNIQUE, et aucun
+// contrôle applicatif. Or profile.controller résout le profil public par
+// `WHERE username = ?` : avec deux comptes homonymes, MySQL renvoie celui qu'il
+// veut. Constaté en production : « Kaito » ×2 et « Otaku » ×9 — l'utilisateur
+// voyait les statistiques d'un inconnu sur son propre profil public, et son
+// réglage « profil privé » était contourné puisqu'il s'appliquait à l'autre
+// compte.
+//
+// Dédoublonnage : on garde le pseudo au compte le plus « réel » (plus grosse
+// bibliothèque, puis le plus ancien — même heuristique que resolveOwner), les
+// autres reçoivent un suffixe numérique. Le suffixe respecte la règle de
+// validation des pseudos (lettres/chiffres/espace/._-) et la limite de 32
+// caractères.
+async function uniqueUsernames() {
+    // Déjà unique ? (migration rejouée sur une base saine)
+    const [[idx]] = await pool.query(
+        `SELECT COUNT(*) AS n FROM information_schema.statistics
+         WHERE table_schema = DATABASE() AND table_name = 'users'
+           AND index_name = 'uq_username' AND non_unique = 0`);
+    if (idx.n > 0) return;
+
+    const [dups] = await pool.query(
+        `SELECT username FROM users GROUP BY username HAVING COUNT(*) > 1`);
+
+    for (const { username } of dups) {
+        const [rows] = await pool.query(
+            `SELECT u.id, (SELECT COUNT(*) FROM favorites f WHERE f.user_id = u.id) AS favs
+             FROM users u WHERE u.username = ?
+             ORDER BY favs DESC, u.id ASC`, [username]);
+        // rows[0] conserve le pseudo ; les suivants sont suffixés
+        for (let i = 1; i < rows.length; i++) {
+            let n = i + 1, candidate;
+            // Cherche un suffixe libre (un « Otaku2 » peut déjà exister)
+            for (;;) {
+                const suffix = String(n);
+                const base = username.slice(0, Math.max(1, 32 - suffix.length));
+                candidate = base + suffix;
+                const [[taken]] = await pool.query(
+                    'SELECT COUNT(*) AS n FROM users WHERE username = ?', [candidate]);
+                if (!taken.n) break;
+                n++;
+            }
+            await pool.query('UPDATE users SET username = ? WHERE id = ?', [candidate, rows[i].id]);
+            console.log(`[migrate] pseudo dédoublonné : #${rows[i].id} "${username}" → "${candidate}"`);
+        }
+    }
+
+    await run('ALTER TABLE users ADD UNIQUE KEY uq_username (username)');
+}
 
 async function ensureSchema() {
     await run(`CREATE TABLE IF NOT EXISTS schema_migrations (

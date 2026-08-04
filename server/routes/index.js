@@ -2,7 +2,7 @@
 const router  = require('express').Router();
 const auth    = require('../middleware/auth');
 const { adminRequired } = require('../middleware/admin');
-const { authLimiter, writeLimiter, searchLimiter, imgLimiter } = require('../middleware/security');
+const { authLimiter, writeLimiter, searchLimiter, imgLimiter, relayLimiter } = require('../middleware/security');
 const Auth    = require('../controllers/auth.controller');
 const Update  = require('../controllers/update.controller');
 const Manga   = require('../controllers/manga.controller');
@@ -92,33 +92,33 @@ router.get ('/extensions/uninstalled', auth.authRequired, (_q, res) => res.json(
 router.get('/img',                  imgLimiter, Image.proxy);   // rate-limit (audit S14)
 
 // ── Artwork officiel (AniList) pour le hero ───────
-router.get('/artwork',              Artwork.artwork);
+router.get('/artwork',              relayLimiter, Artwork.artwork);
 
 // ── AniList (suivi : config OAuth implicite) ──────
 router.get('/anilist/config',       AniList.config);
 router.put('/anilist/config',       auth.authRequired, AniList.setConfig);
-router.get('/anilist/similar',      AniList.similar);
+router.get('/anilist/similar',      relayLimiter, AniList.similar);
 
 // ── Mangas (relais vers source active, ?source=<id> pour cibler) ──
-router.get('/mangas/search',        Manga.search);
+router.get('/mangas/search',        relayLimiter, Manga.search);
 router.get('/search-all',           searchLimiter, Manga.searchAll);   // recherche multi-sources (rate-limit audit S14)
-router.get('/mangas/popular',       Manga.popular);
-router.get('/mangas/latest',        Manga.latest);
-router.get('/mangas/tags',          Manga.tags);
-router.get('/mangas/:id',           Manga.getOne);
-router.get('/mangas/:id/chapters',  Manga.chapters);
-router.get('/chapters/:id/pages',   Manga.pages);
-router.get('/chapters/:id/text',    Manga.text);     // sources de romans (novel)
+router.get('/mangas/popular',       relayLimiter, Manga.popular);
+router.get('/mangas/latest',        relayLimiter, Manga.latest);
+router.get('/mangas/tags',          relayLimiter, Manga.tags);
+router.get('/mangas/:id',           relayLimiter, Manga.getOne);
+router.get('/mangas/:id/chapters',  relayLimiter, Manga.chapters);
+router.get('/chapters/:id/pages',   relayLimiter, Manga.pages);
+router.get('/chapters/:id/text',    relayLimiter, Manga.text);     // sources de romans (novel)
 
 // ── Routes scoping par source : /sources/:sourceId/mangas/* ──
-router.get('/sources/:sourceId/mangas/search',       Manga.search);
-router.get('/sources/:sourceId/mangas/popular',      Manga.popular);
-router.get('/sources/:sourceId/mangas/latest',       Manga.latest);
-router.get('/sources/:sourceId/mangas/tags',         Manga.tags);
-router.get('/sources/:sourceId/mangas/:id',          Manga.getOne);
-router.get('/sources/:sourceId/mangas/:id/chapters', Manga.chapters);
-router.get('/sources/:sourceId/chapters/:id/pages',  Manga.pages);
-router.get('/sources/:sourceId/chapters/:id/text',   Manga.text);
+router.get('/sources/:sourceId/mangas/search',       relayLimiter, Manga.search);
+router.get('/sources/:sourceId/mangas/popular',      relayLimiter, Manga.popular);
+router.get('/sources/:sourceId/mangas/latest',       relayLimiter, Manga.latest);
+router.get('/sources/:sourceId/mangas/tags',         relayLimiter, Manga.tags);
+router.get('/sources/:sourceId/mangas/:id',          relayLimiter, Manga.getOne);
+router.get('/sources/:sourceId/mangas/:id/chapters', relayLimiter, Manga.chapters);
+router.get('/sources/:sourceId/chapters/:id/pages',  relayLimiter, Manga.pages);
+router.get('/sources/:sourceId/chapters/:id/text',   relayLimiter, Manga.text);
 
 // ── User data (auth required) ───────────────────
 router.get   ('/me/favorites',            auth.authRequired, User.getFavorites);

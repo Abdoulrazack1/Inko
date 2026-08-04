@@ -80,9 +80,14 @@ async function getExpectedHashes() {
     } catch (e) { return {}; }
 }
 
-// Récupère la source d'une extension et VÉRIFIE son empreinte (audit S-2).
-// Quand un hash attendu existe pour cet id, un contenu qui ne correspond pas
-// est rejeté (fail-closed) — protège d'un CDN raw altéré ou d'un tag reforgé.
+// Audit SEC-07 : la vérification était annoncée « fail-closed » mais ne l'était
+// qu'à moitié. getExpectedHashes() renvoie {} quand le réseau échoue, et la
+// vérification ne se déclenchait que `if (expectedHash)` — donc un hash absent
+// ou injoignable faisait installer du JS EXÉCUTÉ PAR LE SERVEUR sans aucun
+// contrôle. Désormais : pas de hash attendu = refus, sauf opt-in explicite.
+const ALLOW_UNVERIFIED = process.env.ALLOW_UNVERIFIED_EXTENSIONS === '1';
+
+// Récupère la source d'une extension et VÉRIFIE son empreinte.
 async function getLatestSource(id, expectedHash) {
     const local = path.join(COMMUNITY_DIR, id, 'index.js');
     let src;
@@ -94,10 +99,18 @@ async function getLatestSource(id, expectedHash) {
             { timeout: 20000, responseType: 'text', transformResponse: [(d) => d] });
         src = typeof r.data === 'string' ? r.data : String(r.data);
     }
-    if (expectedHash) {
-        const got = sha256(Buffer.from(src, 'utf8'));
-        if (got !== expectedHash) throw new Error('empreinte SHA-256 invalide (source rejetée)');
+    if (!expectedHash) {
+        if (!ALLOW_UNVERIFIED) {
+            throw new Error(
+                'aucune empreinte SHA-256 connue pour cette extension — installation refusée. ' +
+                'Vérifie que extensions-community/hashes.json est accessible, ' +
+                'ou définis ALLOW_UNVERIFIED_EXTENSIONS=1 pour passer outre en connaissance de cause.');
+        }
+        console.warn(`[ext] ⚠ "${id}" installée SANS vérification d'empreinte (ALLOW_UNVERIFIED_EXTENSIONS=1)`);
+        return src;
     }
+    const got = sha256(Buffer.from(src, 'utf8'));
+    if (got !== expectedHash) throw new Error('empreinte SHA-256 invalide (source rejetée)');
     return src;
 }
 

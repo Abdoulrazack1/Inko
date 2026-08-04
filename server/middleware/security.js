@@ -125,4 +125,20 @@ const imgLimiter = rateLimit({
     message: { error: 'Trop de requêtes images.' },
 });
 
-module.exports = { securityHeaders, corsOptions, authLimiter, writeLimiter, searchLimiter, imgLimiter };
+// Audit SEC-10 : /search-all et /img étaient limités, mais PAS les 18 autres
+// routes de relais (mangas/search, popular, latest, tags, :id, chapters, pages,
+// text, artwork, anilist/similar + leurs équivalents scopés /sources/:id/...).
+// Chacune déclenche pourtant un appel sortant vers un site tiers : sur une
+// instance exposée, c'était un amplificateur de déni de service PAR RICOCHET
+// vers les sites scrapés — exactement le risque que searchLimiter couvrait
+// déjà pour la recherche multi-sources. Fenêtre large : une page catalogue
+// légitime enchaîne facilement 30 appels.
+const relayLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: parseInt(process.env.RELAY_RATE_MAX || '180', 10),   // 180 relais / min / IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Trop de requêtes vers les sources. Patiente quelques secondes.' },
+});
+
+module.exports = { securityHeaders, corsOptions, authLimiter, writeLimiter, searchLimiter, imgLimiter, relayLimiter };

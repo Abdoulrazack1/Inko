@@ -62,8 +62,47 @@
 
     // ── Helpers ──
     const CACHE_MAX = 300;   // borne le cache (audit DF8 : Map non évincée)
+
+    // Audit BUG-02 / PERF-01 : cette page déclenchait 201 appels
+    // /api/sources/<src>/mangas/<id> par affichage — soit 201 SCRAPES du site
+    // distant, ~80 s de temps réseau cumulé, et un risque de bannissement d'IP.
+    // Or la donnée nécessaire (titre + couverture) est déjà renvoyée par
+    // /api/me/favorites, EN UN SEUL APPEL, pour toute la bibliothèque. On amorce
+    // donc le cache avec elle et on ne va sur le réseau que pour les œuvres
+    // absentes des favoris (historique d'une série retirée, par ex.).
+    let _favSeed = null;
+    function favSeed() {
+        if (!_favSeed) {
+            _favSeed = Promise.resolve(API.me.favorites())
+                .then(list => {
+                    const map = new Map();
+                    (list || []).forEach(f => {
+                        const id = f.id || f.mangaId;
+                        if (!id) return;
+                        map.set(id, {
+                            id,
+                            title:      f.title || id,
+                            cover:      f.cover || null,
+                            coverThumb: f.cover || null,
+                            source:     f.source || null,
+                            fromSeed:   true,   // pas de tags : voir loadMangaFull()
+                        });
+                    });
+                    return map;
+                })
+                .catch(() => new Map());
+        }
+        return _favSeed;
+    }
+
     async function loadManga(id) {
         if (cacheMangas.has(id)) return cacheMangas.get(id);
+        const seed = await favSeed();
+        if (seed.has(id)) {
+            const m = seed.get(id);
+            cacheMangas.set(id, m);
+            return m;
+        }
         try {
             const m = await API.mangas.get(id);
             if (cacheMangas.size >= CACHE_MAX) cacheMangas.delete(cacheMangas.keys().next().value);
@@ -72,9 +111,43 @@
         } catch(e) { return null; }
     }
 
+    // Récupère la fiche COMPLÈTE (avec tags) — nécessaire uniquement pour le
+    // calcul des genres. Ignore l'amorce, qui n'a pas les tags.
+    async function loadMangaFull(id) {
+        const c = cacheMangas.get(id);
+        if (c && !c.fromSeed) return c;
+        try {
+            const m = await API.mangas.get(id);
+            if (cacheMangas.size >= CACHE_MAX) cacheMangas.delete(cacheMangas.keys().next().value);
+            cacheMangas.set(id, m);
+            return m;
+        } catch(e) { return null; }
+    }
+
+    // Concurrence bornée : l'ancien Promise.all lançait N requêtes d'un coup.
+    async function mapLimit(items, limit, fn) {
+        const out = new Array(items.length);
+        let idx = 0;
+        await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+            while (idx < items.length) { const i = idx++; out[i] = await fn(items[i], i); }
+        }));
+        return out;
+    }
+
+    // Renvoie une Map id → œuvre (l'ancien tableau filtré désalignait les
+    // index quand une œuvre manquait — les appelants indexaient par position).
+    async function loadMangasMap(ids, { full = false } = {}) {
+        const uniq = [...new Set(ids.filter(Boolean))];
+        const fetcher = full ? loadMangaFull : loadManga;
+        const list = await mapLimit(uniq, 4, fetcher);
+        const map = new Map();
+        uniq.forEach((id, i) => { if (list[i]) map.set(id, list[i]); });
+        return map;
+    }
+
     async function loadMangas(ids) {
-        const results = await Promise.all(ids.map(id => loadManga(id)));
-        return results.filter(Boolean);
+        const map = await loadMangasMap(ids);
+        return ids.map(id => map.get(id)).filter(Boolean);
     }
 
     // Audit P3 : un seul fetch de /me/stats partagé entre les 5 fonctions de
@@ -314,10 +387,16 @@
             // Audit P6 : échantillon RÉPARTI sur toute la bibliothèque (60 max,
             // pas les 20 premiers) — les genres reflètent l'ensemble des goûts
             // sans marteler les sources d'un appel par favori pour autant.
-            const SAMPLE = 60;
+            // Audit PERF-01 : c'est le SEUL bloc qui a réellement besoin des tags,
+            // donc des fiches complètes (l'amorce via /me/favorites ne les porte
+            // pas). L'échantillon descend de 60 à 24 : au-delà, la répartition des
+            // genres ne bouge plus, et chaque fiche est un appel sortant vers la
+            // source. Concurrence bornée à 4 par loadMangasMap.
+            const SAMPLE = 24;
             const step = Math.max(1, Math.ceil(favs.length / SAMPLE));
             const sample = favs.filter((_, i) => i % step === 0).slice(0, SAMPLE);
-            const mangas = await loadMangas(sample.map(f => f.mangaId));
+            const byId = await loadMangasMap(sample.map(f => f.id || f.mangaId), { full: true });
+            const mangas = [...byId.values()];
             const counts = {};
             let total = 0;
             mangas.filter(Boolean).forEach(m => (m.tags || []).slice(0, 6).forEach(t => {
@@ -673,9 +752,13 @@
                 if (!top.length) {
                     cont.innerHTML = `<div style="color:var(--text3);font-size:11.5px;padding:8px 4px">Aucune lecture cette semaine.</div>`;
                 } else {
-                    const mangas = await loadMangas(top.map(([id]) => id));
-                    cont.innerHTML = top.map(([id, n], i) => {
-                        const m = mangas[i] || {};
+                    // Audit PERF-01 : indexation par id, pas par position — le
+                    // tableau était filtré des valeurs nulles, donc une œuvre
+                    // introuvable décalait tous les suivants (mauvaise couverture
+                    // en face du mauvais titre).
+                    const byId = await loadMangasMap(top.map(([id]) => id));
+                    cont.innerHTML = top.map(([id, n]) => {
+                        const m = byId.get(id) || {};
                         return `<div class="top-series-item">
                             <img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy" decoding="async" style="min-width:36px;min-height:50px;border-radius:4px;object-fit:cover;background:var(--bg4)" onerror="this.style.visibility='hidden'">
                             <div>

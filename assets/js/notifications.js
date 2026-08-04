@@ -104,9 +104,24 @@
             list.querySelector('#ntRetry')?.addEventListener('click', () => load());
             return;
         }
+        // Audit BUG-08 : la pastille « Chapitres » filtrait sur type === 'chapter'
+        // alors que lib/updates.js écrit 'new_chapter' — le filtre renvoyait donc
+        // toujours 0, sur 52 notifications qui étaient TOUTES des nouveaux
+        // chapitres. global.js:notifIconName connaissait déjà les deux
+        // orthographes ; on aligne le filtre sur le même principe.
+        const TYPE_ALIASES = {
+            chapter: ['chapter', 'new_chapter'],
+            reply:   ['reply'],
+            mention: ['mention'],
+            badge:   ['badge'],
+            system:  ['system'],
+        };
         let shown = items;
         if (filter === 'unread') shown = items.filter(n => !n.read);
-        else if (filter !== 'all') shown = items.filter(n => n.type === filter);
+        else if (filter !== 'all') {
+            const accepted = TYPE_ALIASES[filter] || [filter];
+            shown = items.filter(n => accepted.includes(n.type));
+        }
         if (!shown.length) {
             list.innerHTML = `<div class="nt-empty">Aucune notification${filter !== 'all' ? ' dans ce filtre' : ''}.</div>`;
             return;

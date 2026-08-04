@@ -5,7 +5,7 @@ const axios  = require('axios');
 const fs     = require('fs');
 const path   = require('path');
 const { pool } = require('../config/db');
-const { sign } = require('../middleware/auth');
+const { sign, revokeTokens } = require('../middleware/auth');
 
 // Client ID Google : priorité à la variable d'environnement, sinon fichier de
 // config modifiable depuis l'app (Paramètres → Connexion Google) — pas besoin
@@ -128,11 +128,29 @@ async function register(req, res, next) {
         const [[exists]] = await pool.query('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
         if (exists) return res.status(409).json({ error: 'Un compte existe déjà avec cet email' });
 
+        // Audit BUG-01 : le pseudo doit être unique — il sert de clé au profil
+        // public (/api/users/profile/:username). Contrôle explicite pour un
+        // message clair, la contrainte UNIQUE restant le garde-fou (course).
+        const [[nameTaken]] = await pool.query('SELECT id FROM users WHERE username = ?', [username.trim()]);
+        if (nameTaken) return res.status(409).json({ error: 'Ce nom d\'utilisateur est déjà pris' });
+
         const hash = await bcrypt.hash(password, 10);
-        const [result] = await pool.query(
-            'INSERT INTO users (username, email, password_hash, avatar) VALUES (?, ?, ?, ?)',
-            [username.trim(), email.toLowerCase(), hash, username.trim()[0].toUpperCase()]
-        );
+        let result;
+        try {
+            [result] = await pool.query(
+                'INSERT INTO users (username, email, password_hash, avatar) VALUES (?, ?, ?, ?)',
+                [username.trim(), email.toLowerCase(), hash, username.trim()[0].toUpperCase()]
+            );
+        } catch (e) {
+            if (e.code === 'ER_DUP_ENTRY') {
+                return res.status(409).json({
+                    error: /uq_username/.test(e.message)
+                        ? 'Ce nom d\'utilisateur est déjà pris'
+                        : 'Un compte existe déjà avec cet email',
+                });
+            }
+            throw e;
+        }
         const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [result.insertId]);
 
         const token = sign(user);
@@ -307,6 +325,13 @@ async function resetPassword(req, res, next) {
         const hash = await bcrypt.hash(newPassword, 10);
         await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [hash, email.toLowerCase()]);
         await pool.query('UPDATE password_resets SET used = 1 WHERE email = ? AND token = ?', [email.toLowerCase(), token]);
+        // Audit SEC-05 : c'est LE cas d'usage de la révocation — réinitialiser
+        // son mot de passe doit déconnecter l'intrus, pas seulement changer le
+        // secret. Sans cela, un jeton volé restait valide 30 jours.
+        const [[u]] = await pool.query('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
+        if (u) await revokeTokens(u.id);
+        // Audit SEC-12 : invalide aussi les autres jetons de reset en attente.
+        await pool.query('UPDATE password_resets SET used = 1 WHERE email = ?', [email.toLowerCase()]);
 
         res.json({ ok: true });
     } catch (e) { next(e); }
@@ -329,7 +354,13 @@ async function changePassword(req, res, next) {
 
         const hash = await bcrypt.hash(newPassword, 10);
         await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.user.id]);
-        res.json({ ok: true });
+        // Audit SEC-05 : révoque les jetons émis avant le changement, puis
+        // ré-authentifie la session courante pour ne pas déconnecter
+        // l'utilisateur qui vient légitimement de changer son mot de passe.
+        const tv = await revokeTokens(req.user.id);
+        const fresh = sign({ id: req.user.id, email: req.user.email, token_version: tv });
+        res.cookie(COOKIE_NAME, fresh, COOKIE_OPTS);
+        res.json({ ok: true, token: fresh });
     } catch (e) { next(e); }
 }
 
@@ -344,6 +375,10 @@ async function updateProfile(req, res, next) {
             // Même règle qu'à l'inscription (audit S3) : pas de < > " ' etc.
             if (username.trim().length > 32 || !/^[\p{L}\p{N} ._-]+$/u.test(username.trim()))
                 return res.status(400).json({ error: "Nom d'utilisateur invalide (lettres, chiffres, espaces, . _ - uniquement, 32 caractères max)" });
+            // Audit BUG-01 : unicité du pseudo (clé du profil public)
+            const [[nameTaken]] = await pool.query(
+                'SELECT id FROM users WHERE username = ? AND id <> ?', [username.trim(), req.user.id]);
+            if (nameTaken) return res.status(409).json({ error: 'Ce nom d\'utilisateur est déjà pris' });
             sets.push('username = ?'); vals.push(username.trim());
         }
         if (avatar !== undefined) {
@@ -353,7 +388,14 @@ async function updateProfile(req, res, next) {
         }
         if (sets.length) {
             vals.push(req.user.id);
-            await pool.query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, vals);
+            try {
+                await pool.query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, vals);
+            } catch (e) {
+                if (e.code === 'ER_DUP_ENTRY') {
+                    return res.status(409).json({ error: 'Ce nom d\'utilisateur est déjà pris' });
+                }
+                throw e;
+            }
         }
         const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
         res.json({ user: publicUser(user) });
