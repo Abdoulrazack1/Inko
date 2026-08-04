@@ -42,7 +42,13 @@ function requireCheerio() {
 
 // SushiScan est protégé par Cloudflare : l'empreinte TLS de Node est bloquée.
 // curl (présent nativement Win10+/macOS/Linux) passe ; repli axios si absent.
-function curlGet(url) {
+// Audit EXT-04 : aucun reessai. Un scan de bibliotheque enchaine des dizaines
+// de requetes sur un site scrape derriere Cloudflare : un blocage ponctuel ou
+// un hoquet reseau faisait echouer toute la serie et remontait a l'utilisateur
+// comme une source cassee. Deux tentatives, 800 ms d'attente. On ne reessaie
+// que le transitoire : une reponse vide (blocage anti-bot) ou une erreur curl,
+// jamais une reponse valide mais inattendue.
+function curlGetOnce(url) {
     return new Promise((resolve, reject) => {
         execFile('curl', [
             '-s', '-L', '--compressed', '-m', '25',
@@ -57,6 +63,15 @@ function curlGet(url) {
             resolve(stdout);
         });
     });
+}
+const sleepMs = (ms) => new Promise(r => setTimeout(r, ms));
+async function curlGet(url) {
+    let last;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try { return await curlGetOnce(url); }
+        catch (e) { last = e; if (attempt < 2) await sleepMs(800); }
+    }
+    throw last;
 }
 
 // Messages lisibles pour les limites HTTP (audit F.15) : avant, un 429/503
