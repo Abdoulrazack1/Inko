@@ -68,6 +68,26 @@
   color: inherit;
 }
 .novel-content p { margin: 0 0 1.05em; }
+
+/* Audit PERF-04 — NON RÉSOLU, et voici pourquoi.
+   Le lecteur de texte injecte le chapitre ENTIER d'un coup. Sur un livre
+   complet — Gutenberg ne découpe pas, « Moby Dick » arrive en un seul
+   « chapitre » — cela fait 19 222 nœuds et 2 803 blocs à mettre en page :
+   exactement le défaut corrigé en 2.3.4 pour le lecteur d'images, resté entier
+   du côté texte.
+
+   `content-visibility: auto` a été essayé ici : le gain mesuré était réel
+   (mise en page complète 346,8 ms → 20,1 ms, soit −94 %) et `textContent`
+   restait intact, donc la synthèse vocale continuait de fonctionner. MAIS en
+   défilant à 150 000 px, les blocs entrant dans le viewport gardaient leur
+   hauteur réservée sans jamais être peints : le lecteur affichait du VIDE en
+   milieu de livre. Vérifié après plusieurs frames — ce n'était pas un artefact
+   de mesure. Un gain de mise en page ne vaut pas un lecteur blanc.
+
+   La bonne solution est en amont : découper le livre en chapitres à partir de
+   son sommaire (AMEL-20), ce qui règle aussi la navigation et la reprise de
+   lecture. À défaut, une vraie virtualisation par IntersectionObserver, qui
+   devra préserver TTS, Ctrl+F et la sélection de texte. */
 .novel-content hr { border: none; border-top: 1px solid currentColor; opacity: .2; margin: 2em auto; width: 50%; }
 .novel-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 1em 0; }
 .novel-content table { border-collapse: collapse; margin: 1em 0; max-width: 100%; }
