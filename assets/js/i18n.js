@@ -29,6 +29,17 @@
     MH.lang = (() => { try { return localStorage.getItem(KEY) || 'fr'; } catch (e) { return 'fr'; } })();
     MH.t = (k, fb) => dict[k] || fb || k;
 
+    // Audit I18N-05 : revenir au français imposait un rechargement complet —
+    // « les textes déjà traduits ne peuvent pas être détraduits de façon
+    // fiable ». C'était vrai tant qu'on ne gardait aucune trace de l'original.
+    // On mémorise donc, pour chaque nœud traduit, sa valeur source. Le retour
+    // au français devient une simple restauration, sans perdre l'état de la
+    // page (position de lecture, filtres, panneaux ouverts).
+    // WeakMap : aucune fuite, les nœuds retirés du DOM sont collectés.
+    const original = new WeakMap();   // nœud texte → chaîne française
+    const originalAttr = new WeakMap(); // élément → { attribut: valeur française }
+    let docTitleFr = null;            // titre de page d'origine
+
     // Traduit une chaîne en préservant ses espaces de bord (fragments de nœuds)
     function trText(s) {
         if (!active || !s) return s;
@@ -42,20 +53,52 @@
         }
         return s;
     }
+
+    // Restaure tout ce qui a été traduit dans cette page (audit I18N-05)
+    function restoreOriginals(root) {
+        const doc = (root && root.ownerDocument) || document;
+        const walker = doc.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, null);
+        let n;
+        while ((n = walker.nextNode())) {
+            const src = original.get(n);
+            if (src !== undefined && n.nodeValue !== src) n.nodeValue = src;
+        }
+        (root || document).querySelectorAll('[placeholder],[title],[aria-label],[alt]').forEach(el => {
+            const saved = originalAttr.get(el);
+            if (!saved) return;
+            for (const [a, v] of Object.entries(saved)) {
+                if (el.getAttribute(a) !== v) el.setAttribute(a, v);
+            }
+        });
+    }
     MH.trText = trText;
 
     const ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
     function trAttrs(el) {
         for (const a of ATTRS) {
             const v = el.getAttribute(a);
-            if (v) { const t = trText(v); if (t !== v) el.setAttribute(a, t); }
+            if (v) {
+                const t = trText(v);
+                if (t !== v) {
+                    // Mémorise la valeur française avant de l'écraser (I18N-05)
+                    const saved = originalAttr.get(el) || {};
+                    if (saved[a] === undefined) { saved[a] = v; originalAttr.set(el, saved); }
+                    el.setAttribute(a, t);
+                }
+            }
         }
+    }
+    // Applique une traduction à un nœud texte en gardant l'original (I18N-05)
+    function applyText(node) {
+        const t = trText(node.nodeValue);
+        if (t === node.nodeValue) return;
+        if (!original.has(node)) original.set(node, node.nodeValue);
+        node.nodeValue = t;
     }
     function translateTree(root) {
         if (!root) return;
         if (root.nodeType === 3) {                      // nœud texte isolé
-            const t = trText(root.nodeValue);
-            if (t !== root.nodeValue) root.nodeValue = t;
+            applyText(root);
             return;
         }
         if (root.nodeType !== 1 && root.nodeType !== 9 && root.nodeType !== 11) return;
@@ -79,10 +122,7 @@
         });
         const todo = [];
         let n; while ((n = walker.nextNode())) todo.push(n);
-        for (const node of todo) {
-            const t = trText(node.nodeValue);
-            if (t !== node.nodeValue) node.nodeValue = t;
-        }
+        for (const node of todo) applyText(node);
     }
 
     // Audit I18N-04 : l'observateur traitait CHAQUE mutation individuellement,
@@ -149,14 +189,39 @@
 
     MH.applyI18n = (root) => {
         const r = root || document;
-        // Rétro-compat : traduction par clé (nav du header)
+        // Rétro-compat : traduction par clé (nav du header).
+        // Audit I18N-05 : ce chemin écrivait `textContent` directement, sans
+        // garder l'original — c'est lui qui laissait la navigation en anglais
+        // au retour au français, alors que le reste de la page revenait bien.
         if (r.querySelectorAll) {
-            r.querySelectorAll('[data-i18n]').forEach(el => { const v = dict[el.getAttribute('data-i18n')]; if (v) el.textContent = v; });
-            r.querySelectorAll('[data-i18n-ph]').forEach(el => { const v = dict[el.getAttribute('data-i18n-ph')]; if (v) el.placeholder = v; });
+            r.querySelectorAll('[data-i18n]').forEach(el => {
+                const v = dict[el.getAttribute('data-i18n')];
+                if (active && v) {
+                    if (!original.has(el)) original.set(el, el.textContent);
+                    el.textContent = v;
+                } else if (!active && original.has(el)) {
+                    el.textContent = original.get(el);
+                }
+            });
+            r.querySelectorAll('[data-i18n-ph]').forEach(el => {
+                const v = dict[el.getAttribute('data-i18n-ph')];
+                const saved = originalAttr.get(el) || {};
+                if (active && v) {
+                    if (saved.placeholder === undefined) { saved.placeholder = el.placeholder; originalAttr.set(el, saved); }
+                    el.placeholder = v;
+                } else if (!active && saved.placeholder !== undefined) {
+                    el.placeholder = saved.placeholder;
+                }
+            });
         }
         if (active) {
             translateTree(r === document ? document.body : r);
-            document.title = trText(document.title);
+            // Mémorise le titre français avant de le traduire (audit I18N-05)
+            const tt = trText(document.title);
+            if (tt !== document.title) {
+                if (docTitleFr === null) docTitleFr = document.title;
+                document.title = tt;
+            }
         }
     };
 
@@ -176,15 +241,22 @@
         }
         MH.lang = lang;
         try { document.documentElement.lang = lang; } catch (e) { window.MH?.err?.('i18n.js', e); }
+        // Audit I18N-05 : en repassant au français, on restaure les textes
+        // d'origine mémorisés au lieu de recharger la page. Le titre revient
+        // aussi à sa valeur source.
+        if (!active) {
+            restoreOriginals(document.body);
+            if (docTitleFr !== null) { document.title = docTitleFr; docTitleFr = null; }
+        }
         MH.applyI18n(document);
         if (active) startObserver();
     };
 
     MH.setLang = async (lang) => {
         try { localStorage.setItem(KEY, lang); } catch (e) { window.MH?.err?.('i18n.js', e); }
-        // Retour au français : les textes déjà traduits ne peuvent pas être
-        // « détraduits » de façon fiable → rechargement (le HTML source est FR).
-        if (lang === 'fr' && MH.lang !== 'fr') { window.location.reload(); return; }
+        // Audit I18N-05 : plus de rechargement. Il faisait perdre l'état de la
+        // page (position de lecture, filtres, panneaux ouverts) et donnait un
+        // aller-retour visible pour un simple changement de langue.
         await MH.loadI18n(lang);
         window.dispatchEvent(new CustomEvent('i18n:change', { detail: { lang } }));
     };

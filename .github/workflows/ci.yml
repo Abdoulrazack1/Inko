@@ -86,6 +86,12 @@ jobs:
       - name: Vérifier la liste de précache du service worker
         run: node scripts-ci/gen-precache.js --check
 
+      # Audit I18N-03 : la traduction se fait par correspondance EXACTE du texte
+      # source français. Reformuler un libellé casse sa traduction en silence —
+      # rien ne le signalait, ni au build ni à l'exécution.
+      - name: Vérifier la couverture i18n
+        run: node scripts-ci/check-i18n.js --check
+
       - name: Regénérer les empreintes
         run: node scripts-ci/gen-ext-hashes.js
       - name: Échouer si hashes.json n'est pas à jour
