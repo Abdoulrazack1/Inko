@@ -771,9 +771,17 @@ async function importData(req, res, next) {
             'INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES ?',
             readRows, n => counts.readChapters += n);
 
+        // Audit DB-04 : l'import écrivait la note telle quelle. La validation
+        // 1..5 n'existait qu'à l'écriture par l'API, donc un fichier d'import
+        // (fabriqué à la main, exporté d'un autre outil, ou simplement ancien)
+        // pouvait insérer n'importe quelle valeur. Depuis que la contrainte
+        // CHECK existe en base, ces lignes seraient rejetées EN SILENCE et
+        // l'utilisateur perdrait ses notes sans le savoir. On borne donc ici.
         const rateRows = (d.ratings || [])
-            .filter(r => (r.manga_id || r.mangaId) && r.rating != null)
-            .map(r => [uid, r.manga_id || r.mangaId, r.rating, r.review || null]);
+            .filter(r => (r.manga_id || r.mangaId) && r.rating != null && !isNaN(parseFloat(r.rating)))
+            .map(r => [uid, r.manga_id || r.mangaId,
+                       Math.min(5, Math.max(1, Math.round(parseFloat(r.rating)))),
+                       r.review || null]);
         await bulk(
             `INSERT INTO ratings (user_id, manga_id, rating, review) VALUES ?
              ON DUPLICATE KEY UPDATE rating=VALUES(rating), review=VALUES(review)`,

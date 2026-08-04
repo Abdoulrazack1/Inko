@@ -42,11 +42,50 @@ const upload = multer({
 // bornait pas le volume total — un compte pouvait remplir le disque du hub).
 const QUOTA_MB = parseInt(process.env.LOCAL_IMPORT_QUOTA_MB || '2048', 10);   // 2 Go par défaut
 
+// Audit SEC-14 : le type était décidé sur la SEULE extension du nom de fichier.
+// Un fichier renommé en .cbz passait quel que soit son contenu. On lit les
+// octets d'en-tête, qui ne mentent pas :
+//   ZIP (CBZ et EPUB sont des ZIP) : 50 4B 03 04 / 05 06 / 07 08
+//   PDF                            : 25 50 44 46  ("%PDF")
+// Le contrôle reste tolérant sur les variantes de ZIP (vide, segmenté).
+function sniffType(filePath) {
+    let fd;
+    try {
+        fd = fs.openSync(filePath, 'r');
+        const buf = Buffer.alloc(4);
+        fs.readSync(fd, buf, 0, 4, 0);
+        if (buf[0] === 0x50 && buf[1] === 0x4B &&
+            ((buf[2] === 0x03 && buf[3] === 0x04) ||
+             (buf[2] === 0x05 && buf[3] === 0x06) ||
+             (buf[2] === 0x07 && buf[3] === 0x08))) return 'zip';
+        if (buf.toString('ascii') === '%PDF') return 'pdf';
+        if (buf[0] === 0x52 && buf[1] === 0x61 && buf[2] === 0x72 && buf[3] === 0x21) return 'rar';
+        return 'inconnu';
+    } catch (e) { return 'illisible'; }
+    finally { if (fd !== undefined) { try { fs.closeSync(fd); } catch (e) { /* déjà fermé */ } } }
+}
+
 // POST /api/library/import/local — téléverse un fichier
 function importLocal(req, res, next) {
     upload(req, res, async (err) => {
         if (err) return res.status(400).json({ error: err.message });
         if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+
+        // Vérification du contenu réel avant tout enregistrement (audit SEC-14)
+        const extRaw = (path.extname(req.file.originalname) || '').toLowerCase();
+        const declared = ALLOWED[extRaw] || 'cbz';
+        const actual = sniffType(req.file.path);
+        const expected = declared === 'pdf' ? 'pdf' : 'zip';   // cbz et epub sont des ZIP
+        if (actual !== expected) {
+            fs.unlink(req.file.path, () => {});
+            const detail = actual === 'rar'
+                ? 'ce fichier est une archive RAR (CBR), pas un ZIP — convertis-le en CBZ'
+                : `contenu détecté : ${actual}`;
+            return res.status(400).json({
+                error: `Le contenu du fichier ne correspond pas à son extension (${extRaw}) — ${detail}.`,
+            });
+        }
+
         try {
             const [[used]] = await pool.query(
                 'SELECT COALESCE(SUM(size), 0) AS total FROM local_imports WHERE user_id = ?',

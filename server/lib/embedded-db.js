@@ -69,8 +69,22 @@ function readDbPassword() {
     catch (e) { return ''; }
 }
 function writeDbPassword(pw) {
-    fs.mkdirSync(path.dirname(credsPath()), { recursive: true });
-    fs.writeFileSync(credsPath(), JSON.stringify({ password: pw, at: new Date().toISOString() }));
+    const p = credsPath();
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    // Audit SEC-13 : le fichier était écrit avec les droits par défaut. Le mot
+    // de passe doit rester lisible par le service (il faut bien se reconnecter),
+    // mais on restreint l'accès au seul propriétaire — c'est tout l'intérêt de
+    // le placer dans %APPDATA%. mode 0600 est honoré sur POSIX ; sur Windows on
+    // retire l'héritage d'ACL et on ne laisse que l'utilisateur courant.
+    fs.writeFileSync(p, JSON.stringify({ password: pw, at: new Date().toISOString() }), { mode: 0o600 });
+    try { fs.chmodSync(p, 0o600); } catch (e) { /* système de fichiers sans permissions */ }
+    if (process.platform === 'win32') {
+        try {
+            require('child_process').execFileSync('icacls',
+                [p, '/inheritance:r', '/grant:r', `${process.env.USERNAME}:F`],
+                { stdio: 'ignore', windowsHide: true, timeout: 10000 });
+        } catch (e) { log('⚠ ACL non restreinte sur le fichier de credentials'); }
+    }
 }
 
 // Pose (ou re-pose) le mot de passe sur le compte root effectivement utilisé.

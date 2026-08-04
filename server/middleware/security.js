@@ -75,7 +75,13 @@ function corsOptions() {
     // En prod sans liste blanche : permissif UNIQUEMENT si CORS_ALLOW_ANY=1
     // (audit S-1). Sinon on n'autorise que les requêtes sans Origin (apps
     // natives, curl, same-origin) et on bloque tout site tiers.
-    const permissiveOk = !IS_PROD || CORS_ALLOW_ANY;
+    // Audit SEC-09 : IS_DESKTOP manquait ici. Le sidecar desktop tourne sans
+    // NODE_ENV=production — c'est précisément pour ça que IS_DESKTOP existe
+    // deux dizaines de lignes plus haut, pour la CSP. Sans lui, n'importe quelle
+    // page web visitée pouvait interroger http://127.0.0.1:8088 et lister les
+    // sources installées (le cookie SameSite=Lax protégeait les endpoints
+    // authentifiés, pas les publics).
+    const permissiveOk = !(IS_PROD || IS_DESKTOP) || CORS_ALLOW_ANY;
     return {
         credentials: true,
         origin(origin, cb) {

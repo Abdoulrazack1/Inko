@@ -69,6 +69,29 @@ const MIGRATIONS = [
             await run('ALTER TABLE users ADD COLUMN token_version INT NOT NULL DEFAULT 0');
         }
     } },
+    { version: 5, name: 'intégrité des notes + colonne morte library.rating (audit DB-03/DB-04)', apply: async () => {
+        // DB-04 : `ratings.rating` est un TINYINT sans borne — la validation
+        // 1..5 était purement applicative, donc contournable par tout accès
+        // direct à la base (script, restauration, correction manuelle).
+        // On borne d'abord les valeurs existantes, puis on pose la contrainte.
+        await run('UPDATE ratings SET rating = 5 WHERE rating > 5');
+        await run('UPDATE ratings SET rating = 1 WHERE rating < 1');
+        await run('ALTER TABLE ratings ADD CONSTRAINT chk_rating_range CHECK (rating BETWEEN 1 AND 5)');
+
+        // DB-03 : `library.rating` n'est écrite NULLE PART dans le code — la
+        // table `ratings` a pris le relais (avec review, horodatage et index).
+        // On ne supprime la colonne que si elle est effectivement vide, pour ne
+        // jamais détruire de données sur une base qui l'aurait utilisée.
+        if (await columnExists('library', 'rating')) {
+            const [[r]] = await pool.query('SELECT COUNT(*) AS n FROM library WHERE rating IS NOT NULL');
+            if (r.n === 0) {
+                await run('ALTER TABLE library DROP COLUMN rating');
+                console.log('[migrate] colonne morte library.rating supprimée (0 ligne renseignée)');
+            } else {
+                console.warn(`[migrate] library.rating conservée : ${r.n} ligne(s) renseignée(s) — à migrer vers ratings avant suppression`);
+            }
+        }
+    } },
 ];
 
 // ── Migration 3 : unicité des pseudos (audit BUG-01) ──────────

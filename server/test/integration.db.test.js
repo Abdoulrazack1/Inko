@@ -187,6 +187,9 @@ test('user.importData : import batché, compteurs corrects (audit B3)', async (t
         readChapters: [
             { manga_id: 'a', chapter_id: 'ch1', chapter_number: 1 },
         ],
+        // Audit DB-04 : 9 est hors barème (1..5). Avant, l'import l'écrivait tel
+        // quel ; depuis la contrainte CHECK en base, la ligne serait rejetée en
+        // silence et la note perdue. L'import borne donc la valeur.
         ratings: [{ manga_id: 'a', rating: 9, review: 'excellent' }],
     } });
     await User.importData(req, res, nextThrow);
@@ -195,6 +198,11 @@ test('user.importData : import batché, compteurs corrects (audit B3)', async (t
     assert.equal(res.body.imported.progress, 2);
     assert.equal(res.body.imported.readChapters, 1);
     assert.equal(res.body.imported.ratings, 1);
+
+    // La note hors barème doit être ramenée dans les bornes, pas perdue
+    const [[rated]] = await pool.query(
+        'SELECT rating FROM ratings WHERE user_id = ? AND manga_id = ?', [u.id, 'a']);
+    assert.equal(rated.rating, 5, 'la note 9 doit être bornée à 5, pas rejetée');
 
     const favs = rr({ user: u });
     await User.getFavorites(favs.req, favs.res, nextThrow);
