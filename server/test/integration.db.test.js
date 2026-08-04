@@ -58,6 +58,15 @@ before(async () => {
         Profile = require('../controllers/profile.controller');
         available = true;
     } catch (e) {
+        // Audit QUAL-01 : ces suites étaient « vertes par abstention » — elles
+        // se sautaient en silence et la CI ne déclarait aucun service MySQL,
+        // donc elles n'ont jamais tourné. En CI (REQUIRE_DB_TESTS=1) une base
+        // injoignable est désormais un ÉCHEC, pas un saut : sans cela, la
+        // régression peut revenir sans que rien ne l'indique.
+        if (process.env.REQUIRE_DB_TESTS === '1') {
+            throw new Error(
+                'MySQL est requis pour les tests d\'intégration (REQUIRE_DB_TESTS=1) : ' + e.message);
+        }
         console.warn('[integration] MySQL indisponible — tests sautés :', e.message);
     }
 });

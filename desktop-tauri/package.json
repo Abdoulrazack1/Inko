@@ -5,7 +5,9 @@
   "scripts": {
     "prep": "node prep.js",
     "build": "node prep.js && tauri build",
-    "dev": "tauri dev"
+    "dev": "tauri dev",
+    "//clean": "Audit III.11 : bundle/ accumulait un installeur par version publiée (404 Mo pour 12 versions obsolètes). À lancer après avoir récupéré l'installeur d'une release.",
+    "clean:bundle": "node -e \"require('fs').rmSync('src-tauri/target/release/bundle',{recursive:true,force:true});console.log('bundle/ purgé')\""
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

@@ -12,6 +12,28 @@ jobs:
     defaults:
       run:
         working-directory: server
+    # Audit QUAL-01 : test/integration.db.test.js se saute proprement quand
+    # MySQL est injoignable — et aucun service n'était déclaré ici. Les 4 suites
+    # d'intégration (auth/user/notes/profile) étaient donc VERTES PAR ABSTENTION
+    # depuis leur création : elles n'ont jamais tourné en CI.
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: inko_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ''
     steps:
       - uses: actions/checkout@v7
 
@@ -38,8 +60,36 @@ jobs:
       - name: Load all modules (smoke)
         run: node -e "require('./routes'); require('./db/migrate'); console.log('modules OK')"
 
-      - name: Unit tests
+      # REQUIRE_DB_TESTS=1 : les suites d'intégration ÉCHOUENT si MySQL est
+      # injoignable, au lieu de se sauter en silence (audit QUAL-01).
+      - name: Unit + integration tests
         run: npm test
+        env:
+          REQUIRE_DB_TESTS: '1'
+
+  # Audit SEC-07 : extensions-community/hashes.json avait été généré AVANT la
+  # dernière modification des extensions et jamais régénéré — 4 empreintes sur 9
+  # étaient périmées, ce qui faisait rejeter la mise à jour de chireads,
+  # novelbin, novelfull et royalroad (« empreinte SHA-256 invalide »). Sans
+  # garde-fou, la dérive revient au premier correctif appliqué à une source.
+  ext-hashes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Regénérer les empreintes
+        run: node scripts-ci/gen-ext-hashes.js
+      - name: Échouer si hashes.json n'est pas à jour
+        run: |
+          if ! git diff --quiet -- extensions-community/hashes.json; then
+            echo "::error::extensions-community/hashes.json est périmé."
+            echo "Lance 'npm run gen-ext-hashes' et committe le résultat."
+            git --no-pager diff -- extensions-community/hashes.json
+            exit 1
+          fi
+          echo "hashes.json est à jour."
 
   frontend-lint:
     runs-on: ubuntu-latest
