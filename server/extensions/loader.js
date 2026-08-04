@@ -104,6 +104,9 @@ function manifest() {
         unit:         s.unit === 'volume' ? 'volume' : 'chapter',
         description:  s.description || '',
         capabilities: s.capabilities || [],
+        // Audit BUG-06 : tris réellement honorés. Absent = la source ne se
+        // prononce pas, l'UI garde tous ses tris (rétro-compatible).
+        sorts:        Array.isArray(s.sorts) ? s.sorts : null,
     }));
 }
 

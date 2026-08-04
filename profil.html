@@ -50,9 +50,14 @@
           <div class="profil-stat-num">—</div>
           <div class="profil-stat-label">CHAPITRES</div>
         </div>
-        <div class="profil-stat">
+        <!-- Audit BUG-16 : ce compteur affiche `totals.library` (séries avec un
+             statut de suivi), tandis que stats.html affiche `totals.series_read`
+             (séries dont au moins un chapitre est lu). Deux métriques justes,
+             mais toutes deux libellées « séries » : 5 ici, 13 là-bas, sans rien
+             pour comprendre l'écart. Libellé précisé des deux côtés. -->
+        <div class="profil-stat" title="Séries auxquelles tu as donné un statut de suivi">
           <div class="profil-stat-num">—</div>
-          <div class="profil-stat-label">SÉRIES</div>
+          <div class="profil-stat-label">SÉRIES SUIVIES</div>
         </div>
         <div class="profil-stat">
           <div class="profil-stat-num">—</div>

@@ -84,7 +84,24 @@ if (!re.test(sw)) {
     console.error('STATIC_ASSETS introuvable dans service-worker.js');
     process.exit(1);
 }
-const next = sw.replace(re, block);
+let next = sw.replace(re, block);
+
+// Audit QUAL-08 : CACHE_VERSION était un compteur incrémenté à la main, qui
+// dérivait de la version applicative. Un oubli de bump sert du code périmé —
+// exactement l'« écran noir après mise à jour » qui a motivé le bouton
+// « Vider le cache » de la 2.3.4. On le dérive désormais de package.json, et
+// on y ajoute une empreinte du contenu précaché : deux changements d'assets
+// dans une même version invalident quand même le cache.
+const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
+const digest = require('crypto').createHash('sha256')
+    .update(sorted.join('\n')).digest('hex').slice(0, 6);
+const cacheVersion = `inko-${version}-${digest}`;
+const reVer = /const CACHE_VERSION = '[^']*';/;
+if (!reVer.test(next)) {
+    console.error('CACHE_VERSION introuvable dans service-worker.js');
+    process.exit(1);
+}
+next = next.replace(reVer, `const CACHE_VERSION = '${cacheVersion}';`);
 
 if (CHECK) {
     if (next !== sw) {
@@ -92,8 +109,9 @@ if (CHECK) {
         console.error("Lance 'npm run gen-precache' et committe le résultat.");
         process.exit(1);
     }
-    console.log(`Précache à jour — ${sorted.length} entrées.`);
+    console.log(`Précache à jour — ${sorted.length} entrées, cache ${cacheVersion}.`);
 } else {
     fs.writeFileSync(SW, next);
     console.log(`✔ service-worker.js : ${sorted.length} entrées de précache`);
+    console.log(`✔ CACHE_VERSION = ${cacheVersion} (dérivé de la version + empreinte des assets)`);
 }

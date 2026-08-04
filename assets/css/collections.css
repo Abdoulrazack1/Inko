@@ -118,7 +118,13 @@
   border: 1px solid var(--border); background: var(--bg3);
   font-size: 12px; color: var(--text2);
 }
-.sort-dropdown-mini:focus { outline: none; }
+/* Audit A11Y-10 : cette règle retirait le contour SANS rien mettre à la place —
+   seule des 8 `outline:none` du projet à ne pas compenser (les autres changent
+   la couleur de bordure). Un utilisateur au clavier perdait le repère sur ce
+   sélecteur. On ne neutralise plus que le contour natif, et `:focus-visible`
+   rend l'anneau d'accent défini dans global.css. */
+.sort-dropdown-mini:focus { outline: none; border-color: var(--accent); }
+.sort-dropdown-mini:focus-visible { box-shadow: var(--ring); border-color: var(--accent); }
 
 /* ── Collections grid ─────────────────────────────────────── */
 .collections-grid {

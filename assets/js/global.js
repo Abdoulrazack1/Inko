@@ -518,15 +518,27 @@
         } catch (e) { window.MH._favSet = new Set(); }
         return window.MH._favSet;
     };
+    // Audit A11Y-08 / BUG-21 : l'état du bouton favori n'existait QUE par la
+    // classe `is-fav` et l'icône. L'infobulle restait « Ajouter aux favoris »
+    // sur une œuvre déjà en favori, et aucun `aria-pressed` n'exposait l'état —
+    // un lecteur d'écran ne pouvait pas savoir si l'action avait pris. La fiche
+    // série faisait déjà correctement ce travail (« Non lu » → « Lu »,
+    // « Ajouter un signet » → « Retirer le signet ») : le catalogue était
+    // l'exception. Point unique pour que les deux restent synchronisés.
+    window.MH.setFavButtonState = function (btn, fav) {
+        btn.classList.toggle('is-fav', !!fav);
+        btn.innerHTML = window.MH.heartIcon(!!fav);
+        btn.title = fav ? 'Retirer des favoris' : 'Ajouter aux favoris';
+        btn.setAttribute('aria-pressed', String(!!fav));
+        btn.setAttribute('aria-label', btn.title);
+    };
     // Marque dans le DOM les cœurs déjà en favori (état initial)
     window.MH.markFavorites = async function (root) {
         if (!window.API?.isLoggedIn()) return;
         const set = await window.MH.getFavSet();
         (root || document).querySelectorAll('.card-fav-btn[data-fav]').forEach(btn => {
             if (btn.dataset.favTouched) return; // ne pas écraser une action en cours de l'utilisateur
-            const fav = set.has(String(btn.dataset.fav));
-            btn.classList.toggle('is-fav', fav);
-            btn.innerHTML = window.MH.heartIcon(fav);
+            window.MH.setFavButtonState(btn, set.has(String(btn.dataset.fav)));
         });
     };
 
@@ -1386,9 +1398,15 @@
             };
             const willFav = !btn.classList.contains('is-fav');
             btn.dataset.favTouched = '1';
-            btn.classList.toggle('is-fav', willFav);
-            if (isIcon) btn.innerHTML = MH.heartIcon(willFav);
-            else        btn.textContent = willFav ? 'Suivi' : '+ Suivre';
+            // Audit A11Y-08 : passe par le point unique, qui met aussi à jour
+            // l'infobulle et aria-pressed (le clic ne le faisait pas non plus).
+            if (isIcon) {
+                MH.setFavButtonState(btn, willFav);
+            } else {
+                btn.classList.toggle('is-fav', willFav);
+                btn.textContent = willFav ? 'Suivi' : '+ Suivre';
+                btn.setAttribute('aria-pressed', String(willFav));
+            }
             try {
                 if (willFav) await API.me.addFavorite(id, meta);
                 else         await API.me.removeFavorite(id);

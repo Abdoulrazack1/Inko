@@ -74,6 +74,7 @@
         sourcesList = sources || [];
         const cur = API.sources.current;
         sourceInfo = sourcesList.find(s => s.id === cur) || null;
+        syncSortOptions();   // les tris dépendent de la source (audit BUG-06)
         renderSourceBar();   // re-rend maintenant que la liste est connue
     }
 
@@ -84,6 +85,30 @@
     function enabledSources() {
         return sourcesList.filter(s => window.MH?.isSourceEnabled ? MH.isSourceEnabled(s.id) : true);
     }
+    // Audit BUG-06 : le menu proposait « Note » quelle que soit la source. Sur
+    // WeebCentral — la source par défaut — ce tri n'existe pas : la requête
+    // partait avec le bon paramètre et revenait dans l'ordre de popularité,
+    // sans le moindre signal. Une source déclare désormais ses tris réellement
+    // honorés (`sorts`) ; on désactive les autres au lieu de mentir.
+    // Une source qui ne déclare rien garde toutes les options.
+    function syncSortOptions() {
+        const sel = document.getElementById('sortSelect');
+        if (!sel) return;
+        const supported = allSources ? null : (sourceInfo && sourceInfo.sorts);
+        [...sel.options].forEach(opt => {
+            const ok = !supported || supported.includes(opt.value);
+            opt.disabled = !ok;
+            const base = opt.dataset.label || (opt.dataset.label = opt.textContent.trim());
+            opt.textContent = ok ? base : `${base} — non géré par cette source`;
+        });
+        // Si le tri courant n'est pas géré, on retombe sur un tri valide plutôt
+        // que de laisser un choix sans effet.
+        if (supported && !supported.includes(sel.value)) {
+            sel.value = supported[0] || 'popularity';
+            activeSort = sel.value;
+        }
+    }
+
     function renderSourceBar() {
         let bar = document.getElementById('sourceBar');
         if (!bar) {
@@ -111,7 +136,7 @@
             API.sources.current = b.dataset.src;
             currentPage = 1;
             sourceInfo = sourcesList.find(s => s.id === b.dataset.src) || null;
-            renderSourceBar(); renderChips();
+            renderSourceBar(); renderChips(); syncSortOptions();
             loadTags().then(renderFilterSidebar).catch(() => {});
             await runSearch();
         }));
@@ -409,7 +434,7 @@
                     ${m.status === 'completed' ? '<span class="badge badge-termine">TERMINÉ</span>' : ''}
                     ${m.status === 'hiatus' ? '<span class="badge badge-pause">PAUSE</span>' : ''}
                 </div>
-                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">${MH.heartIcon(false)}</button>
+                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris" aria-pressed="false" aria-label="Ajouter aux favoris">${MH.heartIcon(false)}</button>
                 <div class="manga-card-overlay">
                     <div class="btn-read-overlay">Lire</div>
                 </div>
@@ -619,6 +644,7 @@
         // Tri
         const sortSel = document.getElementById('sortSelect');
         if (sortSel) {
+            syncSortOptions();
             sortSel.value = activeSort;
             if (sortSel.value !== activeSort) sortSel.value = 'popularity'; // valeur inconnue
             sortSel.addEventListener('change', async () => {

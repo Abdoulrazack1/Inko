@@ -25,7 +25,10 @@
         const streak = stats.streak || { current: 0, longest: 0 };
         const cards = [
             ['accent', t.chapters_read || 0, 'Chapitres lus'],
-            ['', t.series_read || 0, 'Séries lues'],
+            // Audit BUG-16 : « Séries lues » (au moins un chapitre lu) et les
+            // « SÉRIES SUIVIES » du profil (statut de suivi) sont deux mesures
+            // différentes qui portaient le même mot — 13 ici, 5 là-bas.
+            ['', t.series_read || 0, 'Séries commencées'],
             ['', t.chapters_this_month || 0, 'Ce mois-ci'],
             ['accent', streak.current || 0, 'Jours d\'affilée'],
             ['', streak.longest || 0, 'Record de série'],
