@@ -50,6 +50,13 @@ async function columnExists(table, col) {
     return r.n > 0;
 }
 
+async function tableExists(table) {
+    const [[r]] = await pool.query(
+        `SELECT COUNT(*) AS n FROM information_schema.tables
+         WHERE table_schema = DATABASE() AND table_name = ?`, [table]);
+    return r.n > 0;
+}
+
 async function columnType(table, col) {
     const [[r]] = await pool.query(
         `SELECT COLUMN_TYPE AS t FROM information_schema.columns
@@ -110,7 +117,56 @@ const MIGRATIONS = [
         }
     } },
     { version: 6, name: 'anilist_links sort du blob de réglages (audit PERF-09)', apply: anilistLinksTable },
+    { version: 7, name: 'fusion de library dans favorites (audit DB-02)', apply: mergeLibraryIntoFavorites },
 ];
+
+// ── Migration 7 : fusionner `library` dans `favorites` (audit DB-02) ──
+// Les deux tables avaient EXACTEMENT la même clé primaire (user_id, manga_id).
+// `library` n'apportait qu'un `status` et son horodatage : un attribut
+// optionnel de `favorites`, isolé dans sa propre table sans raison. Le prix
+// était payé à chaque lecture de la bibliothèque — un LEFT JOIN obligatoire
+// (user.controller.js, updates.js), et deux écritures à tenir cohérentes.
+//
+// Relevé sur la base de développement avant la fusion : 392 favoris, 11 lignes
+// de `library`, et **aucune** ligne de `library` sans favori correspondant. Le
+// découpage ne servait donc à rien en pratique non plus.
+//
+// Conséquence assumée : poser un statut implique désormais d'être dans la
+// bibliothèque. C'était déjà le comportement visible — l'interface se nourrit
+// de `favorites`, donc un statut sans favori n'était affiché nulle part.
+async function mergeLibraryIntoFavorites() {
+    if (!(await columnExists('favorites', 'status'))) {
+        await run(`ALTER TABLE favorites
+            ADD COLUMN status ENUM('reading','completed','planned','paused','dropped') DEFAULT NULL,
+            ADD COLUMN status_updated_at TIMESTAMP NULL DEFAULT NULL`);
+    }
+    if (!(await tableExists('library'))) return;   // déjà fusionnée, ou base neuve
+
+    // Un statut sans favori ne devrait pas exister, mais s'il en reste un on
+    // crée le favori manquant : la migration ne doit jamais perdre une donnée
+    // parce qu'un cas de bord était réputé impossible.
+    await run(`INSERT INTO favorites (user_id, manga_id, added_at)
+               SELECT l.user_id, l.manga_id, l.added_at
+               FROM library l
+               LEFT JOIN favorites f ON f.user_id = l.user_id AND f.manga_id = l.manga_id
+               WHERE f.manga_id IS NULL`);
+    await run(`UPDATE favorites f
+               JOIN library l ON l.user_id = f.user_id AND l.manga_id = f.manga_id
+               SET f.status = l.status, f.status_updated_at = l.updated_at`);
+
+    // Vérification AVANT le DROP : on ne supprime pas la source tant qu'on n'a
+    // pas constaté que la destination contient au moins autant de statuts.
+    const [[chk]] = await pool.query(
+        `SELECT (SELECT COUNT(*) FROM library) AS avant,
+                (SELECT COUNT(*) FROM favorites WHERE status IS NOT NULL) AS apres`);
+    if (chk.apres < chk.avant) {
+        throw new Error(`fusion library→favorites incomplète : ${chk.avant} statut(s) avant, `
+            + `${chk.apres} après. La table library est CONSERVÉE — rien n'est perdu, `
+            + `mais le schéma reste à l'ancien état tant que l'écart n'est pas expliqué.`);
+    }
+    await run('DROP TABLE library');
+    console.log(`[migrate] library fusionnée dans favorites (${chk.avant} statut(s) repris)`);
+}
 
 // ── Migration 6 : sortir le cache AniList des réglages (audit PERF-09) ──
 // `user_settings.data` est chargé À CHAQUE PAGE. Il pesait 8 188 octets, dont

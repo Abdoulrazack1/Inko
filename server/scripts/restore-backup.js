@@ -93,7 +93,10 @@ async function restoreAccount(acc, targetUserId) {
     const counts = {};
 
     if (REPLACE) {
-        for (const t of ['favorites', 'library', 'progress', 'read_chapters', 'ratings']) {
+        // `library` a fusionné dans `favorites` (migration 7, audit DB-02) :
+        // vider `favorites` efface aussi les statuts, il n'y a plus de seconde
+        // table à purger.
+        for (const t of ['favorites', 'progress', 'read_chapters', 'ratings']) {
             await pool.query(`DELETE FROM ${t} WHERE user_id = ?`, [uid]);
         }
         await pool.query('DELETE FROM list_items WHERE list_id IN (SELECT id FROM lists WHERE user_id = ?)', [uid]);
@@ -111,10 +114,14 @@ async function restoreAccount(acc, targetUserId) {
 
     // `library.rating` supprimée (migration 5) : une sauvegarde antérieure la
     // porte encore, on l'ignore — la note vit dans `ratings`, restaurée plus bas.
+    // La table `library` a ensuite fusionné dans `favorites` (migration 7) :
+    // le bloc `library` du fichier de sauvegarde reste lu tel quel, il alimente
+    // désormais la colonne `status`. Cet INSERT doit rester APRÈS celui des
+    // favoris, pour ne pas écraser titre et couverture par des NULL.
     const lib = acc.library || [];
     if (lib.length) counts.bibliotheque = await bulkInsert(
-        `INSERT INTO library (user_id, manga_id, status) VALUES ?
-         ON DUPLICATE KEY UPDATE status=VALUES(status)`,
+        `INSERT INTO favorites (user_id, manga_id, status) VALUES ?
+         ON DUPLICATE KEY UPDATE status=VALUES(status), status_updated_at=CURRENT_TIMESTAMP`,
         lib.map(x => [uid, x.manga_id ?? x.mangaId, x.status || 'reading']));
 
     const pr = acc.progress || [];

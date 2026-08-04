@@ -57,9 +57,11 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
     let where = 'f.user_id = ?';
     if (mangaId) { where += ' AND f.manga_id = ?'; params.push(mangaId); }
     const [favs] = await pool.query(
-        `SELECT f.manga_id, f.source, f.title, f.cover, f.last_chapter, l.status
+        // Audit DB-02 : le statut est une colonne de `favorites` depuis la
+        // migration 7 — plus de LEFT JOIN sur cette requête, qui tourne pour
+        // chaque compte à chaque scan de mises à jour.
+        `SELECT f.manga_id, f.source, f.title, f.cover, f.last_chapter, f.status
          FROM favorites f
-         LEFT JOIN library l ON l.user_id = f.user_id AND l.manga_id = f.manga_id
          WHERE ${where}`,
         params
     );

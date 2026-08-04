@@ -43,11 +43,15 @@ before(async () => {
             connectTimeout: 2500,
         });
         await admin.query('DROP DATABASE IF EXISTS inko_test');
-        // Schéma officiel, redirigé vers la base jetable
-        const schema = fs.readFileSync(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8')
-            .replace('CREATE DATABASE IF NOT EXISTS inko', 'CREATE DATABASE IF NOT EXISTS inko_test')
-            .replace('USE inko;', 'USE inko_test;');
-        await admin.query(schema);
+        // schema.sql ne choisit plus la base : il portait `CREATE DATABASE inko;
+        // USE inko;` en dur, et ce test le réécrivait au vol pour le détourner
+        // vers `inko_test`. Deux remplacements de chaîne qui devaient rester
+        // synchronisés avec un fichier SQL — c'est ce couplage qui a cassé le
+        // jour où ces lignes ont disparu. La base est désormais créée et
+        // sélectionnée ici, comme le fait db/init.js en vrai.
+        await admin.query('CREATE DATABASE inko_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+        await admin.query('USE inko_test');
+        await admin.query(fs.readFileSync(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8'));
         await admin.end();
 
         ({ pool } = require('../config/db'));

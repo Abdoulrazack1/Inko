@@ -65,7 +65,11 @@ async function buildUserExport(u) {
     // sélectionner faisait échouer buildUserExport pour CHAQUE compte, et le
     // dump nocturne tombait de 120 Ko à 2 Ko de messages d'erreur. Les notes
     // vivent dans la table `ratings`, déjà exportée plus bas.
-    const [library]      = await pool.query('SELECT manga_id, status FROM library WHERE user_id = ?', [uid]);
+    // La table `library` a fusionné dans `favorites` (migration 7, audit
+    // DB-02). La clé `library` du fichier reste : une sauvegarde doit rester
+    // relisible, y compris par une version antérieure.
+    const [library]      = await pool.query(
+        'SELECT manga_id, status FROM favorites WHERE user_id = ? AND status IS NOT NULL', [uid]);
     const [progress]     = await pool.query('SELECT manga_id, chapter_id, chapter_number, page, source FROM progress WHERE user_id = ?', [uid]);
     const [readChapters] = await pool.query('SELECT manga_id, chapter_id, chapter_number FROM read_chapters WHERE user_id = ?', [uid]);
     const [ratings]      = await pool.query('SELECT manga_id, rating, review FROM ratings WHERE user_id = ?', [uid]);

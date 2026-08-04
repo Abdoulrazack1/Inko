@@ -16,11 +16,14 @@ async function pushEvent(userId, type, payload = {}) {
 // ──────────────────────────────────────────────────────────────
 async function getFavorites(req, res, next) {
     try {
+        // Audit DB-02 : le statut vivait dans une table `library` de même clé
+        // primaire, ce qui imposait un LEFT JOIN sur la lecture la plus
+        // fréquente de l'application. Il est désormais une colonne de
+        // `favorites` (migration 7).
         const [rows] = await pool.query(
-            `SELECT f.manga_id, f.source, f.title, f.cover, f.last_chapter, f.category, f.added_at, l.status
-             FROM favorites f
-             LEFT JOIN library l ON l.user_id = f.user_id AND l.manga_id = f.manga_id
-             WHERE f.user_id = ? ORDER BY f.added_at DESC`,
+            `SELECT manga_id, source, title, cover, last_chapter, category, added_at, status
+             FROM favorites
+             WHERE user_id = ? ORDER BY added_at DESC`,
             [req.user.id]
         );
         res.json(rows.map(r => ({
@@ -84,13 +87,19 @@ async function getLibrary(req, res, next) {
         // morte, jamais renseignée, doublon de la table `ratings` qui porte la
         // note, l'avis et l'horodatage. On garde `rating: null` dans la réponse
         // pour ne pas casser un client qui lirait encore ce champ.
+        //
+        // Audit DB-02 : la table `library` elle-même a fusionné dans
+        // `favorites` (migration 7). « Être dans la bibliothèque avec un
+        // statut » = une ligne de favoris dont `status` n'est pas NULL. La
+        // forme de la réponse ne change pas.
         const [rows] = await pool.query(
-            'SELECT manga_id, status, added_at, updated_at FROM library WHERE user_id = ? ORDER BY updated_at DESC',
+            `SELECT manga_id, status, added_at, status_updated_at FROM favorites
+             WHERE user_id = ? AND status IS NOT NULL ORDER BY status_updated_at DESC`,
             [req.user.id]
         );
         res.json(rows.map(r => ({
             mangaId: r.manga_id, status: r.status, rating: null,
-            addedAt: r.added_at, updatedAt: r.updated_at,
+            addedAt: r.added_at, updatedAt: r.status_updated_at,
         })));
     } catch (e) { next(e); }
 }
@@ -102,18 +111,29 @@ async function setLibraryStatus(req, res, next) {
         if (status && !valid.includes(status))
             return res.status(400).json({ error: 'Statut invalide' });
 
+        // Audit DB-02 : retirer le statut ne supprime plus une ligne d'une
+        // table dédiée — c'est le champ qui repasse à NULL. Le favori, lui,
+        // reste : perdre son titre et sa couverture parce qu'on a effacé un
+        // statut serait une régression.
         if (!status) {
-            await pool.query('DELETE FROM library WHERE user_id = ? AND manga_id = ?',
+            await pool.query(
+                'UPDATE favorites SET status = NULL, status_updated_at = NULL WHERE user_id = ? AND manga_id = ?',
                 [req.user.id, req.params.mangaId]);
             return res.json({ ok: true, removed: true });
         }
 
         // La note n'est plus stockée ici (colonne supprimée, migration 5) :
         // elle appartient à la table `ratings`, via PUT /me/ratings/:mangaId.
+        //
+        // L'INSERT ... ON DUPLICATE KEY crée le favori s'il n'existe pas :
+        // poser un statut sur une série revient à la mettre dans sa
+        // bibliothèque. C'était déjà ce que l'interface montrait — elle
+        // n'affiche que `favorites`, donc un statut sans favori n'était visible
+        // nulle part.
         await pool.query(
-            `INSERT INTO library (user_id, manga_id, status)
-             VALUES (?, ?, ?)
-             ON DUPLICATE KEY UPDATE status = VALUES(status)`,
+            `INSERT INTO favorites (user_id, manga_id, status, status_updated_at)
+             VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+             ON DUPLICATE KEY UPDATE status = VALUES(status), status_updated_at = CURRENT_TIMESTAMP`,
             [req.user.id, req.params.mangaId, status]
         );
         await pushEvent(req.user.id, 'status_change',
@@ -529,7 +549,7 @@ async function getStats(req, res, next) {
         const [[totals]] = await pool.query(
             `SELECT
                 (SELECT COUNT(*) FROM favorites WHERE user_id = ?) AS favorites,
-                (SELECT COUNT(*) FROM library WHERE user_id = ?) AS library,
+                (SELECT COUNT(*) FROM favorites WHERE user_id = ? AND status IS NOT NULL) AS library,
                 (SELECT COUNT(*) FROM read_chapters WHERE user_id = ?) AS chapters_read,
                 (SELECT COUNT(*) FROM read_chapters WHERE user_id = ? AND read_at > NOW() - INTERVAL 30 DAY) AS chapters_this_month,
                 (SELECT COUNT(DISTINCT manga_id) FROM read_chapters WHERE user_id = ?) AS series_read,
@@ -735,8 +755,12 @@ async function exportData(req, res, next) {
         const uid = req.user.id;
         const [favorites]    = await pool.query('SELECT manga_id, source, title, cover, category, last_chapter, added_at FROM favorites WHERE user_id = ?', [uid]);
         // `library.rating` supprimée (migration 5) — les notes sont exportées
-        // depuis la table `ratings`, plus bas.
-        const [library]      = await pool.query('SELECT manga_id, status FROM library WHERE user_id = ?', [uid]);
+        // depuis la table `ratings`, plus bas. La table `library` elle-même a
+        // fusionné dans `favorites` (migration 7, audit DB-02) ; la clé
+        // `library` du fichier d'export est CONSERVÉE telle quelle pour que les
+        // sauvegardes restent lisibles par les deux versions.
+        const [library]      = await pool.query(
+            'SELECT manga_id, status FROM favorites WHERE user_id = ? AND status IS NOT NULL', [uid]);
         const [progress]     = await pool.query('SELECT manga_id, chapter_id, chapter_number, page, source FROM progress WHERE user_id = ?', [uid]);
         const [readChapters] = await pool.query('SELECT manga_id, chapter_id, chapter_number FROM read_chapters WHERE user_id = ?', [uid]);
         const [ratings]      = await pool.query('SELECT manga_id, rating, review FROM ratings WHERE user_id = ?', [uid]);
@@ -801,12 +825,16 @@ async function importData(req, res, next) {
         // `library.rating` supprimée (migration 5) : un ancien fichier d'export
         // peut encore la porter, on l'ignore simplement — la note utile est
         // dans `d.ratings`, importée plus bas.
+        // Audit DB-02 : le statut est maintenant une colonne de `favorites`.
+        // L'import écrit donc dans la même table que le bloc précédent — d'où
+        // l'ordre : les favoris d'abord (titre, couverture, source), les
+        // statuts ensuite, sans écraser ce qui vient d'être posé.
         const libRows = (d.library || [])
             .filter(l => l.manga_id || l.mangaId)
             .map(l => [uid, l.manga_id || l.mangaId, l.status || 'reading']);
         await bulk(
-            `INSERT INTO library (user_id, manga_id, status) VALUES ?
-             ON DUPLICATE KEY UPDATE status=VALUES(status)`,
+            `INSERT INTO favorites (user_id, manga_id, status) VALUES ?
+             ON DUPLICATE KEY UPDATE status=VALUES(status), status_updated_at=CURRENT_TIMESTAMP`,
             libRows, n => counts.library += n);
 
         const progRows = (d.progress || [])
