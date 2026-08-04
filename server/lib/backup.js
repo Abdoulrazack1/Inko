@@ -9,16 +9,63 @@
 // ============================================================
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { pool } = require('../config/db');
 
 const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, '..', 'backups');
 const KEEP = Math.max(2, parseInt(process.env.BACKUP_KEEP || '14', 10) || 14);
 
+// ── Audit SEC-15 : chiffrement des sauvegardes ───────────────
+// Le dump contient l'email et TOUTE la bibliothèque de chaque compte, en clair
+// sur le disque. Correctement exclu de git et bloqué en HTTP, mais lisible par
+// n'importe quel autre processus ou compte de la machine, et emporté tel quel
+// par une synchro cloud ou une sauvegarde système.
+// Chiffrement optionnel, activé en posant BACKUP_PASSPHRASE : AES-256-GCM,
+// clé dérivée par scrypt avec un sel aléatoire par fichier. Sans passphrase on
+// garde le clair — l'imposer casserait les installations existantes et
+// rendrait les dumps irrécupérables si l'utilisateur perd la phrase.
+const PASSPHRASE = process.env.BACKUP_PASSPHRASE || '';
+const MAGIC = 'INKOENC1';           // en-tête : permet de reconnaître un dump chiffré
+
+function encrypt(plaintext, passphrase) {
+    const salt = crypto.randomBytes(16);
+    const iv   = crypto.randomBytes(12);
+    const key  = crypto.scryptSync(passphrase, salt, 32);
+    const c    = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const enc  = Buffer.concat([c.update(plaintext, 'utf8'), c.final()]);
+    // MAGIC | salt(16) | iv(12) | tag(16) | données
+    return Buffer.concat([Buffer.from(MAGIC, 'ascii'), salt, iv, c.getAuthTag(), enc]);
+}
+
+function decrypt(buf, passphrase) {
+    if (buf.slice(0, MAGIC.length).toString('ascii') !== MAGIC) {
+        throw new Error('ce fichier n\'est pas une sauvegarde chiffrée Inko');
+    }
+    let o = MAGIC.length;
+    const salt = buf.slice(o, o += 16);
+    const iv   = buf.slice(o, o += 12);
+    const tag  = buf.slice(o, o += 16);
+    const key  = crypto.scryptSync(passphrase, salt, 32);
+    const d    = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    d.setAuthTag(tag);
+    // GCM authentifie : une passphrase fausse fait échouer final(), elle ne
+    // produit pas de JSON corrompu qu'on croirait valide.
+    return Buffer.concat([d.update(buf.slice(o)), d.final()]).toString('utf8');
+}
+
+function isEncrypted(buf) {
+    return Buffer.isBuffer(buf) && buf.slice(0, MAGIC.length).toString('ascii') === MAGIC;
+}
+
 // Mêmes données que l'export manuel (user.controller exportData), par compte
 async function buildUserExport(u) {
     const uid = u.id;
     const [favorites]    = await pool.query('SELECT manga_id, source, title, cover, category, last_chapter, added_at FROM favorites WHERE user_id = ?', [uid]);
-    const [library]      = await pool.query('SELECT manga_id, status, rating FROM library WHERE user_id = ?', [uid]);
+    // `library.rating` a été supprimée (colonne morte, migration 5) — la
+    // sélectionner faisait échouer buildUserExport pour CHAQUE compte, et le
+    // dump nocturne tombait de 120 Ko à 2 Ko de messages d'erreur. Les notes
+    // vivent dans la table `ratings`, déjà exportée plus bas.
+    const [library]      = await pool.query('SELECT manga_id, status FROM library WHERE user_id = ?', [uid]);
     const [progress]     = await pool.query('SELECT manga_id, chapter_id, chapter_number, page, source FROM progress WHERE user_id = ?', [uid]);
     const [readChapters] = await pool.query('SELECT manga_id, chapter_id, chapter_number FROM read_chapters WHERE user_id = ?', [uid]);
     const [ratings]      = await pool.query('SELECT manga_id, rating, review FROM ratings WHERE user_id = ?', [uid]);
@@ -47,14 +94,22 @@ async function runBackup() {
         accounts,
     };
     fs.mkdirSync(BACKUP_DIR, { recursive: true });
-    const file = path.join(BACKUP_DIR, `inko-backup-${new Date().toISOString().slice(0, 10)}.json`);
-    fs.writeFileSync(file, JSON.stringify(payload));   // écrase le fichier du jour si relancé
-    // Rotation : garde les KEEP plus récents
-    const all = fs.readdirSync(BACKUP_DIR).filter(f => /^inko-backup-.*\.json$/.test(f)).sort();
+    const day = new Date().toISOString().slice(0, 10);
+    // Extension distincte : on voit d'un coup d'œil ce qui est chiffré, et le
+    // script de restauration sait quoi faire sans deviner (audit SEC-15).
+    const ext = PASSPHRASE ? 'json.enc' : 'json';
+    const file = path.join(BACKUP_DIR, `inko-backup-${day}.${ext}`);
+    const json = JSON.stringify(payload);
+    fs.writeFileSync(file, PASSPHRASE ? encrypt(json, PASSPHRASE) : json);   // écrase le dump du jour si relancé
+    // Le dump reste lisible par le seul propriétaire (POSIX ; sans effet sur
+    // Windows, où le dossier de l'app fait déjà la séparation).
+    try { fs.chmodSync(file, 0o600); } catch (e) { /* système de fichiers sans permissions */ }
+    // Rotation : garde les KEEP plus récents (les deux formats confondus)
+    const all = fs.readdirSync(BACKUP_DIR).filter(f => /^inko-backup-.*\.json(\.enc)?$/.test(f)).sort();
     all.slice(0, Math.max(0, all.length - KEEP)).forEach(f => {
-        try { fs.unlinkSync(path.join(BACKUP_DIR, f)); } catch (e) {}
+        try { fs.unlinkSync(path.join(BACKUP_DIR, f)); } catch (e) { /* déjà supprimé */ }
     });
-    return { file, accounts: accounts.length };
+    return { file, accounts: accounts.length, encrypted: !!PASSPHRASE };
 }
 
 // Planification : premier passage 5 min après le démarrage (laisse la DB
@@ -64,11 +119,17 @@ let scheduled = false;
 function scheduleBackups() {
     if (scheduled || process.env.DISABLE_BACKUPS === '1') return;
     scheduled = true;
+    if (!PASSPHRASE) {
+        console.warn('[backup] ⚠ sauvegardes EN CLAIR (email + bibliothèque de tous les comptes).');
+        console.warn('         Définis BACKUP_PASSPHRASE pour les chiffrer (AES-256-GCM).');
+    }
     const run = () => runBackup()
-        .then(r => console.log(`[backup] ${r.accounts} compte(s) → ${r.file}`))
+        .then(r => console.log(`[backup] ${r.accounts} compte(s) → ${r.file}${r.encrypted ? ' (chiffré)' : ''}`))
         .catch(e => console.warn('[backup] échec :', e.message));
-    setTimeout(run, 5 * 60_000);
-    setInterval(run, 24 * 3600_000);
+    // Audit : `.unref()` comme les autres minuteries du projet (app.js) —
+    // sans lui, le process Node ne peut plus se terminer naturellement.
+    setTimeout(run, 5 * 60_000).unref();
+    setInterval(run, 24 * 3600_000).unref();
 }
 
-module.exports = { runBackup, scheduleBackups };
+module.exports = { runBackup, scheduleBackups, encrypt, decrypt, isEncrypted };

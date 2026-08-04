@@ -37,6 +37,51 @@ const OFFICIAL_IDS = new Set([
     'royalroad', 'chireads', 'gutenberg', 'gutenberg-fr',
 ]);
 
+// ── Audit SEC-08 : vérification d'empreinte AU CHARGEMENT ────
+// Le commentaire ci-dessus affirmait que le canal officiel était vérifié par
+// SHA-256. C'était vrai à l'INSTALLATION, pas au chargement : un index.js
+// modifié après coup — autre processus, sauvegarde restaurée, édition
+// manuelle, malware — était exécuté sans broncher à chaque démarrage, avec
+// les pleins droits Node.
+// On compare donc chaque extension officielle à hashes.json au boot.
+// Politique : on REFUSE de charger une extension officielle altérée. Une
+// extension non officielle reste chargée (elle n'a pas d'empreinte de
+// référence) mais l'avertissement existant s'applique déjà.
+// EXT_ALLOW_MODIFIED=1 permet de développer sur une extension officielle
+// sans se faire refuser à chaque sauvegarde.
+const crypto = require('crypto');
+const ALLOW_MODIFIED = process.env.EXT_ALLOW_MODIFIED === '1';
+
+let _expectedHashes = null;
+function expectedHashes() {
+    if (_expectedHashes) return _expectedHashes;
+    // hashes.json vit avec les sources de référence, pas avec la copie runtime.
+    const candidates = [
+        path.join(__dirname, '..', '..', 'extensions-community', 'hashes.json'),
+        path.join(__dirname, 'hashes.json'),
+    ];
+    for (const p of candidates) {
+        try {
+            _expectedHashes = JSON.parse(fs.readFileSync(p, 'utf8'));
+            return _expectedHashes;
+        } catch (e) { /* fichier absent : on essaie le suivant */ }
+    }
+    _expectedHashes = {};
+    return _expectedHashes;
+}
+
+// Renvoie null si l'extension est intègre (ou non vérifiable), sinon la raison.
+function integrityProblem(id, file) {
+    if (!OFFICIAL_IDS.has(id)) return null;          // hors canal officiel : pas de référence
+    const want = expectedHashes()[id];
+    if (!want) return null;                          // empreinte inconnue : rien à comparer
+    let got;
+    try { got = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); }
+    catch (e) { return `illisible (${e.code || e.message})`; }
+    if (got === want) return null;
+    return `empreinte SHA-256 différente de la référence (attendu ${want.slice(0, 12)}…, obtenu ${got.slice(0, 12)}…)`;
+}
+
 function loadAll() {
     if (registry.size) return registry; // déjà chargé
 
@@ -51,6 +96,21 @@ function loadAll() {
             const indexPath = path.join(EXT_DIR, d.name, 'index.js');
             if (!fs.existsSync(indexPath)) return;
             if (uninstalled.has(d.name)) return;   // désinstallée par l'utilisateur
+
+            // Audit SEC-08 : contrôle d'intégrité AVANT le require — une fois
+            // le module chargé, son code s'est déjà exécuté.
+            const problem = integrityProblem(d.name, indexPath);
+            if (problem) {
+                if (ALLOW_MODIFIED) {
+                    console.warn(`[ext] ⚠ "${d.name}" modifiée (${problem}) — chargée quand même (EXT_ALLOW_MODIFIED=1)`);
+                } else {
+                    console.error(`[ext] ✖ "${d.name}" REFUSÉE : ${problem}`);
+                    console.error('       Cette extension officielle a été modifiée depuis sa publication.');
+                    console.error('       Réinstalle-la depuis Sources, ou EXT_ALLOW_MODIFIED=1 si c\'est voulu (développement).');
+                    return;
+                }
+            }
+
             try {
                 // Force le re-require (utile en dev)
                 delete require.cache[require.resolve(indexPath)];

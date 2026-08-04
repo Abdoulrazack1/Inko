@@ -28,7 +28,23 @@ const fs = require('fs');
 const path = require('path');
 const { pool } = require('../config/db');
 
+const { decrypt, isEncrypted } = require('../lib/backup');
+
 const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, '..', 'backups');
+
+// Audit SEC-15 : les dumps peuvent être chiffrés (BACKUP_PASSPHRASE). On lit
+// les deux formats — sinon activer le chiffrement rendrait les sauvegardes
+// aussi irrécupérables qu'avant l'écriture de ce script.
+function readDump(file) {
+    const raw = fs.readFileSync(file);
+    if (!isEncrypted(raw)) return raw.toString('utf8');
+    const pass = process.env.BACKUP_PASSPHRASE;
+    if (!pass) {
+        throw new Error('sauvegarde chiffrée — définis BACKUP_PASSPHRASE pour la lire');
+    }
+    try { return decrypt(raw, pass); }
+    catch (e) { throw new Error('déchiffrement impossible : passphrase incorrecte ou fichier altéré'); }
+}
 const args = process.argv.slice(2);
 const has = f => args.includes(f);
 const val = f => { const i = args.indexOf(f); return i >= 0 ? args[i + 1] : null; };
@@ -45,7 +61,7 @@ function listBackups() {
         return;
     }
     const files = fs.readdirSync(BACKUP_DIR)
-        .filter(f => /^inko-backup-.*\.json$/.test(f))
+        .filter(f => /^inko-backup-.*\.json(\.enc)?$/.test(f))
         .sort().reverse();
     if (!files.length) { console.log('Aucune sauvegarde trouvée.'); return; }
     console.log(`Sauvegardes dans ${BACKUP_DIR} :\n`);
@@ -53,7 +69,7 @@ function listBackups() {
         const p = path.join(BACKUP_DIR, f);
         const size = Math.round(fs.statSync(p).size / 1024);
         let n = '?';
-        try { n = (JSON.parse(fs.readFileSync(p, 'utf8')).accounts || []).length; } catch (e) { n = 'illisible'; }
+        try { n = (JSON.parse(readDump(p)).accounts || []).length; } catch (e) { n = e.message.includes('chiffr') ? 'chiffrée' : 'illisible'; }
         console.log(`  ${f}   ${String(size).padStart(5)} Ko   ${n} compte(s)`);
     }
     console.log('\nRestaurer :  node scripts/restore-backup.js <fichier> --user <id>');
@@ -93,11 +109,13 @@ async function restoreAccount(acc, targetUserId) {
         f.map(x => [uid, x.manga_id ?? x.mangaId, x.source || 'mangadex', x.title || null,
                     x.cover || null, x.category || null, x.last_chapter ?? x.lastChapter ?? null]));
 
+    // `library.rating` supprimée (migration 5) : une sauvegarde antérieure la
+    // porte encore, on l'ignore — la note vit dans `ratings`, restaurée plus bas.
     const lib = acc.library || [];
     if (lib.length) counts.bibliotheque = await bulkInsert(
-        `INSERT INTO library (user_id, manga_id, status, rating) VALUES ?
+        `INSERT INTO library (user_id, manga_id, status) VALUES ?
          ON DUPLICATE KEY UPDATE status=VALUES(status)`,
-        lib.map(x => [uid, x.manga_id ?? x.mangaId, x.status || 'reading', x.rating ?? null]));
+        lib.map(x => [uid, x.manga_id ?? x.mangaId, x.status || 'reading']));
 
     const pr = acc.progress || [];
     if (pr.length) counts.progression = await bulkInsert(
@@ -159,8 +177,8 @@ async function restoreAccount(acc, targetUserId) {
     if (!fs.existsSync(p)) { console.error(`Fichier introuvable : ${p}`); process.exit(1); }
 
     let dump;
-    try { dump = JSON.parse(fs.readFileSync(p, 'utf8')); }
-    catch (e) { console.error('JSON illisible :', e.message); process.exit(1); }
+    try { dump = JSON.parse(readDump(p)); }
+    catch (e) { console.error('Lecture impossible :', e.message); process.exit(1); }
 
     if (!dump.inkoBackup || !Array.isArray(dump.accounts)) {
         console.error('Ce fichier n\'est pas une sauvegarde Inko (clé inkoBackup/accounts absente).');

@@ -80,12 +80,16 @@ async function setFavoriteCategory(req, res, next) {
 // ──────────────────────────────────────────────────────────────
 async function getLibrary(req, res, next) {
     try {
+        // `library.rating` a été supprimée (migration 5) : c'était une colonne
+        // morte, jamais renseignée, doublon de la table `ratings` qui porte la
+        // note, l'avis et l'horodatage. On garde `rating: null` dans la réponse
+        // pour ne pas casser un client qui lirait encore ce champ.
         const [rows] = await pool.query(
-            'SELECT manga_id, status, rating, added_at, updated_at FROM library WHERE user_id = ? ORDER BY updated_at DESC',
+            'SELECT manga_id, status, added_at, updated_at FROM library WHERE user_id = ? ORDER BY updated_at DESC',
             [req.user.id]
         );
         res.json(rows.map(r => ({
-            mangaId: r.manga_id, status: r.status, rating: r.rating,
+            mangaId: r.manga_id, status: r.status, rating: null,
             addedAt: r.added_at, updatedAt: r.updated_at,
         })));
     } catch (e) { next(e); }
@@ -104,11 +108,13 @@ async function setLibraryStatus(req, res, next) {
             return res.json({ ok: true, removed: true });
         }
 
+        // La note n'est plus stockée ici (colonne supprimée, migration 5) :
+        // elle appartient à la table `ratings`, via PUT /me/ratings/:mangaId.
         await pool.query(
-            `INSERT INTO library (user_id, manga_id, status, rating)
-             VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE status = VALUES(status), rating = COALESCE(VALUES(rating), rating)`,
-            [req.user.id, req.params.mangaId, status, rating || null]
+            `INSERT INTO library (user_id, manga_id, status)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE status = VALUES(status)`,
+            [req.user.id, req.params.mangaId, status]
         );
         await pushEvent(req.user.id, 'status_change',
             { mangaId: req.params.mangaId, metadata: { status, rating } });
@@ -728,7 +734,9 @@ async function exportData(req, res, next) {
     try {
         const uid = req.user.id;
         const [favorites]    = await pool.query('SELECT manga_id, source, title, cover, category, last_chapter, added_at FROM favorites WHERE user_id = ?', [uid]);
-        const [library]      = await pool.query('SELECT manga_id, status, rating FROM library WHERE user_id = ?', [uid]);
+        // `library.rating` supprimée (migration 5) — les notes sont exportées
+        // depuis la table `ratings`, plus bas.
+        const [library]      = await pool.query('SELECT manga_id, status FROM library WHERE user_id = ?', [uid]);
         const [progress]     = await pool.query('SELECT manga_id, chapter_id, chapter_number, page, source FROM progress WHERE user_id = ?', [uid]);
         const [readChapters] = await pool.query('SELECT manga_id, chapter_id, chapter_number FROM read_chapters WHERE user_id = ?', [uid]);
         const [ratings]      = await pool.query('SELECT manga_id, rating, review FROM ratings WHERE user_id = ?', [uid]);
@@ -790,12 +798,15 @@ async function importData(req, res, next) {
                category=COALESCE(VALUES(category),category)`,
             favRows, n => counts.favorites += n);
 
+        // `library.rating` supprimée (migration 5) : un ancien fichier d'export
+        // peut encore la porter, on l'ignore simplement — la note utile est
+        // dans `d.ratings`, importée plus bas.
         const libRows = (d.library || [])
             .filter(l => l.manga_id || l.mangaId)
-            .map(l => [uid, l.manga_id || l.mangaId, l.status || 'reading', l.rating ?? null]);
+            .map(l => [uid, l.manga_id || l.mangaId, l.status || 'reading']);
         await bulk(
-            `INSERT INTO library (user_id, manga_id, status, rating) VALUES ?
-             ON DUPLICATE KEY UPDATE status=VALUES(status), rating=VALUES(rating)`,
+            `INSERT INTO library (user_id, manga_id, status) VALUES ?
+             ON DUPLICATE KEY UPDATE status=VALUES(status)`,
             libRows, n => counts.library += n);
 
         const progRows = (d.progress || [])
