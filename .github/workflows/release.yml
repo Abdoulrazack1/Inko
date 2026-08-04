@@ -52,9 +52,26 @@ jobs:
           Copy-Item $setup.FullName "Inko-Setup.exe"
           "Asset: $($setup.Name)"
 
+      # Audit SEC-03 : la mise à jour intégrée lançait l'installeur après un seul
+      # contrôle — « le fichier pèse plus d'1 Mo ». Elle vérifie désormais une
+      # empreinte publiée ; encore faut-il la publier. Les noms de fichiers sont
+      # ceux que verra le client (pas de chemin), pour correspondre au format
+      # standard « <sha256>  <nom> ».
+      - name: Publier les empreintes SHA-256
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem "desktop-tauri/src-tauri/target/release/bundle/nsis/*-setup.exe") +
+                   @(Get-ChildItem "Inko-Setup.exe")
+          $lines = foreach ($f in $files) {
+            "$((Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower())  $($f.Name)"
+          }
+          $lines | Set-Content -Path "SHA256SUMS" -Encoding ascii
+          Get-Content "SHA256SUMS"
+
       - name: Upload installers to the release
         uses: softprops/action-gh-release@v3
         with:
           files: |
             desktop-tauri/src-tauri/target/release/bundle/nsis/*-setup.exe
             Inko-Setup.exe
+            SHA256SUMS

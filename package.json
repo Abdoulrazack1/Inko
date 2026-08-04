@@ -8,6 +8,7 @@
     "lint:fix": "eslint assets/js --fix",
     "gen-ext-hashes": "node scripts-ci/gen-ext-hashes.js",
     "check-sources": "node scripts-ci/check-sources.js",
+    "gen-precache": "node scripts-ci/gen-precache.js",
     "clean": "node scripts-ci/clean.js",
     "clean:all": "node scripts-ci/clean.js --all"
   },

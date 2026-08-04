@@ -79,6 +79,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+      # Audit BUG-11 : la liste STATIC_ASSETS était maintenue à la main et avait
+      # dérivé — 15 fichiers réellement utilisés n'y figuraient pas, dont
+      # bibliotheque.js et bibliotheque.css alors que bibliotheque.html y était :
+      # la page s'ouvrait hors-ligne en coquille vide.
+      - name: Vérifier la liste de précache du service worker
+        run: node scripts-ci/gen-precache.js --check
+
       - name: Regénérer les empreintes
         run: node scripts-ci/gen-ext-hashes.js
       - name: Échouer si hashes.json n'est pas à jour
