@@ -45,7 +45,9 @@
   </div>
   <div id="lrBody"><div class="lr-msg"><div class="spinner-inline"></div></div></div>
   <script src="assets/vendor/jszip.min.js"></script>
-  <script src="assets/vendor/pdf.min.js"></script>
+  <!-- Audit PERF-06 : pdf.min.js (313 Ko) était chargé ici pour TOUT fichier
+       ouvert, y compris les CBZ et les EPUB qui n'en ont pas besoin.
+       localreader.js le charge maintenant au moment d'ouvrir un PDF. -->
   <script src="assets/js/api.js"></script>
   <script src="assets/js/i18n.js"></script>
   <script src="assets/js/storage.js"></script>

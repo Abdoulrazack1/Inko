@@ -15,12 +15,29 @@ const IGNORABLE = new Set([
     'ER_TABLE_EXISTS_ERROR', 'ER_DUP_ENTRY',
 ]);
 
+// Audit DB-05 : cette fonction avalait TOUTE erreur inconnue avec un simple
+// console.warn. Une migration réellement en échec laissait donc le serveur
+// démarrer sur un schéma incohérent, avec un avertissement noyé dans les logs
+// — et la version était quand même enregistrée dans schema_migrations, donc
+// jamais rejouée. Les erreurs « déjà présent » restent ignorées (c'est le
+// principe de l'idempotence) ; les autres remontent.
+// MIGRATE_TOLERANT=1 rétablit l'ancien comportement pour dépanner une base
+// dans un état inattendu.
+const TOLERANT = process.env.MIGRATE_TOLERANT === '1';
+
 async function run(sql) {
     try { await pool.query(sql); }
     catch (e) {
         if (IGNORABLE.has(e.code)) return;
         if (/duplicate (column|key|foreign key|entry)/i.test(e.message || '')) return;
-        console.warn('[migrate] ', e.code || e.message);
+        const detail = `${e.code || 'ERREUR'} — ${e.sqlMessage || e.message}`;
+        if (TOLERANT) {
+            console.warn(`[migrate] ⚠ ignorée (MIGRATE_TOLERANT=1) : ${detail}`);
+            return;
+        }
+        console.error(`[migrate] ✖ ${detail}`);
+        console.error(`          SQL : ${String(sql).replace(/\s+/g, ' ').slice(0, 160)}`);
+        throw new Error(`migration échouée : ${detail}`);
     }
 }
 
@@ -206,7 +223,16 @@ async function ensureSchema() {
     } catch (e) { /* table toute neuve */ }
     for (const m of MIGRATIONS) {
         if (m.version <= current) continue;
-        await m.apply();
+        // Audit DB-05 : la version n'est enregistrée QUE si la migration a
+        // réellement abouti. Avant, `run()` avalait l'échec et l'INSERT suivait
+        // quand même : la migration était marquée comme appliquée et n'était
+        // jamais rejouée, laissant un schéma incohérent de façon permanente.
+        try {
+            await m.apply();
+        } catch (e) {
+            console.error(`[migrate] ✖ migration ${m.version} (${m.name}) a échoué — versions suivantes non appliquées.`);
+            throw e;
+        }
         await run(`INSERT IGNORE INTO schema_migrations (version, name) VALUES (${m.version}, ${pool.escape(m.name)})`);
         console.log(`[migrate] migration ${m.version} appliquée : ${m.name}`);
     }

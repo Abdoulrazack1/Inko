@@ -89,8 +89,18 @@ app.use(errorHandler);
         await ping();
         console.log('MySQL OK');
         // Migrations additives idempotentes (threads, reports, notifications…)
+        // Audit DB-05 : on ne bloque pas le démarrage — une base en retard vaut
+        // mieux qu'une app qui refuse de s'ouvrir — mais l'échec doit être
+        // IMPOSSIBLE À MANQUER, pas un warning noyé dans les logs.
         try { await require('./db/migrate').ensureSchema(); }
-        catch (e) { console.warn('[migrate] non appliquée :', e.message); }
+        catch (e) {
+            console.error('════════════════════════════════════════════════════');
+            console.error('[migrate] ✖ LE SCHÉMA N\'EST PAS À JOUR :', e.message);
+            console.error('          L\'app démarre, mais certaines fonctions peuvent échouer.');
+            console.error('          Corrige la base, puis redémarre. En dépannage :');
+            console.error('          MIGRATE_TOLERANT=1 pour ignorer les erreurs de migration.');
+            console.error('════════════════════════════════════════════════════');
+        }
     } catch (e) {
         console.error('MySQL inaccessible — vérifiez Laragon et lancez `npm run init-db`');
         console.error('   ' + e.message);

@@ -85,13 +85,49 @@
         }
     }
 
+    // Audit I18N-04 : l'observateur traitait CHAQUE mutation individuellement,
+    // en synchrone, sur tout `document.documentElement`. Sur la bibliothèque
+    // (4 800 nœuds, rendue en un seul innerHTML) cela déclenchait un parcours
+    // d'arbre par nœud inséré, pendant toute la session en mode anglais.
+    // On regroupe désormais les mutations d'un même lot : les nœuds ajoutés
+    // sont mis en file et traités une fois, à la frame suivante — un innerHTML
+    // massif ne coûte plus qu'un seul passage. Les mutations d'attribut et de
+    // texte, elles, restent immédiates : elles sont rares et ponctuelles.
+    let pending = null;
+    let flushScheduled = false;
+    function scheduleFlush() {
+        if (flushScheduled) return;
+        flushScheduled = true;
+        const run = () => {
+            flushScheduled = false;
+            const nodes = pending; pending = null;
+            if (!active || !nodes) return;
+            // Un ancêtre déjà traité couvre ses descendants : on évite les
+            // doublons quand un lot insère un conteneur ET son contenu.
+            for (const n of nodes) {
+                if (!n.isConnected) continue;
+                let covered = false;
+                for (const other of nodes) {
+                    if (other !== n && other.nodeType === 1 && other.contains && other.contains(n)) { covered = true; break; }
+                }
+                if (!covered) translateTree(n);
+            }
+        };
+        if (window.requestAnimationFrame) requestAnimationFrame(run);
+        else setTimeout(run, 0);
+    }
+
     function startObserver() {
         if (observer) return;
         observer = new MutationObserver((muts) => {
             if (!active) return;
             for (const m of muts) {
                 if (m.type === 'childList') {
-                    m.addedNodes.forEach(node => translateTree(node));
+                    if (m.addedNodes.length) {
+                        (pending || (pending = new Set()));
+                        m.addedNodes.forEach(node => pending.add(node));
+                        scheduleFlush();
+                    }
                 } else if (m.type === 'characterData') {
                     // trText est idempotent (une chaîne déjà anglaise ne matche plus) :
                     // pas de boucle possible.
@@ -102,7 +138,10 @@
                 }
             }
         });
-        observer.observe(document.documentElement, {
+        // On observe `body` et non `documentElement` : rien de traduisible ne
+        // vit dans <head>, et cela évite de réagir aux <style>/<script>
+        // injectés à l'exécution (thème, polices, service worker).
+        observer.observe(document.body || document.documentElement, {
             childList: true, subtree: true, characterData: true,
             attributes: true, attributeFilter: ATTRS,
         });
