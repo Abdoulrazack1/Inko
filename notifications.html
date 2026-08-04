@@ -28,6 +28,7 @@
 </head>
 <body class="page-body">
   <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
   <div class="nt-wrap">
     <div class="nt-head">
       <h1>Notifications</h1>
@@ -39,14 +40,15 @@
       </div>
     </div>
     <div class="nt-filters" id="ntFilters">
-      <button class="nt-pill active" data-f="all">Toutes</button>
-      <button class="nt-pill" data-f="unread">Non lues</button>
-      <button class="nt-pill" data-f="reply">Réponses</button>
-      <button class="nt-pill" data-f="mention">Mentions</button>
-      <button class="nt-pill" data-f="chapter">Chapitres</button>
+      <button class="nt-pill active" aria-pressed="true" data-f="all">Toutes</button>
+      <button class="nt-pill" aria-pressed="false" data-f="unread">Non lues</button>
+      <button class="nt-pill" aria-pressed="false" data-f="reply">Réponses</button>
+      <button class="nt-pill" aria-pressed="false" data-f="mention">Mentions</button>
+      <button class="nt-pill" aria-pressed="false" data-f="chapter">Chapitres</button>
     </div>
     <div id="ntList"><div class="nt-empty"><div class="spinner-inline"></div></div></div>
   </div>
+  </main>
   <div id="footer-slot"></div>
   <script src="assets/js/api.js"></script>
   <script src="assets/js/storage.js"></script>

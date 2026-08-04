@@ -23,13 +23,22 @@
         }
 
         // Ré-applique le filtre persisté sur les pastilles
-        document.querySelectorAll('.nt-pill').forEach(p => p.classList.toggle('active', p.dataset.f === filter));
+        // Audit A11Y-03 : l'etat n'existait que par une classe CSS - invisible
+        // pour les lecteurs d'ecran. aria-pressed suit desormais la classe.
+        document.querySelectorAll('.nt-pill').forEach(p => {
+            const on = p.dataset.f === filter;
+            p.classList.toggle('active', on);
+            p.setAttribute('aria-pressed', String(on));
+        });
 
         document.getElementById('ntFilters').addEventListener('click', (e) => {
             const b = e.target.closest('.nt-pill'); if (!b) return;
             filter = b.dataset.f;
             try { localStorage.setItem(FILTER_KEY, filter); } catch (e2) { window.MH?.err?.('notifications.js', e2); }
-            document.querySelectorAll('.nt-pill').forEach(p => p.classList.toggle('active', p === b));
+            document.querySelectorAll('.nt-pill').forEach(p => {
+                p.classList.toggle('active', p === b);
+                p.setAttribute('aria-pressed', String(p === b));
+            });
             render();
         });
         document.getElementById('ntEnablePush')?.addEventListener('click', () => window.MH.enablePush?.());

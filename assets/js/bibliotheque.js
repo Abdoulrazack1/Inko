@@ -290,8 +290,14 @@
         const panels = { library: 'tabLibrary', updates: 'tabUpdates', bookmarks: 'tabBookmarks', downloads: 'tabDownloads' };
         document.querySelectorAll('.lib2-tab').forEach(tab => {
             tab.addEventListener('click', () => {
-                document.querySelectorAll('.lib2-tab').forEach(t => t.classList.remove('active'));
+                // Audit A11Y-03 : aria-selected suit la classe active (l'etat n'existait
+                // que visuellement - invisible pour les lecteurs d'ecran).
+                document.querySelectorAll('.lib2-tab').forEach(t => {
+                    t.classList.remove('active');
+                    t.setAttribute('aria-selected', 'false');
+                });
                 tab.classList.add('active');
+                tab.setAttribute('aria-selected', 'true');
                 const t = tab.dataset.tab;
                 Object.entries(panels).forEach(([k, id]) => {
                     const el = document.getElementById(id); if (el) el.style.display = (k === t) ? '' : 'none';
@@ -447,7 +453,7 @@
         favs.forEach(f => { if (f.category) cc[f.category] = (cc[f.category] || 0) + 1; });
 
         const chip = (type, val, label, count, on) =>
-            `<button class="lib2-chip ${on ? 'on' : ''}" data-ftype="${type}" data-fval="${MH.esc(val == null ? '' : val)}">${MH.esc(label)}${count != null ? `<span class="cnt">${count}</span>` : ''}</button>`;
+            `<button class="lib2-chip ${on ? 'on' : ''}" aria-pressed="${!!on}" data-ftype="${type}" data-fval="${MH.esc(val == null ? '' : val)}">${MH.esc(label)}${count != null ? `<span class="cnt">${count}</span>` : ''}</button>`;
 
         // Segment Mangas / Romans (n'apparaît que si la biblio contient des deux)
         const nManga = favs.filter(f => !MH.isNovelSource(f.source)).length;
@@ -455,7 +461,7 @@
         let kindHtml = '';
         if (nManga && nNovel) {
             const k = (val, label, count) =>
-                `<button class="lib2-kind ${kindFilter === val ? 'on' : ''}" data-kind="${val}">${label}<span class="cnt">${count}</span></button>`;
+                `<button class="lib2-kind ${kindFilter === val ? 'on' : ''}" aria-pressed="${kindFilter === val}" data-kind="${val}">${label}<span class="cnt">${count}</span></button>`;
             kindHtml = `<div class="lib2-kinds">${k('all', 'Tout', favs.length)}${k('manga', 'Mangas', nManga)}${k('novel', 'Romans', nNovel)}</div>`;
         }
 
@@ -470,11 +476,11 @@
         const sources = Object.keys(srcCount);
         if (sources.length > 1) {
             srcHtml = `<span style="width:100%;height:1px"></span>` +
-                `<button class="lib2-chip ${!sourceFilter ? 'on' : ''}" data-src="">Toutes sources</button>` +
-                sources.sort().map(s => `<button class="lib2-chip ${sourceFilter === s ? 'on' : ''}" data-src="${MH.esc(s)}">${MH.esc(s)}<span class="cnt">${srcCount[s]}</span></button>`).join('');
+                `<button class="lib2-chip ${!sourceFilter ? 'on' : ''}" aria-pressed="${!sourceFilter}" data-src="">Toutes sources</button>` +
+                sources.sort().map(s => `<button class="lib2-chip ${sourceFilter === s ? 'on' : ''}" aria-pressed="${sourceFilter === s}" data-src="${MH.esc(s)}">${MH.esc(s)}<span class="cnt">${srcCount[s]}</span></button>`).join('');
         }
         // Bascule « Non lus uniquement »
-        const unreadHtml = `<button class="lib2-chip ${unreadOnly ? 'on' : ''}" id="chipUnread" style="margin-left:auto" title="N'afficher que les séries avec des chapitres non lus">● Non lus</button>`;
+        const unreadHtml = `<button class="lib2-chip ${unreadOnly ? 'on' : ''}" aria-pressed="${!!unreadOnly}" id="chipUnread" style="margin-left:auto" title="N'afficher que les séries avec des chapitres non lus">● Non lus</button>`;
         el.innerHTML = kindHtml + html + srcHtml + unreadHtml;
 
         el.querySelectorAll('[data-src]').forEach(ch => ch.addEventListener('click', () => {

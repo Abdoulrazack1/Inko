@@ -194,14 +194,31 @@
             typeFilter === 'novel' ? w.sources.some(s => s.isNovel) : w.sources.some(s => !s.isNovel));
         const nManga = lastMerged.filter(w => w.sources.some(s => !s.isNovel)).length;
         const nNovel = lastMerged.filter(w => w.sources.some(s => s.isNovel)).length;
+        // Audit BUG-16 : « Tout · 119 » avec « Mangas · 45 » et « Romans · 75 »
+        // (= 120) donnait l'impression d'un compte faux. En réalité une œuvre
+        // disponible À LA FOIS en manga et en roman est comptée des deux côtés —
+        // ce sont des disponibilités, pas une partition. On l'explicite au lieu
+        // de laisser l'utilisateur constater une addition qui ne tombe pas juste.
+        const nBoth = lastMerged.filter(w =>
+            w.sources.some(s => !s.isNovel) && w.sources.some(s => s.isNovel)).length;
 
         let chips = '';
         if (nManga && nNovel) {
-            const c = (val, label, count) => `<button class="se-chip ${typeFilter === val ? 'on' : ''}" data-type="${val}">${label}${count != null ? ` · ${count}` : ''}</button>`;
-            chips = `<div class="se-types">${c('all', 'Tout', lastMerged.length)}${c('manga', 'Mangas', nManga)}${c('novel', 'Romans', nNovel)}</div>`;
+            const c = (val, label, count, title) =>
+                `<button class="se-chip ${typeFilter === val ? 'on' : ''}" data-type="${val}"` +
+                `${title ? ` title="${MH.esc(title)}"` : ''}` +
+                ` aria-pressed="${typeFilter === val}">${label}${count != null ? ` · ${count}` : ''}</button>`;
+            const note = nBoth
+                ? `${nBoth} œuvre(s) sont disponibles à la fois en manga et en roman, et comptent donc dans les deux catégories`
+                : '';
+            chips = `<div class="se-types">${c('all', 'Tout', lastMerged.length)}` +
+                    `${c('manga', 'Mangas', nManga, note)}${c('novel', 'Romans', nNovel, note)}</div>` +
+                    (nBoth ? `<div class="se-note" style="font-size:11.5px;color:var(--text3);margin:2px 0 8px">
+                        Dont ${nBoth} disponible(s) dans les deux formats.</div>` : '');
         }
 
         sub.textContent = `${works.length} œuvre(s) pour « ${q} »${lastMerged.length !== works.length ? '' : ''}.`;
+        MH.announce?.(`${works.length} résultat(s) pour ${q}`);   // audit A11Y-06
         if (!works.length) {
             out.innerHTML = chips + `<div class="se-empty">Aucun résultat ${typeFilter !== 'all' ? 'dans cette catégorie' : '. Essaie un autre titre ou vérifie tes sources'}.</div>`;
         } else {

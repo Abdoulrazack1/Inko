@@ -95,7 +95,7 @@
             anchor.parentNode.insertBefore(bar, anchor);
         }
         const chip = (label, on, data) =>
-            `<button class="quick-filter-btn ${on ? 'active' : ''}" ${data}>${MH.esc(label)}</button>`;
+            `<button class="quick-filter-btn ${on ? 'active' : ''}" aria-pressed="${!!on}" ${data}>${MH.esc(label)}</button>`;
         bar.innerHTML =
             chip('Toutes les sources', allSources, 'data-allsrc="1"') +
             enabledSources().map(s => chip(s.name, !allSources && s.id === API.sources.current, `data-src="${MH.esc(s.id)}"`)).join('');
@@ -154,6 +154,10 @@
         lastTotal = lastResults.length;
         const okCount = settled.filter(r => r.status === 'fulfilled').length;
         if (count) count.innerHTML = `<strong>${lastResults.length}</strong> séries · ${okCount}/${srcs.length} sources`;
+        // Audit A11Y-06 : annonce le résultat aux lecteurs d'écran
+        MH.announce?.(lastResults.length
+            ? `${lastResults.length} séries trouvées sur ${okCount} source(s)`
+            : 'Aucun résultat sur tes sources actives');
         if (!lastResults.length) {
             grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2)">Aucun résultat sur tes sources actives.</div>';
         } else {
@@ -242,7 +246,7 @@
         if (!el) return;
         el.innerHTML = items.length
             ? items.map(g =>
-                `<button class="filter-tag ${activeTags.has(g.id) ? 'active' : ''}" data-tag="${MH.esc(g.id)}">${MH.esc(g.name)}</button>`
+                `<button class="filter-tag ${activeTags.has(g.id) ? 'active' : ''}" aria-pressed="${activeTags.has(g.id)}" data-tag="${MH.esc(g.id)}">${MH.esc(g.name)}</button>`
               ).join('')
             : (emptyMsg ? `<div style="font-size:12px;color:var(--text3);padding:8px">${emptyMsg}</div>` : '');
     }
@@ -270,7 +274,7 @@
                 { v: 'hiatus',    l: 'En pause'  },
                 { v: 'cancelled', l: 'Annulé'    },
             ].map(s =>
-                `<button class="filter-status-btn ${activeStatus.has(s.v) ? 'active' : ''}" data-status="${s.v}">${s.l}</button>`
+                `<button class="filter-status-btn ${activeStatus.has(s.v) ? 'active' : ''}" aria-pressed="${activeStatus.has(s.v)}" data-status="${s.v}">${s.l}</button>`
             ).join('');
         }
 

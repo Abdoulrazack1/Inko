@@ -135,6 +135,33 @@
         return on;
     };
 
+    /* ── Annonces aux lecteurs d'écran (audit A11Y-06) ─────────
+       Aucune des 22 pages n'avait de région aria-live : un utilisateur non
+       voyant filtrait le catalogue ou la bibliothèque sans jamais savoir que
+       le résultat avait changé, ni combien d'éléments s'affichaient.
+       On n'annote PAS les grilles elles-mêmes — une liste de 358 séries en
+       aria-live serait insupportable. À la place, une région discrète unique
+       où les pages poussent un résumé ("24 résultats"). */
+    let _liveRegion = null;
+    window.MH.announce = function (msg) {
+        if (!msg) return;
+        if (!_liveRegion) {
+            _liveRegion = document.createElement('div');
+            _liveRegion.id = 'mh-live';
+            _liveRegion.setAttribute('role', 'status');
+            _liveRegion.setAttribute('aria-live', 'polite');
+            _liveRegion.setAttribute('aria-atomic', 'true');
+            // Masqué visuellement, lisible par les lecteurs d'écran
+            _liveRegion.style.cssText = 'position:absolute;width:1px;height:1px;margin:-1px;' +
+                'padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0';
+            document.body.appendChild(_liveRegion);
+        }
+        // Réécrire la même chaîne ne déclenche pas d'annonce : on force le
+        // changement en vidant d'abord.
+        _liveRegion.textContent = '';
+        setTimeout(() => { if (_liveRegion) _liveRegion.textContent = msg; }, 60);
+    };
+
     // Numéro de chapitre lisible (gère prologue/null sans afficher "null")
     window.MH.chapNum = (n) => (n != null && n !== '') ? n : '?';
 
@@ -1038,14 +1065,23 @@
         if (document.querySelector('.skip-link')) return;
         const a = document.createElement('a');
         a.className = 'skip-link';
-        a.href = '#';
+        // Audit A11Y-07 : la cible était `header.nextElementSibling`, une
+        // heuristique de position — sur l'accueil elle déposait l'utilisateur
+        // sur le carrousel, pas sur le contenu. Et href="#" laissait un lien
+        // mort si le JS échouait. On vise désormais le vrai landmark <main>,
+        // ajouté sur toutes les pages (audit A11Y-01), avec repli sur l'ancien
+        // comportement pour les pages qui n'en auraient pas.
+        a.href = '#main';
         a.textContent = 'Aller au contenu';
         a.addEventListener('click', (e) => {
+            const target = document.getElementById('main')
+                || document.querySelector('main')
+                || document.querySelector('.site-header')?.nextElementSibling;
+            if (!target) return;              // laisse l'ancre native opérer
             e.preventDefault();
-            // Cible : l'élément qui suit le header (contenu principal de chaque page)
-            const header = document.querySelector('.site-header');
-            const main = header && header.nextElementSibling;
-            if (main) { main.setAttribute('tabindex', '-1'); main.focus(); }
+            if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+            target.focus();
+            target.scrollIntoView({ block: 'start' });
         });
         document.body.insertBefore(a, document.body.firstChild);
     }
