@@ -92,7 +92,55 @@ const MIGRATIONS = [
             }
         }
     } },
+    { version: 6, name: 'anilist_links sort du blob de réglages (audit PERF-09)', apply: anilistLinksTable },
 ];
+
+// ── Migration 6 : sortir le cache AniList des réglages (audit PERF-09) ──
+// `user_settings.data` est chargé À CHAQUE PAGE. Il pesait 8 188 octets, dont
+// 7 348 rien que pour `anilistLinks` — un cache de résolution titre → id
+// AniList, une entrée par titre jamais consulté, sans aucune éviction. Un cache
+// de lecture n'a pas sa place dans des préférences synchronisées : il ne fait
+// que croître et il est retransmis à chaque navigation.
+async function anilistLinksTable() {
+    await run(`CREATE TABLE IF NOT EXISTS anilist_links (
+        user_id    INT NOT NULL,
+        title_key  VARCHAR(191) NOT NULL,
+        anilist_id INT NOT NULL,
+        exact      TINYINT(1) NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, title_key),
+        CONSTRAINT fk_anilist_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB`);
+
+    // Reprise des liens déjà résolus, puis retrait du blob.
+    let rows;
+    try {
+        [rows] = await pool.query(
+            `SELECT user_id, data FROM user_settings
+             WHERE JSON_EXTRACT(data, '$.anilistLinks') IS NOT NULL`);
+    } catch (e) { return; }   // colonne JSON absente : rien à migrer
+
+    for (const r of rows) {
+        const data = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+        const links = data?.anilistLinks || {};
+        const entries = Object.entries(links)
+            .filter(([k, v]) => k && v && v.id != null)
+            .map(([k, v]) => [r.user_id, k.slice(0, 191), parseInt(v.id, 10), v.exact ? 1 : 0])
+            .filter(e => Number.isFinite(e[2]));
+        if (entries.length) {
+            for (let i = 0; i < entries.length; i += 500) {
+                await pool.query(
+                    `INSERT INTO anilist_links (user_id, title_key, anilist_id, exact) VALUES ?
+                     ON DUPLICATE KEY UPDATE anilist_id = VALUES(anilist_id), exact = VALUES(exact)`,
+                    [entries.slice(i, i + 500)]);
+            }
+        }
+        await pool.query(
+            `UPDATE user_settings SET data = JSON_REMOVE(data, '$.anilistLinks') WHERE user_id = ?`,
+            [r.user_id]);
+        console.log(`[migrate] user ${r.user_id} : ${entries.length} lien(s) AniList sortis des réglages`);
+    }
+}
 
 // ── Migration 3 : unicité des pseudos (audit BUG-01) ──────────
 // `users.username` n'avait qu'un INDEX, pas de contrainte UNIQUE, et aucun

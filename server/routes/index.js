@@ -205,6 +205,11 @@ router.get   ('/me/ratings',              auth.authRequired, User.getMyRatings);
 // ── Settings synchronisés ───────────────────────
 router.get   ('/me/settings',             auth.authRequired, User.getSettings);
 router.put   ('/me/settings',             auth.authRequired, User.setSettings);
+// Audit PERF-09 : le cache titre → id AniList vivait dans user_settings.data,
+// rechargé À CHAQUE PAGE (7 348 des 8 188 octets du blob, sans éviction).
+// Table dédiée, chargée seulement par anilist.js.
+router.get   ('/me/anilist-links',        auth.authRequired, User.getAnilistLinks);
+router.put   ('/me/anilist-links',        auth.authRequired, User.setAnilistLinks);
 
 // ── Données ─────────────────────────────────────
 router.get   ('/me/export',               auth.authRequired, User.exportData);

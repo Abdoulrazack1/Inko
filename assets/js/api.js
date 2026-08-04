@@ -426,6 +426,11 @@
             settings:         ()           => get('/me/settings'),
             saveSettings:     (data)       => put('/me/settings', data),
 
+            // Liens AniList — sortis du blob de réglages (audit PERF-09) :
+            // ils pesaient 7 348 des 8 188 octets rechargés à CHAQUE page.
+            anilistLinks:     ()           => get('/me/anilist-links'),
+            saveAnilistLinks: (data)       => put('/me/anilist-links', data),
+
             // Données
             exportData:       ()           => get('/me/export'),
             importData:       (data)       => post('/me/import', data),

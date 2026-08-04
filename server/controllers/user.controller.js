@@ -675,6 +675,52 @@ async function setSettings(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ── Liens AniList (audit PERF-09) ────────────────────────────
+// Ce cache titre → id AniList vivait dans user_settings.data, chargé À CHAQUE
+// PAGE : 7 348 octets sur les 8 188 du blob, une entrée par titre jamais
+// résolu, sans éviction. Table dédiée, chargée uniquement par anilist.js —
+// donc seulement sur les pages qui en ont besoin.
+async function getAnilistLinks(req, res, next) {
+    try {
+        const [rows] = await pool.query(
+            'SELECT title_key, anilist_id, exact FROM anilist_links WHERE user_id = ?', [req.user.id]);
+        const out = {};
+        rows.forEach(r => { out[r.title_key] = { id: r.anilist_id, exact: !!r.exact }; });
+        res.json(out);
+    } catch (e) { next(e); }
+}
+
+// Fusion partielle : { "<clé>": { id, exact } } ; une valeur null supprime.
+async function setAnilistLinks(req, res, next) {
+    try {
+        const body = req.body || {};
+        if (typeof body !== 'object' || Array.isArray(body))
+            return res.status(400).json({ error: 'Objet attendu' });
+        const keys = Object.keys(body).slice(0, 500);
+        const toUpsert = [], toDelete = [];
+        for (const k of keys) {
+            const key = String(k).slice(0, 191);
+            if (!key) continue;
+            const v = body[k];
+            if (v === null) { toDelete.push(key); continue; }
+            const id = parseInt(v && v.id, 10);
+            if (!Number.isFinite(id)) continue;
+            toUpsert.push([req.user.id, key, id, v.exact ? 1 : 0]);
+        }
+        if (toDelete.length) {
+            await pool.query('DELETE FROM anilist_links WHERE user_id = ? AND title_key IN (?)',
+                [req.user.id, toDelete]);
+        }
+        if (toUpsert.length) {
+            await pool.query(
+                `INSERT INTO anilist_links (user_id, title_key, anilist_id, exact) VALUES ?
+                 ON DUPLICATE KEY UPDATE anilist_id = VALUES(anilist_id), exact = VALUES(exact)`,
+                [toUpsert]);
+        }
+        res.json({ ok: true, updated: toUpsert.length, removed: toDelete.length });
+    } catch (e) { next(e); }
+}
+
 // ──────────────────────────────────────────────────────────────
 // EXPORT / RESET data
 // ──────────────────────────────────────────────────────────────
@@ -835,6 +881,7 @@ async function checkUpdates(req, res, next) {
 
 module.exports = {
     getFavorites, addFavorite, removeFavorite, setFavoriteCategory,
+    getAnilistLinks, setAnilistLinks,
     getLibrary, setLibraryStatus,
     getAllProgress, setProgress, deleteProgress,
     getReadChapters, markChapter, markChaptersBulk,
