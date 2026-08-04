@@ -252,7 +252,7 @@
     // Markup d'une image de page : fade-in au chargement + retry en cas d'échec
     function pageImg(idx, extra = '', lazy = false) {
         const p = pages[idx];
-        return `<img class="reader-page-img" data-idx="${idx}" src="${pageSrc(p)}" alt="Page ${idx + 1}"
+        return `<img class="reader-page-img" data-idx="${idx}" src="${MH.esc(pageSrc(p))}" alt="Page ${idx + 1}"
                  onload="this.classList.add('loaded')" onerror="window.imgFail&&window.imgFail(this)"
                  decoding="async" loading="${lazy ? 'lazy' : 'eager'}" ${extra}>`;
     }
@@ -563,7 +563,7 @@
         if (!el) return;
         el.innerHTML = pages.map((p, i) => `
             <div class="reader-thumb ${i + 1 === currentPage ? 'active' : ''}" data-page="${i + 1}" onclick="window.goToPage(${i + 1})">
-                <img src="${p.urlSaver || p.url}" alt="p${i+1}" loading="lazy">
+                <img src="${MH.cover(p.urlSaver, p.url)}" alt="p${i+1}" loading="lazy">
                 <div class="reader-thumb-num">${i + 1}</div>
             </div>`).join('');
     }
@@ -604,7 +604,7 @@
         el.innerHTML = `
         <div class="reader-next-chapter">
             <div class="next-chapter-cover">
-                <img src="${manga.coverThumb || manga.cover || ''}" alt="" loading="lazy">
+                <img src="${MH.cover(manga.coverThumb, manga.cover)}" alt="" loading="lazy">
             </div>
             <div class="next-chapter-info">
                 <div class="next-chapter-label">À suivre</div>
@@ -1117,6 +1117,15 @@
 
     // ── Marquer comme lu (en masse) ──
     async function bulkMark(items, msg) {
+        // Audit BUG-22 : saveProgress() et markChapterRead() respectaient le mode
+        // incognito, pas celui-ci. Le bouton « Marquer ce chapitre (et les
+        // précédents) » écrivait donc jusqu'à 18 lignes en base alors que l'app
+        // affiche « lecture non enregistrée » — et le geste est irréversible
+        // sans dépiler les chapitres un à un.
+        if (window.MH?.isIncognito?.()) {
+            MH.toast?.('Mode incognito : rien n\'a été enregistré');
+            return;
+        }
         if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour suivre ta lecture'); return; }
         if (!items.length) return;
         try { await API.me.markChaptersBulk(manga.id, items); MH.toast?.(msg); }

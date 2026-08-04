@@ -92,7 +92,7 @@
             return `
                 <div class="hero-inner">
                     <a class="hero-poster-link" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}">
-                        <img class="hero-poster" src="${m.coverLarge || m.cover || ''}" alt="${MH.esc(m.title)}"
+                        <img class="hero-poster" src="${MH.cover(m.coverLarge, m.cover)}" alt="${MH.esc(m.title)}"
                              onerror="this.style.visibility='hidden'">
                         ${isNovel ? '<span class="hero-poster-tag">ROMAN</span>' : ''}
                     </a>
@@ -216,7 +216,7 @@
         // Rail de vignettes (carrousel visuel)
         rail.innerHTML = heroMangas.map((m, i) => `
             <button class="hero-thumb ${i === 0 ? 'active' : ''}" data-i="${i}" aria-label="${MH.esc(m.title)}">
-                <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+                <img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
             </button>`).join('');
         rail.querySelectorAll('.hero-thumb').forEach(t => t.addEventListener('click', () => go(+t.dataset.i)));
 
@@ -273,7 +273,7 @@
             <a href="serie.html?id=${encodeURIComponent(m.id)}" class="trending-card" data-manga-id="${m.id}">
                 <div class="trending-rank">${i + 1}</div>
                 <div class="trending-cover">
-                    <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" onerror="this.src='${MH.placeholderCover(m.id)}'">
+                    <img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" onerror="this.src='${MH.placeholderCover(m.id)}'">
                     <div class="trending-overlay">
                         <div class="trending-title">${MH.esc(m.title)}</div>
                         <div class="trending-meta">${m.year || ''} ${m.status ? '· ' + m.status : ''}</div>
@@ -427,7 +427,7 @@
                 <div class="resume-item" data-resume="${MH.esc(m.id)}" style="position:relative">
                     <a href="${MH.readerHref(m.id, e.chapterId, e.source)}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
                         <div class="resume-cover">
-                            <img src="${m.coverThumb || m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy">
+                            <img src="${MH.cover(m.coverThumb, m.cover)}" alt="${MH.esc(m.title)}" loading="lazy">
                         </div>
                         <div class="resume-info">
                             <div class="resume-title">${MH.esc(m.title)}</div>
@@ -470,7 +470,7 @@
                 <a href="serie.html?id=${encodeURIComponent(m.id)}" class="top-manga-item" data-manga-id="${m.id}">
                     <div class="top-rank ${ranks[i] || ''}">${i + 1}</div>
                     <div class="top-cover">
-                        <img src="${m.coverThumb || m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy">
+                        <img src="${MH.cover(m.coverThumb, m.cover)}" alt="${MH.esc(m.title)}" loading="lazy">
                     </div>
                     <div class="top-info">
                         <div class="top-title">${MH.esc(m.title)}</div>
@@ -565,7 +565,7 @@
         <div class="manga-card" data-manga-id="${m.id}">
             <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}" class="manga-card-link" aria-label="${MH.esc(m.title)}"${MH.nsfwCardAttrs(m)}></a>
             <div class="manga-card-cover">
-                <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
+                <img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
                 <div class="manga-card-badges">
                     ${matchTag ? `<span class="badge badge-orange">${MH.esc(matchTag.toUpperCase())}</span>` : ''}

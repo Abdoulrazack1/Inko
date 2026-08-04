@@ -333,6 +333,12 @@
         } catch (e) { window.MH?.err?.('lecture.js', e); }
     }
     function markUpToHere() {
+        // Audit BUG-22 : même défaut que le lecteur d'images — la progression
+        // respectait le mode incognito, pas le marquage en masse.
+        if (window.MH?.isIncognito?.()) {
+            MH.toast?.('Mode incognito : rien n\'a été enregistré');
+            return;
+        }
         if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour suivre ta lecture'); return; }
         const cur = parseFloat(currentChap.chapter);
         const items = chapters

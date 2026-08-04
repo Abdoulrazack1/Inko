@@ -288,7 +288,7 @@
                 return `
                 <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
                     <a href="serie.html?id=${encodeURIComponent(r.mangaId)}" style="flex-shrink:0">
-                        <img src="${m?.coverThumb || m?.cover || ''}" alt="" loading="lazy"
+                        <img src="${MH.cover(m?.coverThumb, m?.cover)}" alt="" loading="lazy"
                              style="width:44px;height:62px;object-fit:cover;border-radius:6px;background:var(--bg4)">
                     </a>
                     <div style="min-width:0">
@@ -462,7 +462,7 @@
             // (correct pour une bibliothèque multi-sources, et plus rapide)
             el.innerHTML = favs.slice(0, 6).map(f => `
                 <a href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}" class="fav-item">
-                    <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
+                    <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                     <div class="fav-item-title">${MH.esc(f.title || f.mangaId)}</div>
                 </a>
             `).join('') + `<div class="fav-add" onclick="window.location.href='catalogue.html'">+</div>`;
@@ -502,7 +502,7 @@
                 if (!m) return '';
                 return `
                 <div class="history-entry">
-                    <div class="history-entry-cover"><img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" decoding="async"></div>
+                    <div class="history-entry-cover"><img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy" decoding="async"></div>
                     <div class="history-entry-info">
                         <div class="history-entry-title">${MH.esc(m.title)}</div>
                         <div class="history-entry-chap">Chapitre ${MH.chapNum(p.chapter)}</div>
@@ -598,7 +598,7 @@
                     <div class="timeline-item">
                         <div class="timeline-dot green"></div>
                         <div class="timeline-time">${new Date(item.at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}</div>
-                        <div class="timeline-cover"><img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy"></div>
+                        <div class="timeline-cover"><img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy"></div>
                         <div class="timeline-info">
                             <div class="timeline-manga-name">${MH.esc(m.title)}</div>
                             <div class="timeline-chap">Chapitre ${item.metadata?.chapter || '?'}</div>
@@ -677,7 +677,7 @@
                     cont.innerHTML = top.map(([id, n], i) => {
                         const m = mangas[i] || {};
                         return `<div class="top-series-item">
-                            <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" decoding="async" style="min-width:36px;min-height:50px;border-radius:4px;object-fit:cover;background:var(--bg4)" onerror="this.style.visibility='hidden'">
+                            <img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy" decoding="async" style="min-width:36px;min-height:50px;border-radius:4px;object-fit:cover;background:var(--bg4)" onerror="this.style.visibility='hidden'">
                             <div>
                                 <div class="top-series-name">${MH.esc(m.title || id)}</div>
                                 <div class="top-series-count">${n} chapitre${n > 1 ? 's' : ''} cette semaine</div>
@@ -805,7 +805,7 @@
                 return `
                 <div class="list-manga-item">
                     <a href="serie.html?id=${encodeURIComponent(m.id)}">
-                        <div class="list-manga-cover"><img src="${m.cover || m.coverThumb || ''}" alt="${MH.esc(m.title)}" loading="lazy"></div>
+                        <div class="list-manga-cover"><img src="${MH.cover(m.cover, m.coverThumb)}" alt="${MH.esc(m.title)}" loading="lazy"></div>
                         <div class="list-manga-name">${MH.esc(m.title)}</div>
                         <div class="list-manga-meta">${chapRead ? 'Ch. ' + MH.chapNum(chapRead) : '—'}</div>
                     </a>

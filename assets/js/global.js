@@ -8,11 +8,28 @@
     const $   = (sel, ctx = document) => ctx.querySelector(sel);
     const $$  = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     const fmt = n => n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : n;
-    const esc = s => (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Audit SEC-01 : le guillemet double DOIT être échappé. esc() est utilisé
+    // dans des attributs (`src="${esc(n.image)}"`, `href="${esc(n.link)}"`) —
+    // sans lui, une couverture piégée renvoyée par une source referme
+    // l'attribut et injecte `onerror=` : XSS stocké dans la cloche de
+    // notifications, présente sur toutes les pages. L'apostrophe est incluse
+    // pour couvrir aussi les attributs délimités par des quotes simples.
+    const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    const esc = s => (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ESC_MAP[c]);
+
+    // Audit BUG-14 : `<img src="">` est résolu par le navigateur vers l'URL de
+    // la PAGE COURANTE, qu'il re-télécharge comme image (3 images cassées
+    // relevées sur profil.html, src = ".../profil.html"). Ce helper renvoie le
+    // premier candidat non vide — échappé — ou un GIF 1×1 transparent.
+    const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+    const cover = (...candidates) => {
+        for (const c of candidates) if (c) return esc(c);
+        return BLANK_IMG;
+    };
 
     // Fusion (pas remplacement) : i18n.js se charge AVANT et pose déjà
     // MH.t / MH.loadI18n / MH.setLang sur window.MH (audit N40 v2).
-    window.MH = Object.assign(window.MH || {}, { $, $$, fmt, esc });
+    window.MH = Object.assign(window.MH || {}, { $, $$, fmt, esc, cover, BLANK_IMG });
 
     // Journal d'erreurs non fatales (audit B-3) : les nombreux catch qui
     // avalaient silencieusement une erreur passent désormais par ici. Rien
@@ -1116,7 +1133,7 @@
             } else {
                 dropdown.innerHTML = results.map((m, i) => `
                   <a href="serie.html?id=${encodeURIComponent(m.id)}" class="search-result-item" role="option" id="searchOpt${i}" aria-selected="false">
-                      <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" onerror="this.style.display='none'">
+                      <img src="${cover(m.coverThumb, m.cover)}" alt="" loading="lazy" onerror="this.style.display='none'">
                       <div class="search-result-info">
                           <div class="title">${esc(m.title)}</div>
                           <div class="meta">${esc(m.author || '')} ${m.year ? `· ${m.year}` : ''}</div>
@@ -1369,7 +1386,7 @@
         ov.addEventListener('click', e => { if (e.target === ov) close(); });
 
         const rowHTML = (it, i) => `<div class="cmd-row" data-i="${i}" style="display:flex;align-items:center;gap:12px;padding:11px 16px;cursor:pointer;${i===sel?'background:var(--bg4)':''}">
-            ${it.cover ? `<img src="${it.cover}" style="width:30px;height:40px;object-fit:cover;border-radius:4px" onerror="this.style.visibility='hidden'">` : `<span style="width:30px;text-align:center;font-size:17px">${it.icon||'•'}</span>`}
+            ${it.cover ? `<img src="${esc(it.cover)}" style="width:30px;height:40px;object-fit:cover;border-radius:4px" onerror="this.style.visibility='hidden'">` : `<span style="width:30px;text-align:center;font-size:17px">${it.icon||'•'}</span>`}
             <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px">${esc(it.label)}</span>
             ${it.tag ? `<span style="font-size:10.5px;color:var(--text3)">${esc(it.tag)}</span>` : ''}</div>`;
         const paint = () => {

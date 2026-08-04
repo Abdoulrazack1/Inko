@@ -113,7 +113,7 @@
             <div class="serie-cover-wrap">
                 <div class="serie-cover-status">${MH.statusBadge(manga.status)}</div>
                 <div class="serie-cover">
-                    <img src="${manga.coverLarge || manga.cover || ''}" alt="${MH.esc(manga.title)}"
+                    <img src="${MH.cover(manga.coverLarge, manga.cover)}" alt="${MH.esc(manga.title)}"
                          onerror="this.src='${MH.placeholderCover(manga.id)}'">
                 </div>
                 ${manga.rating?.bayesian ? `<div class="serie-cover-rating">${manga.rating.bayesian.toFixed(2)}</div>` : ''}

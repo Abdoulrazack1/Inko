@@ -64,7 +64,7 @@
         const desc = (m.description || '').slice(0, 260);
         t.innerHTML = `
             <div style="display:flex;gap:0">
-                <img src="${m.cover || m.coverThumb || ''}" alt=""
+                <img src="${MH.cover(m.cover, m.coverThumb)}" alt=""
                      style="width:96px;height:140px;object-fit:cover;flex-shrink:0;background:var(--bg4,#1f1f26)"
                      onerror="this.style.visibility='hidden'">
                 <div style="padding:12px 14px;min-width:0">
@@ -132,7 +132,12 @@
         }, 320);
     }
 
-    function esc(s) { return (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    // Audit SEC-01 : délègue à MH.esc (échappe aussi " et '), avec repli complet.
+    const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    function esc(s) {
+        if (window.MH && window.MH.esc) return window.MH.esc(s);
+        return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ESC_MAP[c]);
+    }
 
     // Délégation : couvre toutes les cards présentes et futures
     document.addEventListener('mouseover', e => {

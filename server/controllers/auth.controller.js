@@ -37,6 +37,14 @@ const COOKIE_OPTS = {
     maxAge:   30 * 24 * 3600 * 1000,
     path:     '/',
 };
+// Audit SEC-11 : les cookies ne sont PAS isolés par port. Sur une machine de
+// développement, tous les projets servis depuis localhost partagent le même
+// jar : un cookie générique nommé « token » posé par un autre projet écrasait
+// celui d'Inko (et réciproquement). Nom préfixé, comme le font les projets
+// voisins. `token` reste lu en repli pour ne pas déconnecter les sessions
+// existantes à la mise à jour — à retirer dans une version ultérieure.
+const COOKIE_NAME = 'inko_token';
+const LEGACY_COOKIE_NAME = 'token';
 
 function publicUser(u) {
     return { id: u.id, username: u.username, email: u.email, avatar: u.avatar || u.username[0].toUpperCase(), role: u.role || 'user', createdAt: u.created_at };
@@ -97,7 +105,7 @@ async function localAuth(_req, res, next) {
             owner.role = 'admin';
         }
         const token = sign(owner);
-        res.cookie('token', token, COOKIE_OPTS);
+        res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
         res.json({ user: publicUser(owner), token, localMode: true });
     } catch (e) { next(e); }
 }
@@ -128,7 +136,7 @@ async function register(req, res, next) {
         const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [result.insertId]);
 
         const token = sign(user);
-        res.cookie('token', token, COOKIE_OPTS);
+        res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
         res.json({ user: publicUser(user), token });
     } catch (e) { next(e); }
 }
@@ -147,7 +155,7 @@ async function login(req, res, next) {
         if (!ok) return res.status(401).json({ error: 'Identifiants incorrects' });
 
         const token = sign(user);
-        res.cookie('token', token, COOKIE_OPTS);
+        res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
         res.json({ user: publicUser(user), token });
     } catch (e) { next(e); }
 }
@@ -219,7 +227,7 @@ async function googleAuth(req, res, next) {
             [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [r.insertId]);
         }
         const token = sign(user);
-        res.cookie('token', token, COOKIE_OPTS);
+        res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
         res.json({ user: publicUser(user), token });
     } catch (e) { next(e); }
 }
@@ -229,7 +237,8 @@ async function me(req, res) {
 }
 
 async function logout(_req, res) {
-    res.clearCookie('token', { path: '/' });
+    res.clearCookie(COOKIE_NAME, { path: '/' });
+        res.clearCookie(LEGACY_COOKIE_NAME, { path: '/' });   // audit SEC-11 : purge l'ancien nom
     res.json({ ok: true });
 }
 
@@ -374,7 +383,8 @@ async function deleteAccount(req, res, next) {
             const fs = require('fs'), path = require('path');
             fs.rmSync(path.join(__dirname, '..', 'uploads', String(req.user.id)), { recursive: true, force: true });
         } catch (e) { /* pas d'uploads */ }
-        res.clearCookie('token', { path: '/' });
+        res.clearCookie(COOKIE_NAME, { path: '/' });
+        res.clearCookie(LEGACY_COOKIE_NAME, { path: '/' });   // audit SEC-11 : purge l'ancien nom
         res.json({ ok: true });
     } catch (e) { next(e); }
 }

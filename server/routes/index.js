@@ -18,11 +18,37 @@ const Profile = require('../controllers/profile.controller');
 const Local   = require('../controllers/local.controller');
 
 // ── Healthcheck ─────────────────────────────────
-router.get('/health', (_req, res) => res.json({
-    ok: true, time: Date.now(),
-    ...(process.env.APP_VERSION ? { version: process.env.APP_VERSION } : {}),
-    ...(process.env.INKO_DB_FALLBACK === '1' ? { dbFallback: true } : {}),
-}));
+// Audit BUG-03 : cette route renvoyait `ok:true` en dur. Elle est la sonde du
+// HEALTHCHECK Docker : un conteneur dont MySQL est mort restait « sain » et
+// n'était donc JAMAIS redémarré. On teste désormais réellement la base.
+// Le ping est borné (2 s) pour ne pas faire traîner la sonde, et son résultat
+// est mis en cache 5 s : un healthcheck toutes les 30 s ne doit pas ouvrir une
+// connexion à chaque appel de page.
+let _healthCache = { at: 0, dbOk: false };
+async function dbHealthy() {
+    if (Date.now() - _healthCache.at < 5000) return _healthCache.dbOk;
+    let ok = false;
+    try {
+        await Promise.race([
+            require('../config/db').ping(),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000)),
+        ]);
+        ok = true;
+    } catch (e) { ok = false; }
+    _healthCache = { at: Date.now(), dbOk: ok };
+    return ok;
+}
+router.get('/health', async (_req, res) => {
+    const dbOk = await dbHealthy();
+    res.status(dbOk ? 200 : 503).json({
+        ok: dbOk,
+        db: dbOk ? 'up' : 'down',
+        time: Date.now(),
+        ...(dbOk ? {} : { error: 'Base de données injoignable' }),
+        ...(process.env.APP_VERSION ? { version: process.env.APP_VERSION } : {}),
+        ...(process.env.INKO_DB_FALLBACK === '1' ? { dbFallback: true } : {}),
+    });
+});
 // MAJ intégrée (app desktop). authRequired (audit S2) : sans lui, n'importe
 // quelle page web ouverte pendant que l'app tourne pouvait POST ici (CSRF
 // simple request) et déclencher fermeture + réinstallation silencieuse.
@@ -118,7 +144,12 @@ router.delete('/me/lists/:id',            auth.authRequired, User.deleteList);
 router.post  ('/me/lists/:id/items',                auth.authRequired, User.addToList);
 router.delete('/me/lists/:id/items/:mangaId',       auth.authRequired, User.removeFromList);
 
-router.get   ('/comments-recent',                   User.getRecentComments);
+// Audit SEC-04 : cette route était la SEULE du groupe sans middleware d'auth.
+// Un visiteur anonyme obtenait un flux en direct de « qui lit quoi » — texte du
+// commentaire, pseudo, avatar, titre et source de l'œuvre, horodatage — alors
+// que l'interface promet « ton avis reste privé pour l'instant ».
+// Elle exige désormais une session, comme le reste de /me/*.
+router.get   ('/comments-recent',  auth.authRequired, User.getRecentComments);
 router.get   ('/comments/:mangaId',       auth.authOptional, User.getComments);
 router.post  ('/comments/:mangaId',       auth.authRequired, writeLimiter, User.addComment);
 router.post  ('/comments/:commentId/report', auth.authRequired, writeLimiter, User.reportComment);

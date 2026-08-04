@@ -319,7 +319,7 @@
             return `
             <div class="upd-row">
                 <a class="upd-cover" href="${href}">
-                    <img src="${b.cover || MH.placeholderCover(b.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(b.mangaId)}'">
+                    <img src="${MH.cover(b.cover, MH.placeholderCover(b.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(b.mangaId)}'">
                 </a>
                 <div class="upd-info">
                     <a class="upd-name" href="${href}" style="color:inherit;text-decoration:none">${MH.esc(b.title || b.mangaId)}</a>
@@ -360,7 +360,7 @@
             return `
             <div class="upd-row">
                 <a class="upd-cover" href="${readHref}">
-                    <img src="${g.cover || MH.placeholderCover(g.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(g.mangaId)}'">
+                    <img src="${MH.cover(g.cover, MH.placeholderCover(g.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(g.mangaId)}'">
                 </a>
                 <div class="upd-info">
                     <a class="upd-name" href="${readHref}" style="color:inherit;text-decoration:none">${MH.esc(g.title || g.mangaId)}</a>
@@ -519,7 +519,7 @@
                 return `
                 <a class="lib2-card lib2-resume-card" href="${href}">
                     <div class="lib2-cover">
-                        <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy"
+                        <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy"
                              onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                         ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
                     </div>
@@ -591,7 +591,7 @@
             return `
             <a class="lib2-card ${selectMode ? 'selectable' : ''} ${isSel ? 'selected' : ''}" href="${href}" data-manga-id="${f.mangaId}" data-src="${MH.esc(f.source || '')}">
                 <div class="lib2-cover">
-                    <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy"
+                    <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy"
                          onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                     ${selectMode ? `<div class="lib2-check">${isSel ? '✓' : ''}</div>` : ''}
                     ${st}
@@ -784,7 +784,7 @@
                 const failsHtml = fails.map(f => `
                     <div class="upd-row" style="border-left:3px solid var(--hanko)">
                         <a class="upd-cover" href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}">
-                            <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
+                            <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                         </a>
                         <div class="upd-info">
                             <div class="upd-name">${MH.esc(f.title)} <span class="upd-new" style="background:rgba(168,50,50,.14);color:var(--hanko)">ÉCHEC</span></div>
@@ -796,7 +796,7 @@
                     return `
                     <div class="upd-row">
                         <a class="upd-cover" href="serie.html?id=${encodeURIComponent(u.mangaId)}&source=${src}">
-                            <img src="${u.cover || MH.placeholderCover(u.mangaId)}" alt="" loading="lazy"
+                            <img src="${MH.cover(u.cover, MH.placeholderCover(u.mangaId))}" alt="" loading="lazy"
                                  onerror="this.src='${MH.placeholderCover(u.mangaId)}'">
                         </a>
                         <div class="upd-info">
@@ -807,7 +807,7 @@
                             </div>
                         </div>
                         <div style="display:flex;gap:6px;flex-shrink:0">
-                            ${u.unreadCount > 0 ? `<button class="btn btn-secondary btn-sm" data-markread="${encodeURIComponent(u.mangaId)}" data-src="${src}" title="Marquer toute la série comme lue">Tout lu</button>` : ''}
+                            ${u.unreadCount > 0 ? `<button class="btn btn-secondary btn-sm" data-markread="${encodeURIComponent(u.mangaId)}" data-src="${MH.esc(src)}" title="Marquer toute la série comme lue">Tout lu</button>` : ''}
                             ${u.latest ? `<a class="btn btn-primary btn-sm" href="${MH.readerHref(u.mangaId, u.latest.id, u.source || decodeURIComponent(src))}">Lire</a>` : ''}
                         </div>
                     </div>`;

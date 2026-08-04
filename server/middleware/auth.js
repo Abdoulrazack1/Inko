@@ -4,7 +4,12 @@ const { pool } = require('../config/db');
 
 const SECRET = require('../lib/secret');   // secret centralisé (audit S12)
 
+// Audit SEC-11 : cookie préfixé `inko_token` (les cookies ne sont pas isolés
+// par port — un projet voisin sur localhost écrasait un cookie nommé `token`).
+// L'ancien nom reste accepté en lecture pour ne pas déconnecter les sessions
+// en cours lors de la mise à jour.
 function readToken(req) {
+    if (req.cookies?.inko_token) return req.cookies.inko_token;
     if (req.cookies?.token) return req.cookies.token;
     const h = req.headers.authorization;
     if (h && h.startsWith('Bearer ')) return h.slice(7);

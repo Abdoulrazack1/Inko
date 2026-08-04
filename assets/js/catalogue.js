@@ -398,7 +398,7 @@
         <div class="manga-card" data-manga-id="${MH.esc(m.id)}">
             <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}" class="manga-card-link" aria-label="${MH.esc(m.title)}"${MH.nsfwCardAttrs(m, srcNsfw)}></a>
             <div class="manga-card-cover">
-                <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
+                <img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
                 <div class="manga-card-badges">
                     ${isNovel ? '<span class="badge" style="background:var(--ai);color:#fff">ROMAN</span>' : ''}
@@ -494,7 +494,7 @@
             const m = list[daySeed % list.length];
             el.innerHTML = `
                 <div class="focus-label">Focus du moment</div>
-                <div class="focus-cover"><img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"></div>
+                <div class="focus-cover"><img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"></div>
                 <div class="focus-title">${MH.esc(m.title)}</div>
                 <div class="focus-stats">
                     <div class="focus-stat"><div class="focus-stat-label">Statut</div><div class="focus-stat-value">${m.status === 'completed' ? 'Terminé' : m.status === 'hiatus' ? 'En pause' : 'En cours'}</div></div>
@@ -518,7 +518,7 @@
                 <a class="latest-mini-row" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}" title="${MH.esc(m.title)}">
                     <span class="latest-mini-rank">${i + 1}</span>
                     <span class="latest-mini-cover">
-                        <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" decoding="async" onerror="this.closest('.latest-mini-cover').classList.add('noimg')">
+                        <img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy" decoding="async" onerror="this.closest('.latest-mini-cover').classList.add('noimg')">
                     </span>
                     <span class="latest-mini-info">
                         <span class="latest-mini-title">${MH.esc(m.title)}</span>
@@ -540,7 +540,7 @@
             el.innerHTML = lists.slice(0, 3).map(l => `
                 <div class="collection-mini-card" onclick="location.href='collection-detail.html?id=${l.id}'">
                     <div class="collection-mini-cover">
-                        ${(l.covers || []).slice(0, 4).map(c => `<img src="${c}" alt="" loading="lazy">`).join('') || ''}
+                        ${(l.covers || []).slice(0, 4).map(c => `<img src="${MH.esc(c)}" alt="" loading="lazy">`).join('') || ''}
                     </div>
                     <div class="collection-mini-info">
                         <div class="collection-mini-title">${MH.esc(l.name)}</div>

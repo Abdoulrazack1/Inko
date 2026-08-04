@@ -398,7 +398,14 @@
 
     // ══════════════════════ Utilitaires ══════════════════════
     function parseYT(url) { const m = (url || '').match(/[?&]v=([A-Za-z0-9_-]{11})/) || (url || '').match(/youtu\.be\/([A-Za-z0-9_-]{11})/) || (url || '').match(/^([A-Za-z0-9_-]{11})$/); return m ? m[1] : null; }
-    function esc(s) { return (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    // Audit SEC-01 : plus de copie locale de l'échappement (celle-ci n'échappait
+    // ni " ni ') — point de vérité unique dans global.js. Repli complet au cas
+    // où music.js serait chargé seul.
+    const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    function esc(s) {
+        if (window.MH && window.MH.esc) return window.MH.esc(s);
+        return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ESC_MAP[c]);
+    }
 
     // ══════════════════════ Init ══════════════════════
     function init() {

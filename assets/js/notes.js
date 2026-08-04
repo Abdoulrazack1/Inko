@@ -102,7 +102,7 @@
         <section class="jr-group">
             <div class="jr-group-head">
                 <a class="jr-group-cover" href="${serieHref}">
-                    <img src="${m.cover || MH.placeholderCover(m.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(m.mangaId)}'">
+                    <img src="${MH.cover(m.cover, MH.placeholderCover(m.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(m.mangaId)}'">
                 </a>
                 <div>
                     <div class="jr-group-title"><a href="${serieHref}">${MH.esc(m.mangaTitle || m.mangaId)}</a></div>

@@ -114,7 +114,7 @@
                     ${MH.esc(s.name)}
                     <span class="source-version">v${MH.esc(s.version)}</span>
                     <span class="source-lang">${MH.esc(s.lang || '—')}</span>
-                    ${s.type === 'novel' ? '<span class="source-type-badge">ROMAN</span>' : ''}
+                    ${(s.type === 'novel' || s.type === 'book') ? '<span class="source-type-badge">TEXTE</span>' : ''}
                     ${s.nsfw ? '<span class="source-nsfw">NSFW</span>' : ''}
                 </div>
                 <div class="source-desc">${MH.esc(s.description || '')}</div>
@@ -139,9 +139,16 @@
         </div>`;
         };
 
-        // Séparation claire : mangas d'un côté, romans de l'autre
-        const mangas = sources.filter(s => (s.type || 'manga') !== 'novel');
-        const novels = sources.filter(s => s.type === 'novel');
+        // Séparation claire : mangas d'un côté, textes de l'autre.
+        // Audit BUG-05 : le tri ne connaissait que 'novel' alors que l'API expose
+        // TROIS types — 'manga', 'novel' et 'book' (Gutenberg). Les 2 sources
+        // Gutenberg, du texte pur, étaient donc affichées sous « Mangas —
+        // Lecture en images ». On réutilise MH.isNovelSource, le point de vérité
+        // déjà utilisé par le routage du lecteur (global.js), qui traite
+        // correctement 'novel' ET 'book'.
+        const isText = s => s.type === 'novel' || s.type === 'book';
+        const mangas = sources.filter(s => !isText(s));
+        const novels = sources.filter(isText);
         const group = (title, sub, list) => list.length ? `
             <div class="sources-group">
                 <div class="sources-group-head">

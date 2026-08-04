@@ -91,7 +91,7 @@
                     persoHtml = `<div class="se-group"><div class="se-ghead"><span class="se-gname">Depuis ta bibliothèque</span></div>
                         <div class="se-perso-row">${favs.map(f => `
                             <a class="se-card se-perso-card" href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}">
-                                <div class="se-cover"><img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'"></div>
+                                <div class="se-cover"><img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'"></div>
                                 <div class="se-title">${MH.esc(f.title || f.mangaId)}</div>
                             </a>`).join('')}</div></div>`;
                 }
@@ -104,7 +104,7 @@
             const popHtml = list.length ? `<div class="se-group"><div class="se-ghead"><span class="se-gname">Populaires</span></div>
                 <div class="se-grid">${list.map(m => `
                     <a class="se-card" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}">
-                        <div class="se-cover"><img src="${m.cover || m.coverThumb || MH.placeholderCover(m.id)}" alt="${MH.esc(m.title||'')}" loading="lazy" onerror="this.src='${MH.placeholderCover(m.id)}'"></div>
+                        <div class="se-cover"><img src="${MH.cover(m.cover, m.coverThumb, MH.placeholderCover(m.id))}" alt="${MH.esc(m.title||'')}" loading="lazy" onerror="this.src='${MH.placeholderCover(m.id)}'"></div>
                         <div class="se-title">${MH.esc(m.title || m.id)}</div>
                     </a>`).join('')}</div></div>` : '';
             out.innerHTML = persoHtml + popHtml;
@@ -246,7 +246,7 @@
         return `
         <div class="se-card" data-href="${primaryHref}"${nsfw}>
             <div class="se-cover">
-                <img src="${w.cover || MH.placeholderCover(primary.id)}" alt="${MH.esc(w.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(primary.id)}'">
+                <img src="${MH.cover(w.cover, MH.placeholderCover(primary.id))}" alt="${MH.esc(w.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(primary.id)}'">
                 ${st}${lib}${multi}
             </div>
             <div class="se-title">${MH.esc(w.title || primary.id)}</div>
