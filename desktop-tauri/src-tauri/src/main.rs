@@ -12,15 +12,23 @@ use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 use std::io::Write;
+// Audit DESK-03 : cet import était inconditionnel et faisait échouer la
+// compilation hors Windows dès la première ligne — le projet ne pouvait même
+// pas être *bâti* pour macOS ou Linux. Il n'est utilisé que par
+// `creation_flags` (CREATE_NO_WINDOW), qui n'a de sens que sur Windows.
+#[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
 const PORT: u16 = 8088;
 
 fn log(msg: &str) {
-    if let Ok(dir) = std::env::var("TEMP") {
-        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(format!("{dir}\\inko-tauri.log")) {
-            let _ = writeln!(f, "{msg}");
-        }
+    // Audit DESK-03 : la variable TEMP et le séparateur `\` sont propres à
+    // Windows — ailleurs c'est TMPDIR, donc le journal ne s'écrivait nulle part
+    // et le diagnostic de démarrage (le seul qu'on ait) disparaissait en
+    // silence. `temp_dir()` + `join` valent sur les trois plateformes.
+    let path = std::env::temp_dir().join("inko-tauri.log");
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(f, "{msg}");
     }
 }
 
@@ -93,13 +101,42 @@ fn main() {
                 // handlers `exit` de node ne tournent pas sur TerminateProcess).
                 // On arrête UNIQUEMENT l'instance lancée depuis nos resources
                 // (jamais un MariaDB personnel de l'utilisateur).
-                let _ = std::process::Command::new("powershell")
+                //
+                // Audit DESK-04 : le filtrage par CHEMIN est essentiel — sans
+                // lui on tuerait le MariaDB personnel de l'utilisateur. Il
+                // reste donc, et PowerShell reste l'outil qui sait le faire
+                // simplement sur Windows.
+                // Ce qui changeait, c'est que le résultat était jeté (`let _ =`)
+                // ET que la commande était seulement `spawn()` : un échec ne
+                // laissait aucune trace, et la fenêtre pouvait se fermer avant
+                // que l'arrêt n'ait eu lieu. Conséquence : base encore en
+                // mémoire après fermeture, et port occupé au lancement suivant.
+                // On attend désormais la fin de la commande et on signale l'échec.
+                //
+                // Audit DESK-03 : la MariaDB embarquée n'est fournie que sur
+                // Windows (voir prep.js) — ce bloc n'a donc pas d'équivalent
+                // ailleurs, où l'app utilise une base externe qu'elle ne doit
+                // surtout pas arrêter.
+                #[cfg(windows)]
+                match std::process::Command::new("powershell")
                     .args([
-                        "-NoProfile", "-Command",
+                        "-NoProfile", "-NonInteractive", "-Command",
                         "Get-Process mariadbd -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\\Inko\\resources\\mariadb\\*' } | Stop-Process -Force",
                     ])
                     .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
-                    .spawn();
+                    .output()
+                {
+                    Ok(out) if !out.status.success() => eprintln!(
+                        "[inko] arrêt de la MariaDB embarquée en échec : {}",
+                        String::from_utf8_lossy(&out.stderr).trim()
+                    ),
+                    Err(e) => eprintln!(
+                        "[inko] impossible de lancer l'arrêt de la MariaDB embarquée ({e}). \
+                         Si le prochain démarrage signale un port occupé, termine « mariadbd » \
+                         depuis le gestionnaire des tâches."
+                    ),
+                    _ => {}
+                }
             }
         })
         .run(tauri::generate_context!())
