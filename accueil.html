@@ -36,8 +36,12 @@
     <div class="hero-progress"><div class="hero-progress-fill" id="heroProgress"></div></div>
   </section>
 
-  <!--REPRENDRE LECTURE ══════════════════════════════════ -->
-  <section class="section-resume container">
+  <!--REPRENDRE LECTURE ══════════════════════════════════
+       Audit AMEL-01 : ce bloc remonte AU-DESSUS du hero dès qu'une lecture
+       est en cours (accueil.js, loadResume). Sur une bibliothèque de plusieurs
+       centaines de séries, on revient sur l'accueil pour reprendre, pas pour
+       découvrir — la découverte reste juste en dessous. -->
+  <section class="section-resume container" id="sectionResume">
     <div class="section-header">
       <div>
         <div class="section-title">Reprendre la lecture</div>

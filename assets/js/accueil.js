@@ -339,19 +339,47 @@
             const favs = await API.me.favorites();
             if (!favs.length) return showFallback();
             const favSet = new Set(favs.map(f => String(f.mangaId)));
-            const mangas = (await Promise.allSettled(favs.slice(0, 8).map(f => API.mangas.get(f.mangaId))))
-                .filter(r => r.status === 'fulfilled').map(r => r.value);
-            const counts = {};
-            mangas.forEach(m => (m.tags || []).slice(0, 5).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
-            const topTags = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
-            if (!topTags.length) return showFallback();
 
-            const data = await API.mangas.search({ includedTags: [topTags[0]], limit: 12, sort: 'popularity' });
+            // Audit AMEL-02 : la recommandation partait des FAVORIS et
+            // n'annonçait qu'un genre — « Parce que tu suis des séries
+            // Action ». Suivre une série et l'avoir lue ne disent pas la même
+            // chose : on suit par intention, on lit par goût effectif. On part
+            // donc de la dernière série réellement lue, et on la NOMME : une
+            // recommandation dont on comprend l'origine se juge, une
+            // recommandation anonyme se subit.
+            let origine = null;   // { titre, tags }
+            try {
+                const progress = await API.me.progress();
+                const derniere = Object.entries(progress)
+                    .map(([id, p]) => ({ mangaId: id, ...p }))
+                    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
+                if (derniere) {
+                    const m = await API.mangas.getFrom(derniere.source, derniere.mangaId);
+                    if (m && m.title && (m.tags || []).length) origine = { titre: m.title, tags: m.tags };
+                }
+            } catch (e) { /* pas d'historique exploitable : on retombe sur les favoris */ }
+
+            let tags = origine ? origine.tags.slice(0, 3) : null;
+            if (!tags) {
+                // Repli : genres dominants parmi les favoris, comme auparavant.
+                const mangas = (await Promise.allSettled(favs.slice(0, 8).map(f => API.mangas.get(f.mangaId))))
+                    .filter(r => r.status === 'fulfilled').map(r => r.value);
+                const counts = {};
+                mangas.forEach(m => (m.tags || []).slice(0, 5).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+                tags = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
+            }
+            if (!tags.length) return showFallback();
+
+            const data = await API.mangas.search({ includedTags: [tags[0]], limit: 12, sort: 'popularity' });
             const picks = (data.results || []).filter(m => !favSet.has(String(m.id))).slice(0, 3);
             if (!picks.length) return showFallback();
 
-            if (subEl) subEl.textContent = `Parce que tu suis des séries ${topTags[0]}`;
-            el.innerHTML = picks.map(m => mangaCardHTML(m, topTags.find(t => (m.tags || []).includes(t)))).join('');
+            if (subEl) {
+                subEl.textContent = origine
+                    ? `Parce que tu as lu « ${origine.titre} »`
+                    : `Parce que tu suis des séries ${tags[0]}`;
+            }
+            el.innerHTML = picks.map(m => mangaCardHTML(m, tags.find(t => (m.tags || []).includes(t)))).join('');
             MH.markFavorites(el);
         } catch (e) { showFallback(); }
     }
@@ -411,6 +439,19 @@
         });
     }
 
+    // Audit AMEL-01 : place la reprise avant le hero. Idempotent — loadResume
+    // peut être rappelé (retrait d'une entrée) sans réordonner deux fois.
+    function promouvoirReprise() {
+        const section = document.getElementById('sectionResume');
+        const hero    = document.getElementById('hero');
+        if (!section || !hero || section.dataset.promue === '1') return;
+        hero.parentNode.insertBefore(section, hero);
+        section.dataset.promue = '1';
+        // Marqueur pour l'habillage : en tête de page, ce bloc n'a plus la
+        // marge haute d'une section intercalée entre deux autres.
+        section.classList.add('section-resume--prioritaire');
+    }
+
     // ── Reprendre la lecture ──────────────────────────────
     async function loadResume() {
         const el = document.getElementById('resumeList');
@@ -433,6 +474,13 @@
                 </div>`;
                 return;
             }
+
+            // Audit AMEL-01 : une lecture est en cours → la reprise passe
+            // devant le hero. Le déplacement se fait ICI et pas dans le HTML
+            // parce qu'il dépend d'une donnée qu'on ne connaît qu'après appel :
+            // sans lecture en cours, remonter un bloc vide au-dessus du hero
+            // serait une régression pour un nouvel arrivant.
+            promouvoirReprise();
 
             await MH.loadSourceTypes();
             // Récupère les détails des mangas depuis LEUR source d'origine
