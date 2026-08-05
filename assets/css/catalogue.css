@@ -41,8 +41,19 @@
 }
 .filter-tag:hover, .filter-tag.active {
   background: rgba(255,107,26,.12); border-color: rgba(255,107,26,.3);
-  color: var(--orange);
+  /* --accent-text et non --accent : couleur de TEXTE sur fond sombre (QUAL-05) */
+  color: var(--accent-text);
 }
+/* Audit AMEL-05 : troisième état, « exclu ». Il ne doit pas ressembler à
+   « inclus » : couleur de rejet, texte barré et préfixe « − » posé dans le
+   libellé — trois signaux, dont deux ne dépendent pas de la couleur, pour
+   rester lisible en vision des couleurs déficiente. */
+.filter-tag.excluded {
+  background: rgba(168,50,50,.14); border-color: rgba(168,50,50,.38);
+  color: var(--red-text); text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.filter-tag.excluded:hover { background: rgba(168,50,50,.22); }
 
 .filter-status { display: flex; gap: 6px; flex-wrap: wrap; }
 .filter-status-btn {

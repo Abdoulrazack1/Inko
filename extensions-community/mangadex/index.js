@@ -179,8 +179,24 @@ module.exports = {
         if (filters.year)        params.year                       = filters.year;
         const inc = arr(filters.includedTags || filters['includedTags[]']);
         if (inc.length) params['includedTags[]'] = inc;
-        // Hors +18 : on masque l'Ecchi
-        if (!this._isAdult(filters.adult)) params['excludedTags[]'] = [this._ECCHI];
+
+        // Audit AMEL-05 : exclusion de genres. MangaDex la gère nativement,
+        // donc le filtrage se fait EN AMONT — la page revient déjà complète,
+        // sans le trou qu'un retrait après coup laisserait.
+        // Attention : `excludedTags[]` servait déjà à masquer l'Ecchi hors
+        // +18. Écraser le tableau ferait réapparaître du contenu adulte au
+        // premier genre exclu par l'utilisateur ; on CUMULE.
+        // MangaDex n'accepte que des UUID de tags. Un NOM (« Action ») lui fait
+        // renvoyer zéro résultat, sans erreur — un catalogue vide et aucune
+        // explication. L'interface envoie bien des UUID (loadTags les fournit),
+        // mais on ne laisse pas ce piège au prochain appelant : ce qui n'est
+        // pas un UUID n'est pas transmis, et le filtrage générique du
+        // contrôleur (par nom de tag) s'en charge après coup.
+        const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const exc = arr(filters.excludedTags || filters['excludedTags[]']).filter(t => UUID.test(String(t)));
+        const exclusions = new Set(exc);
+        if (!this._isAdult(filters.adult)) exclusions.add(this._ECCHI);
+        if (exclusions.size) params['excludedTags[]'] = [...exclusions];
 
         const data = await call('/manga', params, 120_000);
         return { total: data.total, results: (data.data || []).map(mapManga) };

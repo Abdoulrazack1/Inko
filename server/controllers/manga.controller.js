@@ -84,12 +84,38 @@ async function latest(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// Audit AMEL-05 : exclusion de genres. Le catalogue n'offrait que l'inclusion,
+// alors que l'exclusion est le besoin réel quand on filtre (« du shonen, mais
+// pas d'ecchi »).
+//
+// Le filtre est appliqué ICI, une fois, pour les neuf sources, plutôt que
+// réécrit dans chaque extension. MangaDex sait exclure en amont et le fait
+// (voir son index.js) ; ce passage devient alors sans effet pour elle, ce qui
+// est exactement le comportement voulu — on ne retire pas deux fois.
+//
+// Contrepartie assumée, la même que pour tout filtrage après coup : sur une
+// source sans exclusion native, une page peut rendre moins d'éléments que la
+// limite demandée. On préfère ça à un filtre qui ne s'appliquerait qu'aux
+// sources chanceuses, ou à un troisième aller-retour pour combler le déficit.
+function appliquerExclusions(resultat, exclus) {
+    if (!exclus.length || !resultat || !Array.isArray(resultat.results)) return resultat;
+    const bas = exclus.map(t => String(t).toLowerCase());
+    const rejete = (m) => (m.tags || []).some(t => bas.includes(String(t).toLowerCase()));
+    const gardes = resultat.results.filter(m => !rejete(m));
+    if (gardes.length === resultat.results.length) return resultat;   // rien à retirer
+    return { ...resultat, results: gardes, filteredOut: resultat.results.length - gardes.length };
+}
+
+const listeDe = (v) => v == null ? [] : (Array.isArray(v) ? v : [v]);
+
 async function search(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'search')) return notSupported(res, src, 'search');
         const { q, limit, offset, ...rest } = req.query;
-        res.json(await health.track(src.id, () => src.search({ q, limit, offset, filters: rest })));
+        const exclus = listeDe(rest.excludedTags || rest['excludedTags[]']);
+        const r = await health.track(src.id, () => src.search({ q, limit, offset, filters: rest }));
+        res.json(appliquerExclusions(r, exclus));
     } catch (e) { next(e); }
 }
 
