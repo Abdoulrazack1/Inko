@@ -127,6 +127,69 @@ jobs:
       - name: Tests frontend
         run: npm test
 
+  # Audit QUAL-03 + QUAL-05 : zéro test e2e et aucun contrôle a11y automatisé.
+  # Les huit bugs que l'audit cite (BUG-01, 05, 06, 07, 08, 09, 14, 15) avaient
+  # tous le même profil — code valide, tests serveur verts, et pourtant un
+  # RÉSULTAT FAUX à l'écran. Seul un vrai navigateur sur l'application réelle
+  # peut les voir. Chromium uniquement : l'app est distribuée en WebView2.
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: inko
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ''
+      DB_NAME: inko
+      LOCAL_MODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Dépendances du serveur
+        working-directory: server
+        run: npm ci || npm install
+
+      - name: Dépendances du frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Préparer la base
+        working-directory: server
+        run: node db/init.js
+
+      - name: Installer Chromium
+        run: npx playwright install --with-deps chromium
+
+      # `playwright.config.js` démarre le serveur lui-même (webServer) et
+      # attend /api/health : pas de `sleep` arbitraire.
+      - name: Parcours utilisateur (e2e)
+        run: npx playwright test test/e2e/parcours.spec.js
+
+      - name: Accessibilité (axe-core, WCAG 2.1 AA)
+        run: npx playwright test test/e2e/a11y.spec.js
+
+      - name: Conserver les traces des échecs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
   docker:
     runs-on: ubuntu-latest
     needs: backend

@@ -311,8 +311,12 @@
                 </div>
               </div>
               <div class="pref-item">
-                <div class="pref-label">Taille des pages</div>
-                <input type="range" class="pref-slider" min="50" max="150" value="100">
+                <!-- Audit QUAL-05 : le libellé existait mais n'était relié à
+                     rien. Un curseur sans nom accessible est annoncé « curseur,
+                     100 » — sans dire de quoi. -->
+                <div class="pref-label" id="prefPageSizeLabel">Taille des pages</div>
+                <input type="range" class="pref-slider" min="50" max="150" value="100"
+                       aria-labelledby="prefPageSizeLabel">
               </div>
               <div class="pref-item">
                 <div class="pref-label">Mode de défilement</div>

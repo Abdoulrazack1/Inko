@@ -790,7 +790,7 @@
         // Cloche de notifications (connecté) + accès admin (role admin)
         const bell = u ? `
           <div class="notif-wrap" style="position:relative;display:inline-flex">
-            <button class="header-icon-btn" id="btnNotif" title="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" style="display:none;position:absolute;top:1px;right:1px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;line-height:15px;text-align:center"></span></button>
+            <button class="header-icon-btn" id="btnNotif" title="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" style="display:none;position:absolute;top:1px;right:1px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#b91c1c;color:#fff;font-size:9px;font-weight:700;line-height:15px;text-align:center"></span></button>
             <div id="notifDropdown" style="display:none;position:absolute;right:0;top:44px;width:330px;max-height:440px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45);z-index:200"></div>
           </div>` : '';
         // L'administration vivra dans une app dédiée (Inko Admin) — pas de

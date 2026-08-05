@@ -9,7 +9,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { loadGlobal } = require('./helpers/dom');
+const { loadGlobal } = require('../helpers/dom');
 
 // Un seul chargement pour tout le fichier : global.js n'a pas d'état mutable
 // partagé entre ces fonctions, et recharger un DOM par test coûterait ~1 s pièce.

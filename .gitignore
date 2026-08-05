@@ -47,3 +47,8 @@ tools/
 # Ressources d'icone desktop (source, a versionner)
 !desktop/build/
 !desktop/build/icon.*
+
+# Playwright : traces et rapports d'échec (audit QUAL-03)
+/test-results/
+/playwright-report/
+/blob-report/

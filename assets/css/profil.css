@@ -178,7 +178,7 @@
 .sidebar-nav-item:hover { background: var(--bg3); color: var(--text); }
 .sidebar-nav-item.active {
   background: rgba(255,107,26,.12);
-  color: var(--orange);
+  color: var(--accent-text);
 }
 .sidebar-nav-icon { font-size: 14px; width: 16px; text-align: center; }
 .sidebar-notif {
@@ -210,13 +210,13 @@
 .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
 .card-title { font-size: 14px; font-weight: 600; color: var(--text); }
 .card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.card-link { font-size: 12px; color: var(--orange); }
+.card-link { font-size: 12px; color: var(--accent-text); }
 .card-link:hover { text-decoration: underline; }
 
 /* ── Overview: top row ──────────────────────────────────────── */
 .overview-top-row { display: grid; grid-template-columns: 1fr 200px; gap: 16px; }
 .last-read-card { padding: 16px; }
-.last-read-label { font-size: 10px; font-weight: 700; color: var(--orange); letter-spacing: .08em; margin-bottom: 12px; }
+.last-read-label { font-size: 10px; font-weight: 700; color: var(--accent-text); letter-spacing: .08em; margin-bottom: 12px; }
 .last-read-body { display: flex; gap: 14px; }
 .last-read-cover img { width: 64px; height: 88px; object-fit: cover; border-radius: 6px; }
 .last-read-info { flex: 1; }
@@ -246,8 +246,8 @@
   font-size: 10px; font-weight: 700;
   padding: 2px 6px; border-radius: 4px;
 }
-.stat-mini-badge.green { background: rgba(34,197,94,.15); color: var(--green); }
-.stat-mini-badge.blue  { background: rgba(59,130,246,.15); color: var(--blue); }
+.stat-mini-badge.green { background: rgba(34,197,94,.15); color: var(--green-text); }
+.stat-mini-badge.blue  { background: rgba(59,130,246,.15); color: var(--blue-text); }
 .stat-mini-num { font-family: var(--font-head); font-size: 22px; font-weight: 800; }
 .stat-mini-label { font-size: 11.5px; color: var(--text2); margin-top: 2px; }
 
@@ -416,7 +416,7 @@
   cursor: pointer;
   transition: all var(--transition);
 }
-.pref-btn.active { background: rgba(255,107,26,.15); color: var(--orange); border-color: rgba(255,107,26,.3); }
+.pref-btn.active { background: rgba(255,107,26,.15); color: var(--accent-text); border-color: rgba(255,107,26,.3); }
 .pref-slider { width: 100%; accent-color: var(--orange); margin-top: 4px; }
 
 /* Footer cards */

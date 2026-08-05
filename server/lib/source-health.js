@@ -27,10 +27,32 @@ function recordFail(id, err) {
     h.error = String((err && err.message) || err || 'erreur inconnue').slice(0, 300);
 }
 
-// Instrumente un appel de source : enregistre succès/échec puis relaie tel quel.
+// Instrumente un appel de source : enregistre succès/échec puis relaie.
+//
+// Les tests de bout en bout (audit QUAL-03) ont mis en évidence un défaut de
+// signalisation : quand un site scrapé nous limite ou tombe, l'erreur remontait
+// sans `status` et le gestionnaire global la traduisait en **HTTP 500**. Le
+// navigateur, les journaux et toute supervision concluaient donc « le serveur
+// Inko est en panne » alors qu'un site TIERS était indisponible. La base
+// injoignable bénéficiait déjà d'un 503 explicite ; les sources, non.
+//
+// On marque donc l'erreur avant de la relayer :
+//   · 504 quand le site nous fait attendre ou nous limite (réessayer a du sens)
+//   · 502 pour toute autre défaillance amont
+// Une erreur qui porte déjà un `status` (validation, 404 de source…) n'est pas
+// touchée : elle vient de notre logique, pas du réseau.
+const UPSTREAM_SLOW = /limit|timeout|délai dépassé|delai depasse|429|503|trop de requ/i;
+
 async function track(id, fn) {
     try { const r = await fn(); recordOk(id); return r; }
-    catch (e) { recordFail(id, e); throw e; }
+    catch (e) {
+        recordFail(id, e);
+        if (e && !e.status) {
+            e.status = UPSTREAM_SLOW.test(String(e.message || '')) ? 504 : 502;
+            e.upstream = id || true;
+        }
+        throw e;
+    }
 }
 
 // Test de connectivité léger : première capacité disponible, limit 1.

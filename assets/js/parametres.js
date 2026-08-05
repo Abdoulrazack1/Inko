@@ -33,7 +33,11 @@
             `<button class="accent-dot" data-accent="${c}" title="${c}" style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${c.toLowerCase()===cur.toLowerCase()?'var(--text)':'transparent'};cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)"></button>`
         ).join('') +
         `<label title="Couleur personnalisée" style="width:26px;height:26px;border-radius:50%;overflow:hidden;cursor:pointer;border:2px dashed var(--border2);display:inline-flex;align-items:center;justify-content:center;color:var(--text2)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10" r="1" fill="currentColor" stroke="none"/></svg>
-            <input type="color" id="accentCustom" value="${cur}" style="opacity:0;width:0;height:0;position:absolute">
+            <!-- Audit QUAL-05 : le <label> qui l'entoure ne contient qu'une
+                 icône SVG, donc aucun texte à annoncer — pour un lecteur
+                 d'écran le champ n'a pas de nom. aria-label le donne. -->
+            <input type="color" id="accentCustom" value="${cur}" aria-label="Couleur d’accentuation personnalisée"
+                   style="opacity:0;width:0;height:0;position:absolute">
         </label>`;
         const choose = (hex) => {
             window.Theme.setAccent(hex);
@@ -69,7 +73,11 @@
         if (dangerCard) dangerCard.style.display = 'none';
         body.innerHTML = `
             <div class="set-field">
-                <label>Nom d'utilisateur</label>
+                <!-- Audit QUAL-05 : le libellé existait mais n'était RELIÉ à
+                     rien — un label sans attribut "for" ne nomme aucun champ.
+                     Il est lu comme du texte décoratif, et le champ reste
+                     anonyme pour un lecteur d'écran. -->
+                <label for="inpUsername">Nom d'utilisateur</label>
                 <div style="display:flex;gap:8px">
                     <input class="set-input" id="inpUsername" value="${MH.esc(user.username)}">
                     <button class="btn btn-secondary btn-sm" id="btnSaveUsername" style="flex-shrink:0">Enregistrer</button>

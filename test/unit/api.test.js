@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const ROOT = path.join(__dirname, '..');
+const ROOT = path.join(__dirname, '..', '..');
 
 // Charge api.js dans un DOM neuf avec un fetch instrumenté : chaque test part
 // d'un compteur à zéro et d'un cache vide.

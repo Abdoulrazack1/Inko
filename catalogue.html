@@ -102,7 +102,8 @@
             <button class="view-btn active" data-view="grid" title="Grille">⊞</button>
             <button class="view-btn" data-view="list" title="Liste">☰</button>
           </div>
-          <select class="sort-select" id="sortSelect">
+          <!-- Audit QUAL-05 : sans nom accessible, annoncé « liste déroulante » sans objet. -->
+          <select class="sort-select" id="sortSelect" aria-label="Trier le catalogue">
             <option value="popularity">Popularité</option>
             <option value="latest">Mis à jour</option>
             <option value="added">Nouveautés</option>

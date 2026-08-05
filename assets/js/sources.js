@@ -133,7 +133,7 @@
                         : `<button class="btn btn-primary btn-sm" data-activate="${MH.esc(s.id)}">Activer</button>`)}
                 <button class="btn btn-secondary btn-sm" data-test="${MH.esc(s.id)}" title="Vérifier que la source répond">Tester</button>
                 <button class="btn btn-secondary btn-sm" data-toggle-src="${MH.esc(s.id)}" title="${disabled ? 'Réactiver cette source' : 'Ne plus utiliser cette source (masquée en recherche)'}">${disabled ? 'Réactiver' : 'Désactiver'}</button>
-                ${isAdmin ? `<button class="btn btn-ghost btn-sm" data-uninstall-src="${MH.esc(s.id)}" title="Désinstaller complètement cette extension" style="color:var(--hanko,#a83232)">Désinstaller</button>` : ''}
+                ${isAdmin ? `<button class="btn btn-ghost btn-sm" data-uninstall-src="${MH.esc(s.id)}" title="Désinstaller complètement cette extension" style="color:var(--red-text,#a83232)">Désinstaller</button>` : ''}
                 <span class="source-test-result" data-test-result="${MH.esc(s.id)}" style="font-size:11px;margin-left:6px"></span>
             </div>
         </div>`;
