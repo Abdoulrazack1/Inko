@@ -32,6 +32,9 @@
     </div>
     <div class="se-sub" id="seSub">Tape un titre : Inko cherche sur toutes tes sources installées en même temps.</div>
     <div class="se-hist" id="seHist" style="display:none"></div>
+    <!-- Audit AMEL-12 : la bibliothèque est déjà en cache client. Elle
+         s'affiche avant tout appel réseau, et fonctionne hors-ligne. -->
+    <div class="se-local" id="seLocal" hidden></div>
     <div id="seResults"></div>
   </div>
   </main>

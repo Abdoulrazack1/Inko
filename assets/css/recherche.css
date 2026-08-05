@@ -48,3 +48,28 @@
 .se-perso-card { flex:0 0 96px; width:96px; }
 .se-perso-card .se-cover { border-radius:8px; }
 .se-perso-card .se-title { font-size:11px; -webkit-line-clamp:1; }
+
+/* ── Résultats de la bibliothèque (audit AMEL-12) ── */
+.se-local { margin: 12px 0 4px; }
+.se-local-head { font-size: 12px; font-weight: 700; color: var(--accent-text);
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+.se-local-grid { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.se-local-item { flex: 0 0 auto; width: 96px; }
+.se-local-item img { width: 96px; height: 132px; object-fit: cover;
+  border-radius: 8px; background: var(--bg3); }
+.se-local-item span { display: block; margin-top: 5px; font-size: 11.5px;
+  color: var(--text2); line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ── Sources en échec (audit AMEL-11) ── */
+.se-fail {
+  display: flex; gap: 9px; align-items: flex-start;
+  margin: 10px 0 14px; padding: 10px 13px;
+  border: 1px solid rgba(181,118,27,.32); border-radius: 10px;
+  background: rgba(181,118,27,.08);
+  font-size: 12.5px; color: var(--amber-text); line-height: 1.45;
+}
+/* ── Recherche encore en cours (audit AMEL-10) ── */
+.se-partiel { margin-top: 16px; font-size: 12.5px; color: var(--text3); }
+/* Deuxième rangée de puces (statut) : légèrement en retrait de la première. */
+.se-statuts { margin-top: 6px; }
