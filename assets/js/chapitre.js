@@ -465,7 +465,9 @@
 
     function updateUIPage(p) {
         currentPage = p;   // MAJ immédiate → l'affichage (numéro, barre) est toujours juste
-        preloadPage(p + 1); preloadPage(p + 2); preloadPage(p + 3);   // précharge les pages suivantes
+        // Audit AMEL-14 : fenêtre ajustée à la vitesse réellement mesurée.
+        const fenetre = fenetrePrechargement();
+        for (let i = 1; i <= fenetre; i++) preloadPage(p + i);
         document.querySelectorAll('.reader-thumb').forEach((t, i) => t.classList.toggle('active', i + 1 === p));
         centerActiveThumb();   // recentre la miniature SANS jamais bouger la fenêtre
         const pct = document.querySelector('.modebar-pct');
@@ -477,11 +479,59 @@
         }
         const fill = document.getElementById('readerProgressFill');
         if (fill) fill.style.width = `${(p / totalPages) * 100}%`;
+        armerBarreProgression();
         renderNavigation();
 
         // Sauvegarde progression (debounce)
         if (p === totalPages && API.isLoggedIn()) markChapterRead();
         debouncedSave();
+
+        // Audit AMEL-15 : c'est ICI que la fin du chapitre est constatée.
+        // Quitter la dernière page (retour en arrière) annule l'enchaînement —
+        // sinon on serait emmené au chapitre suivant après avoir explicitement
+        // fait demi-tour.
+        if (p >= totalPages && autoNextActif()) armerEnchainement(chapitreSuivant());
+        else if (p < totalPages) annulerEnchainement();
+    }
+
+    // ── Barre de progression cliquable (audit AMEL-19) ───────
+    // Sur un chapitre de 326 pages, la navigation n'existait qu'en séquentiel
+    // ou par saisie du numéro. La barre affichait déjà la position : elle
+    // devient le moyen de la CHANGER, ce que tout lecteur suppose d'une barre
+    // de progression.
+    //
+    // Câblée une seule fois (marqueur data-arme) : updateUIPage est appelée à
+    // chaque page, on ne veut pas empiler 326 écouteurs.
+    function armerBarreProgression() {
+        const bar = document.querySelector('.reader-progressbar');
+        if (!bar || bar.dataset.arme === '1') return;
+        bar.dataset.arme = '1';
+        bar.setAttribute('role', 'slider');
+        bar.setAttribute('aria-label', 'Progression dans le chapitre');
+        bar.tabIndex = 0;
+
+        const pageSousCurseur = (e) => {
+            const r = bar.getBoundingClientRect();
+            const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+            return Math.min(totalPages, Math.max(1, Math.round(ratio * totalPages) || 1));
+        };
+        bar.addEventListener('click', (e) => {
+            const n = pageSousCurseur(e);
+            if (typeof window.goToPage === 'function') window.goToPage(n);
+        });
+        // Aperçu au survol : sauter à l'aveugle dans 326 pages n'aiderait pas.
+        bar.addEventListener('mousemove', (e) => {
+            bar.title = `Aller à la page ${pageSousCurseur(e)} sur ${totalPages}`;
+        });
+        // Au clavier, la barre se comporte comme le curseur qu'elle annonce.
+        bar.addEventListener('keydown', (e) => {
+            const pas = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1
+                : e.key === 'PageDown' ? 10 : e.key === 'PageUp' ? -10 : 0;
+            if (!pas) return;
+            e.preventDefault();
+            const n = Math.min(totalPages, Math.max(1, currentPage + pas));
+            if (typeof window.goToPage === 'function') window.goToPage(n);
+        });
     }
 
     // Recentre la miniature active dans SA bande horizontale uniquement
@@ -610,8 +660,90 @@
                 <div class="next-chapter-label">À suivre</div>
                 <div class="next-chapter-title">Chapitre ${next.chapter}${next.title ? ' — ' + MH.esc(next.title) : ''}</div>
             </div>
-            <a href="chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(next.id)}" class="btn btn-primary">Lire →</a>
-        </div>`;
+            <a href="chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(next.id)}" class="btn btn-primary" id="btnNextChapterCTA">Lire →</a>
+        </div>
+        <label class="next-chapter-auto">
+            <input type="checkbox" id="autoNextChap" ${autoNextActif() ? 'checked' : ''}>
+            <span>Enchaîner automatiquement</span>
+        </label>`;
+        document.getElementById('autoNextChap')?.addEventListener('change', (e) => {
+            window.Storage?.setPref('reader_autonext', e.target.checked ? '1' : '0');
+            if (e.target.checked) armerEnchainement(next);
+            else annulerEnchainement();
+        });
+        if (autoNextActif()) armerEnchainement(next);
+    }
+
+    // ── Enchaînement automatique (audit AMEL-15) ─────────────
+    // Arriver au bout d'un chapitre et vouloir le suivant est le geste le plus
+    // fréquent d'une session de lecture ; il fallait pourtant repasser par le
+    // sélecteur ou viser un bouton.
+    //
+    // Deux garde-fous délibérés, parce qu'une navigation qu'on n'a pas demandée
+    // est pire que pas de raccourci du tout :
+    //   · c'est une OPTION, décochée par défaut, et son état est mémorisé ;
+    //   · même activée, elle laisse un délai visible et annulable — arriver à
+    //     la dernière page ne veut pas toujours dire « continue », on peut
+    //     vouloir relire la double page ou simplement s'arrêter là.
+    let minuterieEnchainement = null;
+    const AUTONEXT_MS = 4000;
+
+    function autoNextActif() {
+        return window.Storage?.getPref('reader_autonext') === '1';
+    }
+
+    // Le chapitre suivant, calculé à la demande. renderNextChapter le connaît
+    // déjà mais dans sa portée locale, et updateUIPage en a besoin AUSSI :
+    // c'est en arrivant à la dernière page que l'enchaînement doit s'armer, pas
+    // au chargement (où l'on n'y est jamais). Sans ça, l'option était cochable
+    // mais ne se déclenchait pour personne.
+    function chapitreSuivant() {
+        if (!chapters || !currentChap) return null;
+        const asc = [...chapters].sort((a, b) => a.chapter - b.chapter);
+        const idx = asc.findIndex(c => c.id === currentChap.id);
+        return idx >= 0 && idx < asc.length - 1 ? asc[idx + 1] : null;
+    }
+    function annulerEnchainement() {
+        clearTimeout(minuterieEnchainement);
+        minuterieEnchainement = null;
+        document.getElementById('autoNextCountdown')?.remove();
+    }
+    function armerEnchainement(next) {
+        annulerEnchainement();
+        if (!next || currentPage < totalPages) return;   // seulement à la fin
+
+        const hote = document.querySelector('.reader-next-chapter');
+        if (!hote) return;
+        const info = document.createElement('div');
+        info.id = 'autoNextCountdown';
+        info.className = 'next-chapter-countdown';
+        let reste = Math.round(AUTONEXT_MS / 1000);
+        const peindre = () => {
+            info.innerHTML = `Chapitre suivant dans ${reste} s · `
+                + '<button type="button" class="next-chapter-cancel">Annuler</button>';
+            info.querySelector('.next-chapter-cancel').onclick = () => {
+                annulerEnchainement();
+                MH.toast?.('Enchaînement annulé');
+            };
+        };
+        peindre();
+        hote.appendChild(info);
+
+        const tic = setInterval(() => {
+            reste -= 1;
+            if (reste <= 0) { clearInterval(tic); return; }
+            if (document.getElementById('autoNextCountdown')) peindre(); else clearInterval(tic);
+        }, 1000);
+
+        minuterieEnchainement = setTimeout(() => {
+            clearInterval(tic);
+            if (!document.getElementById('autoNextCountdown')) return;   // annulé entre-temps
+            // `chapURL` est local à renderToolbar : on reprend la même forme
+            // d'URL que le lien « Lire → » juste au-dessus, source comprise.
+            const lien = document.getElementById('btnNextChapterCTA');
+            window.location.href = lien ? lien.getAttribute('href')
+                : `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(next.id)}`;
+        }, AUTONEXT_MS);
     }
 
     function renderDetails() {
@@ -696,6 +828,11 @@
             // les modes. On empêche le zoom natif du navigateur/page.
             if (e.ctrlKey) {
                 e.preventDefault();
+                // Audit AMEL-18 : le zoom se faisait depuis le haut de la page,
+                // si bien qu'agrandir ÉLOIGNAIT du détail visé — il fallait
+                // ensuite faire défiler pour le retrouver. On ancre au curseur :
+                // le point sous la souris reste sous la souris.
+                ancrerZoomSur({ x: e.clientX, y: e.clientY });
                 window.changeZoom(e.deltaY < 0 ? 10 : -10);
                 return;
             }
@@ -721,6 +858,14 @@
         const area = document.getElementById('readerPagesArea');
         if (!area || area.dataset.touchBound) return;
         area.dataset.touchBound = '1';
+
+        // Audit AMEL-18 : PAS de double-clic pour zoomer au bureau. Tenté puis
+        // écarté après essai : la zone de lecture est déjà découpée en bandes
+        // de navigation (page-zone-prev / page-zone-next), donc le premier clic
+        // tourne la page avant que le second n'arrive. On aurait tourné deux
+        // pages puis zoomé — pire que pas de raccourci.
+        // Le geste desktop équivalent est Ctrl + molette, qui n'a aucun
+        // conflit ; il est désormais ancré au curseur (voir bindWheel).
         let sx = 0, sy = 0, st = 0, moved = false, lastTap = 0;
         area.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) return;
@@ -738,7 +883,7 @@
             // Double-tap → bascule le zoom (immobile + tap rapide)
             if (!moved && dt < 250) {
                 const now = Date.now();
-                if (now - lastTap < 300) { lastTap = 0; toggleTapZoom(); }
+                if (now - lastTap < 300) { lastTap = 0; toggleTapZoom({ x: t.clientX, y: t.clientY }); }
                 else lastTap = now;
                 return;
             }
@@ -751,11 +896,36 @@
             }
         }, { passive: true });
     }
-    function toggleTapZoom() {
+    // ── Zoom ancré (audit AMEL-18) ───────────────────────────
+    // Le zoom partait de `transform-origin: top center` : agrandir éloignait
+    // du détail visé, et il fallait ensuite faire défiler pour le retrouver.
+    // Sur une planche, on zoome pour lire une case précise — le point qu'on
+    // désigne doit rester sous le doigt (ou le curseur).
+    //
+    // `point` est en coordonnées écran ; on le convertit en position dans le
+    // conteneur, ce que `transform-origin` attend.
+    // Fixe le point d'ancrage du zoom à partir d'une coordonnée écran.
+    // `transform-origin` attend une position DANS l'élément : on convertit.
+    function ancrerZoomSur(point) {
+        document.querySelectorAll('.reader-page-wrapper').forEach(w => {
+            if (!point) { w.style.transformOrigin = 'top center'; return; }
+            const r = w.getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            const x = Math.min(100, Math.max(0, ((point.x - r.left) / r.width) * 100));
+            const y = Math.min(100, Math.max(0, ((point.y - r.top) / r.height) * 100));
+            w.style.transformOrigin = `${x.toFixed(2)}% ${y.toFixed(2)}%`;
+        });
+    }
+
+    function toggleTapZoom(point) {
         if (readMode === 'scroll') return;
-        zoom = zoom > 110 ? 100 : 170;
+        const agrandi = zoom > 110;
+        zoom = agrandi ? 100 : 170;
         const label = document.getElementById('zoomLabel'); if (label) label.textContent = zoom + '%';
-        document.querySelectorAll('.reader-page-wrapper').forEach(w => { w.style.transform = `scale(${zoom / 100})`; });
+        // Retour à 100 % : origine neutre, sinon la page resterait décalée.
+        ancrerZoomSur(agrandi ? null : point);
+        document.querySelectorAll('.reader-page-wrapper')
+            .forEach(w => { w.style.transform = `scale(${zoom / 100})`; });
         window.Storage?.setPref('zoom', zoom);
     }
 
@@ -1241,9 +1411,46 @@
     }
 
     // ── Préchargement ──
+    // ── Préchargement adaptatif (audit AMEL-14) ──────────────
+    // La fenêtre était fixe à 3 pages, quelle que soit la liaison. Sur une
+    // connexion lente, 3 pages en vol se disputent la bande passante avec
+    // celle qu'on regarde ; sur une bonne liaison, 3 pages c'est trop peu et
+    // on attend à chaque tour.
+    //
+    // Deux signaux, dans cet ordre : la durée RÉELLEMENT mesurée des dernières
+    // pages (elle intègre tout — réseau, proxy, lenteur de la source), et à
+    // défaut `navigator.connection` au premier chargement, quand on n'a encore
+    // rien mesuré.
+    let dureesPages = [];   // ms des dernières images chargées
+
+    function noterDureePage(ms) {
+        if (!(ms > 0)) return;
+        dureesPages.push(ms);
+        if (dureesPages.length > 8) dureesPages.shift();
+    }
+
+    function fenetrePrechargement() {
+        if (dureesPages.length >= 3) {
+            const triees = [...dureesPages].sort((a, b) => a - b);
+            const mediane = triees[Math.floor(triees.length / 2)];
+            if (mediane > 2500) return 1;    // liaison poussive : ne pas encombrer
+            if (mediane > 900)  return 3;
+            return 6;                        // rapide : on prend de l'avance
+        }
+        // Aucune mesure encore : on se fie à ce que déclare le navigateur.
+        const c = navigator.connection;
+        if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''))) return 1;
+        if (c && c.effectiveType === '3g') return 2;
+        return 3;
+    }
+
     function preloadPage(num) {
         const p = pages[num - 1];
-        if (p) { const im = new Image(); im.src = pageSrc(p); }
+        if (!p) return;
+        const t0 = performance.now();
+        const im = new Image();
+        im.onload = () => noterDureePage(performance.now() - t0);
+        im.src = pageSrc(p);
     }
     function preloadNextChapter() {
         const next = neighborChapter(1);

@@ -824,7 +824,18 @@
 .reader-progressbar {
   position: sticky; top: 0; z-index: 60;
   height: 3px; background: var(--bg3);
+  /* Audit AMEL-19 : la barre devient un point de navigation. 3 px est trop
+     fin pour être visé à la souris ; on l'agrandit au survol et on ajoute une
+     zone de clic invisible au-dessus, sans changer la hauteur perçue au repos
+     — la barre reste discrète tant qu'on ne s'en sert pas. */
+  cursor: pointer;
+  transition: height .12s var(--ease-out);
 }
+.reader-progressbar::before {
+  content: ''; position: absolute; left: 0; right: 0; top: -7px; height: 16px;
+}
+.reader-progressbar:hover, .reader-progressbar:focus-visible { height: 7px; }
+.reader-progressbar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .reader-progressbar-fill {
   height: 100%; width: 0%;
   background: var(--orange);
@@ -1020,3 +1031,21 @@ body.reader-immersive .reader-pages-area.paged {
 }
 /* La pastille de pagination reste visible en bas de la fenêtre */
 .reader-pages-area.paged .page-counter-badge { position: fixed; bottom: 14px; }
+
+/* ── Enchaînement automatique de chapitre (audit AMEL-15) ── */
+.next-chapter-auto {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 10px; font-size: 12.5px; color: var(--text2); cursor: pointer;
+}
+.next-chapter-auto input { cursor: pointer; }
+.next-chapter-countdown {
+  margin-top: 8px; font-size: 12.5px; color: var(--text2);
+  display: flex; align-items: center; gap: 8px;
+}
+/* Le bouton d'annulation doit se voir : c'est le seul moyen d'empêcher une
+   navigation qu'on n'a pas déclenchée soi-même. */
+.next-chapter-cancel {
+  background: var(--bg4); border: 1px solid var(--border2); color: var(--text);
+  border-radius: 14px; padding: 3px 12px; font-size: 12px; font-weight: 600;
+}
+.next-chapter-cancel:hover { border-color: var(--accent); color: var(--accent-text); }
