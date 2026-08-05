@@ -8,7 +8,8 @@
     let currentText = null;    // { title, content } du chapitre affiché
 
     // ── Réglages typo (persistés, préfixe novel_) ──
-    const ns = { size: 17, lh: 1.85, width: 720, font: 'serif', theme: 'dark' };
+    // `mode` : 'scroll' (defilement continu, defaut) | 'pages' (audit AMEL-21)
+    const ns = { size: 17, lh: 1.85, width: 720, font: 'serif', theme: 'dark', mode: 'scroll' };
     const FONTS = {
         serif: "'Bitter', Georgia, 'Times New Roman', serif",   // §13 : serif à faible contraste, pensée écran
         sans:  "'Segoe UI', system-ui, -apple-system, sans-serif",
@@ -21,7 +22,7 @@
         light: { bg: '#ffffff', fg: '#24242a' },
     };
     function loadSettings() {
-        ['size', 'lh', 'width', 'font', 'theme'].forEach(k => {
+        ['size', 'lh', 'width', 'font', 'theme', 'mode'].forEach(k => {
             const v = window.Storage?.getPref('novel_' + k);
             if (v !== undefined && v !== null && v !== '') ns[k] = v;
         });
@@ -44,6 +45,10 @@
         w.style.setProperty('--novel-lh', String(ns.lh));
         w.style.setProperty('--novel-width', ns.width + 'px');
         w.style.setProperty('--novel-font', FONTS[ns.font] || FONTS.serif);
+        // Audit AMEL-21 : le mode pages est porté par une classe, la mise en
+        // colonnes étant entièrement CSS. Le JS ne s'occupe que de la mesure de
+        // progression et du changement d'axe.
+        w.classList.toggle('novel-paged', ns.mode === 'pages');
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -140,6 +145,14 @@
             <button class="reader-icon-btn" id="btnNextChap" ${!next ? 'disabled' : ''} title="Chapitre suivant (→)">›</button>
         </div>
         <div class="toolbar-right">
+            <!-- Audit AMEL-23 : le lecteur d'images annonce le temps restant,
+                 pas celui de texte — alors que c'est là que la question se
+                 pose, sur des chapitres qui peuvent faire un livre entier. -->
+            <span class="novel-timeleft" id="novelTimeLeft" aria-live="polite"></span>
+            <!-- Audit AMEL-20 : sommaire des sections détectées dans le texte -->
+            <button class="reader-icon-btn" id="btnNovelToc" title="Sommaire du chapitre" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
             <button class="reader-icon-btn" id="btnNotes" title="Mes notes de lecture (J)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             </button>
@@ -261,6 +274,130 @@
                 }
             }
         });
+        indexerSections(el);
+        majTempsRestant();
+    }
+
+    // ── Sommaire du texte (audit AMEL-20) ────────────────────
+    // Gutenberg renvoie le LIVRE ENTIER comme un seul « chapitre » (Moby Dick :
+    // 19 222 nœuds, id `2701:full`). Le sommaire existe pourtant dans le
+    // contenu, sous forme de titres — il n'était simplement pas exploité, si
+    // bien qu'un défilement de bout en bout était la seule navigation possible.
+    //
+    // On ne DÉCOUPE pas le document en chapitres séparés : cela casserait la
+    // progression déjà enregistrée (un pourcentage de défilement sur le tout),
+    // la recherche du navigateur et la synthèse vocale. On l'INDEXE, ce qui
+    // donne la même navigation sans rien invalider.
+    let sections = [];
+
+    // Reconnaît un intitulé de chapitre : « CHAPTER 12. », « Chapitre IV — »,
+    // « Chapitre 3 : ... ». Volontairement strict — un faux positif place une
+    // entrée absurde dans le sommaire, ce qui décrédibilise l'ensemble.
+    const RE_CHAPITRE = /^(chapter|chapitre|chap\.)\s+([0-9]{1,4}|[ivxlcdm]{1,7})\b/i;
+
+    function indexerSections(root) {
+        sections = [];
+        const bouton = document.getElementById('btnNovelToc');
+        const masquer = () => { if (bouton) bouton.hidden = true; };
+
+        // 1) Vrais titres, quand la source en fournit (certaines le font).
+        let candidats = [...root.querySelectorAll('h1, h2, h3')]
+            .filter(h => !h.classList.contains('novel-chap-title'))
+            .map(h => ({ el: h, texte: (h.textContent || '').replace(/\s+/g, ' ').trim(),
+                niveau: +h.tagName.slice(1) }));
+
+        // 2) Sinon — cas de Gutenberg, qui ne renvoie QUE des <p> et des <br> —
+        //    on lit les intitulés dans le texte des paragraphes.
+        if (candidats.length < 3) {
+            const paras = [...root.querySelectorAll('p')];
+            const correspond = (p) => RE_CHAPITRE.test((p.textContent || '').trim());
+            // Le livre commence par sa TABLE DES MATIÈRES, qui liste les mêmes
+            // intitulés : sans filtre, chaque chapitre apparaîtrait deux fois
+            // et le premier lien mènerait au sommaire, pas au texte.
+            //
+            // Règle retenue : garder la DERNIÈRE occurrence de chaque intitulé.
+            // Le sommaire précède toujours le corps du livre, donc la dernière
+            // occurrence est le vrai début de chapitre. Une règle plus fine —
+            // « un intitulé suivi d'un autre intitulé appartient au sommaire » —
+            // a été essayée et laissait passer la DERNIÈRE ligne du sommaire,
+            // qui est suivie de prose : le sommaire s'ouvrait alors sur
+            // « CHAPTER 135 » en première position.
+            // Sans table des matières, chaque intitulé n'apparaît qu'une fois
+            // et la règle est sans effet.
+            const derniere = new Map();
+            paras.forEach(p => {
+                if (!correspond(p)) return;
+                derniere.set((p.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase(), p);
+            });
+            candidats = [...derniere.values()]
+                .map(p => ({ el: p, texte: (p.textContent || '').replace(/\s+/g, ' ').trim(), niveau: 2 }));
+        }
+
+        // Sous 3 entrées, un sommaire n'apporte rien et encombre la barre.
+        if (candidats.length < 3) { masquer(); return; }
+
+        candidats.forEach((c, i) => {
+            if (!c.texte || c.texte.length > 120) return;
+            if (!c.el.id) c.el.id = 'sec-' + i;
+            sections.push({ id: c.el.id, texte: c.texte, niveau: c.niveau });
+        });
+        if (sections.length < 3) { masquer(); return; }
+        if (bouton) {
+            bouton.hidden = false;
+            bouton.title = `Sommaire — ${sections.length} sections`;
+            if (bouton.dataset.arme !== '1') {
+                bouton.dataset.arme = '1';
+                bouton.addEventListener('click', basculerSommaire);
+            }
+        }
+    }
+
+    function basculerSommaire() {
+        const ex = document.getElementById('novelToc');
+        if (ex) { ex.remove(); return; }
+        const pop = document.createElement('div');
+        pop.id = 'novelToc';
+        pop.className = 'novel-toc-pop';
+        pop.innerHTML = `<div class="ns-head"><span>Sommaire · ${sections.length} sections</span>
+            <button class="ns-close" id="tocClose">✕</button></div>
+            <div class="novel-toc-list">${sections.map(s =>
+        `<button class="novel-toc-item lvl${s.niveau}" data-sec="${MH.esc(s.id)}">${MH.esc(s.texte)}</button>`).join('')}</div>`;
+        document.body.appendChild(pop);
+        pop.querySelector('#tocClose').addEventListener('click', () => pop.remove());
+        pop.querySelectorAll('[data-sec]').forEach(b => b.addEventListener('click', () => {
+            document.getElementById(b.dataset.sec)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            pop.remove();
+        }));
+    }
+
+    // ── Temps de lecture restant (audit AMEL-23) ─────────────
+    // Le lecteur d'images affiche « ~43 min » ; le lecteur de texte, rien —
+    // alors que c'est justement là que la question se pose, sur des chapitres
+    // qui peuvent faire un livre entier.
+    //
+    // 200 mots/minute : moyenne admise pour de la lecture de loisir en prose.
+    // On compte les mots UNE fois (le texte ne change pas) et on applique le
+    // pourcentage déjà calculé pour la barre de progression.
+    const MOTS_PAR_MIN = 200;
+    let motsTotal = 0;
+
+    function compterMots(el) {
+        const t = (el.textContent || '').trim();
+        motsTotal = t ? t.split(/\s+/).length : 0;
+    }
+
+    function majTempsRestant() {
+        const el = document.getElementById('novelContent');
+        if (!el) return;
+        if (!motsTotal) compterMots(el);
+        const cible = document.getElementById('novelTimeLeft');
+        if (!cible || !motsTotal) return;
+        const restantPct = Math.max(0, 100 - scrollPct());
+        const mins = Math.round((motsTotal * restantPct / 100) / MOTS_PAR_MIN);
+        cible.textContent = restantPct <= 2 ? 'terminé'
+            : mins < 1 ? '< 1 min restante'
+                : mins < 60 ? `~${mins} min restantes`
+                    : `~${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')} restantes`;
     }
 
     function renderEnd() {
@@ -284,16 +421,64 @@
     // ── Progression : % de défilement ──
     let saveTimer = null;
     let readMarked = false;
+    // ── Mode « pages » façon liseuse (audit AMEL-21) ─────────
+    // Un défilement continu de 19 000 nœuds n'est pas une expérience de lecture
+    // longue : on perd la ligne en cours, et la barre de progression est le
+    // seul repère.
+    //
+    // Réalisé avec des COLONNES CSS dans un conteneur à hauteur d'écran, plutôt
+    // qu'en redécoupant le texte en pages. C'est ce qui permet à tout le reste
+    // de continuer à fonctionner sans y toucher : la recherche du navigateur,
+    // la synthèse vocale et le saut depuis le sommaire utilisent
+    // `scrollIntoView`, qui opère aussi bien sur l'axe horizontal.
+    // Seule la mesure de progression doit changer d'axe — d'où cette fonction.
+    function estPagine() {
+        return ns.mode === 'pages';
+    }
+    function conteneurPagine() {
+        return document.getElementById('novelContent');
+    }
     function scrollPct() {
+        if (estPagine()) {
+            const c = conteneurPagine();
+            if (!c) return 0;
+            const max = c.scrollWidth - c.clientWidth;
+            return max > 0 ? Math.min(100, Math.round((c.scrollLeft / max) * 100)) : 100;
+        }
         const h = document.documentElement;
         const max = h.scrollHeight - h.clientHeight;
         return max > 0 ? Math.min(100, Math.round((h.scrollTop / max) * 100)) : 100;
     }
+
+    // Tourne d'un écran. `scrollBy` sur la largeur visible fait exactement une
+    // « page » puisque les colonnes font la largeur du conteneur.
+    function tournerPage(sens) {
+        const c = conteneurPagine();
+        if (!c) return;
+        c.scrollBy({ left: sens * c.clientWidth, behavior: 'smooth' });
+    }
     function bindScrollProgress() {
         const fill = document.getElementById('novelProgressFill');
+        // En mode pages, c'est le CONTENEUR qui défile, pas la fenêtre : sans
+        // cet écouteur la barre de progression resterait figée à 0 %.
+        const c = conteneurPagine();
+        if (c && c.dataset.progBound !== '1') {
+            c.dataset.progBound = '1';
+            c.addEventListener('scroll', () => {
+                if (!estPagine()) return;
+                const pct = scrollPct();
+                if (fill) fill.style.width = pct + '%';
+                majTempsRestant();
+                if (pct >= 96 && !readMarked) { readMarked = true; markChapterRead(); }
+                clearTimeout(saveTimer);
+                saveTimer = setTimeout(() => saveProgress(pct), 600);
+            }, { passive: true });
+        }
         window.addEventListener('scroll', () => {
+            if (estPagine()) return;   // la fenêtre ne défile plus dans ce mode
             const pct = scrollPct();
             if (fill) fill.style.width = pct + '%';
+            majTempsRestant();   // audit AMEL-23
             if (pct >= 96 && !readMarked) { readMarked = true; markChapterRead(); }
             clearTimeout(saveTimer);
             saveTimer = setTimeout(() => saveProgress(pct), 600);
@@ -316,9 +501,17 @@
             const allProg = await API.me.progress();
             const prog = allProg[manga.id];
             if (prog && prog.chapterId === currentChap.id && prog.page > 2 && prog.page < 96) {
-                const h = document.documentElement;
-                const max = h.scrollHeight - h.clientHeight;
-                window.scrollTo({ top: (prog.page / 100) * max, behavior: 'instant' in window ? 'instant' : 'auto' });
+                if (estPagine()) {
+                    // Audit AMEL-21 : en mode pages la position vit sur l'axe
+                    // horizontal du conteneur. Sans ce cas, reprendre une
+                    // lecture ramenait au tout debut.
+                    const c = conteneurPagine();
+                    if (c) c.scrollLeft = (prog.page / 100) * (c.scrollWidth - c.clientWidth);
+                } else {
+                    const h = document.documentElement;
+                    const max = h.scrollHeight - h.clientHeight;
+                    window.scrollTo({ top: (prog.page / 100) * max, behavior: 'instant' in window ? 'instant' : 'auto' });
+                }
             }
         } catch (e) { window.MH?.err?.('lecture.js', e); }
     }
@@ -389,8 +582,16 @@
         document.addEventListener('keydown', e => {
             if (['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName)) return;
             switch (e.key) {
-                case 'ArrowRight': case 'n': case 'N': goChapter(1); break;
-                case 'ArrowLeft':  case 'p': case 'P': goChapter(-1); break;
+                // Audit AMEL-21 : en mode pages, les flèches tournent la PAGE.
+                // Les faire changer de chapitre y serait déroutant — c'est le
+                // geste de lecture le plus courant, et il n'existait pas.
+                // `n`/`p` gardent le changement de chapitre dans les deux modes.
+                case 'ArrowRight': estPagine() ? tournerPage(1)  : goChapter(1);  break;
+                case 'ArrowLeft':  estPagine() ? tournerPage(-1) : goChapter(-1); break;
+                case 'PageDown': if (estPagine()) { e.preventDefault(); tournerPage(1); } break;
+                case 'PageUp':   if (estPagine()) { e.preventDefault(); tournerPage(-1); } break;
+                case 'n': case 'N': goChapter(1); break;
+                case 'p': case 'P': goChapter(-1); break;
                 case 's': case 'S': toggleSettings(); break;
                 case 'j': case 'J': openNotes(); break;
                 case 'Escape': document.getElementById('novelSettings')?.remove(); break;
@@ -418,7 +619,9 @@
             <div class="ns-label"><span>Police</span></div>
             ${seg('font', [{v:'serif',l:'Serif'},{v:'sans',l:'Sans'},{v:'mono',l:'Mono'}], ns.font)}
             <div class="ns-label"><span>Thème</span></div>
-            ${seg('theme', [{v:'dark',l:'Sombre'},{v:'black',l:'Noir'},{v:'sepia',l:'Sépia'},{v:'light',l:'Clair'}], ns.theme)}`;
+            ${seg('theme', [{v:'dark',l:'Sombre'},{v:'black',l:'Noir'},{v:'sepia',l:'Sépia'},{v:'light',l:'Clair'}], ns.theme)}
+            <div class="ns-label"><span>Mode de lecture</span></div>
+            ${seg('mode', [{v:'scroll',l:'Défilement'},{v:'pages',l:'Pages'}], ns.mode)}`;
         document.body.appendChild(panel);
 
         panel.querySelector('#nsClose').addEventListener('click', () => panel.remove());

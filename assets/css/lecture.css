@@ -146,3 +146,55 @@
   .novel-wrap { padding: 22px 14px 60px; }
   .novel-settings-pop { right: 8px; left: 8px; width: auto; }
 }
+
+/* ── Temps restant (audit AMEL-23) ── */
+.novel-timeleft {
+  font-size: 11.5px; color: var(--text3); white-space: nowrap;
+  margin-right: 6px; font-variant-numeric: tabular-nums;
+}
+
+/* ── Sommaire du texte (audit AMEL-20) ── */
+.novel-toc-pop {
+  position: fixed; right: 18px; top: 108px; z-index: 120;
+  width: min(360px, calc(100vw - 36px)); max-height: min(70vh, 620px);
+  display: flex; flex-direction: column;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--radius); box-shadow: var(--shadow-3);
+}
+.novel-toc-list { overflow-y: auto; padding: 6px; }
+.novel-toc-item {
+  display: block; width: 100%; text-align: left;
+  padding: 7px 10px; border-radius: var(--radius2);
+  font-size: 13px; color: var(--text2); line-height: 1.35;
+}
+.novel-toc-item:hover { background: var(--bg3); color: var(--text); }
+/* Le niveau de titre se lit par l'indentation : un sommaire plat ne dit pas
+   ce qui est section et ce qui est sous-section. */
+.novel-toc-item.lvl2 { padding-left: 22px; font-size: 12.5px; }
+.novel-toc-item.lvl3 { padding-left: 36px; font-size: 12px; color: var(--text3); }
+
+/* ── Mode « pages » façon liseuse (audit AMEL-21) ──
+   Colonnes CSS de la largeur du conteneur : chaque « page » est une colonne,
+   et tourner la page revient à faire défiler d'une largeur d'écran. Le texte
+   n'est pas redécoupé, donc la recherche du navigateur, la synthèse vocale et
+   le saut depuis le sommaire (tous fondés sur scrollIntoView) continuent de
+   fonctionner — sur l'axe horizontal cette fois. */
+.novel-paged .novel-content {
+  height: calc(100vh - var(--header-h, 56px) - 96px);
+  column-width: var(--novel-width, 720px);
+  column-gap: 56px;
+  column-fill: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 28px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.novel-paged .novel-content::-webkit-scrollbar { display: none; }
+/* Sans cette règle, un paragraphe peut être coupé en deux d'une colonne à
+   l'autre au milieu d'une ligne — illisible sur une liseuse. */
+.novel-paged .novel-content p { break-inside: avoid-column; }
+.novel-paged .novel-content h1,
+.novel-paged .novel-content h2 { break-after: avoid-column; }
+/* Le bloc de fin de chapitre n'a pas de sens à l'intérieur des colonnes. */
+.novel-paged #novelEnd { margin-top: 14px; }
