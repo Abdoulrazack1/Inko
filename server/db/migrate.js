@@ -118,6 +118,17 @@ const MIGRATIONS = [
     } },
     { version: 6, name: 'anilist_links sort du blob de réglages (audit PERF-09)', apply: anilistLinksTable },
     { version: 7, name: 'fusion de library dans favorites (audit DB-02)', apply: mergeLibraryIntoFavorites },
+    { version: 8, name: 'local_imports.cover — vignette extraite du fichier (audit AMEL-25)', apply: async () => {
+        // La bibliothèque locale n'affichait qu'une icône de type et un titre
+        // déduit du NOM DE FICHIER. Les EPUB portent pourtant leur titre et
+        // leur couverture, les CBZ leur première planche.
+        // MEDIUMTEXT et non TEXT : une vignette encodée en data-URI dépasse
+        // les 64 Ko de TEXT dès qu'elle est un peu détaillée, et un INSERT
+        // tronqué produirait une image corrompue plutôt qu'une erreur.
+        if (!(await columnExists('local_imports', 'cover'))) {
+            await run('ALTER TABLE local_imports ADD COLUMN cover MEDIUMTEXT DEFAULT NULL');
+        }
+    } },
 ];
 
 // ── Migration 7 : fusionner `library` dans `favorites` (audit DB-02) ──

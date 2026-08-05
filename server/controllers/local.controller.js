@@ -65,6 +65,18 @@ function sniffType(filePath) {
     finally { if (fd !== undefined) { try { fs.closeSync(fd); } catch (e) { /* déjà fermé */ } } }
 }
 
+// Vignette de couverture (audit AMEL-25) : n'accepte qu'une data-URI d'image
+// raster, bornée à 256 Ko de base64 (~190 Ko d'image). Au-delà, on préfère
+// ne pas stocker de vignette qu'accepter n'importe quoi.
+const VIGNETTE_MAX = 256 * 1024;
+const VIGNETTE_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+function validerVignette(v) {
+    if (typeof v !== 'string' || !v) return null;
+    if (v.length > VIGNETTE_MAX) return null;
+    return VIGNETTE_RE.test(v) ? v : null;
+}
+
 // POST /api/library/import/local — téléverse un fichier
 function importLocal(req, res, next) {
     upload(req, res, async (err) => {
@@ -102,11 +114,20 @@ function importLocal(req, res, next) {
             const type = ALLOWED[ext] || 'cbz';
             const title = (req.body.title || path.basename(req.file.originalname, ext) || 'Sans titre')
                 .replace(/[._]+/g, ' ').trim().slice(0, 512);
+            // Audit AMEL-25 : vignette extraite du fichier PAR LE CLIENT (il
+            // décompresse déjà pour lire, le serveur n'a pas à le refaire).
+            // On ne fait donc que valider ce qui arrive — c'est une donnée
+            // fournie par l'utilisateur, elle finira dans un attribut `src` :
+            //   · uniquement une data-URI d'image, jamais une URL distante
+            //     (sinon on offrirait un traceur logé dans la bibliothèque) ;
+            //   · bornée en taille, pour qu'un envoi malveillant ne remplisse
+            //     pas la base à coups de MEDIUMTEXT.
+            const cover = validerVignette(req.body.cover);
             const [r] = await pool.query(
-                'INSERT INTO local_imports (user_id, title, type, filename, size) VALUES (?, ?, ?, ?, ?)',
-                [req.user.id, title, type, req.file.filename, req.file.size]
+                'INSERT INTO local_imports (user_id, title, type, filename, size, cover) VALUES (?, ?, ?, ?, ?, ?)',
+                [req.user.id, title, type, req.file.filename, req.file.size, cover]
             );
-            res.json({ id: r.insertId, title, type, size: req.file.size });
+            res.json({ id: r.insertId, title, type, size: req.file.size, cover });
         } catch (e) {
             fs.unlink(req.file.path, () => {});   // rollback du fichier si l'insert échoue
             next(e);
@@ -118,10 +139,13 @@ function importLocal(req, res, next) {
 async function listLocal(req, res, next) {
     try {
         const [rows] = await pool.query(
-            'SELECT id, title, type, size, created_at FROM local_imports WHERE user_id = ? ORDER BY created_at DESC',
+            'SELECT id, title, type, size, cover, created_at FROM local_imports WHERE user_id = ? ORDER BY created_at DESC',
             [req.user.id]
         );
-        const items = rows.map(r => ({ id: r.id, title: r.title, type: r.type, size: r.size, createdAt: r.created_at }));
+        const items = rows.map(r => ({
+            id: r.id, title: r.title, type: r.type, size: r.size,
+            cover: r.cover || null, createdAt: r.created_at,
+        }));
         // Audit AMEL-105 : le quota n'existait que dans le message de REFUS.
         // L'utilisateur téléversait donc un fichier de 300 Mo pour apprendre à
         // la fin qu'il n'y avait plus de place. L'état est renvoyé avec la

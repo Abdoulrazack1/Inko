@@ -114,9 +114,13 @@
 
         for (const e of entrees) {
             if (e.etat === 'echec') continue;
-            e.etat = 'encours'; e.message = 'Import…'; renderQueue(entrees);
+            e.etat = 'encours'; e.message = 'Lecture du fichier…'; renderQueue(entrees);
+            // Audit AMEL-25 : on lit titre et couverture AVANT d'envoyer, pour
+            // que l'entrée arrive déjà nommée et illustrée.
+            const meta = await extraireMeta(e.fichier);
+            e.message = 'Import…'; renderQueue(entrees);
             try {
-                await API.local.upload(e.fichier, '', (p) => {
+                await API.local.upload(e.fichier, { title: meta.titre || '', cover: meta.cover || null }, (p) => {
                     e.pct = p;
                     e.message = `Import… ${Math.round(p * 100)} %`;
                     renderQueue(entrees);
@@ -134,6 +138,100 @@
         const ko = entrees.filter(e => e.etat === 'echec').length;
         MH.toast?.(ko ? `${ok} importé(s), ${ko} en échec` : `${ok} fichier(s) importé(s)`);
         loadList();
+    }
+
+    // ── Titre et couverture extraits du fichier (audit AMEL-25) ──
+    // La bibliothèque locale n'affichait qu'une icône de type et un titre
+    // déduit du NOM DE FICHIER — « the_hobbit_v2_final.epub ». Les EPUB
+    // portent pourtant leur titre et leur couverture, les CBZ leur première
+    // planche.
+    //
+    // L'extraction se fait ICI, chez le client : il décompresse déjà pour lire,
+    // le serveur n'a pas à refaire ce travail (ni à ouvrir des archives
+    // envoyées par l'utilisateur, ce qui est une surface d'attaque). Le serveur
+    // ne fait que VALIDER ce qui arrive.
+    //
+    // Tout échec est silencieux et sans conséquence : sans vignette, on
+    // retombe sur l'icône de type, exactement comme avant.
+    const VIGNETTE_LARGEUR = 220;
+
+    async function extraireMeta(file) {
+        const nom = file.name.toLowerCase();
+        if (typeof JSZip === 'undefined') return {};
+        if (!/\.(epub|cbz|zip)$/.test(nom)) return {};       // PDF : pas d'extraction ici
+        try {
+            const zip = await JSZip.loadAsync(await file.arrayBuffer());
+            return /\.epub$/.test(nom) ? await metaEpub(zip) : await metaCbz(zip);
+        } catch (e) { return {}; }
+    }
+
+    async function metaEpub(zip) {
+        const container = zip.file('META-INF/container.xml');
+        if (!container) return {};
+        const opfPath = ((await container.async('string')).match(/full-path="([^"]+)"/) || [])[1];
+        if (!opfPath) return {};
+        const opf = await zip.file(opfPath).async('string');
+        const dir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
+        const doc = new DOMParser().parseFromString(opf, 'application/xml');
+
+        const titre = (doc.querySelector('metadata > title, title')?.textContent || '').trim();
+
+        // La couverture se déclare de deux façons selon la version d'EPUB :
+        // <meta name="cover" content="id"> (EPUB 2) ou properties="cover-image"
+        // (EPUB 3). On essaie les deux, puis on se rabat sur la première image.
+        const items = [...doc.querySelectorAll('manifest > item')];
+        const parId = doc.querySelector('metadata > meta[name="cover"]')?.getAttribute('content');
+        const cible = items.find(i => i.getAttribute('properties')?.includes('cover-image'))
+            || items.find(i => i.getAttribute('id') === parId)
+            || items.find(i => (i.getAttribute('media-type') || '').startsWith('image/'));
+        if (!cible) return { titre };
+
+        const chemin = normaliser(dir + cible.getAttribute('href'));
+        const f = zip.file(chemin);
+        if (!f) return { titre };
+        return { titre, cover: await vignette(await f.async('blob')) };
+    }
+
+    async function metaCbz(zip) {
+        // Première image dans l'ordre alphabétique : c'est la convention des
+        // CBZ, les planches étant nommées 001.jpg, 002.jpg…
+        const images = Object.keys(zip.files)
+            .filter(n => /\.(jpe?g|png|webp)$/i.test(n) && !zip.files[n].dir)
+            .sort();
+        if (!images.length) return {};
+        return { cover: await vignette(await zip.files[images[0]].async('blob')) };
+    }
+
+    function normaliser(p) {
+        const out = [];
+        for (const seg of String(p).split('/')) {
+            if (seg === '.' || seg === '') continue;
+            if (seg === '..') out.pop(); else out.push(seg);
+        }
+        return out.join('/');
+    }
+
+    // Réduit à 220 px de large et réencode en WebP : une couverture d'EPUB
+    // pèse souvent 1 à 2 Mo, ce qui n'a aucun sens pour une vignette de liste
+    // et dépasserait la borne du serveur.
+    function vignette(blob) {
+        return new Promise((resolve) => {
+            const url = URL.createObjectURL(blob);
+            const im = new Image();
+            im.onload = () => {
+                try {
+                    const w = Math.min(VIGNETTE_LARGEUR, im.naturalWidth || VIGNETTE_LARGEUR);
+                    const h = Math.round(w * (im.naturalHeight / im.naturalWidth)) || w;
+                    const c = document.createElement('canvas');
+                    c.width = w; c.height = h;
+                    c.getContext('2d').drawImage(im, 0, 0, w, h);
+                    resolve(c.toDataURL('image/webp', 0.72));
+                } catch (e) { resolve(null); }
+                finally { URL.revokeObjectURL(url); }
+            };
+            im.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+            im.src = url;
+        });
     }
 
     // ── Regroupement en séries (audit AMEL-104) ──────────────
@@ -180,7 +278,9 @@
     function itemHTML(it, compact) {
         return `
             <div class="im-item ${compact ? 'im-item-sub' : ''}" data-id="${it.id}">
-                <div class="im-cover" style="color:var(--accent)">${MH.icon(TYPE_ICON[it.type] || 'fileText', compact ? 20 : 26)}</div>
+                <div class="im-cover" style="color:var(--accent)">${it.cover
+                    ? `<img src="${MH.esc(it.cover)}" alt="" loading="lazy" class="im-cover-img">`
+                    : MH.icon(TYPE_ICON[it.type] || 'fileText', compact ? 20 : 26)}</div>
                 <div class="im-meta">
                     <div class="im-title">${MH.esc(compact && it.tome != null ? `Tome ${it.tome}` : it.title)}</div>
                     <div class="im-sub"><span class="tag">${MH.esc(it.type)}</span> · ${fmtSize(it.size)} · importé le ${new Date(it.createdAt).toLocaleDateString('fr-FR')}</div>

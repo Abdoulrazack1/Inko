@@ -548,10 +548,15 @@
             list:    ()   => get('/library/local'),
             remove:  (id) => del('/library/local/' + id),
             fileUrl: (id) => API_BASE + '/library/local/' + id + '/file',
-            async upload(file, title, onProgress) {
+            // `meta` accepte une chaîne (titre seul, forme historique) ou un
+            // objet { title, cover }. Audit AMEL-25 : la vignette est extraite
+            // du fichier par le client et voyage avec le téléversement.
+            async upload(file, meta, onProgress) {
+                const { title, cover } = typeof meta === 'string' ? { title: meta } : (meta || {});
                 const fd = new FormData();
                 fd.append('file', file);
                 if (title) fd.append('title', title);
+                if (cover) fd.append('cover', cover);
                 // XHR pour la progression d'upload (fetch ne l'expose pas simplement)
                 return new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
