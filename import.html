@@ -38,6 +38,43 @@
     .im-sub { font-size: 11.5px; color: var(--text3); margin-top: 3px; }
     .im-empty { text-align: center; padding: 30px; color: var(--text3); }
     .tag { font-size: 10px; padding: 2px 7px; border-radius: 6px; background: var(--bg4); color: var(--text2); text-transform: uppercase; }
+
+    /* ── Jauge de quota (audit AMEL-105) ── */
+    .im-quota { margin: 14px 0 4px; }
+    .im-quota-head { display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+    .im-quota-pct { font-variant-numeric: tabular-nums; color: var(--text3); }
+    .im-quota-bar { height: 6px; border-radius: 3px; background: var(--bg4); overflow: hidden; }
+    .im-quota-bar > div { height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+    /* Au-delà de 85 %, l'information devient un avertissement : c'est là qu'un
+       import de 300 Mo risque d'être refusé après téléversement complet. */
+    .im-quota-warn .im-quota-bar > div { background: var(--red); }
+    .im-quota-warn .im-quota-head { color: var(--red-text); }
+
+    /* ── File d'attente d'import (audit AMEL-103) ── */
+    .im-queue { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
+    .im-q-item { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px;
+      padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); }
+    .im-q-name { font-size: 13px; font-weight: 600; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .im-q-state { font-size: 11.5px; color: var(--text3); white-space: nowrap; }
+    .im-q-bar { grid-column: 1 / -1; height: 3px; border-radius: 2px; background: var(--bg4); overflow: hidden; }
+    .im-q-bar > div { height: 100%; background: var(--accent); transition: width .2s ease; }
+    /* L'état se lit aussi sans la couleur : le texte le dit (« Importé »,
+       « Quota insuffisant — … »). La teinte ne fait que le confirmer. */
+    .im-q-item.ok .im-q-state { color: var(--green-text); }
+    .im-q-item.echec { border-color: rgba(168,50,50,.4); }
+    .im-q-item.echec .im-q-state { color: var(--red-text); white-space: normal; }
+
+    /* ── Regroupement en séries (audit AMEL-104) ── */
+    .im-serie { border: 1px solid var(--border); border-radius: 12px;
+      background: var(--bg2); margin-bottom: 10px; overflow: hidden; }
+    .im-serie-head { display: flex; justify-content: space-between; align-items: center;
+      padding: 11px 14px; cursor: pointer; font-weight: 600; font-size: 14px; }
+    .im-serie-head::-webkit-details-marker { display: none; }
+    .im-serie-count { font-size: 11.5px; color: var(--text3); font-weight: 500; }
+    .im-serie .im-item-sub { border: none; border-top: 1px solid var(--border);
+      border-radius: 0; background: transparent; padding-left: 26px; }
   </style>
 </head>
 <body class="page-body">

@@ -121,7 +121,20 @@ async function listLocal(req, res, next) {
             'SELECT id, title, type, size, created_at FROM local_imports WHERE user_id = ? ORDER BY created_at DESC',
             [req.user.id]
         );
-        res.json(rows.map(r => ({ id: r.id, title: r.title, type: r.type, size: r.size, createdAt: r.created_at })));
+        const items = rows.map(r => ({ id: r.id, title: r.title, type: r.type, size: r.size, createdAt: r.created_at }));
+        // Audit AMEL-105 : le quota n'existait que dans le message de REFUS.
+        // L'utilisateur téléversait donc un fichier de 300 Mo pour apprendre à
+        // la fin qu'il n'y avait plus de place. L'état est renvoyé avec la
+        // liste — aucun appel supplémentaire, la page l'affiche avant l'import.
+        const utilise = items.reduce((n, it) => n + (+it.size || 0), 0);
+        res.json({
+            items,
+            quota: {
+                utilise,
+                total: QUOTA_MB * 1024 * 1024,
+                maxFichier: 300 * 1024 * 1024,
+            },
+        });
     } catch (e) { next(e); }
 }
 
