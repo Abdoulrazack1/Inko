@@ -47,6 +47,21 @@ function allowedDomains() {
     try {
         for (const s of require('../extensions/loader').getAll()) {
             try { set.add(registrableDomain(new URL(s.baseUrl).hostname)); } catch (e) { /* baseUrl absent */ }
+            // Audit PERF-08 : le domaine du SITE ne suffit pas. Les pages de
+            // scans sont servies par des CDN distincts (sushiscan.fr sert ses
+            // planches depuis anime-sama.me), si bien que le lecteur se voyait
+            // refuser le proxy — et chargeait donc en direct, exposant l'IP de
+            // l'utilisateur au site source à chaque page tournée.
+            //
+            // Élargir la liste statique à chaque CDN découvert la ferait courir
+            // derrière les sources indéfiniment. Une extension DÉCLARE donc les
+            // hôtes d'images qu'elle utilise, comme elle déclare déjà ses tris
+            // (`sorts`). La restriction reste fermée par défaut : ajouter une
+            // source n'ouvre que ce que cette source annonce.
+            for (const h of (s.imageHosts || [])) {
+                const t = String(h || '').trim().toLowerCase();
+                if (t) set.add(t);
+            }
         }
     } catch (e) { /* loader pas encore prêt : liste statique seule */ }
     for (const d of (process.env.IMG_PROXY_ALLOW || '').split(',')) {

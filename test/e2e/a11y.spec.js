@@ -37,6 +37,15 @@ async function ouvrir(page, chemin) {
 }
 
 async function analyser(page) {
+    // Les transitions CSS faussent la mesure de contraste : un élément saisi
+    // en plein fondu a une couleur composée avec son fond, et axe la juge
+    // insuffisante. C'est ainsi que le recensement a rapporté 25 violations
+    // que le même parcours, rejoué, ne retrouvait pas — un chiffre fantôme est
+    // pire qu'aucun chiffre. On fige donc l'animation avant d'analyser.
+    await page.addStyleTag({ content: `*, *::before, *::after {
+        transition: none !important; animation: none !important;
+    }` });
+    await page.waitForTimeout(250);
     await page.addScriptTag({ content: AXE });
     return page.evaluate(async () => {
         const res = await window.axe.run(document, {
@@ -84,6 +93,10 @@ for (const p of PAGES) {
 // Recensement non bloquant : donne l'état réel sans transformer chaque
 // imperfection mineure en échec de CI.
 test('recensement des violations modérées et mineures', async ({ page }) => {
+    // Ce test visite les 7 pages dans une seule exécution, chacune avec son
+    // attente de chargement des données : il dépasse par nature le délai
+    // commun, calibré pour un test qui regarde UNE page.
+    test.setTimeout(180_000);
     const total = {};
     for (const p of PAGES) {
         await ouvrir(page, p);

@@ -422,6 +422,11 @@ module.exports = {
     // défaut à corriger.
     version:      '1.0.0',
     unit:      'chapter',
+    // Audit PERF-08 : sushiscan.fr sert ses PLANCHES depuis un CDN distinct.
+    // Sans cette déclaration, le proxy d'images refuse ces hôtes (403) et le
+    // lecteur charge en direct — exposant l'adresse IP de l'utilisateur au
+    // site source à chaque page tournée.
+    imageHosts: ['anime-sama.me', 'sushiscan.fr'],
     description:  '⚠ Expérimental — scrape sushiscan.fr (Madara/TS). Populaires & dernières sorties distinctes, dates de sortie des chapitres, recherche sur tout le catalogue, contenu adulte filtré hors espace +18.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
 

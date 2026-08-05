@@ -167,6 +167,10 @@ function manifest() {
         // Audit BUG-06 : tris réellement honorés. Absent = la source ne se
         // prononce pas, l'UI garde tous ses tris (rétro-compatible).
         sorts:        Array.isArray(s.sorts) ? s.sorts : null,
+        // Audit PERF-08 : hôtes servant les IMAGES de cette source, quand ils
+        // diffèrent du site lui-même (CDN de scans). Ils élargissent la liste
+        // blanche du proxy d'images — et rien d'autre.
+        imageHosts:   Array.isArray(s.imageHosts) ? s.imageHosts : [],
     }));
 }
 

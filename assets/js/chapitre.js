@@ -244,9 +244,22 @@
     }
 
     // ── Rendering pages ──
+    // Audit PERF-08 — reste de constat, à corriger ici : la bibliothèque et
+    // les couvertures passaient bien par /api/img, mais LE LECTEUR chargeait
+    // ses pages en direct depuis le site scrapé. C'est pourtant là que le
+    // volume est : une session de lecture, c'est des centaines d'images.
+    //
+    // Trois conséquences, dans l'ordre d'importance :
+    //   · l'adresse IP de l'utilisateur est envoyée au site source à chaque
+    //     page tournée, alors que l'application annonce ne rien exposer ;
+    //   · les hôtes qui refusent le hotlink rendent des images cassées ;
+    //   · le canvas est « teinté », ce qui interdit toute analyse locale de
+    //     l'image (c'est ce qui a fait échouer AMEL-17, et c'est ce qui l'a
+    //     révélé).
     function pageSrc(p) {
         const quality = window.Storage?.getPref('quality') || 'high';
-        return quality === 'saver' ? (p.urlSaver || p.url) : p.url;
+        const brute = quality === 'saver' ? (p.urlSaver || p.url) : p.url;
+        return MH.proxify ? MH.proxify(brute) : brute;
     }
 
     // Markup d'une image de page : fade-in au chargement + retry en cas d'échec
@@ -322,17 +335,125 @@
     function armImages(root) {
         (root || document).querySelectorAll('.reader-page-img').forEach(im => {
             if (im.complete && im.naturalWidth) im.classList.add('loaded');
+            armerRecadrage(im);
         });
+    }
+
+    // ── Recadrage des marges (audit AMEL-17) ─────────────────
+    // Beaucoup de scans arrivent avec une bordure blanche ou noire qui peut
+    // manger 10 à 15 % de la hauteur utile — sensible sur un écran étroit, où
+    // c'est justement la surface qui manque.
+    //
+    // Trois décisions qui font tenir la fonctionnalité :
+    //
+    //  · OPTION, décochée par défaut. Un recadrage automatique qui se trompe
+    //    ampute une planche ; ce n'est pas un défaut acceptable par défaut.
+    //  · Analyse sur une vignette de 64 px de large, pas sur l'image pleine.
+    //    Décoder 326 pages en pleine résolution coûterait plus que le gain.
+    //    Une marge est une zone uniforme : 64 px suffisent à la trouver.
+    //  · Garde-fou : si la zone de contenu détectée couvre moins de la moitié
+    //    de l'image, on ne recadre PAS. Une page très claire (planche de neige,
+    //    fond blanc volontaire) serait sinon massacrée. Mieux vaut ne rien
+    //    faire que mutiler.
+    //
+    // Les images passent par /api/img, donc même origine : le canvas n'est pas
+    // « teinté » et reste lisible.
+    const CROP_KEY = 'reader_autocrop';
+    const cropCache = new Map();   // src → {top,right,bottom,left} en %
+
+    function autoCropActif() { return window.Storage?.getPref(CROP_KEY) === '1'; }
+
+    function armerRecadrage(im) {
+        if (!autoCropActif()) { im.style.clipPath = ''; im.style.margin = ''; return; }
+        const appliquer = () => {
+            const connu = cropCache.get(im.src);
+            if (connu) return appliquerRecadrage(im, connu);
+            const m = mesurerMarges(im);
+            if (m) { cropCache.set(im.src, m); appliquerRecadrage(im, m); }
+        };
+        if (im.complete && im.naturalWidth) appliquer();
+        else im.addEventListener('load', appliquer, { once: true });
+    }
+
+    function appliquerRecadrage(im, m) {
+        im.style.clipPath = `inset(${m.top}% ${m.right}% ${m.bottom}% ${m.left}%)`;
+        // clip-path masque sans réduire la place occupée : on rattrape avec des
+        // marges négatives, sinon la page garderait le vide qu'on vient de
+        // cacher et le recadrage ne servirait à rien.
+        im.style.marginTop    = `-${m.top}%`;
+        im.style.marginBottom = `-${m.bottom}%`;
+    }
+
+    function mesurerMarges(im) {
+        try {
+            const L = 64;
+            const H = Math.max(1, Math.round(L * (im.naturalHeight / im.naturalWidth)));
+            const c = document.createElement('canvas');
+            c.width = L; c.height = H;
+            const ctx = c.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(im, 0, 0, L, H);
+            const d = ctx.getImageData(0, 0, L, H).data;
+
+            // Une ligne/colonne est « marge » si TOUS ses pixels sont proches
+            // du blanc ou du noir. On compare à la teinte du coin supérieur
+            // gauche, qui donne la couleur de fond réelle de ce scan.
+            const fond = [d[0], d[1], d[2]];
+            const proche = (i) => Math.abs(d[i] - fond[0]) < 18
+                && Math.abs(d[i + 1] - fond[1]) < 18 && Math.abs(d[i + 2] - fond[2]) < 18;
+            const ligneVide = (y) => { for (let x = 0; x < L; x++) if (!proche((y * L + x) * 4)) return false; return true; };
+            const colVide   = (x) => { for (let y = 0; y < H; y++) if (!proche((y * L + x) * 4)) return false; return true; };
+
+            let haut = 0;   while (haut < H && ligneVide(haut)) haut++;
+            let bas  = 0;   while (bas < H - haut && ligneVide(H - 1 - bas)) bas++;
+            let gauche = 0; while (gauche < L && colVide(gauche)) gauche++;
+            let droite = 0; while (droite < L - gauche && colVide(L - 1 - droite)) droite++;
+
+            const hUtile = H - haut - bas, lUtile = L - gauche - droite;
+            if (hUtile < H * 0.5 || lUtile < L * 0.5) return null;   // garde-fou
+            const m = {
+                top: +(haut / H * 100).toFixed(2), bottom: +(bas / H * 100).toFixed(2),
+                left: +(gauche / L * 100).toFixed(2), right: +(droite / L * 100).toFixed(2),
+            };
+            // Moins de 1,5 % de marge : le gain ne vaut pas le décalage.
+            if (m.top + m.bottom + m.left + m.right < 1.5) return null;
+            return m;
+        } catch (e) {
+            // Canvas teinté (image d'une autre origine) ou décodage impossible :
+            // on renonce silencieusement, l'image reste telle quelle.
+            return null;
+        }
     }
 
     // Échec de chargement : bascule éco → sinon bouton Réessayer
     window.imgFail = function (img) {
         const p = pages[+img.dataset.idx];
         if (!p) return;
-        if (!img.dataset.triedSaver && p.urlSaver && img.src !== p.urlSaver) {
-            img.dataset.triedSaver = '1';
-            img.src = p.urlSaver;
+        // Audit PERF-08 : les pages passent désormais par /api/img. Si le
+        // proxy refuse l'hôte (403 : CDN non déclaré par l'extension, voir
+        // `imageHosts`), on retombe sur l'URL DIRECTE plutôt que de laisser un
+        // trou dans le chapitre. C'est un compromis assumé et non un oubli :
+        // l'utilisateur voit sa page, mais son adresse IP part chez la source.
+        // La correction propre est de déclarer l'hôte côté extension — le
+        // message de console dit lequel.
+        if (!img.dataset.triedDirect && /\/api\/img\?/.test(img.src)) {
+            img.dataset.triedDirect = '1';
+            const brute = window.Storage?.getPref('quality') === 'saver' ? (p.urlSaver || p.url) : p.url;
+            try {
+                console.warn('[inko] proxy d’images refusé pour', new URL(brute).hostname,
+                    '— chargement direct. Ajoute cet hôte à `imageHosts` de l’extension.');
+            } catch (e) { /* URL illisible */ }
+            img.src = brute;
             return;
+        }
+        if (!img.dataset.triedSaver && p.urlSaver) {
+            // Le repli « qualité éco » posait l'URL brute, rouvrant en direct
+            // la connexion que pageSrc venait de faire passer par le proxy.
+            const replique = MH.proxify ? MH.proxify(p.urlSaver) : p.urlSaver;
+            if (img.src !== replique) {
+                img.dataset.triedSaver = '1';
+                img.src = replique;
+                return;
+            }
         }
         if (img.nextElementSibling?.classList.contains('reader-img-fail')) return;
         const div = document.createElement('div');
@@ -1229,6 +1350,11 @@
             ${seg('fit', [{v:'original',l:'Original'},{v:'width',l:'Largeur'},{v:'height',l:'Hauteur'}], rs.fit)}
             <label class="rs-label">Sens de lecture</label>
             ${seg('direction', [{v:'rtl',l:'← RTL'},{v:'ltr',l:'LTR →'}], rs.direction)}
+            <label class="rs-label">Marges des scans (audit AMEL-17)</label>
+            <label class="rs-check">
+                <input type="checkbox" id="rsAutoCrop" ${autoCropActif() ? 'checked' : ''}>
+                <span>Rogner automatiquement les bordures</span>
+            </label>
             <label class="rs-label">Luminosité <span id="rsBrightVal">${rs.brightness}%</span></label>
             <input type="range" id="rsBright" min="40" max="100" value="${rs.brightness}" class="rs-range">
             <label class="rs-label">Confort des yeux (lumière chaude) <span id="rsWarmVal">${rs.warm || 0}%</span></label>
@@ -1259,6 +1385,17 @@
                 if (key === 'quality') { window.Storage?.setPref('quality', val); rerender(); renderThumbnails(); return; }
                 saveReaderSetting(key, val, ['gap', 'fit', 'direction'].includes(key));
             }));
+        });
+        // Audit AMEL-17 : bascule du recadrage. Le cache de mesures est vidé
+        // à chaque changement, sinon désactiver puis réactiver resservirait des
+        // marges calculées pour d'autres pages.
+        panel.querySelector('#rsAutoCrop')?.addEventListener('change', e => {
+            window.Storage?.setPref(CROP_KEY, e.target.checked ? '1' : '0');
+            cropCache.clear();
+            document.querySelectorAll('.reader-page-img').forEach(im => {
+                im.style.clipPath = ''; im.style.marginTop = ''; im.style.marginBottom = '';
+            });
+            rerender();
         });
         panel.querySelector('#rsBright').addEventListener('input', e => {
             document.getElementById('rsBrightVal').textContent = e.target.value + '%';
@@ -1457,7 +1594,11 @@
         if (!next) return;
         API.mangas.pages(next.id).then(d => {
             const first = d.pages?.[0];
-            if (first) { const im = new Image(); im.src = first.url; }
+            // Audit PERF-08 : cette ligne posait l'URL BRUTE. Un seul appel,
+            // mais suffisant pour contacter le site source en direct — donc
+            // pour rendre l'ensemble de l'effort inutile, puisqu'il suffit
+            // d'une requête pour révéler l'adresse IP.
+            if (first) { const im = new Image(); im.src = MH.proxify ? MH.proxify(first.url) : first.url; }
         }).catch(() => {});
     }
 })();
