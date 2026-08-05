@@ -118,6 +118,15 @@ jobs:
       - name: Lint frontend (no-empty)
         run: npm run lint
 
+      # Audit QUAL-02 : 7 900 lignes de JS frontend sans un seul test. Les
+      # fonctions couvertes ici sont celles dont une régression ne casse rien
+      # de visible — elle rend la page fausse ou vulnérable en silence
+      # (échappement HTML, routage des images par le proxy, cache de lectures).
+      # Les modules sont chargés dans un vrai DOM (jsdom) et non contre un stub,
+      # pour exécuter le vrai chemin d'initialisation.
+      - name: Tests frontend
+        run: npm test
+
   docker:
     runs-on: ubuntu-latest
     needs: backend
