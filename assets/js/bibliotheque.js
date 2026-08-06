@@ -208,10 +208,20 @@
             const f = iFile.files?.[0];
             if (!f) return;
             try {
-                const data = JSON.parse(await f.text());
-                if (!await MH.confirm('Restaurer cette sauvegarde ? Tes favoris, progression et listes seront fusionnés avec les données importées.', { okText: 'Restaurer' })) { iFile.value = ''; return; }
-                await API.me.importData(data);
-                MH.toast?.('Sauvegarde restaurée');
+                const texte = await f.text();
+                // Audit AMEL-34 : l'export CSV existait, l'import correspondant
+                // non — on pouvait sortir sa bibliothèque mais pas la remettre.
+                // Le même bouton accepte désormais les deux formats, reconnus
+                // au CONTENU et non à l'extension : un fichier renommé reste
+                // lisible, et un JSON déguisé en .csv ne casse pas.
+                if (/^\s*[[{]/.test(texte)) {
+                    const data = JSON.parse(texte);
+                    if (!await MH.confirm('Restaurer cette sauvegarde ? Tes favoris, progression et listes seront fusionnés avec les données importées.', { okText: 'Restaurer' })) { iFile.value = ''; return; }
+                    await API.me.importData(data);
+                    MH.toast?.('Sauvegarde restaurée');
+                } else {
+                    await importerCsv(texte);
+                }
                 setTimeout(() => window.location.reload(), 700);
             } catch (e) {
                 MH.toast?.('Fichier invalide : ' + e.message);
@@ -240,9 +250,16 @@
         document.getElementById('btnLibExportCsv')?.addEventListener('click', () => {
             if (!favs.length) { MH.toast?.('Ta bibliothèque est vide'); return; }
             const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+            // Audit AMEL-34 : deux colonnes étaient MORTES. `f.rating` n'existe
+            // plus (la note vit dans la table `ratings` depuis la migration 5)
+            // et `f.last_chapter` n'a jamais été le bon nom — l'API renvoie
+            // `lastChapter`. Les deux sortaient donc vides pour tout le monde.
+            // On exporte ce qui existe réellement, catégorie comprise : c'est
+            // ce que l'import saura relire.
             const rows = [
-                ['titre', 'source', 'statut', 'note', 'dernier_chapitre', 'id'],
-                ...favs.map(f => [f.title || f.mangaId, f.source || '', f.status || '', f.rating ?? '', f.last_chapter ?? '', f.mangaId]),
+                ['titre', 'source', 'statut', 'categorie', 'dernier_chapitre', 'id'],
+                ...favs.map(f => [f.title || f.mangaId, f.source || '', f.status || '',
+                    f.category || '', f.lastChapter ?? '', f.mangaId]),
             ];
             const csv = '﻿' + rows.map(r => r.map(esc).join(';')).join('\r\n');
             const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -253,6 +270,88 @@
             URL.revokeObjectURL(url);
             MH.toast?.('CSV téléchargé');
         });
+    }
+
+    // ── Import CSV (audit AMEL-34) ───────────────────────────
+    // Symétrique de l'export : mêmes colonnes, même séparateur. Il sert aussi à
+    // faire entrer une liste venue d'ailleurs (tableur, autre lecteur), d'où
+    // la tolérance sur l'ordre des colonnes et sur le séparateur.
+    function analyserCsv(texte) {
+        // BOM retiré : Excel l'ajoute à l'export, et il collerait au nom de la
+        // première colonne (« ﻿titre »), qui ne serait alors jamais reconnue.
+        const t = texte.replace(/^﻿/, '');
+        const sep = (t.split('\n')[0].match(/;/g) || []).length
+                 >= (t.split('\n')[0].match(/,/g) || []).length ? ';' : ',';
+        const lignes = [];
+        let champ = '', ligne = [], dansGuillemets = false;
+        for (let i = 0; i < t.length; i++) {
+            const c = t[i];
+            if (dansGuillemets) {
+                if (c === '"') {
+                    if (t[i + 1] === '"') { champ += '"'; i++; }   // guillemet échappé
+                    else dansGuillemets = false;
+                } else champ += c;
+            } else if (c === '"') dansGuillemets = true;
+            else if (c === sep) { ligne.push(champ); champ = ''; }
+            else if (c === '\n') { ligne.push(champ); lignes.push(ligne); ligne = []; champ = ''; }
+            else if (c !== '\r') champ += c;
+        }
+        if (champ || ligne.length) { ligne.push(champ); lignes.push(ligne); }
+        return lignes.filter(l => l.some(v => String(v).trim()));
+    }
+
+    async function importerCsv(texte) {
+        const lignes = analyserCsv(texte);
+        if (lignes.length < 2) throw new Error('CSV vide ou sans données');
+        const entete = lignes[0].map(h => h.trim().toLowerCase());
+        const col = (...noms) => {
+            for (const n of noms) { const i = entete.indexOf(n); if (i >= 0) return i; }
+            return -1;
+        };
+        const iId = col('id', 'manga_id', 'mangaid');
+        const iTitre = col('titre', 'title', 'nom');
+        if (iId < 0 && iTitre < 0) {
+            throw new Error('colonnes attendues : au moins « id » ou « titre »');
+        }
+        const iSrc = col('source'), iStatut = col('statut', 'status'), iCat = col('categorie', 'category');
+
+        const entrees = lignes.slice(1).map(l => ({
+            mangaId: iId >= 0 ? (l[iId] || '').trim() : '',
+            title:   iTitre >= 0 ? (l[iTitre] || '').trim() : '',
+            source:  iSrc >= 0 ? (l[iSrc] || '').trim() : '',
+            status:  iStatut >= 0 ? (l[iStatut] || '').trim() : '',
+            category: iCat >= 0 ? (l[iCat] || '').trim() : '',
+        // Sans identifiant, on ne peut RIEN rattacher de façon fiable : deux
+        // œuvres peuvent porter le même titre sur deux sources. On ignore la
+        // ligne plutôt que de deviner et de créer un doublon.
+        })).filter(e => e.mangaId);
+
+        if (!entrees.length) throw new Error('aucune ligne exploitable (colonne « id » requise)');
+        const dejaLa = new Set(favs.map(f => String(f.mangaId)));
+        const nouvelles = entrees.filter(e => !dejaLa.has(String(e.mangaId)));
+
+        if (!await MH.confirm(
+            `${entrees.length} ligne(s) lue(s) : ${nouvelles.length} à ajouter, `
+            + `${entrees.length - nouvelles.length} déjà dans ta bibliothèque (statut et catégorie mis à jour).`,
+            { okText: 'Importer' })) return;
+
+        let ok = 0, ko = 0;
+        for (const e of entrees) {
+            try {
+                // `addFavorite(mangaId, meta)` — deux arguments, pas un objet.
+                // Lui passer un objet en premier a produit un favori dont
+                // l'identifiant valait littéralement « [object Object] »,
+                // découvert en testant l'aller-retour CSV.
+                await API.me.addFavorite(e.mangaId, {
+                    source: e.source || undefined,
+                    title:  e.title  || undefined,
+                });
+                if (e.status) await API.me.setLibrary(e.mangaId, e.status);
+                if (e.category) await API.me.setCategory(e.mangaId, e.category);
+                ok++;
+            } catch (err) { ko++; }
+        }
+        MH.toast?.(ko ? `${ok} importée(s), ${ko} en échec` : `${ok} série(s) importée(s)`);
     }
 
     function wireLibRandom() {
@@ -571,6 +670,25 @@
         if (sort === 'progress') list.sort((a, b) => (progressByManga[b.mangaId]?.chapter || 0) - (progressByManga[a.mangaId]?.chapter || 0));
         if (sort === 'recent-read') list.sort((a, b) =>
             new Date(progressByManga[b.mangaId]?.updatedAt || 0) - new Date(progressByManga[a.mangaId]?.updatedAt || 0));
+        // Audit AMEL-32 : « a rattraper ». Le tri « unread » existait deja mais
+        // gardait les series a jour dans la liste ; ici on ECARTE celles sans
+        // retard — une vue « a rattraper » qui montre ce qui est deja lu ne
+        // sert a rien.
+        if (sort === 'backlog') {
+            list = list.filter(f => unreadCount(f) > 0)
+                .sort((a, b) => unreadCount(b) - unreadCount(a));
+        }
+        // Audit AMEL-35 : derniere parution connue de la source, pour voir
+        // quelles series bougent encore. Celles dont on ne sait rien passent
+        // derriere plutot que devant : une absence d'information n'est pas une
+        // activite recente.
+        if (sort === 'activity') {
+            const quand = (f) => {
+                const u = updatesByManga[f.mangaId];
+                return u?.latest?.publishedAt ? new Date(u.latest.publishedAt).getTime() : 0;
+            };
+            list.sort((a, b) => quand(b) - quand(a));
+        }
         // 'recent' = ordre par défaut (added_at desc)
 
         // Épingles toujours en tête (stable vis-à-vis du tri choisi)
@@ -771,6 +889,7 @@
         document.getElementById('bulkCancel')?.addEventListener('click', () => setSelectMode(false));
         document.getElementById('bulkDelete')?.addEventListener('click', bulkDelete);
         document.getElementById('bulkStatus')?.addEventListener('click', bulkStatus);
+        document.getElementById('bulkCategory')?.addEventListener('click', bulkCategory);   // audit AMEL-33
         btn?.addEventListener('click', () => setSelectMode(!selectMode));
     }
     function setSelectMode(on) {
@@ -831,6 +950,53 @@
             } catch (e) { /* on continue */ }
         }
         MH.toast?.(`Statut mis à jour (${STATUS[status][0]})`);
+        setSelectMode(false);
+        renderFilters(); render();
+    }
+
+    // ── Catégorie en masse (audit AMEL-33) ───────────────────
+    // `favorites.category` alimente déjà les puces de filtrage et s'affiche sur
+    // les cartes, mais ne pouvait être posée QUE série par série depuis la
+    // fiche. Ranger 358 séries à la main n'est pas une option ; c'est
+    // exactement ce à quoi sert la sélection multiple.
+    async function bulkCategory() {
+        if (!selected.size) { MH.toast?.('Rien de sélectionné'); return; }
+        // On propose les catégories DÉJÀ utilisées : c'est le cas courant, et
+        // les retaper à l'identique créerait des doublons à une faute près.
+        const existantes = [...new Set(favs.map(f => f.category).filter(Boolean))].sort();
+        const aide = existantes.length
+            ? `Catégories existantes : ${existantes.join(', ')}.\nLaisse vide pour retirer la catégorie.`
+            : 'Laisse vide pour retirer la catégorie.';
+        const cat = await MH.prompt(`Catégorie pour ${selected.size} série(s)`,
+            { message: aide, placeholder: 'ex. À lire, Terminé 2026…', okText: 'Appliquer' });
+        if (cat === null) return;   // annulé (≠ chaîne vide, qui retire)
+        const valeur = String(cat).trim();
+
+        if (!await MH.confirm(
+            valeur ? `Ranger ${selected.size} série(s) dans « ${valeur} » ?`
+                : `Retirer la catégorie de ${selected.size} série(s) ?`,
+            { okText: 'Appliquer' })) return;
+
+        const ids = [...selected];
+        let done = 0, ko = 0;
+        for (const id of ids) {
+            bulkProgress(++done, ids.length);
+            try {
+                const f = favs.find(x => x.mangaId === id);
+                await API.me.setCategory(id, {
+                    category: valeur || null,
+                    // Titre et couverture accompagnent l'écriture : la route
+                    // crée le favori s'il manque, et sans eux elle l'inscrirait
+                    // sans nom ni image.
+                    title: f?.title, cover: f?.cover, source: f?.source,
+                });
+                if (f) f.category = valeur || null;
+            } catch (e) { ko++; }
+        }
+        window.Storage?.cacheLibrary?.(favs);
+        MH.toast?.(ko ? `${ids.length - ko} rangée(s), ${ko} en échec`
+            : valeur ? `${ids.length} série(s) rangée(s) dans « ${valeur} »`
+                : `Catégorie retirée de ${ids.length} série(s)`);
         setSelectMode(false);
         renderFilters(); render();
     }
