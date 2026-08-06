@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Liste partagée</title>
+  <meta name="description" content="Une liste de lecture partagée depuis Inko.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Inko">
+  <meta property="og:title" content="Inko — Liste partagée">
+  <meta property="og:description" content="Une liste de lecture partagée depuis Inko.">
+  <meta property="og:image" content="/assets/img/icon-512.png">
+  <meta name="twitter:card" content="summary">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0d0d0f">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <style>
+    .pl-wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 80px; }
+    .pl-head { margin-bottom: 22px; }
+    .pl-kind { font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--accent-text); }
+    .pl-name { font-family: var(--font-head); font-size: 30px; font-weight: 700; margin: 4px 0 6px; }
+    .pl-desc { color: var(--text2); font-size: 14px; max-width: 62ch; line-height: 1.5; }
+    .pl-meta { color: var(--text3); font-size: 12.5px; margin-top: 10px; }
+    .pl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 16px; }
+    .pl-card { display: block; color: inherit; }
+    .pl-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover;
+      border-radius: 10px; background: var(--bg3); }
+    .pl-card span { display: block; margin-top: 7px; font-size: 12.5px; line-height: 1.35;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .pl-state { text-align: center; padding: 60px 20px; color: var(--text3); }
+    @media (max-width: 520px) {
+      .pl-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; }
+      .pl-name { font-size: 23px; }
+    }
+  </style>
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
+    <!-- Audit AMEL-36 : `lists.is_public` existait, la route publique aussi,
+         mais AUCUNE page ne la consommait — « Partager » renvoyait vers le
+         profil du propriétaire, où la liste n'est qu'une entrée parmi
+         d'autres. Cette page est l'adresse de la liste elle-même, et elle
+         n'exige aucun compte. -->
+    <div class="pl-wrap" id="plWrap">
+      <div class="pl-state"><div class="spinner-inline"></div></div>
+    </div>
+  </main>
+  <div id="footer-slot"></div>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/userdata.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/liste.js"></script>
+  <script src="assets/js/eula.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>

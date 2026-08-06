@@ -2,6 +2,20 @@
 const { pool } = require('../config/db');
 const { notifyMentions, createNotification } = require('../lib/notify');
 
+// Identifiant d'œuvre plausible. Les routes se contentaient d'un `if
+// (!mangaId)` : une valeur non-chaîne passait donc au travers et arrivait en
+// base sérialisée — un favori réellement enregistré sous l'identifiant
+// « [object Object] » a été créé de cette façon (erreur d'appel côté client,
+// `addFavorite({mangaId})` au lieu de `addFavorite(mangaId, meta)`).
+// Le serveur ne peut pas empêcher un mauvais appel, mais il peut refuser
+// d'écrire une donnée qu'aucune source ne produira jamais.
+function idOeuvreValide(v) {
+    if (typeof v !== 'string') return false;
+    const t = v.trim();
+    if (!t || t.length > 191) return false;
+    return !/^\[object /.test(t) && t !== 'undefined' && t !== 'null';
+}
+
 // ── helper events ───────────────────────────────────────────────
 async function pushEvent(userId, type, payload = {}) {
     const { mangaId, chapterId, metadata } = payload;
@@ -38,7 +52,7 @@ async function getFavorites(req, res, next) {
 async function addFavorite(req, res, next) {
     try {
         const { mangaId, source, title, cover } = req.body;
-        if (!mangaId) return res.status(400).json({ error: 'mangaId requis' });
+        if (!idOeuvreValide(mangaId)) return res.status(400).json({ error: 'mangaId invalide' });
         await pool.query(
             `INSERT INTO favorites (user_id, manga_id, source, title, cover)
              VALUES (?, ?, ?, ?, ?)
@@ -398,10 +412,37 @@ async function deleteList(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// PUT /me/lists/:id/order — réordonne les éléments (audit AMEL-37)
+// `list_items.position` existait en base et était déjà utilisée pour TRIER
+// (ORDER BY position, added_at), mais aucune route ne l'écrivait : elle valait
+// 0 partout, si bien que l'ordre affiché était en réalité l'ordre d'ajout.
+async function reorderList(req, res, next) {
+    try {
+        const ids = Array.isArray(req.body?.mangaIds) ? req.body.mangaIds : null;
+        if (!ids || !ids.length) return res.status(400).json({ error: 'mangaIds requis' });
+
+        const [[list]] = await pool.query('SELECT id FROM lists WHERE id = ? AND user_id = ?',
+            [req.params.id, req.user.id]);
+        if (!list) return res.status(404).json({ error: 'Liste introuvable' });
+
+        // Un seul aller-retour plutôt qu'un UPDATE par ligne : une liste de
+        // cent titres ferait sinon cent requêtes, et un réordonnancement à la
+        // souris en déclenche un à chaque dépôt.
+        const cas = ids.map((_, i) => 'WHEN ? THEN ?').join(' ');
+        const params = [];
+        ids.forEach((id, i) => { params.push(String(id), i); });
+        await pool.query(
+            `UPDATE list_items SET position = CASE manga_id ${cas} ELSE position END
+             WHERE list_id = ? AND manga_id IN (${ids.map(() => '?').join(',')})`,
+            [...params, req.params.id, ...ids.map(String)]);
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
 async function addToList(req, res, next) {
     try {
         const { mangaId, source, title, cover } = req.body;
-        if (!mangaId) return res.status(400).json({ error: 'mangaId requis' });
+        if (!idOeuvreValide(mangaId)) return res.status(400).json({ error: 'mangaId invalide' });
         // Check ownership
         const [[list]] = await pool.query('SELECT id FROM lists WHERE id = ? AND user_id = ?',
             [req.params.id, req.user.id]);
@@ -1000,7 +1041,7 @@ module.exports = {
     getLibrary, setLibraryStatus,
     getAllProgress, setProgress, deleteProgress, getProgressHistory,
     getReadChapters, markChapter, markChaptersBulk,
-    getLists, createList, updateList, deleteList, addToList, removeFromList,
+    getLists, createList, updateList, deleteList, addToList, removeFromList, reorderList,
     getComments, addComment, getRecentComments, reportComment, deleteComment,
     getEvents, getStats,
     getMangaRating, setMangaRating, deleteMangaRating, getMyRatings,

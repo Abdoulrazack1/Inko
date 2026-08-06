@@ -223,3 +223,16 @@
 @media (max-width: 600px) {
   .cd-series-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
 }
+
+/* ── Réordonnancement par glisser-déposer (audit AMEL-37) ──
+   `list_items.position` servait déjà au tri mais n'était jamais écrite :
+   l'ordre affiché était celui de l'ajout, sans moyen de le changer. */
+.cd-serie-card[draggable="true"] { cursor: grab; }
+.cd-serie-card.cd-dragging { opacity: .4; cursor: grabbing; }
+/* Le repère de dépôt est une barre à GAUCHE de la carte visée : c'est là que
+   l'élément va se placer, et une simple surbrillance ne dirait pas de quel
+   côté. */
+.cd-serie-card.cd-drop-before {
+  box-shadow: -3px 0 0 0 var(--accent);
+  border-radius: 2px;
+}

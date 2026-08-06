@@ -61,20 +61,38 @@
                 </div>
             </div>
         </div>`;
-        document.getElementById('cdShare')?.addEventListener('click', () => {
-            // La page collection-detail.html?id= est authentifiée : la copier ne partage
-            // rien d'ouvrable par autrui (audit — bouton « Partager » trompeur). Une liste
-            // n'est réellement visible que sur le profil public de son propriétaire, et
-            // seulement si elle est publique.
+        document.getElementById('cdShare')?.addEventListener('click', async () => {
+            // collection-detail.html?id= est authentifiée : la copier ne partage
+            // rien d'ouvrable par autrui. On renvoyait donc vers le PROFIL du
+            // propriétaire — un lien où la liste n'est qu'une entrée parmi
+            // d'autres, et qui n'ouvre rien du tout si le profil est privé.
+            //
+            // Audit AMEL-36 : liste.html?id= est l'adresse de la liste
+            // elle-même, ouverte à tous, servie par la route publique
+            // /api/lists/:id qui existait déjà sans consommateur.
             if (!list.isPublic) {
                 MH.toast?.('Cette liste est privée. Rends-la publique pour pouvoir la partager.');
                 return;
             }
-            const username = API.user?.username;
-            if (!username) { MH.toast?.('Partage indisponible.'); return; }
-            const url = `${location.origin}/u.html?u=${encodeURIComponent(username)}`;
+            // Le serveur refuse aussi une liste publique quand le PROFIL est
+            // privé — c'est voulu (rendre une liste publique ne doit pas
+            // contourner la confidentialité du compte). Mais sans cet
+            // avertissement, on copie un lien qui affichera « cette liste
+            // n'existe pas » à tout le monde, sans jamais comprendre pourquoi.
+            try {
+                const st = await API.me.settings();
+                if (st?.privacy?.privateProfile) {
+                    const ok = await MH.confirm(
+                        'Ton profil est réglé sur « privé » : le lien affichera « liste introuvable » '
+                        + 'pour les autres, même si la liste est publique.\n\n'
+                        + 'Copier le lien quand même ?',
+                        { okText: 'Copier quand même', cancelText: 'Annuler' });
+                    if (!ok) return;
+                }
+            } catch (e) { /* réglages indisponibles : on n'empêche pas le partage */ }
+            const url = `${location.origin}/liste.html?id=${encodeURIComponent(list.id)}`;
             if (navigator.clipboard) navigator.clipboard.writeText(url)
-                .then(() => MH.toast?.('Lien du profil public copié')).catch(() => MH.toast?.(url));
+                .then(() => MH.toast?.('Lien de partage copié')).catch(() => MH.toast?.(url));
             else MH.toast?.(url);
         });
         document.getElementById('cdDelete')?.addEventListener('click', async () => {
@@ -100,7 +118,7 @@
             <div style="font-size:13px;color:var(--text2);margin-bottom:14px"><strong style="color:var(--text)">${items.length}</strong> série(s)</div>
             <div class="cd-series-grid">
                 ${items.map(m => `
-                <div class="cd-serie-card">
+                <div class="cd-serie-card" draggable="true" data-id="${MH.esc(m.id)}">
                     <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(srcOf(m))}" class="cd-serie-card-cover">
                         ${m.cover ? `<img src="${MH.esc(m.cover)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<div class="cd-serie-card-noimg"></div>'}
                     </a>
@@ -114,6 +132,59 @@
                 </div>`).join('')}
             </div>`;
         el.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => removeItem(b.dataset.remove)));
+        armerReordonnancement(el.querySelector('.cd-series-grid'));
+    }
+
+    // ── Réordonnancement (audit AMEL-37) ─────────────────────
+    // `list_items.position` servait DÉJÀ au tri (ORDER BY position, added_at)
+    // mais aucune route ne l'écrivait : elle valait 0 partout, si bien que
+    // l'ordre affiché était en réalité l'ordre d'ajout, sans moyen de le
+    // changer. On range une liste de lecture par priorité, pas par date.
+    function armerReordonnancement(grille) {
+        if (!grille || grille.dataset.dnd === '1') return;
+        grille.dataset.dnd = '1';
+        let source = null;
+
+        grille.addEventListener('dragstart', (e) => {
+            source = e.target.closest('.cd-serie-card');
+            if (!source) return;
+            source.classList.add('cd-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            // Firefox n'amorce pas le glissement sans données attachées.
+            try { e.dataTransfer.setData('text/plain', source.dataset.id); } catch (err) { /* noop */ }
+        });
+        grille.addEventListener('dragend', () => {
+            source?.classList.remove('cd-dragging');
+            grille.querySelectorAll('.cd-drop-before').forEach(x => x.classList.remove('cd-drop-before'));
+            source = null;
+        });
+        grille.addEventListener('dragover', (e) => {
+            if (!source) return;
+            e.preventDefault();                       // sans ça, le dépôt est refusé
+            const cible = e.target.closest('.cd-serie-card');
+            grille.querySelectorAll('.cd-drop-before').forEach(x => x.classList.remove('cd-drop-before'));
+            if (cible && cible !== source) cible.classList.add('cd-drop-before');
+        });
+        grille.addEventListener('drop', async (e) => {
+            if (!source) return;
+            e.preventDefault();
+            const cible = e.target.closest('.cd-serie-card');
+            grille.querySelectorAll('.cd-drop-before').forEach(x => x.classList.remove('cd-drop-before'));
+            if (!cible || cible === source) return;
+            grille.insertBefore(source, cible);
+
+            const ordre = [...grille.querySelectorAll('.cd-serie-card')].map(c => c.dataset.id);
+            // L'ordre local est réaligné AVANT l'appel : un rendu ultérieur
+            // repartirait sinon de l'ancien tableau et annulerait visuellement
+            // le déplacement qu'on vient de faire.
+            list.items = ordre.map(id => (list.items || []).find(it => String(it.id) === String(id)))
+                .filter(Boolean);
+            try {
+                await API.me.reorderList(list.id, ordre);
+            } catch (err) {
+                MH.toast?.('Ordre non enregistré : ' + err.message);
+            }
+        });
     }
 
     async function removeItem(mangaId) {

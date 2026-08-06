@@ -778,6 +778,60 @@
         if (last) btn.title = 'Reprendre ma dernière lecture (clic droit : choisir)';
     };
 
+    // ── Ajout à une liste depuis une carte (audit AMEL-39) ───
+    // L'ajout n'était possible que depuis la fiche série : constituer une liste
+    // en parcourant le catalogue demandait d'ouvrir chaque titre puis de
+    // revenir. Le geste est délégué ICI (et non dans catalogue.js) pour que
+    // n'importe quelle page affichant des cartes en bénéficie sans y penser.
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-addlist]');
+        if (!btn) return;
+        e.preventDefault(); e.stopPropagation();
+        if (!window.API?.isLoggedIn?.()) { MH.toast('Connecte-toi pour utiliser les listes'); return; }
+
+        let listes = [];
+        try { listes = await API.me.lists(); } catch (err) { MH.toast('Listes indisponibles'); return; }
+
+        const meta = {
+            source: btn.dataset.src || undefined,
+            title:  btn.dataset.title || undefined,
+            cover:  btn.dataset.cover || undefined,
+        };
+        const id = btn.dataset.addlist;
+
+        // Aucune liste : on propose d'en créer une plutôt que d'annoncer un
+        // vide — c'est le premier usage, et il ne doit pas être un cul-de-sac.
+        if (!listes.length) {
+            const nom = await MH.prompt('Tu n’as pas encore de liste. Nom de la première ?',
+                { placeholder: 'ex. À lire', okText: 'Créer et ajouter' });
+            if (!nom || !nom.trim()) return;
+            try {
+                const l = await API.me.createList({ name: nom.trim() });
+                await API.me.addToList(l.id, id, meta);
+                MH.toast(`Ajouté à « ${nom.trim()} »`);
+            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            return;
+        }
+
+        const choix = await MH.prompt(`Ajouter « ${btn.dataset.title || id} » à une liste`, {
+            message: listes.map((l, i) => `${i + 1}. ${l.name}`).join('\n') + `\n${listes.length + 1}. Nouvelle liste…`,
+            value: '1', okText: 'Ajouter',
+        });
+        const n = parseInt(choix, 10);
+        if (!(n >= 1 && n <= listes.length + 1)) return;
+
+        try {
+            let cible = listes[n - 1];
+            if (n === listes.length + 1) {
+                const nom = await MH.prompt('Nom de la nouvelle liste', { placeholder: 'ex. Pépites', okText: 'Créer' });
+                if (!nom || !nom.trim()) return;
+                cible = await API.me.createList({ name: nom.trim() });
+            }
+            await API.me.addToList(cible.id, id, meta);
+            MH.toast(`Ajouté à « ${cible.name} »`);
+        } catch (err) { MH.toast('Erreur : ' + err.message); }
+    });
+
     // ── Choix parmi les lectures récentes (audit AMEL-30) ────
     // Les entrées sont enrichies en parallèle avec leur titre : un menu qui
     // n'afficherait que des identifiants n'aiderait pas à choisir.

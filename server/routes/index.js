@@ -146,6 +146,9 @@ router.put   ('/me/lists/:id',            auth.authRequired, User.updateList);
 router.delete('/me/lists/:id',            auth.authRequired, User.deleteList);
 router.post  ('/me/lists/:id/items',                auth.authRequired, User.addToList);
 router.delete('/me/lists/:id/items/:mangaId',       auth.authRequired, User.removeFromList);
+// Audit AMEL-37 : `list_items.position` servait deja au tri mais n'etait
+// ecrite nulle part — l'ordre affiche etait donc l'ordre d'ajout.
+router.put   ('/me/lists/:id/order',                auth.authRequired, User.reorderList);
 
 // Audit SEC-04 : cette route était la SEULE du groupe sans middleware d'auth.
 // Un visiteur anonyme obtenait un flux en direct de « qui lit quoi » — texte du

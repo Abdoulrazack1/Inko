@@ -507,6 +507,8 @@
                 cover:  meta.cover  || null,
             }),
             removeFromList:   (id, mangaId)=> del(`/me/lists/${id}/items/${encodeURIComponent(mangaId)}`),
+            // Audit AMEL-37 : ordre persisté des éléments d'une liste.
+            reorderList:      (id, mangaIds)=> put(`/me/lists/${id}/order`, { mangaIds }),
 
             events:           (limit=200)  => get('/me/events?limit=' + limit),
             stats:            ()           => get('/me/stats'),
