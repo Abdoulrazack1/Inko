@@ -775,7 +775,77 @@
         if (!btn) return;
         const last = await window.MH.lastReadTarget();
         btn.style.display = last ? '' : 'none';
+        if (last) btn.title = 'Reprendre ma dernière lecture (clic droit : choisir)';
     };
+
+    // ── Choix parmi les lectures récentes (audit AMEL-30) ────
+    // Les entrées sont enrichies en parallèle avec leur titre : un menu qui
+    // n'afficherait que des identifiants n'aiderait pas à choisir.
+    function fermerMenuReprise() { document.getElementById('mhContinueMenu')?.remove(); }
+
+    async function ouvrirMenuReprise(btn) {
+        fermerMenuReprise();
+        if (!window.API?.isLoggedIn?.()) { MH.toast('Connecte-toi pour retrouver tes lectures'); return; }
+        let entrees = [];
+        try {
+            const progress = await API.me.progress();
+            entrees = Object.entries(progress)
+                .map(([id, p]) => ({ mangaId: id, ...p }))
+                .filter(e => e.chapterId)
+                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                .slice(0, 6);
+        } catch (e) { MH.toast('Lectures récentes indisponibles'); return; }
+        if (!entrees.length) { MH.toast('Aucune lecture en cours pour le moment'); return; }
+
+        const fiches = await Promise.allSettled(
+            entrees.map(e => API.mangas.getFrom(e.source, e.mangaId)));
+
+        // Repli sur le miroir local de la bibliothèque quand la source ne
+        // répond pas : afficher « 01J76XYD7E91K8QP6CY0Y53900 » dans un menu de
+        // reprise n'aide personne à choisir, alors que le titre est déjà connu
+        // hors-ligne.
+        let cache = [];
+        try { cache = window.Storage?.getCachedLibrary?.()?.favs || []; } catch (e) { cache = []; }
+        const titreDeSecours = (id) => cache.find(f => String(f.mangaId) === String(id));
+
+        const menu = document.createElement('div');
+        menu.id = 'mhContinueMenu';
+        menu.className = 'mh-continue-menu';
+        menu.setAttribute('role', 'menu');
+        menu.innerHTML = entrees.map((e, i) => {
+            const m = fiches[i].status === 'fulfilled' ? fiches[i].value : null;
+            const secours = m ? null : titreDeSecours(e.mangaId);
+            const titre = m?.title || secours?.title || e.mangaId;
+            const unite = MH.unitLabel(e.source, { short: true });
+            return `<a role="menuitem" class="mh-cm-item" href="${MH.readerHref(e.mangaId, e.chapterId, e.source)}">
+                <img src="${MH.cover(m?.coverThumb, m?.cover, secours?.cover, MH.placeholderCover(e.mangaId))}" alt="" loading="lazy">
+                <span class="mh-cm-txt">
+                    <span class="mh-cm-title">${MH.esc(titre)}</span>
+                    <span class="mh-cm-sub">${unite} ${MH.chapNum(e.chapter)} · ${MH.relTime(e.updatedAt)}</span>
+                </span>
+            </a>`;
+        }).join('');
+
+        const r = btn.getBoundingClientRect();
+        menu.style.top  = (r.bottom + 8) + 'px';
+        // Aligné à droite du bouton, borné à la fenêtre : près du bord droit,
+        // un menu ancré à gauche déborderait hors de l'écran.
+        menu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+        document.body.appendChild(menu);
+
+        // Fermeture au clic extérieur ou à Échap — enregistrées APRÈS coup pour
+        // que le clic qui vient d'ouvrir le menu ne le referme pas aussitôt.
+        setTimeout(() => {
+            const dehors = (ev) => { if (!ev.target.closest('#mhContinueMenu')) { fermerMenuReprise(); nettoyer(); } };
+            const echap  = (ev) => { if (ev.key === 'Escape') { fermerMenuReprise(); nettoyer(); } };
+            const nettoyer = () => {
+                document.removeEventListener('click', dehors);
+                document.removeEventListener('keydown', echap);
+            };
+            document.addEventListener('click', dehors);
+            document.addEventListener('keydown', echap);
+        }, 0);
+    }
 
     /* ── Header HTML ─────────────────────────────────────── */
     const headerHTML = (activePage) => {
@@ -1345,15 +1415,35 @@
             window.MH.checkUpdates({ force: true });
         });
 
-        // Bouton « Continuer » : reprend la dernière lecture en cours
+        // Bouton « Continuer » (audit AMEL-30) : il n'ouvrait QUE la dernière
+        // série lue. Or on lit souvent plusieurs séries en parallèle, et la
+        // dernière ouverte n'est pas forcément celle qu'on veut reprendre —
+        // parfois on l'a juste effleurée. Clic simple : la dernière, comme
+        // avant. Clic maintenu ou clic droit : le choix parmi les récentes.
         document.addEventListener('click', async e => {
             const btn = e.target.closest('#btnContinue');
             if (!btn) return;
             e.preventDefault();
+            if (document.getElementById('mhContinueMenu')) { fermerMenuReprise(); return; }
             const last = await window.MH.lastReadTarget();
             if (last) window.location.href = last.href;
             else MH.toast('Aucune lecture en cours pour le moment');
         });
+        document.addEventListener('contextmenu', async e => {
+            const btn = e.target.closest('#btnContinue');
+            if (!btn) return;
+            e.preventDefault();
+            ouvrirMenuReprise(btn);
+        });
+        // Appui long au toucher : même geste, là où le clic droit n'existe pas.
+        let appuiLong = null;
+        document.addEventListener('touchstart', (e) => {
+            const btn = e.target.closest('#btnContinue');
+            if (!btn) return;
+            appuiLong = setTimeout(() => ouvrirMenuReprise(btn), 480);
+        }, { passive: true });
+        ['touchend', 'touchmove', 'touchcancel'].forEach(ev =>
+            document.addEventListener(ev, () => clearTimeout(appuiLong), { passive: true }));
 
         // Bouton incognito (lecture privée)
         document.addEventListener('click', e => {

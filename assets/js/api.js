@@ -461,10 +461,17 @@
 
             progress:         ()           => get('/me/progress'),
             // keepalive : survivent à une navigation immédiate (audit N52/N53)
+            // `clientAt` : instant où la lecture a REELLEMENT eu lieu (audit
+            // AMEL-29). Sans lui, une écriture rejouée depuis la file hors-ligne
+            // arriverait horodatée à son envoi et écraserait une lecture plus
+            // récente faite entre-temps sur un autre appareil.
             setProgress:      (mangaId, payload) =>
                 request('PUT', '/me/progress/' + encodeURIComponent(mangaId),
-                    { source: API.sources.current, ...payload }, { keepalive: true }),
+                    { source: API.sources.current, clientAt: new Date().toISOString(), ...payload },
+                    { keepalive: true }),
             removeProgress:   (mangaId)    => del('/me/progress/' + encodeURIComponent(mangaId)),
+            // Audit AMEL-28 : positions precedentes d'une serie.
+            progressHistory:  (mangaId)    => get('/me/progress/' + encodeURIComponent(mangaId) + '/history'),
 
             readChapters:     ()           => get('/me/read-chapters'),
             markChapter:      (payload)    => request('POST', '/me/read-chapters', payload, { keepalive: true }),

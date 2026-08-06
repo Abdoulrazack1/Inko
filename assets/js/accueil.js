@@ -508,6 +508,11 @@
                             <div class="resume-progress"><div class="resume-progress-fill" style="width:${pct}%"></div></div>
                         </div>
                     </a>
+                    <!-- Audit AMEL-28 : ouvrir par erreur un vieux chapitre
+                         écrasait la position, sans retour possible. -->
+                    <button class="resume-history" data-histo="${MH.esc(m.id)}" data-src="${MH.esc(e.source || '')}"
+                        title="Reprendre à une position précédente"
+                        style="background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;flex-shrink:0">↺</button>
                     <button class="resume-remove" data-remove="${MH.esc(m.id)}" title="Retirer de la liste"
                         style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:6px;flex-shrink:0">✕</button>
                 </div>`;
@@ -527,6 +532,33 @@
                             el.innerHTML = `<div style="color:var(--text3);padding:14px;font-size:13px">Aucune lecture en cours. <a href="catalogue.html" class="link-orange">Découvrir →</a></div>`;
                         }
                     } catch (e2) { MH.toast('Erreur : ' + e2.message); }
+                });
+            });
+
+            // Audit AMEL-28 : reprendre à une position précédente.
+            el.querySelectorAll('[data-histo]').forEach(btn => {
+                btn.addEventListener('click', async (ev) => {
+                    ev.preventDefault(); ev.stopPropagation();
+                    const id = btn.dataset.histo;
+                    let histo = [];
+                    try { histo = await API.me.progressHistory(id); }
+                    catch (e2) { MH.toast('Historique indisponible'); return; }
+                    // La position courante est en tête de l'historique : la
+                    // proposer reviendrait à « reprendre là où je suis déjà ».
+                    const precedentes = histo.slice(1);
+                    if (!precedentes.length) {
+                        MH.toast('Aucune position précédente enregistrée pour cette série');
+                        return;
+                    }
+                    const unite = MH.unitLabel(btn.dataset.src, { short: true });
+                    const choix = await MH.prompt(
+                        'Position à reprendre :\n' + precedentes.slice(0, 8).map((h, i) =>
+                            `${i + 1}. ${unite} ${MH.chapNum(h.chapter)} · page ${h.page} (${MH.relTime(h.at)})`).join('\n'),
+                        { value: '1', okText: 'Reprendre' });
+                    const n = parseInt(choix, 10);
+                    if (!(n >= 1 && n <= Math.min(8, precedentes.length))) return;
+                    const h = precedentes[n - 1];
+                    window.location.href = MH.readerHref(id, h.chapterId, h.source || btn.dataset.src);
                 });
             });
         } catch(err) {

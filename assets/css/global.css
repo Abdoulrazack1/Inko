@@ -1009,3 +1009,30 @@ a[data-nsfw] .manga-card-cover::after,
   transition: top 0.15s ease;
 }
 .skip-link:focus { top: 12px; }
+
+/* ── Menu « reprendre » multi-séries (audit AMEL-30) ──
+   Le bouton d'en-tête n'ouvrait que la dernière lecture ; on lit souvent
+   plusieurs séries en parallèle. */
+.mh-continue-menu {
+  position: fixed; z-index: 9500;
+  width: min(310px, calc(100vw - 16px));
+  padding: 6px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--radius); box-shadow: var(--shadow-3);
+}
+.mh-cm-item {
+  display: flex; gap: 10px; align-items: center;
+  padding: 7px 8px; border-radius: var(--radius2);
+  color: inherit; text-decoration: none;
+}
+.mh-cm-item:hover, .mh-cm-item:focus-visible { background: var(--bg3); }
+.mh-cm-item img {
+  width: 34px; height: 46px; flex: 0 0 auto;
+  object-fit: cover; border-radius: 5px; background: var(--bg4);
+}
+.mh-cm-txt { min-width: 0; }
+.mh-cm-title {
+  display: block; font-size: 12.5px; font-weight: 600; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mh-cm-sub { display: block; font-size: 11px; color: var(--text3); margin-top: 2px; }

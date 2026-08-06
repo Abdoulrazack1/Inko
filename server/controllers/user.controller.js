@@ -174,20 +174,96 @@ async function setProgress(req, res, next) {
         // chapitre pour que le profil calcule un % exact au lieu de deviner 20.
         const tp = Number.isFinite(parseInt(totalPages, 10)) && parseInt(totalPages, 10) > 0
             ? parseInt(totalPages, 10) : null;
+        // Audit AMEL-29 : le dernier écrivain gagnait, sans comparaison de
+        // dates. Deux appareils qui lisent la même série — un téléphone hors
+        // ligne qui rejoue sa file au retour du réseau, une tablette restée
+        // ouverte — pouvaient donc faire RECULER la progression : l'écriture
+        // arrivée en dernier écrasait la plus avancée.
+        //
+        // `updated_at` sert d'arbitre. `clientAt` est la date à laquelle le
+        // client a réellement lu ; sans elle on retombe sur l'heure du serveur,
+        // ce qui reste le comportement d'avant.
+        //
+        // La comparaison est faite DANS le UPDATE, pas en JS : deux requêtes
+        // concurrentes sur la même ligne s'entrelaceraient entre le SELECT et
+        // l'UPDATE, et on retomberait sur le défaut qu'on corrige.
+        const clientAt = Number.isFinite(Date.parse(req.body.clientAt || ''))
+            ? new Date(req.body.clientAt) : null;
         await pool.query(
-            `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, total_pages, source)
-             VALUES (?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, total_pages, source, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
              ON DUPLICATE KEY UPDATE
-                chapter_id     = VALUES(chapter_id),
-                chapter_number = VALUES(chapter_number),
-                page           = VALUES(page),
-                total_pages    = VALUES(total_pages),
-                source         = COALESCE(VALUES(source), source)`,
-            [req.user.id, mangaId, chapterId || null, chapter || null, page || 1, tp, source || null]
+                chapter_id     = IF(VALUES(updated_at) >= updated_at, VALUES(chapter_id),     chapter_id),
+                chapter_number = IF(VALUES(updated_at) >= updated_at, VALUES(chapter_number), chapter_number),
+                page           = IF(VALUES(updated_at) >= updated_at, VALUES(page),           page),
+                total_pages    = IF(VALUES(updated_at) >= updated_at, VALUES(total_pages),    total_pages),
+                source         = IF(VALUES(updated_at) >= updated_at, COALESCE(VALUES(source), source), source),
+                updated_at     = GREATEST(updated_at, VALUES(updated_at))`,
+            [req.user.id, mangaId, chapterId || null, chapter || null, page || 1, tp, source || null, clientAt]
         );
+        await enregistrerHistorique(req.user.id, mangaId, chapterId, chapter, page, source);
         await pushEvent(req.user.id, 'read',
             { mangaId, chapterId, metadata: { chapter, page } });
         res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+// ── Historique de progression (audit AMEL-28) ────────────────
+// `progress` ne garde qu'une ligne par (compte, série) : ouvrir par erreur le
+// chapitre 1 d'une série lue au chapitre 300 écrasait définitivement la
+// position. On conserve une trace, mais UNIQUEMENT aux changements de chapitre
+// — enregistrer chaque page tournée produirait des milliers de lignes par série
+// sans rien apporter : ce qu'on veut retrouver, c'est « j'étais au chapitre
+// 300 », pas « page 14 ».
+const HISTO_MAX = 20;
+
+async function enregistrerHistorique(userId, mangaId, chapterId, chapter, page, source) {
+    if (!chapterId) return;
+    try {
+        const [[dernier]] = await pool.query(
+            `SELECT chapter_id FROM progress_history
+             WHERE user_id = ? AND manga_id = ? ORDER BY recorded_at DESC, id DESC LIMIT 1`,
+            [userId, mangaId]);
+        if (dernier && dernier.chapter_id === chapterId) return;   // même chapitre : rien à noter
+
+        await pool.query(
+            `INSERT INTO progress_history (user_id, manga_id, chapter_id, chapter_number, page, source)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [userId, mangaId, chapterId, chapter || null, page || 1, source || null]);
+
+        // Purge bornée : sans elle, une longue série accumulerait indéfiniment.
+        // On garde les 20 dernières positions, ce qui couvre largement le
+        // « je viens de perdre ma place » sans devenir un journal de lecture.
+        await pool.query(
+            `DELETE FROM progress_history
+             WHERE user_id = ? AND manga_id = ?
+               AND id NOT IN (
+                   SELECT id FROM (
+                       SELECT id FROM progress_history
+                       WHERE user_id = ? AND manga_id = ?
+                       ORDER BY recorded_at DESC, id DESC LIMIT ?
+                   ) AS derniers
+               )`,
+            [userId, mangaId, userId, mangaId, HISTO_MAX]);
+    } catch (e) {
+        // L'historique est un filet de sécurité, pas une donnée critique : son
+        // échec ne doit jamais empêcher d'enregistrer la progression elle-même.
+        console.warn('[progress] historique non enregistré :', e.code || e.message);
+    }
+}
+
+// GET /api/me/progress/:mangaId/history — positions précédentes
+async function getProgressHistory(req, res, next) {
+    try {
+        const [rows] = await pool.query(
+            `SELECT chapter_id, chapter_number, page, source, recorded_at
+             FROM progress_history WHERE user_id = ? AND manga_id = ?
+             ORDER BY recorded_at DESC, id DESC LIMIT ?`,
+            [req.user.id, req.params.mangaId, HISTO_MAX]);
+        res.json(rows.map(r => ({
+            chapterId: r.chapter_id, chapter: r.chapter_number,
+            page: r.page, source: r.source, at: r.recorded_at,
+        })));
     } catch (e) { next(e); }
 }
 
@@ -922,7 +998,7 @@ module.exports = {
     getFavorites, addFavorite, removeFavorite, setFavoriteCategory,
     getAnilistLinks, setAnilistLinks,
     getLibrary, setLibraryStatus,
-    getAllProgress, setProgress, deleteProgress,
+    getAllProgress, setProgress, deleteProgress, getProgressHistory,
     getReadChapters, markChapter, markChaptersBulk,
     getLists, createList, updateList, deleteList, addToList, removeFromList,
     getComments, addComment, getRecentComments, reportComment, deleteComment,

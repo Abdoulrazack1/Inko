@@ -129,6 +129,28 @@ const MIGRATIONS = [
             await run('ALTER TABLE local_imports ADD COLUMN cover MEDIUMTEXT DEFAULT NULL');
         }
     } },
+    { version: 9, name: 'progress_history — positions précédentes (audit AMEL-28)', apply: async () => {
+        // `progress` ne garde qu'UNE ligne par (compte, série) : ouvrir par
+        // erreur le chapitre 1 d'une série qu'on lisait au chapitre 300 écrasait
+        // définitivement la position, sans aucun moyen de revenir en arrière.
+        //
+        // On garde donc une trace des positions, mais SEULEMENT aux changements
+        // de chapitre : enregistrer chaque page tournée produirait des milliers
+        // de lignes par série pour aucune information utile — ce qu'on veut
+        // retrouver, c'est « j'étais au chapitre 300 », pas « page 14 ».
+        await run(`CREATE TABLE IF NOT EXISTS progress_history (
+            id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+            user_id     INT NOT NULL,
+            manga_id    VARCHAR(191) NOT NULL,
+            chapter_id  VARCHAR(191) DEFAULT NULL,
+            chapter_number DECIMAL(10,2) DEFAULT NULL,
+            page        INT DEFAULT 1,
+            source      VARCHAR(64) DEFAULT NULL,
+            recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_user_manga (user_id, manga_id, recorded_at),
+            CONSTRAINT fk_ph_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB`);
+    } },
 ];
 
 // ── Migration 7 : fusionner `library` dans `favorites` (audit DB-02) ──

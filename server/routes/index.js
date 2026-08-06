@@ -132,6 +132,9 @@ router.put   ('/me/library/:mangaId',     auth.authRequired, User.setLibraryStat
 router.get   ('/me/progress',             auth.authRequired, User.getAllProgress);
 router.put   ('/me/progress/:mangaId',    auth.authRequired, User.setProgress);
 router.delete('/me/progress/:mangaId',    auth.authRequired, User.deleteProgress);
+// Audit AMEL-28 : positions precedentes, pour recuperer une place ecrasee par
+// une ouverture accidentelle.
+router.get   ('/me/progress/:mangaId/history', auth.authRequired, User.getProgressHistory);
 
 router.get   ('/me/read-chapters',        auth.authRequired, User.getReadChapters);
 router.post  ('/me/read-chapters',        auth.authRequired, User.markChapter);
