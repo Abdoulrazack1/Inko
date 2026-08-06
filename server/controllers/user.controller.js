@@ -372,10 +372,58 @@ async function unmarkChaptersBulk(req, res, next) {
 // ──────────────────────────────────────────────────────────────
 // LISTS
 // ──────────────────────────────────────────────────────────────
+// ── Listes intelligentes (audit AMEL-38) ────────────────────
+// Les filtres de la bibliothèque calculaient déjà « statut X + genre Y », mais
+// ce calcul était jetable : impossible de le figer, de le nommer, d'y revenir.
+// Une liste intelligente n'a pas de membres — elle a des RÈGLES, et son contenu
+// se recalcule à chaque lecture. Elle ne se périme donc jamais.
+//
+// Les règles portent sur ce que la BASE connaît (statut, catégorie, note,
+// source), et pas sur les genres : ceux-ci vivent chez les sources distantes,
+// et les évaluer imposerait autant de scrapes que de séries à chaque
+// affichage. La restriction est explicite plutôt que subie.
+const REGLES_STATUT = new Set(['reading', 'completed', 'planned', 'paused', 'dropped']);
+
+function lireRegles(brut) {
+    if (!brut) return null;
+    let r;
+    try { r = typeof brut === 'string' ? JSON.parse(brut) : brut; } catch (e) { return null; }
+    if (!r || typeof r !== 'object') return null;
+    const out = {};
+    if (Array.isArray(r.status)) out.status = r.status.filter(s => REGLES_STATUT.has(s));
+    if (typeof r.category === 'string' && r.category.trim()) out.category = r.category.trim().slice(0, 64);
+    if (typeof r.source === 'string' && r.source.trim()) out.source = r.source.trim().slice(0, 64);
+    if (Number.isFinite(+r.minRating) && +r.minRating >= 1 && +r.minRating <= 5) out.minRating = +r.minRating;
+    return Object.keys(out).length ? out : null;
+}
+
+async function itemsDeRegles(userId, regles) {
+    const where = ['f.user_id = ?'];
+    const params = [userId];
+    if (regles.status?.length) {
+        where.push(`f.status IN (${regles.status.map(() => '?').join(',')})`);
+        params.push(...regles.status);
+    }
+    if (regles.category) { where.push('f.category = ?'); params.push(regles.category); }
+    if (regles.source)   { where.push('f.source = ?');   params.push(regles.source); }
+    let jointure = '';
+    if (regles.minRating) {
+        jointure = 'JOIN ratings r ON r.user_id = f.user_id AND r.manga_id = f.manga_id';
+        where.push('r.rating >= ?');
+        params.push(regles.minRating);
+    }
+    const [rows] = await pool.query(
+        `SELECT f.manga_id, f.source, f.title, f.cover
+         FROM favorites f ${jointure}
+         WHERE ${where.join(' AND ')}
+         ORDER BY f.added_at DESC LIMIT 500`, params);
+    return rows.map(r => ({ id: r.manga_id, source: r.source, title: r.title, cover: r.cover }));
+}
+
 async function getLists(req, res, next) {
     try {
         const [lists] = await pool.query(
-            'SELECT id, name, description, is_public, created_at FROM lists WHERE user_id = ? ORDER BY created_at DESC',
+            'SELECT id, name, description, is_public, rules, created_at FROM lists WHERE user_id = ? ORDER BY created_at DESC',
             [req.user.id]
         );
         if (!lists.length) return res.json([]);
@@ -389,36 +437,54 @@ async function getLists(req, res, next) {
             byList[it.list_id] = byList[it.list_id] || [];
             byList[it.list_id].push({ id: it.manga_id, source: it.source, title: it.title, cover: it.cover });
         });
-        res.json(lists.map(l => ({
-            id: l.id, name: l.name, description: l.description,
-            isPublic: !!l.is_public, createdAt: l.created_at,
-            items: byList[l.id] || [],
-            mangaIds: (byList[l.id] || []).map(it => it.id),
-        })));
+
+        const sortie = [];
+        for (const l of lists) {
+            const regles = lireRegles(l.rules);
+            const contenu = regles ? await itemsDeRegles(req.user.id, regles) : (byList[l.id] || []);
+            sortie.push({
+                id: l.id, name: l.name, description: l.description,
+                isPublic: !!l.is_public, createdAt: l.created_at,
+                rules: regles || null, smart: !!regles,
+                items: contenu,
+                mangaIds: contenu.map(it => it.id),
+            });
+        }
+        res.json(sortie);
     } catch (e) { next(e); }
 }
 
 async function createList(req, res, next) {
     try {
-        const { name, description, isPublic } = req.body;
+        const { name, description, isPublic, rules } = req.body;
         if (!name || name.trim().length < 1)
             return res.status(400).json({ error: 'Nom requis' });
+        // Audit AMEL-38 : les regles sont NORMALISEES avant stockage. On
+        // n'enregistre que ce qu'on sait evaluer — un critere inconnu serait
+        // accepte, affiche, et ne filtrerait rien.
+        const regles = lireRegles(rules);
         const [r] = await pool.query(
-            'INSERT INTO lists (user_id, name, description, is_public) VALUES (?, ?, ?, ?)',
-            [req.user.id, name.trim(), description || null, !!isPublic]
+            'INSERT INTO lists (user_id, name, description, is_public, rules) VALUES (?, ?, ?, ?, ?)',
+            [req.user.id, name.trim(), description || null, !!isPublic, regles ? JSON.stringify(regles) : null]
         );
-        res.json({ id: r.insertId, name: name.trim(), mangaIds: [] });
+        res.json({ id: r.insertId, name: name.trim(), smart: !!regles, mangaIds: [] });
     } catch (e) { next(e); }
 }
 
 async function updateList(req, res, next) {
     try {
-        const { name, description, isPublic } = req.body;
+        const { name, description, isPublic, rules } = req.body;
         const fields = [];
         const params = [];
         if (name)        { fields.push('name = ?');        params.push(name.trim()); }
         if (description !== undefined) { fields.push('description = ?'); params.push(description); }
         if (isPublic !== undefined) { fields.push('is_public = ?'); params.push(!!isPublic); }
+        // `rules: null` retire les regles et rend la liste ordinaire ; absent,
+        // le champ n'est pas touche (audit AMEL-38).
+        if (rules !== undefined) {
+            const regles = lireRegles(rules);
+            fields.push('rules = ?'); params.push(regles ? JSON.stringify(regles) : null);
+        }
         if (!fields.length) return res.json({ ok: true });
         params.push(req.params.id, req.user.id);
         await pool.query(`UPDATE lists SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`, params);

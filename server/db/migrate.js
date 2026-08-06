@@ -152,6 +152,15 @@ const MIGRATIONS = [
         ) ENGINE=InnoDB`);
     } },
     { version: 10, name: 'bookmarks sort du blob de réglages (audit AMEL-41)', apply: bookmarksTable },
+    { version: 11, name: 'lists.rules — listes intelligentes (audit AMEL-38)', apply: async () => {
+        // Une liste intelligente n'a pas de membres : elle a des RÈGLES, et son
+        // contenu se recalcule à chaque lecture. C'est ce qui la distingue
+        // d'une liste ordinaire — et ce qui évite d'avoir à la tenir à jour
+        // quand la bibliothèque change.
+        if (!(await columnExists('lists', 'rules'))) {
+            await run('ALTER TABLE lists ADD COLUMN rules TEXT DEFAULT NULL');
+        }
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──
