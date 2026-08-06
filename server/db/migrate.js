@@ -151,7 +151,72 @@ const MIGRATIONS = [
             CONSTRAINT fk_ph_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB`);
     } },
+    { version: 10, name: 'bookmarks sort du blob de réglages (audit AMEL-41)', apply: bookmarksTable },
 ];
+
+// ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──
+// Même défaut que `anilistLinks` (traité en PERF-09) : jusqu'à 200 signets,
+// chacun avec titre et URL de couverture, vivaient dans `user_settings.data` —
+// un blob JSON rechargé À CHAQUE PAGE et réécrit en entier au moindre ajout.
+// Un signet n'a rien d'une préférence : c'est une donnée qui croît, se liste,
+// se trie et se supprime à l'unité.
+async function bookmarksTable() {
+    await run(`CREATE TABLE IF NOT EXISTS bookmarks (
+        user_id     INT NOT NULL,
+        manga_id    VARCHAR(191) NOT NULL,
+        chapter_id  VARCHAR(191) NOT NULL,
+        source      VARCHAR(64)  DEFAULT NULL,
+        title       VARCHAR(512) DEFAULT NULL,
+        cover       VARCHAR(512) DEFAULT NULL,
+        chapter_num DECIMAL(10,2) DEFAULT NULL,
+        page        INT DEFAULT 1,
+        label       VARCHAR(255) DEFAULT NULL,
+        created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, manga_id, chapter_id),
+        INDEX idx_user_date (user_id, created_at),
+        CONSTRAINT fk_bm_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB`);
+
+    // Reprise des signets déjà posés, puis retrait du blob.
+    let rows;
+    try {
+        [rows] = await pool.query(
+            `SELECT user_id, data FROM user_settings
+             WHERE JSON_EXTRACT(data, '$.userdata.bookmarks') IS NOT NULL`);
+    } catch (e) { return; }   // colonne JSON absente : rien à migrer
+
+    for (const r of rows) {
+        const d = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+        const liste = d?.userdata?.bookmarks || [];
+        const valides = liste
+            .filter(b => b && b.mangaId && b.chapterId)
+            .map(b => [r.user_id, String(b.mangaId).slice(0, 191), String(b.chapterId).slice(0, 191),
+                b.source || null, (b.title || '').slice(0, 512) || null, (b.cover || '').slice(0, 512) || null,
+                Number.isFinite(+b.chapterNum) ? +b.chapterNum : null,
+                Number.isFinite(+b.page) ? +b.page : 1,
+                (b.label || '').slice(0, 255) || null,
+                b.at ? new Date(b.at) : new Date()]);
+        if (valides.length) {
+            for (let i = 0; i < valides.length; i += 500) {
+                await pool.query(
+                    `INSERT INTO bookmarks
+                     (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label, created_at)
+                     VALUES ? ON DUPLICATE KEY UPDATE page = VALUES(page), label = VALUES(label)`,
+                    [valides.slice(i, i + 500)]);
+            }
+        }
+        // Le blob n'est allégé QU'APRÈS insertion réussie : en cas d'échec on
+        // préfère des signets en double aux deux endroits plutôt que perdus.
+        if (d?.userdata) {
+            delete d.userdata.bookmarks;
+            await pool.query('UPDATE user_settings SET data = ? WHERE user_id = ?',
+                [JSON.stringify(d), r.user_id]);
+        }
+        if (valides.length) {
+            console.log(`[migrate] user ${r.user_id} : ${valides.length} signet(s) sortis des réglages`);
+        }
+    }
+}
 
 // ── Migration 7 : fusionner `library` dans `favorites` (audit DB-02) ──
 // Les deux tables avaient EXACTEMENT la même clé primaire (user_id, manga_id).

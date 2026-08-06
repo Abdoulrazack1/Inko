@@ -347,6 +347,28 @@ async function markChaptersBulk(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// POST /me/read-chapters/unmark-bulk — annulation d'un marquage (audit AMEL-40)
+// « Marquer tout comme lu » touche des centaines de chapitres d'un coup et
+// n'avait AUCUN retour arrière : un clic malheureux effaçait la frontière entre
+// lu et non lu, qui est la donnée la plus longue à reconstituer.
+// Le démarquage un par un existait, mais 1 183 requêtes pour annuler un geste
+// unique n'est pas une annulation.
+async function unmarkChaptersBulk(req, res, next) {
+    try {
+        const { mangaId, chapterIds } = req.body || {};
+        if (!mangaId || !Array.isArray(chapterIds) || !chapterIds.length) {
+            return res.status(400).json({ error: 'mangaId et chapterIds[] requis' });
+        }
+        const ids = chapterIds.filter(c => typeof c === 'string' && c).slice(0, 5000);
+        if (!ids.length) return res.json({ ok: true, count: 0 });
+        const [r] = await pool.query(
+            `DELETE FROM read_chapters
+             WHERE user_id = ? AND manga_id = ? AND chapter_id IN (${ids.map(() => '?').join(',')})`,
+            [req.user.id, mangaId, ...ids]);
+        res.json({ ok: true, count: r.affectedRows });
+    } catch (e) { next(e); }
+}
+
 // ──────────────────────────────────────────────────────────────
 // LISTS
 // ──────────────────────────────────────────────────────────────
@@ -408,6 +430,55 @@ async function deleteList(req, res, next) {
     try {
         await pool.query('DELETE FROM lists WHERE id = ? AND user_id = ?',
             [req.params.id, req.user.id]);
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+// ──────────────────────────────────────────────────────────────
+// SIGNETS (audit AMEL-41)
+// ──────────────────────────────────────────────────────────────
+// Ils vivaient dans `user_settings.data.userdata.bookmarks` : un blob JSON
+// rechargé à chaque page et réécrit EN ENTIER au moindre ajout. Un signet n'est
+// pas une préférence — c'est une donnée qui croît, se liste et se supprime à
+// l'unité. Le plafond arbitraire de 200 disparaît avec le blob.
+async function getBookmarks(req, res, next) {
+    try {
+        const [rows] = await pool.query(
+            `SELECT manga_id, chapter_id, source, title, cover, chapter_num, page, label, created_at
+             FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC`, [req.user.id]);
+        res.json(rows.map(r => ({
+            mangaId: r.manga_id, chapterId: r.chapter_id, source: r.source,
+            title: r.title, cover: r.cover, chapterNum: r.chapter_num,
+            page: r.page, label: r.label, at: new Date(r.created_at).getTime(),
+        })));
+    } catch (e) { next(e); }
+}
+
+async function addBookmark(req, res, next) {
+    try {
+        const { mangaId, chapterId, source, title, cover, chapterNum, page, label } = req.body || {};
+        if (!idOeuvreValide(mangaId) || !idOeuvreValide(chapterId)) {
+            return res.status(400).json({ error: 'mangaId et chapterId requis' });
+        }
+        await pool.query(
+            `INSERT INTO bookmarks
+             (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                source = VALUES(source), title = VALUES(title), cover = VALUES(cover),
+                chapter_num = VALUES(chapter_num), page = VALUES(page), label = VALUES(label),
+                created_at = CURRENT_TIMESTAMP`,
+            [req.user.id, mangaId, chapterId, source || null, title || null, cover || null,
+                Number.isFinite(+chapterNum) ? +chapterNum : null,
+                Number.isFinite(+page) ? +page : 1, label || null]);
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+async function removeBookmark(req, res, next) {
+    try {
+        await pool.query('DELETE FROM bookmarks WHERE user_id = ? AND manga_id = ? AND chapter_id = ?',
+            [req.user.id, req.params.mangaId, req.params.chapterId]);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -1040,8 +1111,9 @@ module.exports = {
     getAnilistLinks, setAnilistLinks,
     getLibrary, setLibraryStatus,
     getAllProgress, setProgress, deleteProgress, getProgressHistory,
-    getReadChapters, markChapter, markChaptersBulk,
+    getReadChapters, markChapter, markChaptersBulk, unmarkChaptersBulk,
     getLists, createList, updateList, deleteList, addToList, removeFromList, reorderList,
+    getBookmarks, addBookmark, removeBookmark,
     getComments, addComment, getRecentComments, reportComment, deleteComment,
     getEvents, getStats,
     getMangaRating, setMangaRating, deleteMangaRating, getMyRatings,

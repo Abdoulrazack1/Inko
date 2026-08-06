@@ -521,6 +521,44 @@
         rendreLiees();
     }
 
+    // ── Annulation d'un marquage en masse (audit AMEL-40) ────
+    // « Tout lu » touche des centaines de chapitres d'un coup et n'avait aucun
+    // retour arrière. La frontière entre lu et non lu est pourtant la donnée la
+    // plus longue à reconstituer à la main.
+    //
+    // Une barre visible et persistante, pas un simple message : un toast de
+    // trois secondes ne laisse pas le temps de réaliser qu'on s'est trompé.
+    // Elle reste jusqu'à ce qu'on l'utilise ou qu'on la ferme.
+    function proposerAnnulation(nouveaux) {
+        document.getElementById('undoMarkBar')?.remove();
+        if (!nouveaux.length) { MH.toast?.('Tous les chapitres étaient déjà lus'); return; }
+
+        const bar = document.createElement('div');
+        bar.id = 'undoMarkBar';
+        bar.className = 'undo-bar';
+        bar.setAttribute('role', 'status');
+        bar.innerHTML = `<span>${nouveaux.length} chapitre(s) marqué(s) comme lus.</span>
+            <button type="button" class="undo-bar-action" id="undoMarkGo">Annuler</button>
+            <button type="button" class="undo-bar-close" id="undoMarkClose" aria-label="Fermer">✕</button>`;
+        document.body.appendChild(bar);
+
+        bar.querySelector('#undoMarkClose').onclick = () => bar.remove();
+        bar.querySelector('#undoMarkGo').onclick = async () => {
+            const btn = bar.querySelector('#undoMarkGo');
+            btn.disabled = true; btn.textContent = 'Annulation…';
+            try {
+                await API.me.unmarkChaptersBulk(manga.id, nouveaux);
+                nouveaux.forEach(id => readChapsSet.delete(id));
+                renderTab('chapitres'); renderSidebar();
+                MH.toast?.(`${nouveaux.length} chapitre(s) remis en non-lus`);
+                bar.remove();
+            } catch (e) {
+                btn.disabled = false; btn.textContent = 'Réessayer';
+                MH.toast?.('Annulation impossible : ' + e.message);
+            }
+        };
+    }
+
     // ── Téléchargement d'une plage (audit AMEL-99) ───────────
     // Le bouton n'existait que dans le lecteur, chapitre par chapitre :
     // préparer un trajet demandait d'ouvrir chaque chapitre l'un après l'autre.
@@ -1126,10 +1164,15 @@
             if (!items.length) return;
             markAll.disabled = true; const lbl = markAll.textContent; markAll.textContent = '…';
             try {
+                // Audit AMEL-40 : on retient ce qui n'était PAS lu avant, et
+                // seulement cela. Annuler en démarquant tout effacerait aussi
+                // les chapitres lus de longue date — l'annulation ferait alors
+                // plus de dégâts que l'action qu'elle répare.
+                const nouveaux = chapters.filter(c => !readChapsSet.has(c.id)).map(c => c.id);
                 await API.me.markChaptersBulk(manga.id, items);
                 chapters.forEach(c => readChapsSet.add(c.id));
                 render(); renderSidebar();
-                MH.toast?.(`${items.length} chapitre(s) marqué(s) comme lus`);
+                proposerAnnulation(nouveaux);
             } catch (e) { MH.toast?.('Erreur : ' + e.message); }
             finally { markAll.disabled = false; markAll.textContent = lbl; }
         });

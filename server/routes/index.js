@@ -139,6 +139,8 @@ router.get   ('/me/progress/:mangaId/history', auth.authRequired, User.getProgre
 router.get   ('/me/read-chapters',        auth.authRequired, User.getReadChapters);
 router.post  ('/me/read-chapters',        auth.authRequired, User.markChapter);
 router.post  ('/me/read-chapters/bulk',   auth.authRequired, User.markChaptersBulk);
+// Audit AMEL-40 : annulation d'un marquage en masse.
+router.post  ('/me/read-chapters/unmark-bulk', auth.authRequired, User.unmarkChaptersBulk);
 
 router.get   ('/me/lists',                auth.authRequired, User.getLists);
 router.post  ('/me/lists',                auth.authRequired, User.createList);
@@ -149,6 +151,12 @@ router.delete('/me/lists/:id/items/:mangaId',       auth.authRequired, User.remo
 // Audit AMEL-37 : `list_items.position` servait deja au tri mais n'etait
 // ecrite nulle part — l'ordre affiche etait donc l'ordre d'ajout.
 router.put   ('/me/lists/:id/order',                auth.authRequired, User.reorderList);
+
+// Audit AMEL-41 : les signets sortent du blob de reglages, qui etait recharge
+// a chaque page et reecrit en entier au moindre ajout.
+router.get   ('/me/bookmarks',            auth.authRequired, User.getBookmarks);
+router.post  ('/me/bookmarks',            auth.authRequired, User.addBookmark);
+router.delete('/me/bookmarks/:mangaId/:chapterId', auth.authRequired, User.removeBookmark);
 
 // Audit SEC-04 : cette route était la SEULE du groupe sans middleware d'auth.
 // Un visiteur anonyme obtenait un flux en direct de « qui lit quoi » — texte du

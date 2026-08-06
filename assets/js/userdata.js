@@ -33,6 +33,13 @@
         }, 700);
     }
 
+    // Envoi d'un signet, sans bloquer l'interface : la pose d'un signet doit
+    // être instantanée à l'écran, le serveur suit.
+    function envoyerSignet(b) {
+        if (!window.API?.isLoggedIn?.()) return;
+        API.me.addBookmark(b).catch(e => window.MH?.err?.('userdata.js', e));
+    }
+
     // À appeler tôt sur les pages qui lisent les données utilisateur.
     async function ready() {
         if (pulled) return data;
@@ -40,10 +47,18 @@
             try {
                 const s = await API.me.settings();
                 if (s && s.userdata && typeof s.userdata === 'object') {
-                    data = Object.assign({}, DEFAULTS, s.userdata);
+                    // `bookmarks` ne vient plus des réglages (audit AMEL-41) :
+                    // on garde ceux déjà en mémoire pour ne pas les écraser
+                    // avec un blob qui, après migration, ne les contient plus.
+                    const { bookmarks: _ignore, ...reste } = s.userdata;
+                    data = Object.assign({}, DEFAULTS, reste, { bookmarks: data.bookmarks || [] });
                     persistLocal();
                 }
             } catch (e) { /* hors-ligne : on garde le miroir local */ }
+            try {
+                const liste = await API.me.bookmarks();
+                if (Array.isArray(liste)) { data.bookmarks = liste; persistLocal(); }
+            } catch (e) { /* hors-ligne : le miroir local fait foi */ }
         }
         pulled = true;
         return data;
@@ -90,17 +105,29 @@
         clearSearchHistory() { data.searchHistory = []; scheduleSync(); },
 
         // ── Signets de lecture (chapitre + position) ──
+        // Audit AMEL-41 : ils vivaient dans le blob de réglages, rechargé à
+        // chaque page et réécrit EN ENTIER au moindre ajout — avec un plafond
+        // arbitraire de 200. Ils ont désormais leur table.
+        //
+        // La surface reste SYNCHRONE (`getBookmarks()` rend un tableau) : une
+        // douzaine d'appelants la lisent en plein rendu, et la rendre async
+        // aurait demandé de réécrire chacun d'eux pour un gain nul. Le miroir
+        // local sert de source de lecture, le serveur de source de vérité.
         getBookmarks() { return data.bookmarks || []; },
         addBookmark(b) {
             // b: { mangaId, source, title, cover, chapterId, chapterNum, page, label }
             data.bookmarks = data.bookmarks.filter(x => !(x.chapterId === b.chapterId && x.mangaId === b.mangaId));
             data.bookmarks.unshift(Object.assign({ at: Date.now() }, b));
-            data.bookmarks = data.bookmarks.slice(0, 200);
-            scheduleSync();
+            persistLocal();
+            envoyerSignet(b);
         },
         removeBookmark(mangaId, chapterId) {
             data.bookmarks = data.bookmarks.filter(x => !(x.chapterId === chapterId && x.mangaId === mangaId));
-            scheduleSync();
+            persistLocal();
+            if (window.API?.isLoggedIn?.()) {
+                API.me.removeBookmark(mangaId, chapterId)
+                    .catch(e => window.MH?.err?.('userdata.js', e));
+            }
         },
         hasBookmark(mangaId, chapterId) {
             return data.bookmarks.some(x => x.chapterId === chapterId && x.mangaId === mangaId);

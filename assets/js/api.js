@@ -476,6 +476,8 @@
             readChapters:     ()           => get('/me/read-chapters'),
             markChapter:      (payload)    => request('POST', '/me/read-chapters', payload, { keepalive: true }),
             markChaptersBulk: (mangaId, chapters) => post('/me/read-chapters/bulk', { mangaId, chapters }),
+            // Audit AMEL-40 : annulation d'un marquage en masse.
+            unmarkChaptersBulk: (mangaId, chapterIds) => post('/me/read-chapters/unmark-bulk', { mangaId, chapterIds }),
 
             // ── Journal de lecture (notes personnelles) ──
             notes:            (opts = {})  => {
@@ -509,6 +511,12 @@
             removeFromList:   (id, mangaId)=> del(`/me/lists/${id}/items/${encodeURIComponent(mangaId)}`),
             // Audit AMEL-37 : ordre persisté des éléments d'une liste.
             reorderList:      (id, mangaIds)=> put(`/me/lists/${id}/order`, { mangaIds }),
+
+            // Audit AMEL-41 : signets sortis du blob de reglages.
+            bookmarks:        ()           => get('/me/bookmarks'),
+            addBookmark:      (b)          => post('/me/bookmarks', b),
+            removeBookmark:   (mangaId, chapterId) =>
+                del(`/me/bookmarks/${encodeURIComponent(mangaId)}/${encodeURIComponent(chapterId)}`),
 
             events:           (limit=200)  => get('/me/events?limit=' + limit),
             stats:            ()           => get('/me/stats'),

@@ -284,7 +284,12 @@
         if (num)  num.textContent = `${read}/${goal}`;
         if (lab) {
             lab.textContent = ratio >= 1 ? 'Objectif atteint !' : ratio >= 0.6 ? 'Excellent rythme !' : ratio > 0 ? 'En bonne voie' : 'C\'est parti ?';
-            lab.style.color = ratio >= 1 ? 'var(--green)' : 'var(--text2)';
+            // `--green` est une couleur de REMPLISSAGE (anneaux, pastilles) ;
+            // posée en texte de 11,5 px elle tombe sous le seuil AA. La
+            // variante `--green-text` existe pour cet usage (audit A11Y-02).
+            // Le défaut ne se voyait qu'objectif ATTEINT, d'où sa découverte
+            // tardive : le contrôle a11y ne l'avait jamais rencontré.
+            lab.style.color = ratio >= 1 ? 'var(--green-text)' : 'var(--text2)';
         }
         if (sub) sub.textContent = ratio >= 1 ? 'Bien joué cette semaine' : `Plus que ${goal - read} chapitre(s)`;
 

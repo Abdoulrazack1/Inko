@@ -1055,3 +1055,28 @@ a[data-nsfw] .manga-card-cover::after,
 }
 .card-list-btn:hover { background: rgba(0,0,0,0.75); transform: scale(1.08); }
 .manga-card .card-list-btn { z-index: 3; }
+
+/* ── Barre d'annulation (audit AMEL-40) ──
+   Persistante et non un toast de trois secondes : le temps de réaliser qu'on
+   s'est trompé dépasse largement la durée d'un message qui s'efface. */
+.undo-bar {
+  /* Le dock musical est fixe en bas de TOUTES les pages (#inko-music, bas de
+     page, z-index 9000) : une barre a 24px du bord se retrouvait dessous et
+     son bouton devenait incliquable. On passe au-dessus, et plus haut. */
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);
+  z-index: 9600; display: flex; align-items: center; gap: 12px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 11px 14px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--radius); box-shadow: var(--shadow-3);
+  font-size: 13px; color: var(--text);
+}
+.undo-bar-action {
+  flex: 0 0 auto;
+  background: var(--accent); color: #fff;
+  border-radius: 16px; padding: 5px 14px;
+  font-size: 12.5px; font-weight: 700;
+}
+.undo-bar-action:disabled { opacity: .6; cursor: default; }
+.undo-bar-close { flex: 0 0 auto; color: var(--text3); font-size: 15px; padding: 2px 4px; }
+.undo-bar-close:hover { color: var(--text); }
