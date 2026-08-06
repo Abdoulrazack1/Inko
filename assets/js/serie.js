@@ -7,7 +7,14 @@
     let readChapsSet= new Set();
     let progress    = null;
     let activeTab   = 'apercu';
-    let chapSortAsc = false;
+    // Audit AMEL-98 : sur One Piece (1 183 chapitres), la liste brute est
+    // inexploitable — et le filtre comme le tri repartaient de zero a chaque
+    // ouverture de fiche. Un reglage qu'il faut reposer a chaque visite n'est
+    // pas un reglage. Ils sont persistes globalement (et non par serie) : c'est
+    // une habitude de lecture, pas une propriete de l'oeuvre.
+    const PREF_TRI    = 'serie_chap_tri_asc';
+    const PREF_FILTRE = 'serie_chap_filtre';
+    let chapSortAsc = window.Storage?.getPref(PREF_TRI) === '1';
     let chapFilter  = '';
     let favorited   = false;
     let libStatus   = null;     // statut de lecture (library)
@@ -135,9 +142,25 @@
                 </div>
                 <p class="serie-desc-short">${MH.esc((manga.description || '').slice(0, 400))}${manga.description?.length > 400 ? '…' : ''}</p>
                 <div class="serie-actions">
-                    <button class="btn btn-primary" id="btnReadStart">▶ Lire depuis le début</button>
-                    ${resumeChap ? `<button class="btn btn-secondary" id="btnResume">${resumeLabel}</button>` : ''}
-                    <button class="btn btn-secondary" id="btnNextUnread" title="Ouvrir le premier chapitre non lu">⏭ 1er non-lu</button>
+                    <!-- Audit AMEL-100 : « Lire depuis le début », « Reprendre
+                         Ch.X » et « 1er non-lu » se présentaient comme trois
+                         boutons de même poids. Trois façons de commencer, aucune
+                         hiérarchie : il fallait les lire pour choisir.
+                         L'action PRINCIPALE est désormais unique et nommée
+                         d'après la situation réelle (reprendre si une lecture
+                         est en cours, sinon commencer) ; les deux autres
+                         deviennent des replis discrets. -->
+                    ${resumeChap
+                        ? `<button class="btn btn-primary btn-reprise" id="btnResume">
+                               <span class="reprise-label">${resumeLabel.replace(/^↻\s*/, '')}</span>
+                               <span class="reprise-sub">Reprendre où tu t'es arrêté·e</span>
+                           </button>
+                           <button class="btn btn-ghost btn-sm" id="btnReadStart" title="Repartir du chapitre 1">Depuis le début</button>`
+                        : `<button class="btn btn-primary btn-reprise" id="btnReadStart">
+                               <span class="reprise-label">Commencer la lecture</span>
+                               <span class="reprise-sub">Premier chapitre disponible</span>
+                           </button>`}
+                    <button class="btn btn-ghost btn-sm" id="btnNextUnread" title="Ouvrir le premier chapitre non lu">1er non-lu</button>
                     <button class="btn btn-ghost ${favorited ? 'is-fav' : ''}" id="btnFavorite">
                         ${favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste'}
                     </button>
@@ -464,6 +487,26 @@
                 </div>
             </div>
             <div id="similarRow" style="display:flex;gap:12px;overflow-x:auto;padding:4px 2px 8px"></div>
+        </div>
+        <!-- Audit AMEL-102 : quand une source casse, l'utilisateur ne sait pas
+             que le titre existe ailleurs — alors que la recherche sait déjà
+             regrouper une œuvre entre plusieurs sources. -->
+        <div class="chapters-block" id="autresSourcesBlock" style="display:none">
+            <div class="chapters-block-header">
+                <div>
+                    <div class="chapters-block-title">Aussi disponible sur</div>
+                    <div style="font-size:12px;color:var(--text3);margin-top:2px">Mêmes chapitres, autre source — utile si celle-ci est indisponible</div>
+                </div>
+            </div>
+            <div id="autresSourcesRow" style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 2px 8px"></div>
+        </div>
+        <!-- Audit AMEL-101 : l'auteur et les tags étaient affichés sans être
+             cliquables au-delà des 4 premiers genres du titre. -->
+        <div class="chapters-block" id="lieesBlock" style="display:none">
+            <div class="chapters-block-header">
+                <div class="chapters-block-title">Explorer</div>
+            </div>
+            <div id="lieesRow" style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 2px 8px"></div>
         </div>`;
         el.querySelectorAll('[data-goto="chapitres"]').forEach(btn => {
             btn.addEventListener('click', e => {
@@ -474,6 +517,163 @@
             });
         });
         loadSimilar();
+        chargerAutresSources();
+        rendreLiees();
+    }
+
+    // ── Téléchargement d'une plage (audit AMEL-99) ───────────
+    // Le bouton n'existait que dans le lecteur, chapitre par chapitre :
+    // préparer un trajet demandait d'ouvrir chaque chapitre l'un après l'autre.
+    //
+    // Choix de conception : les chapitres sont téléchargés UN PAR UN, en série.
+    // Les paralléliser irait plus vite mais assommerait la source scrapée — et
+    // c'est exactement ce qui fait bannir une adresse IP. La progression est
+    // affichée et l'opération interruptible, parce qu'une plage un peu large
+    // peut durer plusieurs minutes.
+    async function telechargerPlage() {
+        if (!window.Downloads) { MH.toast?.('Téléchargement hors-ligne indisponible'); return; }
+        if (MH.isNovelSource(API.sources.current)) {
+            MH.toast?.('Pour un roman, le téléchargement se fait depuis le lecteur.');
+            return;
+        }
+        if (!chapters.length) { MH.toast?.('Aucun chapitre à télécharger'); return; }
+
+        // Du plus ancien au plus récent : « les 10 premiers » veut dire le début
+        // de la série, pas les dix derniers parus.
+        const asc = [...chapters].sort((a, b) => (+a.chapter || 0) - (+b.chapter || 0));
+        const nonTelecharges = [];
+        for (const c of asc) if (!(await window.Downloads.has(c.id))) nonTelecharges.push(c);
+        if (!nonTelecharges.length) { MH.toast?.('Tous les chapitres sont déjà téléchargés'); return; }
+
+        const combien = await MH.prompt(
+            `Combien de chapitres télécharger, à partir du plus ancien non téléchargé `
+            + `(Ch. ${MH.chapNum(nonTelecharges[0].chapter)}) ? ${nonTelecharges.length} disponibles.`,
+            { value: String(Math.min(5, nonTelecharges.length)), okText: 'Télécharger' });
+        const n = Math.max(0, Math.min(nonTelecharges.length, parseInt(combien, 10) || 0));
+        if (!n) return;
+
+        const lot = nonTelecharges.slice(0, n);
+        const btn = document.getElementById('chapDlRange');
+        let annule = false;
+        if (btn) {
+            btn.dataset.libelle = btn.textContent;
+            btn.title = 'Cliquer pour interrompre';
+            btn.onclick = () => { annule = true; MH.toast?.('Interruption après le chapitre en cours…'); };
+        }
+
+        let ok = 0, echecs = 0, premiereErreur = null;
+        for (let i = 0; i < lot.length; i++) {
+            if (annule) break;
+            const c = lot[i];
+            if (btn) btn.textContent = `↓ ${i + 1}/${lot.length}…`;
+            try {
+                const d = await API.mangas.pages(c.id);
+                const pages = d.pages || [];
+                if (!pages.length) throw new Error('aucune page renvoyée par la source');
+                await window.Downloads.download({
+                    mangaId: manga.id, chapterId: c.id, chapterNum: c.chapter,
+                    mangaTitle: manga.title, cover: manga.cover || manga.coverThumb,
+                    source: API.sources.current,
+                }, pages);
+                ok++;
+            } catch (e) {
+                echecs++;
+                // « 1 en échec » sans raison n'est pas exploitable : ni par
+                // l'utilisateur (que faire ?), ni au diagnostic. On garde la
+                // première cause pour la dire.
+                if (!premiereErreur) premiereErreur = e.message || String(e);
+                window.MH?.err?.('serie.js', e);
+            }
+        }
+
+        if (btn) {
+            btn.textContent = btn.dataset.libelle || '↓ Télécharger…';
+            btn.title = 'Télécharger une plage de chapitres pour le hors-ligne';
+            btn.onclick = telechargerPlage;
+        }
+        MH.toast?.(echecs
+            ? `${ok} chapitre(s) téléchargé(s), ${echecs} en échec — ${premiereErreur}`
+            : `${ok} chapitre(s) disponibles hors-ligne`);
+    }
+
+    // ── Disponibilité sur les autres sources (audit AMEL-102) ──
+    // Quand une source tombe ou retire un titre, l'utilisateur se retrouve
+    // devant une fiche vide sans savoir que la même œuvre est lisible ailleurs.
+    // La recherche sait déjà rapprocher un titre entre sources ; on applique le
+    // même rapprochement, restreint à CETTE œuvre.
+    // Le cache est une PROMESSE, pas un tableau. Première version : je posais
+    // `cache = []` avant les `await`, si bien qu'un second rendu d'onglet —
+    // loadChapters() en déclenche un — voyait un cache « prêt mais vide » et
+    // sortait aussitôt, tandis que le premier appel écrivait dans un élément
+    // déjà remplacé. Le bloc n'apparaissait donc jamais, alors que les sources
+    // répondaient correctement. Avec une promesse, tout appel attend le même
+    // résultat puis écrit dans le DOM COURANT.
+    let autresSourcesPromesse = null;
+
+    async function chargerAutresSources() {
+        if (!manga?.title) return;
+
+        if (!autresSourcesPromesse) {
+            autresSourcesPromesse = (async () => {
+                const trouves = [];
+                let sources = [];
+                try { sources = (await API.sources.list()) || []; } catch (e) { return trouves; }
+                const courante = API.sources.current;
+                const candidates = sources.filter(s => s.id !== courante
+                    && (MH.isSourceEnabled ? MH.isSourceEnabled(s.id) : true)
+                    && (s.capabilities || []).includes('search'));
+
+                const norm = (t) => (t || '').toLowerCase().normalize('NFD')
+                    .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+                const cible = norm(manga.title);
+
+                // En parallèle, et chaque échec est absorbé : ce bloc est un
+                // bonus, il ne doit jamais retarder ni casser la fiche.
+                await Promise.all(candidates.map(async (s) => {
+                    try {
+                        const r = await API.mangas.searchFor(s.id, { q: manga.title, limit: 6 });
+                        const m = (r.results || []).find(x => norm(x.title) === cible);
+                        if (m) trouves.push({ source: s.id, nom: s.name || s.id, id: m.id });
+                    } catch (e) { /* source muette : simplement pas listée */ }
+                }));
+                return trouves;
+            })();
+        }
+
+        const trouves = await autresSourcesPromesse;
+        if (!trouves.length) return;   // rien à dire : pas de bloc vide
+        // Éléments relus APRÈS l'attente : entre-temps l'onglet a pu être
+        // reconstruit, et les anciens nœuds ne sont plus dans le document.
+        const block = document.getElementById('autresSourcesBlock');
+        const row   = document.getElementById('autresSourcesRow');
+        if (!block || !row) return;
+        row.innerHTML = trouves.map(a => `
+            <a class="tag tag-link" style="padding:7px 13px;font-size:12.5px"
+               href="serie.html?id=${encodeURIComponent(a.id)}&source=${encodeURIComponent(a.source)}">
+                ${MH.esc(a.nom)}
+            </a>`).join('');
+        block.style.display = '';
+    }
+
+    // ── Explorer : auteur et genres (audit AMEL-101) ──────────
+    function rendreLiees() {
+        const block = document.getElementById('lieesBlock');
+        const row   = document.getElementById('lieesRow');
+        if (!block || !row) return;
+        const liens = [];
+        if (manga.author) {
+            liens.push(`<a class="tag tag-link" style="padding:7px 13px;font-size:12.5px"
+                href="recherche.html?q=${encodeURIComponent(manga.author)}">Du même auteur · ${MH.esc(manga.author)}</a>`);
+        }
+        // Tous les genres, pas seulement les 4 du titre : c'est ici qu'on
+        // explore, la place ne manque pas.
+        (manga.tags || []).slice(0, 12).forEach(t => {
+            liens.push(`<a class="tag tag-link" style="padding:7px 13px;font-size:12.5px"
+                href="catalogue.html?tags=${encodeURIComponent(t)}">${MH.esc(t)}</a>`);
+        });
+        if (!liens.length) return;
+        row.innerHTML = liens.join('');
+        block.style.display = '';
     }
 
     // ── Commentaires ──
@@ -838,7 +1038,11 @@
             return;
         }
 
-        let readFilter = 'all';   // all | unread | read
+        // Repris des preferences (audit AMEL-98). Une valeur inconnue —
+        // preference ecrite par une version anterieure — retombe sur 'all'
+        // plutot que de filtrer sur rien.
+        const filtreEnregistre = window.Storage?.getPref(PREF_FILTRE);
+        let readFilter = ['all', 'unread', 'read'].includes(filtreEnregistre) ? filtreEnregistre : 'all';
         el.innerHTML = `
         <div class="chapters-block">
             <div class="chapters-block-header">
@@ -852,13 +1056,17 @@
                     <button class="chap-sort-btn ic-btn" id="chapRandom" title="Ouvrir un chapitre au hasard">${MH.icon('dice', 14)} Au hasard</button>
                     <button class="chap-sort-btn" id="chapCheckNew" title="Vérifier maintenant s'il y a de nouveaux chapitres sur cette série">↻ Vérifier</button>
                     <button class="chap-sort-btn" id="chapMarkAll" title="Marquer tous les chapitres comme lus">✓ Tout lu</button>
+                    <!-- Audit AMEL-99 : le téléchargement n'existait que DANS le
+                         lecteur, chapitre par chapitre. Préparer un trajet
+                         demandait d'ouvrir chaque chapitre l'un après l'autre. -->
+                    <button class="chap-sort-btn" id="chapDlRange" title="Télécharger une plage de chapitres pour le hors-ligne">↓ Télécharger…</button>
                     <button class="chap-sort-btn" id="chapSortBtn">${chapSortAsc ? '↑ Ancien' : '↓ Récent'}</button>
                 </div>
             </div>
             <div class="chap-filters" id="chapFilters" style="display:flex;gap:6px;margin-bottom:10px">
-                <button class="chap-filter on" data-rf="all">Tous</button>
-                <button class="chap-filter" data-rf="unread">Non lus</button>
-                <button class="chap-filter" data-rf="read">Lus</button>
+                <button class="chap-filter ${readFilter === 'all' ? 'on' : ''}" data-rf="all">Tous</button>
+                <button class="chap-filter ${readFilter === 'unread' ? 'on' : ''}" data-rf="unread">Non lus</button>
+                <button class="chap-filter ${readFilter === 'read' ? 'on' : ''}" data-rf="read">Lus</button>
             </div>
             <div class="chapters-list" id="chapsList"></div>
         </div>`;
@@ -897,8 +1105,11 @@
         const list    = el.querySelector('#chapsList');
         const countEl = el.querySelector('#chapCount');
 
+        el.querySelector('#chapDlRange')?.addEventListener('click', telechargerPlage);
+
         el.querySelectorAll('.chap-filter').forEach(b => b.addEventListener('click', () => {
             readFilter = b.dataset.rf;
+            window.Storage?.setPref(PREF_FILTRE, readFilter);   // audit AMEL-98
             el.querySelectorAll('.chap-filter').forEach(x => x.classList.toggle('on', x === b));
             render();
         }));
@@ -943,6 +1154,7 @@
         if (sortBtn) {
             sortBtn.addEventListener('click', () => {
                 chapSortAsc = !chapSortAsc;
+                window.Storage?.setPref(PREF_TRI, chapSortAsc ? '1' : '0');
                 sortBtn.textContent = chapSortAsc ? '↑ Ancien' : '↓ Récent';
                 render();
             });

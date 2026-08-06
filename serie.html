@@ -43,6 +43,10 @@
   <script src="assets/js/i18n.js"></script>
   <script src="assets/js/global.js"></script>
   <script src="assets/js/anilist.js"></script>
+  <!-- Audit AMEL-99 : téléchargement d'une plage de chapitres depuis la fiche.
+       Chargé AVANT serie.js — sans window.Downloads, le bouton se contenterait
+       d'un message d'indisponibilité, ce qui ressemblerait à une panne. -->
+  <script src="assets/js/downloads.js"></script>
   <script src="assets/js/serie.js"></script>
   <script src="assets/js/eula.js"></script>
   <script src="assets/js/pwa.js"></script>
