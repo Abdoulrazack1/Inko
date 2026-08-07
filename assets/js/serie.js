@@ -784,6 +784,31 @@
         const j = Math.floor(h / 24); if (j < 30) return `il y a ${j} j`;
         return new Date(d).toLocaleDateString('fr-FR');
     }
+    // ── Portée, spoiler, ancrage (audit AMEL-50/51/52) ───────
+    // La portée par défaut est `instance` : c'est ce que faisait le code
+    // jusqu'ici pour un utilisateur connecté. Un défaut plus fermé aurait
+    // change le sens des commentaires deja publiés ; un défaut plus ouvert
+    // aurait publié sur le web des textes écrits pour des membres.
+    const PREF_PORTEE = 'comment_portee';
+    const PORTEES = ['private', 'instance', 'public'];
+    const PORTEE_LABEL = { private: 'Moi seul', instance: 'Membres', public: 'Public' };
+    function lirePortee() {
+        const v = window.Storage?.getPref(PREF_PORTEE);
+        return PORTEES.includes(v) ? v : 'instance';
+    }
+    function ecrirePortee(v) { if (PORTEES.includes(v)) window.Storage?.setPref(PREF_PORTEE, v); }
+    function chapLabel(c) {
+        const num = c.chapter != null && c.chapter !== '' ? `Ch. ${c.chapter}` : '';
+        const t = (c.title || '').trim();
+        return [num, t && t !== num ? t : ''].filter(Boolean).join(' — ') || c.id;
+    }
+    // Étiquette d'un commentaire ancré : on rattache l'id au chapitre chargé
+    // pour afficher un numéro plutôt qu'un slug d'URL.
+    function chapLabelParId(id) {
+        const c = (chapters || []).find(x => x.id === id);
+        return c ? chapLabel(c) : id;
+    }
+
     // Pagination par fil (audit N51) : on garde en mémoire les fils déjà chargés,
     // et « Voir les commentaires précédents » va chercher les fils plus anciens.
     const COMMENTS_PAGE = 50;
@@ -799,9 +824,36 @@
         if (!listEl) return;
         if (!more && formEl) {
             if (API.isLoggedIn()) {
+                // Audit AMEL-50/51/52 : la portée, le marqueur de spoiler et
+                // l'ancrage se décident À LA PUBLICATION. Reléguer ces choix
+                // dans un réglage global reviendrait à ne jamais les faire —
+                // ils dépendent du commentaire, pas de l'utilisateur.
+                const portee = lirePortee();
+                const chapsAncrables = (chapters || []).slice(0, 200);
                 formEl.innerHTML = `
                     <div class="comment-compose">
                         <textarea id="commentInput" class="comment-textarea" rows="2" maxlength="1000" placeholder="Partage ton avis sur ${MH.esc(manga.title || 'cette série')}…"></textarea>
+                        <div class="comment-compose-opts">
+                            <label class="comment-opt" title="Qui pourra lire ce commentaire">
+                                <span>Visible par</span>
+                                <select id="commentVis">
+                                    <option value="private"  ${portee === 'private'  ? 'selected' : ''}>Moi seul</option>
+                                    <option value="instance" ${portee === 'instance' ? 'selected' : ''}>Les membres</option>
+                                    <option value="public"   ${portee === 'public'   ? 'selected' : ''}>Tout le monde</option>
+                                </select>
+                            </label>
+                            ${chapsAncrables.length ? `
+                            <label class="comment-opt" title="Rattacher ce commentaire à un chapitre">
+                                <span>Chapitre</span>
+                                <select id="commentChap">
+                                    <option value="">Toute la série</option>
+                                    ${chapsAncrables.map(c => `<option value="${MH.esc(c.id)}">${MH.esc(chapLabel(c))}</option>`).join('')}
+                                </select>
+                            </label>` : ''}
+                            <label class="comment-opt comment-opt-check" title="Masquer le texte derrière un avertissement">
+                                <input type="checkbox" id="commentSpoiler"> <span>Spoiler</span>
+                            </label>
+                        </div>
                         <div class="comment-compose-foot">
                             <span class="comment-len" id="commentLen">0 / 1000</span>
                             <button class="btn btn-primary btn-sm" id="commentSend">Publier</button>
@@ -810,14 +862,28 @@
                 const ta = formEl.querySelector('#commentInput');
                 const len = formEl.querySelector('#commentLen');
                 ta.addEventListener('input', () => { len.textContent = `${ta.value.length} / 1000`; });
+                // La portée est le seul des trois choix qui relève d'une
+                // habitude : on la retient, pas le spoiler ni le chapitre.
+                formEl.querySelector('#commentVis')?.addEventListener('change', e => ecrirePortee(e.target.value));
+                // Pré-sélectionne le chapitre en cours de lecture : c'est
+                // presque toujours celui dont on veut parler.
+                const selChap = formEl.querySelector('#commentChap');
+                const enCours = progress?.chapterId;
+                if (selChap && enCours && [...selChap.options].some(o => o.value === enCours)) selChap.value = enCours;
                 const send = async () => {
                     const text = ta.value.trim();
                     if (!text) return;
                     const btn = formEl.querySelector('#commentSend');
                     btn.disabled = true;
                     try {
-                        await API.comments.add(manga.id, { text });
+                        await API.comments.add(manga.id, {
+                            text,
+                            visibility: formEl.querySelector('#commentVis')?.value || 'instance',
+                            chapterId: selChap?.value || null,
+                            spoiler: !!formEl.querySelector('#commentSpoiler')?.checked,
+                        });
                         ta.value = ''; len.textContent = '0 / 1000';
+                        const sp = formEl.querySelector('#commentSpoiler'); if (sp) sp.checked = false;
                         await loadComments();
                         MH.toast?.('Commentaire publié');
                     } catch (e) { MH.toast?.('Erreur : ' + e.message); }
@@ -881,6 +947,23 @@
         const one = (c, isReply) => {
             const canDel = loggedIn && (c.user === myName || isAdmin);
             const flagged = isAdmin && c.reports > 0 ? `<span title="${c.reports} signalement(s)" style="color:#ef4444;font-size:11px">⚑ ${c.reports}</span>` : '';
+            // Audit AMEL-50 : la portée n'est affichée que quand elle s'écarte
+            // du défaut — signaler « membres » sur chaque commentaire serait du
+            // bruit, signaler « privé » ou « public » est une information.
+            const badgePortee = c.visibility && c.visibility !== 'instance'
+                ? `<span class="comment-vis comment-vis-${c.visibility}">${PORTEE_LABEL[c.visibility] || c.visibility}</span>` : '';
+            // Audit AMEL-52 : sans étiquette, un commentaire sur le chapitre 3
+            // et un sur le 300 se ressemblent — et le second gâche le premier.
+            const badgeChap = c.chapterId
+                ? `<a class="comment-chap" href="${MH.esc(MH.readerHref(manga.id, c.chapterId, API.sources.current))}">${MH.esc(chapLabelParId(c.chapterId))}</a>` : '';
+            // Audit AMEL-51 : masqué par défaut, révélé au clic. Le texte reste
+            // dans le DOM (il est déjà arrivé du serveur) mais n'est pas
+            // lisible : c'est un avertissement, pas un contrôle d'accès.
+            const corps = linkifyMentions(MH.esc(c.text || ''));
+            const texte = c.spoiler
+                ? `<div class="comment-text comment-spoiler" data-spoiler="${c.id}" role="button" tabindex="0"
+                        aria-label="Spoiler masqué — afficher"><span class="comment-spoiler-veil">Spoiler — cliquer pour afficher</span><span class="comment-spoiler-body">${corps}</span></div>`
+                : `<div class="comment-text">${corps}</div>`;
             return `
             <div class="comment-item" id="comment-${c.id}" data-cid="${c.id}" style="${isReply ? 'margin-left:42px;' : ''}">
                 <div class="comment-avatar">${MH.esc((c.user || '?').slice(0, 1).toUpperCase())}</div>
@@ -888,9 +971,9 @@
                     <div class="comment-head">
                         <a class="comment-user" href="u.html?u=${encodeURIComponent(c.user || '')}">${MH.esc(c.user || 'Anonyme')}</a>
                         <span class="comment-date">${commentTimeAgo(c.createdAt)}</span>
-                        ${flagged}
+                        ${badgeChap}${badgePortee}${flagged}
                     </div>
-                    <div class="comment-text">${linkifyMentions(MH.esc(c.text || ''))}</div>
+                    ${texte}
                     <div class="comment-actions" style="display:flex;gap:14px;margin-top:5px;font-size:11.5px;color:var(--text3)">
                         ${loggedIn ? `<button type="button" data-reply="${c.id}" data-replyuser="${MH.esc(c.user || '')}" class="comment-act" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0">Répondre</button>` : ''}
                         ${loggedIn && c.user !== myName ? `<button type="button" data-report="${c.id}" class="comment-act" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0">Signaler</button>` : ''}
@@ -918,12 +1001,28 @@
 
         // Interactions (handler unique, ré-assigné à chaque rendu)
         listEl.onclick = async (e) => {
+            const spoil     = e.target.closest('[data-spoiler]');
             const replyBtn  = e.target.closest('[data-reply]');
             const reportBtn = e.target.closest('[data-report]');
             const delBtn    = e.target.closest('[data-del]');
+            // Le dévoilement passe avant : un lien @mention à l'intérieur d'un
+            // spoiler ne doit pas être cliquable tant qu'il est masqué.
+            if (spoil && !spoil.classList.contains('revealed')) {
+                e.preventDefault(); spoil.classList.add('revealed');
+                spoil.setAttribute('aria-label', 'Spoiler affiché'); return;
+            }
             if (replyBtn)  return openReplyBox(replyBtn.dataset.reply, replyBtn.dataset.replyuser);
             if (reportBtn) return reportComment(reportBtn.dataset.report);
             if (delBtn)    return deleteComment(delBtn.dataset.del);
+        };
+        // Accessible au clavier : le voile est un `role=button`, il doit
+        // répondre à Entrée et Espace comme n'importe quel bouton.
+        listEl.onkeydown = (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            const spoil = e.target.closest('[data-spoiler]');
+            if (!spoil || spoil.classList.contains('revealed')) return;
+            e.preventDefault(); spoil.classList.add('revealed');
+            spoil.setAttribute('aria-label', 'Spoiler affiché');
         };
     }
 
@@ -935,7 +1034,10 @@
         box.innerHTML = `
             <div style="margin-top:8px">
                 <textarea class="comment-textarea" rows="2" maxlength="1000" placeholder="Répondre à @${MH.esc(replyUser)}…"></textarea>
-                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px">
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;align-items:center">
+                    <label class="comment-opt comment-opt-check" style="margin-right:auto">
+                        <input type="checkbox" data-replyspoiler="${parentId}"> <span>Spoiler</span>
+                    </label>
                     <button class="btn btn-sm" data-replycancel="${parentId}">Annuler</button>
                     <button class="btn btn-primary btn-sm" data-replysend="${parentId}">Répondre</button>
                 </div>
@@ -950,7 +1052,12 @@
         box.querySelector('[data-replysend]').onclick = async (ev) => {
             const text = ta.value.trim(); if (!text) return;
             ev.target.disabled = true;
-            try { await API.comments.reply(manga.id, +parentId, text); await loadComments(); MH.toast?.('Réponse publiée'); }
+            // La portée n'est pas proposée ici : le serveur ramène de toute
+            // façon la réponse à celle du parent (on ne peut pas rendre plus
+            // visible un fil en y répondant). Proposer un choix sans effet
+            // serait pire que de ne rien proposer.
+            const spoiler = !!box.querySelector('[data-replyspoiler]')?.checked;
+            try { await API.comments.reply(manga.id, +parentId, text, { spoiler }); await loadComments(); MH.toast?.('Réponse publiée'); }
             catch (e2) { MH.toast?.('Erreur : ' + e2.message); ev.target.disabled = false; }
         };
     }

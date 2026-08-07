@@ -541,10 +541,14 @@
 
         comments: {
             // Paginé par fil (audit N51) : renvoie { items, total, hasMore }
-            list:   (mangaId, { limit = 50, offset = 0 } = {}) =>
-                get('/comments/' + encodeURIComponent(mangaId) + `?limit=${limit}&offset=${offset}`),
+            // `chapterId` filtre le fil sur un chapitre précis (audit AMEL-52)
+            list:   (mangaId, { limit = 50, offset = 0, chapterId = null } = {}) =>
+                get('/comments/' + encodeURIComponent(mangaId) + `?limit=${limit}&offset=${offset}`
+                    + (chapterId ? '&chapterId=' + encodeURIComponent(chapterId) : '')),
             add:    (mangaId, payload)=> post('/comments/' + encodeURIComponent(mangaId), payload),
-            reply:  (mangaId, parentId, text) => post('/comments/' + encodeURIComponent(mangaId), { text, parentId }),
+            reply:  (mangaId, parentId, text, opts = {}) =>
+                post('/comments/' + encodeURIComponent(mangaId),
+                    { text, parentId, spoiler: !!opts.spoiler, visibility: opts.visibility }),
             report: (commentId, reason) => post('/comments/' + commentId + '/report', { reason }),
             remove: (commentId)       => del('/comments/' + commentId),
             recent: (limit = 6)       => get('/comments-recent?limit=' + limit),

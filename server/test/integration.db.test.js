@@ -191,9 +191,12 @@ test('user.importData : import batché, compteurs corrects (audit B3)', async (t
         readChapters: [
             { manga_id: 'a', chapter_id: 'ch1', chapter_number: 1 },
         ],
-        // Audit DB-04 : 9 est hors barème (1..5). Avant, l'import l'écrivait tel
-        // quel ; depuis la contrainte CHECK en base, la ligne serait rejetée en
-        // silence et la note perdue. L'import borne donc la valeur.
+        // Audit DB-04 : 9 est hors barème. Avant, l'import l'écrivait tel quel ;
+        // depuis la contrainte CHECK en base, la ligne serait rejetée EN SILENCE
+        // et la note perdue. L'import borne donc la valeur.
+        // Audit AMEL-47 : ce fichier ne porte pas `ratingScale`, il vient donc
+        // d'avant la bascule — ses notes sont lues sur 5 et doublées. 9 double
+        // à 18, hors barème dans les deux échelles : la borne haute vaut 10.
         ratings: [{ manga_id: 'a', rating: 9, review: 'excellent' }],
     } });
     await User.importData(req, res, nextThrow);
@@ -206,9 +209,109 @@ test('user.importData : import batché, compteurs corrects (audit B3)', async (t
     // La note hors barème doit être ramenée dans les bornes, pas perdue
     const [[rated]] = await pool.query(
         'SELECT rating FROM ratings WHERE user_id = ? AND manga_id = ?', [u.id, 'a']);
-    assert.equal(rated.rating, 5, 'la note 9 doit être bornée à 5, pas rejetée');
+    assert.equal(rated.rating, 10, 'la note hors barème doit être bornée, pas rejetée');
 
     const favs = rr({ user: u });
     await User.getFavorites(favs.req, favs.res, nextThrow);
     assert.equal(favs.res.body.length, 3);
+});
+
+// ── Commentaires : portée (audit AMEL-50) ────────────────────
+// La promesse « ton avis reste privé » était fausse : /comments/:mangaId
+// servait tout le monde, y compris un visiteur non connecté. Le filtre est
+// désormais en SQL — ces tests exercent les trois points de vue.
+test('user.getComments : le privé ne sort pas, l\'anonyme ne voit que le public (audit AMEL-50)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const alice = await createUser('vis_alice', 'vis_alice@test.local');
+    const bob   = await createUser('vis_bob', 'vis_bob@test.local');
+    const M = 'oeuvre-portees';
+
+    for (const [texte, portee] of [['prive', 'private'], ['membres', 'instance'], ['ouvert', 'public']]) {
+        const { req, res } = rr({ user: alice, params: { mangaId: M }, body: { text: texte, visibility: portee } });
+        await User.addComment(req, res, nextThrow);
+        assert.equal(res.statusCode, 200, `publication ${portee}`);
+    }
+
+    const vus = async (user) => {
+        const { req, res } = rr({ user, params: { mangaId: M }, query: {} });
+        await User.getComments(req, res, nextThrow);
+        return res.body.items.map(c => c.text).sort();
+    };
+    assert.deepEqual(await vus(alice), ['membres', 'ouvert', 'prive'], 'son auteur voit ses trois portées');
+    assert.deepEqual(await vus(bob),   ['membres', 'ouvert'], 'un autre membre ne voit pas le privé');
+    assert.deepEqual(await vus(null),  ['ouvert'], 'un anonyme ne voit que le public');
+
+    // `total` doit suivre le même filtre, sinon la pagination annonce des
+    // commentaires que l'appelant ne recevra jamais.
+    const { req, res } = rr({ params: { mangaId: M }, query: {} });
+    await User.getComments(req, res, nextThrow);
+    assert.equal(res.body.total, 1, 'le total est celui du point de vue, pas celui de la table');
+});
+
+test('user.addComment : portée invalide refusée, réponse ramenée à celle du parent (audit AMEL-50)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('vis_clamp', 'vis_clamp@test.local');
+    const M = 'oeuvre-clamp';
+
+    const bad = rr({ user: u, params: { mangaId: M }, body: { text: 'x', visibility: 'monde-entier' } });
+    await User.addComment(bad.req, bad.res, nextThrow);
+    assert.equal(bad.res.statusCode, 400, 'une portée inconnue ne doit pas retomber sur le défaut ouvert');
+
+    const parent = rr({ user: u, params: { mangaId: M }, body: { text: 'racine privee', visibility: 'private' } });
+    await User.addComment(parent.req, parent.res, nextThrow);
+    const rep = rr({ user: u, params: { mangaId: M },
+        body: { text: 'reponse', parentId: parent.res.body.id, visibility: 'public' } });
+    await User.addComment(rep.req, rep.res, nextThrow);
+
+    const [[row]] = await pool.query('SELECT visibility FROM comments WHERE id = ?', [rep.res.body.id]);
+    assert.equal(row.visibility, 'private',
+        'une réponse ne peut pas être plus visible que ce qu\'elle cite');
+});
+
+test('user.addComment : spoiler et ancrage chapitre persistés et filtrables (audit AMEL-51/52)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('vis_chap', 'vis_chap@test.local');
+    const M = 'oeuvre-ancrage';
+
+    const a = rr({ user: u, params: { mangaId: M }, body: { text: 'sur le ch. 3', chapterId: 'ch3', spoiler: true } });
+    await User.addComment(a.req, a.res, nextThrow);
+    const b = rr({ user: u, params: { mangaId: M }, body: { text: 'sur toute la serie' } });
+    await User.addComment(b.req, b.res, nextThrow);
+
+    const tout = rr({ user: u, params: { mangaId: M }, query: {} });
+    await User.getComments(tout.req, tout.res, nextThrow);
+    assert.equal(tout.res.body.items.length, 2);
+    const ancre = tout.res.body.items.find(c => c.chapterId === 'ch3');
+    assert.equal(ancre.spoiler, true, 'le marqueur de spoiler revient au client');
+
+    const filtre = rr({ user: u, params: { mangaId: M }, query: { chapterId: 'ch3' } });
+    await User.getComments(filtre.req, filtre.res, nextThrow);
+    assert.deepEqual(filtre.res.body.items.map(c => c.text), ['sur le ch. 3']);
+    assert.equal(filtre.res.body.total, 1, 'le total suit le filtre de chapitre');
+});
+
+// ── Notes : aller-retour export/import (audit AMEL-47) ───────
+test('export/import : l\'échelle des notes survit à l\'aller-retour (audit AMEL-47)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('scale_u', 'scale_u@test.local');
+    await pool.query('INSERT INTO ratings (user_id, manga_id, rating) VALUES (?, ?, ?)', [u.id, 'x', 9]);
+
+    const exp = rr({ user: u });
+    await User.exportData(exp.req, exp.res, nextThrow);
+    assert.equal(exp.res.body.ratingScale, 10, 'l\'export annonce son échelle');
+    assert.equal(exp.res.body.ratings.find(r => r.manga_id === 'x').rating, 9);
+
+    // Réimport dans un compte neuf : la note doit rester 9, pas retomber à 5.
+    const v = await createUser('scale_v', 'scale_v@test.local');
+    const imp = rr({ user: v, body: exp.res.body });
+    await User.importData(imp.req, imp.res, nextThrow);
+    const [[apres]] = await pool.query('SELECT rating FROM ratings WHERE user_id = ? AND manga_id = ?', [v.id, 'x']);
+    assert.equal(apres.rating, 9, 'réimporter sa sauvegarde ne doit pas diviser ses notes par deux');
+
+    // Fichier d'AVANT la bascule (pas de ratingScale) : notes sur 5, doublées.
+    const w = await createUser('scale_w', 'scale_w@test.local');
+    const vieux = rr({ user: w, body: { ratings: [{ manga_id: 'y', rating: 4 }] } });
+    await User.importData(vieux.req, vieux.res, nextThrow);
+    const [[conv]] = await pool.query('SELECT rating FROM ratings WHERE user_id = ? AND manga_id = ?', [w.id, 'y']);
+    assert.equal(conv.rating, 8, 'un ancien fichier /5 est converti, comme l\'a fait la migration 12');
 });

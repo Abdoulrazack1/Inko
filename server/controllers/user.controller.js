@@ -609,6 +609,20 @@ async function removeFromList(req, res, next) {
 // ──────────────────────────────────────────────────────────────
 // COMMENTS
 // ──────────────────────────────────────────────────────────────
+
+// Audit AMEL-50 : trois portées, et une seule règle pour toutes les
+// requêtes de lecture — dupliquer la condition, c'est se garantir qu'une
+// des copies finira par diverger et laisser fuiter du privé.
+//   private  : seulement son auteur (un carnet, pas un message)
+//   instance : les membres connectés de cette instance (l'ancien défaut)
+//   public   : tout le monde, y compris les visiteurs non connectés
+const VISIBILITES = ['private', 'instance', 'public'];
+function visibiliteSql(user) {
+    if (user?.role === 'admin') return { where: '1=1', params: [] };   // modération
+    if (!user) return { where: "visibility = 'public'", params: [] };
+    return { where: "(visibility IN ('public','instance') OR user_id = ?)", params: [user.id] };
+}
+
 async function getComments(req, res, next) {
     try {
         // Pagination par fil de discussion (audit N51) : l'ancien plafond dur
@@ -620,12 +634,21 @@ async function getComments(req, res, next) {
         const isAdmin = req.user?.role === 'admin';
         const limit   = Math.min(Math.max(parseInt(req.query.limit  || '50', 10) || 50, 1), 100);
         const offset  = Math.max(parseInt(req.query.offset || '0', 10) || 0, 0);
+        // Audit AMEL-50 : filtre de visibilité. Un visiteur anonyme ne voit que
+        // le public ; un membre voit en plus l'instance et SES propres notes
+        // privées. Le filtre est posé en SQL, pas après coup en JavaScript :
+        // un commentaire privé ne doit jamais quitter la base.
+        const visSql = visibiliteSql(req.user);
+        // Audit AMEL-52 : commentaires d'un chapitre précis. Sans ce filtre,
+        // l'ancrage ne servirait qu'à afficher une étiquette.
+        const chapId = (req.query.chapterId || '').trim() || null;
+        const filtreChap = chapId ? ' AND chapter_id = ?' : '';
         const [roots] = await pool.query(
             `SELECT id FROM comments
-             WHERE manga_id = ? AND parent_id IS NULL
+             WHERE manga_id = ? AND parent_id IS NULL AND ${visSql.where}${filtreChap}
              ORDER BY created_at DESC
              LIMIT ? OFFSET ?`,
-            [req.params.mangaId, limit, offset]
+            [req.params.mangaId, ...visSql.params, ...(chapId ? [chapId] : []), limit, offset]
         );
         let rows = [];
         if (roots.length) {
@@ -636,18 +659,18 @@ async function getComments(req, res, next) {
                      SELECT c.id FROM comments c JOIN thread t ON c.parent_id = t.id
                  )
                  SELECT c.id, c.text, c.chapter_id, c.parent_id, c.created_at,
-                        c.user_id, u.username, u.avatar
+                        c.visibility, c.spoiler, c.user_id, u.username, u.avatar
                  FROM comments c
                  JOIN users u ON u.id = c.user_id
-                 WHERE c.id IN (SELECT id FROM thread)
+                 WHERE c.id IN (SELECT id FROM thread) AND ${visSql.where.replace(/\b(visibility|user_id)\b/g, 'c.$1')}
                  ORDER BY c.created_at ASC`,
-                [roots.map(r => r.id)]
+                [roots.map(r => r.id), ...visSql.params]
             );
         }
         const [[counts]] = await pool.query(
             `SELECT COUNT(*) AS total, COALESCE(SUM(parent_id IS NULL), 0) AS roots
-             FROM comments WHERE manga_id = ?`,
-            [req.params.mangaId]
+             FROM comments WHERE manga_id = ? AND ${visSql.where}${filtreChap}`,
+            [req.params.mangaId, ...visSql.params, ...(chapId ? [chapId] : [])]
         );
         let reportCounts = {};
         if (isAdmin && rows.length) {
@@ -662,6 +685,7 @@ async function getComments(req, res, next) {
             items: rows.map(r => ({
                 id: r.id, text: r.text, chapterId: r.chapter_id,
                 parentId: r.parent_id || null,
+                visibility: r.visibility, spoiler: !!r.spoiler,
                 user: r.username, avatar: r.avatar || r.username[0].toUpperCase(),
                 createdAt: r.created_at,
                 reports: reportCounts[r.id] || 0,
@@ -677,7 +701,7 @@ async function getRecentComments(req, res, next) {
     try {
         const limit = Math.min(parseInt(req.query.limit || '6', 10), 20);
         const [rows] = await pool.query(
-            `SELECT c.id, c.text, c.manga_id, c.created_at,
+            `SELECT c.id, c.text, c.manga_id, c.created_at, c.spoiler,
                     u.username, u.avatar,
                     rt.rating,
                     (SELECT f.title  FROM favorites f WHERE f.manga_id = c.manga_id AND f.title IS NOT NULL LIMIT 1) AS manga_title,
@@ -685,12 +709,13 @@ async function getRecentComments(req, res, next) {
              FROM comments c
              JOIN users u ON u.id = c.user_id
              LEFT JOIN ratings rt ON rt.user_id = c.user_id AND rt.manga_id = c.manga_id
+             WHERE c.visibility IN ('public','instance')
              ORDER BY c.created_at DESC
              LIMIT ?`,
             [limit]
         );
         res.json(rows.map(r => ({
-            id: r.id, text: r.text, mangaId: r.manga_id,
+            id: r.id, text: r.text, mangaId: r.manga_id, spoiler: !!r.spoiler,
             mangaTitle: r.manga_title || null, mangaSource: r.manga_source || null,
             rating: r.rating || null,
             user: r.username, avatar: r.avatar || r.username[0].toUpperCase(),
@@ -701,39 +726,54 @@ async function getRecentComments(req, res, next) {
 
 async function addComment(req, res, next) {
     try {
-        const { text, chapterId, parentId } = req.body;
+        const { text, chapterId, parentId, spoiler } = req.body;
         const mangaId = req.params.mangaId;
         if (!text || text.trim().length < 1)
             return res.status(400).json({ error: 'Commentaire vide' });
         if (text.length > 1000)
             return res.status(400).json({ error: 'Commentaire trop long (1000 caractères max)' });
+        // Audit AMEL-50 : une portée inconnue ne doit pas silencieusement
+        // retomber sur le défaut le plus ouvert — on refuse.
+        let visibility = req.body.visibility || 'instance';
+        if (!VISIBILITES.includes(visibility))
+            return res.status(400).json({ error: 'Portée invalide (private, instance ou public)' });
 
         // Réponse : valide que le parent existe et appartient à la même œuvre
         let parent = null;
         if (parentId) {
             const [[p]] = await pool.query(
-                'SELECT id, user_id FROM comments WHERE id = ? AND manga_id = ?',
+                'SELECT id, user_id, visibility FROM comments WHERE id = ? AND manga_id = ?',
                 [parentId, mangaId]
             );
             if (!p) return res.status(400).json({ error: 'Commentaire parent introuvable' });
             parent = p;
+            // Une réponse ne peut pas être plus visible que ce à quoi elle
+            // répond : elle en cite le contenu, l'élargir le divulguerait.
+            if (VISIBILITES.indexOf(visibility) > VISIBILITES.indexOf(p.visibility))
+                visibility = p.visibility;
         }
 
         const [r] = await pool.query(
-            'INSERT INTO comments (user_id, manga_id, chapter_id, text, parent_id) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, mangaId, chapterId || null, text.trim(), parent ? parent.id : null]
+            'INSERT INTO comments (user_id, manga_id, chapter_id, text, parent_id, visibility, spoiler) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [req.user.id, mangaId, chapterId || null, text.trim(), parent ? parent.id : null,
+                visibility, spoiler ? 1 : 0]
         );
         await pushEvent(req.user.id, 'comment', { mangaId, chapterId });
 
-        // Notifications : réponse au parent + mentions @username
+        // Notifications : réponse au parent + mentions @username.
+        // Un commentaire privé ne notifie personne — la notification porte les
+        // 140 premiers caractères du texte, elle contournerait la portée que
+        // l'on vient d'appliquer en base.
         const link = `/serie.html?id=${encodeURIComponent(mangaId)}#comment-${r.insertId}`;
-        if (parent && parent.user_id !== req.user.id) {
-            await createNotification(parent.user_id, {
-                type: 'reply', title: `@${req.user.username} a répondu à ton commentaire`,
-                body: text.trim().slice(0, 140), link, actor: req.user.username,
-            });
+        if (visibility !== 'private') {
+            if (parent && parent.user_id !== req.user.id) {
+                await createNotification(parent.user_id, {
+                    type: 'reply', title: `@${req.user.username} a répondu à ton commentaire`,
+                    body: text.trim().slice(0, 140), link, actor: req.user.username,
+                });
+            }
+            await notifyMentions(text, { actor: req.user.username, link });
         }
-        await notifyMentions(text, { actor: req.user.username, link });
 
         res.json({ id: r.insertId, ok: true });
     } catch (e) { next(e); }
@@ -1033,7 +1073,11 @@ async function exportData(req, res, next) {
         const [notifications] = await pool.query('SELECT type, title, body, link, is_read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 500', [uid]).catch(() => [[]]);
         const [[settingsRow]] = await pool.query('SELECT data FROM user_settings WHERE user_id = ?', [uid]);
         res.json({
-            inkoVersion: 2,
+            inkoVersion: 3,
+            // Audit AMEL-47 : sans ce marqueur, une note « 4 » est ambiguë —
+            // 4/5 dans un fichier d'avant la bascule, 4/10 après. L'import
+            // doublerait les unes ou laisserait les autres divisées par deux.
+            ratingScale: 10,
             exportedAt: new Date().toISOString(),
             user: { username: req.user.username, email: req.user.email, avatar: req.user.avatar, createdAt: req.user.created_at },
             favorites, library, progress, readChapters, ratings,
@@ -1121,10 +1165,18 @@ async function importData(req, res, next) {
         // pouvait insérer n'importe quelle valeur. Depuis que la contrainte
         // CHECK existe en base, ces lignes seraient rejetées EN SILENCE et
         // l'utilisateur perdrait ses notes sans le savoir. On borne donc ici.
+        //
+        // Audit AMEL-47 : l'échelle est passée à 10. Un fichier qui ne porte
+        // pas `ratingScale` vient forcément d'avant la bascule — ses notes sont
+        // sur 5 et doivent être doublées, exactement comme la migration 12 l'a
+        // fait en base. Sans cela, réimporter sa propre sauvegarde divisait
+        // toutes ses notes par deux.
+        const echelleSource = Number(d.ratingScale) === 10 ? 10 : 5;
+        const facteur = echelleSource === 10 ? 1 : 2;
         const rateRows = (d.ratings || [])
             .filter(r => (r.manga_id || r.mangaId) && r.rating != null && !isNaN(parseFloat(r.rating)))
             .map(r => [uid, r.manga_id || r.mangaId,
-                       Math.min(5, Math.max(1, Math.round(parseFloat(r.rating)))),
+                       Math.min(10, Math.max(1, Math.round(parseFloat(r.rating) * facteur))),
                        r.review || null]);
         await bulk(
             `INSERT INTO ratings (user_id, manga_id, rating, review) VALUES ?

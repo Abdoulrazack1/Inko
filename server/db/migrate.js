@@ -185,6 +185,33 @@ const MIGRATIONS = [
         }
         await run('ALTER TABLE ratings ADD CONSTRAINT chk_rating_range CHECK (rating BETWEEN 1 AND 10)');
     } },
+    { version: 13, name: 'commentaires : visibilité, spoiler, ancrage chapitre (audit AMEL-50/51/52)', apply: async () => {
+        // AMEL-50 : l'UI promettait « ton avis reste privé » pendant que
+        // /comments/:mangaId servait tout le monde, y compris non connecté.
+        // Ce n'était pas un réglage manquant, c'était une promesse fausse.
+        // Le défaut retenu est `instance` — visible des membres de CETTE
+        // instance — parce que c'est ce que faisait le code jusqu'ici pour un
+        // utilisateur connecté : les commentaires existants ne changent donc
+        // pas de portée. Seuls les visiteurs anonymes en perdent l'accès,
+        // ce qui est exactement la fuite à colmater.
+        if (!(await columnExists('comments', 'visibility'))) {
+            await run(`ALTER TABLE comments ADD COLUMN visibility
+                ENUM('private','instance','public') NOT NULL DEFAULT 'instance'`);
+        }
+        // AMEL-51 : un lecteur de manga sans marqueur de spoiler force à
+        // choisir entre se taire et gâcher la lecture des autres.
+        if (!(await columnExists('comments', 'spoiler'))) {
+            await run('ALTER TABLE comments ADD COLUMN spoiler TINYINT(1) NOT NULL DEFAULT 0');
+        }
+        // AMEL-52 : `chapter_id` existait déjà et n'était jamais rempli. Un
+        // index le rend interrogeable — sans lui, filtrer les commentaires
+        // d'un chapitre balaierait toute la table de l'œuvre.
+        const [[idx]] = await pool.query(
+            `SELECT COUNT(*) AS n FROM information_schema.statistics
+             WHERE table_schema = DATABASE() AND table_name = 'comments'
+               AND index_name = 'idx_comments_chapter'`);
+        if (!idx.n) await run('CREATE INDEX idx_comments_chapter ON comments (manga_id, chapter_id)');
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──
