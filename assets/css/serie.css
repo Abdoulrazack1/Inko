@@ -906,3 +906,29 @@
 }
 .reprise-label { font-size: 14px; font-weight: 700; }
 .reprise-sub { font-size: 11px; font-weight: 500; opacity: .82; }
+
+/* ── Notation en demi-étoiles (audit AMEL-47) ──
+   `TINYINT` 1-5 est trop grossier pour classer des centaines de séries :
+   tout finit à 4 ou 5. La note est stockée sur 10 et rendue en 5 étoiles,
+   chaque moitié gauche valant un demi-point. */
+.rate-stars { display: flex; gap: 4px; }
+.rate-star {
+  position: relative; display: inline-block;
+  font-size: 26px; line-height: 1; width: 1em; height: 1em;
+}
+.rate-star-bg   { color: var(--bg4); }
+.rate-star-fill {
+  position: absolute; inset: 0; overflow: hidden;
+  color: #d98a00;               /* assombri : #f59e0b tombait sous AA sur fond clair */
+  white-space: nowrap;
+}
+/* Deux zones de clic invisibles par étoile : gauche = demi, droite = entier.
+   Ce sont de vrais <button>, donc atteignables au clavier et annoncés — une
+   notation qui n'existe qu'à la souris exclut ceux qui n'en ont pas. */
+.rate-hit {
+  position: absolute; top: 0; bottom: 0; width: 50%;
+  background: none; border: none; padding: 0; cursor: pointer;
+}
+.rate-hit-half { left: 0; }
+.rate-hit-full { right: 0; }
+.rate-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 2px; }

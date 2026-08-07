@@ -254,6 +254,7 @@
                 libStatus = status || null;
                 if (status) { try { window.AniList?.syncByTitle(manga.title, { status }); } catch (e) { window.MH?.err?.('serie.js', e); } }
                 MH.toast(status ? 'Statut : ' + e.target.options[e.target.selectedIndex].text : 'Statut retiré');
+                if (status === 'completed') proposerNotation();
             } catch (err) { MH.toast('Erreur : ' + err.message); }
         });
 
@@ -519,6 +520,64 @@
         loadSimilar();
         chargerAutresSources();
         rendreLiees();
+    }
+
+    // ── Comparaison avec AniList (audit AMEL-49) ─────────────
+    async function afficherScoreAniList(maNote10) {
+        const el = document.getElementById('anilistScore');
+        if (!el || !window.AniList?.publicScore || !manga?.title) return;
+        let s = null;
+        try { s = await window.AniList.publicScore(manga.title); } catch (e) { return; }
+        if (!s || !s.score100) return;
+        // AniList note sur 100 ; on ramène sur 5, l'échelle affichée ici.
+        const publicSur5 = s.score100 / 20;
+        let comparaison = '';
+        if (maNote10) {
+            const mienneSur5 = maNote10 / 2;
+            const ecart = mienneSur5 - publicSur5;
+            const abs = Math.abs(ecart);
+            comparaison = abs < 0.25
+                ? ' — tu es dans la moyenne'
+                : ` — tu notes ${abs.toFixed(1).replace('.', ',')} point${abs >= 2 ? 's' : ''} ${ecart > 0 ? 'au-dessus' : 'en dessous'}`;
+        }
+        el.hidden = false;
+        el.textContent = `AniList : ${publicSur5.toFixed(1).replace('.', ',')}/5${comparaison}`;
+    }
+
+    // ── Sollicitation de notation (audit AMEL-48) ────────────
+    // 0 avis enregistré pour 27 chapitres lus : la notation existait, mais
+    // n'était JAMAIS demandée. On ne note pas une œuvre en allant chercher un
+    // panneau — on la note quand on vient de la finir.
+    //
+    // Le moment retenu est le passage au statut « Terminé » : c'est là que le
+    // jugement est formé. Une seule sollicitation par série, et jamais si une
+    // note existe déjà — un rappel qui revient devient une nuisance.
+    async function proposerNotation() {
+        try {
+            const data = await API.ratings.get(manga.id);
+            if (data?.mine?.rating) return;              // déjà notée
+        } catch (e) { return; }
+        const vu = 'inko_note_demandee_' + manga.id;
+        try { if (localStorage.getItem(vu)) return; } catch (e) { /* stockage indisponible */ }
+
+        const reponse = await MH.prompt(
+            `Tu viens de terminer « ${manga.title} ». Quelle note lui donnes-tu ?\n`
+            + 'De 0,5 à 5, les demis sont acceptés (3,5). Laisse vide pour passer.',
+            { title: 'Noter cette œuvre', placeholder: 'ex. 4,5', okText: 'Noter' });
+        try { localStorage.setItem(vu, '1'); } catch (e) { /* stockage indisponible */ }
+        if (!reponse) return;
+
+        const surCinq = parseFloat(String(reponse).replace(',', '.'));
+        if (!(surCinq >= 0.5 && surCinq <= 5)) { MH.toast('Note ignorée : attendu entre 0,5 et 5'); return; }
+        const surDix = Math.round(surCinq * 2);
+        try {
+            await API.ratings.set(manga.id, { rating: surDix });
+            MH.toast(`Noté ${(surDix / 2).toFixed(1).replace('.', ',')}/5`);
+            // Le panneau de notation est dans la BARRE LATÉRALE, pas dans un
+            // onglet : rafraîchir l'onglet courant laissait les étoiles vides
+            // juste après avoir noté.
+            renderRating();
+        } catch (e) { MH.toast('Erreur : ' + e.message); }
     }
 
     // ── Annulation d'un marquage en masse (audit AMEL-40) ────
@@ -1300,18 +1359,31 @@
         let data = { average: null, count: 0, mine: null };
         try { data = await API.ratings.get(manga.id); } catch (e) { window.MH?.err?.('serie.js', e); }
 
-        const myStars = data.mine?.rating || 0;
+        // Audit AMEL-47 : la note est stockée sur 10 et affichée en 5 étoiles
+        // avec demis — deux fois plus de granularité sans changer le repère
+        // visuel auquel les gens sont habitués.
+        const maNote10 = data.mine?.rating || 0;      // 0-10
         const avgTxt = data.average != null
-            ? `<strong style="color:var(--text);font-size:15px">${data.average.toFixed(1)}</strong>/5 · ${MH.fmt(data.count)} note${data.count > 1 ? 's' : ''}`
+            ? `<strong style="color:var(--text);font-size:15px">${(data.average / 2).toFixed(1)}</strong>/5 · ${MH.fmt(data.count)} note${data.count > 1 ? 's' : ''}`
             : 'Aucune note pour l\'instant';
 
         const myReview = data.mine?.review || '';
         body.innerHTML = `
             <div style="margin-bottom:10px">${avgTxt}</div>
-            <div class="rate-stars" style="display:flex;gap:4px;font-size:24px;line-height:1">
-                ${[1,2,3,4,5].map(n => `<span class="rate-star" data-n="${n}" style="cursor:pointer;color:${n <= myStars ? '#f59e0b' : 'var(--bg4)'}">★</span>`).join('')}
+            <!-- Audit AMEL-49 : sans point de comparaison, une note personnelle
+                 ne dit rien — « 4/5 » ne prend son sens qu'à côté de la
+                 moyenne du public. -->
+            <div id="anilistScore" style="font-size:12px;color:var(--text3);margin:-4px 0 10px" hidden></div>
+            <div class="rate-stars" role="group" aria-label="Noter cette oeuvre">
+                ${[1,2,3,4,5].map(n => `
+                <span class="rate-star" data-n="${n}">
+                    <span class="rate-star-bg">★</span>
+                    <span class="rate-star-fill" data-fill="${n}" style="width:${Math.max(0, Math.min(1, maNote10 / 2 - (n - 1))) * 100}%">★</span>
+                    <button type="button" class="rate-hit rate-hit-half" data-v="${n * 2 - 1}" aria-label="${String(n - 0.5).replace('.', ',')} étoile sur 5"></button>
+                    <button type="button" class="rate-hit rate-hit-full" data-v="${n * 2}" aria-label="${n} étoile${n > 1 ? 's' : ''} sur 5"></button>
+                </span>`).join('')}
             </div>
-            <div style="font-size:11px;color:var(--text3);margin-top:6px">${API.isLoggedIn() ? (myStars ? 'Ta note · clique pour changer' : 'Clique une étoile pour noter') : 'Connecte-toi pour noter'}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px" id="rateHint">${API.isLoggedIn() ? (maNote10 ? `Ta note : ${(maNote10 / 2).toFixed(1).replace('.', ',')}/5 · clique pour changer` : 'Clique une étoile (ou sa moitié gauche) pour noter') : 'Connecte-toi pour noter'}</div>
             ${API.isLoggedIn() ? `
             <div class="my-review" style="margin-top:14px">
                 <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Mon avis</label>
@@ -1322,33 +1394,50 @@
                 </div>
             </div>` : ''}`;
 
+        // Audit AMEL-49 : en arrière-plan, sans bloquer le panneau. Un échec ou
+        // une œuvre inconnue d'AniList laisse simplement le bloc masqué —
+        // afficher « comparaison indisponible » ajouterait du bruit sans
+        // rien apporter.
+        afficherScoreAniList(maNote10);
+
         if (!API.isLoggedIn()) return;
 
-        let currentStars = myStars;
-        const stars = [...body.querySelectorAll('.rate-star')];
-        const paint = (n) => stars.forEach(s => s.style.color = (+s.dataset.n <= n) ? '#f59e0b' : 'var(--bg4)');
-        stars.forEach(s => {
-            s.addEventListener('mouseenter', () => paint(+s.dataset.n));
-            s.addEventListener('mouseleave', () => paint(currentStars));
-            s.addEventListener('click', async () => {
-                const n = +s.dataset.n;
+        // `note` est sur 10 ; chaque etoile vaut 2, sa moitie gauche 1.
+        let note10 = maNote10;
+        const remplissages = [...body.querySelectorAll('.rate-star-fill')];
+        const peindre = (v10) => remplissages.forEach(f => {
+            const n = +f.dataset.fill;
+            f.style.width = Math.max(0, Math.min(1, v10 / 2 - (n - 1))) * 100 + '%';
+        });
+        body.querySelectorAll('.rate-hit').forEach(h => {
+            h.addEventListener('mouseenter', () => peindre(+h.dataset.v));
+            h.addEventListener('focus', () => peindre(+h.dataset.v));
+            h.addEventListener('click', async () => {
+                const v = +h.dataset.v;
                 try {
-                    // On garde l'avis déjà saisi pour ne pas l'écraser en notant.
+                    // On garde l'avis deja saisi pour ne pas l'ecraser en notant.
                     const review = document.getElementById('reviewText')?.value.trim() || null;
-                    await API.ratings.set(manga.id, { rating: n, review });
-                    currentStars = n; paint(n);
-                    MH.toast(`Noté ${n}/5`);
+                    await API.ratings.set(manga.id, { rating: v, review });
+                    note10 = v; peindre(v);
+                    const hint = document.getElementById('rateHint');
+                    if (hint) hint.textContent = `Ta note : ${(v / 2).toFixed(1).replace('.', ',')}/5 · clique pour changer`;
+                    // La comparaison au public n'a de sens qu'avec la note
+                    // COURANTE : rendue une seule fois, elle serait restée
+                    // muette pour quiconque note depuis un panneau vierge.
+                    afficherScoreAniList(v);
+                    MH.toast(`Note ${(v / 2).toFixed(1).replace('.', ',')}/5`);
                 } catch (e) { MH.toast('Erreur : ' + e.message); }
             });
         });
+        body.querySelector('.rate-stars')?.addEventListener('mouseleave', () => peindre(note10));
 
         // Enregistrer « Mon avis » (§16) — s'appuie sur ratings.review déjà en base.
         document.getElementById('btnSaveReview')?.addEventListener('click', async (e) => {
-            if (!currentStars) { MH.toast('Choisis d\'abord une note (les étoiles) pour publier ton avis'); return; }
+            if (!note10) { MH.toast('Choisis d\'abord une note (les étoiles) pour publier ton avis'); return; }
             const review = document.getElementById('reviewText').value.trim();
             e.target.disabled = true; const lbl = e.target.textContent; e.target.textContent = '…';
             try {
-                await API.ratings.set(manga.id, { rating: currentStars, review: review || null });
+                await API.ratings.set(manga.id, { rating: note10, review: review || null });
                 MH.toast('Ton avis est enregistré');
             } catch (err) { MH.toast('Erreur : ' + err.message); }
             finally { e.target.disabled = false; e.target.textContent = lbl; }

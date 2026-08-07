@@ -109,6 +109,36 @@
         } catch (e) { return []; }
     }
 
+    // ── Score moyen AniList (audit AMEL-49) ──────────────────
+    // Les liens titre → mediaId sont déjà résolus et persistés (~160 en cache) :
+    // il ne manquait que la requête qui va chercher la note du public. Sans
+    // point de comparaison, une note personnelle ne dit rien — « 4/5 » ne
+    // prend son sens qu'à côté de « la moyenne est 3,6 ».
+    //
+    // Volontairement SANS authentification (`false`) : la note moyenne est une
+    // donnée publique, et la demander ne doit pas exiger un compte AniList lié.
+    const SCORE_Q = `query ($id: Int) {
+        Media(id: $id, type: MANGA) { id averageScore meanScore popularity }
+    }`;
+    const scoreCache = {};
+
+    async function publicScore(title) {
+        if (!title) return null;
+        if (scoreCache[title] !== undefined) return scoreCache[title];
+        try {
+            const id = await mediaId(title);
+            if (!id) { scoreCache[title] = null; return null; }
+            const d = await gql(SCORE_Q, { id }, false);
+            const m = d?.Media;
+            // AniList note sur 100 ; on rend la valeur brute et laisse
+            // l'appelant décider de l'échelle d'affichage.
+            scoreCache[title] = m && m.averageScore
+                ? { id: m.id, score100: m.averageScore, popularity: m.popularity || 0 }
+                : null;
+            return scoreCache[title];
+        } catch (e) { scoreCache[title] = null; return null; }
+    }
+
     // ── Rattachement persisté titre → mediaId (audit N56) ──
     // Avant : recherche floue refaite à chaque session, premier résultat mis en
     // cache silencieusement en l'absence de correspondance exacte — toute la
@@ -213,6 +243,6 @@
         } catch (e) { return false; }
     }
 
-    window.AniList = { getConfig, clearConfigCache, isLinked, user, token, me, connect, disconnect, syncEntry, syncByTitle, mediaId, STATUS_MAP,
+    window.AniList = { getConfig, clearConfigCache, isLinked, user, token, me, connect, disconnect, syncEntry, syncByTitle, mediaId, publicScore, STATUS_MAP,
         getLink, setLink, mediaInfo, searchMedia };   // rattachement corrigeable (audit N56)
 })();

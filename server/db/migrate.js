@@ -161,6 +161,30 @@ const MIGRATIONS = [
             await run('ALTER TABLE lists ADD COLUMN rules TEXT DEFAULT NULL');
         }
     } },
+    { version: 12, name: 'notes sur 10 — demi-étoiles (audit AMEL-47)', apply: async () => {
+        // `TINYINT` 1-5 est trop grossier pour classer des centaines de séries :
+        // tout finit à 4 ou 5. On passe à une échelle sur 10, affichée en
+        // 5 étoiles avec demis — ce qui double la granularité sans changer le
+        // repère visuel auquel les gens sont habitués.
+        //
+        // Ordre des opérations, et il compte : la contrainte 1-5 (posée en
+        // migration 5) doit tomber AVANT de doubler les valeurs, sinon
+        // l'UPDATE la viole et échoue. On la repose ensuite, bornée à 10.
+        const [[c]] = await pool.query(
+            `SELECT COUNT(*) AS n FROM information_schema.table_constraints
+             WHERE table_schema = DATABASE() AND table_name = 'ratings'
+               AND constraint_name = 'chk_rating_range'`);
+        if (c.n) await run('ALTER TABLE ratings DROP CHECK chk_rating_range');
+
+        // Ne double QUE ce qui est encore sur 5 : la migration doit pouvoir
+        // être rejouée sans transformer un 8 en 16.
+        const [[m]] = await pool.query('SELECT COALESCE(MAX(rating), 0) AS max FROM ratings');
+        if (m.max > 0 && m.max <= 5) {
+            const [r] = await pool.query('UPDATE ratings SET rating = rating * 2');
+            console.log(`[migrate] ${r.affectedRows} note(s) converties de /5 vers /10`);
+        }
+        await run('ALTER TABLE ratings ADD CONSTRAINT chk_rating_range CHECK (rating BETWEEN 1 AND 10)');
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──

@@ -887,9 +887,14 @@ async function setMangaRating(req, res, next) {
     try {
         const mangaId = req.params.mangaId;
         const { rating, review } = req.body || {};
-        const r = parseInt(rating, 10);
-        if (!r || r < 1 || r > 5)
-            return res.status(400).json({ error: 'Note entre 1 et 5 requise' });
+        // Audit AMEL-47 : echelle sur 10 (demi-etoiles). Une note sur 5
+        // envoyee par un client anterieur reste acceptee et convertie, plutot
+        // que rejetee : un ancien onglet ouvert ne doit pas casser.
+        let r = parseInt(rating, 10);
+        const surCinq = req.body?.scale === 5;
+        if (surCinq && r >= 1 && r <= 5) r = r * 2;
+        if (!r || r < 1 || r > 10)
+            return res.status(400).json({ error: 'Note entre 1 et 10 requise (demi-etoiles)' });
         await pool.query(
             `INSERT INTO ratings (user_id, manga_id, rating, review)
              VALUES (?, ?, ?, ?)
