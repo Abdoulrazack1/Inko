@@ -186,6 +186,64 @@
     }
     function openNotes() { window.NotesUI?.open(notesContext()); }
 
+    // ── Citer un passage (audit AMEL-44) ─────────────────────
+    // Prendre une note sur un roman demandait de retaper le passage, ou de
+    // décrire de mémoire ce qu'on venait de lire. Le champ `page` existait
+    // pourtant déjà pour l'ancrage — il n'était simplement jamais rempli
+    // depuis le texte.
+    //
+    // Un bouton flottant apparaît sur toute sélection d'une longueur
+    // significative, à l'endroit de la sélection. Il disparaît dès qu'on
+    // désélectionne : une action contextuelle qui reste à l'écran devient un
+    // encombrement.
+    const CITATION_MIN = 12;
+    const CITATION_MAX = 600;
+
+    function armerCitation() {
+        const zone = document.getElementById('novelContent');
+        if (!zone || zone.dataset.citeArme === '1') return;
+        zone.dataset.citeArme = '1';
+
+        const retirer = () => document.getElementById('novelQuoteBtn')?.remove();
+
+        const proposer = () => {
+            const sel = window.getSelection();
+            const texte = String(sel || '').replace(/\s+/g, ' ').trim();
+            if (!texte || texte.length < CITATION_MIN || !sel.rangeCount) { retirer(); return; }
+            // La sélection doit être DANS le texte du chapitre : sélectionner le
+            // titre de la page ou un bouton n'a rien d'une citation.
+            if (!zone.contains(sel.anchorNode)) { retirer(); return; }
+
+            retirer();
+            const r = sel.getRangeAt(0).getBoundingClientRect();
+            const btn = document.createElement('button');
+            btn.id = 'novelQuoteBtn';
+            btn.type = 'button';
+            btn.className = 'novel-quote-btn';
+            btn.textContent = 'Citer dans le journal';
+            btn.style.top  = Math.max(8, r.top - 42) + 'px';
+            btn.style.left = Math.min(window.innerWidth - 190, Math.max(8, r.left)) + 'px';
+            btn.onclick = () => {
+                const extrait = texte.length > CITATION_MAX
+                    ? texte.slice(0, CITATION_MAX) + '…' : texte;
+                retirer();
+                window.NotesUI?.open(Object.assign(notesContext(), {
+                    page: scrollPct(),                       // ancrage : % de progression
+                    prefill: `« ${extrait} »\n\n`,
+                }));
+            };
+            document.body.appendChild(btn);
+        };
+
+        // `selectionchange` plutôt que `mouseup` : couvre aussi la sélection au
+        // clavier (Maj+flèches) et au toucher, où `mouseup` n'existe pas.
+        document.addEventListener('selectionchange', () => {
+            clearTimeout(armerCitation._t);
+            armerCitation._t = setTimeout(proposer, 180);
+        });
+        window.addEventListener('scroll', retirer, { passive: true });
+    }
+
     // ── Synthèse vocale (Text-to-Speech, Web Speech API) ──
     const TTS = (function () {
         const synth = window.speechSynthesis;
@@ -276,6 +334,7 @@
         });
         indexerSections(el);
         majTempsRestant();
+        armerCitation();   // audit AMEL-44
     }
 
     // ── Sommaire du texte (audit AMEL-20) ────────────────────

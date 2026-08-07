@@ -206,6 +206,16 @@
         ensureRoot();
         root.querySelector('#notesCtx').textContent = ctxLabel();
         resetComposer();
+        // Audit AMEL-44 : `context.prefill` permet d'ouvrir le composeur déjà
+        // rempli — typiquement une citation sélectionnée dans le lecteur de
+        // romans. Le curseur est placé APRÈS la citation : on vient écrire son
+        // commentaire, pas réécrire le passage.
+        if (ctx.prefill) {
+            const ta = root.querySelector('#notesText');
+            ta.value = ctx.prefill;
+            root.querySelector('#notesCharCount').textContent = String(ta.value.length);
+            setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 60);
+        }
         root.classList.add('open');
         document.body.classList.add('notes-open');
         loadList();

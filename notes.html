@@ -31,9 +31,18 @@
       <h1>Journal de lecture</h1>
       <div class="jr-sub">Tes pensées, chapitre après chapitre — comme un carnet qui suit ta lecture.</div>
       <div class="jr-stats" id="jrStats"></div>
+    <!-- Audit AMEL-46 : le champ « humeur » etait collecte a chaque note et
+         restitue par UNE valeur dominante ; l'evolution etait perdue. -->
+    <div class="jr-moods" id="jrMoods" hidden></div>
     </div>
     <div class="jr-toolbar">
-      <input type="text" class="jr-search" id="jrSearch" placeholder="Rechercher dans mes notes…" autocomplete="off">
+      <input type="text" class="jr-search" id="jrSearch" placeholder="Rechercher dans mes notes…" autocomplete="off" aria-label="Rechercher dans mes notes">
+      <!-- Audit AMEL-45 : relire son journal comme un recit demande l'ordre
+           chronologique ; la consultation courante veut le plus recent. -->
+      <button class="btn btn-secondary btn-sm" id="jrRecit" aria-pressed="false" title="Lire chaque serie du debut a la fin">Mode recit</button>
+      <!-- Audit AMEL-43 : l'export global est du JSON, fait pour etre reimporte,
+           pas pour etre lu. Une note de lecture s'ouvre dans un carnet. -->
+      <button class="btn btn-secondary btn-sm" id="jrExportMd" title="Exporter en Markdown (Obsidian, Logseq…)">Export Markdown</button>
     </div>
     <div id="jrBody">
       <div class="jr-empty"><div class="spinner-inline"></div></div>
