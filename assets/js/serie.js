@@ -179,6 +179,12 @@
                          averti sont deux choses. Le bouton n'apparaît que
                          lorsqu'elle est dans la bibliothèque : il n'y a rien à
                          mettre en sourdine avant. -->
+                    <!-- Audit AMEL-63 : la liste d'epingles existait depuis
+                         toujours et restait vide — rien ne permettait d'y
+                         mettre quoi que ce soit. C'est la seule chose qu'un
+                         profil montre par CHOIX plutot que par agregation. -->
+                    ${favorited ? `<button class="btn btn-ghost btn-sm" id="btnPin"
+                        title="Mettre en avant sur ton profil public" aria-pressed="false">📌 Épingler</button>` : ''}
                     ${favorited ? `<button class="btn btn-ghost btn-sm" id="btnNotify"
                         title="${libNotify ? 'Ne plus être averti des nouveaux chapitres' : 'Être averti des nouveaux chapitres'}"
                         aria-pressed="${libNotify}">${libNotify ? '🔔 Alertes' : '🔕 En sourdine'}</button>` : ''}
@@ -270,6 +276,24 @@
         // Audit AMEL-54 : bascule de surveillance. On ne recharge pas la fiche
         // — seul le libellé du bouton change, et un rechargement complet ferait
         // perdre l'onglet et la position de lecture en cours.
+        // Épingle : purement locale (UserData se synchronise tout seul), donc
+        // aucun appel réseau et un retour immédiat.
+        const btnPin = document.getElementById('btnPin');
+        if (btnPin) {
+            const src = API.sources.current;
+            const majPin = (on) => {
+                btnPin.textContent = on ? '📌 Épinglée' : '📌 Épingler';
+                btnPin.setAttribute('aria-pressed', String(on));
+                btnPin.title = on ? 'Retirer de la vitrine de ton profil' : 'Mettre en avant sur ton profil public';
+            };
+            window.UserData?.ready?.().then(() => majPin(!!UserData.isPinned(manga.id, src)));
+            btnPin.addEventListener('click', () => {
+                const on = UserData.togglePin(manga.id, src);
+                majPin(on);
+                MH.toast(on ? 'Épinglée sur ton profil' : 'Retirée de ta vitrine');
+            });
+        }
+
         document.getElementById('btnNotify')?.addEventListener('click', async (e) => {
             const btn = e.currentTarget;
             btn.disabled = true;

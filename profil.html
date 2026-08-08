@@ -330,28 +330,53 @@
               </div>
             </div>
           </div>
-          <div class="card privacy-card">
+          <!-- Audit AMEL-61 : la confidentialité était tout ou rien, et deux
+               des trois interrupteurs (« Historique visible », « Partager les
+               avis ») n'étaient lus par AUCUN code — on les basculait sans
+               effet. Ils sont remplacés par les sections réellement publiées. -->
+          <div class="card privacy-card" id="confidentialite">
             <div class="card-title">Confidentialité</div>
             <div class="privacy-item">
               <div class="privacy-info">
                 <div class="privacy-name">Profil privé</div>
-                <div class="privacy-desc">Masque tes statistiques détaillées sur ton profil public.</div>
+                <div class="privacy-desc">Masque tout ton profil public, y compris avatar et bio. Prime sur les réglages ci-dessous.</div>
               </div>
               <div class="toggle" data-privacy="privateProfile"></div>
             </div>
             <div class="privacy-item">
               <div class="privacy-info">
-                <div class="privacy-name">Historique visible</div>
-                <div class="privacy-desc">Partage ton historique de lecture sur ton profil public.</div>
+                <div class="privacy-name">Statistiques et badges</div>
+                <div class="privacy-desc">Chapitres lus, séries, jours d'affilée, badges obtenus.</div>
               </div>
-              <div class="toggle on" data-privacy="historyVisible"></div>
+              <div class="toggle on" data-privacy="showStats"></div>
             </div>
             <div class="privacy-item">
               <div class="privacy-info">
-                <div class="privacy-name">Partager automatiquement les avis</div>
-                <div class="privacy-desc">Rends tes avis visibles sur ton profil public.</div>
+                <div class="privacy-name">Listes publiques</div>
+                <div class="privacy-desc">Les listes que tu as marquées « publique ».</div>
               </div>
-              <div class="toggle on" data-privacy="shareReviews"></div>
+              <div class="toggle on" data-privacy="showLists"></div>
+            </div>
+            <div class="privacy-item">
+              <div class="privacy-info">
+                <div class="privacy-name">Séries épinglées</div>
+                <div class="privacy-desc">La vitrine que tu choisis toi-même depuis une fiche série.</div>
+              </div>
+              <div class="toggle on" data-privacy="showPins"></div>
+            </div>
+            <div class="privacy-item">
+              <div class="privacy-info">
+                <div class="privacy-name">Bibliothèque</div>
+                <div class="privacy-desc">Les séries suivies avec leur statut. Désactivé par défaut.</div>
+              </div>
+              <div class="toggle" data-privacy="showLibrary"></div>
+            </div>
+            <div class="privacy-item" style="border-bottom:none">
+              <div class="privacy-info">
+                <div class="privacy-name">Vérifier</div>
+                <div class="privacy-desc">Voir ton profil exactement comme le voit une personne non connectée.</div>
+              </div>
+              <a class="btn btn-sm" id="btnApercuPublic" href="#">Aperçu public</a>
             </div>
           </div>
         </div>

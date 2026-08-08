@@ -925,7 +925,13 @@
         try { privacy = (await API.me.settings())?.privacy || {}; } catch (e) { window.MH?.err?.('profil.js', e); }
         document.querySelectorAll('.toggle[data-privacy]').forEach(t => {
             const key = t.dataset.privacy;
-            const on = key === 'privateProfile' ? !!privacy[key] : (privacy[key] !== false); // défaut visible
+            // Audit AMEL-61 : deux défauts différents. `privateProfile` et
+            // `showLibrary` sont des ADDITIONS d'exposition — défaut NON, sans
+            // quoi une mise à jour publierait rétroactivement des données que
+            // personne n'a accepté de montrer. Les autres reprennent ce qui
+            // était déjà public : défaut OUI.
+            const defautNon = key === 'privateProfile' || key === 'showLibrary';
+            const on = defautNon ? privacy[key] === true : privacy[key] !== false;
             t.classList.toggle('on', on);
         });
         document.querySelectorAll('.toggle').forEach(t => {
@@ -945,6 +951,16 @@
                 }
             });
         });
+
+        // Audit AMEL-62 : l'aperçu passe par la vraie page publique avec le
+        // vrai calcul serveur. Rediriger vers une maquette locale reviendrait
+        // à vérifier son reflet dans un miroir qu'on a peint soi-même.
+        const apercu = document.getElementById('btnApercuPublic');
+        if (apercu) {
+            const nom = API.user?.username;
+            if (nom) apercu.href = `u.html?u=${encodeURIComponent(nom)}&preview=1`;
+            else { apercu.setAttribute('aria-disabled', 'true'); apercu.style.opacity = '.5'; }
+        }
     }
     function initPrefBtns() {
         // Mappe chaque groupe de préférences vers une vraie clé de réglage

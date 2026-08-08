@@ -460,3 +460,100 @@ test('scanUserUpdates : notifyOnly écarte les séries en sourdine, pas le scan 
             'la tâche de fond ignore ce qui est en sourdine');
     } finally { loader.get = vrai; }
 });
+
+// ── Profil public : confidentialité par section (audit AMEL-61/62/63) ──
+test('publicProfile : chaque section a son réglage, privateProfile prime (audit AMEL-61)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('prof_a', 'prof_a@test.local');
+    const autre = await createUser('prof_b', 'prof_b@test.local');
+    await pool.query('INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?,?,?,?)',
+        [u.id, 'm1', 'c1', 1]);
+    await pool.query('INSERT INTO favorites (user_id, manga_id, title, status) VALUES (?,?,?,?)',
+        [u.id, 'm1', 'Serie Un', 'reading']);
+    await pool.query('INSERT INTO lists (user_id, name, is_public) VALUES (?,?,1)', [u.id, 'Ma liste']);
+
+    const vu = async (viewer, query = {}) => {
+        const { req, res } = rr({ user: viewer, params: { username: 'prof_a' }, query });
+        await Profile.publicProfile(req, res, nextThrow);
+        return res.body;
+    };
+
+    // Par défaut : stats et listes visibles (comportement d'avant), pas la
+    // bibliothèque — une amélioration ne doit rien publier rétroactivement.
+    let p = await vu(autre);
+    assert.ok(p.stats, 'les stats restent publiques par défaut');
+    assert.equal(p.lists.length, 1, 'les listes publiques restent visibles');
+    assert.equal(p.library, null, 'la bibliothèque n\'est PAS exposée par défaut');
+
+    // Masquer les stats seules laisse les listes
+    await pool.query(
+        `INSERT INTO user_settings (user_id, data) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE data = VALUES(data)`,
+        [u.id, JSON.stringify({ privacy: { showStats: false, showLibrary: true } })]);
+    p = await vu(autre);
+    assert.equal(p.stats, null, 'stats masquées');
+    assert.deepEqual(p.badges, [], 'les badges suivent les stats : ils en sont dérivés');
+    assert.equal(p.lists.length, 1, 'les listes ne sont pas emportées par le masquage des stats');
+    assert.equal(p.library.length, 1, 'la bibliothèque est exposée quand on l\'a demandé');
+
+    // privateProfile prime sur tout
+    await pool.query('UPDATE user_settings SET data = ? WHERE user_id = ?',
+        [JSON.stringify({ privacy: { privateProfile: true, showStats: true, showLibrary: true } }), u.id]);
+    p = await vu(autre);
+    assert.equal(p.hidden, true);
+    assert.equal(p.stats, null);
+    assert.equal(p.library, undefined, 'rien d\'autre que le pseudo ne sort d\'un profil privé');
+});
+
+test('publicProfile : ?as=public montre au propriétaire ce que voit un inconnu (audit AMEL-62)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('prof_c', 'prof_c@test.local');
+    await pool.query(
+        `INSERT INTO user_settings (user_id, data) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE data = VALUES(data)`,
+        [u.id, JSON.stringify({ privacy: { privateProfile: true } })]);
+
+    const propre = rr({ user: u, params: { username: 'prof_c' }, query: {} });
+    await Profile.publicProfile(propre.req, propre.res, nextThrow);
+    assert.equal(propre.res.body.isOwner, true);
+    assert.ok(!propre.res.body.hidden, 'le propriétaire voit son profil complet');
+
+    const apercu = rr({ user: u, params: { username: 'prof_c' }, query: { as: 'public' } });
+    await Profile.publicProfile(apercu.req, apercu.res, nextThrow);
+    assert.equal(apercu.res.body.isOwner, false);
+    assert.equal(apercu.res.body.hidden, true,
+        'en aperçu, le propriétaire reçoit exactement ce que reçoit un inconnu');
+});
+
+test('publicProfile : la vitrine garde l\'ordre choisi et ignore les œuvres retirées (audit AMEL-63)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('prof_d', 'prof_d@test.local');
+    const autre = await createUser('prof_e', 'prof_e@test.local');
+    await pool.query(
+        'INSERT INTO favorites (user_id, manga_id, source, title) VALUES (?,?,?,?), (?,?,?,?)',
+        [u.id, 'aa', 'src', 'Serie AA', u.id, 'bb', 'src', 'Serie BB']);
+    // 'zz' n'est plus en bibliothèque : une épingle morte ne doit pas produire
+    // une case vide sur le profil.
+    await pool.query(
+        `INSERT INTO user_settings (user_id, data) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE data = VALUES(data)`,
+        // Emplacement REEL ecrit par UserData : settings.userdata.pins. Le
+        // premier jet de ce test ecrivait a la racine — il passait au vert
+        // pendant que la vitrine restait vide dans le navigateur.
+        // Format REEL ecrit par UserData.keyOf : `<source>:<mangaId>`. Mes deux
+        // premiers jets de ce test ont invente l'emplacement PUIS le format —
+        // verts tous les deux, pendant que la vitrine restait vide a l'ecran.
+        [u.id, JSON.stringify({ userdata: { pins: ['src:bb', 'src:zz', 'src:aa'] } })]);
+
+    const { req, res } = rr({ user: autre, params: { username: 'prof_d' }, query: {} });
+    await Profile.publicProfile(req, res, nextThrow);
+    assert.deepEqual(res.body.pins.map(p => p.mangaId), ['bb', 'aa'],
+        'ordre de l\'utilisateur respecté, épingle morte écartée');
+
+    // Section désactivée : plus de vitrine du tout
+    await pool.query('UPDATE user_settings SET data = ? WHERE user_id = ?',
+        [JSON.stringify({ userdata: { pins: ['src:bb'] }, privacy: { showPins: false } }), u.id]);
+    const off = rr({ user: autre, params: { username: 'prof_d' }, query: {} });
+    await Profile.publicProfile(off.req, off.res, nextThrow);
+    assert.deepEqual(off.res.body.pins, []);
+});

@@ -27,7 +27,30 @@ async function publicProfile(req, res, next) {
         const settings = srow ? (typeof srow.data === 'string' ? JSON.parse(srow.data) : srow.data) : {};
         const isPrivate = !!(settings && settings.privacy && settings.privacy.privateProfile);
         const viewerId = req.user?.id || req.userId;
-        const isOwner  = viewerId === u.id;
+        // Audit AMEL-62 : impossible de vérifier son propre profil public — on
+        // le voyait toujours en tant que propriétaire. `?as=public` fait
+        // calculer EXACTEMENT ce qu'un inconnu reçoit, par le même code : un
+        // aperçu reconstitué à la main finirait par mentir.
+        const apercuPublic = req.query.as === 'public';
+        const isOwner  = viewerId === u.id && !apercuPublic;
+
+        // Audit AMEL-61 : la confidentialité était tout ou rien. On peut
+        // vouloir montrer ses listes sans exposer son rythme de lecture, ou
+        // l'inverse. Chaque section a son réglage ; `privateProfile` reste le
+        // interrupteur général et prime sur tout — les comptes déjà privés le
+        // restent sans rien changer.
+        const conf = (settings && settings.privacy) || {};
+        const visible = (cle, defaut) => (conf[cle] === undefined ? defaut : conf[cle] !== false);
+        const sections = {
+            // Défauts = comportement actuel : stats et listes étaient publiques.
+            stats: visible('showStats', true),
+            lists: visible('showLists', true),
+            // Nouveauté : exposer sa bibliothèque n'a jamais été possible, donc
+            // le défaut est NON. Une amélioration ne doit pas publier
+            // rétroactivement des données que personne n'a accepté de montrer.
+            library: conf.showLibrary === true,
+            pins: visible('showPins', true),
+        };
 
         const base = {
             username:    u.username,
@@ -36,6 +59,8 @@ async function publicProfile(req, res, next) {
             memberSince: u.created_at,
             private:     isPrivate,
             isOwner,
+            sections,
+            preview:     apercuPublic,
         };
         if (isPrivate && !isOwner) {
             // Audit B2 : « profil privé » doit masquer TOUT le profil, pas
@@ -52,6 +77,10 @@ async function publicProfile(req, res, next) {
                 hidden:   true,
                 stats:    null,
                 badges:   [],
+                // Audit AMEL-62 : sans ce drapeau, le proprietaire qui verifie
+                // son profil prive tombait sur un cadenas sans bandeau ni lien
+                // de retour — impossible de savoir qu'on etait en apercu.
+                preview:  apercuPublic,
             });
         }
 
@@ -83,14 +112,69 @@ async function publicProfile(req, res, next) {
              FROM lists l WHERE l.user_id = ? AND l.is_public = 1
              ORDER BY l.created_at DESC LIMIT 50`, [u.id]);
 
+        // Audit AMEL-63 : `userdata.pins` existait dans les reglages et restait
+        // vide — aucune surface ne le lisait ni ne l'ecrivait. Les epingles sont
+        // la seule chose qu'un profil peut MONTRER par choix plutot que par
+        // agregation : « voici ce que je recommande », pas « voici mes
+        // compteurs ». La cle stockee est `mangaId::source`.
+        let pins = [];
+        if (sections.pins) {
+            // UserData ecrit TOUT son blob sous `settings.userdata` — lire
+            // `settings.pins` renvoyait toujours vide. La racine reste acceptee
+            // en second recours : un reglage pose a la main y atterrirait.
+            const source = Array.isArray(settings?.userdata?.pins) ? settings.userdata.pins
+                : (Array.isArray(settings?.pins) ? settings.pins : []);
+            const brut = source.slice(0, 12);
+            if (brut.length) {
+                // Format REEL des cles, defini par UserData.keyOf :
+                // `<source>:<mangaId>`. Un identifiant d'oeuvre peut contenir
+                // des « : » (rare mais possible), donc on ne coupe QU'AU
+                // PREMIER separateur.
+                const ids = brut.map(k => {
+                    const t = String(k);
+                    const i = t.indexOf(':');
+                    return i === -1 ? t : t.slice(i + 1);
+                });
+                const [rows] = await pool.query(
+                    'SELECT manga_id, source, title, cover FROM favorites WHERE user_id = ? AND manga_id IN (?)',
+                    [u.id, ids]);
+                const parId = new Map(rows.map(r => [r.manga_id, r]));
+                // On garde l'ORDRE choisi par l'utilisateur, pas celui de la
+                // base : une vitrine ordonnee au hasard n'est plus une vitrine.
+                pins = ids.map(id => parId.get(id)).filter(Boolean).map(r => ({
+                    mangaId: r.manga_id, source: r.source || 'mangadex',
+                    title: r.title || r.manga_id, cover: r.cover || null,
+                }));
+            }
+        }
+
+        // Une bibliotheque publique n'expose que ce qui est deja affichable
+        // ailleurs (titre, couverture, statut) — jamais la progression ni les
+        // notes personnelles.
+        let library = null;
+        if (sections.library) {
+            const [rows] = await pool.query(
+                `SELECT manga_id, source, title, cover, status FROM favorites
+                 WHERE user_id = ? AND status IS NOT NULL
+                 ORDER BY status_updated_at DESC LIMIT 60`, [u.id]);
+            library = rows.map(r => ({
+                mangaId: r.manga_id, source: r.source || 'mangadex',
+                title: r.title || r.manga_id, cover: r.cover || null, status: r.status,
+            }));
+        }
+
         res.json({
             ...base,
-            stats:  { chapters: t.chapters, series: t.series, favorites: t.favorites, ratings: t.ratings, streak },
-            badges: computeBadges(t, streak),
-            lists:  lists.map(l => ({
+            stats:  sections.stats
+                ? { chapters: t.chapters, series: t.series, favorites: t.favorites, ratings: t.ratings, streak }
+                : null,
+            badges: sections.stats ? computeBadges(t, streak) : [],
+            lists:  sections.lists ? lists.map(l => ({
                 id: l.id, name: l.name, description: l.description,
                 items: l.items, createdAt: l.created_at,
-            })),
+            })) : [],
+            pins,
+            library,
         });
     } catch (e) { next(e); }
 }

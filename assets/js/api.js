@@ -608,7 +608,11 @@
 
         // ── Profil public ──
         users: {
-            profile: (username) => get('/users/profile/' + encodeURIComponent(username)).then(p => {
+            // `preview` force le point de vue d'un inconnu, même sur son propre
+            // profil (audit AMEL-62) : c'est le serveur qui recalcule, pas le
+            // client qui masque — un aperçu reconstitué finirait par mentir.
+            profile: (username, { preview = false } = {}) =>
+                get('/users/profile/' + encodeURIComponent(username) + (preview ? '?as=public' : '')).then(p => {
                 if (p && p.avatar && /^https?:\/\//.test(p.avatar)) p.avatar = proxyCover(p.avatar);
                 return p;
             }),
