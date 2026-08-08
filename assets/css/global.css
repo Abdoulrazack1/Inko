@@ -342,6 +342,38 @@ body.incognito-on::before {
   background: repeating-linear-gradient(90deg, var(--orange) 0 14px, transparent 14px 28px);
   z-index: 9999; pointer-events: none; opacity: .85;
 }
+/* Bandeau de lecture privée (audit AMEL-106).
+   En bas et non en haut : le haut de page porte déjà l'en-tête, et un bandeau
+   qui pousse le contenu à chaque activation ferait sauter la mise en page.
+   Au-dessus du dock musique (z-index 9000) mais sous les modales. */
+#incognitoBar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: 96px; z-index: 9600;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  max-width: min(680px, calc(100vw - 24px));
+  padding: 9px 14px;
+  background: var(--bg2); border: 1px solid var(--orange);
+  border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.4);
+  font-size: 12.5px; color: var(--text2);
+}
+#incognitoBar .inco-pastille {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--orange); flex: 0 0 auto;
+}
+#incognitoBar .inco-texte { font-weight: 600; color: var(--text); }
+#incognitoBar .inco-detail { color: var(--text3); font-size: 11.5px; }
+#incognitoBar .inco-off {
+  background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+  border-radius: 999px; padding: 4px 11px; font-size: 11.5px; font-family: inherit; cursor: pointer;
+}
+#incognitoBar .inco-off:hover { border-color: var(--orange); }
+#incognitoBar .inco-off:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Sous 560 px le détail passe à la ligne plutôt que d'écraser le bouton. */
+@media (max-width: 560px) {
+  #incognitoBar { bottom: 84px; border-radius: 14px; }
+  #incognitoBar .inco-detail { flex-basis: 100%; }
+}
+
 #btnRefresh.spinning svg { animation: inko-spin .8s linear infinite; }
 @keyframes inko-spin { to { transform: rotate(360deg); } }
 .header-user {

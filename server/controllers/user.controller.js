@@ -17,7 +17,19 @@ function idOeuvreValide(v) {
 }
 
 // ── helper events ───────────────────────────────────────────────
-async function pushEvent(userId, type, payload = {}) {
+// Audit AMEL-107 : le mode « lecture privée » ne couvrait que la progression,
+// parce qu'il vivait entièrement côté client — le serveur n'en savait rien et
+// continuait d'écrire dans `events`, qui alimente le flux d'activité et le
+// profil. L'en-tête `X-Inko-Private` le lui apprend.
+//
+// L'ACTION demandée reste exécutée (ajouter un favori, poser un statut) :
+// seule sa TRACE est omise. Refuser l'action serait de la perte de données
+// déguisée en confidentialité.
+function lecturePrivee(req) {
+    return req?.headers?.['x-inko-private'] === '1';
+}
+async function pushEvent(userId, type, payload = {}, req = null) {
+    if (req && lecturePrivee(req)) return;
     const { mangaId, chapterId, metadata } = payload;
     await pool.query(
         'INSERT INTO events (user_id, type, manga_id, chapter_id, metadata) VALUES (?, ?, ?, ?, ?)',
@@ -64,7 +76,7 @@ async function addFavorite(req, res, next) {
                 cover = COALESCE(VALUES(cover), cover)`,
             [req.user.id, mangaId, source || 'mangadex', title || null, cover || null]
         );
-        await pushEvent(req.user.id, 'favorite', { mangaId });
+        await pushEvent(req.user.id, 'favorite', { mangaId }, req);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -75,7 +87,7 @@ async function removeFavorite(req, res, next) {
             'DELETE FROM favorites WHERE user_id = ? AND manga_id = ?',
             [req.user.id, req.params.mangaId]
         );
-        await pushEvent(req.user.id, 'unfavorite', { mangaId: req.params.mangaId });
+        await pushEvent(req.user.id, 'unfavorite', { mangaId: req.params.mangaId }, req);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -154,7 +166,7 @@ async function setLibraryStatus(req, res, next) {
             [req.user.id, req.params.mangaId, status]
         );
         await pushEvent(req.user.id, 'status_change',
-            { mangaId: req.params.mangaId, metadata: { status, rating } });
+            { mangaId: req.params.mangaId, metadata: { status, rating } }, req);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -220,7 +232,7 @@ async function setProgress(req, res, next) {
         );
         await enregistrerHistorique(req.user.id, mangaId, chapterId, chapter, page, source);
         await pushEvent(req.user.id, 'read',
-            { mangaId, chapterId, metadata: { chapter, page } });
+            { mangaId, chapterId, metadata: { chapter, page } }, req);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -321,7 +333,7 @@ async function markChapter(req, res, next) {
                  VALUES (?, ?, ?, ?)`,
                 [req.user.id, mangaId, chapterId, chapter || null]
             );
-            if (r.affectedRows) await pushEvent(req.user.id, 'read', { mangaId, chapterId, chapter });
+            if (r.affectedRows) await pushEvent(req.user.id, 'read', { mangaId, chapterId, chapter }, req);
         } else {
             await pool.query(
                 'DELETE FROM read_chapters WHERE user_id = ? AND chapter_id = ?',
@@ -761,7 +773,7 @@ async function addComment(req, res, next) {
             [req.user.id, mangaId, chapterId || null, text.trim(), parent ? parent.id : null,
                 visibility, spoiler ? 1 : 0]
         );
-        await pushEvent(req.user.id, 'comment', { mangaId, chapterId });
+        await pushEvent(req.user.id, 'comment', { mangaId, chapterId }, req);
 
         // Notifications : réponse au parent + mentions @username.
         // Un commentaire privé ne notifie personne — la notification porte les
@@ -1004,7 +1016,7 @@ async function setMangaRating(req, res, next) {
              ON DUPLICATE KEY UPDATE rating = VALUES(rating), review = VALUES(review)`,
             [req.user.id, mangaId, r, review || null]
         );
-        await pushEvent(req.user.id, 'rating', { mangaId, metadata: { rating: r } });
+        await pushEvent(req.user.id, 'rating', { mangaId, metadata: { rating: r } }, req);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }

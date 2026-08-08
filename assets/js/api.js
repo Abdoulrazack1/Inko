@@ -80,6 +80,21 @@
     // Timeout via AbortController : sans ça, un serveur qui ne répond pas
     // fige l'UI indéfiniment (audit API1/DF4, critique).
     const DEFAULT_TIMEOUT = 30000;
+    // Mode global, ou serie explicitement privee dont l'identifiant apparait
+    // dans le chemin. Passer le drapeau a travers chaque appelant aurait
+    // demande de toucher des dizaines de signatures pour le meme resultat.
+    function estRequetePrivee(path) {
+        const MH = window.MH;
+        if (!MH || !MH.isIncognito) return false;
+        if (MH.isIncognito()) return true;
+        try {
+            const s = JSON.parse(sessionStorage.getItem('inko_incognito_series') || '[]');
+            if (!s.length) return false;
+            const decode = decodeURIComponent(path);
+            return s.some(id => decode.includes(id));
+        } catch (e) { return false; }
+    }
+
     async function request(method, path, body, { timeout = DEFAULT_TIMEOUT, keepalive = false } = {}) {
         // Audit PERF-02 : toute écriture périme le cache de lectures partagées.
         // Sans ça, « ajouter aux favoris » puis relire la liste dans la seconde
@@ -99,6 +114,12 @@
         };
         if (_token) opts.headers['Authorization'] = `Bearer ${_token}`;
         if (body)   { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+        // Audit AMEL-107 : la table `events` alimente le flux d'activité et le
+        // profil — c'est une trace, et elle était écrite même en lecture
+        // privée puisque le serveur ignorait tout du mode. L'en-tête le lui
+        // dit. Le geste demandé (ajouter un favori, poser un statut) est
+        // toujours exécuté : seule sa trace dans l'historique est omise.
+        if (method !== 'GET' && estRequetePrivee(path)) opts.headers['X-Inko-Private'] = '1';
 
         let res;
         try {

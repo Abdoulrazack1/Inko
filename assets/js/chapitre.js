@@ -699,7 +699,7 @@
     });
 
     async function saveProgress() {
-        if (window.MH?.isIncognito?.()) return;   // lecture privée : pas de progression
+        if (window.MH?.isIncognito?.(manga?.id)) return;   // lecture privée (globale ou série)
         if (!API.isLoggedIn() || !manga || !currentChap) return;
         try {
             await API.me.setProgress(manga.id, {
@@ -712,7 +712,7 @@
     }
 
     async function markChapterRead() {
-        if (window.MH?.isIncognito?.()) return;   // lecture privée : pas de marquage
+        if (window.MH?.isIncognito?.(manga?.id)) return;   // lecture privée (globale ou série)
         if (!API.isLoggedIn() || !manga || !currentChap) return;
         // Audit N53 : au double-appui « chapitre suivant » (le geste que l'écran
         // de transition suggère), la navigation interrompait cette requête et le
@@ -1435,7 +1435,7 @@
         // précédents) » écrivait donc jusqu'à 18 lignes en base alors que l'app
         // affiche « lecture non enregistrée » — et le geste est irréversible
         // sans dépiler les chapitres un à un.
-        if (window.MH?.isIncognito?.()) {
+        if (window.MH?.isIncognito?.(manga?.id)) {
             MH.toast?.('Mode incognito : rien n\'a été enregistré');
             return;
         }

@@ -143,19 +143,81 @@
     /* ── Mode incognito (lecture privée : ni progression, ni historique) ──
        Persisté par session (comme un navigateur). Les lecteurs vérifient
        MH.isIncognito() avant de sauver la progression / marquer comme lu. */
-    window.MH.isIncognito = function () {
-        try { return sessionStorage.getItem('inko_incognito') === '1'; } catch (e) { return false; }
+    // Audit AMEL-108 : le besoin réel est presque toujours de masquer UNE
+    // lecture, pas toute une session. Couper globalement pour une série oblige
+    // à penser à le rallumer — et à perdre la trace de tout ce qu'on lit
+    // ensuite si on oublie. La portée par série est mémorisée pour la session.
+    const CLE_SERIES = 'inko_incognito_series';
+    function seriesPrivees() {
+        try { return new Set(JSON.parse(sessionStorage.getItem(CLE_SERIES) || '[]')); }
+        catch (e) { return new Set(); }
+    }
+    function ecrireSeries(s) {
+        try { sessionStorage.setItem(CLE_SERIES, JSON.stringify([...s])); }
+        catch (e) { window.MH?.err?.('global.js', e); }
+    }
+    // `mangaId` optionnel : sans lui, on interroge le mode GLOBAL. Les appelants
+    // qui connaissent l'œuvre doivent le passer, sinon la portée par série
+    // n'aurait aucun effet.
+    window.MH.isIncognito = function (mangaId) {
+        let global = false;
+        try { global = sessionStorage.getItem('inko_incognito') === '1'; } catch (e) { global = false; }
+        if (global) return true;
+        return mangaId ? seriesPrivees().has(String(mangaId)) : false;
+    };
+    window.MH.isSeriePrivee = (mangaId) => seriesPrivees().has(String(mangaId));
+    window.MH.toggleSeriePrivee = function (mangaId) {
+        const s = seriesPrivees();
+        const k = String(mangaId);
+        const on = !s.has(k);
+        if (on) s.add(k); else s.delete(k);
+        ecrireSeries(s);
+        window.MH.majBandeauIncognito();
+        return on;
     };
     window.MH.setIncognito = function (on) {
         try { sessionStorage.setItem('inko_incognito', on ? '1' : '0'); } catch (e) { window.MH?.err?.('global.js', e); }
         document.body.classList.toggle('incognito-on', !!on);
         document.querySelectorAll('#btnIncognito').forEach(b => b.classList.toggle('on', !!on));
+        window.MH.majBandeauIncognito();
     };
     window.MH.toggleIncognito = function () {
         const on = !window.MH.isIncognito();
         window.MH.setIncognito(on);
         window.MH.toast?.(on ? 'Mode incognito activé — lecture non enregistrée' : 'Mode incognito désactivé');
         return on;
+    };
+
+    /* Audit AMEL-106 : un liseré de 3 px en haut de page ne DIT rien — on peut
+       lire une heure sans savoir ce qui est en cours ni comment en sortir. Le
+       bandeau nomme l'état, dit ce qui n'est pas enregistré, et se coupe d'un
+       clic depuis n'importe quelle page. */
+    window.MH.majBandeauIncognito = function () {
+        const globalOn = window.MH.isIncognito();
+        const series = seriesPrivees();
+        const actif = globalOn || series.size > 0;
+        let el = document.getElementById('incognitoBar');
+        if (!actif) { el?.remove(); return; }
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'incognitoBar';
+            el.setAttribute('role', 'status');
+            document.body.appendChild(el);
+            el.addEventListener('click', (e) => {
+                if (!e.target.closest('[data-inco-off]')) return;
+                if (globalOn) window.MH.setIncognito(false);
+                ecrireSeries(new Set());
+                window.MH.majBandeauIncognito();
+                window.MH.toast?.('Lecture privée désactivée');
+            });
+        }
+        const quoi = globalOn
+            ? 'Lecture privée — toute cette session'
+            : `Lecture privée — ${series.size} série${series.size > 1 ? 's' : ''}`;
+        el.innerHTML = `<span class="inco-pastille"></span>
+            <span class="inco-texte">${quoi}</span>
+            <span class="inco-detail">progression, chapitres lus, activité et recherches ne sont pas enregistrés</span>
+            <button type="button" class="inco-off" data-inco-off>Désactiver</button>`;
     };
 
     /* ── Annonces aux lecteurs d'écran (audit A11Y-06) ─────────

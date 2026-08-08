@@ -99,6 +99,11 @@
         pushSearch(q) {
             q = (q || '').trim();
             if (!q) return;
+            // Audit AMEL-107 : le mode privé ne couvrait que la progression.
+            // Une recherche récente est pourtant la trace la plus visible qui
+            // soit — elle s'affiche sous la barre de recherche à la vue de
+            // quiconque ouvre l'app ensuite.
+            if (window.MH?.isIncognito?.()) return;
             data.searchHistory = [q, ...data.searchHistory.filter(x => x.toLowerCase() !== q.toLowerCase())].slice(0, 12);
             scheduleSync();
         },

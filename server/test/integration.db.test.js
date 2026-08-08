@@ -655,3 +655,47 @@ test('exportHistory : JSON et CSV exploitables (audit AMEL-113)', async (t) => {
         'le titre est échappé, il ne déborde pas sur la colonne suivante');
     assert.equal(lignes[1].split(';').length >= 6, true);
 });
+
+// ── Lecture privée côté serveur (audit AMEL-107) ─────────────
+test('pushEvent : l\'en-tête X-Inko-Private supprime la trace, pas l\'action (audit AMEL-107)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('inco_a', 'inco_a@test.local');
+
+    // Sans l'en-tête : favori créé ET événement écrit (comportement d'avant)
+    const normal = rr({ user: u, body: { mangaId: 'aa', title: 'A' } });
+    normal.req.headers = {};
+    await User.addFavorite(normal.req, normal.res, nextThrow);
+
+    // Avec l'en-tête : le favori est TOUJOURS créé — refuser l'action serait
+    // de la perte de données déguisée en confidentialité — mais aucune trace.
+    const prive = rr({ user: u, body: { mangaId: 'bb', title: 'B' } });
+    prive.req.headers = { 'x-inko-private': '1' };
+    await User.addFavorite(prive.req, prive.res, nextThrow);
+
+    const [favs] = await pool.query(
+        'SELECT manga_id FROM favorites WHERE user_id = ? ORDER BY manga_id', [u.id]);
+    assert.deepEqual(favs.map(f => f.manga_id), ['aa', 'bb'],
+        'les deux favoris existent : le mode privé ne refuse pas l\'action');
+
+    const [ev] = await pool.query(
+        'SELECT manga_id FROM events WHERE user_id = ? ORDER BY manga_id', [u.id]);
+    assert.deepEqual(ev.map(e => e.manga_id), ['aa'],
+        'seule la série lue normalement laisse une trace dans l\'activité');
+});
+
+test('setProgress et markChapter : aucune trace en lecture privée (audit AMEL-107)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('inco_b', 'inco_b@test.local');
+
+    const p = rr({ user: u, params: { mangaId: 'zz' },
+        body: { chapterId: 'c1', chapter: 1, page: 4, source: 'src' } });
+    p.req.headers = { 'x-inko-private': '1' };
+    await User.setProgress(p.req, p.res, nextThrow);
+
+    const m = rr({ user: u, body: { mangaId: 'zz', chapterId: 'c1', chapter: 1, read: true } });
+    m.req.headers = { 'x-inko-private': '1' };
+    await User.markChapter(m.req, m.res, nextThrow);
+
+    const [[n]] = await pool.query('SELECT COUNT(*) AS n FROM events WHERE user_id = ?', [u.id]);
+    assert.equal(n.n, 0, 'ni la progression ni le marquage ne remplissent le flux d\'activité');
+});

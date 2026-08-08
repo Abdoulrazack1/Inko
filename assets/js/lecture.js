@@ -544,7 +544,7 @@
         }, { passive: true });
     }
     async function saveProgress(pct) {
-        if (window.MH?.isIncognito?.()) return;   // lecture privée
+        if (window.MH?.isIncognito?.(manga?.id)) return;   // lecture privée (globale ou série)
         if (!API.isLoggedIn() || !manga || !currentChap) return;
         try {
             await API.me.setProgress(manga.id, {
@@ -587,7 +587,7 @@
         }
     }
     async function markChapterRead() {
-        if (window.MH?.isIncognito?.()) return;   // lecture privée
+        if (window.MH?.isIncognito?.(manga?.id)) return;   // lecture privée (globale ou série)
         if (!API.isLoggedIn()) return;
         try {
             await API.me.markChapter({
@@ -599,7 +599,7 @@
     function markUpToHere() {
         // Audit BUG-22 : même défaut que le lecteur d'images — la progression
         // respectait le mode incognito, pas le marquage en masse.
-        if (window.MH?.isIncognito?.()) {
+        if (window.MH?.isIncognito?.(manga?.id)) {
             MH.toast?.('Mode incognito : rien n\'a été enregistré');
             return;
         }

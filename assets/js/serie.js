@@ -183,6 +183,12 @@
                          toujours et restait vide — rien ne permettait d'y
                          mettre quoi que ce soit. C'est la seule chose qu'un
                          profil montre par CHOIX plutot que par agregation. -->
+                    <!-- Audit AMEL-108 : le besoin reel est de masquer UNE
+                         lecture, pas toute une session. Couper globalement
+                         oblige a penser a rallumer — et a perdre la trace de
+                         tout ce qu'on lit ensuite si on oublie. -->
+                    <button class="btn btn-ghost btn-sm" id="btnPrive" aria-pressed="false"
+                        title="Lire cette serie sans laisser de trace">Lire en prive</button>
                     ${favorited ? `<button class="btn btn-ghost btn-sm" id="btnPin"
                         title="Mettre en avant sur ton profil public" aria-pressed="false">📌 Épingler</button>` : ''}
                     ${favorited ? `<button class="btn btn-ghost btn-sm" id="btnNotify"
@@ -276,6 +282,29 @@
         // Audit AMEL-54 : bascule de surveillance. On ne recharge pas la fiche
         // — seul le libellé du bouton change, et un rechargement complet ferait
         // perdre l'onglet et la position de lecture en cours.
+        // Audit AMEL-108 : portee par serie, memorisee pour la session comme
+        // le mode global. Aucun appel reseau : c'est un etat local qui change
+        // seulement ce que les autres appels ont le droit d'enregistrer.
+        const btnPrive = document.getElementById('btnPrive');
+        if (btnPrive) {
+            const majPrive = (on) => {
+                btnPrive.textContent = on ? 'Lecture privée' : 'Lire en privé';
+                btnPrive.classList.toggle('is-fav', on);
+                btnPrive.setAttribute('aria-pressed', String(on));
+                btnPrive.title = on
+                    ? 'Cette série ne laisse aucune trace — cliquer pour réactiver le suivi'
+                    : 'Lire cette série sans laisser de trace';
+            };
+            majPrive(!!MH.isSeriePrivee?.(manga.id));
+            btnPrive.addEventListener('click', () => {
+                const on = MH.toggleSeriePrivee(manga.id);
+                majPrive(on);
+                MH.toast(on
+                    ? 'Lecture privée pour cette série — ni progression, ni activité'
+                    : 'Suivi réactivé pour cette série');
+            });
+        }
+
         // Épingle : purement locale (UserData se synchronise tout seul), donc
         // aucun appel réseau et un retour immédiat.
         const btnPin = document.getElementById('btnPin');
