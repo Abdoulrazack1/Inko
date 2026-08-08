@@ -12,7 +12,7 @@
     try { filter = localStorage.getItem(FILTER_KEY) || 'all'; } catch (e) { window.MH?.err?.('notifications.js', e); }
 
     document.addEventListener('DOMContentLoaded', async () => {
-        MH.initPage('');
+        MH.initPage('notifications');
         const list = document.getElementById('ntList');
         await (window.API?.ready || Promise.resolve());
         if (!API.isLoggedIn()) {

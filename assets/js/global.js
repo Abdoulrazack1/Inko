@@ -1143,6 +1143,10 @@
         renderMobileNav(activePage);
         window.MH.updateLibBadge();
         window.MH.loadSourceTypes();   // pré-charge les types pour le routage lecteur
+        // Audit AMEL-111 : astuce contextuelle a la premiere visite de cette
+        // page. Differee : elle ne doit pas concurrencer le chargement, ni
+        // s'afficher pendant la visite guidee (que InkoTour ecarte lui-meme).
+        if (activePage) setTimeout(() => window.InkoTour?.astuce?.(activePage), 2200);
         window.MH.syncDisabledSources();   // audit MD1 : état des sources suivi par compte
         // Check des nouveautés au lancement (pas pendant la lecture : priorité aux pages)
         if (activePage !== 'chapitre') launchUpdateCheck();
@@ -1922,6 +1926,16 @@
     window.MH.startTour = async function () { await loadTour(); window.InkoTour?.start(); };
     try {
         if (!localStorage.getItem('inko_tour_done')) loadTour(true); // autostart interne
+        else {
+            // Audit AMEL-111 : le module portait UNIQUEMENT la visite, il
+            // n'etait donc jamais charge pour qui l'avait deja faite — et les
+            // astuces contextuelles n'auraient existe pour personne. On le
+            // charge aussi tant qu'il reste une page dont l'astuce n'a pas ete
+            // vue, puis plus jamais.
+            const vues = JSON.parse(localStorage.getItem('inko_astuces_vues') || '[]');
+            const PAGES = ['catalogue', 'bibliotheque', 'serie', 'chapitre', 'stats', 'profil', 'notifications'];
+            if (PAGES.some(p => !vues.includes(p))) loadTour(false);
+        }
     } catch (e) { window.MH?.err?.('global.js', e); }
 
 })();

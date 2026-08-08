@@ -8,8 +8,60 @@
     'use strict';
 
     const KEY = 'mh_eula_v2';
-    try { if (localStorage.getItem(KEY)) return; }
-    catch (e) { return; }
+    // Audit AMEL-110 : « Refuser » redirigeait vers un README sur GitHub sans
+    // RIEN enregistrer. Deux problemes : l'app envoyait l'utilisateur hors
+    // d'elle-meme sans le lui demander, et il suffisait de recharger la page
+    // pour passer outre — le refus n'avait donc aucun effet. Il est desormais
+    // memorise et respecte.
+    const KEY_REFUS = 'mh_eula_refused';
+    try {
+        if (localStorage.getItem(KEY)) return;
+        if (localStorage.getItem(KEY_REFUS)) {
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ecranRefus);
+            else ecranRefus();
+            return;
+        }
+    } catch (e) { return; }
+
+    // Ecran de refus : explicite, DANS l'app, et reversible. Rediriger vers un
+    // site externe n'est pas un parcours de refus, c'est un abandon — et ca
+    // fait sortir l'utilisateur sans qu'il l'ait demande.
+    function ecranRefus() {
+        const o = document.createElement('div');
+        o.id = 'mh-eula-refus';
+        o.style.cssText = `position:fixed;inset:0;background:#0d0d0f;z-index:99999;display:flex;
+            align-items:center;justify-content:center;padding:20px;font-family:-apple-system,sans-serif`;
+        o.innerHTML = `
+        <div style="max-width:520px;width:100%;background:#141417;border:1px solid rgba(255,255,255,.1);
+                    border-radius:14px;padding:28px 30px;color:#f0f0f2;box-shadow:0 24px 80px rgba(0,0,0,.6)">
+            <div style="font-size:19px;font-weight:700;margin-bottom:10px">Conditions non acceptees</div>
+            <div style="font-size:13.5px;line-height:1.65;color:#a8a8b3">
+                Tu as refuse les conditions d'utilisation. Inko ne s'ouvrira pas tant que ce choix
+                n'aura pas change — c'est ce que « refuser » veut dire.
+                <br><br>
+                Rien n'a ete supprime : ta bibliotheque, ta progression et tes reglages sont intacts
+                sur cet appareil et te seront rendus si tu reviens sur ta decision.
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap">
+                <a href="https://github.com/Abdoulrazack1/Inko#readme" target="_blank" rel="noopener noreferrer"
+                   style="background:transparent;border:1px solid rgba(255,255,255,.15);color:#a8a8b3;
+                          padding:9px 16px;border-radius:8px;font-size:13px;text-decoration:none">Lire les conditions</a>
+                <button id="mh-eula-revenir"
+                        style="background:#ff6b1a;border:none;color:#fff;padding:9px 18px;border-radius:8px;
+                               font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
+                    Revenir sur ma decision
+                </button>
+            </div>
+        </div>`;
+        document.body.appendChild(o);
+        // Le lien externe n'est PLUS une navigation imposee : c'est un choix,
+        // et il s'ouvre dans un onglet a part pour ne pas fermer l'app.
+        o.querySelector('#mh-eula-revenir').addEventListener('click', () => {
+            try { localStorage.removeItem(KEY_REFUS); } catch (e) { /* stockage indisponible */ }
+            o.remove();
+            open();
+        });
+    }
 
     function open() {
         const overlay = document.createElement('div');
@@ -96,8 +148,13 @@
         });
 
         no.addEventListener('click', () => {
-            // Redirige vers une page explicative (le LICENSE par exemple)
-            window.location.href = 'https://github.com/Abdoulrazack1/Inko#readme';
+            // Audit AMEL-110 : le refus est memorise et respecte, au lieu
+            // d'envoyer ailleurs et de laisser un simple rechargement le
+            // contourner.
+            try { localStorage.setItem(KEY_REFUS, String(Date.now())); }
+            catch (e) { window.MH?.err?.('eula.js', e); }
+            overlay.remove();
+            ecranRefus();
         });
     }
 
