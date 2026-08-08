@@ -294,10 +294,15 @@
         } catch (e) { /* hors-ligne : l'état local reste valable */ }
     };
     // URL du lecteur adapté au type de la source (texte pour les romans)
-    window.MH.readerHref = function (mangaId, chapterId, source) {
+    // Audit AMEL-114 : `page` optionnel. Le lecteur ne reprenait la position
+    // que si la progression enregistrée portait SUR LE MÊME chapitre — ouvrir
+    // une ligne d'historique plus ancienne repartait donc de la page 1. Quand
+    // l'appelant connaît la position (l'historique la stocke), il la passe.
+    window.MH.readerHref = function (mangaId, chapterId, source, page) {
         const src = source || window.API?.sources?.current || '';
-        const page = window.MH.isNovelSource(src) ? 'lecture.html' : 'chapitre.html';
-        return `${page}?manga=${encodeURIComponent(mangaId)}&chapter=${encodeURIComponent(chapterId)}&source=${encodeURIComponent(src)}`;
+        const fichier = window.MH.isNovelSource(src) ? 'lecture.html' : 'chapitre.html';
+        const pos = Number(page) > 1 ? `&page=${Math.floor(Number(page))}` : '';
+        return `${fichier}?manga=${encodeURIComponent(mangaId)}&chapter=${encodeURIComponent(chapterId)}&source=${encodeURIComponent(src)}${pos}`;
     };
 
     /* ── Lecteur musique intégré (dock en bas de page) ────── */

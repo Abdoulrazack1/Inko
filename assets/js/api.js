@@ -542,7 +542,13 @@
             // Données
             exportData:       ()           => get('/me/export'),
             importData:       (data)       => post('/me/import', data),
-            clearHistory:     ()           => post('/me/clear-history'),
+            clearHistory:     (days)      => post('/me/clear-history', days ? { days } : {}),
+            // Historique : ciblé plutôt que tout-ou-rien (audit AMEL-112/113).
+            // `chapterId` omis => toute la série.
+            deleteHistoryEntry: (mangaId, chapterId) =>
+                del('/me/history/' + encodeURIComponent(mangaId)
+                    + (chapterId ? '?chapterId=' + encodeURIComponent(chapterId) : '')),
+            historyExportUrl: (format = 'json') => API.base + '/me/history/export?format=' + encodeURIComponent(format),
         },
 
         comments: {

@@ -652,7 +652,13 @@
         if (!el) return;
         try {
             const fetchCount = Math.min(500, Math.max(50, histShown + 20));
-            const events = await API.me.events(fetchCount);
+            // Audit AMEL-114 : la progression donne la page exacte du chapitre
+            // en cours. Chargee ici pour que « Reprendre » y renvoie
+            // directement au lieu de rouvrir a la page 1.
+            const [events] = await Promise.all([
+                API.me.events(fetchCount),
+                API.me.progress().then(p => { _posProgression = p; }).catch(() => {}),
+            ]);
             const readEvents = events.filter(e => e.type === 'read');
             if (!readEvents.length) {
                 el.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Aucune activité enregistrée. Lis un chapitre pour démarrer.</div>`;
@@ -699,11 +705,26 @@
                             <div class="timeline-manga-name">${MH.esc(m.title)}</div>
                             <div class="timeline-chap">Chapitre ${item.metadata?.chapter || '?'}</div>
                         </div>
-                        <a href="${MH.readerHref(m.id, item.chapterId, item.source)}" class="timeline-status lu" style="text-decoration:none">Reprendre</a>
+                        <a href="${MH.readerHref(m.id, item.chapterId, sourceDe(m.id, item.source), posDe(m.id, item.chapterId))}" class="timeline-status lu" style="text-decoration:none">Reprendre</a>
+                        <button type="button" class="timeline-del" title="Retirer de l'historique"
+                            aria-label="Retirer « ${MH.esc(m.title || m.id)} » de l'historique"
+                            data-del-manga="${MH.esc(m.id)}" data-del-titre="${MH.esc(m.title)}"
+                            data-del-chap="${MH.esc(item.chapterId || '')}">×</button>
                     </div>`;
                 }).join('');
                 return `<div class="timeline-group-label">${label}</div>${itemsHTML}`;
             }).join('') || `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Aucune activité récente.</div>`;
+
+            // Audit AMEL-112 : delegation, le contenu etant re-rendu a chaque
+            // filtre ou pagination — rattacher N ecouteurs a chaque rendu les
+            // accumulerait.
+            el.onclick = async (ev) => {
+                const b = ev.target.closest('[data-del-manga]');
+                if (!b) return;
+                ev.preventDefault();
+                const ok = await supprimerHistorique(b.dataset.delManga, b.dataset.delTitre, b.dataset.delChap || null);
+                if (ok) { _statsPromise = null; renderHistoryTimeline(); renderHistoryMini(); }
+            };
 
             // « Charger plus » tant qu'il reste des événements de lecture
             if (readEvents.length > histShown && histShown < 500) {
@@ -1080,6 +1101,78 @@
             MH.toast('Déconnecté');
             setTimeout(() => { window.location.href = 'accueil.html'; }, 500);
         });
+
+        // Audit AMEL-112/113 : ces quatre boutons existaient dans la page sans
+        // aucun gestionnaire. On les cliquait, rien ne se passait — pas même
+        // un message d'erreur. Un contrôle qui ne fait rien est pire qu'un
+        // contrôle absent : il fait croire que l'action a eu lieu.
+        const telecharger = (format) => {
+            const a = document.createElement('a');
+            a.href = API.me.historyExportUrl(format);
+            a.download = 'inko-historique.' + format;
+            document.body.appendChild(a); a.click(); a.remove();
+            MH.toast('Export lancé');
+        };
+        document.getElementById('btnExportHistCsv')?.addEventListener('click', () => telecharger('csv'));
+        document.getElementById('btnExportHistJson')?.addEventListener('click', () => telecharger('json'));
+
+        document.getElementById('btnClearHist30')?.addEventListener('click', async () => {
+            if (!await MH.confirm('Effacer les 30 derniers jours de ton historique ?', {
+                danger: true, okText: 'Effacer',
+                message: 'Ta position de lecture en cours est conservée. Les chapitres marqués lus sur cette période seront oubliés.',
+            })) return;
+            try {
+                const r = await API.me.clearHistory(30);
+                MH.toast(`${r.deleted?.readChapters || 0} chapitre(s) retiré(s) de l'historique`);
+                renderHistoryTimeline(); renderHistoryMini();
+            } catch (e) { MH.toast('Erreur : ' + e.message); }
+        });
+        document.getElementById('btnClearHistAll')?.addEventListener('click', async () => {
+            if (!await MH.confirm('Effacer TOUT ton historique de lecture ?', {
+                danger: true, okText: 'Tout effacer',
+                message: 'Progression, chapitres lus et activité seront perdus. Tes favoris et tes listes restent.',
+            })) return;
+            try {
+                await API.me.clearHistory();
+                MH.toast('Historique effacé');
+                renderHistoryTimeline(); renderHistoryMini();
+            } catch (e) { MH.toast('Erreur : ' + e.message); }
+        });
+    }
+
+    // Audit AMEL-114 : la position exacte n'est connue que pour le chapitre
+    // ou l'on s'est arrete — c'est justement celui qu'on veut rouvrir. Pour les
+    // autres lignes, aucune page n'est passee et le lecteur ouvre au debut,
+    // ce qui est correct : on n'invente pas une position qu'on n'a pas.
+    let _posProgression = null;
+    function posDe(mangaId, chapterId) {
+        const p = _posProgression && _posProgression[mangaId];
+        return (p && p.chapterId === chapterId) ? p.page : null;
+    }
+    // La table `events` ne porte PAS de source : `item.source` etait donc
+    // toujours indefini et readerHref retombait sur la source COURANTE. Un
+    // roman Gutenberg consulte depuis une session ouverte sur weebcentral
+    // ouvrait ainsi le lecteur d'IMAGES — page blanche garantie. La
+    // progression et les favoris, eux, connaissent la vraie source.
+    function sourceDe(mangaId, secours) {
+        return _posProgression?.[mangaId]?.source
+            || cacheMangas.get(mangaId)?.source
+            || secours || null;
+    }
+
+    // Audit AMEL-112 : retirer UNE série de l'historique. Sans elle, cacher une
+    // seule lecture sur une machine partagée imposait de tout effacer.
+    async function supprimerHistorique(mangaId, titre, chapterId) {
+        const quoi = chapterId ? 'ce chapitre' : `toute la série « ${titre} »`;
+        if (!await MH.confirm(`Retirer ${quoi} de ton historique ?`, {
+            danger: true, okText: 'Retirer',
+            message: 'La série reste dans tes favoris ; seule sa trace de lecture disparaît.',
+        })) return false;
+        try {
+            await API.me.deleteHistoryEntry(mangaId, chapterId);
+            MH.toast('Retiré de ton historique');
+            return true;
+        } catch (e) { MH.toast('Erreur : ' + e.message); return false; }
     }
 
     function relativeTime(ts) {

@@ -523,13 +523,16 @@
               <div class="export-block">
                 <div class="export-title" style="color:var(--orange)">Exporter mon historique</div>
                 <div class="export-desc">Télécharge un fichier contenant toutes tes activités de lecture pour analyse personnelle ou sauvegarde.</div>
-                <button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%">Exporter en .CSV</button>
+                <!-- Audit AMEL-113 : ces trois boutons n'avaient ni id ni
+                     gestionnaire — ils ne faisaient rien depuis toujours. -->
+                <button class="btn btn-ghost btn-sm" id="btnExportHistCsv" style="margin-top:10px;width:100%">Exporter en .CSV</button>
+                <button class="btn btn-ghost btn-sm" id="btnExportHistJson" style="margin-top:6px;width:100%">Exporter en .JSON</button>
               </div>
               <div class="delete-block">
                 <div class="delete-title">Effacer l'historique</div>
                 <div class="delete-desc">Tu peux effacer tout ou partie de ton historique. Cette action est irréversible.</div>
-                <button class="btn btn-sm" style="background:rgba(239,68,68,.15);color:#ef4444;width:100%;margin-top:8px">Effacer les 30 derniers jours</button>
-                <button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#ef4444;width:100%;margin-top:6px">Effacer tout l'historique</button>
+                <button class="btn btn-sm" id="btnClearHist30" style="background:rgba(239,68,68,.15);color:#ef4444;width:100%;margin-top:8px">Effacer les 30 derniers jours</button>
+                <button class="btn btn-sm" id="btnClearHistAll" style="background:rgba(239,68,68,.2);color:#ef4444;width:100%;margin-top:6px">Effacer tout l'historique</button>
               </div>
             </div>
           </div>

@@ -100,6 +100,12 @@
                     }
                 } catch (e) { window.MH?.err?.('chapitre.js', e); }
             }
+            // Audit AMEL-114 : une position explicite dans l'URL prime sur la
+            // progression enregistrée. C'est ce qui permet à une ligne
+            // d'historique de rouvrir EXACTEMENT là où on s'était arrêté, y
+            // compris sur un chapitre qui n'est plus le chapitre courant.
+            const pageDemandee = parseInt(new URLSearchParams(location.search).get('page') || '', 10);
+            if (pageDemandee > 1) currentPage = Math.min(pageDemandee, totalPages);
 
             doubleBase = currentPage;   // ancre de la planche double (reprise correcte)
             renderToolbar();

@@ -1253,10 +1253,112 @@ async function importData(req, res, next) {
 async function clearHistory(req, res, next) {
     try {
         const uid = req.user.id;
+        // Audit AMEL-112 : `days` restreint la purge à une fenêtre récente.
+        // L'interface proposait « Effacer les 30 derniers jours » depuis
+        // toujours — sans aucun code derrière le bouton.
+        const jours = parseInt(req.body?.days, 10);
+        if (jours > 0 && jours <= 3650) {
+            const [e] = await pool.query(
+                'DELETE FROM events WHERE user_id = ? AND created_at > (NOW() - INTERVAL ? DAY)', [uid, jours]);
+            const [r] = await pool.query(
+                'DELETE FROM read_chapters WHERE user_id = ? AND read_at > (NOW() - INTERVAL ? DAY)', [uid, jours]);
+            // `progress` porte la position COURANTE, pas une trace datée : la
+            // purger sur une fenêtre reviendrait à perdre sa place dans les
+            // séries qu'on est en train de lire. On n'y touche pas ici.
+            return res.json({ ok: true, scope: `${jours}j`, deleted: { events: e.affectedRows, readChapters: r.affectedRows } });
+        }
         await pool.query('DELETE FROM events WHERE user_id = ?', [uid]);
         await pool.query('DELETE FROM progress WHERE user_id = ?', [uid]);
         await pool.query('DELETE FROM read_chapters WHERE user_id = ?', [uid]);
-        res.json({ ok: true });
+        res.json({ ok: true, scope: 'tout' });
+    } catch (e) { next(e); }
+}
+
+// ── Suppression sélective d'historique (audit AMEL-112) ──
+// « Tout effacer » était la seule option : pour retirer UNE série d'une
+// machine partagée, il fallait perdre l'intégralité de sa progression. La
+// suppression ciblée porte sur les trois tables qui composent l'historique
+// (events, progress, read_chapters) — n'en oublier une laisserait la ligne
+// réapparaître au prochain rendu, ce qui est pire que ne rien supprimer.
+async function deleteHistoryEntry(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const mangaId = req.params.mangaId;
+        if (!idOeuvreValide(mangaId)) return res.status(400).json({ error: 'mangaId invalide' });
+        const chapterId = (req.query.chapterId || '').trim() || null;
+
+        const compte = { events: 0, progress: 0, readChapters: 0 };
+        if (chapterId) {
+            // Une entrée précise. `progress` n'est effacée que si elle pointe
+            // ce chapitre : supprimer une vieille ligne d'historique ne doit
+            // pas faire perdre la position de lecture COURANTE.
+            const [e] = await pool.query(
+                'DELETE FROM events WHERE user_id = ? AND manga_id = ? AND chapter_id = ?',
+                [uid, mangaId, chapterId]);
+            const [r] = await pool.query(
+                'DELETE FROM read_chapters WHERE user_id = ? AND manga_id = ? AND chapter_id = ?',
+                [uid, mangaId, chapterId]);
+            const [p] = await pool.query(
+                'DELETE FROM progress WHERE user_id = ? AND manga_id = ? AND chapter_id = ?',
+                [uid, mangaId, chapterId]);
+            compte.events = e.affectedRows; compte.readChapters = r.affectedRows; compte.progress = p.affectedRows;
+        } else {
+            const [e] = await pool.query('DELETE FROM events WHERE user_id = ? AND manga_id = ?', [uid, mangaId]);
+            const [r] = await pool.query('DELETE FROM read_chapters WHERE user_id = ? AND manga_id = ?', [uid, mangaId]);
+            const [p] = await pool.query('DELETE FROM progress WHERE user_id = ? AND manga_id = ?', [uid, mangaId]);
+            compte.events = e.affectedRows; compte.readChapters = r.affectedRows; compte.progress = p.affectedRows;
+        }
+        // Le favori n'est PAS touché : effacer sa trace de lecture n'est pas
+        // se désabonner d'une série.
+        res.json({ ok: true, deleted: compte });
+    } catch (e) { next(e); }
+}
+
+// ── Export de l'historique seul (audit AMEL-113) ──
+// L'export global existe, mais il mélange favoris, réglages, listes et
+// notifications : l'historique n'y est pas exploitable à part. En CSV il
+// s'ouvre dans un tableur, ce qui est l'usage réel qu'on en a.
+async function exportHistory(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const [rows] = await pool.query(
+            `SELECT rc.manga_id, rc.chapter_id, rc.chapter_number, rc.read_at,
+                    COALESCE(f.title, rc.manga_id) AS title,
+                    COALESCE(f.source, p.source, '') AS source
+             FROM read_chapters rc
+             LEFT JOIN favorites f ON f.user_id = rc.user_id AND f.manga_id = rc.manga_id
+             LEFT JOIN progress  p ON p.user_id = rc.user_id AND p.manga_id = rc.manga_id
+             WHERE rc.user_id = ?
+             ORDER BY rc.read_at DESC`,
+            [uid]
+        );
+
+        if (req.query.format === 'csv') {
+            // Séparateur ; et BOM : Excel en locale française lit le CSV
+            // virgule comme une seule colonne, et l'UTF-8 sans BOM en mojibake.
+            const esc = (v) => {
+                const s = v == null ? '' : String(v);
+                return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+            };
+            const lignes = [['Titre', 'Chapitre', 'Source', 'Lu le', 'Identifiant', 'Chapitre (id)'].join(';')];
+            for (const r of rows) {
+                lignes.push([r.title, r.chapter_number, r.source,
+                    r.read_at ? new Date(r.read_at).toISOString() : '',
+                    r.manga_id, r.chapter_id].map(esc).join(';'));
+            }
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', 'attachment; filename="inko-historique.csv"');
+            return res.send('﻿' + lignes.join('\r\n'));
+        }
+
+        res.json({
+            exportedAt: new Date().toISOString(),
+            count: rows.length,
+            entries: rows.map(r => ({
+                mangaId: r.manga_id, title: r.title, source: r.source || null,
+                chapterId: r.chapter_id, chapter: r.chapter_number, readAt: r.read_at,
+            })),
+        });
     } catch (e) { next(e); }
 }
 
@@ -1304,6 +1406,6 @@ module.exports = {
     getEvents, getStats, getStatsDistribution,
     getMangaRating, setMangaRating, deleteMangaRating, getMyRatings,
     getSettings, setSettings,
-    exportData, importData, clearHistory,
+    exportData, importData, clearHistory, deleteHistoryEntry, exportHistory,
     checkUpdates,
 };

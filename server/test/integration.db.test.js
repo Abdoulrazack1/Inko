@@ -557,3 +557,101 @@ test('publicProfile : la vitrine garde l\'ordre choisi et ignore les œuvres ret
     await Profile.publicProfile(off.req, off.res, nextThrow);
     assert.deepEqual(off.res.body.pins, []);
 });
+
+// ── Historique : suppression ciblée et export (audit AMEL-112/113) ──
+test('deleteHistoryEntry : retire une série sans toucher au favori (audit AMEL-112)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('hist_a', 'hist_a@test.local');
+    await pool.query('INSERT INTO favorites (user_id, manga_id, title) VALUES (?,?,?), (?,?,?)',
+        [u.id, 'aa', 'A', u.id, 'bb', 'B']);
+    await pool.query(
+        'INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?,?,?,?), (?,?,?,?), (?,?,?,?)',
+        // NB : la cle primaire de read_chapters est (user_id, chapter_id) —
+        // PAS (user_id, manga_id, chapter_id). Deux series ne peuvent donc pas
+        // partager un identifiant de chapitre chez un meme utilisateur. D'ou
+        // 'b1' ici plutot que 'c1'.
+        [u.id, 'aa', 'c1', 1, u.id, 'aa', 'c2', 2, u.id, 'bb', 'b1', 1]);
+    await pool.query(
+        'INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page) VALUES (?,?,?,?,?)',
+        [u.id, 'aa', 'c2', 2, 7]);
+    await pool.query('INSERT INTO events (user_id, type, manga_id, chapter_id) VALUES (?,?,?,?)',
+        [u.id, 'read', 'aa', 'c1']);
+
+    // Une seule entrée : la progression sur un AUTRE chapitre doit survivre.
+    const un = rr({ user: u, params: { mangaId: 'aa' }, query: { chapterId: 'c1' } });
+    await User.deleteHistoryEntry(un.req, un.res, nextThrow);
+    assert.equal(un.res.body.deleted.readChapters, 1);
+    assert.equal(un.res.body.deleted.progress, 0, 'la position courante (c2) n\'est pas touchée');
+    const [[reste]] = await pool.query(
+        'SELECT COUNT(*) AS n FROM progress WHERE user_id = ? AND manga_id = ?', [u.id, 'aa']);
+    assert.equal(reste.n, 1, 'on ne perd pas sa place en effaçant une vieille ligne');
+
+    // Toute la série
+    const tout = rr({ user: u, params: { mangaId: 'aa' }, query: {} });
+    await User.deleteHistoryEntry(tout.req, tout.res, nextThrow);
+    const [[rc]] = await pool.query(
+        'SELECT COUNT(*) AS n FROM read_chapters WHERE user_id = ? AND manga_id = ?', [u.id, 'aa']);
+    assert.equal(rc.n, 0);
+    const [[autre]] = await pool.query(
+        'SELECT COUNT(*) AS n FROM read_chapters WHERE user_id = ? AND manga_id = ?', [u.id, 'bb']);
+    assert.equal(autre.n, 1, 'les autres séries ne sont pas emportées');
+
+    // Le favori reste : effacer sa trace de lecture n'est pas se désabonner.
+    const [[fav]] = await pool.query(
+        'SELECT COUNT(*) AS n FROM favorites WHERE user_id = ? AND manga_id = ?', [u.id, 'aa']);
+    assert.equal(fav.n, 1);
+
+    const mauvais = rr({ user: u, params: { mangaId: '[object Object]' }, query: {} });
+    await User.deleteHistoryEntry(mauvais.req, mauvais.res, nextThrow);
+    assert.equal(mauvais.res.statusCode, 400);
+});
+
+test('clearHistory : la purge sur 30 j épargne la position de lecture (audit AMEL-112)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('hist_b', 'hist_b@test.local');
+    await pool.query(
+        `INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number, read_at) VALUES
+         (?,?,?,?, NOW() - INTERVAL 5 DAY), (?,?,?,?, NOW() - INTERVAL 90 DAY)`,
+        [u.id, 'aa', 'c1', 1, u.id, 'aa', 'c2', 2]);
+    await pool.query(
+        'INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page) VALUES (?,?,?,?,?)',
+        [u.id, 'aa', 'c1', 1, 12]);
+
+    const { req, res } = rr({ user: u, body: { days: 30 } });
+    await User.clearHistory(req, res, nextThrow);
+    assert.equal(res.body.scope, '30j');
+    const [rows] = await pool.query(
+        'SELECT chapter_id FROM read_chapters WHERE user_id = ?', [u.id]);
+    assert.deepEqual(rows.map(r => r.chapter_id), ['c2'], 'seule la fenêtre récente est purgée');
+    const [[p]] = await pool.query('SELECT page FROM progress WHERE user_id = ? AND manga_id = ?', [u.id, 'aa']);
+    assert.equal(p.page, 12, 'la position courante survit à une purge par période');
+});
+
+test('exportHistory : JSON et CSV exploitables (audit AMEL-113)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('hist_c', 'hist_c@test.local');
+    await pool.query('INSERT INTO favorites (user_id, manga_id, source, title) VALUES (?,?,?,?)',
+        [u.id, 'aa', 'src', 'Titre; avec "guillemets"']);
+    await pool.query('INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?,?,?,?)',
+        [u.id, 'aa', 'c1', 3]);
+
+    const j = rr({ user: u, query: {} });
+    await User.exportHistory(j.req, j.res, nextThrow);
+    assert.equal(j.res.body.count, 1);
+    assert.equal(j.res.body.entries[0].title, 'Titre; avec "guillemets"');
+    assert.equal(Number(j.res.body.entries[0].chapter), 3);
+
+    // CSV : le point-virgule et les guillemets du titre ne doivent pas casser
+    // les colonnes — c'est exactement ce qu'un export naïf rate.
+    let envoye = null;
+    const c = rr({ user: u, query: { format: 'csv' } });
+    c.res.setHeader = () => {};
+    c.res.send = (v) => { envoye = v; return c.res; };
+    await User.exportHistory(c.req, c.res, nextThrow);
+    const lignes = envoye.split('\r\n');
+    assert.ok(envoye.startsWith('﻿'), 'BOM présent : sans lui Excel affiche du mojibake');
+    assert.equal(lignes[0].replace('﻿', ''), 'Titre;Chapitre;Source;Lu le;Identifiant;Chapitre (id)');
+    assert.ok(lignes[1].startsWith('"Titre; avec ""guillemets"""'),
+        'le titre est échappé, il ne déborde pas sur la colonne suivante');
+    assert.equal(lignes[1].split(';').length >= 6, true);
+});

@@ -555,24 +555,36 @@
         } catch (e) { window.MH?.err?.('lecture.js', e); }
     }
     async function restoreScroll() {
+        // Audit AMEL-114 : une position explicite dans l'URL prime sur la
+        // progression enregistrée — c'est ce qui permet à une ligne
+        // d'historique de rouvrir un chapitre ANCIEN là où on l'avait laissé.
+        // Ici la « page » est un pourcentage de défilement, pas un numéro.
+        const demandee = parseInt(new URLSearchParams(location.search).get('page') || '', 10);
+        if (demandee > 2 && demandee < 96) { positionner(demandee); return; }
         if (!API.isLoggedIn()) return;
         try {
             const allProg = await API.me.progress();
             const prog = allProg[manga.id];
             if (prog && prog.chapterId === currentChap.id && prog.page > 2 && prog.page < 96) {
-                if (estPagine()) {
-                    // Audit AMEL-21 : en mode pages la position vit sur l'axe
-                    // horizontal du conteneur. Sans ce cas, reprendre une
-                    // lecture ramenait au tout debut.
-                    const c = conteneurPagine();
-                    if (c) c.scrollLeft = (prog.page / 100) * (c.scrollWidth - c.clientWidth);
-                } else {
-                    const h = document.documentElement;
-                    const max = h.scrollHeight - h.clientHeight;
-                    window.scrollTo({ top: (prog.page / 100) * max, behavior: 'instant' in window ? 'instant' : 'auto' });
-                }
+                positionner(prog.page);
             }
         } catch (e) { window.MH?.err?.('lecture.js', e); }
+    }
+
+    // Extrait de restoreScroll : les deux chemins (URL, progression) doivent
+    // positionner de la MEME facon, sinon ils finiront par diverger.
+    function positionner(pct) {
+        if (estPagine()) {
+            // Audit AMEL-21 : en mode pages la position vit sur l'axe
+            // horizontal du conteneur. Sans ce cas, reprendre une
+            // lecture ramenait au tout debut.
+            const c = conteneurPagine();
+            if (c) c.scrollLeft = (pct / 100) * (c.scrollWidth - c.clientWidth);
+        } else {
+            const h = document.documentElement;
+            const max = h.scrollHeight - h.clientHeight;
+            window.scrollTo({ top: (pct / 100) * max, behavior: 'instant' in window ? 'instant' : 'auto' });
+        }
     }
     async function markChapterRead() {
         if (window.MH?.isIncognito?.()) return;   // lecture privée

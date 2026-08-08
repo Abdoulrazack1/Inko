@@ -233,6 +233,9 @@ router.put   ('/me/anilist-links',        auth.authRequired, User.setAnilistLink
 router.get   ('/me/export',               auth.authRequired, User.exportData);
 router.post  ('/me/import',               auth.authRequired, User.importData);
 router.post  ('/me/clear-history',        auth.authRequired, User.clearHistory);
+// Historique : suppression ciblee et export dedie (audit AMEL-112/113)
+router.get   ('/me/history/export',       auth.authRequired, User.exportHistory);
+router.delete('/me/history/:mangaId',     auth.authRequired, User.deleteHistoryEntry);
 
 router.get   ('/me/events',               auth.authRequired, User.getEvents);
 router.get   ('/me/stats',                auth.authRequired, User.getStats);
