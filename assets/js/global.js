@@ -1127,6 +1127,14 @@
     window.MH.notifItemHTML = function (n, { variant = 'page', timeAgo } = {}) {
         const ago = (timeAgo || notifTimeAgo)(n.at);
         const iconName = window.MH.notifIconName(n.type);
+        /* Audit AMEL-53 : une série qui publie trois fois entre deux visites
+           occupait trois lignes. Elle n'en occupe plus qu'une, et la pastille
+           dit combien de parutions elle recouvre — l'information perdue par le
+           regroupement est ainsi rendue, sans reprendre la place. */
+        // `aria-label` et pas seulement `title` : un lecteur d'écran annoncerait
+        // sinon « Nouveau chapitre 8 », qui ne veut rien dire.
+        const pastille = n.count > 1
+            ? `<span class="nt-count" title="${n.count} parutions regroupées" aria-label="${n.count} parutions regroupées">${n.count}</span>` : '';
         if (variant === 'dropdown') {
             return `
                 <a href="${esc(n.link || '#')}" data-nid="${n.id}" style="display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;background:${n.read ? 'transparent' : 'rgba(255,140,66,.07)'}">
@@ -1134,7 +1142,7 @@
                         ? `<img src="${esc(n.image)}" alt="" loading="lazy" style="flex:0 0 auto;width:34px;height:46px;object-fit:cover;border-radius:6px;background:var(--bg3)" onerror="this.style.display='none'">`
                         : `<div style="flex:0 0 auto;color:var(--accent)">${window.MH.icon(iconName, 16)}</div>`}
                     <div style="min-width:0">
-                        <div style="font-size:12.5px;font-weight:600;line-height:1.3">${esc(n.title || '')}</div>
+                        <div style="font-size:12.5px;font-weight:600;line-height:1.3">${esc(n.title || '')}${pastille}</div>
                         ${n.body ? `<div style="font-size:11.5px;color:var(--text2);line-height:1.35;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(n.body)}</div>` : ''}
                         <div style="font-size:10.5px;color:var(--text3);margin-top:3px">${ago}</div>
                     </div>
@@ -1147,7 +1155,7 @@
                     ? `<img class="nt-cover" src="${esc(n.image)}" alt="" loading="lazy" style="width:38px;height:52px;object-fit:cover;border-radius:7px;background:var(--bg3);flex:0 0 auto" onerror="this.style.display='none'">`
                     : `<div class="nt-ico" style="color:var(--accent)">${window.MH.icon(iconName, 18)}</div>`}
                 <div class="nt-body">
-                    <div class="nt-title">${esc(n.title || '')}</div>
+                    <div class="nt-title">${esc(n.title || '')}${pastille}</div>
                     ${n.body ? `<div class="nt-text">${esc(n.body)}</div>` : ''}
                     <div class="nt-when">${ago}</div>
                 </div>

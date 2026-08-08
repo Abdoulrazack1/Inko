@@ -35,7 +35,7 @@ async function getFavorites(req, res, next) {
         // fréquente de l'application. Il est désormais une colonne de
         // `favorites` (migration 7).
         const [rows] = await pool.query(
-            `SELECT manga_id, source, title, cover, last_chapter, category, added_at, status
+            `SELECT manga_id, source, title, cover, last_chapter, category, added_at, status, notify
              FROM favorites
              WHERE user_id = ? ORDER BY added_at DESC`,
             [req.user.id]
@@ -44,6 +44,9 @@ async function getFavorites(req, res, next) {
             mangaId: r.manga_id, source: r.source || 'mangadex',
             title: r.title, cover: r.cover, lastChapter: r.last_chapter,
             category: r.category || null, status: r.status || null,
+            // Audit AMEL-54 : surveillée pour les nouveaux chapitres ou en
+            // sourdine — distinct du fait de suivre la série.
+            notify: r.notify !== 0,
             addedAt: r.added_at,
         })));
     } catch (e) { next(e); }
@@ -895,6 +898,66 @@ async function getStats(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ── Répartition des lectures dans le temps (audit AMEL-57) ──
+// Les statistiques étaient des compteurs : « 1 042 chapitres », « 27 séries ».
+// Aucun ne dit COMMENT la lecture évolue — ni qu'on a basculé des scans vers
+// les romans, ni qu'une source a pris toute la place.
+//
+// La source vient de `favorites` quand la série est suivie, sinon de
+// `progress` : on peut lire sans mettre en bibliothèque, et ces lectures-là
+// existent aussi. Le format (manga / roman) se déduit de la source côté
+// client, qui connaît déjà la liste des sources de romans — le dupliquer ici
+// créerait deux vérités à tenir d'accord.
+//
+// Le genre, lui, N'EST PAS calculable : aucune table ne stocke les tags des
+// œuvres. Il faudrait interroger chaque source pour les 391 favoris, à chaque
+// consultation ou via une table à alimenter — hors de proportion avec ce que
+// la question rapporte. La répartition par genre est donc absente, et c'est
+// délibéré.
+async function getStatsDistribution(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const mois = Math.min(Math.max(parseInt(req.query.months || '12', 10) || 12, 1), 36);
+        const TZ = process.env.STATS_TZ || 'Europe/Paris';
+        const moisFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit' });
+
+        const [rows] = await pool.query(
+            `SELECT rc.read_at, COALESCE(f.source, p.source, 'inconnue') AS source
+             FROM read_chapters rc
+             LEFT JOIN favorites f ON f.user_id = rc.user_id AND f.manga_id = rc.manga_id
+             LEFT JOIN progress  p ON p.user_id = rc.user_id AND p.manga_id = rc.manga_id
+             WHERE rc.user_id = ? AND rc.read_at > NOW() - INTERVAL ? MONTH`,
+            [uid, mois]
+        );
+
+        // Axe des mois construit à partir d'AUJOURD'HUI, pas des données : un
+        // mois sans lecture doit apparaître comme un creux, pas disparaître.
+        const cles = [];
+        const maintenant = new Date();
+        for (let i = mois - 1; i >= 0; i--) {
+            const d = new Date(maintenant.getFullYear(), maintenant.getMonth() - i, 1);
+            cles.push(moisFmt.format(d).slice(0, 7));
+        }
+        const index = new Map(cles.map((k, i) => [k, i]));
+
+        const parSource = {};
+        let horsFenetre = 0;
+        for (const r of rows) {
+            const k = moisFmt.format(r.read_at).slice(0, 7);
+            const i = index.get(k);
+            if (i === undefined) { horsFenetre++; continue; }
+            (parSource[r.source] = parSource[r.source] || new Array(cles.length).fill(0))[i]++;
+        }
+
+        res.json({
+            months: cles,
+            bySource: parSource,
+            total: rows.length - horsFenetre,
+            genresAvailable: false,   // aucune table de tags : voir le commentaire ci-dessus
+        });
+    } catch (e) { next(e); }
+}
+
 // ──────────────────────────────────────────────────────────────
 // RATINGS (note + review)
 // ──────────────────────────────────────────────────────────────
@@ -1238,7 +1301,7 @@ module.exports = {
     getLists, createList, updateList, deleteList, addToList, removeFromList, reorderList,
     getBookmarks, addBookmark, removeBookmark,
     getComments, addComment, getRecentComments, reportComment, deleteComment,
-    getEvents, getStats,
+    getEvents, getStats, getStatsDistribution,
     getMangaRating, setMangaRating, deleteMangaRating, getMyRatings,
     getSettings, setSettings,
     exportData, importData, clearHistory,

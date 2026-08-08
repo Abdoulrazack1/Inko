@@ -8,7 +8,7 @@
 // l'« écran noir après mise à jour » qui a motivé le bouton « Vider le cache ».
 // Bump obligatoire à chaque changement d'asset ; la liste STATIC_ASSETS est
 // désormais générée (npm run gen-precache) et vérifiée en CI.
-const CACHE_VERSION = 'inko-2.3.4-ce7c71';
+const CACHE_VERSION = 'inko-2.4.0-notif53';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -261,13 +261,27 @@ self.addEventListener('push', (event) => {
         body:  data.body || '',
         icon:  '/assets/img/icon-192.png',
         badge: '/assets/img/icon-192.png',
-        tag:   data.type || 'inko',
+        // Audit AMEL-53 : le tag valait `data.type` pour TOUT le monde — cinq
+        // séries avec du nouveau produisaient cinq push qui se remplaçaient
+        // l'un l'autre, et l'utilisateur n'en voyait qu'un. Le tag est
+        // désormais l'œuvre : une série remplace sa propre notification
+        // (c'est le regroupement voulu) et jamais celle d'une autre.
+        tag:   data.groupKey ? `${data.type}:${data.groupKey}` : (data.type || 'inko'),
         data:  { link: data.link || '/' },
+        // Audit AMEL-55 : ouvrir le chapitre demandait de cliquer la
+        // notification puis de retrouver où on en était. Une action explicite
+        // économise ce détour — et n'apparaît que là où elle a un sens.
+        actions: data.type === 'new_chapter'
+            ? [{ action: 'lire', title: 'Lire maintenant' }]
+            : [],
     }));
 });
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
+    // Le clic sur le corps et le clic sur « Lire maintenant » mènent au même
+    // endroit : le lien porte déjà le premier chapitre NON LU (calculé côté
+    // serveur), pas le dernier paru.
     const link = (event.notification.data && event.notification.data.link) || '/';
     event.waitUntil((async () => {
         const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

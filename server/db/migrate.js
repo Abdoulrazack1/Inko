@@ -212,6 +212,79 @@ const MIGRATIONS = [
                AND index_name = 'idx_comments_chapter'`);
         if (!idx.n) await run('CREATE INDEX idx_comments_chapter ON comments (manga_id, chapter_id)');
     } },
+    { version: 14, name: 'notifications : regroupement, séries surveillées, fréquence (audit AMEL-53/54/56)', apply: async () => {
+        // AMEL-53 : une notification par chapitre et par série, empilées sans
+        // fin — 110 lignes pour une poignée de séries. La clé de regroupement
+        // (l'œuvre) permet de METTRE À JOUR la notification non lue d'une série
+        // plutôt que d'en ajouter une : la cloche montre l'état courant, pas
+        // l'historique de chaque parution.
+        if (!(await columnExists('notifications', 'group_key'))) {
+            await run('ALTER TABLE notifications ADD COLUMN group_key VARCHAR(191) DEFAULT NULL');
+            await run('ALTER TABLE notifications ADD COLUMN group_count INT NOT NULL DEFAULT 1');
+            // Rattrapage des 110 lignes existantes : l'œuvre est déjà dans le
+            // lien (`?manga=<id>`). Sans ce backfill, les anciennes notifications
+            // resteraient orphelines et le regroupement ne commencerait qu'à la
+            // prochaine parution.
+            const [r] = await pool.query(
+                `UPDATE notifications
+                 SET group_key = SUBSTRING_INDEX(SUBSTRING_INDEX(link, 'manga=', -1), '&', 1)
+                 WHERE group_key IS NULL AND link LIKE '%manga=%'`);
+            console.log(`[migrate] ${r.affectedRows} notification(s) rattachées à leur œuvre`);
+        }
+        const [[idx]] = await pool.query(
+            `SELECT COUNT(*) AS n FROM information_schema.statistics
+             WHERE table_schema = DATABASE() AND table_name = 'notifications'
+               AND index_name = 'idx_notif_group'`);
+        if (!idx.n) await run('CREATE INDEX idx_notif_group ON notifications (user_id, type, group_key, is_read)');
+
+        // AMEL-54 : le scan était global — toutes les séries suivies, toutes
+        // les 4 h, pour tout le monde. Une série qu'on suit sans vouloir en
+        // être averti n'existait pas.
+        if (!(await columnExists('favorites', 'notify'))) {
+            await run('ALTER TABLE favorites ADD COLUMN notify TINYINT(1) NOT NULL DEFAULT 1');
+        }
+        // La fréquence est une propriété du compte : une colonne sur `users`
+        // plutôt qu'une table à joindre, et surtout pas le blob `user_settings`
+        // — le planificateur la lit pour CHAQUE utilisateur à chaque cycle.
+        if (!(await columnExists('users', 'notif_every_hours'))) {
+            await run('ALTER TABLE users ADD COLUMN notif_every_hours INT NOT NULL DEFAULT 4');
+            await run('ALTER TABLE users ADD COLUMN last_notif_scan TIMESTAMP NULL DEFAULT NULL');
+        }
+    } },
+    { version: 15, name: 'regroupement rétroactif des notifications déjà empilées (audit AMEL-53)', apply: async () => {
+        // La migration 14 rend le regroupement possible pour les parutions À
+        // VENIR. Elle ne touche pas à l'arriéré — or c'est lui le problème
+        // décrit par l'audit : 110 lignes pour une poignée de séries, dont 27
+        // NON LUES sur une seule œuvre. Sans ce rattrapage, la cloche resterait
+        // illisible jusqu'à ce que la rétention de 30 jours finisse le travail.
+        //
+        // Le regroupement se fait par (utilisateur, type, œuvre, ÉTAT DE
+        // LECTURE) : fusionner une notification lue avec une non lue
+        // effacerait le fait que l'utilisateur a déjà traité l'une des deux.
+        // On garde la plus récente de chaque groupe — celle qui pointe vers le
+        // chapitre le plus avancé — et son `group_count` dit ce qu'elle
+        // recouvre. Les autres sont supprimées : les garder, c'est ne rien
+        // avoir regroupé.
+        const [[avant]] = await pool.query('SELECT COUNT(*) AS n FROM notifications');
+        if (!avant.n) return;
+
+        await run(`UPDATE notifications n
+            JOIN (SELECT user_id, type, group_key, is_read, COUNT(*) AS n, MAX(id) AS garde
+                  FROM notifications WHERE group_key IS NOT NULL
+                  GROUP BY user_id, type, group_key, is_read
+                  HAVING n > 1) g
+              ON n.id = g.garde
+            SET n.group_count = GREATEST(n.group_count, g.n)`);
+
+        const [supp] = await pool.query(`DELETE n FROM notifications n
+            JOIN (SELECT user_id, type, group_key, is_read, MAX(id) AS garde
+                  FROM notifications WHERE group_key IS NOT NULL
+                  GROUP BY user_id, type, group_key, is_read) g
+              ON  n.user_id = g.user_id AND n.type = g.type
+              AND n.group_key = g.group_key AND n.is_read = g.is_read
+            WHERE n.id <> g.garde`);
+        console.log(`[migrate] ${supp.affectedRows} notification(s) fusionnées dans leur série (${avant.n} → ${avant.n - supp.affectedRows})`);
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──

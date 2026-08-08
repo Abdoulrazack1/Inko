@@ -610,7 +610,12 @@
             const m = items[0] ? mangas[0] : null;
             if (lastCard && m) {
                 const pct = pctOf(items[0]);
-                lastCard.querySelector('.last-read-cover img').src = m.coverThumb || m.cover || '';
+                // Audit BUG-14 : `|| ''` reposait un src VIDE quand l'œuvre n'a
+                // pas de couverture — le navigateur recharge alors la page
+                // courante comme image. `MH.cover` retombe sur BLANK_IMG et
+                // passe par le proxy comme partout ailleurs (PERF-08) ; c'était
+                // le seul endroit du fichier à contourner le helper.
+                lastCard.querySelector('.last-read-cover img').src = MH.cover(m.coverThumb, m.cover);
                 lastCard.querySelector('.last-read-title').textContent = m.title;
                 lastCard.querySelector('.last-read-chap').textContent = `Chapitre ${MH.chapNum(items[0].chapter)}`;
                 // pct=null : nombre de pages inconnu (ancienne progression) —

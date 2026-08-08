@@ -19,6 +19,7 @@
     let favorited   = false;
     let libStatus   = null;     // statut de lecture (library)
     let libCategory = null;     // catégorie (favorites.category)
+    let libNotify   = true;     // surveillée pour les nouveaux chapitres (audit AMEL-54)
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('serie');
@@ -50,6 +51,7 @@
                 favorited   = !!myFav;
                 libStatus   = myFav?.status || null;
                 libCategory = myFav?.category || null;
+                libNotify   = myFav ? myFav.notify !== false : true;
                 readChapsSet = new Set((allRead[manga.id] || []).map(r => r.chapterId));
                 progress    = allProg[manga.id] || null;
             }
@@ -173,6 +175,13 @@
                         <option value="dropped"   ${libStatus==='dropped'  ?'selected':''}>Abandonné</option>
                     </select>
                     <button class="btn btn-ghost btn-sm" id="btnCategory">${libCategory ? MH.esc(libCategory) : '+ Catégorie'}</button>
+                    <!-- Audit AMEL-54 : suivre une série et vouloir en être
+                         averti sont deux choses. Le bouton n'apparaît que
+                         lorsqu'elle est dans la bibliothèque : il n'y a rien à
+                         mettre en sourdine avant. -->
+                    ${favorited ? `<button class="btn btn-ghost btn-sm" id="btnNotify"
+                        title="${libNotify ? 'Ne plus être averti des nouveaux chapitres' : 'Être averti des nouveaux chapitres'}"
+                        aria-pressed="${libNotify}">${libNotify ? '🔔 Alertes' : '🔕 En sourdine'}</button>` : ''}
                     <button class="btn btn-ghost btn-sm" id="btnAddList">+ Liste</button>
                     <button class="btn btn-ghost btn-sm" id="btnAniList" title="Suivi AniList — pousse ta progression, ton statut et ta note">
                         <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style="vertical-align:-2px;margin-right:5px"><path d="M6.361 2.943 0 21.056h4.942l1.077-3.133H11.4l1.052 3.133H22.9c.71 0 1.1-.392 1.1-1.101V17.53c0-.71-.39-1.101-1.1-1.101h-6.483V4.045c0-.71-.392-1.102-1.101-1.102h-2.422c-.71 0-1.101.392-1.101 1.102v1.064l-.758-2.166zm2.324 5.948 1.688 5.018H7.144z"/></svg>AniList
@@ -256,6 +265,23 @@
                 MH.toast(status ? 'Statut : ' + e.target.options[e.target.selectedIndex].text : 'Statut retiré');
                 if (status === 'completed') proposerNotation();
             } catch (err) { MH.toast('Erreur : ' + err.message); }
+        });
+
+        // Audit AMEL-54 : bascule de surveillance. On ne recharge pas la fiche
+        // — seul le libellé du bouton change, et un rechargement complet ferait
+        // perdre l'onglet et la position de lecture en cours.
+        document.getElementById('btnNotify')?.addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            try {
+                const r = await API.notifications.watch(manga.id, !libNotify);
+                libNotify = r.notify;
+                btn.textContent = libNotify ? '🔔 Alertes' : '🔕 En sourdine';
+                btn.title = libNotify ? 'Ne plus être averti des nouveaux chapitres' : 'Être averti des nouveaux chapitres';
+                btn.setAttribute('aria-pressed', String(libNotify));
+                MH.toast(libNotify ? 'Tu seras averti des nouveaux chapitres' : 'Série mise en sourdine');
+            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            finally { btn.disabled = false; }
         });
 
         document.getElementById('btnCategory')?.addEventListener('click', async () => {

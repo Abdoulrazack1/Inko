@@ -411,7 +411,11 @@
             popularFor:(source, params = {}) => get('/sources/' + encodeURIComponent(source) + '/mangas/popular' + API.mangas._qs(params)).then(mapMangaPage),
             searchFor: (source, params = {}) => get('/sources/' + encodeURIComponent(source) + '/mangas/search'  + API.mangas._qs(params)).then(mapMangaPage),
             tags:     ()            => get(API.mangas._prefix() + '/mangas/tags'),
-            get:      (id)          => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
+            // `source` optionnel : sans lui on interroge la source COURANTE, ce
+            // qui est faux dès qu'on résout une œuvre lue ailleurs (stats,
+            // historique). Omis, le comportement d'origine est conservé.
+            get:      (id, source)  => get((source ? '/sources/' + encodeURIComponent(source) : API.mangas._prefix())
+                + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
             getFrom:  (source, id)  => get((source ? `/sources/${encodeURIComponent(source)}` : '') + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
             chapters: (id, params={}) => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
             chaptersFor: (source, id, params={}) => get((source ? `/sources/${encodeURIComponent(source)}` : '') + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
@@ -520,6 +524,8 @@
 
             events:           (limit=200)  => get('/me/events?limit=' + limit),
             stats:            ()           => get('/me/stats'),
+            // Répartition des lectures par source et par mois (audit AMEL-57)
+            distribution:     (months = 12) => get('/me/stats/distribution?months=' + months),
 
             // Ratings
             myRatings:        ()           => get('/me/ratings'),
@@ -562,6 +568,10 @@
             markAll:   ()           => post('/me/notifications/read-all'),
             subscribe: (sub)        => post('/me/push/subscribe', sub),
             vapid:     ()           => get('/push/vapid'),
+            // Fréquence de scan et séries surveillées (audit AMEL-54)
+            prefs:     ()           => get('/me/notif-prefs'),
+            setPrefs:  (everyHours) => put('/me/notif-prefs', { everyHours }),
+            watch:     (mangaId, on)=> put('/me/notif-watch/' + encodeURIComponent(mangaId), { notify: !!on }),
         },
 
         // ── Import local (EPUB / CBZ / CBR) ──

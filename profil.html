@@ -139,7 +139,10 @@
                  état vide affiché tant qu'il n'y a aucune lecture (pas de démo). -->
             <div class="last-read-body" id="lastReadBody" style="display:none">
               <div class="last-read-cover">
-                <img src="" alt="" style="background:var(--bg3);min-width:80px;min-height:110px">
+                <!-- Pas de src="" : un src vide fait recharger la page courante
+                     comme image (audit BUG-14). L'attribut est posé par
+                     profil.js quand la couverture est connue. -->
+                <img alt="" style="background:var(--bg3);min-width:80px;min-height:110px">
               </div>
               <div class="last-read-info">
                 <div class="last-read-title"></div>

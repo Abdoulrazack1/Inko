@@ -315,3 +315,148 @@ test('export/import : l\'échelle des notes survit à l\'aller-retour (audit AME
     const [[conv]] = await pool.query('SELECT rating FROM ratings WHERE user_id = ? AND manga_id = ?', [w.id, 'y']);
     assert.equal(conv.rating, 8, 'un ancien fichier /5 est converti, comme l\'a fait la migration 12');
 });
+
+// ── Notifications (audit AMEL-53/54/55/56) ───────────────────
+test('createNotification : regroupe par œuvre au lieu d\'empiler (audit AMEL-53)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const { createNotification } = require('../lib/notify');
+    const u = await createUser('notif_group', 'notif_group@test.local');
+
+    for (const n of [12, 13, 14]) {
+        await createNotification(u.id, {
+            type: 'new_chapter', title: 'Nouveau chapitre',
+            body: `Blue Lock · Chap. ${n}`, link: `/chapitre.html?manga=blue-lock&chapter=c${n}`,
+            groupKey: 'blue-lock',
+        });
+    }
+    const [lignes] = await pool.query(
+        'SELECT title, body, group_count FROM notifications WHERE user_id = ? AND type = ?',
+        [u.id, 'new_chapter']);
+    assert.equal(lignes.length, 1, 'trois parutions d\'une même série tiennent sur une ligne');
+    assert.equal(lignes[0].group_count, 3, 'le compte dit combien de parutions sont recouvertes');
+
+    // Une série différente ne doit PAS être absorbée
+    await createNotification(u.id, {
+        type: 'new_chapter', title: 'Nouveau chapitre', body: 'Autre · Chap. 1',
+        link: '/chapitre.html?manga=autre&chapter=c1', groupKey: 'autre',
+    });
+    const [apres] = await pool.query(
+        'SELECT COUNT(*) AS n FROM notifications WHERE user_id = ?', [u.id]);
+    assert.equal(apres[0].n, 2, 'chaque série a sa propre ligne');
+
+    // Une notification LUE n'est jamais réécrite : la rouvrir en la modifiant
+    // ferait disparaître ce que l'utilisateur a consciemment traité.
+    await pool.query('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND group_key = ?', [u.id, 'blue-lock']);
+    await createNotification(u.id, {
+        type: 'new_chapter', title: 'Nouveau chapitre', body: 'Blue Lock · Chap. 15',
+        link: '/chapitre.html?manga=blue-lock&chapter=c15', groupKey: 'blue-lock',
+    });
+    const [[bl]] = await pool.query(
+        'SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND group_key = ?', [u.id, 'blue-lock']);
+    assert.equal(bl.n, 2, 'une notification déjà lue n\'est pas ressuscitée, une nouvelle est créée');
+});
+
+test('purgerNotificationsLues : efface les lues de plus de 30 j, garde les non lues (audit AMEL-56)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const { purgerNotificationsLues } = require('../lib/notify');
+    const u = await createUser('notif_purge', 'notif_purge@test.local');
+
+    await pool.query(
+        `INSERT INTO notifications (user_id, type, title, is_read, created_at) VALUES
+         (?, 'new_chapter', 'vieille lue',     1, NOW() - INTERVAL 40 DAY),
+         (?, 'new_chapter', 'vieille non lue', 0, NOW() - INTERVAL 40 DAY),
+         (?, 'new_chapter', 'recente lue',     1, NOW() - INTERVAL 3 DAY)`,
+        [u.id, u.id, u.id]);
+
+    await purgerNotificationsLues(30);
+    const [restantes] = await pool.query(
+        'SELECT title FROM notifications WHERE user_id = ? ORDER BY title', [u.id]);
+    assert.deepEqual(restantes.map(r => r.title), ['recente lue', 'vieille non lue'],
+        'une notification non lue survit quel que soit son âge');
+});
+
+test('notif prefs : fréquence bornée, sourdine par série sans perdre le suivi (audit AMEL-54)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const Notif = require('../controllers/notif.controller');
+    const u = await createUser('notif_prefs', 'notif_prefs@test.local');
+    await pool.query('INSERT INTO favorites (user_id, manga_id, title) VALUES (?, ?, ?), (?, ?, ?)',
+        [u.id, 'aaa', 'A', u.id, 'bbb', 'B']);
+
+    const bad = rr({ user: u, body: { everyHours: 7 } });
+    await Notif.setPrefs(bad.req, bad.res, nextThrow);
+    assert.equal(bad.res.statusCode, 400, 'une fréquence hors liste est refusée');
+
+    const ok = rr({ user: u, body: { everyHours: 24 } });
+    await Notif.setPrefs(ok.req, ok.res, nextThrow);
+    assert.equal(ok.res.body.everyHours, 24);
+
+    // Sourdine sur une série : le favori reste, seule l'alerte tombe
+    const mute = rr({ user: u, params: { mangaId: 'aaa' }, body: { notify: false } });
+    await Notif.setWatch(mute.req, mute.res, nextThrow);
+    assert.equal(mute.res.body.notify, false);
+
+    const prefs = rr({ user: u });
+    await Notif.getPrefs(prefs.req, prefs.res, nextThrow);
+    assert.equal(prefs.res.body.everyHours, 24);
+    assert.equal(prefs.res.body.followed, 2, 'la série reste suivie');
+    assert.equal(prefs.res.body.watched, 1, 'une seule est encore surveillée');
+
+    // Une série absente de la bibliothèque ne se met pas en sourdine
+    const absente = rr({ user: u, params: { mangaId: 'zzz' }, body: { notify: false } });
+    await Notif.setWatch(absente.req, absente.res, nextThrow);
+    assert.equal(absente.res.statusCode, 404);
+});
+
+test('scanUserUpdates : « Lire maintenant » vise le premier NON LU, pas le dernier paru (audit AMEL-55)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const loader = require('../extensions/loader');
+    const updates = require('../lib/updates');
+    const u = await createUser('notif_resume', 'notif_resume@test.local');
+
+    await pool.query(
+        'INSERT INTO favorites (user_id, manga_id, source, title, last_chapter) VALUES (?, ?, ?, ?, ?)',
+        [u.id, 'serie-x', 'faux', 'Serie X', 10]);
+    // Chapitres 10 à 13 ; 10 et 12 déjà lus. Le premier non lu est le 11.
+    await pool.query(
+        'INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?,?,?,?), (?,?,?,?)',
+        [u.id, 'serie-x', 'c10', 10, u.id, 'serie-x', 'c12', 12]);
+
+    // Source factice : le scan ne doit pas dépendre d'un site réel.
+    const vrai = loader.get;
+    loader.get = (id) => (id === 'faux' ? {
+        getChapters: async () => ({ results: [
+            { id: 'c13', chapter: 13 }, { id: 'c12', chapter: 12 },
+            { id: 'c11', chapter: 11 }, { id: 'c10', chapter: 10 },
+        ] }),
+    } : vrai(id));
+    try {
+        const r = await updates.scanUserUpdates(u.id, { scope: 'all' });
+        const s = r.updates.find(x => x.mangaId === 'serie-x');
+        assert.equal(s.latest.chapter, 13, 'le dernier paru reste exposé');
+        assert.equal(s.resume.chapter, 11,
+            'on reprend au premier non lu — viser le 13 ferait sauter le 11');
+        assert.equal(s.unreadCount, 2);
+    } finally { loader.get = vrai; }
+});
+
+test('scanUserUpdates : notifyOnly écarte les séries en sourdine, pas le scan manuel (audit AMEL-54)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const loader = require('../extensions/loader');
+    const updates = require('../lib/updates');
+    const u = await createUser('notif_only', 'notif_only@test.local');
+    await pool.query(
+        `INSERT INTO favorites (user_id, manga_id, source, title, notify) VALUES (?,?,?,?,1), (?,?,?,?,0)`,
+        [u.id, 'suivie', 'faux2', 'Suivie', u.id, 'muette', 'faux2', 'Muette']);
+
+    const vrai = loader.get;
+    loader.get = (id) => (id === 'faux2' ? {
+        getChapters: async () => ({ results: [{ id: 'c1', chapter: 1 }] }),
+    } : vrai(id));
+    try {
+        const tout = await updates.scanUserUpdates(u.id, { scope: 'all' });
+        assert.equal(tout.updates.length, 2, 'le bouton « Mettre à jour » vérifie tout');
+        const alerte = await updates.scanUserUpdates(u.id, { scope: 'all', notifyOnly: true });
+        assert.deepEqual(alerte.updates.map(x => x.mangaId), ['suivie'],
+            'la tâche de fond ignore ce qui est en sourdine');
+    } finally { loader.get = vrai; }
+});

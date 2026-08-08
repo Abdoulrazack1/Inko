@@ -56,8 +56,45 @@
             });
         } catch (e) { window.MH?.err?.('notifications.js', e); }
 
+        await chargerPreferences();
         await load();
     });
+
+    // ── Fréquence de vérification (audit AMEL-54) ────────────
+    // Le scan tournait toutes les 4 h pour tout le monde, sans réglage : le
+    // seul moyen de l'espacer était de se désabonner du push — ce qui laissait
+    // la cloche in-app continuer à se remplir.
+    async function chargerPreferences() {
+        const bloc = document.getElementById('ntPrefs');
+        const sel  = document.getElementById('ntFreq');
+        if (!bloc || !sel) return;
+        let p;
+        try { p = await API.notifications.prefs(); } catch (e) { return; }   // bloc masqué : mieux qu'un réglage inopérant
+        sel.value = String(p.everyHours);
+        bloc.hidden = false;
+
+        const note = document.getElementById('ntWatched');
+        if (note) {
+            const horsSuivi = p.followed - p.watched;
+            note.textContent = [
+                p.watched === p.followed
+                    ? `${p.followed} série${p.followed > 1 ? 's' : ''} surveillée${p.followed > 1 ? 's' : ''}`
+                    : `${p.watched} série${p.watched > 1 ? 's' : ''} surveillée${p.watched > 1 ? 's' : ''} sur ${p.followed} (${horsSuivi} en sourdine)`,
+                `les notifications lues sont effacées après ${p.retentionDays} jours`,
+            ].join(' · ');
+        }
+
+        sel.addEventListener('change', async () => {
+            const h = parseInt(sel.value, 10);
+            sel.disabled = true;
+            try {
+                await API.notifications.setPrefs(h);
+                MH.toast?.(h === 0 ? 'Notifications de nouveaux chapitres coupées'
+                    : `Vérification ${h === 24 ? 'une fois par jour' : `toutes les ${h} heures`}`);
+            } catch (e) { MH.toast?.('Erreur : ' + e.message); }
+            finally { sel.disabled = false; }
+        });
+    }
 
     async function load() {
         const btn = document.getElementById('ntRefresh');

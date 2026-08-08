@@ -192,6 +192,10 @@ router.get   ('/me/notifications',            auth.authRequired, Notif.list);
 router.get   ('/me/notifications/unread',     auth.authRequired, Notif.unreadCount);
 router.post  ('/me/notifications/read-all',   auth.authRequired, Notif.markAllRead);
 router.post  ('/me/notifications/:id/read',   auth.authRequired, Notif.markRead);
+// Réglages de notification (audit AMEL-54)
+router.get   ('/me/notif-prefs',              auth.authRequired, Notif.getPrefs);
+router.put   ('/me/notif-prefs',              auth.authRequired, Notif.setPrefs);
+router.put   ('/me/notif-watch/:mangaId',     auth.authRequired, Notif.setWatch);
 router.get   ('/push/vapid',                   Notif.vapid);
 router.post  ('/me/push/subscribe',           auth.authRequired, Notif.subscribe);
 
@@ -232,6 +236,7 @@ router.post  ('/me/clear-history',        auth.authRequired, User.clearHistory);
 
 router.get   ('/me/events',               auth.authRequired, User.getEvents);
 router.get   ('/me/stats',                auth.authRequired, User.getStats);
+router.get   ('/me/stats/distribution',       auth.authRequired, User.getStatsDistribution);   // audit AMEL-57
 router.get   ('/me/updates',              auth.authRequired, User.checkUpdates);
 
 
