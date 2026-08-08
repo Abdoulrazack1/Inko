@@ -52,6 +52,10 @@
       transition: border-color .18s ease;
     }
     .source-card.active { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange) inset; }
+    /* Etat de la source, visible en permanence (audit AMEL-65). La couleur ne
+       porte pas seule l'information : le mot l'accompagne toujours. */
+    .src-sante { font-size: 11px; margin-top: 5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .src-sante-point { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
     .source-icon {
       width: 48px; height: 48px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;

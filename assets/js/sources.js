@@ -81,7 +81,7 @@
         const el = document.getElementById('sourcesGrid');
         if (!el) return;
 
-        let sources;
+        let sources, sante = [];
         try { sources = await API.sources.list(); }
         catch (e) {
             el.innerHTML = `<div class="empty-state" style="color:#ef4444">Erreur : ${MH.esc(e.message)}</div>`;
@@ -98,6 +98,17 @@
             return;
         }
 
+        // Audit AMEL-65 : la sante etait derriere un endpoint reserve a
+        // l'admin, alors qu'elle repond a une question d'utilisateur —
+        // « pourquoi cette source ne renvoie rien ? ». Chargee ici sans
+        // bloquer : un echec laisse simplement les pastilles absentes.
+        try { sante = await API.sources.health(); } catch (e) { sante = []; }
+        const santeParId = new Map((sante || []).map(h => [h.id, h]));
+
+        // Audit AMEL-66 : l'ordre de preference remplace le classement code en
+        // dur (weebcentral puis sushiscan). Les sources non classees suivent,
+        // dans leur ordre d'origine.
+        sources = API.sources.sortByPreference(sources);
         const active = API.sources.current || sources[0].id;
         // Audit S9/CAT5 : désinstaller/réinstaller impactent toute l'instance —
         // le serveur exige désormais un rôle admin, l'UI s'aligne (les boutons
@@ -124,6 +135,7 @@
                 <div style="font-size:10.5px;color:var(--text3);margin-top:4px">
                     ${MH.esc(s.baseUrl || '')}
                 </div>
+                ${pastilleSante(santeParId.get(s.id))}
             </div>
             <div class="source-actions">
                 ${disabled
@@ -132,6 +144,8 @@
                         ? '<span class="source-active-badge">✓ ACTIVE</span>'
                         : `<button class="btn btn-primary btn-sm" data-activate="${MH.esc(s.id)}">Activer</button>`)}
                 <button class="btn btn-secondary btn-sm" data-test="${MH.esc(s.id)}" title="Vérifier que la source répond">Tester</button>
+                <button class="btn btn-secondary btn-sm" data-log="${MH.esc(s.id)}" title="Voir les derniers appels a cette source">Journal</button>
+                <button class="btn btn-ghost btn-sm" data-up="${MH.esc(s.id)}" title="Remonter dans mon ordre de preference" aria-label="Remonter ${MH.esc(s.name)}">▲</button>
                 <button class="btn btn-secondary btn-sm" data-toggle-src="${MH.esc(s.id)}" title="${disabled ? 'Réactiver cette source' : 'Ne plus utiliser cette source (masquée en recherche)'}">${disabled ? 'Réactiver' : 'Désactiver'}</button>
                 ${isAdmin ? `<button class="btn btn-ghost btn-sm" data-uninstall-src="${MH.esc(s.id)}" title="Désinstaller complètement cette extension" style="color:var(--red-text,#a83232)">Désinstaller</button>` : ''}
                 <span class="source-test-result" data-test-result="${MH.esc(s.id)}" style="font-size:11px;margin-left:6px"></span>
@@ -254,5 +268,90 @@
                 } finally { btn.disabled = false; btn.textContent = prev; }
             });
         });
+
+        // Audit AMEL-68 : le journal des derniers appels. Quand une source
+        // casse, l'utilisateur voyait « Erreur » et rien d'autre — impossible
+        // de distinguer un site tombe, un site qui nous limite, et une source
+        // simplement lente.
+        el.querySelectorAll('[data-log]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.log;
+                btn.disabled = true;
+                try {
+                    const j = await API.sources.log(id, 20);
+                    if (!j.entries.length) {
+                        MH.alert('Aucun appel enregistre pour cette source depuis le dernier demarrage du serveur.',
+                            { title: 'Journal — ' + id });
+                        return;
+                    }
+                    const lignes = j.entries.map(e => {
+                        const h = new Date(e.at).toLocaleTimeString('fr-FR');
+                        const op = e.op ? ` ${e.op}` : '';
+                        return e.ok
+                            ? `${h}${op} — ok en ${e.ms} ms`
+                            : `${h}${op} — ECHEC (${e.status || '?'}) ${e.error || ''}`;
+                    }).join(String.fromCharCode(10));
+                    MH.alert(
+                        `${j.okRate}% de reussite sur les ${j.entries.length} derniers appels`
+                        + (j.medianMs != null ? `, ${j.medianMs} ms en mediane` : '')
+                        + String.fromCharCode(10, 10)
+                        + lignes,
+                        { title: 'Journal — ' + id });
+                } catch (e) { MH.toast('Erreur : ' + e.message); }
+                finally { btn.disabled = false; }
+            });
+        });
+
+        // Audit AMEL-66 : remonter une source dans son ordre de preference.
+        // Une seule direction suffit : remonter la derniere revient a
+        // descendre celles du dessus, et deux boutons par carte encombreraient
+        // une ligne d'actions deja chargee.
+        el.querySelectorAll('[data-up]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.up;
+                // On repart de l'ordre AFFICHE, pas de la preference stockee :
+                // elle peut etre vide ou incomplete, et l'utilisateur classe
+                // ce qu'il voit.
+                // `.source-card` sert AUSSI aux encarts de mise a jour et aux
+                // extensions desinstallees, qui n'ont pas de data-id : sans le
+                // filtre, la liste commencait par des `undefined` et le
+                // deplacement portait a cote.
+                const affiche = [...el.querySelectorAll('.source-card[data-id]')].map(c => c.dataset.id);
+                const i = affiche.indexOf(id);
+                if (i <= 0) { MH.toast('Deja en tete'); return; }
+                affiche.splice(i - 1, 0, affiche.splice(i, 1)[0]);
+                API.sources.order = affiche;
+                MH.toast('Ordre de preference mis a jour');
+                render();
+            });
+        });
+    }
+
+    function ilYA(ts) {
+        const s = Math.floor((Date.now() - ts) / 1000);
+        if (s < 60) return "a l'instant";
+        if (s < 3600) return `il y a ${Math.floor(s / 60)} min`;
+        if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`;
+        return new Date(ts).toLocaleDateString('fr-FR');
+    }
+
+    // Audit AMEL-65 : etat de la source, en clair. `source-health.js`
+    // collectait deja ces compteurs ; seul l'admin pouvait les voir.
+    function pastilleSante(h) {
+        if (!h || (!h.oks && !h.fails)) {
+            return `<div class="src-sante" style="color:var(--text3)">Pas encore interrogee depuis le demarrage</div>`;
+        }
+        // `streak` = echecs CONSECUTIFS : c'est lui qui dit si la source est
+        // cassee MAINTENANT, la ou un total d'echecs melerait des incidents
+        // vieux de plusieurs heures.
+        const casse = h.streak >= 3;
+        const fragile = !casse && h.streak > 0;
+        const couleur = casse ? 'var(--red-text,#ef4444)' : (fragile ? '#f59e0b' : 'var(--green-text,#22c55e)');
+        const etat = casse ? 'Ne repond plus' : (fragile ? 'Instable' : 'Operationnelle');
+        const detail = casse && h.error ? ` — ${h.error.slice(0, 90)}` : '';
+        const quand = h.okAt ? ` · dernier succes ${ilYA(h.okAt)}` : '';
+        return `<div class="src-sante" style="color:${couleur}">
+            <span class="src-sante-point" style="background:${couleur}"></span>${MH.esc(etat)}${MH.esc(detail)}
+            <span style="color:var(--text3)">${MH.esc(quand)}</span></div>`;
     }
 })();

@@ -25,14 +25,28 @@ const chapCache = new BoundedCache({ max: 400, ttl: CHAP_TTL });
 // fiche en même temps ne doivent produire qu'UN scrape (même principe que le
 // proxy d'images).
 const inflight = new Map();
-async function cached(cache, key, produce) {
+// Audit AMEL-64 : le TTL etait global. Or les sources n'ont pas le meme
+// rythme : Gutenberg publie des livres du domaine public — leur fiche ne
+// changera plus jamais — la ou un scan suivi peut sortir un chapitre dans
+// l'heure. Un TTL unique force donc a choisir entre re-scraper pour rien et
+// servir du perime. Une extension peut declarer `cacheTtl` (en secondes) dans
+// son manifeste ; sinon le defaut global s'applique.
+function ttlDe(src, defaut) {
+    const v = Number(src && src.cacheTtl);
+    if (!Number.isFinite(v) || v <= 0) return defaut;
+    // Borne haute : une extension ne doit pas pouvoir figer une fiche pour
+    // toujours, ni court-circuiter le cache avec un TTL d'une milliseconde.
+    return Math.min(Math.max(Math.round(v * 1000), 10 * 1000), 24 * 3600 * 1000);
+}
+
+async function cached(cache, key, produce, ttl) {
     const hit = cache.get(key);
     if (hit !== undefined) return hit;
     if (inflight.has(key)) return inflight.get(key);
     const p = (async () => {
         try {
             const v = await produce();
-            cache.set(key, v);
+            cache.set(key, v, ttl);
             return v;
         } finally { inflight.delete(key); }
     })();
@@ -72,7 +86,7 @@ async function popular(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'popular')) return notSupported(res, src, 'popular');
-        res.json(await health.track(src.id, () => src.popular(req.query)));
+        res.json(await health.track(src.id, () => src.popular(req.query), 'populaires'));
     } catch (e) { next(e); }
 }
 
@@ -80,7 +94,7 @@ async function latest(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'latest')) return notSupported(res, src, 'latest');
-        res.json(await health.track(src.id, () => src.latest(req.query)));
+        res.json(await health.track(src.id, () => src.latest(req.query), 'nouveautes'));
     } catch (e) { next(e); }
 }
 
@@ -114,7 +128,7 @@ async function search(req, res, next) {
         if (!supports(src, 'search')) return notSupported(res, src, 'search');
         const { q, limit, offset, ...rest } = req.query;
         const exclus = listeDe(rest.excludedTags || rest['excludedTags[]']);
-        const r = await health.track(src.id, () => src.search({ q, limit, offset, filters: rest }));
+        const r = await health.track(src.id, () => src.search({ q, limit, offset, filters: rest }), 'recherche');
         res.json(appliquerExclusions(r, exclus));
     } catch (e) { next(e); }
 }
@@ -154,7 +168,8 @@ async function getOne(req, res, next) {
         const src = resolveSource(req);
         if (!supports(src, 'manga')) return notSupported(res, src, 'manga');
         const out = await cached(metaCache, `m:${src.id}:${req.params.id}`,
-            () => health.track(src.id, () => src.getManga(req.params.id)));
+            () => health.track(src.id, () => src.getManga(req.params.id), 'fiche'),
+            ttlDe(src, META_TTL));
         res.json(out);
     } catch (e) { next(e); }
 }
@@ -167,7 +182,8 @@ async function chapters(req, res, next) {
         // différentes du même manga ne doivent pas se servir mutuellement.
         const k = `c:${src.id}:${req.params.id}:${req.query.lang || ''}:${req.query.limit || ''}:${req.query.offset || ''}`;
         const out = await cached(chapCache, k,
-            () => health.track(src.id, () => src.getChapters(req.params.id, req.query)));
+            () => health.track(src.id, () => src.getChapters(req.params.id, req.query), 'chapitres'),
+            ttlDe(src, CHAP_TTL));
         res.json(out);
     } catch (e) { next(e); }
 }
@@ -176,7 +192,7 @@ async function pages(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'pages')) return notSupported(res, src, 'pages');
-        res.json(await health.track(src.id, () => src.getPages(req.params.id)));
+        res.json(await health.track(src.id, () => src.getPages(req.params.id), 'pages'));
     } catch (e) { next(e); }
 }
 
@@ -186,7 +202,7 @@ async function text(req, res, next) {
         const src = resolveSource(req);
         if (!supports(src, 'text') || typeof src.getText !== 'function')
             return notSupported(res, src, 'text');
-        res.json(await health.track(src.id, () => src.getText(req.params.id)));
+        res.json(await health.track(src.id, () => src.getText(req.params.id), 'texte'));
     } catch (e) { next(e); }
 }
 

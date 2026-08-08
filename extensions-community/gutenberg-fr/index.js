@@ -118,11 +118,15 @@ module.exports = {
     lang:         'fr',
     baseUrl:      API,
     nsfw:         false,
-    version:      '1.0.2',
+    version:      '1.0.3',
     unit:         'chapter',
     type:         'book',
     description:  'Livres du domaine public en français — ~4 000 classiques (Hugo, Zola, Balzac, Dumas, Verne, Flaubert, Maupassant…) via Project Gutenberg. Lecture en texte intégral, 100 % légal et gratuit.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'text'],
+    // Audit AMEL-64 : ces livres sont du domaine public — leur fiche et leur
+    // sommaire ne changeront JAMAIS. Le defaut global (15 min / 5 min) fait
+    // re-interroger l'API pour rien. 24 h, le plafond autorise.
+    cacheTtl:     86400,
 
     async popular(opts = {}) { return browse(opts, '&sort=popular'); },
     async latest(opts = {})  { return browse(opts, '&sort=descending'); },

@@ -171,6 +171,10 @@ function manifest() {
         // diffèrent du site lui-même (CDN de scans). Ils élargissent la liste
         // blanche du proxy d'images — et rien d'autre.
         imageHosts:   Array.isArray(s.imageHosts) ? s.imageHosts : [],
+        // Audit AMEL-64 : duree de cache propre a la source (secondes). Une
+        // fiche du domaine public ne changera jamais ; un scan suivi peut
+        // sortir un chapitre dans l'heure. Absent = defaut global.
+        cacheTtl:     Number.isFinite(Number(s.cacheTtl)) ? Number(s.cacheTtl) : null,
     }));
 }
 

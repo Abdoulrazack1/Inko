@@ -181,7 +181,13 @@ async function testSource(req, res, next) {
     } catch (e) { next(e); }
 }
 
-// GET /api/extensions/health — instantané santé (admin, §7.3 rec 3)
+// GET /api/extensions/health — instantané santé
+//
+// Audit AMEL-65 : cet endpoint était réservé à l'admin alors que la donnée
+// qu'il porte répond à une question d'UTILISATEUR — « pourquoi cette source ne
+// renvoie rien ? ». En mode local il n'y a d'ailleurs qu'un compte, donc la
+// restriction ne protégeait personne tout en privant tout le monde. Rien ici
+// n'est confidentiel : ce sont des compteurs de disponibilité de sites publics.
 async function healthStatus(_req, res, next) {
     try {
         const byId = Object.fromEntries(extensions.manifest().map(s => [s.id, s]));
@@ -193,6 +199,35 @@ async function healthStatus(_req, res, next) {
         }
         res.json(rows);
     } catch (e) { next(e); }
+}
+
+// GET /api/extensions/:id/log — journal des derniers appels (audit AMEL-68)
+// Les compteurs agrégés ne gardent que le DERNIER message d'erreur, écrasé au
+// prochain échec : impossible de voir si une source est lente, limitée par
+// intermittence, ou franchement cassée. Le journal montre la suite des appels.
+async function sourceLog(req, res, next) {
+    try {
+        const id = req.params.id;
+        if (!extensions.get(id) && !extensions.isUninstalled(id))
+            return res.status(404).json({ error: 'Source inconnue' });
+        const limite = Math.min(Math.max(parseInt(req.query.limit || '20', 10) || 20, 1), health.JOURNAL_MAX);
+        const lignes = health.journalDe(id, limite);
+        const reussis = lignes.filter(l => l.ok);
+        res.json({
+            id,
+            entries: lignes,
+            // Mediane et non moyenne : un seul appel a 30 s (site qui a fini
+            // par repondre) ferait passer une source saine pour lente.
+            medianMs: reussis.length ? mediane(reussis.map(l => l.ms)) : null,
+            okRate: lignes.length ? Math.round((reussis.length / lignes.length) * 100) : null,
+            kept: health.JOURNAL_MAX,
+        });
+    } catch (e) { next(e); }
+}
+function mediane(a) {
+    const t = [...a].sort((x, y) => x - y);
+    const m = Math.floor(t.length / 2);
+    return t.length % 2 ? t[m] : Math.round((t[m - 1] + t[m]) / 2);
 }
 
 // L'installation d'extensions par URL a été retirée : les extensions ne
@@ -215,4 +250,5 @@ function reinstall(req, res, next) {
     } catch (e) { next(e); }
 }
 
-module.exports = { checkUpdates, applyUpdates, testSource, healthStatus, uninstall, reinstall };
+module.exports = {
+    sourceLog, checkUpdates, applyUpdates, testSource, healthStatus, uninstall, reinstall };

@@ -405,8 +405,33 @@
             // Mises à jour des extensions (modèle Mihon)
             checkUpdates: ()      => get('/extensions/updates'),
             update:       (ids)   => post('/extensions/update', { ids: ids || null }),
-            // Test de connectivité d'une source + santé globale (admin)
+            // Test de connectivité d'une source + santé globale
             test:         (id)    => get('/extensions/' + encodeURIComponent(id) + '/test'),
+            // Journal des derniers appels d'une source (audit AMEL-68)
+            log:          (id, limit = 20) =>
+                get('/extensions/' + encodeURIComponent(id) + '/log?limit=' + limit),
+            // Audit AMEL-66 : `defaultSource()` codait en dur weebcentral puis
+            // sushiscan. L'ordre de preference est une habitude de lecture,
+            // propre a chacun — il vit donc chez le client, qui l'applique au
+            // choix de la source initiale et a l'ordre affiche.
+            get order() {
+                try { return JSON.parse(localStorage.getItem('mh_source_order') || '[]'); }
+                catch (e) { return []; }
+            },
+            set order(ids) {
+                try { localStorage.setItem('mh_source_order', JSON.stringify(ids || [])); }
+                catch (e) { window.MH?.err?.('api.js', e); }
+            },
+            // Trie une liste de sources selon la preference, les inconnues a la
+            // suite dans leur ordre d'origine : installer une extension ne doit
+            // pas la faire disparaitre au fond parce qu'elle n'est pas classee.
+            sortByPreference(list) {
+                const ord = API.sources.order;
+                if (!ord.length) return list;
+                const rang = new Map(ord.map((id, i) => [id, i]));
+                return [...list].sort((a, b) =>
+                    (rang.has(a.id) ? rang.get(a.id) : 1e9) - (rang.has(b.id) ? rang.get(b.id) : 1e9));
+            },
             health:       ()      => get('/extensions/health'),
         },
 

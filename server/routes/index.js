@@ -76,7 +76,12 @@ router.get('/sources',              Manga.listSources);
 // ── Extensions : mises à jour (modèle Mihon) ──────
 // Audit SRC1 : updates/uninstalled exigent désormais au moins une session.
 router.get ('/extensions/updates',  auth.authRequired, Ext.checkUpdates);
-router.get ('/extensions/health',   auth.authRequired, adminRequired, Ext.healthStatus);
+// Audit AMEL-65/68 : la sante et le journal repondent a une question
+// d'utilisateur (« pourquoi cette source ne renvoie rien ? »), pas
+// d'administrateur. Aucune donnee confidentielle : des compteurs de
+// disponibilite de sites publics.
+router.get ('/extensions/health',   auth.authRequired, Ext.healthStatus);
+router.get ('/extensions/:id/log',  auth.authRequired, Ext.sourceLog);
 router.get ('/extensions/:id/test', auth.authRequired, Ext.testSource);
 // applyUpdates écrit des fichiers .js exécutés côté serveur pour toute l'instance :
 // exige un rôle admin, pas seulement une session valide (audit §7.3).
