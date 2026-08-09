@@ -4,7 +4,7 @@
   "private": true,
   "description": "Inko — lecteur de mangas et romans (frontend vanilla + backend Express dans server/)",
   "scripts": {
-    "test": "node --test test/unit/",
+    "test": "node scripts-ci/run-unit-tests.js",
     "test:e2e": "playwright test",
     "test:a11y": "playwright test test/e2e/a11y.spec.js",
     "lint": "eslint assets/js service-worker.js",

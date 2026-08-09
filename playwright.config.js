@@ -53,6 +53,11 @@ module.exports = defineConfig({
             // production reste celle de security.js.
             IMG_RATE_MAX: '5000',
             SEARCH_RATE_MAX: '500',
+            // Permet de rejouer la suite sur une base VIDE, comme en CI :
+            //   DB_NAME=inko_e2e_vide npx playwright test
+            // C'est ainsi qu'on reproduit localement les echecs qui ne se
+            // voyaient qu'en integration continue.
+            ...(process.env.DB_NAME ? { DB_NAME: process.env.DB_NAME } : {}),
         },
     },
 });
