@@ -119,3 +119,23 @@
   font-family: var(--font-read); }
 .jr-empty { text-align: center; color: var(--text3); padding: 70px 20px; line-height: 1.7; }
 .jr-empty .ico { font-size: 44px; margin-bottom: 12px; }
+
+/* ── Humeurs au fil du temps (audit AMEL-46) ──
+   Le champ « humeur » était collecté à chaque note et restitué par UNE valeur
+   dominante : toute l'évolution était perdue. */
+.jr-moods { margin-top: 16px; }
+.jr-moods-title {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--text3); margin-bottom: 8px;
+}
+.jr-moods-row { display: flex; align-items: flex-end; gap: 6px; }
+.jr-mood-col { flex: 1 1 0; min-width: 0; text-align: center; }
+.jr-mood-bar {
+  display: flex; flex-direction: column-reverse;
+  height: 54px; border-radius: 4px; overflow: hidden; background: var(--bg3);
+}
+.jr-mood-bar > span { display: block; width: 100%; }
+.jr-mood-label {
+  font-size: 10px; color: var(--text3); margin-top: 5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

@@ -50,6 +50,19 @@ function friendlyHttpError(e) {
     return e;
 }
 
+// Audit EXT-04 : 7 sources sur 9 n'avaient AUCUN réessai. Or un scan de
+// bibliothèque enchaîne des dizaines de requêtes sur des sites scrapés : un
+// hoquet réseau isolé faisait échouer toute la série, et l'échec remontait à
+// l'utilisateur comme une source cassée. Deux tentatives suffisent à absorber
+// l'essentiel — on ne réessaie QUE ce qui est transitoire (réseau, 5xx, 429),
+// jamais un 404 ou un 403 qui ne changeront pas.
+function isTransient(e) {
+    const s = e && e.response && e.response.status;
+    if (s) return s === 429 || (s >= 500 && s <= 599);
+    return true;   // pas de réponse du tout : DNS, timeout, connexion coupée
+}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 async function fetchHtml(url, { ttl = 120_000, hx = false, referer } = {}) {
     const key = url + (hx ? '#hx' : '');
     const c = getC(key);
@@ -57,9 +70,16 @@ async function fetchHtml(url, { ttl = 120_000, hx = false, referer } = {}) {
     const headers = {};
     if (hx) headers['HX-Request'] = 'true';
     if (referer) headers['Referer'] = referer;
-    let data;
-    try { ({ data } = await http.get(url, { responseType: 'text', headers })); }
-    catch (e) { throw friendlyHttpError(e); }
+    let data, lastErr;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try { ({ data } = await http.get(url, { responseType: 'text', headers })); lastErr = null; break; }
+        catch (e) {
+            lastErr = e;
+            if (attempt === 2 || !isTransient(e)) break;
+            await sleep(700);
+        }
+    }
+    if (lastErr) throw friendlyHttpError(lastErr);
     setC(key, data, ttl);
     return data;
 }
@@ -145,8 +165,22 @@ function searchUrl({ text = '', sort = 'Best Match', order = 'Descending', limit
 
 // Statuts UI (normalisés) → valeurs WeebCentral
 const STATUS_MAP = { ongoing: 'Ongoing', completed: 'Complete', hiatus: 'Hiatus', cancelled: 'Canceled' };
-// Tri UI (normalisé) → valeurs WeebCentral
-const SORT_MAP = { popularity: 'Popularity', latest: 'Latest Updates', alpha: 'Alphabet', added: 'Recently Added' };
+// Tri UI (normalisé) → valeurs WeebCentral.
+// Audit BUG-06/BUG-07 : deux défauts distincts se cachaient ici.
+//   · `rating` n'existe pas dans cette table : `SORT_MAP['rating']` valait
+//     undefined et le tri retombait EN SILENCE sur « Best Match »/« Popularity ».
+//     L'utilisateur choisissait « Note » et obtenait exactement l'ordre de
+//     popularité. WeebCentral n'expose aucun tri par note — la bonne réponse
+//     n'est pas de tricher mais de le DIRE (voir `sorts` dans le manifeste).
+//   · `alpha` héritait de l'ordre par défaut `Descending`, commun aux autres
+//     tris : « A → Z » renvoyait donc du Z → A (μ & i, élDLIVE, your name.…).
+//     Chaque tri porte désormais son ordre naturel.
+const SORT_MAP = {
+    popularity: { sort: 'Popularity',      order: 'Descending' },
+    latest:     { sort: 'Latest Updates',  order: 'Descending' },
+    added:      { sort: 'Recently Added',  order: 'Descending' },
+    alpha:      { sort: 'Alphabet',        order: 'Ascending'  },
+};
 
 // Liste complète des tags supportés par WeebCentral (les tags purement
 // pornographiques — Hentai/Lolicon/Shotacon/Smut — sont volontairement omis).
@@ -170,6 +204,12 @@ module.exports = {
     unit:      'chapter',
     description:  'Weeb Central — large catalogue anglais de scans (HTMX). Recherche, chapitres et lecture.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],
+    // Audit BUG-06 : tris RÉELLEMENT honorés par cette source. Sans cette
+    // déclaration, l'interface proposait « Note » — que WeebCentral n'expose
+    // pas — et le résultat revenait identique à « Popularité », sans le moindre
+    // signal. Une source qui ne déclare rien garde l'ancien comportement
+    // (tous les tris proposés).
+    sorts: ['popularity', 'latest', 'added', 'alpha'],
 
     async getTags() {
         return TAGS.map(t => ({ id: t, name: t, group: 'genre' }));
@@ -200,9 +240,14 @@ module.exports = {
         // La démographie WeebCentral est un tag comme un autre (Shounen, Seinen…)
         arr(filters.demographic).forEach(d => tags.push(cap(d)));
         const hasFilters = statuses.length || tags.length;
-        const sort = SORT_MAP[filters.sort] || (q ? 'Best Match' : 'Popularity');
+        // Tri inconnu de la source → on retombe sur le défaut, mais volontairement
+        // et non par accident (audit BUG-06).
+        const s = SORT_MAP[filters.sort]
+            || { sort: q ? 'Best Match' : 'Popularity', order: 'Descending' };
         if (!q && !hasFilters && !filters.sort) return this.popular({ limit, offset });
-        const html = await fetchHtml(searchUrl({ text: q || '', sort, limit, offset, statuses, tags }), { ttl: 120_000, hx: true });
+        const html = await fetchHtml(
+            searchUrl({ text: q || '', sort: s.sort, order: s.order, limit, offset, statuses, tags }),
+            { ttl: 120_000, hx: true });
         // Le site impose un minimum de ~32 résultats : on tronque à la limite demandée
         // (l'offset reste honoré par le site, donc aucune série n'est sautée)
         const all = parseList(cheerio.load(html));

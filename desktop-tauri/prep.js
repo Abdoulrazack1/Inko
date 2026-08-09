@@ -30,12 +30,29 @@ console.log('[prep] nettoyage…');
 fs.rmSync(RES, { recursive: true, force: true });
 
 console.log('[prep] serveur…');
+// `backups` : les dumps nocturnes contiennent l'email ET la bibliotheque de
+// CHAQUE compte de la machine de build, en clair tant que BACKUP_PASSPHRASE
+// n'est pas defini. Sans cette exclusion ils partaient dans l'installeur
+// distribue — 12 fichiers, 26 comptes, 1,3 Mo de donnees personnelles
+// envoyees a tous ceux qui telechargent l'app. Constate sur le build 2.5.0.
 robocopy(path.join(ROOT, 'server'), path.join(RES, 'server'),
-    ['/XF', '.env', '.env.*', '/XD', 'test', 'uploads']);
+    ['/XF', '.env', '.env.*', '/XD', 'test', 'uploads', 'backups']);
 // Les configs locales sensibles ne partent pas dans le bundle
 for (const f of ['config/vapid.json', 'config/google.json', 'config/anilist.json', 'config/local-owner.json']) {
     const p = path.join(RES, 'server', f);
     if (fs.existsSync(p)) fs.unlinkSync(p);
+}
+// Filet de securite : on VERIFIE au lieu de faire confiance a la liste
+// d'exclusions. Une exclusion oubliee ne se voit pas — c'est exactement
+// comment `backups` est passe. Le build s'arrete plutot que de produire un
+// installeur qui fuit.
+const INTERDITS = ['backups', 'uploads', '.env', 'test'];
+for (const nom of INTERDITS) {
+    const p = path.join(RES, 'server', nom);
+    if (fs.existsSync(p)) {
+        throw new Error(`[prep] ABANDON : « server/${nom} » s'est retrouve dans le bundle. `
+            + 'Ce dossier contient des donnees locales qui ne doivent JAMAIS etre distribuees.');
+    }
 }
 
 console.log('[prep] frontend…');

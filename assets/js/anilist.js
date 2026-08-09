@@ -109,6 +109,36 @@
         } catch (e) { return []; }
     }
 
+    // ── Score moyen AniList (audit AMEL-49) ──────────────────
+    // Les liens titre → mediaId sont déjà résolus et persistés (~160 en cache) :
+    // il ne manquait que la requête qui va chercher la note du public. Sans
+    // point de comparaison, une note personnelle ne dit rien — « 4/5 » ne
+    // prend son sens qu'à côté de « la moyenne est 3,6 ».
+    //
+    // Volontairement SANS authentification (`false`) : la note moyenne est une
+    // donnée publique, et la demander ne doit pas exiger un compte AniList lié.
+    const SCORE_Q = `query ($id: Int) {
+        Media(id: $id, type: MANGA) { id averageScore meanScore popularity }
+    }`;
+    const scoreCache = {};
+
+    async function publicScore(title) {
+        if (!title) return null;
+        if (scoreCache[title] !== undefined) return scoreCache[title];
+        try {
+            const id = await mediaId(title);
+            if (!id) { scoreCache[title] = null; return null; }
+            const d = await gql(SCORE_Q, { id }, false);
+            const m = d?.Media;
+            // AniList note sur 100 ; on rend la valeur brute et laisse
+            // l'appelant décider de l'échelle d'affichage.
+            scoreCache[title] = m && m.averageScore
+                ? { id: m.id, score100: m.averageScore, popularity: m.popularity || 0 }
+                : null;
+            return scoreCache[title];
+        } catch (e) { scoreCache[title] = null; return null; }
+    }
+
     // ── Rattachement persisté titre → mediaId (audit N56) ──
     // Avant : recherche floue refaite à chaque session, premier résultat mis en
     // cache silencieusement en l'absence de correspondance exacte — toute la
@@ -116,12 +146,15 @@
     // moyen de corriger. Le lien résolu est désormais persisté côté serveur
     // (user_settings.anilistLinks, fusion JSON_MERGE_PATCH) avec un drapeau
     // `exact`, et corrigeable manuellement via setLink().
+    // Audit PERF-09 : ces liens vivaient dans user_settings, blob rechargé à
+    // CHAQUE page (7 348 des 8 188 octets, une entrée par titre, sans éviction).
+    // Ils ont désormais leur propre endpoint, appelé uniquement ici — donc
+    // seulement sur les pages qui touchent réellement à AniList.
     let _links = null;   // { "<titre normalisé>": { id, exact } }
     async function loadLinks() {
         if (_links) return _links;
         try {
-            const s = await window.API?.me?.settings?.();
-            _links = (s && s.anilistLinks) || {};
+            _links = await window.API?.me?.anilistLinks?.() || {};
         } catch (e) { _links = {}; }
         return _links;
     }
@@ -129,7 +162,8 @@
         const key = norm(title);
         if (!key || id == null) return;
         (_links || (_links = {}))[key] = { id, exact: !!exact };
-        try { await window.API?.me?.saveSettings?.({ anilistLinks: { [key]: { id, exact: !!exact } } }); } catch (e) { window.MH?.err?.('anilist.js', e); }
+        try { await window.API?.me?.saveAnilistLinks?.({ [key]: { id, exact: !!exact } }); }
+        catch (e) { window.MH?.err?.('anilist.js', e); }
     }
     // Lien actuel (persisté) pour un titre — null si jamais résolu
     async function getLink(title) {
@@ -143,8 +177,9 @@
         if (id == null) {
             if (_links) delete _links[key];
             delete idCache[title];
-            // JSON_MERGE_PATCH : une clé à null est supprimée côté serveur
-            try { await window.API?.me?.saveSettings?.({ anilistLinks: { [key]: null } }); } catch (e) { window.MH?.err?.('anilist.js', e); }
+            // Une valeur null supprime l'entrée côté serveur
+            try { await window.API?.me?.saveAnilistLinks?.({ [key]: null }); }
+            catch (e) { window.MH?.err?.('anilist.js', e); }
             return;
         }
         idCache[title] = id;
@@ -208,6 +243,6 @@
         } catch (e) { return false; }
     }
 
-    window.AniList = { getConfig, clearConfigCache, isLinked, user, token, me, connect, disconnect, syncEntry, syncByTitle, mediaId, STATUS_MAP,
+    window.AniList = { getConfig, clearConfigCache, isLinked, user, token, me, connect, disconnect, syncEntry, syncByTitle, mediaId, publicScore, STATUS_MAP,
         getLink, setLink, mediaInfo, searchMedia };   // rattachement corrigeable (audit N56)
 })();

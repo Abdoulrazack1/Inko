@@ -33,7 +33,11 @@
             `<button class="accent-dot" data-accent="${c}" title="${c}" style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${c.toLowerCase()===cur.toLowerCase()?'var(--text)':'transparent'};cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)"></button>`
         ).join('') +
         `<label title="Couleur personnalisée" style="width:26px;height:26px;border-radius:50%;overflow:hidden;cursor:pointer;border:2px dashed var(--border2);display:inline-flex;align-items:center;justify-content:center;color:var(--text2)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10" r="1" fill="currentColor" stroke="none"/></svg>
-            <input type="color" id="accentCustom" value="${cur}" style="opacity:0;width:0;height:0;position:absolute">
+            <!-- Audit QUAL-05 : le <label> qui l'entoure ne contient qu'une
+                 icône SVG, donc aucun texte à annoncer — pour un lecteur
+                 d'écran le champ n'a pas de nom. aria-label le donne. -->
+            <input type="color" id="accentCustom" value="${cur}" aria-label="Couleur d’accentuation personnalisée"
+                   style="opacity:0;width:0;height:0;position:absolute">
         </label>`;
         const choose = (hex) => {
             window.Theme.setAccent(hex);
@@ -69,7 +73,11 @@
         if (dangerCard) dangerCard.style.display = 'none';
         body.innerHTML = `
             <div class="set-field">
-                <label>Nom d'utilisateur</label>
+                <!-- Audit QUAL-05 : le libellé existait mais n'était RELIÉ à
+                     rien — un label sans attribut "for" ne nomme aucun champ.
+                     Il est lu comme du texte décoratif, et le champ reste
+                     anonyme pour un lecteur d'écran. -->
+                <label for="inpUsername">Nom d'utilisateur</label>
                 <div style="display:flex;gap:8px">
                     <input class="set-input" id="inpUsername" value="${MH.esc(user.username)}">
                     <button class="btn btn-secondary btn-sm" id="btnSaveUsername" style="flex-shrink:0">Enregistrer</button>
@@ -85,6 +93,303 @@
                 window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: API.user } }));
             } catch (e) { toast('Erreur : ' + e.message); }
         });
+
+        renderSessions();
+        renderBackups();
+        renderFileSync();
+        renderRaccourcis();
+        renderDesktop();
+        renderInstance();
+    }
+
+    // ── SANTE DE L'INSTANCE (audit AMEL-116) ────────────────
+    async function renderInstance() {
+        const carte = document.getElementById('instanceCard');
+        const liste = document.getElementById('instanceList');
+        const sous  = document.getElementById('instanceSub');
+        if (!carte || !liste) return;
+        let d;
+        try { d = await API.instance(); } catch (e) { return; }
+        carte.style.display = '';
+
+        const mo = (o) => (o == null ? '—' : (o / 1073741824 >= 1
+            ? (o / 1073741824).toFixed(1) + ' Go' : Math.round(o / 1048576) + ' Mo'));
+        const duree = (s) => {
+            if (s < 3600) return Math.round(s / 60) + ' min';
+            if (s < 86400) return Math.round(s / 3600) + ' h';
+            return Math.round(s / 86400) + ' j';
+        };
+        if (sous) {
+            sous.textContent = `Version ${d.version || 'dev'} · Node ${d.node} · en ligne depuis ${duree(d.uptimeSec)}`
+                + ` · ${d.memoireMo} Mo de memoire`;
+        }
+
+        // La sauvegarde est le seul poste ou l'AGE compte plus que l'etat :
+        // « 12 fichiers » ne dit pas si le mecanisme tourne encore.
+        const age = d.sauvegardes.derniere?.ageJours;
+        const sauvEtat = !d.sauvegardes.derniere ? 'err'
+            : age > 3 ? 'warn' : 'ok';
+        const lignes = [
+            [d.base.ok ? 'ok' : 'err', 'Base de donnees',
+                d.base.ok ? `repond en ${d.base.latenceMs} ms` : (d.base.error || 'injoignable')],
+            [d.volumes ? 'ok' : 'warn', 'Contenu',
+                d.volumes ? `${MH.fmt(d.volumes.comptes)} compte(s) · ${MH.fmt(d.volumes.favoris)} favoris · ${MH.fmt(d.volumes.chapitresLus)} chapitres lus`
+                    : 'non mesurable'],
+            [d.extensions.total ? 'ok' : 'err', 'Extensions',
+                d.extensions.total ? `${d.extensions.total} source(s) chargee(s)` : 'aucune — catalogue vide'],
+            [sauvEtat, 'Sauvegardes',
+                d.sauvegardes.derniere
+                    ? `${d.sauvegardes.total} fichier(s) · derniere il y a ${age} j`
+                        + (d.sauvegardes.chiffrees ? ' · chiffrees' : ' · EN CLAIR')
+                    : 'aucune sauvegarde trouvee'],
+            ...(d.disque ? [[d.disque.libre / d.disque.total < 0.1 ? 'warn' : 'ok', 'Disque',
+                `${mo(d.disque.libre)} libres sur ${mo(d.disque.total)}`]] : []),
+        ];
+        const couleur = { ok: 'var(--green-text)', warn: 'var(--amber-text)', err: 'var(--red-text)' };
+        const signe = { ok: '✓', warn: '!', err: '✕' };
+        liste.innerHTML = lignes.map(([e, quoi, detail]) => `
+            <div class="set-row">
+                <div>
+                    <div class="set-row-label"><span style="color:${couleur[e]}">${signe[e]}</span> ${MH.esc(quoi)}</div>
+                    <div class="set-row-desc">${MH.esc(detail)}</div>
+                </div>
+            </div>`).join('');
+    }
+
+    // ── APP DE BUREAU (audit AMEL-93) ───────────────────────
+    // Le plugin d'autostart est CHARGE mais l'option reste desactivee par
+    // defaut : decider tout seul qu'un logiciel se lance a l'ouverture de
+    // session n'est pas une amelioration, c'est une intrusion. C'est donc un
+    // reglage, visible et reversible.
+    async function renderDesktop() {
+        const carte = document.getElementById('desktopCard');
+        const tgl = document.getElementById('tglAutostart');
+        const invoke = window.__TAURI__?.core?.invoke;
+        if (!carte || !tgl || !invoke) return;   // hors app Tauri : rien a proposer
+        carte.style.display = '';
+        let actif = false;
+        try { actif = await invoke('autostart_actif'); } catch (e) { return; }
+        tgl.classList.toggle('on', !!actif);
+        tgl.addEventListener('click', async () => {
+            const veut = !tgl.classList.contains('on');
+            tgl.classList.toggle('on', veut);
+            try {
+                // On relit l'etat REEL renvoye par le systeme plutot que de
+                // supposer que l'appel a marche : une politique d'entreprise ou
+                // un antivirus peuvent refuser l'entree de registre.
+                const obtenu = await invoke('definir_autostart', { actif: veut });
+                tgl.classList.toggle('on', !!obtenu);
+                toast(obtenu ? 'Inko demarrera avec Windows' : 'Demarrage automatique desactive');
+            } catch (e) {
+                tgl.classList.toggle('on', !veut);
+                toast('Impossible de modifier le demarrage automatique : ' + e);
+            }
+        });
+    }
+
+    // ── RACCOURCIS CLAVIER (audit AMEL-82) ──────────────────
+    function renderRaccourcis() {
+        const liste = document.getElementById('shortcutsList');
+        if (!liste || !MH.raccourcis) return;
+        liste.innerHTML = MH.raccourcis().map(r => `
+            <div class="set-row">
+                <div>
+                    <div class="set-row-label">${MH.esc(r.label)}</div>
+                    <div class="set-row-desc">${r.touche ? '' : 'Desactive'}</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" data-sc="${MH.esc(r.id)}"
+                    aria-label="Modifier le raccourci ${MH.esc(r.label)}"
+                    style="font-family:monospace;min-width:64px">${r.touche ? MH.esc(r.touche) : '—'}</button>
+            </div>`).join('');
+
+        liste.querySelectorAll('[data-sc]').forEach(b => {
+            b.addEventListener('click', () => {
+                const prec = b.textContent;
+                b.textContent = '…';
+                b.disabled = false;
+                // On capture la touche PHYSIQUEMENT plutot que de la faire
+                // saisir : demander « tape la lettre » dans un champ texte
+                // laisserait passer « Ctrl » ou une chaine de trois caracteres.
+                const onKey = (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    document.removeEventListener('keydown', onKey, true);
+                    if (e.key === 'Escape') { b.textContent = prec; return; }
+                    // Retour arriere = desactiver, pas « touche Backspace ».
+                    const touche = (e.key === 'Backspace' || e.key === 'Delete') ? '' : e.key;
+                    if (touche && touche.length > 1) {   // F1, Tab, Enter…
+                        toast('Choisis un caractere simple');
+                        b.textContent = prec; return;
+                    }
+                    MH.setRaccourci(b.dataset.sc, touche);
+                    toast(touche ? `Raccourci : ${touche}` : 'Raccourci desactive');
+                    renderRaccourcis();
+                };
+                document.addEventListener('keydown', onKey, true);
+            });
+        });
+
+        const reset = document.getElementById('btnResetShortcuts');
+        if (reset && !reset.dataset.lie) {
+            reset.dataset.lie = '1';
+            reset.addEventListener('click', () => {
+                MH.resetRaccourcis();
+                toast('Raccourcis reinitialises');
+                renderRaccourcis();
+            });
+        }
+    }
+
+    // ── FILE HORS-LIGNE (audit AMEL-79) ─────────────────────
+    function renderFileSync() {
+        const carte = document.getElementById('syncCard');
+        const liste = document.getElementById('syncList');
+        const sous  = document.getElementById('syncSub');
+        if (!carte || !liste || !API.offlineQueue) return;
+        const q = API.offlineQueue();
+        // Rien en attente = rien a dire. Une carte « 0 action » ferait croire
+        // a un probleme la ou tout va bien.
+        if (!q.length) { carte.style.display = 'none'; return; }
+        carte.style.display = '';
+        if (sous) {
+            sous.textContent = navigator.onLine
+                ? `${q.length} action(s) en attente d'envoi.`
+                : `${q.length} action(s) gardees hors-ligne — elles partiront au retour du reseau.`;
+        }
+        liste.innerHTML = q.slice(0, 20).map(e => `
+            <div class="set-row">
+                <div>
+                    <div class="set-row-label">${MH.esc(e.label)}</div>
+                    <div class="set-row-desc">${MH.esc(ilYA(e.at))}</div>
+                </div>
+            </div>`).join('');
+
+        const b = document.getElementById('btnFlushSync');
+        if (b && !b.dataset.lie) {
+            b.dataset.lie = '1';
+            b.addEventListener('click', async () => {
+                if (!navigator.onLine) { toast('Toujours hors-ligne'); return; }
+                b.disabled = true;
+                try { await API.flushOffline(); } finally { b.disabled = false; renderFileSync(); }
+            });
+        }
+    }
+
+    // ── SAUVEGARDES (audit AMEL-73) ─────────────────────────
+    // Restauration en trois temps : voir ce qui existe, previsualiser CE QUI
+    // VA ENTRER, puis confirmer. Un bouton « restaurer » sans apercu demande
+    // de faire confiance a un nom de fichier.
+    async function renderBackups() {
+        const carte = document.getElementById('backupCard');
+        const liste = document.getElementById('backupList');
+        const sous  = document.getElementById('backupSub');
+        if (!carte || !liste) return;
+        let d;
+        try { d = await API.me.backups(); } catch (e) { return; }
+        if (!d.items.length) return;   // rien a montrer : une section vide n'informe pas
+        carte.style.display = '';
+
+        if (sous) {
+            sous.textContent = `${d.items.length} sauvegarde(s) · ${d.encrypted ? 'chiffrees (AES-256-GCM)' : 'en clair sur le disque'}`
+                + ` · dossier ${d.directory}`;
+        }
+        liste.innerHTML = d.items.map(b => `
+            <div class="set-row" data-bk="${MH.esc(b.file)}">
+                <div>
+                    <div class="set-row-label">${MH.esc(new Date(b.at).toLocaleString('fr-FR'))}${b.encrypted ? ' · chiffree' : ''}</div>
+                    <div class="set-row-desc">${MH.esc(b.file)} · ${(b.size / 1024).toFixed(0)} Ko</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" data-bk-restore="${MH.esc(b.file)}" data-enc="${b.encrypted ? '1' : ''}">Restaurer</button>
+            </div>`).join('');
+
+        liste.querySelectorAll('[data-bk-restore]').forEach(b => {
+            b.addEventListener('click', async () => {
+                const file = b.dataset.bkRestore;
+                let phrase = null;
+                if (b.dataset.enc) {
+                    phrase = await MH.prompt('Cette sauvegarde est chiffree.', {
+                        title: 'Phrase secrete', placeholder: 'BACKUP_PASSPHRASE', okText: 'Continuer' });
+                    if (phrase === null) return;
+                }
+                b.disabled = true;
+                try {
+                    const p = await API.me.backupPreview(file, phrase);
+                    const ok = await MH.confirm(
+                        `Restaurer ta sauvegarde du ${new Date(p.createdAt || Date.now()).toLocaleDateString('fr-FR')} ?`,
+                        { okText: 'Restaurer',
+                            message: `Elle contient ${p.mine.favorites} favori(s), ${p.mine.readChapters} chapitre(s) lu(s), `
+                                + `${p.mine.progress} progression(s), ${p.mine.ratings} note(s), ${p.mine.lists} liste(s).`
+                                + String.fromCharCode(10, 10)
+                                + "La restauration FUSIONNE : rien de ce que tu as aujourd'hui ne sera supprime." });
+                    if (!ok) return;
+                    const r = await API.me.backupRestore(file, phrase);
+                    const n = r.imported || {};
+                    toast(`Restaure : ${n.favorites || 0} favoris, ${n.readChapters || 0} chapitres lus`);
+                } catch (e) { toast('Erreur : ' + e.message); }
+                finally { b.disabled = false; }
+            });
+        });
+    }
+
+    // ── SESSIONS ACTIVES (audit AMEL-69) ────────────────────
+    // Avant : aucune visibilite ni controle. Le seul levier etait
+    // `token_version`, qui deconnecte TOUT — y compris les appareils qu'on
+    // voulait garder.
+    async function renderSessions() {
+        const carte = document.getElementById('sessionsCard');
+        const liste = document.getElementById('sessionsList');
+        if (!carte || !liste) return;
+        let sessions;
+        try { sessions = await API.auth.sessions(); }
+        catch (e) { return; }   // carte masquee : mieux qu'une section vide et inerte
+        if (!sessions.length) return;
+        carte.style.display = '';
+
+        liste.innerHTML = sessions.map(s => `
+            <div class="set-row" data-sess="${MH.esc(s.id)}">
+                <div>
+                    <div class="set-row-label">${MH.esc(s.device)}${s.current ? ' <span style="color:var(--accent-text);font-size:11px">· cet appareil</span>' : ''}</div>
+                    <div class="set-row-desc">${MH.esc(s.ip || 'adresse inconnue')} · vue ${ilYA(s.lastSeenAt)} · ouverte ${ilYA(s.createdAt)}</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" data-revoke="${MH.esc(s.id)}">${s.current ? 'Me deconnecter' : 'Fermer'}</button>
+            </div>`).join('');
+
+        liste.querySelectorAll('[data-revoke]').forEach(b => {
+            b.addEventListener('click', async () => {
+                const id = b.dataset.revoke;
+                const soi = sessions.find(x => x.id === id)?.current;
+                if (soi && !await MH.confirm('Fermer cette session te deconnecte immediatement.', {
+                    danger: true, okText: 'Me deconnecter' })) return;
+                try {
+                    const r = await API.auth.revokeSession(id);
+                    if (r.self) { toast('Deconnecte'); setTimeout(() => location.reload(), 600); return; }
+                    toast('Session fermee');
+                    renderSessions();
+                } catch (e) { toast('Erreur : ' + e.message); }
+            });
+        });
+
+        const autres = document.getElementById('btnRevokeOthers');
+        if (autres && !autres.dataset.lie) {
+            autres.dataset.lie = '1';
+            autres.addEventListener('click', async () => {
+                if (!await MH.confirm('Fermer toutes les autres sessions ?', {
+                    danger: true, okText: 'Fermer les autres',
+                    message: 'Cet appareil reste connecte. Tous les autres devront se reconnecter.' })) return;
+                try {
+                    const r = await API.auth.revokeOthers();
+                    toast(r.closed ? `${r.closed} session(s) fermee(s)` : 'Aucune autre session');
+                    renderSessions();
+                } catch (e) { toast('Erreur : ' + e.message); }
+            });
+        }
+    }
+
+    function ilYA(ts) {
+        const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+        if (s < 60) return "a l'instant";
+        if (s < 3600) return `il y a ${Math.floor(s / 60)} min`;
+        if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`;
+        return `le ${new Date(ts).toLocaleDateString('fr-FR')}`;
     }
 
     // ── SEGMENTS (lecteur + thème) ──

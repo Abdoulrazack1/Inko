@@ -5,11 +5,23 @@
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inko — Mes listes</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Tes listes de lecture : organise tes séries comme tu veux.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Mes listes">
+    <meta property="og:description" content="Tes listes de lecture : organise tes séries comme tu veux.">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Mes listes">
+    <meta name="twitter:description" content="Tes listes de lecture : organise tes séries comme tu veux.">
+    <!-- meta:auto -->
   <link rel="stylesheet" href="assets/css/global.css">
   <link rel="stylesheet" href="assets/css/collections.css">
 </head>
 <body class="page-body">
   <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
 
   <div class="container" style="padding-top:28px">
 
@@ -26,6 +38,7 @@
 
   </div>
 
+  </main>
   <div id="footer-slot"></div>
 
   <!-- Modale création / édition de liste -->
@@ -35,13 +48,44 @@
         <span id="listModalTitle">Nouvelle liste</span>
         <button class="list-modal-close" id="listModalClose">✕</button>
       </div>
-      <label class="list-modal-label">Nom</label>
+      <label class="list-modal-label" for="listName">Nom</label>
       <input type="text" id="listName" class="list-modal-input" maxlength="100" placeholder="Ex : À lire absolument">
-      <label class="list-modal-label">Description <span style="color:var(--text3)">(optionnel)</span></label>
+      <label class="list-modal-label" for="listDesc">Description <span style="color:var(--text3)">(optionnel)</span></label>
       <textarea id="listDesc" class="list-modal-input" rows="2" maxlength="500" placeholder="Une courte description…"></textarea>
       <label class="list-modal-check">
         <input type="checkbox" id="listPublic"> <span>Liste publique</span>
       </label>
+      <!-- Audit AMEL-38 : les filtres de la bibliothèque calculaient déjà
+           « statut X + catégorie Y », mais ce calcul était jetable — impossible
+           de le figer, de le nommer, d'y revenir. Une liste intelligente n'a
+           pas de membres : elle a des règles, et se recalcule à chaque
+           ouverture. Elle ne se périme donc jamais. -->
+      <label class="list-modal-check">
+        <input type="checkbox" id="listSmart"> <span>Liste intelligente (contenu calculé automatiquement)</span>
+      </label>
+      <div id="listRules" hidden>
+        <div class="list-modal-label" id="listRuleStatusLabel">Statuts de lecture</div>
+        <div class="list-rule-row" id="listRuleStatus" role="group" aria-labelledby="listRuleStatusLabel">
+          <label><input type="checkbox" value="reading"> En cours</label>
+          <label><input type="checkbox" value="completed"> Terminé</label>
+          <label><input type="checkbox" value="planned"> À lire</label>
+          <label><input type="checkbox" value="paused"> En pause</label>
+          <label><input type="checkbox" value="dropped"> Abandonné</label>
+        </div>
+        <label class="list-modal-label" for="listRuleCategory">Catégorie <span style="color:var(--text3)">(optionnel)</span></label>
+        <input type="text" id="listRuleCategory" class="list-modal-input" maxlength="64" placeholder="ex. Pépites">
+        <label class="list-modal-label" for="listRuleRating">Note minimale <span style="color:var(--text3)">(optionnel)</span></label>
+        <select id="listRuleRating" class="list-modal-input">
+          <option value="">Peu importe</option>
+          <option value="3">3 étoiles et plus</option>
+          <option value="4">4 étoiles et plus</option>
+          <option value="5">5 étoiles</option>
+        </select>
+        <div class="list-rule-note">
+          Les genres ne sont pas proposés : ils vivent chez les sources distantes,
+          et les évaluer demanderait de les interroger à chaque affichage.
+        </div>
+      </div>
       <div class="list-modal-foot">
         <button class="btn btn-secondary btn-sm" id="listCancel">Annuler</button>
         <button class="btn btn-primary btn-sm" id="listSave">Enregistrer</button>

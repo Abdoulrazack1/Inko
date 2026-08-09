@@ -1,15 +1,29 @@
 {
   "name": "inko",
-  "version": "2.3.4",
+  "version": "2.5.0",
   "private": true,
   "description": "Inko — lecteur de mangas et romans (frontend vanilla + backend Express dans server/)",
   "scripts": {
-    "lint": "eslint assets/js",
-    "lint:fix": "eslint assets/js --fix",
-    "gen-ext-hashes": "node tools/gen-ext-hashes.js",
-    "check-sources": "node tools/check-sources.js"
+    "test": "node --test test/unit/",
+    "test:e2e": "playwright test",
+    "test:a11y": "playwright test test/e2e/a11y.spec.js",
+    "lint": "eslint assets/js service-worker.js",
+    "lint:fix": "eslint assets/js service-worker.js --fix",
+    "gen-ext-hashes": "node scripts-ci/gen-ext-hashes.js",
+    "check-sources": "node scripts-ci/check-sources.js",
+    "gen-precache": "node scripts-ci/gen-precache.js",
+    "gen-openapi": "node scripts-ci/gen-openapi.js",
+    "setup": "node scripts-ci/setup-env.js",
+    "setup:check": "node scripts-ci/setup-env.js --check",
+    "gen-meta": "node scripts-ci/gen-meta.js",
+    "fetch-fonts": "node scripts-ci/fetch-fonts.js",
+    "clean": "node scripts-ci/clean.js",
+    "clean:all": "node scripts-ci/clean.js --all"
   },
   "devDependencies": {
-    "eslint": "^10.7.0"
+    "@playwright/test": "^1.62.1",
+    "axe-core": "^4.12.1",
+    "eslint": "^10.7.0",
+    "jsdom": "^29.1.1"
   }
 }

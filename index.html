@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko</title>
+  <meta name="description" content="Inko — lecteur de mangas, romans et livres : bibliothèque personnelle, lecture en ligne et hors-ligne, imports EPUB/PDF/CBZ.">
+  <link rel="icon" type="image/svg+xml" href="./assets/img/icon.svg">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#ff6b1a">
+  <!--
+    Audit UX-02 : la racine ne fonctionnait QUE grâce à `index: 'accueil.html'`
+    dans la config express.static. Servi par n'importe quel autre serveur
+    statique (nginx par défaut, GitHub Pages, `python -m http.server`, ou le
+    dossier ouvert en file://), « / » renvoyait 403 ou 404.
+    Cette page redirige, sans dépendre du serveur.
+  -->
+  <meta http-equiv="refresh" content="0; url=./accueil.html">
+  <link rel="canonical" href="./accueil.html">
+  <style>
+    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+           background:#0d0d0f; color:#a8a8b3;
+           font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; font-size:14px; }
+    a { color:#ff6b1a; }
+  </style>
+</head>
+<body>
+  <p>Ouverture d'Inko… <a href="./accueil.html">Continuer</a></p>
+  <script>location.replace('./accueil.html');</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+# ============================================================
+# Caddyfile — reverse-proxy HTTPS pour Inko (audit AMEL-118)
+# ------------------------------------------------------------
+# Utilisé par docker-compose.caddy.yml. Caddy obtient et renouvelle le
+# certificat Let's Encrypt tout seul : il n'y a rien à planifier.
+# ============================================================
+
+{
+	# Sans email, Let's Encrypt n'envoie aucun avis d'expiration. Le
+	# renouvellement est automatique, mais le jour où il échoue (DNS changé,
+	# port 80 refermé), c'est le seul canal qui prévient.
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# En-têtes de sécurité. Ils ne sont PAS posés par l'app : celle-ci peut
+	# tourner en HTTP local, où forcer HTTPS la rendrait inaccessible.
+	# C'est ici, et seulement ici, qu'on sait qu'on est en HTTPS public.
+	header {
+		# 180 jours : assez pour protéger, assez court pour ne pas piéger
+		# quelqu'un qui abandonne le domaine. Pas de `preload` — l'inscription
+		# sur la liste HSTS des navigateurs est quasi irréversible.
+		Strict-Transport-Security "max-age=15552000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	reverse_proxy inko-app:8080 {
+		# L'app lit ces en-têtes quand TRUST_PROXY=1 : sans eux, toutes les
+		# requêtes semblent venir du conteneur Caddy et les limites de débit
+		# deviennent inopérantes (une seule IP pour tout le monde).
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+
+		# Le lecteur télécharge des chapitres entiers : le délai par défaut
+		# coupe les gros transferts au milieu.
+		transport http {
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+
+	# Les images de couverture passent par /api/img, qui a son propre cache
+	# serveur. On journalise le reste seulement : sinon le journal est fait à
+	# 90 % de vignettes et ne sert plus à rien.
+	log {
+		output stdout
+		format console
+	}
+}

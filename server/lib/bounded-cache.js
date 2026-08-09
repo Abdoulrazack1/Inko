@@ -26,13 +26,17 @@ class BoundedCache {
         return e.v;
     }
 
-    set(key, value) {
+    // `ttl` (ms) surcharge la durée de vie du cache pour CETTE entrée
+    // (audit AMEL-64) : une fiche Gutenberg ne changera jamais, un scan suivi
+    // peut sortir un chapitre dans l'heure. Omis, le TTL du cache s'applique.
+    set(key, value, ttl) {
         // Éviction FIFO simple : suffisant pour des caches de type
         // « une entrée par titre consulté » (pas besoin de LRU strict).
         if (!this.map.has(key) && this.map.size >= this.max) {
             this.map.delete(this.map.keys().next().value);
         }
-        this.map.set(key, { v: value, exp: this.ttl ? Date.now() + this.ttl : 0 });
+        const duree = Number.isFinite(ttl) && ttl > 0 ? ttl : this.ttl;
+        this.map.set(key, { v: value, exp: duree ? Date.now() + duree : 0 });
     }
 
     get size() { return this.map.size; }

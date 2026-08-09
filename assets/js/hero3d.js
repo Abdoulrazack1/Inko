@@ -14,6 +14,41 @@
 (function () {
     'use strict';
 
+    // ── Audit PERF-06 : chargement conditionnel de three.js ──────
+    // three.min.js (594 Ko) était chargé par un <script> en dur dans
+    // accueil.html : tout le monde le téléchargeait et le parsait sur le
+    // chemin critique de la page d'entrée — y compris ceux qui n'en verront
+    // jamais le rendu (pas de WebGL, mouvement réduit, ou simplement pas de
+    // hero sur la page). C'est la plus grosse dépendance du projet, pour un
+    // effet décoratif.
+    // On ne la charge donc QUE si elle va réellement servir, et seulement une
+    // fois la page interactive.
+    function shouldLoad() {
+        if (!document.getElementById('hero')) return false;
+        // Mouvement réduit : la scène se limitait à une frame statique — 594 Ko
+        // pour une image fixe n'a pas de sens, le dégradé CSS suffit.
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+        // Économiseur de données / connexion lente
+        const c = navigator.connection;
+        if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''))) return false;
+        try {
+            const cv = document.createElement('canvas');
+            return !!(cv.getContext('webgl2') || cv.getContext('webgl'));
+        } catch (e) { return false; }
+    }
+
+    function loadThree() {
+        if (window.THREE) return Promise.resolve(true);
+        return new Promise((resolve) => {
+            const s = document.createElement('script');
+            s.src = 'assets/vendor/three.min.js';
+            s.async = true;
+            s.onload  = () => resolve(true);
+            s.onerror = () => resolve(false);   // pas de 3D : le hero reste en CSS
+            document.head.appendChild(s);
+        });
+    }
+
     function init() {
         const hero = document.getElementById('hero');
         if (!hero || !window.THREE) return;
@@ -155,6 +190,17 @@
         });
     }
 
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
+    // Audit PERF-06 : three.js n'est téléchargé qu'après le premier rendu, et
+    // seulement si la scène va réellement s'afficher. `requestIdleCallback`
+    // laisse passer le contenu utile de l'accueil (reprise, sections) avant de
+    // dépenser 594 Ko sur un décor.
+    function boot() {
+        if (!shouldLoad()) return;
+        const start = () => loadThree().then(ok => { if (ok) init(); });
+        if (window.requestIdleCallback) window.requestIdleCallback(start, { timeout: 2500 });
+        else setTimeout(start, 800);
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
 })();

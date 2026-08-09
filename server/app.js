@@ -37,6 +37,14 @@ app.use((req, _res, next) => {
 });
 
 // API
+// Audit AMEL-120 : versionner AVANT d'ouvrir a des clients tiers. Le modele
+// Mihon invite explicitement des clients externes ; sans prefixe de version,
+// le premier changement de forme de reponse casse chacun d'eux sans recours.
+//
+// `/api` reste monte et le restera : c'est ce qu'utilise le frontend embarque,
+// qui est livre AVEC le serveur et ne peut donc pas se desynchroniser. Le
+// prefixe versionne existe pour ceux qui n'ont pas cette garantie.
+app.use('/api/v1', routes);
 app.use('/api', routes);
 
 // Static frontend (sert tout sauf /api/*).
@@ -81,6 +89,7 @@ app.get(/^(?!\/api).*$/, (req, res, next) => {
 });
 
 // 404 + erreur globale (pour /api/*)
+app.use('/api/v1', notFound);
 app.use('/api', notFound);
 app.use(errorHandler);
 
@@ -89,8 +98,18 @@ app.use(errorHandler);
         await ping();
         console.log('MySQL OK');
         // Migrations additives idempotentes (threads, reports, notifications…)
+        // Audit DB-05 : on ne bloque pas le démarrage — une base en retard vaut
+        // mieux qu'une app qui refuse de s'ouvrir — mais l'échec doit être
+        // IMPOSSIBLE À MANQUER, pas un warning noyé dans les logs.
         try { await require('./db/migrate').ensureSchema(); }
-        catch (e) { console.warn('[migrate] non appliquée :', e.message); }
+        catch (e) {
+            console.error('════════════════════════════════════════════════════');
+            console.error('[migrate] ✖ LE SCHÉMA N\'EST PAS À JOUR :', e.message);
+            console.error('          L\'app démarre, mais certaines fonctions peuvent échouer.');
+            console.error('          Corrige la base, puis redémarre. En dépannage :');
+            console.error('          MIGRATE_TOLERANT=1 pour ignorer les erreurs de migration.');
+            console.error('════════════════════════════════════════════════════');
+        }
     } catch (e) {
         console.error('MySQL inaccessible — vérifiez Laragon et lancez `npm run init-db`');
         console.error('   ' + e.message);

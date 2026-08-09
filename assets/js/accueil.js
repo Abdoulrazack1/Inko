@@ -9,6 +9,7 @@
     let latestCount = 8;
     let popularCache = null;
     let latestCache = null;
+    const LATEST_LIMIT = 16;   // hero (6) + tendances (10) + grille — un seul appel
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('accueil');
@@ -25,11 +26,17 @@
     async function loadHeroAndTrending() {
         // Tendances/reco s'appuient sur le populaire ; le hero sur les dernières sorties
         try {
+            // Audit PERF-02 : « dernières sorties » était demandé DEUX fois au
+            // chargement — limit 12 ici (hero + tendances) puis limit 16 dans
+            // loadLatest(). Deux allers-retours vers une source tierce pour des
+            // données qui se recouvrent à 75 %. On demande 16 une seule fois :
+            // le hero en prend 6, les tendances 10, la grille les 16.
             const [pop, latest] = await Promise.all([
                 API.mangas.popular({ limit: 12 }),
-                API.mangas.latest({ limit: 12 }),
+                API.mangas.latest({ limit: LATEST_LIMIT }),
             ]);
             popularCache = pop.results || [];
+            latestCache = latest.results || [];
             const hasCover = m => m.banner || m.coverLarge || m.cover || m.coverThumb;
             const fresh = (latest.results || []).filter(hasCover);
             const pool  = fresh.length ? fresh : popularCache.filter(hasCover);
@@ -43,18 +50,31 @@
             renderReco(popularCache.slice(4, 7));
             await MH.loadSourceTypes();
             renderHero();
-            // Illustration large officielle (banner AniList) en arrière-plan
-            heroMangas.forEach((m, i) => {
-                API.art.get(m.title).then(a => {
-                    if (a && a.banner) {
-                        heroMangas[i] = Object.assign({}, heroMangas[i], { banner: a.banner });
-                        if (heroIdx === i && heroShow) heroShow(i, true);
-                    }
-                }).catch(() => {});
-            });
+            // Audit PERF-02 : les 6 illustrations larges (banner AniList) étaient
+            // demandées d'un coup au chargement — 6 appels /api/artwork pour UNE
+            // diapositive visible, les 5 autres n'étant utiles qu'après 7 s,
+            // 14 s, 21 s… ou jamais si l'utilisateur clique ailleurs.
+            // Désormais : celle qui s'affiche, plus celle d'après en avance.
+            ensureBanner(0);
         } catch (e) {
             showError('hero', "Impossible de charger l'accueil. Le backend est-il lancé ?");
         }
+    }
+
+    // Illustration large d'une diapositive du hero, récupérée à la demande et
+    // une seule fois (audit PERF-02). Repeint la diapositive si elle est encore
+    // à l'écran quand la réponse arrive ; sinon la valeur reste en mémoire et
+    // servira au prochain passage.
+    const bannerAsked = new Set();
+    function ensureBanner(i) {
+        const m = heroMangas[i];
+        if (!m || bannerAsked.has(i)) return;
+        bannerAsked.add(i);
+        API.art.get(m.title).then(a => {
+            if (!a || !a.banner) return;
+            heroMangas[i] = Object.assign({}, heroMangas[i], { banner: a.banner });
+            if (heroIdx === i && heroShow) heroShow(i, true);
+        }).catch(() => {});
     }
 
     // Récupère (et cache) le dernier chapitre d'une série pour le CTA de lecture
@@ -92,7 +112,7 @@
             return `
                 <div class="hero-inner">
                     <a class="hero-poster-link" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}">
-                        <img class="hero-poster" src="${m.coverLarge || m.cover || ''}" alt="${MH.esc(m.title)}"
+                        <img class="hero-poster" src="${MH.cover(m.coverLarge, m.cover)}" alt="${MH.esc(m.title)}"
                              onerror="this.style.visibility='hidden'">
                         ${isNovel ? '<span class="hero-poster-tag">ROMAN</span>' : ''}
                     </a>
@@ -156,6 +176,10 @@
         function show(idx, instant) {
             const m = heroMangas[idx]; if (!m) return;
             heroIdx = idx;
+            // Celle-ci si elle manque encore, et la suivante en avance pour
+            // qu'elle soit prête avant la rotation (audit PERF-02).
+            ensureBanner(idx);
+            ensureBanner((idx + 1) % heroMangas.length);
             const url  = m.banner || m.coverLarge || m.cover || m.coverThumb || '';
             const grad = heroGradient(m);
 
@@ -216,7 +240,7 @@
         // Rail de vignettes (carrousel visuel)
         rail.innerHTML = heroMangas.map((m, i) => `
             <button class="hero-thumb ${i === 0 ? 'active' : ''}" data-i="${i}" aria-label="${MH.esc(m.title)}">
-                <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+                <img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
             </button>`).join('');
         rail.querySelectorAll('.hero-thumb').forEach(t => t.addEventListener('click', () => go(+t.dataset.i)));
 
@@ -273,7 +297,7 @@
             <a href="serie.html?id=${encodeURIComponent(m.id)}" class="trending-card" data-manga-id="${m.id}">
                 <div class="trending-rank">${i + 1}</div>
                 <div class="trending-cover">
-                    <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" onerror="this.src='${MH.placeholderCover(m.id)}'">
+                    <img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" onerror="this.src='${MH.placeholderCover(m.id)}'">
                     <div class="trending-overlay">
                         <div class="trending-title">${MH.esc(m.title)}</div>
                         <div class="trending-meta">${m.year || ''} ${m.status ? '· ' + m.status : ''}</div>
@@ -315,19 +339,47 @@
             const favs = await API.me.favorites();
             if (!favs.length) return showFallback();
             const favSet = new Set(favs.map(f => String(f.mangaId)));
-            const mangas = (await Promise.allSettled(favs.slice(0, 8).map(f => API.mangas.get(f.mangaId))))
-                .filter(r => r.status === 'fulfilled').map(r => r.value);
-            const counts = {};
-            mangas.forEach(m => (m.tags || []).slice(0, 5).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
-            const topTags = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
-            if (!topTags.length) return showFallback();
 
-            const data = await API.mangas.search({ includedTags: [topTags[0]], limit: 12, sort: 'popularity' });
+            // Audit AMEL-02 : la recommandation partait des FAVORIS et
+            // n'annonçait qu'un genre — « Parce que tu suis des séries
+            // Action ». Suivre une série et l'avoir lue ne disent pas la même
+            // chose : on suit par intention, on lit par goût effectif. On part
+            // donc de la dernière série réellement lue, et on la NOMME : une
+            // recommandation dont on comprend l'origine se juge, une
+            // recommandation anonyme se subit.
+            let origine = null;   // { titre, tags }
+            try {
+                const progress = await API.me.progress();
+                const derniere = Object.entries(progress)
+                    .map(([id, p]) => ({ mangaId: id, ...p }))
+                    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
+                if (derniere) {
+                    const m = await API.mangas.getFrom(derniere.source, derniere.mangaId);
+                    if (m && m.title && (m.tags || []).length) origine = { titre: m.title, tags: m.tags };
+                }
+            } catch (e) { /* pas d'historique exploitable : on retombe sur les favoris */ }
+
+            let tags = origine ? origine.tags.slice(0, 3) : null;
+            if (!tags) {
+                // Repli : genres dominants parmi les favoris, comme auparavant.
+                const mangas = (await Promise.allSettled(favs.slice(0, 8).map(f => API.mangas.get(f.mangaId))))
+                    .filter(r => r.status === 'fulfilled').map(r => r.value);
+                const counts = {};
+                mangas.forEach(m => (m.tags || []).slice(0, 5).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+                tags = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
+            }
+            if (!tags.length) return showFallback();
+
+            const data = await API.mangas.search({ includedTags: [tags[0]], limit: 12, sort: 'popularity' });
             const picks = (data.results || []).filter(m => !favSet.has(String(m.id))).slice(0, 3);
             if (!picks.length) return showFallback();
 
-            if (subEl) subEl.textContent = `Parce que tu suis des séries ${topTags[0]}`;
-            el.innerHTML = picks.map(m => mangaCardHTML(m, topTags.find(t => (m.tags || []).includes(t)))).join('');
+            if (subEl) {
+                subEl.textContent = origine
+                    ? `Parce que tu as lu « ${origine.titre} »`
+                    : `Parce que tu suis des séries ${tags[0]}`;
+            }
+            el.innerHTML = picks.map(m => mangaCardHTML(m, tags.find(t => (m.tags || []).includes(t)))).join('');
             MH.markFavorites(el);
         } catch (e) { showFallback(); }
     }
@@ -335,8 +387,9 @@
     // ── Dernières sorties ────────────────────────────────
     async function loadLatest() {
         try {
-            const data = await API.mangas.latest({ limit: 16 });
-            latestCache = data.results || [];
+            // Déjà rempli par loadHeroAndTrending(), qui tourne avant (audit
+            // PERF-02). On ne redemande que si ce chargement a échoué.
+            if (!latestCache) latestCache = (await API.mangas.latest({ limit: LATEST_LIMIT })).results || [];
             renderLatest();
         } catch(e) {
             showError('latest', 'Impossible de charger les nouveautés');
@@ -386,6 +439,19 @@
         });
     }
 
+    // Audit AMEL-01 : place la reprise avant le hero. Idempotent — loadResume
+    // peut être rappelé (retrait d'une entrée) sans réordonner deux fois.
+    function promouvoirReprise() {
+        const section = document.getElementById('sectionResume');
+        const hero    = document.getElementById('hero');
+        if (!section || !hero || section.dataset.promue === '1') return;
+        hero.parentNode.insertBefore(section, hero);
+        section.dataset.promue = '1';
+        // Marqueur pour l'habillage : en tête de page, ce bloc n'a plus la
+        // marge haute d'une section intercalée entre deux autres.
+        section.classList.add('section-resume--prioritaire');
+    }
+
     // ── Reprendre la lecture ──────────────────────────────
     async function loadResume() {
         const el = document.getElementById('resumeList');
@@ -409,6 +475,13 @@
                 return;
             }
 
+            // Audit AMEL-01 : une lecture est en cours → la reprise passe
+            // devant le hero. Le déplacement se fait ICI et pas dans le HTML
+            // parce qu'il dépend d'une donnée qu'on ne connaît qu'après appel :
+            // sans lecture en cours, remonter un bloc vide au-dessus du hero
+            // serait une régression pour un nouvel arrivant.
+            promouvoirReprise();
+
             await MH.loadSourceTypes();
             // Récupère les détails des mangas depuis LEUR source d'origine
             const mangas = await Promise.allSettled(entries.map(e => API.mangas.getFrom(e.source, e.mangaId)));
@@ -427,7 +500,7 @@
                 <div class="resume-item" data-resume="${MH.esc(m.id)}" style="position:relative">
                     <a href="${MH.readerHref(m.id, e.chapterId, e.source)}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
                         <div class="resume-cover">
-                            <img src="${m.coverThumb || m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy">
+                            <img src="${MH.cover(m.coverThumb, m.cover)}" alt="${MH.esc(m.title)}" loading="lazy">
                         </div>
                         <div class="resume-info">
                             <div class="resume-title">${MH.esc(m.title)}</div>
@@ -435,6 +508,11 @@
                             <div class="resume-progress"><div class="resume-progress-fill" style="width:${pct}%"></div></div>
                         </div>
                     </a>
+                    <!-- Audit AMEL-28 : ouvrir par erreur un vieux chapitre
+                         écrasait la position, sans retour possible. -->
+                    <button class="resume-history" data-histo="${MH.esc(m.id)}" data-src="${MH.esc(e.source || '')}"
+                        title="Reprendre à une position précédente"
+                        style="background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;flex-shrink:0">↺</button>
                     <button class="resume-remove" data-remove="${MH.esc(m.id)}" title="Retirer de la liste"
                         style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:6px;flex-shrink:0">✕</button>
                 </div>`;
@@ -456,6 +534,33 @@
                     } catch (e2) { MH.toast('Erreur : ' + e2.message); }
                 });
             });
+
+            // Audit AMEL-28 : reprendre à une position précédente.
+            el.querySelectorAll('[data-histo]').forEach(btn => {
+                btn.addEventListener('click', async (ev) => {
+                    ev.preventDefault(); ev.stopPropagation();
+                    const id = btn.dataset.histo;
+                    let histo = [];
+                    try { histo = await API.me.progressHistory(id); }
+                    catch (e2) { MH.toast('Historique indisponible'); return; }
+                    // La position courante est en tête de l'historique : la
+                    // proposer reviendrait à « reprendre là où je suis déjà ».
+                    const precedentes = histo.slice(1);
+                    if (!precedentes.length) {
+                        MH.toast('Aucune position précédente enregistrée pour cette série');
+                        return;
+                    }
+                    const unite = MH.unitLabel(btn.dataset.src, { short: true });
+                    const choix = await MH.prompt(
+                        'Position à reprendre :\n' + precedentes.slice(0, 8).map((h, i) =>
+                            `${i + 1}. ${unite} ${MH.chapNum(h.chapter)} · page ${h.page} (${MH.relTime(h.at)})`).join('\n'),
+                        { value: '1', okText: 'Reprendre' });
+                    const n = parseInt(choix, 10);
+                    if (!(n >= 1 && n <= Math.min(8, precedentes.length))) return;
+                    const h = precedentes[n - 1];
+                    window.location.href = MH.readerHref(id, h.chapterId, h.source || btn.dataset.src);
+                });
+            });
         } catch(err) {
             el.innerHTML = `<div style="color:var(--text3);padding:14px;font-size:13px">Erreur de chargement</div>`;
         }
@@ -470,7 +575,7 @@
                 <a href="serie.html?id=${encodeURIComponent(m.id)}" class="top-manga-item" data-manga-id="${m.id}">
                     <div class="top-rank ${ranks[i] || ''}">${i + 1}</div>
                     <div class="top-cover">
-                        <img src="${m.coverThumb || m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy">
+                        <img src="${MH.cover(m.coverThumb, m.cover)}" alt="${MH.esc(m.title)}" loading="lazy">
                     </div>
                     <div class="top-info">
                         <div class="top-title">${MH.esc(m.title)}</div>
@@ -565,7 +670,7 @@
         <div class="manga-card" data-manga-id="${m.id}">
             <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}" class="manga-card-link" aria-label="${MH.esc(m.title)}"${MH.nsfwCardAttrs(m)}></a>
             <div class="manga-card-cover">
-                <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
+                <img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
                 <div class="manga-card-badges">
                     ${matchTag ? `<span class="badge badge-orange">${MH.esc(matchTag.toUpperCase())}</span>` : ''}

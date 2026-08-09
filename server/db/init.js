@@ -17,12 +17,24 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
     console.log('▸ Connexion à MySQL en root…');
     const conn = await mysql.createConnection(cfg);
 
+    // La base est créée et sélectionnée AVANT le schéma. Auparavant,
+    // schema.sql portait `CREATE DATABASE inko; USE inko;` en dur et le `USE`
+    // d'après DB_NAME n'arrivait qu'ensuite : avec un DB_NAME autre que
+    // « inko », les tables atterrissaient dans « inko » tandis que
+    // l'application ouvrait une base vide. L'init annonçait « Base de données
+    // prête » et les migrations échouaient juste après sur une table absente.
+    const dbName = process.env.DB_NAME || 'inko';
+    if (!/^[A-Za-z0-9_]+$/.test(dbName)) {
+        throw new Error(`DB_NAME invalide : « ${dbName} » (lettres, chiffres et _ uniquement)`);
+    }
+    await conn.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` `
+        + 'CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+    await conn.query(`USE \`${dbName}\``);
+    console.log(`▸ Base « ${dbName} » sélectionnée.`);
+
     const sql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
     console.log('▸ Exécution du schema…');
     await conn.query(sql);
-
-    const dbName = process.env.DB_NAME;
-    await conn.query(`USE \`${dbName}\``);
 
     // Compte démo (audit S-4) : identifiants triviaux (demo@inko.app/demo1234)
     // codés en dur — une porte d'entrée publique si on repasse en LOCAL_MODE=0.

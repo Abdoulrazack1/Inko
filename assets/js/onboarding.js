@@ -11,6 +11,25 @@
     'use strict';
 
     const FLAG = 'inko_tour_done';
+    // Audit AMEL-109 : quitter la visite posait le MEME drapeau que la
+    // terminer — interrompre revenait donc a renoncer definitivement, sans
+    // l'avoir demande. On distingue desormais les deux :
+    //   · « Passer la visite » / derniere etape  -> terminee, on n'y revient pas
+    //   · Echap, fermeture d'onglet, navigation  -> interrompue, on propose de
+    //     reprendre a l'etape atteinte au prochain lancement
+    const CLE_REPRISE = 'inko_tour_reprise';
+    function memoriserPosition(i) {
+        try { localStorage.setItem(CLE_REPRISE, String(i)); } catch (e) { /* stockage indisponible */ }
+    }
+    function oublierPosition() {
+        try { localStorage.removeItem(CLE_REPRISE); } catch (e) { /* stockage indisponible */ }
+    }
+    function positionMemorisee() {
+        try {
+            const v = parseInt(localStorage.getItem(CLE_REPRISE) || '', 10);
+            return Number.isInteger(v) && v > 0 ? v : 0;
+        } catch (e) { return 0; }
+    }
 
     const S = (p, size = 44) =>
         `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -78,6 +97,27 @@
     .itr-skip{position:absolute;top:14px;left:16px;background:none;border:none;color:var(--text3,#888);
       font-size:12px;cursor:pointer;padding:6px 8px;border-radius:8px}
     .itr-skip:hover{color:var(--text,#eee);background:var(--bg3,#222)}
+    /* « Plus tard » a droite, en face de « Passer » : deux sorties de sens
+       different, elles ne doivent pas se confondre (audit AMEL-109). */
+    .itr-later{position:absolute;top:14px;right:16px;background:none;border:none;color:var(--text3,#888);
+      font-size:12px;cursor:pointer;padding:6px 8px;border-radius:8px}
+    .itr-later:hover{color:var(--text,#eee);background:var(--bg3,#222)}
+    .itr-later:focus-visible,.itr-skip:focus-visible{outline:2px solid var(--accent,#c1531b);outline-offset:2px}
+    /* Astuce contextuelle (audit AMEL-111). En bas a gauche : le bandeau de
+       lecture privee occupe le centre, et le dock musique la droite. */
+    .itr-astuce{position:fixed;left:16px;bottom:96px;z-index:9500;max-width:min(380px,calc(100vw - 32px));
+      display:flex;align-items:flex-start;gap:10px;padding:12px 14px;
+      background:var(--bg2,#141417);border:1px solid var(--border,#2a2a30);border-left:3px solid var(--accent,#c1531b);
+      border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.45);
+      font-size:12.5px;line-height:1.5;color:var(--text2,#bbb);
+      opacity:0;transform:translateY(8px);transition:opacity .25s ease,transform .25s ease}
+    .itr-astuce.on{opacity:1;transform:none}
+    .itr-astuce-x{background:none;border:none;color:var(--text3,#888);font-size:17px;line-height:1;
+      cursor:pointer;padding:0 2px;flex:0 0 auto}
+    .itr-astuce-x:hover{color:var(--text,#eee)}
+    .itr-astuce-x:focus-visible{outline:2px solid var(--accent,#c1531b);outline-offset:2px}
+    @media (max-width:560px){.itr-astuce{left:12px;right:12px;max-width:none;bottom:84px}}
+    @media (prefers-reduced-motion:reduce){.itr-astuce{transition:none}}
     .itr-art{width:96px;height:96px;margin:6px auto 20px;border-radius:28px;display:flex;align-items:center;justify-content:center;
       background:color-mix(in srgb, currentColor 12%, transparent);transition:color .3s}
     .itr-kanji{font-size:52px;line-height:1;font-weight:700}
@@ -101,8 +141,15 @@
 
     let idx = 0, veil = null;
 
-    function done() {
-        try { localStorage.setItem(FLAG, '1'); } catch (e) { window.MH?.err?.('onboarding.js', e); }
+    // `definitif` : true quand l'utilisateur a explicitement termine ou passe
+    // la visite. Sinon on garde la position pour proposer une reprise.
+    function done(definitif = true) {
+        if (definitif) {
+            try { localStorage.setItem(FLAG, '1'); } catch (e) { window.MH?.err?.('onboarding.js', e); }
+            oublierPosition();
+        } else {
+            memoriserPosition(idx);
+        }
         if (!veil) return;
         veil.style.opacity = '';   // rend la main à la transition de sortie
         veil.classList.remove('on');
@@ -111,7 +158,8 @@
     }
 
     function onKey(e) {
-        if (e.key === 'Escape') done();
+        // Echap = « pas maintenant », pas « plus jamais ».
+        if (e.key === 'Escape') done(false);
         else if (e.key === 'ArrowRight' || e.key === 'Enter') go(idx + 1);
         else if (e.key === 'ArrowLeft') go(idx - 1);
     }
@@ -127,6 +175,7 @@
         const last = idx === SLIDES.length - 1;
         veil.querySelector('.itr-card').innerHTML = `
             <button class="itr-skip">Passer la visite</button>
+            <button class="itr-later" title="La visite reprendra ici au prochain lancement">Plus tard</button>
             <div class="itr-anim">
                 <div class="itr-art" style="color:${s.accent}">${ART[s.art]}</div>
                 <div class="itr-step">${idx + 1} / ${SLIDES.length}</div>
@@ -139,12 +188,20 @@
                 ${idx > 0 ? '<button class="itr-btn itr-prev">← Retour</button>' : ''}
                 <button class="itr-btn itr-next">${s.cta || 'Suivant →'}</button>
             </div>`;
-        veil.querySelector('.itr-skip').onclick = done;
+        veil.querySelector('.itr-skip').onclick = () => done(true);
+        veil.querySelector('.itr-later').onclick = () => {
+            done(false);
+            window.MH?.toast?.(`Visite mise en pause — elle reprendra a l'etape ${idx + 1}`);
+        };
         veil.querySelector('.itr-next').onclick = () => go(idx + 1);
         const prev = veil.querySelector('.itr-prev');
         if (prev) prev.onclick = () => go(idx - 1);
         veil.querySelectorAll('.itr-dot').forEach(d => { d.onclick = () => go(+d.dataset.i); });
     }
+
+    // Quitter la page en pleine visite ne doit pas la faire disparaitre a
+    // jamais : on note ou on en etait.
+    window.addEventListener('pagehide', () => { if (veil) memoriserPosition(idx); });
 
     function start() {
         if (veil) return;
@@ -154,7 +211,7 @@
             st.textContent = CSS;
             document.head.appendChild(st);
         }
-        idx = 0;
+        idx = positionMemorisee();
         veil = document.createElement('div');
         veil.className = 'itr-veil';
         veil.innerHTML = '<div class="itr-card" role="dialog" aria-modal="true" aria-label="Visite guidée"></div>';
@@ -174,7 +231,58 @@
         document.addEventListener('keydown', onKey);
     }
 
-    window.InkoTour = { start, seen: () => { try { return !!localStorage.getItem(FLAG); } catch (e) { return true; } } };
+    // ── Astuces contextuelles (audit AMEL-111) ──────────────
+    // Sept ecrans AVANT d'avoir vu l'application ne se retiennent pas : on
+    // explique le catalogue a quelqu'un qui n'a pas encore vu une couverture.
+    // Chaque page porte donc sa propre astuce, montree la PREMIERE fois qu'on
+    // y arrive — au moment ou elle a un sens et un referent a l'ecran.
+    //
+    // Elles sont independantes de la visite : la passer n'y renonce pas, et
+    // les avoir vues n'empeche pas de rejouer la visite.
+    const ASTUCES = {
+        catalogue:    'Change de source en haut a droite, ou active « Toutes les sources » pour chercher partout a la fois.',
+        bibliotheque: 'Filtre par statut, categorie ou source. Le bouton « Mettre a jour » verifie les nouveaux chapitres de tout ce que tu suis.',
+        serie:        "Depuis cette fiche : suivre la serie, l'epingler sur ton profil, ou la lire en prive sans laisser de trace.",
+        chapitre:     'Clique a gauche ou a droite pour tourner les pages. La barre du haut regroupe sens de lecture, zoom et qualite.',
+        stats:        'Ton objectif hebdomadaire peut se caler sur ton rythme reel — le lien est sous la barre de progression.',
+        profil:       "L'onglet Historique permet d'exporter ou de retirer des lectures, une par une.",
+        notifications:'Regle la frequence de verification ici. Une serie se met en sourdine depuis sa fiche, sans cesser de la suivre.',
+    };
+    const CLE_ASTUCES = 'inko_astuces_vues';
+    function astucesVues() {
+        try { return new Set(JSON.parse(localStorage.getItem(CLE_ASTUCES) || '[]')); }
+        catch (e) { return new Set(); }
+    }
+    function marquerAstuceVue(page) {
+        const v = astucesVues(); v.add(page);
+        try { localStorage.setItem(CLE_ASTUCES, JSON.stringify([...v])); } catch (e) { /* stockage indisponible */ }
+    }
+    function afficherAstuce(page) {
+        const texte = ASTUCES[page];
+        if (!texte || astucesVues().has(page)) return false;
+        // Jamais par-dessus la visite guidee : deux explications simultanees
+        // n'en font aucune.
+        if (veil) return false;
+        marquerAstuceVue(page);
+        const el = document.createElement('div');
+        el.className = 'itr-astuce';
+        el.setAttribute('role', 'status');
+        el.innerHTML = `<span class="itr-astuce-txt">${texte}</span>
+            <button type="button" class="itr-astuce-x" aria-label="Fermer l'astuce">×</button>`;
+        document.body.appendChild(el);
+        const fermer = () => { el.classList.remove('on'); setTimeout(() => el.remove(), 250); };
+        el.querySelector('.itr-astuce-x').onclick = fermer;
+        void el.offsetWidth; el.classList.add('on');
+        // Se retire seule : une astuce lue qui reste devient un encombrement.
+        setTimeout(fermer, 12000);
+        return true;
+    }
+
+    window.InkoTour = {
+        start,
+        seen: () => { try { return !!localStorage.getItem(FLAG); } catch (e) { return true; } },
+        astuce: afficherAstuce,
+    };
 
     // Premier lancement : démarre tout seul (une seule fois)
     if (!window.InkoTour.seen()) {

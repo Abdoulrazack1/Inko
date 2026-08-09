@@ -127,8 +127,25 @@
         } catch (e) { fail(e.message); }
     }
 
+    // Audit PERF-06 : pdf.min.js (313 Ko) était chargé par un <script> en dur
+    // sur localreader.html, donc AUSSI pour ouvrir un CBZ ou un EPUB — qui
+    // n'en ont aucun besoin. On ne le charge plus qu'au moment d'ouvrir un PDF.
+    // (pdf.worker.min.js, 1 Mo, n'était déjà tiré qu'à l'exécution par pdf.js.)
+    function loadPdfJs() {
+        if (window.pdfjsLib) return Promise.resolve(true);
+        return new Promise((resolve) => {
+            const s = document.createElement('script');
+            s.src = 'assets/vendor/pdf.min.js';
+            s.async = true;
+            s.onload  = () => resolve(!!window.pdfjsLib);
+            s.onerror = () => resolve(false);
+            document.head.appendChild(s);
+        });
+    }
+
     // ── PDF : rendu page par page sur canvas (pdf.js) ──
     async function renderPdf(buf) {
+        if (!window.pdfjsLib) await loadPdfJs();
         const pdfjs = window.pdfjsLib;
         if (!pdfjs) return fail('Lecteur PDF (pdf.js) non chargé.');
         pdfjs.GlobalWorkerOptions.workerSrc = 'assets/vendor/pdf.worker.min.js';

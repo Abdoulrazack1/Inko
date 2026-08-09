@@ -2,7 +2,7 @@
 const router  = require('express').Router();
 const auth    = require('../middleware/auth');
 const { adminRequired } = require('../middleware/admin');
-const { authLimiter, writeLimiter, searchLimiter, imgLimiter } = require('../middleware/security');
+const { authLimiter, writeLimiter, searchLimiter, imgLimiter, relayLimiter } = require('../middleware/security');
 const Auth    = require('../controllers/auth.controller');
 const Update  = require('../controllers/update.controller');
 const Manga   = require('../controllers/manga.controller');
@@ -18,15 +18,53 @@ const Profile = require('../controllers/profile.controller');
 const Local   = require('../controllers/local.controller');
 
 // ── Healthcheck ─────────────────────────────────
-router.get('/health', (_req, res) => res.json({
-    ok: true, time: Date.now(),
-    ...(process.env.APP_VERSION ? { version: process.env.APP_VERSION } : {}),
-    ...(process.env.INKO_DB_FALLBACK === '1' ? { dbFallback: true } : {}),
-}));
+// Audit BUG-03 : cette route renvoyait `ok:true` en dur. Elle est la sonde du
+// HEALTHCHECK Docker : un conteneur dont MySQL est mort restait « sain » et
+// n'était donc JAMAIS redémarré. On teste désormais réellement la base.
+// Le ping est borné (2 s) pour ne pas faire traîner la sonde, et son résultat
+// est mis en cache 5 s : un healthcheck toutes les 30 s ne doit pas ouvrir une
+// connexion à chaque appel de page.
+let _healthCache = { at: 0, dbOk: false };
+async function dbHealthy() {
+    if (Date.now() - _healthCache.at < 5000) return _healthCache.dbOk;
+    let ok = false;
+    try {
+        await Promise.race([
+            require('../config/db').ping(),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000)),
+        ]);
+        ok = true;
+    } catch (e) { ok = false; }
+    _healthCache = { at: Date.now(), dbOk: ok };
+    return ok;
+}
+router.get('/health', async (_req, res) => {
+    const dbOk = await dbHealthy();
+    res.status(dbOk ? 200 : 503).json({
+        ok: dbOk,
+        db: dbOk ? 'up' : 'down',
+        time: Date.now(),
+        ...(dbOk ? {} : { error: 'Base de données injoignable' }),
+        ...(process.env.APP_VERSION ? { version: process.env.APP_VERSION } : {}),
+        ...(process.env.INKO_DB_FALLBACK === '1' ? { dbFallback: true } : {}),
+    });
+});
 // MAJ intégrée (app desktop). authRequired (audit S2) : sans lui, n'importe
 // quelle page web ouverte pendant que l'app tourne pouvait POST ici (CSRF
 // simple request) et déclencher fermeture + réinstallation silencieuse.
 router.post('/app/update', auth.authRequired, Update.runUpdate);
+
+// ── Reference de l'API (audit AMEL-119) ──────────
+// Generee depuis CE fichier par scripts-ci/gen-openapi.js, et verifiee en CI :
+// une reference ecrite a la main diverge du code au premier ajout de route —
+// c'est deja ce qui etait arrive ici (96 routes, une poignee documentees).
+router.get('/openapi.json', (_req, res) => {
+    try {
+        res.json(require('../openapi.json'));
+    } catch (e) {
+        res.status(503).json({ error: 'Reference non generee — lance `npm run gen-openapi`' });
+    }
+});
 
 // ── Auth ─────────────────────────────────────────
 router.get ('/auth/providers',      Auth.providers);
@@ -37,6 +75,11 @@ router.post('/auth/local',          Auth.localAuth);   // mode local sans écran
 router.post('/auth/register',       authLimiter, Auth.register);
 router.post('/auth/login',          authLimiter, Auth.login);
 router.post('/auth/logout',         Auth.logout);
+// Sessions actives et politique de mot de passe (audit AMEL-69/70)
+router.get   ('/auth/sessions',         auth.authRequired, Auth.listSessions);
+router.delete('/auth/sessions/others',  auth.authRequired, Auth.revokeOtherSessions);
+router.delete('/auth/sessions/:id',     auth.authRequired, Auth.revokeSession);
+router.post  ('/auth/password-strength', authLimiter, Auth.passwordStrength);
 router.get ('/auth/me', auth.authRequired, Auth.me);
 router.post('/auth/forgot',         authLimiter, Auth.requestReset);
 router.post('/auth/reset',          authLimiter, Auth.resetPassword);
@@ -50,7 +93,16 @@ router.get('/sources',              Manga.listSources);
 // ── Extensions : mises à jour (modèle Mihon) ──────
 // Audit SRC1 : updates/uninstalled exigent désormais au moins une session.
 router.get ('/extensions/updates',  auth.authRequired, Ext.checkUpdates);
-router.get ('/extensions/health',   auth.authRequired, adminRequired, Ext.healthStatus);
+// Audit AMEL-65/68 : la sante et le journal repondent a une question
+// d'utilisateur (« pourquoi cette source ne renvoie rien ? »), pas
+// d'administrateur. Aucune donnee confidentielle : des compteurs de
+// disponibilite de sites publics.
+router.get ('/extensions/health',   auth.authRequired, Ext.healthStatus);
+// Sante de l'instance (audit AMEL-116) : /api/health repond par oui/non et
+// sert de sonde Docker. Celui-ci dit depuis quand, avec quoi, et si les
+// sauvegardes tournent encore.
+router.get ('/instance',            auth.authRequired, Ext.instanceStatus);
+router.get ('/extensions/:id/log',  auth.authRequired, Ext.sourceLog);
 router.get ('/extensions/:id/test', auth.authRequired, Ext.testSource);
 // applyUpdates écrit des fichiers .js exécutés côté serveur pour toute l'instance :
 // exige un rôle admin, pas seulement une session valide (audit §7.3).
@@ -66,33 +118,33 @@ router.get ('/extensions/uninstalled', auth.authRequired, (_q, res) => res.json(
 router.get('/img',                  imgLimiter, Image.proxy);   // rate-limit (audit S14)
 
 // ── Artwork officiel (AniList) pour le hero ───────
-router.get('/artwork',              Artwork.artwork);
+router.get('/artwork',              relayLimiter, Artwork.artwork);
 
 // ── AniList (suivi : config OAuth implicite) ──────
 router.get('/anilist/config',       AniList.config);
 router.put('/anilist/config',       auth.authRequired, AniList.setConfig);
-router.get('/anilist/similar',      AniList.similar);
+router.get('/anilist/similar',      relayLimiter, AniList.similar);
 
 // ── Mangas (relais vers source active, ?source=<id> pour cibler) ──
-router.get('/mangas/search',        Manga.search);
+router.get('/mangas/search',        relayLimiter, Manga.search);
 router.get('/search-all',           searchLimiter, Manga.searchAll);   // recherche multi-sources (rate-limit audit S14)
-router.get('/mangas/popular',       Manga.popular);
-router.get('/mangas/latest',        Manga.latest);
-router.get('/mangas/tags',          Manga.tags);
-router.get('/mangas/:id',           Manga.getOne);
-router.get('/mangas/:id/chapters',  Manga.chapters);
-router.get('/chapters/:id/pages',   Manga.pages);
-router.get('/chapters/:id/text',    Manga.text);     // sources de romans (novel)
+router.get('/mangas/popular',       relayLimiter, Manga.popular);
+router.get('/mangas/latest',        relayLimiter, Manga.latest);
+router.get('/mangas/tags',          relayLimiter, Manga.tags);
+router.get('/mangas/:id',           relayLimiter, Manga.getOne);
+router.get('/mangas/:id/chapters',  relayLimiter, Manga.chapters);
+router.get('/chapters/:id/pages',   relayLimiter, Manga.pages);
+router.get('/chapters/:id/text',    relayLimiter, Manga.text);     // sources de romans (novel)
 
 // ── Routes scoping par source : /sources/:sourceId/mangas/* ──
-router.get('/sources/:sourceId/mangas/search',       Manga.search);
-router.get('/sources/:sourceId/mangas/popular',      Manga.popular);
-router.get('/sources/:sourceId/mangas/latest',       Manga.latest);
-router.get('/sources/:sourceId/mangas/tags',         Manga.tags);
-router.get('/sources/:sourceId/mangas/:id',          Manga.getOne);
-router.get('/sources/:sourceId/mangas/:id/chapters', Manga.chapters);
-router.get('/sources/:sourceId/chapters/:id/pages',  Manga.pages);
-router.get('/sources/:sourceId/chapters/:id/text',   Manga.text);
+router.get('/sources/:sourceId/mangas/search',       relayLimiter, Manga.search);
+router.get('/sources/:sourceId/mangas/popular',      relayLimiter, Manga.popular);
+router.get('/sources/:sourceId/mangas/latest',       relayLimiter, Manga.latest);
+router.get('/sources/:sourceId/mangas/tags',         relayLimiter, Manga.tags);
+router.get('/sources/:sourceId/mangas/:id',          relayLimiter, Manga.getOne);
+router.get('/sources/:sourceId/mangas/:id/chapters', relayLimiter, Manga.chapters);
+router.get('/sources/:sourceId/chapters/:id/pages',  relayLimiter, Manga.pages);
+router.get('/sources/:sourceId/chapters/:id/text',   relayLimiter, Manga.text);
 
 // ── User data (auth required) ───────────────────
 router.get   ('/me/favorites',            auth.authRequired, User.getFavorites);
@@ -106,10 +158,15 @@ router.put   ('/me/library/:mangaId',     auth.authRequired, User.setLibraryStat
 router.get   ('/me/progress',             auth.authRequired, User.getAllProgress);
 router.put   ('/me/progress/:mangaId',    auth.authRequired, User.setProgress);
 router.delete('/me/progress/:mangaId',    auth.authRequired, User.deleteProgress);
+// Audit AMEL-28 : positions precedentes, pour recuperer une place ecrasee par
+// une ouverture accidentelle.
+router.get   ('/me/progress/:mangaId/history', auth.authRequired, User.getProgressHistory);
 
 router.get   ('/me/read-chapters',        auth.authRequired, User.getReadChapters);
 router.post  ('/me/read-chapters',        auth.authRequired, User.markChapter);
 router.post  ('/me/read-chapters/bulk',   auth.authRequired, User.markChaptersBulk);
+// Audit AMEL-40 : annulation d'un marquage en masse.
+router.post  ('/me/read-chapters/unmark-bulk', auth.authRequired, User.unmarkChaptersBulk);
 
 router.get   ('/me/lists',                auth.authRequired, User.getLists);
 router.post  ('/me/lists',                auth.authRequired, User.createList);
@@ -117,14 +174,32 @@ router.put   ('/me/lists/:id',            auth.authRequired, User.updateList);
 router.delete('/me/lists/:id',            auth.authRequired, User.deleteList);
 router.post  ('/me/lists/:id/items',                auth.authRequired, User.addToList);
 router.delete('/me/lists/:id/items/:mangaId',       auth.authRequired, User.removeFromList);
+// Audit AMEL-37 : `list_items.position` servait deja au tri mais n'etait
+// ecrite nulle part — l'ordre affiche etait donc l'ordre d'ajout.
+router.put   ('/me/lists/:id/order',                auth.authRequired, User.reorderList);
 
-router.get   ('/comments-recent',                   User.getRecentComments);
+// Audit AMEL-41 : les signets sortent du blob de reglages, qui etait recharge
+// a chaque page et reecrit en entier au moindre ajout.
+router.get   ('/me/bookmarks',            auth.authRequired, User.getBookmarks);
+router.post  ('/me/bookmarks',            auth.authRequired, User.addBookmark);
+router.delete('/me/bookmarks/:mangaId/:chapterId', auth.authRequired, User.removeBookmark);
+
+// Audit SEC-04 : cette route était la SEULE du groupe sans middleware d'auth.
+// Un visiteur anonyme obtenait un flux en direct de « qui lit quoi » — texte du
+// commentaire, pseudo, avatar, titre et source de l'œuvre, horodatage — alors
+// que l'interface promet « ton avis reste privé pour l'instant ».
+// Elle exige désormais une session, comme le reste de /me/*.
+router.get   ('/comments-recent',  auth.authRequired, User.getRecentComments);
 router.get   ('/comments/:mangaId',       auth.authOptional, User.getComments);
 router.post  ('/comments/:mangaId',       auth.authRequired, writeLimiter, User.addComment);
 router.post  ('/comments/:commentId/report', auth.authRequired, writeLimiter, User.reportComment);
 router.delete('/comments/:commentId',     auth.authRequired, User.deleteComment);
 
-// ── Import local (EPUB / CBZ / CBR) ─────────────
+// ── Import local (EPUB / PDF / CBZ) ─────────────
+// Audit BUG-17 : ce commentaire annonçait « CBR » — un format que le
+// contrôleur REFUSE explicitement (le lecteur ne sait pas lire le RAR) — et
+// omettait le PDF, qui lui est réellement accepté. Voir ALLOWED dans
+// local.controller.js, seule source de vérité.
 router.post  ('/library/import/local',    auth.authRequired, Local.importLocal);
 router.get   ('/library/local',           auth.authRequired, Local.listLocal);
 router.get   ('/library/local/:id/file',  auth.authRequired, Local.getLocalFile);
@@ -132,12 +207,21 @@ router.delete('/library/local/:id',       auth.authRequired, Local.deleteLocal);
 
 // ── Profils publics ─────────────────────────────
 router.get   ('/users/profile/:username', auth.authOptional, Profile.publicProfile);
+// Audit BUG-09 : `lists.is_public` était un drapeau mort — aucune route ne
+// l'exposait, donc marquer une liste « publique » ne la rendait publique nulle
+// part. Lecture seule, sans session (c'est le sens du mot), et une liste privée
+// répond 404 plutôt que 403 pour ne pas révéler son existence.
+router.get   ('/lists/:id',               Profile.publicList);
 
 // ── Notifications in-app + Web Push ─────────────
 router.get   ('/me/notifications',            auth.authRequired, Notif.list);
 router.get   ('/me/notifications/unread',     auth.authRequired, Notif.unreadCount);
 router.post  ('/me/notifications/read-all',   auth.authRequired, Notif.markAllRead);
 router.post  ('/me/notifications/:id/read',   auth.authRequired, Notif.markRead);
+// Réglages de notification (audit AMEL-54)
+router.get   ('/me/notif-prefs',              auth.authRequired, Notif.getPrefs);
+router.put   ('/me/notif-prefs',              auth.authRequired, Notif.setPrefs);
+router.put   ('/me/notif-watch/:mangaId',     auth.authRequired, Notif.setWatch);
 router.get   ('/push/vapid',                   Notif.vapid);
 router.post  ('/me/push/subscribe',           auth.authRequired, Notif.subscribe);
 
@@ -165,14 +249,27 @@ router.get   ('/me/ratings',              auth.authRequired, User.getMyRatings);
 // ── Settings synchronisés ───────────────────────
 router.get   ('/me/settings',             auth.authRequired, User.getSettings);
 router.put   ('/me/settings',             auth.authRequired, User.setSettings);
+// Audit PERF-09 : le cache titre → id AniList vivait dans user_settings.data,
+// rechargé À CHAQUE PAGE (7 348 des 8 188 octets du blob, sans éviction).
+// Table dédiée, chargée seulement par anilist.js.
+router.get   ('/me/anilist-links',        auth.authRequired, User.getAnilistLinks);
+router.put   ('/me/anilist-links',        auth.authRequired, User.setAnilistLinks);
 
 // ── Données ─────────────────────────────────────
 router.get   ('/me/export',               auth.authRequired, User.exportData);
 router.post  ('/me/import',               auth.authRequired, User.importData);
 router.post  ('/me/clear-history',        auth.authRequired, User.clearHistory);
+// Historique : suppression ciblee et export dedie (audit AMEL-112/113)
+router.get   ('/me/history/export',       auth.authRequired, User.exportHistory);
+// Sauvegardes : lister, previsualiser, restaurer SON compte (audit AMEL-73)
+router.get   ('/me/backups',              auth.authRequired, User.listBackups);
+router.post  ('/me/backups/:file/preview', auth.authRequired, User.previewBackup);
+router.post  ('/me/backups/:file/restore', auth.authRequired, writeLimiter, User.restoreBackup);
+router.delete('/me/history/:mangaId',     auth.authRequired, User.deleteHistoryEntry);
 
 router.get   ('/me/events',               auth.authRequired, User.getEvents);
 router.get   ('/me/stats',                auth.authRequired, User.getStats);
+router.get   ('/me/stats/distribution',       auth.authRequired, User.getStatsDistribution);   // audit AMEL-57
 router.get   ('/me/updates',              auth.authRequired, User.checkUpdates);
 
 

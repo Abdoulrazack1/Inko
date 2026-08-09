@@ -12,7 +12,7 @@
     try { filter = localStorage.getItem(FILTER_KEY) || 'all'; } catch (e) { window.MH?.err?.('notifications.js', e); }
 
     document.addEventListener('DOMContentLoaded', async () => {
-        MH.initPage('');
+        MH.initPage('notifications');
         const list = document.getElementById('ntList');
         await (window.API?.ready || Promise.resolve());
         if (!API.isLoggedIn()) {
@@ -23,13 +23,22 @@
         }
 
         // Ré-applique le filtre persisté sur les pastilles
-        document.querySelectorAll('.nt-pill').forEach(p => p.classList.toggle('active', p.dataset.f === filter));
+        // Audit A11Y-03 : l'etat n'existait que par une classe CSS - invisible
+        // pour les lecteurs d'ecran. aria-pressed suit desormais la classe.
+        document.querySelectorAll('.nt-pill').forEach(p => {
+            const on = p.dataset.f === filter;
+            p.classList.toggle('active', on);
+            p.setAttribute('aria-pressed', String(on));
+        });
 
         document.getElementById('ntFilters').addEventListener('click', (e) => {
             const b = e.target.closest('.nt-pill'); if (!b) return;
             filter = b.dataset.f;
             try { localStorage.setItem(FILTER_KEY, filter); } catch (e2) { window.MH?.err?.('notifications.js', e2); }
-            document.querySelectorAll('.nt-pill').forEach(p => p.classList.toggle('active', p === b));
+            document.querySelectorAll('.nt-pill').forEach(p => {
+                p.classList.toggle('active', p === b);
+                p.setAttribute('aria-pressed', String(p === b));
+            });
             render();
         });
         document.getElementById('ntEnablePush')?.addEventListener('click', () => window.MH.enablePush?.());
@@ -47,8 +56,45 @@
             });
         } catch (e) { window.MH?.err?.('notifications.js', e); }
 
+        await chargerPreferences();
         await load();
     });
+
+    // ── Fréquence de vérification (audit AMEL-54) ────────────
+    // Le scan tournait toutes les 4 h pour tout le monde, sans réglage : le
+    // seul moyen de l'espacer était de se désabonner du push — ce qui laissait
+    // la cloche in-app continuer à se remplir.
+    async function chargerPreferences() {
+        const bloc = document.getElementById('ntPrefs');
+        const sel  = document.getElementById('ntFreq');
+        if (!bloc || !sel) return;
+        let p;
+        try { p = await API.notifications.prefs(); } catch (e) { return; }   // bloc masqué : mieux qu'un réglage inopérant
+        sel.value = String(p.everyHours);
+        bloc.hidden = false;
+
+        const note = document.getElementById('ntWatched');
+        if (note) {
+            const horsSuivi = p.followed - p.watched;
+            note.textContent = [
+                p.watched === p.followed
+                    ? `${p.followed} série${p.followed > 1 ? 's' : ''} surveillée${p.followed > 1 ? 's' : ''}`
+                    : `${p.watched} série${p.watched > 1 ? 's' : ''} surveillée${p.watched > 1 ? 's' : ''} sur ${p.followed} (${horsSuivi} en sourdine)`,
+                `les notifications lues sont effacées après ${p.retentionDays} jours`,
+            ].join(' · ');
+        }
+
+        sel.addEventListener('change', async () => {
+            const h = parseInt(sel.value, 10);
+            sel.disabled = true;
+            try {
+                await API.notifications.setPrefs(h);
+                MH.toast?.(h === 0 ? 'Notifications de nouveaux chapitres coupées'
+                    : `Vérification ${h === 24 ? 'une fois par jour' : `toutes les ${h} heures`}`);
+            } catch (e) { MH.toast?.('Erreur : ' + e.message); }
+            finally { sel.disabled = false; }
+        });
+    }
 
     async function load() {
         const btn = document.getElementById('ntRefresh');
@@ -104,9 +150,24 @@
             list.querySelector('#ntRetry')?.addEventListener('click', () => load());
             return;
         }
+        // Audit BUG-08 : la pastille « Chapitres » filtrait sur type === 'chapter'
+        // alors que lib/updates.js écrit 'new_chapter' — le filtre renvoyait donc
+        // toujours 0, sur 52 notifications qui étaient TOUTES des nouveaux
+        // chapitres. global.js:notifIconName connaissait déjà les deux
+        // orthographes ; on aligne le filtre sur le même principe.
+        const TYPE_ALIASES = {
+            chapter: ['chapter', 'new_chapter'],
+            reply:   ['reply'],
+            mention: ['mention'],
+            badge:   ['badge'],
+            system:  ['system'],
+        };
         let shown = items;
         if (filter === 'unread') shown = items.filter(n => !n.read);
-        else if (filter !== 'all') shown = items.filter(n => n.type === filter);
+        else if (filter !== 'all') {
+            const accepted = TYPE_ALIASES[filter] || [filter];
+            shown = items.filter(n => accepted.includes(n.type));
+        }
         if (!shown.length) {
             list.innerHTML = `<div class="nt-empty">Aucune notification${filter !== 'all' ? ' dans ce filtre' : ''}.</div>`;
             return;

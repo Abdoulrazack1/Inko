@@ -12,6 +12,28 @@ jobs:
     defaults:
       run:
         working-directory: server
+    # Audit QUAL-01 : test/integration.db.test.js se saute proprement quand
+    # MySQL est injoignable — et aucun service n'était déclaré ici. Les 4 suites
+    # d'intégration (auth/user/notes/profile) étaient donc VERTES PAR ABSTENTION
+    # depuis leur création : elles n'ont jamais tourné en CI.
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: inko_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ''
     steps:
       - uses: actions/checkout@v7
 
@@ -38,8 +60,54 @@ jobs:
       - name: Load all modules (smoke)
         run: node -e "require('./routes'); require('./db/migrate'); console.log('modules OK')"
 
-      - name: Unit tests
+      # REQUIRE_DB_TESTS=1 : les suites d'intégration ÉCHOUENT si MySQL est
+      # injoignable, au lieu de se sauter en silence (audit QUAL-01).
+      - name: Unit + integration tests
         run: npm test
+        env:
+          REQUIRE_DB_TESTS: '1'
+
+  # Audit SEC-07 : extensions-community/hashes.json avait été généré AVANT la
+  # dernière modification des extensions et jamais régénéré — 4 empreintes sur 9
+  # étaient périmées, ce qui faisait rejeter la mise à jour de chireads,
+  # novelbin, novelfull et royalroad (« empreinte SHA-256 invalide »). Sans
+  # garde-fou, la dérive revient au premier correctif appliqué à une source.
+  ext-hashes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # Audit BUG-11 : la liste STATIC_ASSETS était maintenue à la main et avait
+      # dérivé — 15 fichiers réellement utilisés n'y figuraient pas, dont
+      # bibliotheque.js et bibliotheque.css alors que bibliotheque.html y était :
+      # la page s'ouvrait hors-ligne en coquille vide.
+      - name: Vérifier la liste de précache du service worker
+        run: node scripts-ci/gen-precache.js --check
+
+      # Audit I18N-03 : la traduction se fait par correspondance EXACTE du texte
+      # source français. Reformuler un libellé casse sa traduction en silence —
+      # rien ne le signalait, ni au build ni à l'exécution.
+      - name: Vérifier la couverture i18n
+        run: node scripts-ci/check-i18n.js --check
+
+      # Audit AMEL-119 : la reference d'API est DERIVEE du routeur. Une
+      # documentation ecrite a la main diverge au premier ajout de route.
+      - name: Vérifier la référence d'API
+        run: node scripts-ci/gen-openapi.js --check
+
+      - name: Regénérer les empreintes
+        run: node scripts-ci/gen-ext-hashes.js
+      - name: Échouer si hashes.json n'est pas à jour
+        run: |
+          if ! git diff --quiet -- extensions-community/hashes.json; then
+            echo "::error::extensions-community/hashes.json est périmé."
+            echo "Lance 'npm run gen-ext-hashes' et committe le résultat."
+            git --no-pager diff -- extensions-community/hashes.json
+            exit 1
+          fi
+          echo "hashes.json est à jour."
 
   frontend-lint:
     runs-on: ubuntu-latest
@@ -54,6 +122,78 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Lint frontend (no-empty)
         run: npm run lint
+
+      # Audit QUAL-02 : 7 900 lignes de JS frontend sans un seul test. Les
+      # fonctions couvertes ici sont celles dont une régression ne casse rien
+      # de visible — elle rend la page fausse ou vulnérable en silence
+      # (échappement HTML, routage des images par le proxy, cache de lectures).
+      # Les modules sont chargés dans un vrai DOM (jsdom) et non contre un stub,
+      # pour exécuter le vrai chemin d'initialisation.
+      - name: Tests frontend
+        run: npm test
+
+  # Audit QUAL-03 + QUAL-05 : zéro test e2e et aucun contrôle a11y automatisé.
+  # Les huit bugs que l'audit cite (BUG-01, 05, 06, 07, 08, 09, 14, 15) avaient
+  # tous le même profil — code valide, tests serveur verts, et pourtant un
+  # RÉSULTAT FAUX à l'écran. Seul un vrai navigateur sur l'application réelle
+  # peut les voir. Chromium uniquement : l'app est distribuée en WebView2.
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: inko
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ''
+      DB_NAME: inko
+      LOCAL_MODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Dépendances du serveur
+        working-directory: server
+        run: npm ci || npm install
+
+      - name: Dépendances du frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Préparer la base
+        working-directory: server
+        run: node db/init.js
+
+      - name: Installer Chromium
+        run: npx playwright install --with-deps chromium
+
+      # `playwright.config.js` démarre le serveur lui-même (webServer) et
+      # attend /api/health : pas de `sleep` arbitraire.
+      - name: Parcours utilisateur (e2e)
+        run: npx playwright test test/e2e/parcours.spec.js
+
+      - name: Accessibilité (axe-core, WCAG 2.1 AA)
+        run: npx playwright test test/e2e/a11y.spec.js
+
+      - name: Conserver les traces des échecs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
 
   docker:
     runs-on: ubuntu-latest

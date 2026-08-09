@@ -20,5 +20,12 @@
     { "name": "Mon profil", "short_name": "Profil",   "url": "/profil.html" },
     { "name": "Reprendre", "short_name": "Reprendre", "url": "/accueil.html#resume" }
   ],
+  "screenshots": [
+    { "src": "/assets/screenshots/home.png",      "sizes": "2560x1440", "type": "image/png", "form_factor": "wide", "label": "Accueil — reprendre la lecture et découvrir" },
+    { "src": "/assets/screenshots/reader.png",    "sizes": "2560x1440", "type": "image/png", "form_factor": "wide", "label": "Lecteur de chapitres" },
+    { "src": "/assets/screenshots/serie.png",     "sizes": "2560x1440", "type": "image/png", "form_factor": "wide", "label": "Fiche d'une série" },
+    { "src": "/assets/screenshots/catalogue.png", "sizes": "2560x1440", "type": "image/png", "form_factor": "wide", "label": "Catalogue et filtres" },
+    { "src": "/assets/screenshots/music.png",     "sizes": "1792x1204", "type": "image/png", "form_factor": "wide", "label": "Lecteur de musique intégré" }
+  ],
   "prefer_related_applications": false
 }

@@ -1,9 +1,17 @@
 -- Schema MangaHub / Inko
-CREATE DATABASE IF NOT EXISTS inko
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-
-USE inko;
+--
+-- Ce fichier ne choisit PAS la base : c'est db/init.js qui la crée et la
+-- sélectionne d'après DB_NAME, avant de jouer ce script.
+--
+-- Il commençait par `CREATE DATABASE IF NOT EXISTS inko; USE inko;` en dur.
+-- Conséquence : avec un DB_NAME différent de « inko », toutes les tables
+-- étaient créées dans « inko » pendant que l'application ouvrait la base
+-- configurée — restée vide. L'installation semblait réussir, puis les
+-- migrations échouaient sur « Table 'xxx.comments' doesn't exist ».
+--
+-- Pour jouer ce fichier à la main, sélectionne la base d'abord :
+--   mysql -e "CREATE DATABASE IF NOT EXISTS inko CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+--   mysql inko < schema.sql
 
 -- ──────────────────────────────────────────────────────────────
 -- Users
@@ -22,8 +30,14 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB;
 
 -- ──────────────────────────────────────────────────────────────
--- Library (avec status). Sert aussi de "favoris" via status='favorite'
--- mais on garde une table favorites séparée pour rester souple.
+-- Bibliothèque de l'utilisateur : une ligne par (compte, série).
+--
+-- Audit DB-02 : le statut de lecture vivait dans une table `library`
+-- séparée, de clé primaire IDENTIQUE. Deux tables 1:1 imposaient un
+-- LEFT JOIN sur la lecture la plus fréquente de l'application et deux
+-- écritures à garder cohérentes, sans rien apporter — relevé avant
+-- fusion : 392 favoris, 11 lignes de `library`, aucune sans favori.
+-- `status` NULL = série suivie sans statut de lecture explicite.
 -- ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS favorites (
   user_id    INT NOT NULL,
@@ -32,9 +46,13 @@ CREATE TABLE IF NOT EXISTS favorites (
   title      VARCHAR(512) DEFAULT NULL,
   cover      VARCHAR(512) DEFAULT NULL,
   last_chapter FLOAT DEFAULT NULL,    -- dernier chapitre connu (pour détecter les MAJ)
+  category   VARCHAR(64) DEFAULT NULL,
+  status     ENUM('reading','completed','planned','paused','dropped') DEFAULT NULL,
+  status_updated_at TIMESTAMP NULL DEFAULT NULL,
   added_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, manga_id),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_status (user_id, status)
 ) ENGINE=InnoDB;
 
 -- Migration douce pour les bases existantes (colonnes ajoutées si absentes)
@@ -64,17 +82,10 @@ SET @ddl := (SELECT IF(COUNT(*)=0,
   WHERE table_schema=DATABASE() AND table_name='favorites' AND column_name='category');
 PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
 
-CREATE TABLE IF NOT EXISTS library (
-  user_id    INT NOT NULL,
-  manga_id   VARCHAR(191) NOT NULL,
-  status     ENUM('reading','completed','planned','paused','dropped') NOT NULL DEFAULT 'reading',
-  rating     TINYINT      DEFAULT NULL,
-  added_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (user_id, manga_id),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_status (user_id, status)
-) ENGINE=InnoDB;
+-- La table `library` n'existe plus : ses colonnes ont rejoint `favorites`
+-- ci-dessus (audit DB-02). Sur une base existante, la migration 7 de
+-- db/migrate.js reprend les statuts puis supprime la table — après avoir
+-- vérifié que rien n'a été perdu.
 
 -- ──────────────────────────────────────────────────────────────
 -- Reading progress (1 ligne par couple user/manga)
@@ -230,7 +241,8 @@ CREATE TABLE IF NOT EXISTS user_settings (
 -- MODIFY est idempotent : sans effet si déjà en 191.
 -- ──────────────────────────────────────────────────────────────
 ALTER TABLE favorites     MODIFY manga_id VARCHAR(191) NOT NULL;
-ALTER TABLE library       MODIFY manga_id VARCHAR(191) NOT NULL;
+-- (plus de ligne pour `library` : table fusionnée dans favorites, audit DB-02.
+--  La laisser ferait échouer tout le fichier sur une base neuve.)
 ALTER TABLE progress      MODIFY manga_id VARCHAR(191) NOT NULL, MODIFY chapter_id VARCHAR(191) DEFAULT NULL;
 ALTER TABLE read_chapters MODIFY manga_id VARCHAR(191) NOT NULL, MODIFY chapter_id VARCHAR(191) NOT NULL;
 ALTER TABLE list_items    MODIFY manga_id VARCHAR(191) NOT NULL;

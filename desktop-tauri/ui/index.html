@@ -42,9 +42,15 @@
     <div class="sub" id="sub"></div>
     <div class="bar"><i id="fill"></i></div>
     <div class="pct" id="pct"></div>
-    <div class="err" id="err">Le serveur interne ne démarre pas. Ferme Inko, relance-le,
-      et si le problème persiste, signale-le sur
-      github.com/Abdoulrazack1/Inko (le journal est dans %TEMP%\inko-tauri.log).</div>
+    <!-- Audit AMEL-94 : « le serveur ne démarre pas » ne dit pas QUOI a
+         échoué. Trois causes très différentes produisaient le même message :
+         le sidecar Node absent, la base injoignable, ou aucune extension
+         chargée. On les distingue avec les endpoints qui existent déjà. -->
+    <div class="err" id="err">
+      <div id="errTitre" style="font-weight:600;color:#e9e7e0;margin-bottom:8px">Impossible de démarrer</div>
+      <div id="diag" style="text-align:left;margin:0 auto 10px;max-width:340px"></div>
+      <div id="errAide"></div>
+    </div>
   </div>
 <script>
   // Attend que le backend embarqué réponde, puis bascule sur l'app.
@@ -117,15 +123,76 @@
     function retry() {
       if (++tries > 300) {   // ~150 s : marge large pour les PC lents
         clearInterval(clock);
-        document.getElementById('err').style.display = 'block';
         txt.textContent = 'Impossible de démarrer';
         sub.textContent = '';
         pct.textContent = '';
+        diagnostiquer();
         return;
       }
       setTimeout(poll, 500);
     }
   })();
+
+  // ── Diagnostic de démarrage (audit AMEL-94) ─────────────────
+  // Trois causes produisaient le même écran : le sidecar Node qui n'a pas
+  // démarré, la base injoignable, ou aucune extension chargée. Les distinguer
+  // change complètement ce qu'il y a à faire — et /api/health sait déjà le
+  // dire (il renvoie 503 avec `db: "down"` quand seule la base manque).
+  async function diagnostiquer() {
+    const zone = document.getElementById('diag');
+    const aide = document.getElementById('errAide');
+    document.getElementById('err').style.display = 'block';
+    const ligne = (etat, quoi, detail) => {
+      const c = etat === 'ok' ? '#7ee2a0' : etat === 'warn' ? '#ffc766' : '#ff9d9d';
+      const s = etat === 'ok' ? '✓' : etat === 'warn' ? '!' : '✕';
+      return `<div style="display:flex;gap:8px;padding:3px 0;font-size:12.5px">
+        <span style="color:${c};flex:0 0 12px">${s}</span>
+        <span style="color:#e9e7e0">${quoi}</span>
+        <span style="color:#8d8a80;margin-left:auto;text-align:right">${detail || ''}</span></div>`;
+    };
+
+    let sante = null, statut = 0;
+    try {
+      const r = await fetch(APP + '/api/health', { cache: 'no-store' });
+      statut = r.status;
+      sante = await r.json().catch(() => null);
+    } catch (e) { statut = 0; }
+
+    if (statut === 0) {
+      // Rien ne répond : le serveur Node n'écoute pas. C'est la seule cause
+      // qu'on ne peut PAS raffiner depuis ici — le journal, lui, le peut.
+      zone.innerHTML = ligne('err', 'Serveur interne', 'ne répond pas')
+        + ligne('warn', 'Base de données', 'non vérifiable')
+        + ligne('warn', 'Extensions', 'non vérifiables');
+      aide.innerHTML = 'Le serveur embarqué n’a pas démarré. Ferme Inko et relance-le. '
+        + 'Si ça se reproduit, le journal détaillé est dans <b>%TEMP%\\inko-tauri.log</b> — '
+        + 'il contient la ligne exacte qui a échoué.';
+      return;
+    }
+
+    const baseOk = !!(sante && sante.db === 'up');
+    let sources = null;
+    try { sources = await (await fetch(APP + '/api/sources', { cache: 'no-store' })).json(); } catch (e) { sources = null; }
+
+    zone.innerHTML = ligne('ok', 'Serveur interne', 'démarré')
+      + ligne(baseOk ? 'ok' : 'err', 'Base de données', baseOk ? 'connectée' : (sante && sante.error) || 'injoignable')
+      + ligne(Array.isArray(sources) && sources.length ? 'ok' : 'warn', 'Extensions',
+              Array.isArray(sources) ? `${sources.length} chargée(s)` : 'non vérifiables');
+
+    if (!baseOk) {
+      aide.innerHTML = 'Le serveur tourne mais la base embarquée ne répond pas. '
+        + 'C’est presque toujours une base restée verrouillée par une instance précédente : '
+        + 'ferme Inko, attends dix secondes, relance. '
+        + 'Journal : <b>%TEMP%\\inko-tauri.log</b>.';
+    } else if (Array.isArray(sources) && !sources.length) {
+      aide.innerHTML = 'Aucune source de lecture n’est chargée : l’app démarrerait sur un catalogue vide. '
+        + 'Réinstalle Inko pour restaurer les extensions.';
+    } else {
+      // Tout répond mais la page n'a pas basculé : le blocage est ailleurs.
+      aide.innerHTML = 'Tout semble en ordre côté serveur. Relance Inko ; '
+        + 'si l’écran reste bloqué, signale-le avec <b>%TEMP%\\inko-tauri.log</b>.';
+    }
+  }
 </script>
 </body>
 </html>

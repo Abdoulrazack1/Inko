@@ -42,11 +42,62 @@ const upload = multer({
 // bornait pas le volume total — un compte pouvait remplir le disque du hub).
 const QUOTA_MB = parseInt(process.env.LOCAL_IMPORT_QUOTA_MB || '2048', 10);   // 2 Go par défaut
 
+// Audit SEC-14 : le type était décidé sur la SEULE extension du nom de fichier.
+// Un fichier renommé en .cbz passait quel que soit son contenu. On lit les
+// octets d'en-tête, qui ne mentent pas :
+//   ZIP (CBZ et EPUB sont des ZIP) : 50 4B 03 04 / 05 06 / 07 08
+//   PDF                            : 25 50 44 46  ("%PDF")
+// Le contrôle reste tolérant sur les variantes de ZIP (vide, segmenté).
+function sniffType(filePath) {
+    let fd;
+    try {
+        fd = fs.openSync(filePath, 'r');
+        const buf = Buffer.alloc(4);
+        fs.readSync(fd, buf, 0, 4, 0);
+        if (buf[0] === 0x50 && buf[1] === 0x4B &&
+            ((buf[2] === 0x03 && buf[3] === 0x04) ||
+             (buf[2] === 0x05 && buf[3] === 0x06) ||
+             (buf[2] === 0x07 && buf[3] === 0x08))) return 'zip';
+        if (buf.toString('ascii') === '%PDF') return 'pdf';
+        if (buf[0] === 0x52 && buf[1] === 0x61 && buf[2] === 0x72 && buf[3] === 0x21) return 'rar';
+        return 'inconnu';
+    } catch (e) { return 'illisible'; }
+    finally { if (fd !== undefined) { try { fs.closeSync(fd); } catch (e) { /* déjà fermé */ } } }
+}
+
+// Vignette de couverture (audit AMEL-25) : n'accepte qu'une data-URI d'image
+// raster, bornée à 256 Ko de base64 (~190 Ko d'image). Au-delà, on préfère
+// ne pas stocker de vignette qu'accepter n'importe quoi.
+const VIGNETTE_MAX = 256 * 1024;
+const VIGNETTE_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+function validerVignette(v) {
+    if (typeof v !== 'string' || !v) return null;
+    if (v.length > VIGNETTE_MAX) return null;
+    return VIGNETTE_RE.test(v) ? v : null;
+}
+
 // POST /api/library/import/local — téléverse un fichier
 function importLocal(req, res, next) {
     upload(req, res, async (err) => {
         if (err) return res.status(400).json({ error: err.message });
         if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+
+        // Vérification du contenu réel avant tout enregistrement (audit SEC-14)
+        const extRaw = (path.extname(req.file.originalname) || '').toLowerCase();
+        const declared = ALLOWED[extRaw] || 'cbz';
+        const actual = sniffType(req.file.path);
+        const expected = declared === 'pdf' ? 'pdf' : 'zip';   // cbz et epub sont des ZIP
+        if (actual !== expected) {
+            fs.unlink(req.file.path, () => {});
+            const detail = actual === 'rar'
+                ? 'ce fichier est une archive RAR (CBR), pas un ZIP — convertis-le en CBZ'
+                : `contenu détecté : ${actual}`;
+            return res.status(400).json({
+                error: `Le contenu du fichier ne correspond pas à son extension (${extRaw}) — ${detail}.`,
+            });
+        }
+
         try {
             const [[used]] = await pool.query(
                 'SELECT COALESCE(SUM(size), 0) AS total FROM local_imports WHERE user_id = ?',
@@ -63,11 +114,20 @@ function importLocal(req, res, next) {
             const type = ALLOWED[ext] || 'cbz';
             const title = (req.body.title || path.basename(req.file.originalname, ext) || 'Sans titre')
                 .replace(/[._]+/g, ' ').trim().slice(0, 512);
+            // Audit AMEL-25 : vignette extraite du fichier PAR LE CLIENT (il
+            // décompresse déjà pour lire, le serveur n'a pas à le refaire).
+            // On ne fait donc que valider ce qui arrive — c'est une donnée
+            // fournie par l'utilisateur, elle finira dans un attribut `src` :
+            //   · uniquement une data-URI d'image, jamais une URL distante
+            //     (sinon on offrirait un traceur logé dans la bibliothèque) ;
+            //   · bornée en taille, pour qu'un envoi malveillant ne remplisse
+            //     pas la base à coups de MEDIUMTEXT.
+            const cover = validerVignette(req.body.cover);
             const [r] = await pool.query(
-                'INSERT INTO local_imports (user_id, title, type, filename, size) VALUES (?, ?, ?, ?, ?)',
-                [req.user.id, title, type, req.file.filename, req.file.size]
+                'INSERT INTO local_imports (user_id, title, type, filename, size, cover) VALUES (?, ?, ?, ?, ?, ?)',
+                [req.user.id, title, type, req.file.filename, req.file.size, cover]
             );
-            res.json({ id: r.insertId, title, type, size: req.file.size });
+            res.json({ id: r.insertId, title, type, size: req.file.size, cover });
         } catch (e) {
             fs.unlink(req.file.path, () => {});   // rollback du fichier si l'insert échoue
             next(e);
@@ -79,10 +139,26 @@ function importLocal(req, res, next) {
 async function listLocal(req, res, next) {
     try {
         const [rows] = await pool.query(
-            'SELECT id, title, type, size, created_at FROM local_imports WHERE user_id = ? ORDER BY created_at DESC',
+            'SELECT id, title, type, size, cover, created_at FROM local_imports WHERE user_id = ? ORDER BY created_at DESC',
             [req.user.id]
         );
-        res.json(rows.map(r => ({ id: r.id, title: r.title, type: r.type, size: r.size, createdAt: r.created_at })));
+        const items = rows.map(r => ({
+            id: r.id, title: r.title, type: r.type, size: r.size,
+            cover: r.cover || null, createdAt: r.created_at,
+        }));
+        // Audit AMEL-105 : le quota n'existait que dans le message de REFUS.
+        // L'utilisateur téléversait donc un fichier de 300 Mo pour apprendre à
+        // la fin qu'il n'y avait plus de place. L'état est renvoyé avec la
+        // liste — aucun appel supplémentaire, la page l'affiche avant l'import.
+        const utilise = items.reduce((n, it) => n + (+it.size || 0), 0);
+        res.json({
+            items,
+            quota: {
+                utilise,
+                total: QUOTA_MB * 1024 * 1024,
+                maxFichier: 300 * 1024 * 1024,
+            },
+        });
     } catch (e) { next(e); }
 }
 

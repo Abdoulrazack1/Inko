@@ -30,7 +30,14 @@ function errorHandler(err, _req, res, _next) {
     // Audit S11 : ne jamais renvoyer err.message brut sur un 5xx en prod —
     // fuite potentielle de détails internes (chemins, SQL, libs). Les 4xx
     // attendus (validation, 404…) gardent leur message utile au client.
-    const exposeMessage = status < 500 || process.env.NODE_ENV !== 'production';
+    //
+    // Exception : les défaillances AMONT (err.upstream, posé par
+    // lib/source-health) portent un message écrit pour l'utilisateur
+    // (« Source momentanément limitée… ») et ne décrivent rien de notre
+    // infrastructure. Le masquer laisserait « Erreur interne du serveur » là où
+    // le problème vient d'un site tiers — exactement le contresens que le
+    // passage en 502/504 cherche à corriger.
+    const exposeMessage = status < 500 || err.upstream || process.env.NODE_ENV !== 'production';
     res.status(status).json({
         error: exposeMessage ? (err.message || 'Erreur interne') : 'Erreur interne du serveur',
         code:  err.code,

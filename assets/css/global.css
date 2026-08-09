@@ -5,8 +5,18 @@
 
 /* Typographie §13 — 3 rôles, aucun par défaut générique :
    Display = grotesque condensée anguleuse ; Lecture = serif à faible contraste
-   pensée écran ; Utilitaire = sans-serif neutre à chasse resserrée. */
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Bitter:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+   pensée écran ; Utilitaire = sans-serif neutre à chasse resserrée.
+
+   Audit PERF-07 : cette ligne était un @import vers fonts.googleapis.com.
+   Trois défauts cumulés — un appel à Google sur CHAQUE page alors que le projet
+   annonce « local d'abord » et pose <meta referrer="no-referrer"> ; une
+   typographie perdue hors-ligne (le service worker précache global.css, mais
+   l'@import allait chercher la feuille chez Google à l'exécution) ; et des
+   requêtes SÉRIALISÉES sur le chemin critique (global.css → css2 → woff2).
+   Les polices sont désormais dans assets/font/ et déclarées dans fonts.css,
+   importé ici — un @import local ne sort pas sur le réseau.
+   Régénérer avec : npm run fetch-fonts */
+@import url('./fonts.css');
 
 /* ── Variables — Refonte §13 (édition « Washi », claire, comme référence) ──── */
 :root {
@@ -26,11 +36,26 @@
   --border2:     rgba(28,27,25,0.22);
   --text:        #1c1b19;   /* Encre sur Washi */
   --text2:       #4c4940;
-  --text3:       #6d685b;
+  /* Audit A11Y-02 : #6d685b sur --bg2 donnait 4.37:1 — juste sous le seuil AA
+     de 4.5:1, et c'était la cause la plus répandue (34 occurrences : années des
+     cartes, sous-titres, pied de page). Assombri jusqu'à passer. */
+  --text3:       #5b5649;
   --green:       #3f7d4e;
   --blue:        #3d5170;
   --red:         #a83232;
   --amber:       #b5761b;
+
+  /* Audit A11Y-02 — variantes pour TEXTE de petite taille.
+     --accent (#c1531b) et --green sont calibrés pour des aplats et des bordures.
+     Posés en texte de 10-13px sur fond clair, ils tombaient entre 3.29:1 et
+     3.93:1. Ces variantes ne servent QUE au texte ; les aplats gardent les
+     couleurs de marque. */
+  --accent-text: #9d3f11;
+  --green-text:  #2c6339;
+  --blue-text:   #2c4360;
+  --amber-text:  #7a4f0c;
+  --red-text:    #8f2626;
+  --badge-grey:  #4f545c;
 
   /* Accent FONCTIONNEL, jamais un seul accent de marque dominant (§13.2) :
      défaut = Kakishibu (manga) ; un contexte roman le bascule sur Ai. Tout le
@@ -90,7 +115,19 @@ html[data-theme="dark"] {
   --border2:     rgba(233,231,224,0.17);
   --text:        #e9e7e0;   /* Encre sur Sumi */
   --text2:       #b2afa5;
-  --text3:       #8b877c;
+  /* Audit QUAL-05 : #8b877c ne tenait 4,5:1 que sur le fond le plus sombre —
+     4,19 sur --bg4, où il sert justement de fond de pastille (versions,
+     langues, compteurs). Mesuré par axe-core, pas à l'œil : c'est cette
+     dépendance au fond qui rendait le défaut invisible en relecture.
+     #9d9990 passe partout (5,30 sur --bg4, 5,84 sur --bg3). */
+  --text3:       #9d9990;
+  /* Sur fond sombre le contraste se gagne en éclaircissant (audit A11Y-02). */
+  --accent-text: #f08a4b;
+  --green-text:  #7ee2a0;
+  --blue-text:   #93bdff;
+  --amber-text:  #ffc766;
+  --red-text:    #ff9d9d;
+  --badge-grey:  #c3c8d0;
 }
 html[data-theme="dark"] body { background: var(--bg); color: var(--text); }
 
@@ -105,11 +142,80 @@ html[data-theme="amoled"] {
   --text:    #e9e7e0;
   --text2:   #b2afa5;
   --text3:   #8b877c;
+  --accent-text: #f08a4b;
+  --green-text:  #7ee2a0;
+  --blue-text:   #93bdff;
+  --amber-text:  #ffc766;
+  --red-text:    #ff9d9d;
+  --badge-grey:  #c3c8d0;
 }
 html[data-theme="amoled"] body { background: #000; }
 
 /* Thème clair explicite = édition Washi (identique à :root). */
 html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c7c2b4; }
+
+/* ── Thème à contraste renforcé (audit AMEL-83) ──────────────
+   A11Y-02 avait ramené le thème clair au-dessus du seuil AA (4.5:1). AA reste
+   un PLANCHER : il suffit pour lire confortablement, pas pour une basse vision,
+   un écran en plein soleil ou une dalle mal calibrée. Ce thème vise AAA (7:1)
+   sur tout le texte, et supprime les nuances qui reposent sur une difference
+   de luminosite faible.
+
+   Il ne se contente pas de « foncer le texte » : les bordures deviennent
+   opaques et les surfaces se distinguent franchement, sinon les cartes se
+   confondent avec le fond et la mise en page disparait — un contraste de
+   texte parfait sur une structure invisible ne rend pas la page lisible. */
+html[data-theme="contrast"] {
+  --bg:          #ffffff;
+  --bg2:         #f2f2f2;
+  --bg3:         #e4e4e4;
+  --bg4:         #d2d2d2;
+  --border:      rgba(0,0,0,0.45);
+  --border2:     rgba(0,0,0,0.65);
+  --text:        #000000;   /* 21:1 sur --bg */
+  --text2:       #1f1f1f;   /* 16.1:1 */
+  --text3:       #3d3d3d;   /* 9.7:1 — le plus clair reste au-dessus de AAA */
+
+  /* Couleurs fonctionnelles assombries jusqu'a AAA sur fond blanc. Les
+     variantes `-text` ET les couleurs d'aplat sont alignees ici : sur ce
+     theme, un aplat sert aussi de fond a du texte blanc. */
+  --kakishibu:   #8a3a11;
+  --ai:          #23324a;
+  --hanko:       #8a1f1f;
+  --accent-text: #7a3310;   /* 7.6:1 */
+  --green-text:  #1b4a26;
+  --blue-text:   #1c2c44;
+  --amber-text:  #5c3a06;
+  --red-text:    #7a1c1c;
+  --green:       #1b4a26;
+  --blue:        #1c2c44;
+  --red:         #8a1f1f;
+  --amber:       #5c3a06;
+  --badge-grey:  #333840;
+}
+/* Le focus doit rester visible meme sur un aplat sombre : anneau double,
+   clair a l'interieur, sombre a l'exterieur. */
+html[data-theme="contrast"] :focus-visible {
+  outline: 3px solid #000 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 5px #fff !important;
+}
+/* Aucun texte sous 12 px : la taille EST un facteur de lisibilite, au meme
+   titre que le contraste. */
+html[data-theme="contrast"] body { font-size: 15px; }
+html[data-theme="contrast"] * { min-height: 0; }
+html[data-theme="contrast"] [style*="font-size:9"],
+html[data-theme="contrast"] [style*="font-size:10"],
+html[data-theme="contrast"] [style*="font-size:11"] { font-size: 12px !important; }
+
+/* Deux aplats posent leur couleur EN DUR, hors variables : la pastille de
+   notifications (#b91c1c, ~5,9:1 avec du blanc) et le bouton AniList
+   (#0369a1, ~6,4:1). Tous deux passent AA et echouent AAA — c'est
+   precisement ce que le test de ce theme a releve. On les assombrit ici
+   plutot que partout : sur les autres themes, AA reste la cible. */
+html[data-theme="contrast"] #notifBadge { background: #7a1010 !important; color: #fff !important; }
+html[data-theme="contrast"] .conn-btn-anilist { background: #024a6e; color: #fff; }
+html[data-theme="contrast"] .conn-btn-anilist:hover { background: #013852; }
 
 /* ── Reset ─────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -299,6 +405,38 @@ body.incognito-on::before {
   background: repeating-linear-gradient(90deg, var(--orange) 0 14px, transparent 14px 28px);
   z-index: 9999; pointer-events: none; opacity: .85;
 }
+/* Bandeau de lecture privée (audit AMEL-106).
+   En bas et non en haut : le haut de page porte déjà l'en-tête, et un bandeau
+   qui pousse le contenu à chaque activation ferait sauter la mise en page.
+   Au-dessus du dock musique (z-index 9000) mais sous les modales. */
+#incognitoBar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: 96px; z-index: 9600;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  max-width: min(680px, calc(100vw - 24px));
+  padding: 9px 14px;
+  background: var(--bg2); border: 1px solid var(--orange);
+  border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.4);
+  font-size: 12.5px; color: var(--text2);
+}
+#incognitoBar .inco-pastille {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--orange); flex: 0 0 auto;
+}
+#incognitoBar .inco-texte { font-weight: 600; color: var(--text); }
+#incognitoBar .inco-detail { color: var(--text3); font-size: 11.5px; }
+#incognitoBar .inco-off {
+  background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+  border-radius: 999px; padding: 4px 11px; font-size: 11.5px; font-family: inherit; cursor: pointer;
+}
+#incognitoBar .inco-off:hover { border-color: var(--orange); }
+#incognitoBar .inco-off:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Sous 560 px le détail passe à la ligne plutôt que d'écraser le bouton. */
+@media (max-width: 560px) {
+  #incognitoBar { bottom: 84px; border-radius: 14px; }
+  #incognitoBar .inco-detail { flex-basis: 100%; }
+}
+
 #btnRefresh.spinning svg { animation: inko-spin .8s linear infinite; }
 @keyframes inko-spin { to { transform: rotate(360deg); } }
 .header-user {
@@ -317,7 +455,7 @@ body.incognito-on::before {
 }
 .header-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .user-label { line-height: 1; }
-.user-sublabel { font-size: 10px; color: var(--orange); display: block; }
+.user-sublabel { font-size: 10px; color: var(--accent-text); display: block; }   /* audit A11Y-02 : 3.29:1 avant */
 .btn-connect {
   height: 34px; padding: 0 16px;
   background: var(--orange); color: #fff;
@@ -424,12 +562,12 @@ body.incognito-on::before {
   font-size: 10px; font-weight: 700; letter-spacing: .04em;
   text-transform: uppercase; line-height: 1.6;
 }
-.badge-hot    { background: rgba(239,68,68,.15); color: var(--red); }
+.badge-hot    { background: rgba(239,68,68,.15); color: var(--red-text); }
 .badge-new    { background: rgba(34,197,94,.15); color: var(--green); }
 .badge-exclu  { background: rgba(59,130,246,.15); color: var(--blue); }
 .badge-top    { background: rgba(255,107,26,.15); color: var(--orange); }
 .badge-orange { background: var(--orange); color: #fff; }
-.badge-termine { background: rgba(107,114,128,.2); color: #9ca3af; }
+.badge-termine { background: rgba(107,114,128,.2); color: var(--badge-grey); }   /* audit A11Y-02 : #9ca3af donnait 1.60:1 */
 .badge-cours  { background: rgba(34,197,94,.1); color: var(--green); }
 .badge-pause  { background: rgba(245,158,11,.1); color: var(--amber); }
 
@@ -450,7 +588,8 @@ body.incognito-on::before {
 .section-title-icon { color: var(--orange); font-size: 16px; }
 .section-subtitle { font-size: 12px; color: var(--text2); margin-top: 2px; }
 .section-link {
-  font-size: 12.5px; color: var(--orange); font-weight: 500;
+  /* audit A11Y-02 : l'accent de marque en texte 12.5px donnait 3.93:1 */
+  font-size: 12.5px; color: var(--accent-text); font-weight: 500;
   display: flex; align-items: center; gap: 4px;
   transition: opacity var(--transition);
 }
@@ -548,6 +687,14 @@ body.incognito-on::before {
 
 /* Buttons */
 .btn {
+  /* Audit QUAL-05 : `.btn` ne déclarait AUCUNE couleur de texte. Les boutons
+     portant une variante (btn-primary, btn-secondary, btn-ghost) en héritaient
+     une ; les autres — `class="btn btn-sm"` seul, comme les trois actions de
+     notifications.html — retombaient sur le noir par défaut des boutons du
+     navigateur. Sur l'édition sombre : noir sur #111113, soit 1,11:1. Un
+     bouton littéralement illisible, et invisible en relecture puisque le
+     défaut ne vient pas d'une règle écrite mais d'une règle ABSENTE. */
+  color: var(--text);
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   padding: 0 17px; height: 38px;
   border-radius: var(--radius3); font-size: 13.5px; font-weight: 600;
@@ -583,7 +730,10 @@ body.incognito-on::before {
 .tag:hover, .tag.active {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-  color: var(--accent);
+  /* Audit QUAL-05 : `color: var(--accent)` donnait 3,67:1 — l'accent est une
+     couleur de REMPLISSAGE (elle porte du texte blanc), pas une couleur de
+     texte sur fond sombre. On l'éclaircit pour cet usage précis. */
+  color: color-mix(in srgb, var(--accent) 62%, var(--text));
 }
 .tag-orange {
   background: var(--accent); border-color: var(--accent); color: #fff;
@@ -718,10 +868,13 @@ a[data-nsfw] .manga-card-cover::after,
   display: inline-flex; align-items: center; gap: 4px;
 }
 .manga-card-meta .mc-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-.mc-status.mc-ongoing   { color: var(--green); background: rgba(34,197,94,.12); }
-.mc-status.mc-completed  { color: var(--blue); background: rgba(59,130,246,.12); }
-.mc-status.mc-hiatus     { color: var(--amber); background: rgba(245,158,11,.12); }
-.mc-status.mc-cancelled  { color: var(--red); background: rgba(239,68,68,.12); }
+.mc-status.mc-ongoing   { color: var(--green-text); background: rgba(34,197,94,.12); }   /* audit A11Y-02 : 3.58:1 avant */
+/* audit A11Y-02 : ces trois-là restaient sous le seuil en édition sombre —
+   du bleu/rouge/ambre calibrés pour du texte sur fond clair, posés en 10px
+   sur fond sombre (« Terminé » mesurait 1.93:1). */
+.mc-status.mc-completed  { color: var(--blue-text); background: rgba(59,130,246,.12); }
+.mc-status.mc-hiatus     { color: var(--amber-text); background: rgba(245,158,11,.12); }
+.mc-status.mc-cancelled  { color: var(--red-text); background: rgba(239,68,68,.12); }
 
 /* ── Comptes connectés (AniList) ───────────────── */
 .conn-list { display: flex; flex-direction: column; gap: 10px; }
@@ -747,9 +900,9 @@ a[data-nsfw] .manga-card-cover::after,
 .conn-pill.ok { color: var(--green); background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); }
 .conn-pill.muted { color: var(--text3); }
 .conn-action { flex-shrink: 0; }
-.conn-btn-anilist { background: #02a9ff; color: #fff; }
+.conn-btn-anilist { background: #0369a1; color: #fff; }  /* audit QUAL-05 : #02a9ff donnait 2,59:1 avec du blanc */
 .conn-btn-anilist:hover { background: #2bb8ff; }
-.conn-btn-danger { color: var(--red); border: 1px solid rgba(239,68,68,.3); }
+.conn-btn-danger { color: var(--red-text); border: 1px solid rgba(239,68,68,.3); }
 .conn-btn-danger:hover { background: rgba(239,68,68,.1); }
 @media (max-width: 560px) {
   .conn-card { flex-wrap: wrap; }
@@ -951,3 +1104,74 @@ a[data-nsfw] .manga-card-cover::after,
   transition: top 0.15s ease;
 }
 .skip-link:focus { top: 12px; }
+
+/* ── Menu « reprendre » multi-séries (audit AMEL-30) ──
+   Le bouton d'en-tête n'ouvrait que la dernière lecture ; on lit souvent
+   plusieurs séries en parallèle. */
+.mh-continue-menu {
+  position: fixed; z-index: 9500;
+  width: min(310px, calc(100vw - 16px));
+  padding: 6px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--radius); box-shadow: var(--shadow-3);
+}
+.mh-cm-item {
+  display: flex; gap: 10px; align-items: center;
+  padding: 7px 8px; border-radius: var(--radius2);
+  color: inherit; text-decoration: none;
+}
+.mh-cm-item:hover, .mh-cm-item:focus-visible { background: var(--bg3); }
+.mh-cm-item img {
+  width: 34px; height: 46px; flex: 0 0 auto;
+  object-fit: cover; border-radius: 5px; background: var(--bg4);
+}
+.mh-cm-txt { min-width: 0; }
+.mh-cm-title {
+  display: block; font-size: 12.5px; font-weight: 600; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mh-cm-sub { display: block; font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* ── Ajout à une liste depuis une carte (audit AMEL-39) ──
+   Placé sous le cœur, même gabarit : deux actions de carte de même nature
+   doivent se ressembler et s'aligner. */
+.card-list-btn {
+  position: absolute; top: 44px; right: 8px;
+  width: 30px; height: 30px;
+  border-radius: 50%; border: none;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 18px; line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+  backdrop-filter: blur(6px);
+  transition: background .18s ease, transform .18s ease;
+}
+.card-list-btn:hover { background: rgba(0,0,0,0.75); transform: scale(1.08); }
+.manga-card .card-list-btn { z-index: 3; }
+
+/* ── Barre d'annulation (audit AMEL-40) ──
+   Persistante et non un toast de trois secondes : le temps de réaliser qu'on
+   s'est trompé dépasse largement la durée d'un message qui s'efface. */
+.undo-bar {
+  /* Le dock musical est fixe en bas de TOUTES les pages (#inko-music, bas de
+     page, z-index 9000) : une barre a 24px du bord se retrouvait dessous et
+     son bouton devenait incliquable. On passe au-dessus, et plus haut. */
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);
+  z-index: 9600; display: flex; align-items: center; gap: 12px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 11px 14px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--radius); box-shadow: var(--shadow-3);
+  font-size: 13px; color: var(--text);
+}
+.undo-bar-action {
+  flex: 0 0 auto;
+  background: var(--accent); color: #fff;
+  border-radius: 16px; padding: 5px 14px;
+  font-size: 12.5px; font-weight: 700;
+}
+.undo-bar-action:disabled { opacity: .6; cursor: default; }
+.undo-bar-close { flex: 0 0 auto; color: var(--text3); font-size: 15px; padding: 2px 4px; }
+.undo-bar-close:hover { color: var(--text); }

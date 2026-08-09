@@ -212,6 +212,50 @@
         },
 
         async count() { try { return (await allMeta()).length; } catch (e) { return 0; } },
+
+        // ── Poids reel par serie (audit AMEL-78) ─────────────
+        // `navigator.storage.estimate()` ne donne qu'un TOTAL : on savait que
+        // 6 Mo etaient pris, jamais PAR QUOI. Sans cette repartition, « liberer
+        // de la place » revient a supprimer au hasard.
+        //
+        // La taille se mesure sur les reponses reellement en cache : le nombre
+        // de pages ne dit rien du poids (une planche couleur pese dix fois une
+        // page de texte). On lit `content-length` quand il est la, sinon on
+        // mesure le blob. Borne a 24 chapitres par serie : au-dela l'estimation
+        // est deja bonne et lire 500 blobs figerait l'onglet.
+        async sizeByManga() {
+            if (!('caches' in window)) return [];
+            const cache = await caches.open(CACHE);
+            const groups = await this.byManga();
+            const out = [];
+            for (const g of groups) {
+                let octets = 0, mesures = 0;
+                const echantillon = g.chapters.slice(0, 24);
+                for (const c of echantillon) {
+                    for (const url of (c.pages || [])) {
+                        try {
+                            const r = await cache.match(url);
+                            if (!r) continue;
+                            const cl = parseInt(r.headers.get('content-length') || '', 10);
+                            octets += Number.isFinite(cl) && cl > 0 ? cl : (await r.clone().blob()).size;
+                            mesures++;
+                        } catch (e) { /* entree illisible : ignoree */ }
+                    }
+                }
+                // Extrapolation quand on n'a mesure qu'une partie des chapitres :
+                // annoncer le poids de l'echantillon serait faux, et sous-estimer
+                // fait supprimer la mauvaise serie.
+                const facteur = echantillon.length ? g.chapters.length / echantillon.length : 1;
+                out.push({
+                    mangaId: g.mangaId, title: g.title, cover: g.cover, source: g.source,
+                    chapters: g.chapters.length,
+                    bytes: Math.round(octets * facteur),
+                    estimated: facteur > 1,
+                    measured: mesures,
+                });
+            }
+            return out.sort((a, b) => b.bytes - a.bytes);
+        },
     };
 
     window.Downloads = Downloads;

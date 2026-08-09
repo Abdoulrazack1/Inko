@@ -5,6 +5,17 @@
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inko — Lecture</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Lecteur pour tes fichiers importés (EPUB, PDF, CBZ).">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Lecture">
+    <meta property="og:description" content="Lecteur pour tes fichiers importés (EPUB, PDF, CBZ).">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Lecture">
+    <meta name="twitter:description" content="Lecteur pour tes fichiers importés (EPUB, PDF, CBZ).">
+    <!-- meta:auto -->
   <meta name="theme-color" content="#0d0d0f">
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
   <link rel="stylesheet" href="assets/css/global.css">
@@ -34,7 +45,9 @@
   </div>
   <div id="lrBody"><div class="lr-msg"><div class="spinner-inline"></div></div></div>
   <script src="assets/vendor/jszip.min.js"></script>
-  <script src="assets/vendor/pdf.min.js"></script>
+  <!-- Audit PERF-06 : pdf.min.js (313 Ko) était chargé ici pour TOUT fichier
+       ouvert, y compris les CBZ et les EPUB qui n'en ont pas besoin.
+       localreader.js le charge maintenant au moment d'ouvrir un PDF. -->
   <script src="assets/js/api.js"></script>
   <script src="assets/js/i18n.js"></script>
   <script src="assets/js/storage.js"></script>

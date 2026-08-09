@@ -43,11 +43,15 @@ before(async () => {
             connectTimeout: 2500,
         });
         await admin.query('DROP DATABASE IF EXISTS inko_test');
-        // Schéma officiel, redirigé vers la base jetable
-        const schema = fs.readFileSync(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8')
-            .replace('CREATE DATABASE IF NOT EXISTS inko', 'CREATE DATABASE IF NOT EXISTS inko_test')
-            .replace('USE inko;', 'USE inko_test;');
-        await admin.query(schema);
+        // schema.sql ne choisit plus la base : il portait `CREATE DATABASE inko;
+        // USE inko;` en dur, et ce test le réécrivait au vol pour le détourner
+        // vers `inko_test`. Deux remplacements de chaîne qui devaient rester
+        // synchronisés avec un fichier SQL — c'est ce couplage qui a cassé le
+        // jour où ces lignes ont disparu. La base est désormais créée et
+        // sélectionnée ici, comme le fait db/init.js en vrai.
+        await admin.query('CREATE DATABASE inko_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+        await admin.query('USE inko_test');
+        await admin.query(fs.readFileSync(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8'));
         await admin.end();
 
         ({ pool } = require('../config/db'));
@@ -58,6 +62,15 @@ before(async () => {
         Profile = require('../controllers/profile.controller');
         available = true;
     } catch (e) {
+        // Audit QUAL-01 : ces suites étaient « vertes par abstention » — elles
+        // se sautaient en silence et la CI ne déclarait aucun service MySQL,
+        // donc elles n'ont jamais tourné. En CI (REQUIRE_DB_TESTS=1) une base
+        // injoignable est désormais un ÉCHEC, pas un saut : sans cela, la
+        // régression peut revenir sans que rien ne l'indique.
+        if (process.env.REQUIRE_DB_TESTS === '1') {
+            throw new Error(
+                'MySQL est requis pour les tests d\'intégration (REQUIRE_DB_TESTS=1) : ' + e.message);
+        }
         console.warn('[integration] MySQL indisponible — tests sautés :', e.message);
     }
 });
@@ -68,7 +81,9 @@ after(async () => {
 
 // Petit helper : crée un compte et renvoie l'objet user
 async function createUser(username, email) {
-    const { req, res } = rr({ body: { username, email, password: 'motdepasse1' } });
+    // « motdepasse1 » est desormais refuse par la politique (audit AMEL-70) —
+    // c'est precisement ce qu'on lui demande de faire.
+    const { req, res } = rr({ body: { username, email, password: 'phrase de test longue' } });
     await Auth.register(req, res, nextThrow);
     assert.equal(res.statusCode, 200, JSON.stringify(res.body));
     return res.body.user;
@@ -80,14 +95,14 @@ test('auth.register : crée un compte et rejette les doublons d\'email', async (
     assert.ok(u.id > 0);
     assert.equal(u.username, 'Kaito Test');
 
-    const { req, res } = rr({ body: { username: 'Autre', email: 'kaito@test.local', password: 'motdepasse1' } });
+    const { req, res } = rr({ body: { username: 'Autre', email: 'kaito@test.local', password: 'phrase de test longue' } });
     await Auth.register(req, res, nextThrow);
     assert.equal(res.statusCode, 409);
 });
 
 test('auth.register : rejette un pseudo à caractères dangereux (audit S3)', async (t) => {
     if (!available) return t.skip('MySQL indisponible');
-    const { req, res } = rr({ body: { username: '</textarea><img src=x>', email: 'xss@test.local', password: 'motdepasse1' } });
+    const { req, res } = rr({ body: { username: '</textarea><img src=x>', email: 'xss@test.local', password: 'phrase de test longue' } });
     await Auth.register(req, res, nextThrow);
     assert.equal(res.statusCode, 400);
     assert.match(res.body.error, /invalide/i);
@@ -95,7 +110,7 @@ test('auth.register : rejette un pseudo à caractères dangereux (audit S3)', as
 
 test('auth.login : accepte le bon mot de passe, refuse le mauvais', async (t) => {
     if (!available) return t.skip('MySQL indisponible');
-    const ok = rr({ body: { email: 'kaito@test.local', password: 'motdepasse1' } });
+    const ok = rr({ body: { email: 'kaito@test.local', password: 'phrase de test longue' } });
     await Auth.login(ok.req, ok.res, nextThrow);
     assert.equal(ok.res.statusCode, 200);
     assert.ok(ok.res.body.token);
@@ -178,6 +193,12 @@ test('user.importData : import batché, compteurs corrects (audit B3)', async (t
         readChapters: [
             { manga_id: 'a', chapter_id: 'ch1', chapter_number: 1 },
         ],
+        // Audit DB-04 : 9 est hors barème. Avant, l'import l'écrivait tel quel ;
+        // depuis la contrainte CHECK en base, la ligne serait rejetée EN SILENCE
+        // et la note perdue. L'import borne donc la valeur.
+        // Audit AMEL-47 : ce fichier ne porte pas `ratingScale`, il vient donc
+        // d'avant la bascule — ses notes sont lues sur 5 et doublées. 9 double
+        // à 18, hors barème dans les deux échelles : la borne haute vaut 10.
         ratings: [{ manga_id: 'a', rating: 9, review: 'excellent' }],
     } });
     await User.importData(req, res, nextThrow);
@@ -187,7 +208,738 @@ test('user.importData : import batché, compteurs corrects (audit B3)', async (t
     assert.equal(res.body.imported.readChapters, 1);
     assert.equal(res.body.imported.ratings, 1);
 
+    // La note hors barème doit être ramenée dans les bornes, pas perdue
+    const [[rated]] = await pool.query(
+        'SELECT rating FROM ratings WHERE user_id = ? AND manga_id = ?', [u.id, 'a']);
+    assert.equal(rated.rating, 10, 'la note hors barème doit être bornée, pas rejetée');
+
     const favs = rr({ user: u });
     await User.getFavorites(favs.req, favs.res, nextThrow);
     assert.equal(favs.res.body.length, 3);
+});
+
+// ── Commentaires : portée (audit AMEL-50) ────────────────────
+// La promesse « ton avis reste privé » était fausse : /comments/:mangaId
+// servait tout le monde, y compris un visiteur non connecté. Le filtre est
+// désormais en SQL — ces tests exercent les trois points de vue.
+test('user.getComments : le privé ne sort pas, l\'anonyme ne voit que le public (audit AMEL-50)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const alice = await createUser('vis_alice', 'vis_alice@test.local');
+    const bob   = await createUser('vis_bob', 'vis_bob@test.local');
+    const M = 'oeuvre-portees';
+
+    for (const [texte, portee] of [['prive', 'private'], ['membres', 'instance'], ['ouvert', 'public']]) {
+        const { req, res } = rr({ user: alice, params: { mangaId: M }, body: { text: texte, visibility: portee } });
+        await User.addComment(req, res, nextThrow);
+        assert.equal(res.statusCode, 200, `publication ${portee}`);
+    }
+
+    const vus = async (user) => {
+        const { req, res } = rr({ user, params: { mangaId: M }, query: {} });
+        await User.getComments(req, res, nextThrow);
+        return res.body.items.map(c => c.text).sort();
+    };
+    assert.deepEqual(await vus(alice), ['membres', 'ouvert', 'prive'], 'son auteur voit ses trois portées');
+    assert.deepEqual(await vus(bob),   ['membres', 'ouvert'], 'un autre membre ne voit pas le privé');
+    assert.deepEqual(await vus(null),  ['ouvert'], 'un anonyme ne voit que le public');
+
+    // `total` doit suivre le même filtre, sinon la pagination annonce des
+    // commentaires que l'appelant ne recevra jamais.
+    const { req, res } = rr({ params: { mangaId: M }, query: {} });
+    await User.getComments(req, res, nextThrow);
+    assert.equal(res.body.total, 1, 'le total est celui du point de vue, pas celui de la table');
+});
+
+test('user.addComment : portée invalide refusée, réponse ramenée à celle du parent (audit AMEL-50)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('vis_clamp', 'vis_clamp@test.local');
+    const M = 'oeuvre-clamp';
+
+    const bad = rr({ user: u, params: { mangaId: M }, body: { text: 'x', visibility: 'monde-entier' } });
+    await User.addComment(bad.req, bad.res, nextThrow);
+    assert.equal(bad.res.statusCode, 400, 'une portée inconnue ne doit pas retomber sur le défaut ouvert');
+
+    const parent = rr({ user: u, params: { mangaId: M }, body: { text: 'racine privee', visibility: 'private' } });
+    await User.addComment(parent.req, parent.res, nextThrow);
+    const rep = rr({ user: u, params: { mangaId: M },
+        body: { text: 'reponse', parentId: parent.res.body.id, visibility: 'public' } });
+    await User.addComment(rep.req, rep.res, nextThrow);
+
+    const [[row]] = await pool.query('SELECT visibility FROM comments WHERE id = ?', [rep.res.body.id]);
+    assert.equal(row.visibility, 'private',
+        'une réponse ne peut pas être plus visible que ce qu\'elle cite');
+});
+
+test('user.addComment : spoiler et ancrage chapitre persistés et filtrables (audit AMEL-51/52)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('vis_chap', 'vis_chap@test.local');
+    const M = 'oeuvre-ancrage';
+
+    const a = rr({ user: u, params: { mangaId: M }, body: { text: 'sur le ch. 3', chapterId: 'ch3', spoiler: true } });
+    await User.addComment(a.req, a.res, nextThrow);
+    const b = rr({ user: u, params: { mangaId: M }, body: { text: 'sur toute la serie' } });
+    await User.addComment(b.req, b.res, nextThrow);
+
+    const tout = rr({ user: u, params: { mangaId: M }, query: {} });
+    await User.getComments(tout.req, tout.res, nextThrow);
+    assert.equal(tout.res.body.items.length, 2);
+    const ancre = tout.res.body.items.find(c => c.chapterId === 'ch3');
+    assert.equal(ancre.spoiler, true, 'le marqueur de spoiler revient au client');
+
+    const filtre = rr({ user: u, params: { mangaId: M }, query: { chapterId: 'ch3' } });
+    await User.getComments(filtre.req, filtre.res, nextThrow);
+    assert.deepEqual(filtre.res.body.items.map(c => c.text), ['sur le ch. 3']);
+    assert.equal(filtre.res.body.total, 1, 'le total suit le filtre de chapitre');
+});
+
+// ── Notes : aller-retour export/import (audit AMEL-47) ───────
+test('export/import : l\'échelle des notes survit à l\'aller-retour (audit AMEL-47)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('scale_u', 'scale_u@test.local');
+    await pool.query('INSERT INTO ratings (user_id, manga_id, rating) VALUES (?, ?, ?)', [u.id, 'x', 9]);
+
+    const exp = rr({ user: u });
+    await User.exportData(exp.req, exp.res, nextThrow);
+    assert.equal(exp.res.body.ratingScale, 10, 'l\'export annonce son échelle');
+    assert.equal(exp.res.body.ratings.find(r => r.manga_id === 'x').rating, 9);
+
+    // Réimport dans un compte neuf : la note doit rester 9, pas retomber à 5.
+    const v = await createUser('scale_v', 'scale_v@test.local');
+    const imp = rr({ user: v, body: exp.res.body });
+    await User.importData(imp.req, imp.res, nextThrow);
+    const [[apres]] = await pool.query('SELECT rating FROM ratings WHERE user_id = ? AND manga_id = ?', [v.id, 'x']);
+    assert.equal(apres.rating, 9, 'réimporter sa sauvegarde ne doit pas diviser ses notes par deux');
+
+    // Fichier d'AVANT la bascule (pas de ratingScale) : notes sur 5, doublées.
+    const w = await createUser('scale_w', 'scale_w@test.local');
+    const vieux = rr({ user: w, body: { ratings: [{ manga_id: 'y', rating: 4 }] } });
+    await User.importData(vieux.req, vieux.res, nextThrow);
+    const [[conv]] = await pool.query('SELECT rating FROM ratings WHERE user_id = ? AND manga_id = ?', [w.id, 'y']);
+    assert.equal(conv.rating, 8, 'un ancien fichier /5 est converti, comme l\'a fait la migration 12');
+});
+
+// ── Notifications (audit AMEL-53/54/55/56) ───────────────────
+test('createNotification : regroupe par œuvre au lieu d\'empiler (audit AMEL-53)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const { createNotification } = require('../lib/notify');
+    const u = await createUser('notif_group', 'notif_group@test.local');
+
+    for (const n of [12, 13, 14]) {
+        await createNotification(u.id, {
+            type: 'new_chapter', title: 'Nouveau chapitre',
+            body: `Blue Lock · Chap. ${n}`, link: `/chapitre.html?manga=blue-lock&chapter=c${n}`,
+            groupKey: 'blue-lock',
+        });
+    }
+    const [lignes] = await pool.query(
+        'SELECT title, body, group_count FROM notifications WHERE user_id = ? AND type = ?',
+        [u.id, 'new_chapter']);
+    assert.equal(lignes.length, 1, 'trois parutions d\'une même série tiennent sur une ligne');
+    assert.equal(lignes[0].group_count, 3, 'le compte dit combien de parutions sont recouvertes');
+
+    // Une série différente ne doit PAS être absorbée
+    await createNotification(u.id, {
+        type: 'new_chapter', title: 'Nouveau chapitre', body: 'Autre · Chap. 1',
+        link: '/chapitre.html?manga=autre&chapter=c1', groupKey: 'autre',
+    });
+    const [apres] = await pool.query(
+        'SELECT COUNT(*) AS n FROM notifications WHERE user_id = ?', [u.id]);
+    assert.equal(apres[0].n, 2, 'chaque série a sa propre ligne');
+
+    // Une notification LUE n'est jamais réécrite : la rouvrir en la modifiant
+    // ferait disparaître ce que l'utilisateur a consciemment traité.
+    await pool.query('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND group_key = ?', [u.id, 'blue-lock']);
+    await createNotification(u.id, {
+        type: 'new_chapter', title: 'Nouveau chapitre', body: 'Blue Lock · Chap. 15',
+        link: '/chapitre.html?manga=blue-lock&chapter=c15', groupKey: 'blue-lock',
+    });
+    const [[bl]] = await pool.query(
+        'SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND group_key = ?', [u.id, 'blue-lock']);
+    assert.equal(bl.n, 2, 'une notification déjà lue n\'est pas ressuscitée, une nouvelle est créée');
+});
+
+test('purgerNotificationsLues : efface les lues de plus de 30 j, garde les non lues (audit AMEL-56)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const { purgerNotificationsLues } = require('../lib/notify');
+    const u = await createUser('notif_purge', 'notif_purge@test.local');
+
+    await pool.query(
+        `INSERT INTO notifications (user_id, type, title, is_read, created_at) VALUES
+         (?, 'new_chapter', 'vieille lue',     1, NOW() - INTERVAL 40 DAY),
+         (?, 'new_chapter', 'vieille non lue', 0, NOW() - INTERVAL 40 DAY),
+         (?, 'new_chapter', 'recente lue',     1, NOW() - INTERVAL 3 DAY)`,
+        [u.id, u.id, u.id]);
+
+    await purgerNotificationsLues(30);
+    const [restantes] = await pool.query(
+        'SELECT title FROM notifications WHERE user_id = ? ORDER BY title', [u.id]);
+    assert.deepEqual(restantes.map(r => r.title), ['recente lue', 'vieille non lue'],
+        'une notification non lue survit quel que soit son âge');
+});
+
+test('notif prefs : fréquence bornée, sourdine par série sans perdre le suivi (audit AMEL-54)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const Notif = require('../controllers/notif.controller');
+    const u = await createUser('notif_prefs', 'notif_prefs@test.local');
+    await pool.query('INSERT INTO favorites (user_id, manga_id, title) VALUES (?, ?, ?), (?, ?, ?)',
+        [u.id, 'aaa', 'A', u.id, 'bbb', 'B']);
+
+    const bad = rr({ user: u, body: { everyHours: 7 } });
+    await Notif.setPrefs(bad.req, bad.res, nextThrow);
+    assert.equal(bad.res.statusCode, 400, 'une fréquence hors liste est refusée');
+
+    const ok = rr({ user: u, body: { everyHours: 24 } });
+    await Notif.setPrefs(ok.req, ok.res, nextThrow);
+    assert.equal(ok.res.body.everyHours, 24);
+
+    // Sourdine sur une série : le favori reste, seule l'alerte tombe
+    const mute = rr({ user: u, params: { mangaId: 'aaa' }, body: { notify: false } });
+    await Notif.setWatch(mute.req, mute.res, nextThrow);
+    assert.equal(mute.res.body.notify, false);
+
+    const prefs = rr({ user: u });
+    await Notif.getPrefs(prefs.req, prefs.res, nextThrow);
+    assert.equal(prefs.res.body.everyHours, 24);
+    assert.equal(prefs.res.body.followed, 2, 'la série reste suivie');
+    assert.equal(prefs.res.body.watched, 1, 'une seule est encore surveillée');
+
+    // Une série absente de la bibliothèque ne se met pas en sourdine
+    const absente = rr({ user: u, params: { mangaId: 'zzz' }, body: { notify: false } });
+    await Notif.setWatch(absente.req, absente.res, nextThrow);
+    assert.equal(absente.res.statusCode, 404);
+});
+
+test('scanUserUpdates : « Lire maintenant » vise le premier NON LU, pas le dernier paru (audit AMEL-55)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const loader = require('../extensions/loader');
+    const updates = require('../lib/updates');
+    const u = await createUser('notif_resume', 'notif_resume@test.local');
+
+    await pool.query(
+        'INSERT INTO favorites (user_id, manga_id, source, title, last_chapter) VALUES (?, ?, ?, ?, ?)',
+        [u.id, 'serie-x', 'faux', 'Serie X', 10]);
+    // Chapitres 10 à 13 ; 10 et 12 déjà lus. Le premier non lu est le 11.
+    await pool.query(
+        'INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?,?,?,?), (?,?,?,?)',
+        [u.id, 'serie-x', 'c10', 10, u.id, 'serie-x', 'c12', 12]);
+
+    // Source factice : le scan ne doit pas dépendre d'un site réel.
+    const vrai = loader.get;
+    loader.get = (id) => (id === 'faux' ? {
+        getChapters: async () => ({ results: [
+            { id: 'c13', chapter: 13 }, { id: 'c12', chapter: 12 },
+            { id: 'c11', chapter: 11 }, { id: 'c10', chapter: 10 },
+        ] }),
+    } : vrai(id));
+    try {
+        const r = await updates.scanUserUpdates(u.id, { scope: 'all' });
+        const s = r.updates.find(x => x.mangaId === 'serie-x');
+        assert.equal(s.latest.chapter, 13, 'le dernier paru reste exposé');
+        assert.equal(s.resume.chapter, 11,
+            'on reprend au premier non lu — viser le 13 ferait sauter le 11');
+        assert.equal(s.unreadCount, 2);
+    } finally { loader.get = vrai; }
+});
+
+test('scanUserUpdates : notifyOnly écarte les séries en sourdine, pas le scan manuel (audit AMEL-54)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const loader = require('../extensions/loader');
+    const updates = require('../lib/updates');
+    const u = await createUser('notif_only', 'notif_only@test.local');
+    await pool.query(
+        `INSERT INTO favorites (user_id, manga_id, source, title, notify) VALUES (?,?,?,?,1), (?,?,?,?,0)`,
+        [u.id, 'suivie', 'faux2', 'Suivie', u.id, 'muette', 'faux2', 'Muette']);
+
+    const vrai = loader.get;
+    loader.get = (id) => (id === 'faux2' ? {
+        getChapters: async () => ({ results: [{ id: 'c1', chapter: 1 }] }),
+    } : vrai(id));
+    try {
+        const tout = await updates.scanUserUpdates(u.id, { scope: 'all' });
+        assert.equal(tout.updates.length, 2, 'le bouton « Mettre à jour » vérifie tout');
+        const alerte = await updates.scanUserUpdates(u.id, { scope: 'all', notifyOnly: true });
+        assert.deepEqual(alerte.updates.map(x => x.mangaId), ['suivie'],
+            'la tâche de fond ignore ce qui est en sourdine');
+    } finally { loader.get = vrai; }
+});
+
+// ── Profil public : confidentialité par section (audit AMEL-61/62/63) ──
+test('publicProfile : chaque section a son réglage, privateProfile prime (audit AMEL-61)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('prof_a', 'prof_a@test.local');
+    const autre = await createUser('prof_b', 'prof_b@test.local');
+    await pool.query('INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?,?,?,?)',
+        [u.id, 'm1', 'c1', 1]);
+    await pool.query('INSERT INTO favorites (user_id, manga_id, title, status) VALUES (?,?,?,?)',
+        [u.id, 'm1', 'Serie Un', 'reading']);
+    await pool.query('INSERT INTO lists (user_id, name, is_public) VALUES (?,?,1)', [u.id, 'Ma liste']);
+
+    const vu = async (viewer, query = {}) => {
+        const { req, res } = rr({ user: viewer, params: { username: 'prof_a' }, query });
+        await Profile.publicProfile(req, res, nextThrow);
+        return res.body;
+    };
+
+    // Par défaut : stats et listes visibles (comportement d'avant), pas la
+    // bibliothèque — une amélioration ne doit rien publier rétroactivement.
+    let p = await vu(autre);
+    assert.ok(p.stats, 'les stats restent publiques par défaut');
+    assert.equal(p.lists.length, 1, 'les listes publiques restent visibles');
+    assert.equal(p.library, null, 'la bibliothèque n\'est PAS exposée par défaut');
+
+    // Masquer les stats seules laisse les listes
+    await pool.query(
+        `INSERT INTO user_settings (user_id, data) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE data = VALUES(data)`,
+        [u.id, JSON.stringify({ privacy: { showStats: false, showLibrary: true } })]);
+    p = await vu(autre);
+    assert.equal(p.stats, null, 'stats masquées');
+    assert.deepEqual(p.badges, [], 'les badges suivent les stats : ils en sont dérivés');
+    assert.equal(p.lists.length, 1, 'les listes ne sont pas emportées par le masquage des stats');
+    assert.equal(p.library.length, 1, 'la bibliothèque est exposée quand on l\'a demandé');
+
+    // privateProfile prime sur tout
+    await pool.query('UPDATE user_settings SET data = ? WHERE user_id = ?',
+        [JSON.stringify({ privacy: { privateProfile: true, showStats: true, showLibrary: true } }), u.id]);
+    p = await vu(autre);
+    assert.equal(p.hidden, true);
+    assert.equal(p.stats, null);
+    assert.equal(p.library, undefined, 'rien d\'autre que le pseudo ne sort d\'un profil privé');
+});
+
+test('publicProfile : ?as=public montre au propriétaire ce que voit un inconnu (audit AMEL-62)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('prof_c', 'prof_c@test.local');
+    await pool.query(
+        `INSERT INTO user_settings (user_id, data) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE data = VALUES(data)`,
+        [u.id, JSON.stringify({ privacy: { privateProfile: true } })]);
+
+    const propre = rr({ user: u, params: { username: 'prof_c' }, query: {} });
+    await Profile.publicProfile(propre.req, propre.res, nextThrow);
+    assert.equal(propre.res.body.isOwner, true);
+    assert.ok(!propre.res.body.hidden, 'le propriétaire voit son profil complet');
+
+    const apercu = rr({ user: u, params: { username: 'prof_c' }, query: { as: 'public' } });
+    await Profile.publicProfile(apercu.req, apercu.res, nextThrow);
+    assert.equal(apercu.res.body.isOwner, false);
+    assert.equal(apercu.res.body.hidden, true,
+        'en aperçu, le propriétaire reçoit exactement ce que reçoit un inconnu');
+});
+
+test('publicProfile : la vitrine garde l\'ordre choisi et ignore les œuvres retirées (audit AMEL-63)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('prof_d', 'prof_d@test.local');
+    const autre = await createUser('prof_e', 'prof_e@test.local');
+    await pool.query(
+        'INSERT INTO favorites (user_id, manga_id, source, title) VALUES (?,?,?,?), (?,?,?,?)',
+        [u.id, 'aa', 'src', 'Serie AA', u.id, 'bb', 'src', 'Serie BB']);
+    // 'zz' n'est plus en bibliothèque : une épingle morte ne doit pas produire
+    // une case vide sur le profil.
+    await pool.query(
+        `INSERT INTO user_settings (user_id, data) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE data = VALUES(data)`,
+        // Emplacement REEL ecrit par UserData : settings.userdata.pins. Le
+        // premier jet de ce test ecrivait a la racine — il passait au vert
+        // pendant que la vitrine restait vide dans le navigateur.
+        // Format REEL ecrit par UserData.keyOf : `<source>:<mangaId>`. Mes deux
+        // premiers jets de ce test ont invente l'emplacement PUIS le format —
+        // verts tous les deux, pendant que la vitrine restait vide a l'ecran.
+        [u.id, JSON.stringify({ userdata: { pins: ['src:bb', 'src:zz', 'src:aa'] } })]);
+
+    const { req, res } = rr({ user: autre, params: { username: 'prof_d' }, query: {} });
+    await Profile.publicProfile(req, res, nextThrow);
+    assert.deepEqual(res.body.pins.map(p => p.mangaId), ['bb', 'aa'],
+        'ordre de l\'utilisateur respecté, épingle morte écartée');
+
+    // Section désactivée : plus de vitrine du tout
+    await pool.query('UPDATE user_settings SET data = ? WHERE user_id = ?',
+        [JSON.stringify({ userdata: { pins: ['src:bb'] }, privacy: { showPins: false } }), u.id]);
+    const off = rr({ user: autre, params: { username: 'prof_d' }, query: {} });
+    await Profile.publicProfile(off.req, off.res, nextThrow);
+    assert.deepEqual(off.res.body.pins, []);
+});
+
+// ── Historique : suppression ciblée et export (audit AMEL-112/113) ──
+test('deleteHistoryEntry : retire une série sans toucher au favori (audit AMEL-112)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('hist_a', 'hist_a@test.local');
+    await pool.query('INSERT INTO favorites (user_id, manga_id, title) VALUES (?,?,?), (?,?,?)',
+        [u.id, 'aa', 'A', u.id, 'bb', 'B']);
+    await pool.query(
+        'INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?,?,?,?), (?,?,?,?), (?,?,?,?)',
+        // NB : la cle primaire de read_chapters est (user_id, chapter_id) —
+        // PAS (user_id, manga_id, chapter_id). Deux series ne peuvent donc pas
+        // partager un identifiant de chapitre chez un meme utilisateur. D'ou
+        // 'b1' ici plutot que 'c1'.
+        [u.id, 'aa', 'c1', 1, u.id, 'aa', 'c2', 2, u.id, 'bb', 'b1', 1]);
+    await pool.query(
+        'INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page) VALUES (?,?,?,?,?)',
+        [u.id, 'aa', 'c2', 2, 7]);
+    await pool.query('INSERT INTO events (user_id, type, manga_id, chapter_id) VALUES (?,?,?,?)',
+        [u.id, 'read', 'aa', 'c1']);
+
+    // Une seule entrée : la progression sur un AUTRE chapitre doit survivre.
+    const un = rr({ user: u, params: { mangaId: 'aa' }, query: { chapterId: 'c1' } });
+    await User.deleteHistoryEntry(un.req, un.res, nextThrow);
+    assert.equal(un.res.body.deleted.readChapters, 1);
+    assert.equal(un.res.body.deleted.progress, 0, 'la position courante (c2) n\'est pas touchée');
+    const [[reste]] = await pool.query(
+        'SELECT COUNT(*) AS n FROM progress WHERE user_id = ? AND manga_id = ?', [u.id, 'aa']);
+    assert.equal(reste.n, 1, 'on ne perd pas sa place en effaçant une vieille ligne');
+
+    // Toute la série
+    const tout = rr({ user: u, params: { mangaId: 'aa' }, query: {} });
+    await User.deleteHistoryEntry(tout.req, tout.res, nextThrow);
+    const [[rc]] = await pool.query(
+        'SELECT COUNT(*) AS n FROM read_chapters WHERE user_id = ? AND manga_id = ?', [u.id, 'aa']);
+    assert.equal(rc.n, 0);
+    const [[autre]] = await pool.query(
+        'SELECT COUNT(*) AS n FROM read_chapters WHERE user_id = ? AND manga_id = ?', [u.id, 'bb']);
+    assert.equal(autre.n, 1, 'les autres séries ne sont pas emportées');
+
+    // Le favori reste : effacer sa trace de lecture n'est pas se désabonner.
+    const [[fav]] = await pool.query(
+        'SELECT COUNT(*) AS n FROM favorites WHERE user_id = ? AND manga_id = ?', [u.id, 'aa']);
+    assert.equal(fav.n, 1);
+
+    const mauvais = rr({ user: u, params: { mangaId: '[object Object]' }, query: {} });
+    await User.deleteHistoryEntry(mauvais.req, mauvais.res, nextThrow);
+    assert.equal(mauvais.res.statusCode, 400);
+});
+
+test('clearHistory : la purge sur 30 j épargne la position de lecture (audit AMEL-112)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('hist_b', 'hist_b@test.local');
+    await pool.query(
+        `INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number, read_at) VALUES
+         (?,?,?,?, NOW() - INTERVAL 5 DAY), (?,?,?,?, NOW() - INTERVAL 90 DAY)`,
+        [u.id, 'aa', 'c1', 1, u.id, 'aa', 'c2', 2]);
+    await pool.query(
+        'INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page) VALUES (?,?,?,?,?)',
+        [u.id, 'aa', 'c1', 1, 12]);
+
+    const { req, res } = rr({ user: u, body: { days: 30 } });
+    await User.clearHistory(req, res, nextThrow);
+    assert.equal(res.body.scope, '30j');
+    const [rows] = await pool.query(
+        'SELECT chapter_id FROM read_chapters WHERE user_id = ?', [u.id]);
+    assert.deepEqual(rows.map(r => r.chapter_id), ['c2'], 'seule la fenêtre récente est purgée');
+    const [[p]] = await pool.query('SELECT page FROM progress WHERE user_id = ? AND manga_id = ?', [u.id, 'aa']);
+    assert.equal(p.page, 12, 'la position courante survit à une purge par période');
+});
+
+test('exportHistory : JSON et CSV exploitables (audit AMEL-113)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('hist_c', 'hist_c@test.local');
+    await pool.query('INSERT INTO favorites (user_id, manga_id, source, title) VALUES (?,?,?,?)',
+        [u.id, 'aa', 'src', 'Titre; avec "guillemets"']);
+    await pool.query('INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?,?,?,?)',
+        [u.id, 'aa', 'c1', 3]);
+
+    const j = rr({ user: u, query: {} });
+    await User.exportHistory(j.req, j.res, nextThrow);
+    assert.equal(j.res.body.count, 1);
+    assert.equal(j.res.body.entries[0].title, 'Titre; avec "guillemets"');
+    assert.equal(Number(j.res.body.entries[0].chapter), 3);
+
+    // CSV : le point-virgule et les guillemets du titre ne doivent pas casser
+    // les colonnes — c'est exactement ce qu'un export naïf rate.
+    let envoye = null;
+    const c = rr({ user: u, query: { format: 'csv' } });
+    c.res.setHeader = () => {};
+    c.res.send = (v) => { envoye = v; return c.res; };
+    await User.exportHistory(c.req, c.res, nextThrow);
+    const lignes = envoye.split('\r\n');
+    assert.ok(envoye.startsWith('﻿'), 'BOM présent : sans lui Excel affiche du mojibake');
+    assert.equal(lignes[0].replace('﻿', ''), 'Titre;Chapitre;Source;Lu le;Identifiant;Chapitre (id)');
+    assert.ok(lignes[1].startsWith('"Titre; avec ""guillemets"""'),
+        'le titre est échappé, il ne déborde pas sur la colonne suivante');
+    assert.equal(lignes[1].split(';').length >= 6, true);
+});
+
+// ── Lecture privée côté serveur (audit AMEL-107) ─────────────
+test('pushEvent : l\'en-tête X-Inko-Private supprime la trace, pas l\'action (audit AMEL-107)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('inco_a', 'inco_a@test.local');
+
+    // Sans l'en-tête : favori créé ET événement écrit (comportement d'avant)
+    const normal = rr({ user: u, body: { mangaId: 'aa', title: 'A' } });
+    normal.req.headers = {};
+    await User.addFavorite(normal.req, normal.res, nextThrow);
+
+    // Avec l'en-tête : le favori est TOUJOURS créé — refuser l'action serait
+    // de la perte de données déguisée en confidentialité — mais aucune trace.
+    const prive = rr({ user: u, body: { mangaId: 'bb', title: 'B' } });
+    prive.req.headers = { 'x-inko-private': '1' };
+    await User.addFavorite(prive.req, prive.res, nextThrow);
+
+    const [favs] = await pool.query(
+        'SELECT manga_id FROM favorites WHERE user_id = ? ORDER BY manga_id', [u.id]);
+    assert.deepEqual(favs.map(f => f.manga_id), ['aa', 'bb'],
+        'les deux favoris existent : le mode privé ne refuse pas l\'action');
+
+    const [ev] = await pool.query(
+        'SELECT manga_id FROM events WHERE user_id = ? ORDER BY manga_id', [u.id]);
+    assert.deepEqual(ev.map(e => e.manga_id), ['aa'],
+        'seule la série lue normalement laisse une trace dans l\'activité');
+});
+
+test('setProgress et markChapter : aucune trace en lecture privée (audit AMEL-107)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('inco_b', 'inco_b@test.local');
+
+    const p = rr({ user: u, params: { mangaId: 'zz' },
+        body: { chapterId: 'c1', chapter: 1, page: 4, source: 'src' } });
+    p.req.headers = { 'x-inko-private': '1' };
+    await User.setProgress(p.req, p.res, nextThrow);
+
+    const m = rr({ user: u, body: { mangaId: 'zz', chapterId: 'c1', chapter: 1, read: true } });
+    m.req.headers = { 'x-inko-private': '1' };
+    await User.markChapter(m.req, m.res, nextThrow);
+
+    const [[n]] = await pool.query('SELECT COUNT(*) AS n FROM events WHERE user_id = ?', [u.id]);
+    assert.equal(n.n, 0, 'ni la progression ni le marquage ne remplissent le flux d\'activité');
+});
+
+// ── Sessions et mots de passe (audit AMEL-69/70) ─────────────
+test('sessions : une session se ferme sans emporter les autres (audit AMEL-69)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const authMw = require('../middleware/auth');
+    const u = await createUser('sess_a', 'sess_a@test.local');
+
+    // L'inscription ouvre deja une session : on repart d'une table propre pour
+    // ne mesurer que les deux connexions ajoutees ici.
+    await pool.query('DELETE FROM sessions WHERE user_id = ?', [u.id]);
+
+    // Deux connexions depuis deux appareils differents
+    const faux = (ua) => ({ headers: { 'user-agent': ua }, ip: '10.0.0.1', socket: {} });
+    await authMw.sign(u, faux('Mozilla/5.0 (Windows NT 10.0) Chrome/120 Safari/537'));
+    await authMw.sign(u, faux('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/604'));
+
+    const l1 = rr({ user: u });
+    await Auth.listSessions(l1.req, l1.res, nextThrow);
+    assert.equal(l1.res.body.length, 2);
+    const libelles = l1.res.body.map(s => s.device).sort();
+    assert.deepEqual(libelles, ['Chrome sur Windows', 'Safari sur iOS'],
+        'un user-agent brut est illisible : on en garde ce qui permet de reconnaitre l\'appareil');
+
+    // Fermer l'une laisse l'autre
+    const cible = l1.res.body[0].id;
+    const del = rr({ user: u, params: { id: cible } });
+    await Auth.revokeSession(del.req, del.res, nextThrow);
+    assert.equal(del.res.statusCode, 200);
+    const l2 = rr({ user: u });
+    await Auth.listSessions(l2.req, l2.res, nextThrow);
+    assert.equal(l2.res.body.length, 1, 'fermer une session n\'emporte pas les autres');
+
+    // Une session d'un AUTRE compte n'est pas fermable
+    const v = await createUser('sess_b', 'sess_b@test.local');
+    const vol = rr({ user: v, params: { id: l2.res.body[0].id } });
+    await Auth.revokeSession(vol.req, vol.res, nextThrow);
+    assert.equal(vol.res.statusCode, 404, 'on ne ferme que ses propres sessions');
+});
+
+test("sessions : l'inscription ouvre une session revocable (audit AMEL-69)", async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('sess_reg', 'sess_reg@test.local');
+    const [rows] = await pool.query('SELECT id FROM sessions WHERE user_id = ?', [u.id]);
+    assert.equal(rows.length, 1,
+        "un jeton emis sans ligne de session serait irrevocable a l'unite");
+});
+
+test('sessions : « fermer les autres » epargne la session courante (audit AMEL-69)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const authMw = require('../middleware/auth');
+    const u = await createUser('sess_c', 'sess_c@test.local');
+    await pool.query('DELETE FROM sessions WHERE user_id = ?', [u.id]);
+    const faux = { headers: { 'user-agent': 'Chrome/120 Windows' }, ip: '10.0.0.2', socket: {} };
+    for (let i = 0; i < 3; i++) await authMw.sign(u, faux);
+
+    const [avant] = await pool.query('SELECT id FROM sessions WHERE user_id = ?', [u.id]);
+    assert.equal(avant.length, 3);
+
+    const courante = avant[1].id;
+    const { req, res } = rr({ user: u });
+    req.sessionId = courante;
+    await Auth.revokeOtherSessions(req, res, nextThrow);
+    assert.equal(res.body.closed, 2);
+
+    const [apres] = await pool.query('SELECT id FROM sessions WHERE user_id = ?', [u.id]);
+    assert.deepEqual(apres.map(s => s.id), [courante],
+        'se deconnecter soi-meme au passage serait une punition, pas une protection');
+});
+
+test('sessions : revokeTokens nettoie les lignes devenues caduques (audit AMEL-69)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const authMw = require('../middleware/auth');
+    const u = await createUser('sess_d', 'sess_d@test.local');
+    await authMw.sign(u, { headers: {}, ip: '10.0.0.3', socket: {} });
+
+    await authMw.revokeTokens(u.id);
+    const [restantes] = await pool.query('SELECT id FROM sessions WHERE user_id = ?', [u.id]);
+    assert.equal(restantes.length, 0,
+        'les garder afficherait des sessions mortes dans la liste');
+});
+
+test('mot de passe : la politique refuse les evidences (audit AMEL-70)', async (t) => {
+    const p = require('../lib/password-policy');
+    // Les deux mots de passe les plus utilises au monde passaient la regle
+    // « 6 caracteres minimum ».
+    for (const mauvais of ['azerty', '123456', 'password', 'motdepasse', '11111111', 'abcdefgh']) {
+        assert.equal(p.verifier(mauvais).ok, false, `« ${mauvais} » doit etre refuse`);
+    }
+    // Le pseudo ou l'email : le PREMIER essai d'un attaquant qui connait le
+    // compte — et il le connait, il est dans l'URL du profil.
+    assert.equal(p.verifier('kaito-lecteur', { username: 'Kaito' }).ok, false);
+    assert.equal(p.verifier('monmail2026', { email: 'monmail@example.com' }).ok, false);
+    // La longueur prime sur la composition : une phrase vaut mieux qu'un
+    // « Motdepasse1! » conforme et trivial.
+    const phrase = p.verifier('le chat dort sur le clavier');
+    assert.equal(phrase.ok, true);
+    assert.ok(phrase.score >= 3, 'une phrase longue doit bien scorer');
+    assert.equal(p.verifier('Tr0ub4dor').ok, true);
+    assert.equal(p.verifier('court1').ok, false, 'moins de 8 caracteres');
+});
+
+test('auth.register : la politique s\'applique aussi a l\'inscription (audit AMEL-70)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const faible = rr({ body: { username: 'faible1', email: 'faible1@test.local', password: 'azerty' } });
+    await Auth.register(faible.req, faible.res, nextThrow);
+    assert.equal(faible.res.statusCode, 400);
+    assert.match(faible.res.body.error, /court|utilises au monde/i);
+
+    const bon = rr({ body: { username: 'solide1', email: 'solide1@test.local', password: 'un mot de passe long' } });
+    await Auth.register(bon.req, bon.res, nextThrow);
+    assert.equal(bon.res.statusCode, 200);
+});
+
+// ── Restauration depuis l'interface (audit AMEL-73) ──────────
+test('sauvegardes : on ne restaure QUE son propre compte (audit AMEL-73)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const fs = require('fs');
+    const path = require('path');
+    const bk = require('../lib/backup');
+    const u = await createUser('bk_moi', 'bk_moi@test.local');
+    const autre = await createUser('bk_autre', 'bk_autre@test.local');
+
+    // Dump fabrique : deux comptes, des donnees differentes
+    const dump = {
+        inkoBackup: 1, createdAt: '2026-08-01T00:00:00.000Z',
+        accounts: [
+            { user: { id: 999, username: 'bk_moi', email: 'bk_moi@test.local' },
+                favorites: [{ manga_id: 'aa', title: 'A' }, { manga_id: 'bb', title: 'B' }],
+                readChapters: [{ manga_id: 'aa', chapter_id: 'c1', chapter_number: 1 }],
+                ratings: [{ manga_id: 'aa', rating: 4 }], progress: [], lists: [] },
+            { user: { id: 998, username: 'bk_autre', email: 'bk_autre@test.local' },
+                favorites: [{ manga_id: 'zz', title: 'Z' }], readChapters: [], ratings: [], progress: [], lists: [] },
+        ],
+    };
+    fs.mkdirSync(bk.BACKUP_DIR, { recursive: true });
+    const nom = 'inko-backup-2026-08-01.json';
+    fs.writeFileSync(path.join(bk.BACKUP_DIR, nom), JSON.stringify(dump));
+
+    try {
+        // Apercu : les compteurs de MON compte, pas ceux du dump entier
+        const p = rr({ user: u, params: { file: nom }, body: {} });
+        await User.previewBackup(p.req, p.res, nextThrow);
+        assert.equal(p.res.body.accounts, 2);
+        assert.equal(p.res.body.mine.favorites, 2);
+        assert.equal(p.res.body.mine.username, 'bk_moi');
+
+        // Restauration : mes donnees arrivent, celles de l'autre compte non
+        const r = rr({ user: u, params: { file: nom }, body: {} });
+        await User.restoreBackup(r.req, r.res, nextThrow);
+        assert.equal(r.res.body.imported.favorites, 2);
+
+        const [mesFavs] = await pool.query(
+            'SELECT manga_id FROM favorites WHERE user_id = ? ORDER BY manga_id', [u.id]);
+        assert.deepEqual(mesFavs.map(f => f.manga_id), ['aa', 'bb']);
+        const [sesFavs] = await pool.query('SELECT manga_id FROM favorites WHERE user_id = ?', [autre.id]);
+        assert.equal(sesFavs.length, 0, 'restaurer son compte ne touche pas celui des autres');
+
+        // Le dump date d'avant AMEL-47 : ses notes sont sur 5 et doivent
+        // etre converties, sinon 4/5 deviendrait 4/10.
+        const [[note]] = await pool.query(
+            'SELECT rating FROM ratings WHERE user_id = ? AND manga_id = ?', [u.id, 'aa']);
+        assert.equal(note.rating, 8);
+
+        // Un compte absent du dump obtient un 404 explicite, pas un import vide
+        const inconnu = await createUser('bk_absent', 'bk_absent@test.local');
+        const ko = rr({ user: inconnu, params: { file: nom }, body: {} });
+        await User.previewBackup(ko.req, ko.res, nextThrow);
+        assert.equal(ko.res.statusCode, 404);
+
+        // Traversee de chemin : le nom vient du client, il doit etre retrouve
+        // dans la liste REELLE avant d'etre concatene au dossier.
+        const trav = rr({ user: u, params: { file: '../../../etc/passwd' }, body: {} });
+        await User.previewBackup(trav.req, trav.res, nextThrow);
+        assert.equal(trav.res.statusCode, 404);
+    } finally {
+        try { fs.unlinkSync(path.join(bk.BACKUP_DIR, nom)); } catch (e) { /* deja retire */ }
+    }
+});
+
+test('sauvegardes : un dump chiffre exige la bonne phrase (audit AMEL-74)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const fs = require('fs');
+    const path = require('path');
+    const bk = require('../lib/backup');
+    const u = await createUser('bk_enc', 'bk_enc@test.local');
+
+    const dump = { inkoBackup: 1, accounts: [{ user: { username: 'bk_enc', email: 'bk_enc@test.local' },
+        favorites: [{ manga_id: 'aa', title: 'A' }], readChapters: [], ratings: [], progress: [], lists: [] }] };
+    fs.mkdirSync(bk.BACKUP_DIR, { recursive: true });
+    const nom = 'inko-backup-2026-08-02.json.enc';
+    fs.writeFileSync(path.join(bk.BACKUP_DIR, nom), bk.encrypt(JSON.stringify(dump), 'bonne-phrase'));
+
+    try {
+        const mauvais = rr({ user: u, params: { file: nom }, body: { passphrase: 'mauvaise' } });
+        await User.previewBackup(mauvais.req, mauvais.res, nextThrow);
+        assert.equal(mauvais.res.statusCode, 400);
+        assert.match(mauvais.res.body.error, /incorrecte/i);
+
+        const bon = rr({ user: u, params: { file: nom }, body: { passphrase: 'bonne-phrase' } });
+        await User.previewBackup(bon.req, bon.res, nextThrow);
+        assert.equal(bon.res.body.mine.favorites, 1);
+    } finally {
+        try { fs.unlinkSync(path.join(bk.BACKUP_DIR, nom)); } catch (e) { /* deja retire */ }
+    }
+});
+
+// ── API : versionnement et pagination (audit AMEL-120/121) ───
+test('collections : la pagination ne change la forme QUE si on la demande (audit AMEL-121)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('pag_u', 'pag_u@test.local');
+    const lignes = [];
+    for (let i = 0; i < 12; i++) lignes.push([u.id, 'm' + String(i).padStart(2, '0'), 'T' + i]);
+    await pool.query('INSERT INTO favorites (user_id, manga_id, title) VALUES ?', [lignes]);
+
+    // Sans parametre : tableau brut, comme avant. Passer tout le monde a
+    // { items, total } casserait le frontend embarque et les exports.
+    const brut = rr({ user: u, query: {} });
+    await User.getFavorites(brut.req, brut.res, nextThrow);
+    assert.ok(Array.isArray(brut.res.body), 'la forme historique est preservee');
+    assert.equal(brut.res.body.length, 12);
+
+    // Avec limit : enveloppe { items, total, limit, offset }
+    const page = rr({ user: u, query: { limit: '5' } });
+    await User.getFavorites(page.req, page.res, nextThrow);
+    assert.equal(page.res.body.items.length, 5);
+    assert.equal(page.res.body.total, 12, 'le total est celui de la collection, pas de la tranche');
+    assert.equal(page.res.body.limit, 5);
+    assert.equal(page.res.body.offset, 0);
+
+    // offset seul suffit a declencher l'enveloppe
+    const deux = rr({ user: u, query: { offset: '10' } });
+    await User.getFavorites(deux.req, deux.res, nextThrow);
+    assert.equal(deux.res.body.items.length, 2, 'derniere tranche, plus courte');
+    assert.equal(deux.res.body.total, 12);
+
+    // Bornes : une limite absurde ne doit pas faire tomber le serveur ni
+    // renvoyer la table entiere sous couvert de pagination.
+    const abus = rr({ user: u, query: { limit: '99999', offset: '-5' } });
+    await User.getFavorites(abus.req, abus.res, nextThrow);
+    assert.equal(abus.res.body.limit, 500);
+    assert.equal(abus.res.body.offset, 0);
 });

@@ -21,6 +21,18 @@
         : 'http://localhost:8088/api';
 
     // ── État courant ──────────────────────────────────────────
+    // Audit SEC-06 : le JWT était persisté dans localStorage EN PLUS du cookie
+    // httpOnly. Le cookie protège justement du vol par XSS — la copie en
+    // localStorage annulait cette protection : toute injection pouvait lire
+    // `mh_session` et repartir avec un jeton valide 30 jours.
+    //
+    // Le cookie suffit dans le cas nominal (même origine : local, Docker,
+    // desktop, tunnel HTTPS). Le Bearer n'est nécessaire QUE lorsque le
+    // frontend est servi par un serveur statique de dev, sur une autre origine
+    // que l'API — c'est déjà ce que détecte SAME_ORIGIN_BACKEND ci-dessus.
+    // Dans ce cas seulement, le jeton est gardé EN MÉMOIRE (perdu au
+    // rechargement, ce qui est acceptable pour du développement).
+    const PERSIST_TOKEN = !SAME_ORIGIN_BACKEND;
     let _user  = null;
     let _token = null;
     try {
@@ -28,14 +40,23 @@
         if (saved) {
             const o = JSON.parse(saved);
             _user  = o.user  || null;
+            // Migration silencieuse : on relit l'ancien jeton une dernière fois
+            // pour ne pas déconnecter les sessions existantes, puis on cesse de
+            // l'écrire (la réécriture ci-dessous ne le remettra pas).
             _token = o.token || null;
         }
     } catch (e) { window.MH?.err?.('api.js', e); }
 
     function persist() {
         try {
-            if (_user) localStorage.setItem('mh_session', JSON.stringify({ user: _user, token: _token }));
-            else localStorage.removeItem('mh_session');
+            if (_user) {
+                const payload = PERSIST_TOKEN
+                    ? { user: _user, token: _token }
+                    : { user: _user };          // le jeton reste en mémoire
+                localStorage.setItem('mh_session', JSON.stringify(payload));
+            } else {
+                localStorage.removeItem('mh_session');
+            }
         } catch (e) { window.MH?.err?.('api.js', e); }
         try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch (e) { window.MH?.err?.('api.js', e); }
     }
@@ -59,7 +80,27 @@
     // Timeout via AbortController : sans ça, un serveur qui ne répond pas
     // fige l'UI indéfiniment (audit API1/DF4, critique).
     const DEFAULT_TIMEOUT = 30000;
+    // Mode global, ou serie explicitement privee dont l'identifiant apparait
+    // dans le chemin. Passer le drapeau a travers chaque appelant aurait
+    // demande de toucher des dizaines de signatures pour le meme resultat.
+    function estRequetePrivee(path) {
+        const MH = window.MH;
+        if (!MH || !MH.isIncognito) return false;
+        if (MH.isIncognito()) return true;
+        try {
+            const s = JSON.parse(sessionStorage.getItem('inko_incognito_series') || '[]');
+            if (!s.length) return false;
+            const decode = decodeURIComponent(path);
+            return s.some(id => decode.includes(id));
+        } catch (e) { return false; }
+    }
+
     async function request(method, path, body, { timeout = DEFAULT_TIMEOUT, keepalive = false } = {}) {
+        // Audit PERF-02 : toute écriture périme le cache de lectures partagées.
+        // Sans ça, « ajouter aux favoris » puis relire la liste dans la seconde
+        // qui suit renverrait l'ancienne. On vide tout plutôt que de raisonner
+        // par préfixe : une écriture est rare, une lecture périmée est un bug.
+        if (method !== 'GET') sharedCache.clear();
         const ctrl  = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeout);
         const opts = {
@@ -73,6 +114,12 @@
         };
         if (_token) opts.headers['Authorization'] = `Bearer ${_token}`;
         if (body)   { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+        // Audit AMEL-107 : la table `events` alimente le flux d'activité et le
+        // profil — c'est une trace, et elle était écrite même en lecture
+        // privée puisque le serveur ignorait tout du mode. L'en-tête le lui
+        // dit. Le geste demandé (ajouter un favori, poser un statut) est
+        // toujours exécuté : seule sa trace dans l'historique est omise.
+        if (method !== 'GET' && estRequetePrivee(path)) opts.headers['X-Inko-Private'] = '1';
 
         let res;
         try {
@@ -82,6 +129,9 @@
                 ? 'Délai dépassé — le serveur met trop de temps à répondre.'
                 : 'Connexion impossible — vérifie ta connexion réseau.');
             err.status = 0; err.network = true;
+            // Audit BUG-04 : mémorise la dernière erreur pour que l'UI puisse
+            // distinguer « pas de session » de « serveur/base en panne ».
+            try { (window.MH = window.MH || {}).lastApiError = err; } catch (_) { /* noop */ }
             // Audit M8 : les écritures de lecture faites hors-ligne (marquer
             // lu, progression) étaient simplement perdues — elles sont
             // désormais mises en file et rejouées au retour du réseau.
@@ -98,6 +148,9 @@
             const err = new Error(data?.error || `HTTP ${res.status}`);
             err.status = res.status;
             err.data = data;
+            // Audit BUG-04 : un 5xx (base morte) ne doit pas être présenté
+            // comme une session expirée.
+            try { (window.MH = window.MH || {}).lastApiError = err; } catch (_) { /* noop */ }
             // Si token Inko invalide → déconnecte.
             // (Les 401 de services tiers liés — AniList, etc. — répondent 424,
             //  on ne purge donc la session que sur un vrai rejet d'auth Inko.)
@@ -123,7 +176,59 @@
         }
     }
 
-    const get  = (p)       => getWithRetry(p);
+    // ── Lectures partagées (audit PERF-02) ───────────────────
+    // Mesuré sur l'accueil : 39 appels /api, dont /me/progress ×4,
+    // /me/notifications/unread ×3, /me/favorites ×2, /health ×2. Personne ne
+    // les demandait deux fois « exprès » : global.js (en-tête, cloche, avatar)
+    // et le script de page interrogent les mêmes ressources sans se connaître,
+    // et rien ne les met en commun. Le problème n'est donc pas sur l'accueil,
+    // il est ici — chaque page le reproduit à sa façon.
+    //
+    // Ces routes sont des lectures idempotentes et propres à l'utilisateur :
+    // deux demandes à quelques centaines de ms d'intervalle ont, par
+    // construction, la même réponse. On coalesce donc les appels concurrents
+    // sur une seule requête réseau, et on garde le résultat pendant une fenêtre
+    // très courte pour couvrir les appels séquentiels du chargement de page.
+    //
+    // Volontairement PAS mis en commun : /sources/*/mangas/* (dépend d'une
+    // source tierce et peut être long), les recherches (paramétrées), et tout
+    // ce qui n'est pas un GET.
+    const SHARED_GET = [
+        /^\/me\/favorites$/,
+        /^\/me\/progress$/,
+        /^\/me\/settings$/,
+        /^\/me\/stats$/,
+        /^\/me\/notifications\/unread$/,
+        /^\/sources$/,
+        /^\/health$/,
+    ];
+    const SHARED_TTL = 3000;
+    const sharedCache = new Map();   // chemin → { at, promise }
+
+    // Les appelants reçoivent une COPIE : plusieurs modules partagent désormais
+    // la même réponse, et il suffirait qu'un seul trie ou filtre le tableau
+    // en place pour corrompre la vue des autres — un bug qui ne se manifeste
+    // qu'en présence de deux consommateurs, donc quasi introuvable.
+    const copy = (d) => {
+        if (d == null || typeof d !== 'object') return d;
+        try { return structuredClone(d); }
+        catch (e) { try { return JSON.parse(JSON.stringify(d)); } catch (_) { return d; } }
+    };
+
+    function getShared(p) {
+        const hit = sharedCache.get(p);
+        if (hit && (Date.now() - hit.at) < SHARED_TTL) return hit.promise.then(copy);
+        const promise = getWithRetry(p);
+        sharedCache.set(p, { at: Date.now(), promise });
+        // Un échec ne doit pas être resservi pendant 3 s : on le retire aussitôt
+        // pour que le prochain appelant retente vraiment.
+        promise.catch(() => {
+            if (sharedCache.get(p)?.promise === promise) sharedCache.delete(p);
+        });
+        return promise.then(copy);
+    }
+
+    const get  = (p)       => (SHARED_GET.some(re => re.test(p.split('?')[0])) ? getShared(p) : getWithRetry(p));
     const post = (p, body) => request('POST', p, body);
     const put  = (p, body) => request('PUT', p, body);
     const del  = (p)       => request('DELETE', p);
@@ -211,9 +316,37 @@
     // ── API publique ──────────────────────────────────────────
     const API = {
         get base()   { return API_BASE; },
+        // Audit AMEL-79 : la file d'ecritures hors-ligne existait mais restait
+        // INVISIBLE. Marquer des chapitres lus sans reseau semblait ne rien
+        // faire, et rien ne disait si c'etait finalement parti. Une ecriture
+        // en attente qu'on ne voit pas est indistinguable d'une ecriture
+        // perdue — l'utilisateur refait le geste, ou renonce.
+        offlineQueue() {
+            return readQueue().map(e => ({
+                method: e.method, path: e.path, at: e.at,
+                // Le chemin brut ne parle pas : on en tire ce que l'action VEUT dire.
+                label: /read-chapters/.test(e.path) ? 'Chapitre marque lu'
+                    : /progress/.test(e.path) ? 'Progression de lecture'
+                        : /favorites/.test(e.path) ? 'Favori'
+                            : /library/.test(e.path) ? 'Statut de suivi'
+                                : /ratings/.test(e.path) ? 'Note'
+                                    : e.path,
+            }));
+        },
+        flushOffline() { return flushOfflineQueue(); },
         get user()   { return _user; },
         get token()  { return _token; },
         isLoggedIn() { return !!_user; },
+
+        // Audit PERF-02 : /health était appelé par deux `fetch()` bruts dans
+        // global.js (bandeau de mise à jour, bandeau de repli base) qui
+        // court-circuitaient api.js — donc ni réessai, ni mise en commun.
+        // Exposé ici, il bénéficie du cache partagé et n'est plus demandé
+        // qu'une fois par chargement.
+        health: () => get('/health'),
+        // Sante de l'instance (audit AMEL-116) : /health repond par oui/non,
+        // celui-ci dit depuis quand, avec quoi, et si les sauvegardes tournent.
+        instance: () => get('/instance'),
 
         // ── Auth ──
         auth: {
@@ -228,6 +361,16 @@
                 return r;
             },
             providers() { return get('/auth/providers'); },
+            // Sessions actives, revocables une a une (audit AMEL-69)
+            sessions()            { return get('/auth/sessions'); },
+            revokeSession(id)     { return del('/auth/sessions/' + encodeURIComponent(id)); },
+            revokeOthers()        { return del('/auth/sessions/others'); },
+            // Force du mot de passe, evaluee par le MEME code que la
+            // validation serveur (audit AMEL-70) : un indicateur qui a sa
+            // propre regle finit par contredire celle qui decide vraiment.
+            passwordStrength(password, meta = {}) {
+                return post('/auth/password-strength', { password, ...meta });
+            },
             async google(credential) {
                 const r = await post('/auth/google', { credential });
                 _user = r.user; _token = r.token; persist();
@@ -293,8 +436,33 @@
             // Mises à jour des extensions (modèle Mihon)
             checkUpdates: ()      => get('/extensions/updates'),
             update:       (ids)   => post('/extensions/update', { ids: ids || null }),
-            // Test de connectivité d'une source + santé globale (admin)
+            // Test de connectivité d'une source + santé globale
             test:         (id)    => get('/extensions/' + encodeURIComponent(id) + '/test'),
+            // Journal des derniers appels d'une source (audit AMEL-68)
+            log:          (id, limit = 20) =>
+                get('/extensions/' + encodeURIComponent(id) + '/log?limit=' + limit),
+            // Audit AMEL-66 : `defaultSource()` codait en dur weebcentral puis
+            // sushiscan. L'ordre de preference est une habitude de lecture,
+            // propre a chacun — il vit donc chez le client, qui l'applique au
+            // choix de la source initiale et a l'ordre affiche.
+            get order() {
+                try { return JSON.parse(localStorage.getItem('mh_source_order') || '[]'); }
+                catch (e) { return []; }
+            },
+            set order(ids) {
+                try { localStorage.setItem('mh_source_order', JSON.stringify(ids || [])); }
+                catch (e) { window.MH?.err?.('api.js', e); }
+            },
+            // Trie une liste de sources selon la preference, les inconnues a la
+            // suite dans leur ordre d'origine : installer une extension ne doit
+            // pas la faire disparaitre au fond parce qu'elle n'est pas classee.
+            sortByPreference(list) {
+                const ord = API.sources.order;
+                if (!ord.length) return list;
+                const rang = new Map(ord.map((id, i) => [id, i]));
+                return [...list].sort((a, b) =>
+                    (rang.has(a.id) ? rang.get(a.id) : 1e9) - (rang.has(b.id) ? rang.get(b.id) : 1e9));
+            },
             health:       ()      => get('/extensions/health'),
         },
 
@@ -320,7 +488,11 @@
             popularFor:(source, params = {}) => get('/sources/' + encodeURIComponent(source) + '/mangas/popular' + API.mangas._qs(params)).then(mapMangaPage),
             searchFor: (source, params = {}) => get('/sources/' + encodeURIComponent(source) + '/mangas/search'  + API.mangas._qs(params)).then(mapMangaPage),
             tags:     ()            => get(API.mangas._prefix() + '/mangas/tags'),
-            get:      (id)          => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
+            // `source` optionnel : sans lui on interroge la source COURANTE, ce
+            // qui est faux dès qu'on résout une œuvre lue ailleurs (stats,
+            // historique). Omis, le comportement d'origine est conservé.
+            get:      (id, source)  => get((source ? '/sources/' + encodeURIComponent(source) : API.mangas._prefix())
+                + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
             getFrom:  (source, id)  => get((source ? `/sources/${encodeURIComponent(source)}` : '') + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
             chapters: (id, params={}) => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
             chaptersFor: (source, id, params={}) => get((source ? `/sources/${encodeURIComponent(source)}` : '') + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
@@ -370,14 +542,23 @@
 
             progress:         ()           => get('/me/progress'),
             // keepalive : survivent à une navigation immédiate (audit N52/N53)
+            // `clientAt` : instant où la lecture a REELLEMENT eu lieu (audit
+            // AMEL-29). Sans lui, une écriture rejouée depuis la file hors-ligne
+            // arriverait horodatée à son envoi et écraserait une lecture plus
+            // récente faite entre-temps sur un autre appareil.
             setProgress:      (mangaId, payload) =>
                 request('PUT', '/me/progress/' + encodeURIComponent(mangaId),
-                    { source: API.sources.current, ...payload }, { keepalive: true }),
+                    { source: API.sources.current, clientAt: new Date().toISOString(), ...payload },
+                    { keepalive: true }),
             removeProgress:   (mangaId)    => del('/me/progress/' + encodeURIComponent(mangaId)),
+            // Audit AMEL-28 : positions precedentes d'une serie.
+            progressHistory:  (mangaId)    => get('/me/progress/' + encodeURIComponent(mangaId) + '/history'),
 
             readChapters:     ()           => get('/me/read-chapters'),
             markChapter:      (payload)    => request('POST', '/me/read-chapters', payload, { keepalive: true }),
             markChaptersBulk: (mangaId, chapters) => post('/me/read-chapters/bulk', { mangaId, chapters }),
+            // Audit AMEL-40 : annulation d'un marquage en masse.
+            unmarkChaptersBulk: (mangaId, chapterIds) => post('/me/read-chapters/unmark-bulk', { mangaId, chapterIds }),
 
             // ── Journal de lecture (notes personnelles) ──
             notes:            (opts = {})  => {
@@ -409,9 +590,19 @@
                 cover:  meta.cover  || null,
             }),
             removeFromList:   (id, mangaId)=> del(`/me/lists/${id}/items/${encodeURIComponent(mangaId)}`),
+            // Audit AMEL-37 : ordre persisté des éléments d'une liste.
+            reorderList:      (id, mangaIds)=> put(`/me/lists/${id}/order`, { mangaIds }),
+
+            // Audit AMEL-41 : signets sortis du blob de reglages.
+            bookmarks:        ()           => get('/me/bookmarks'),
+            addBookmark:      (b)          => post('/me/bookmarks', b),
+            removeBookmark:   (mangaId, chapterId) =>
+                del(`/me/bookmarks/${encodeURIComponent(mangaId)}/${encodeURIComponent(chapterId)}`),
 
             events:           (limit=200)  => get('/me/events?limit=' + limit),
             stats:            ()           => get('/me/stats'),
+            // Répartition des lectures par source et par mois (audit AMEL-57)
+            distribution:     (months = 12) => get('/me/stats/distribution?months=' + months),
 
             // Ratings
             myRatings:        ()           => get('/me/ratings'),
@@ -420,18 +611,41 @@
             settings:         ()           => get('/me/settings'),
             saveSettings:     (data)       => put('/me/settings', data),
 
+            // Liens AniList — sortis du blob de réglages (audit PERF-09) :
+            // ils pesaient 7 348 des 8 188 octets rechargés à CHAQUE page.
+            anilistLinks:     ()           => get('/me/anilist-links'),
+            saveAnilistLinks: (data)       => put('/me/anilist-links', data),
+
             // Données
             exportData:       ()           => get('/me/export'),
             importData:       (data)       => post('/me/import', data),
-            clearHistory:     ()           => post('/me/clear-history'),
+            clearHistory:     (days)      => post('/me/clear-history', days ? { days } : {}),
+            // Historique : ciblé plutôt que tout-ou-rien (audit AMEL-112/113).
+            // `chapterId` omis => toute la série.
+            deleteHistoryEntry: (mangaId, chapterId) =>
+                del('/me/history/' + encodeURIComponent(mangaId)
+                    + (chapterId ? '?chapterId=' + encodeURIComponent(chapterId) : '')),
+            historyExportUrl: (format = 'json') => API.base + '/me/history/export?format=' + encodeURIComponent(format),
+            // Sauvegardes nocturnes : lister, previsualiser, restaurer SON
+            // compte (audit AMEL-73). Le script CLI existait deja mais suppose
+            // un acces shell au serveur.
+            backups:          ()          => get('/me/backups'),
+            backupPreview:    (file, passphrase) =>
+                post('/me/backups/' + encodeURIComponent(file) + '/preview', { passphrase }),
+            backupRestore:    (file, passphrase) =>
+                post('/me/backups/' + encodeURIComponent(file) + '/restore', { passphrase }),
         },
 
         comments: {
             // Paginé par fil (audit N51) : renvoie { items, total, hasMore }
-            list:   (mangaId, { limit = 50, offset = 0 } = {}) =>
-                get('/comments/' + encodeURIComponent(mangaId) + `?limit=${limit}&offset=${offset}`),
+            // `chapterId` filtre le fil sur un chapitre précis (audit AMEL-52)
+            list:   (mangaId, { limit = 50, offset = 0, chapterId = null } = {}) =>
+                get('/comments/' + encodeURIComponent(mangaId) + `?limit=${limit}&offset=${offset}`
+                    + (chapterId ? '&chapterId=' + encodeURIComponent(chapterId) : '')),
             add:    (mangaId, payload)=> post('/comments/' + encodeURIComponent(mangaId), payload),
-            reply:  (mangaId, parentId, text) => post('/comments/' + encodeURIComponent(mangaId), { text, parentId }),
+            reply:  (mangaId, parentId, text, opts = {}) =>
+                post('/comments/' + encodeURIComponent(mangaId),
+                    { text, parentId, spoiler: !!opts.spoiler, visibility: opts.visibility }),
             report: (commentId, reason) => post('/comments/' + commentId + '/report', { reason }),
             remove: (commentId)       => del('/comments/' + commentId),
             recent: (limit = 6)       => get('/comments-recent?limit=' + limit),
@@ -445,6 +659,10 @@
             markAll:   ()           => post('/me/notifications/read-all'),
             subscribe: (sub)        => post('/me/push/subscribe', sub),
             vapid:     ()           => get('/push/vapid'),
+            // Fréquence de scan et séries surveillées (audit AMEL-54)
+            prefs:     ()           => get('/me/notif-prefs'),
+            setPrefs:  (everyHours) => put('/me/notif-prefs', { everyHours }),
+            watch:     (mangaId, on)=> put('/me/notif-watch/' + encodeURIComponent(mangaId), { notify: !!on }),
         },
 
         // ── Import local (EPUB / CBZ / CBR) ──
@@ -452,10 +670,15 @@
             list:    ()   => get('/library/local'),
             remove:  (id) => del('/library/local/' + id),
             fileUrl: (id) => API_BASE + '/library/local/' + id + '/file',
-            async upload(file, title, onProgress) {
+            // `meta` accepte une chaîne (titre seul, forme historique) ou un
+            // objet { title, cover }. Audit AMEL-25 : la vignette est extraite
+            // du fichier par le client et voyage avec le téléversement.
+            async upload(file, meta, onProgress) {
+                const { title, cover } = typeof meta === 'string' ? { title: meta } : (meta || {});
                 const fd = new FormData();
                 fd.append('file', file);
                 if (title) fd.append('title', title);
+                if (cover) fd.append('cover', cover);
                 // XHR pour la progression d'upload (fetch ne l'expose pas simplement)
                 return new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
@@ -476,7 +699,11 @@
 
         // ── Profil public ──
         users: {
-            profile: (username) => get('/users/profile/' + encodeURIComponent(username)).then(p => {
+            // `preview` force le point de vue d'un inconnu, même sur son propre
+            // profil (audit AMEL-62) : c'est le serveur qui recalcule, pas le
+            // client qui masque — un aperçu reconstitué finirait par mentir.
+            profile: (username, { preview = false } = {}) =>
+                get('/users/profile/' + encodeURIComponent(username) + (preview ? '?as=public' : '')).then(p => {
                 if (p && p.avatar && /^https?:\/\//.test(p.avatar)) p.avatar = proxyCover(p.avatar);
                 return p;
             }),

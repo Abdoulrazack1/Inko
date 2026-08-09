@@ -5,6 +5,17 @@
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inko — Connexion AniList</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Connexion du compte AniList pour synchroniser ta progression.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Connexion AniList">
+    <meta property="og:description" content="Connexion du compte AniList pour synchroniser ta progression.">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Connexion AniList">
+    <meta name="twitter:description" content="Connexion du compte AniList pour synchroniser ta progression.">
+    <!-- meta:auto -->
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
   <style>
     body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;
@@ -13,7 +24,16 @@
     .logo{width:56px;height:56px;margin-bottom:16px}
     h1{font-size:18px;margin:0 0 8px}
     p{color:#a8a8b3;font-size:13.5px;line-height:1.5}
-    .ok{color:#22c55e}
+    .ok{color:#7ee2a0}
+    /* Audit BUG-15 : sans paramètres OAuth, cette page affichait « Connexion
+       échouée » sur 15 nœuds — aucun en-tête, aucun lien, aucun bouton. Un
+       utilisateur qui atterrit là (favori, annulation côté AniList, erreur du
+       fournisseur) était bloqué et devait taper une URL à la main. */
+    .actions{display:flex;gap:8px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+    .actions a{display:inline-block;padding:9px 16px;border-radius:10px;font-size:13.5px;
+      text-decoration:none;border:1px solid rgba(255,255,255,.14);color:#f0f0f2}
+    .actions a.primary{background:#c1531b;border-color:#c1531b}
+    .actions a:hover{border-color:#c1531b}
   </style>
 </head>
 <body>
@@ -21,6 +41,10 @@
     <img class="logo" src="/assets/img/icon.svg" alt="">
     <h1 id="t">Connexion à AniList…</h1>
     <p id="m">Un instant, on récupère ton autorisation.</p>
+    <div class="actions" id="actions" hidden>
+      <a class="primary" href="/parametres.html">Retour aux paramètres</a>
+      <a href="/accueil.html">Accueil</a>
+    </div>
   </div>
   <script src="assets/js/i18n.js"></script>
   <script>
@@ -45,7 +69,10 @@
       } else {
         var err = params.get('error_description') || new URLSearchParams(location.search).get('error') || 'Autorisation annulée';
         t.textContent = 'Connexion échouée';
-        m.textContent = err;
+        // Audit BUG-15 : on explique ET on propose une sortie, au lieu de
+        // laisser l'utilisateur sur un cul-de-sac.
+        m.textContent = err + ' — ton compte Inko n\'a pas été modifié. Tu peux relancer la liaison depuis les paramètres.';
+        document.getElementById('actions').hidden = false;
       }
     })();
   </script>

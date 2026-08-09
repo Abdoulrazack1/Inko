@@ -72,7 +72,11 @@
                     <a href="collection-detail.html?id=${l.id}" class="list-card-title">${MH.esc(l.name)}</a>
                     ${l.description ? `<div class="list-card-desc">${MH.esc(l.description)}</div>` : ''}
                     <div class="list-card-footer">
-                        <span class="list-card-vis">${l.isPublic ? 'Publique' : 'Privée'}</span>
+                        <span class="list-card-vis">${l.isPublic ? 'Publique' : 'Privée'}${
+    /* Audit AMEL-38 : une liste intelligente doit se distinguer d'une liste
+       ordinaire — on n'y ajoute pas de titre à la main, son contenu change
+       tout seul. Sans marqueur, on croirait à une liste qui se vide. */
+    l.smart ? ' · <span class="list-card-smart">Intelligente</span>' : ''}</span>
                         <div class="list-card-actions">
                             <button class="list-icon-btn" data-edit="${l.id}" title="Modifier">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -111,6 +115,15 @@
         document.getElementById('listName').value = list ? (list.name || '') : '';
         document.getElementById('listDesc').value = list ? (list.description || '') : '';
         document.getElementById('listPublic').checked = list ? !!list.isPublic : false;
+        // Audit AMEL-38 : etat des regles, si la liste en a.
+        const regles = list?.rules || null;
+        document.getElementById('listSmart').checked = !!regles;
+        document.getElementById('listRules').hidden = !regles;
+        document.querySelectorAll('#listRuleStatus input').forEach(i => {
+            i.checked = !!(regles?.status || []).includes(i.value);
+        });
+        document.getElementById('listRuleCategory').value = regles?.category || '';
+        document.getElementById('listRuleRating').value = regles?.minRating ? String(regles.minRating) : '';
         const modal = document.getElementById('listModal');
         modal.style.display = 'flex';
         setTimeout(() => document.getElementById('listName')?.focus(), 50);
@@ -126,6 +139,9 @@
             if (e.target.id === 'listModal') closeModal();
         });
         document.getElementById('listSave')?.addEventListener('click', save);
+        document.getElementById('listSmart')?.addEventListener('change', (e) => {
+            document.getElementById('listRules').hidden = !e.target.checked;
+        });
     }
     async function save() {
         const name = document.getElementById('listName').value.trim();
@@ -135,6 +151,25 @@
             description: document.getElementById('listDesc').value.trim() || null,
             isPublic: document.getElementById('listPublic').checked,
         };
+        // Audit AMEL-38 : `rules: null` retire les regles et rend la liste
+        // ordinaire — le champ est donc TOUJOURS envoye, sinon decocher la case
+        // n'aurait aucun effet.
+        if (document.getElementById('listSmart').checked) {
+            const statuts = [...document.querySelectorAll('#listRuleStatus input:checked')].map(i => i.value);
+            const cat = document.getElementById('listRuleCategory').value.trim();
+            const note = document.getElementById('listRuleRating').value;
+            const regles = {};
+            if (statuts.length) regles.status = statuts;
+            if (cat) regles.category = cat;
+            if (note) regles.minRating = +note;
+            if (!Object.keys(regles).length) {
+                MH.toast?.('Choisis au moins un critere, sinon la liste prendrait toute ta bibliotheque');
+                return;
+            }
+            payload.rules = regles;
+        } else {
+            payload.rules = null;
+        }
         const btn = document.getElementById('listSave');
         btn.disabled = true;
         try {

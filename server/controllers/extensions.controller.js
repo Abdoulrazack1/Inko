@@ -80,9 +80,14 @@ async function getExpectedHashes() {
     } catch (e) { return {}; }
 }
 
-// Récupère la source d'une extension et VÉRIFIE son empreinte (audit S-2).
-// Quand un hash attendu existe pour cet id, un contenu qui ne correspond pas
-// est rejeté (fail-closed) — protège d'un CDN raw altéré ou d'un tag reforgé.
+// Audit SEC-07 : la vérification était annoncée « fail-closed » mais ne l'était
+// qu'à moitié. getExpectedHashes() renvoie {} quand le réseau échoue, et la
+// vérification ne se déclenchait que `if (expectedHash)` — donc un hash absent
+// ou injoignable faisait installer du JS EXÉCUTÉ PAR LE SERVEUR sans aucun
+// contrôle. Désormais : pas de hash attendu = refus, sauf opt-in explicite.
+const ALLOW_UNVERIFIED = process.env.ALLOW_UNVERIFIED_EXTENSIONS === '1';
+
+// Récupère la source d'une extension et VÉRIFIE son empreinte.
 async function getLatestSource(id, expectedHash) {
     const local = path.join(COMMUNITY_DIR, id, 'index.js');
     let src;
@@ -94,10 +99,18 @@ async function getLatestSource(id, expectedHash) {
             { timeout: 20000, responseType: 'text', transformResponse: [(d) => d] });
         src = typeof r.data === 'string' ? r.data : String(r.data);
     }
-    if (expectedHash) {
-        const got = sha256(Buffer.from(src, 'utf8'));
-        if (got !== expectedHash) throw new Error('empreinte SHA-256 invalide (source rejetée)');
+    if (!expectedHash) {
+        if (!ALLOW_UNVERIFIED) {
+            throw new Error(
+                'aucune empreinte SHA-256 connue pour cette extension — installation refusée. ' +
+                'Vérifie que extensions-community/hashes.json est accessible, ' +
+                'ou définis ALLOW_UNVERIFIED_EXTENSIONS=1 pour passer outre en connaissance de cause.');
+        }
+        console.warn(`[ext] ⚠ "${id}" installée SANS vérification d'empreinte (ALLOW_UNVERIFIED_EXTENSIONS=1)`);
+        return src;
     }
+    const got = sha256(Buffer.from(src, 'utf8'));
+    if (got !== expectedHash) throw new Error('empreinte SHA-256 invalide (source rejetée)');
     return src;
 }
 
@@ -168,7 +181,13 @@ async function testSource(req, res, next) {
     } catch (e) { next(e); }
 }
 
-// GET /api/extensions/health — instantané santé (admin, §7.3 rec 3)
+// GET /api/extensions/health — instantané santé
+//
+// Audit AMEL-65 : cet endpoint était réservé à l'admin alors que la donnée
+// qu'il porte répond à une question d'UTILISATEUR — « pourquoi cette source ne
+// renvoie rien ? ». En mode local il n'y a d'ailleurs qu'un compte, donc la
+// restriction ne protégeait personne tout en privant tout le monde. Rien ici
+// n'est confidentiel : ce sont des compteurs de disponibilité de sites publics.
 async function healthStatus(_req, res, next) {
     try {
         const byId = Object.fromEntries(extensions.manifest().map(s => [s.id, s]));
@@ -180,6 +199,102 @@ async function healthStatus(_req, res, next) {
         }
         res.json(rows);
     } catch (e) { next(e); }
+}
+
+// GET /api/instance — sante de l'instance (audit AMEL-116)
+//
+// /api/health repond par oui/non : il sert de sonde Docker, pas de tableau de
+// bord. Quand quelque chose ne va pas, il ne dit ni depuis quand, ni si les
+// sauvegardes tournent, ni s'il reste de la place — donc rien de ce qu'on a
+// besoin de savoir AVANT que ca casse.
+async function instanceStatus(_req, res, next) {
+    try {
+        const os = require('os');
+        const fsp = require('fs');
+        const { pool } = require('../config/db');
+        const bk = require('../lib/backup');
+
+        let base = { ok: false, error: null, latenceMs: null };
+        const t0 = Date.now();
+        try {
+            await pool.query('SELECT 1');
+            base = { ok: true, error: null, latenceMs: Date.now() - t0 };
+        } catch (e) { base = { ok: false, error: String(e.message || e).slice(0, 160), latenceMs: null }; }
+
+        // Comptages : ce sont eux qui disent si l'instance SERT a quelque chose.
+        // Une base « up » sans aucune donnee est un symptome, pas une sante.
+        let volumes = null;
+        if (base.ok) {
+            try {
+                const [[c]] = await pool.query(`SELECT
+                    (SELECT COUNT(*) FROM users) AS comptes,
+                    (SELECT COUNT(*) FROM favorites) AS favoris,
+                    (SELECT COUNT(*) FROM read_chapters) AS chapitresLus,
+                    (SELECT COUNT(*) FROM notifications) AS notifications`);
+                volumes = c;
+            } catch (e) { volumes = null; }
+        }
+
+        const sauvegardes = bk.listerSauvegardes();
+        const derniere = sauvegardes[0] || null;
+        // « La derniere sauvegarde date de 9 jours » est l'information utile ;
+        // « il y a 12 fichiers » ne dit pas si le mecanisme tourne encore.
+        const ageJours = derniere
+            ? Math.floor((Date.now() - new Date(derniere.at).getTime()) / 86400000) : null;
+
+        let disque = null;
+        try {
+            const st = fsp.statfsSync ? fsp.statfsSync(process.cwd()) : null;
+            if (st) disque = { libre: st.bfree * st.bsize, total: st.blocks * st.bsize };
+        } catch (e) { disque = null; }
+
+        const ext = extensions.manifest();
+        res.json({
+            version: process.env.APP_VERSION || null,
+            uptimeSec: Math.round(process.uptime()),
+            node: process.version,
+            memoireMo: Math.round(process.memoryUsage().rss / 1048576),
+            chargeSysteme: os.loadavg ? os.loadavg()[0] : null,
+            base, volumes,
+            extensions: { total: ext.length, ids: ext.map(e => e.id) },
+            sauvegardes: {
+                total: sauvegardes.length,
+                chiffrees: bk.chiffrementActif(),
+                derniere: derniere ? { fichier: derniere.file, at: derniere.at, ageJours } : null,
+                dossier: bk.BACKUP_DIR,
+            },
+            disque,
+        });
+    } catch (e) { next(e); }
+}
+
+// GET /api/extensions/:id/log — journal des derniers appels (audit AMEL-68)
+// Les compteurs agrégés ne gardent que le DERNIER message d'erreur, écrasé au
+// prochain échec : impossible de voir si une source est lente, limitée par
+// intermittence, ou franchement cassée. Le journal montre la suite des appels.
+async function sourceLog(req, res, next) {
+    try {
+        const id = req.params.id;
+        if (!extensions.get(id) && !extensions.isUninstalled(id))
+            return res.status(404).json({ error: 'Source inconnue' });
+        const limite = Math.min(Math.max(parseInt(req.query.limit || '20', 10) || 20, 1), health.JOURNAL_MAX);
+        const lignes = health.journalDe(id, limite);
+        const reussis = lignes.filter(l => l.ok);
+        res.json({
+            id,
+            entries: lignes,
+            // Mediane et non moyenne : un seul appel a 30 s (site qui a fini
+            // par repondre) ferait passer une source saine pour lente.
+            medianMs: reussis.length ? mediane(reussis.map(l => l.ms)) : null,
+            okRate: lignes.length ? Math.round((reussis.length / lignes.length) * 100) : null,
+            kept: health.JOURNAL_MAX,
+        });
+    } catch (e) { next(e); }
+}
+function mediane(a) {
+    const t = [...a].sort((x, y) => x - y);
+    const m = Math.floor(t.length / 2);
+    return t.length % 2 ? t[m] : Math.round((t[m - 1] + t[m]) / 2);
 }
 
 // L'installation d'extensions par URL a été retirée : les extensions ne
@@ -202,4 +317,5 @@ function reinstall(req, res, next) {
     } catch (e) { next(e); }
 }
 
-module.exports = { checkUpdates, applyUpdates, testSource, healthStatus, uninstall, reinstall };
+module.exports = {
+    sourceLog, instanceStatus, checkUpdates, applyUpdates, testSource, healthStatus, uninstall, reinstall };

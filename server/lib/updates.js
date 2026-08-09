@@ -15,7 +15,7 @@
 // ============================================================
 const { pool } = require('../config/db');
 const extensions = require('../extensions/loader');
-const { createNotification } = require('./notify');
+const { createNotification, purgerNotificationsLues, RETENTION_JOURS } = require('./notify');
 
 // Concurrence bornée (reprend le mapLimit du controller, ici partagé)
 async function mapLimit(items, limit, fn) {
@@ -50,16 +50,23 @@ function markFullScan(uid) { lastFullScan.set(uid, Date.now()); }
  *   scope   'active' (défaut : ignore Terminé/Abandonné) | 'all'
  *   mangaId vérifie UNE seule série (ignore scope/cooldown)
  *   lang    langues de chapitres ('fr,en' par défaut)
+ *   notifyOnly  n'examine que les séries dont les notifications sont actives
  * @returns {{updates: Array, failures: Array, scanned: number, skipped: number}}
  */
-async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = 'fr,en' } = {}) {
+async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = 'fr,en', notifyOnly = false } = {}) {
     const params = [uid];
     let where = 'f.user_id = ?';
     if (mangaId) { where += ' AND f.manga_id = ?'; params.push(mangaId); }
+    // Audit AMEL-54 : `notifyOnly` ne concerne QUE la tâche de fond. Le bouton
+    // « Mettre à jour » de la bibliothèque doit continuer à tout vérifier —
+    // couper les notifications d'une série n'est pas cesser de la suivre.
+    if (notifyOnly) where += ' AND f.notify = 1';
     const [favs] = await pool.query(
-        `SELECT f.manga_id, f.source, f.title, f.cover, f.last_chapter, l.status
+        // Audit DB-02 : le statut est une colonne de `favorites` depuis la
+        // migration 7 — plus de LEFT JOIN sur cette requête, qui tourne pour
+        // chaque compte à chaque scan de mises à jour.
+        `SELECT f.manga_id, f.source, f.title, f.cover, f.last_chapter, f.status
          FROM favorites f
-         LEFT JOIN library l ON l.user_id = f.user_id AND l.manga_id = f.manga_id
          WHERE ${where}`,
         params
     );
@@ -110,6 +117,12 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
         const readSet = readByManga[f.manga_id] || new Set();
         const latest  = chaps[0];   // trié desc par les extensions
         const unread  = chaps.filter(c => !readSet.has(c.chapter));
+        // Audit AMEL-55 : « Lire maintenant » doit ouvrir le PREMIER non lu,
+        // pas le dernier paru. Sur trois chapitres en retard, envoyer au plus
+        // récent fait sauter les deux du milieu.
+        const premierNonLu = unread.length
+            ? unread.reduce((a, b) => (Number(a.chapter) <= Number(b.chapter) ? a : b))
+            : null;
 
         if (latest?.chapter != null && latest.chapter !== f.last_chapter) {
             pool.query('UPDATE favorites SET last_chapter = ? WHERE user_id = ? AND manga_id = ?',
@@ -122,6 +135,7 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
             title:      f.title || f.manga_id,
             cover:      f.cover || null,
             latest:     latest ? { id: latest.id, chapter: latest.chapter, title: latest.title, publishedAt: latest.publishedAt } : null,
+            resume:     premierNonLu ? { id: premierNonLu.id, chapter: premierNonLu.chapter } : null,
             unreadCount: unread.length,
             hasNew:     latest && f.last_chapter != null && latest.chapter > f.last_chapter,
         };
@@ -143,12 +157,27 @@ async function backgroundScan() {
     if (scanRunning) return;   // jamais deux scans en parallèle
     scanRunning = true;
     try {
+        // Audit AMEL-56 : une purge par cycle suffit, et elle doit passer même
+        // si aucun utilisateur n'est éligible au scan.
+        const purgees = await purgerNotificationsLues();
+        if (purgees) console.log(`[notif] ${purgees} notification(s) lues de plus de ${RETENTION_JOURS} j purgées`);
+
+        // Audit AMEL-54 : la fréquence est propre au compte. Le planificateur
+        // continue de battre toutes les 4 h — c'est le pas le plus fin — mais
+        // chaque utilisateur n'est scanné que si SON intervalle est écoulé.
+        // `notif_every_hours = 0` coupe les notifications sans toucher au
+        // suivi des séries.
         const [users] = await pool.query(
-            'SELECT DISTINCT user_id FROM favorites'
+            `SELECT DISTINCT f.user_id, u.notif_every_hours, u.last_notif_scan
+             FROM favorites f JOIN users u ON u.id = f.user_id
+             WHERE f.notify = 1 AND u.notif_every_hours > 0`
         );
         for (const u of users) {
             try {
-                const { updates } = await scanUserUpdates(u.user_id, { scope: 'active' });
+                const dernier = u.last_notif_scan ? new Date(u.last_notif_scan).getTime() : 0;
+                if (Date.now() - dernier < u.notif_every_hours * 3600 * 1000) continue;
+                await pool.query('UPDATE users SET last_notif_scan = NOW() WHERE id = ?', [u.user_id]);
+                const { updates } = await scanUserUpdates(u.user_id, { scope: 'active', notifyOnly: true });
                 const fresh = updates.filter(x => x.hasNew && x.latest);
                 // Audit N46 : l'ancien `fresh.slice(0, 5)` budgétisait AVANT le
                 // garde anti-doublon — des séries déjà notifiées consommaient le
@@ -160,7 +189,11 @@ async function backgroundScan() {
                 let sent = 0;
                 for (const f of fresh) {
                     if (sent >= 5) break;   // au plus 5 notifs par cycle, le reste au cycle suivant
-                    const link = `/chapitre.html?manga=${encodeURIComponent(f.mangaId)}&chapter=${encodeURIComponent(f.latest.id)}&source=${encodeURIComponent(f.source)}`;
+                    // Audit AMEL-55 : on ouvre le premier chapitre NON LU, pas
+                    // le dernier paru — sinon trois chapitres de retard font
+                    // sauter les deux du milieu.
+                    const cible = f.resume || f.latest;
+                    const link = `/chapitre.html?manga=${encodeURIComponent(f.mangaId)}&chapter=${encodeURIComponent(cible.id)}&source=${encodeURIComponent(f.source)}`;
                     // Garde anti-doublon : même chapitre déjà notifié → on passe
                     try {
                         const [[dup]] = await pool.query(
@@ -169,12 +202,19 @@ async function backgroundScan() {
                         );
                         if (dup) continue;
                     } catch (e) { /* table absente : createNotification l'ignorera aussi */ }
+                    // Audit AMEL-53 : le compte de chapitres en retard est la
+                    // seule information utile quand on en a plusieurs — « Chap.
+                    // 14 » ne dit pas qu'il en reste trois à lire avant.
+                    const corps = f.unreadCount > 1
+                        ? `${f.title} · ${f.unreadCount} chapitres à lire (reprends au ${cible.chapter})`
+                        : `${f.title} · Chap. ${cible.chapter}`;
                     await createNotification(u.user_id, {
                         type: 'new_chapter',
-                        title: 'Nouveau chapitre',
-                        body: `${f.title} · Chap. ${f.latest.chapter}`,
+                        title: f.unreadCount > 1 ? `${f.unreadCount} nouveaux chapitres` : 'Nouveau chapitre',
+                        body: corps,
                         link,
                         image: f.cover || null,
+                        groupKey: f.mangaId,
                     });
                     sent++;
                 }

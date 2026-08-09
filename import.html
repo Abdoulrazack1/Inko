@@ -5,6 +5,17 @@
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inko — Importer un fichier</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Importe tes propres fichiers EPUB, PDF ou CBZ dans ta bibliothèque.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Importer un fichier">
+    <meta property="og:description" content="Importe tes propres fichiers EPUB, PDF ou CBZ dans ta bibliothèque.">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Importer un fichier">
+    <meta name="twitter:description" content="Importe tes propres fichiers EPUB, PDF ou CBZ dans ta bibliothèque.">
+    <!-- meta:auto -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#0d0d0f">
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
@@ -17,8 +28,9 @@
     .im-drop.drag { border-color: var(--orange); background: rgba(255,140,66,.06); }
     .im-drop .ic { font-size: 38px; margin-bottom: 10px; }
     .im-drop .hint { font-size: 12px; color: var(--text3); margin-top: 8px; }
-    .im-bar { height: 8px; border-radius: 5px; background: var(--bg4); overflow: hidden; margin-top: 16px; display: none; }
-    .im-bar > div { height: 100%; width: 0; background: linear-gradient(90deg,#ff8c42,var(--orange)); transition: width .15s; }
+    /* (.im-bar retiree : la barre unique est remplacee par la file d'attente
+       par fichier, audit AMEL-103. Elle entrait de surcroit en collision avec
+       la classe .im-bar du dock musical.) */
     .im-list { margin-top: 30px; }
     .im-item { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; }
     .im-cover { width: 44px; height: 60px; border-radius: 8px; background: linear-gradient(135deg,var(--orange),#ff8c42); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
@@ -26,11 +38,53 @@
     .im-title { font-weight: 600; font-size: 14px; }
     .im-sub { font-size: 11.5px; color: var(--text3); margin-top: 3px; }
     .im-empty { text-align: center; padding: 30px; color: var(--text3); }
+    /* Vignette extraite du fichier (audit AMEL-25) — remplace l'icône de type
+       quand elle a pu être lue. object-fit pour ne jamais déformer une
+       couverture dont le rapport ne correspond pas au cadre. */
+    .im-cover-img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
     .tag { font-size: 10px; padding: 2px 7px; border-radius: 6px; background: var(--bg4); color: var(--text2); text-transform: uppercase; }
+
+    /* ── Jauge de quota (audit AMEL-105) ── */
+    .im-quota { margin: 14px 0 4px; }
+    .im-quota-head { display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+    .im-quota-pct { font-variant-numeric: tabular-nums; color: var(--text3); }
+    .im-quota-bar { height: 6px; border-radius: 3px; background: var(--bg4); overflow: hidden; }
+    .im-quota-bar > div { height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+    /* Au-delà de 85 %, l'information devient un avertissement : c'est là qu'un
+       import de 300 Mo risque d'être refusé après téléversement complet. */
+    .im-quota-warn .im-quota-bar > div { background: var(--red); }
+    .im-quota-warn .im-quota-head { color: var(--red-text); }
+
+    /* ── File d'attente d'import (audit AMEL-103) ── */
+    .im-queue { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
+    .im-q-item { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px;
+      padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); }
+    .im-q-name { font-size: 13px; font-weight: 600; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .im-q-state { font-size: 11.5px; color: var(--text3); white-space: nowrap; }
+    .im-q-bar { grid-column: 1 / -1; height: 3px; border-radius: 2px; background: var(--bg4); overflow: hidden; }
+    .im-q-bar > div { height: 100%; background: var(--accent); transition: width .2s ease; }
+    /* L'état se lit aussi sans la couleur : le texte le dit (« Importé »,
+       « Quota insuffisant — … »). La teinte ne fait que le confirmer. */
+    .im-q-item.ok .im-q-state { color: var(--green-text); }
+    .im-q-item.echec { border-color: rgba(168,50,50,.4); }
+    .im-q-item.echec .im-q-state { color: var(--red-text); white-space: normal; }
+
+    /* ── Regroupement en séries (audit AMEL-104) ── */
+    .im-serie { border: 1px solid var(--border); border-radius: 12px;
+      background: var(--bg2); margin-bottom: 10px; overflow: hidden; }
+    .im-serie-head { display: flex; justify-content: space-between; align-items: center;
+      padding: 11px 14px; cursor: pointer; font-weight: 600; font-size: 14px; }
+    .im-serie-head::-webkit-details-marker { display: none; }
+    .im-serie-count { font-size: 11.5px; color: var(--text3); font-weight: 500; }
+    .im-serie .im-item-sub { border: none; border-top: 1px solid var(--border);
+      border-radius: 0; background: transparent; padding-left: 26px; }
   </style>
 </head>
 <body class="page-body">
   <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
   <div class="im-wrap">
     <div class="im-head">
       <h1>Importer un livre</h1>
@@ -38,6 +92,7 @@
     </div>
     <div id="imBody"></div>
   </div>
+  </main>
   <div id="footer-slot"></div>
   <script src="assets/js/api.js"></script>
   <script src="assets/js/storage.js"></script>
@@ -46,6 +101,11 @@
   
   <script src="assets/js/i18n.js"></script>
   <script src="assets/js/global.js"></script>
+  <!-- Audit AMEL-25 : titre et couverture sont lus DANS le fichier avant
+       l'envoi (EPUB -> OPF, CBZ -> premiere planche). Charge AVANT import.js :
+       sans JSZip, l'extraction retomberait silencieusement sur l'icone de
+       type — la fonctionnalite serait « presente » mais inoperante. -->
+  <script src="assets/vendor/jszip.min.js"></script>
   <script src="assets/js/import.js"></script>
   <script src="assets/js/eula.js"></script>
   <script src="assets/js/pwa.js"></script>

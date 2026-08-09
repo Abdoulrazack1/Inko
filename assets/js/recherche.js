@@ -9,17 +9,27 @@
     let favSet = new Set();
     let lastMerged = [];
     let typeFilter = 'all';   // 'all' | 'manga' | 'novel'
+    // Audit AMEL-13 : filtre de statut, en plus du type.
+    let statutFiltre = 'all';   // 'all' | ongoing | completed | hiatus | cancelled
     let reqSeq = 0;           // garde anti-concurrence (une réponse tardive ne remplace pas une plus récente)
     let liveTimer = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('recherche');
         MH.loadSourceTypes();
+
+        // Audit AMEL-12 : la bibliothèque est lue depuis le cache LOCAL, donc
+        // avant tout `await`. Placée après `UserData.ready()` et `getFavSet()`
+        // — deux appels réseau — elle n'apparaissait qu'à 1,6 s : mesurée, elle
+        // n'avait plus rien d'« instantanée ni hors-ligne ».
+        const qInitial = new URLSearchParams(location.search).get('q') || '';
+        if (qInitial) rechercheLocale(qInitial, reqSeq);
+
         await window.UserData?.ready?.();
         try { favSet = await MH.getFavSet(); } catch (e) { window.MH?.err?.('recherche.js', e); }
 
         const input = document.getElementById('seInput');
-        const q = new URLSearchParams(location.search).get('q') || '';
+        const q = qInitial;
         if (q) { input.value = q; submit(q); } else { renderHistory(); renderSuggestions(); }
         input.focus();
 
@@ -91,7 +101,7 @@
                     persoHtml = `<div class="se-group"><div class="se-ghead"><span class="se-gname">Depuis ta bibliothèque</span></div>
                         <div class="se-perso-row">${favs.map(f => `
                             <a class="se-card se-perso-card" href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}">
-                                <div class="se-cover"><img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'"></div>
+                                <div class="se-cover"><img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'"></div>
                                 <div class="se-title">${MH.esc(f.title || f.mangaId)}</div>
                             </a>`).join('')}</div></div>`;
                 }
@@ -104,7 +114,7 @@
             const popHtml = list.length ? `<div class="se-group"><div class="se-ghead"><span class="se-gname">Populaires</span></div>
                 <div class="se-grid">${list.map(m => `
                     <a class="se-card" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}">
-                        <div class="se-cover"><img src="${m.cover || m.coverThumb || MH.placeholderCover(m.id)}" alt="${MH.esc(m.title||'')}" loading="lazy" onerror="this.src='${MH.placeholderCover(m.id)}'"></div>
+                        <div class="se-cover"><img src="${MH.cover(m.cover, m.coverThumb, MH.placeholderCover(m.id))}" alt="${MH.esc(m.title||'')}" loading="lazy" onerror="this.src='${MH.placeholderCover(m.id)}'"></div>
                         <div class="se-title">${MH.esc(m.title || m.id)}</div>
                     </a>`).join('')}</div></div>` : '';
             out.innerHTML = persoHtml + popHtml;
@@ -122,6 +132,11 @@
         run(q);
     }
 
+    // Sources en échec pour la recherche en cours (audit AMEL-11) et groupes
+    // reçus jusqu'ici (audit AMEL-10).
+    let sourcesEnEchec = [];
+    let groupesRecus = [];
+
     async function run(q) {
         q = (q || '').trim();
         if (!q) return;
@@ -131,18 +146,94 @@
         history.replaceState({}, '', 'recherche.html?q=' + encodeURIComponent(q));
         sub.textContent = `Recherche de « ${q} »…`;
         out.innerHTML = `<div class="se-loading"><div class="spinner-inline"></div> Recherche en cours…</div>`;
-        try {
-            // Page dédiée : plafond relevé à 36/source (audit N38 — le défaut de
-            // 12 tronquait silencieusement les recherches sur mots courants)
-            const data = await API.mangas.searchAll(q, 36);
-            if (my !== reqSeq) return;   // une frappe plus récente a pris le relais
-            lastMerged = mergeByTitle(data.groups || []);
-            renderResults(q);
-        } catch (e) {
-            if (my !== reqSeq) return;
-            sub.textContent = '';
-            out.innerHTML = `<div class="se-err">Erreur : ${MH.esc(e.message)}</div>`;
+        sourcesEnEchec = [];
+        groupesRecus = [];
+
+        // Audit AMEL-12 : la bibliothèque est déjà en cache côté client. On
+        // l'affiche IMMÉDIATEMENT, avant tout appel réseau — c'est souvent ce
+        // qu'on cherche, et cela fonctionne hors-ligne.
+        rechercheLocale(q, my);
+
+        let sources = [];
+        try { sources = (await API.sources.list()) || []; } catch (e) { /* voir repli */ }
+        if (my !== reqSeq) return;
+        const actives = sources.filter(s => (MH.isSourceEnabled ? MH.isSourceEnabled(s.id) : true)
+            && (s.capabilities || []).includes('search'));
+
+        if (!actives.length) {
+            // Repli sur l'appel agrégé si la liste des sources est indisponible :
+            // mieux vaut une recherche non progressive que pas de recherche.
+            try {
+                const data = await API.mangas.searchAll(q, 36);
+                if (my !== reqSeq) return;
+                groupesRecus = data.groups || [];
+                sourcesEnEchec = groupesRecus.filter(g => g.error)
+                    .map(g => ({ nom: g.sourceName || g.source, raison: g.error }));
+                lastMerged = mergeByTitle(groupesRecus);
+                renderResults(q);
+            } catch (e) {
+                if (my !== reqSeq) return;
+                sub.textContent = '';
+                out.innerHTML = `<div class="se-err">Erreur : ${MH.esc(e.message)}</div>`;
+            }
+            return;
         }
+
+        // Audit AMEL-10 : `searchAll` fait un Promise.all — on attendait donc la
+        // source la PLUS LENTE (jusqu'à 15 s de délai) avant d'afficher quoi que
+        // ce soit, alors que la première répond souvent en moins d'une seconde.
+        // Chaque source est désormais interrogée séparément et ses résultats
+        // rejoignent l'affichage dès qu'ils arrivent.
+        let repondues = 0;
+        await Promise.all(actives.map(async (s) => {
+            try {
+                const r = await API.mangas.searchFor(s.id, { q, limit: 36 });
+                if (my !== reqSeq) return;
+                groupesRecus.push({ source: s.id, sourceName: s.name, items: r.results || [] });
+            } catch (e) {
+                if (my !== reqSeq) return;
+                // Audit AMEL-11 : une source en échec était simplement ignorée.
+                // La recherche paraissait juste incomplète, sans jamais dire
+                // qu'il manquait un catalogue entier.
+                sourcesEnEchec.push({ nom: s.name || s.id, raison: e.message || 'indisponible' });
+            } finally {
+                if (my !== reqSeq) return;
+                repondues++;
+                lastMerged = mergeByTitle(groupesRecus);
+                renderResults(q, { enCours: repondues < actives.length });
+            }
+        }));
+    }
+
+    // ── Recherche dans la bibliothèque (audit AMEL-12) ───────
+    // Tout passait par le réseau, alors que les favoris sont déjà en cache :
+    // chercher un titre qu'on possède déjà demandait d'attendre quatre sources
+    // distantes, et ne marchait pas du tout hors-ligne.
+    function rechercheLocale(q, my) {
+        const zone = document.getElementById('seLocal');
+        if (!zone) return;
+        const n = (t) => (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        const termes = n(q).split(/\s+/).filter(Boolean);
+        // `getCachedLibrary()` renvoie { at, favs } et non un tableau : le lire
+        // comme une liste échouait silencieusement dans le catch, et la
+        // recherche locale ne rendait donc jamais rien.
+        let favs = [];
+        try { favs = window.Storage?.getCachedLibrary?.()?.favs || []; } catch (e) { favs = []; }
+        const trouves = favs.filter(f => {
+            const hay = n(f.title) + ' ' + n(f.mangaId);
+            return termes.every(t => hay.includes(t));
+        }).slice(0, 12);
+
+        if (my !== reqSeq) return;
+        zone.hidden = trouves.length === 0;
+        if (!trouves.length) { zone.innerHTML = ''; return; }
+        zone.innerHTML = `
+            <div class="se-local-head">Dans ta bibliothèque · ${trouves.length}</div>
+            <div class="se-local-grid">${trouves.map(f => `
+                <a class="se-local-item" href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}">
+                    <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="" loading="lazy">
+                    <span>${MH.esc(f.title || f.mangaId)}</span>
+                </a>`).join('')}</div>`;
     }
 
     // Normalise un titre pour le rapprochement (minuscules, sans accents ni ponctuation).
@@ -185,31 +276,85 @@
     const STATUS_LABEL = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };
     const STATUS_COLOR = { ongoing: '#22c55e', completed: '#3b82f6', hiatus: '#f59e0b', cancelled: '#ef4444' };
 
-    function renderResults(q) {
+    function renderResults(q, opts = {}) {
         const out = document.getElementById('seResults');
         const sub = document.getElementById('seSub');
         // Filtrage par type (une œuvre matche si au moins une de ses sources correspond)
-        const works = lastMerged.filter(w =>
+        let works = lastMerged.filter(w =>
             typeFilter === 'all' ? true :
             typeFilter === 'novel' ? w.sources.some(s => s.isNovel) : w.sources.some(s => !s.isNovel));
+        // Audit AMEL-13 : 119 résultats sur 4 sources sans moyen d'affiner. Le
+        // statut est la coupe la plus demandée (« que du terminé »), et il est
+        // déjà porté par les résultats — il n'était simplement pas exploité.
+        if (statutFiltre !== 'all') works = works.filter(w => w.status === statutFiltre);
         const nManga = lastMerged.filter(w => w.sources.some(s => !s.isNovel)).length;
         const nNovel = lastMerged.filter(w => w.sources.some(s => s.isNovel)).length;
+        // Audit BUG-16 : « Tout · 119 » avec « Mangas · 45 » et « Romans · 75 »
+        // (= 120) donnait l'impression d'un compte faux. En réalité une œuvre
+        // disponible À LA FOIS en manga et en roman est comptée des deux côtés —
+        // ce sont des disponibilités, pas une partition. On l'explicite au lieu
+        // de laisser l'utilisateur constater une addition qui ne tombe pas juste.
+        const nBoth = lastMerged.filter(w =>
+            w.sources.some(s => !s.isNovel) && w.sources.some(s => s.isNovel)).length;
 
         let chips = '';
         if (nManga && nNovel) {
-            const c = (val, label, count) => `<button class="se-chip ${typeFilter === val ? 'on' : ''}" data-type="${val}">${label}${count != null ? ` · ${count}` : ''}</button>`;
-            chips = `<div class="se-types">${c('all', 'Tout', lastMerged.length)}${c('manga', 'Mangas', nManga)}${c('novel', 'Romans', nNovel)}</div>`;
+            const c = (val, label, count, title) =>
+                `<button class="se-chip ${typeFilter === val ? 'on' : ''}" data-type="${val}"` +
+                `${title ? ` title="${MH.esc(title)}"` : ''}` +
+                ` aria-pressed="${typeFilter === val}">${label}${count != null ? ` · ${count}` : ''}</button>`;
+            const note = nBoth
+                ? `${nBoth} œuvre(s) sont disponibles à la fois en manga et en roman, et comptent donc dans les deux catégories`
+                : '';
+            chips = `<div class="se-types">${c('all', 'Tout', lastMerged.length)}` +
+                    `${c('manga', 'Mangas', nManga, note)}${c('novel', 'Romans', nNovel, note)}</div>` +
+                    (nBoth ? `<div class="se-note" style="font-size:11.5px;color:var(--text3);margin:2px 0 8px">
+                        Dont ${nBoth} disponible(s) dans les deux formats.</div>` : '');
         }
 
-        sub.textContent = `${works.length} œuvre(s) pour « ${q} »${lastMerged.length !== works.length ? '' : ''}.`;
+        // Audit AMEL-13 : puces de statut, construites a partir de ce que les
+        // resultats contiennent reellement — proposer « Termine » quand aucun
+        // resultat ne l'est serait un filtre qui ne rend jamais rien.
+        const parStatut = {};
+        lastMerged.forEach(w => { if (w.status) parStatut[w.status] = (parStatut[w.status] || 0) + 1; });
+        const statuts = Object.keys(parStatut);
+        if (statuts.length > 1) {
+            const c = (val, label, n) =>
+                `<button class="se-chip ${statutFiltre === val ? 'on' : ''}" data-statut="${val}" ` +
+                `aria-pressed="${statutFiltre === val}">${label}${n != null ? ` · ${n}` : ''}</button>`;
+            chips += `<div class="se-types se-statuts">${c('all', 'Tous statuts', lastMerged.length)}` +
+                statuts.map(st => c(st, STATUS_LABEL[st] || st, parStatut[st])).join('') + `</div>`;
+        }
+
+        // Audit AMEL-11 : une source en echec etait ignoree en silence, la
+        // recherche paraissant seulement incomplete. On dit ce qui manque.
+        const bandeauEchec = sourcesEnEchec.length
+            ? `<div class="se-fail" role="status">${MH.icon ? MH.icon('alert', 15) : '!'}
+                 <span>${sourcesEnEchec.length === 1 ? 'Une source n’a pas répondu' : `${sourcesEnEchec.length} sources n’ont pas répondu`} :
+                 ${sourcesEnEchec.map(s => `<strong>${MH.esc(s.nom)}</strong> (${MH.esc(s.raison)})`).join(', ')}.
+                 Les résultats ci-dessous sont donc incomplets.</span>
+               </div>`
+            : '';
+        // Audit AMEL-10 : etat d'avancement, les resultats arrivant source par source.
+        const bandeauEnCours = opts.enCours
+            ? `<div class="se-loading se-partiel"><div class="spinner-inline"></div> D’autres sources répondent encore…</div>`
+            : '';
+
+        sub.textContent = `${works.length} œuvre(s) pour « ${q} »${opts.enCours ? ' (recherche en cours)' : ''}.`;
+        if (!opts.enCours) MH.announce?.(`${works.length} résultat(s) pour ${q}`);   // audit A11Y-06
         if (!works.length) {
-            out.innerHTML = chips + `<div class="se-empty">Aucun résultat ${typeFilter !== 'all' ? 'dans cette catégorie' : '. Essaie un autre titre ou vérifie tes sources'}.</div>`;
+            out.innerHTML = chips + bandeauEchec + bandeauEnCours
+                + (opts.enCours ? '' : `<div class="se-empty">Aucun résultat ${typeFilter !== 'all' || statutFiltre !== 'all' ? 'avec ces filtres' : '. Essaie un autre titre ou vérifie tes sources'}.</div>`);
         } else {
-            out.innerHTML = chips + `<div class="se-grid">${works.map(renderWorkCard).join('')}</div>`;
+            out.innerHTML = chips + bandeauEchec
+                + `<div class="se-grid">${works.map(renderWorkCard).join('')}</div>` + bandeauEnCours;
         }
 
         out.querySelectorAll('.se-chip[data-type]').forEach(b => b.addEventListener('click', () => {
-            typeFilter = b.dataset.type; renderResults(q);
+            typeFilter = b.dataset.type; renderResults(q, opts);
+        }));
+        out.querySelectorAll('.se-chip[data-statut]').forEach(b => b.addEventListener('click', () => {
+            statutFiltre = b.dataset.statut; renderResults(q, opts);
         }));
         // Navigation : clic sur une puce de source → cette source ; sinon → source principale.
         out.querySelectorAll('.se-card[data-href]').forEach(card => card.addEventListener('click', async (e) => {
@@ -246,7 +391,7 @@
         return `
         <div class="se-card" data-href="${primaryHref}"${nsfw}>
             <div class="se-cover">
-                <img src="${w.cover || MH.placeholderCover(primary.id)}" alt="${MH.esc(w.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(primary.id)}'">
+                <img src="${MH.cover(w.cover, MH.placeholderCover(primary.id))}" alt="${MH.esc(w.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(primary.id)}'">
                 ${st}${lib}${multi}
             </div>
             <div class="se-title">${MH.esc(w.title || primary.id)}</div>

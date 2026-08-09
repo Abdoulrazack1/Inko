@@ -1,0 +1,64 @@
+# ============================================================
+# Inko — surcouche Caddy : HTTPS automatique (audit AMEL-118)
+# ============================================================
+# Le tunnel Cloudflare était documenté, mais le reverse-proxy CLASSIQUE — le
+# cas de quelqu'un qui possède un domaine et ouvre son port 443 — restait
+# entièrement à sa charge : certificat, renouvellement, en-têtes de proxy.
+# Caddy fait les trois sans configuration.
+#
+# UTILISATION
+#   1. Pointe ton domaine (A/AAAA) vers l'IP publique de cette machine.
+#   2. Ouvre les ports 80 et 443 sur la box. Le 80 est OBLIGATOIRE : Let's
+#      Encrypt s'en sert pour la validation, même si le site final est en 443.
+#   3. Dans .env :  DOMAIN=inko.exemple.fr
+#                   ACME_EMAIL=toi@exemple.fr      (avis d'expiration)
+#                   CORS_ORIGINS=https://inko.exemple.fr
+#   4. docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+#
+# PRE-REQUIS : Docker Compose v2.24 ou plus recent. Le tag `!reset` ci-dessous
+# en depend — sans lui, Compose AJOUTE les ports au lieu de les remplacer, et
+# le 8088 resterait ouvert en clair a cote du HTTPS. Verifie avec :
+#   docker compose version
+#
+# CE QUE CE FICHIER CHANGE, ET POURQUOI
+#   · Le port 8088 n'est plus publié. Le laisser ouvert donnerait un accès
+#     HTTP en clair contournant le HTTPS — le certificat ne sert à rien si la
+#     porte d'à côté reste ouverte.
+#   · TRUST_PROXY reste à 1 : l'app est DERRIÈRE un proxy ici, donc
+#     X-Forwarded-For est légitime et les limites de débit voient la vraie IP.
+#     Ne pas reprendre ce réglage sans proxy devant (voir setup-env.js).
+# ============================================================
+
+services:
+  inko-app:
+    # Plus de publication directe : seul Caddy est joignable de l'extérieur.
+    # `!reset` vide la liste héritée du compose de base au lieu de s'y ajouter.
+    ports: !reset []
+    expose:
+      - "8080"
+
+  inko-caddy:
+    image: caddy:2-alpine
+    container_name: inko-caddy
+    restart: unless-stopped
+    depends_on:
+      - inko-app
+    environment:
+      DOMAIN: ${DOMAIN:?definis DOMAIN dans .env (ex. inko.exemple.fr)}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Les certificats sont PERSISTÉS : sans ce volume, chaque redémarrage
+      # redemande un certificat et Let's Encrypt limite à 5 par semaine et par
+      # domaine — on se retrouve sans HTTPS pendant des jours.
+      - inko-caddy-data:/data
+      - inko-caddy-config:/config
+    networks: [inko]
+
+volumes:
+  inko-caddy-data:
+  inko-caddy-config:

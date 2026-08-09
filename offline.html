@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inko — Hors ligne</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Tu es hors ligne — tes téléchargements restent accessibles.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Hors ligne">
+    <meta property="og:description" content="Tu es hors ligne — tes téléchargements restent accessibles.">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Hors ligne">
+    <meta name="twitter:description" content="Tu es hors ligne — tes téléchargements restent accessibles.">
+    <!-- meta:auto -->
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
   <style>
     :root { color-scheme: dark; }
@@ -16,15 +27,30 @@
     button { background: linear-gradient(135deg, #ff6b1a, #ff8c42); color: #fff; border: none;
              border-radius: 10px; padding: 11px 22px; font-size: 14px; font-weight: 600; cursor: pointer; }
     .hint { margin-top: 18px; font-size: 12px; color: #6a6a76; }
+    .links { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+    .links a { color: #e8e8ec; background: #1a1a1f; border: 1px solid rgba(255,255,255,.12);
+               border-radius: 10px; padding: 10px 16px; font-size: 13.5px; text-decoration: none; }
+    .links a:hover { border-color: #ff6b1a; }
   </style>
 </head>
 <body>
   <div class="box">
     <img src="/assets/img/icon.svg" alt="Inko" class="logo">
     <h1>Tu es hors ligne</h1>
-    <p>Impossible de joindre Inko pour l'instant. Ta bibliothèque et les chapitres déjà téléchargés restent accessibles une fois la connexion revenue.</p>
+    <!-- Audit BUG-10 : cette page annonçait que « la bibliothèque et les
+         chapitres téléchargés restent accessibles »… sans proposer le moindre
+         lien pour y aller (0 <a> sur la page). Les pages ci-dessous sont
+         précachées par le service worker : elles s'ouvrent réellement hors
+         connexion. -->
+    <p>Impossible de joindre Inko pour l'instant. Ce que tu as déjà téléchargé reste consultable&nbsp;:</p>
+    <div class="links">
+      <a href="/downloads.html">Mes téléchargements</a>
+      <a href="/bibliotheque.html">Ma bibliothèque</a>
+      <a href="/notes.html">Mon journal</a>
+    </div>
+    <p style="margin-top:22px"></p>
     <button onclick="location.reload()">Réessayer</button>
-    <div class="hint">Cette page s'affiche quand le réseau est indisponible.</div>
+    <div class="hint">Cette page s'affiche quand le réseau est indisponible. La connexion revenue, Inko se recharge tout seul.</div>
   </div>
   <script src="assets/js/i18n.js"></script>
   <script>

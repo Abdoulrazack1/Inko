@@ -7,11 +7,19 @@
     let readChapsSet= new Set();
     let progress    = null;
     let activeTab   = 'apercu';
-    let chapSortAsc = false;
+    // Audit AMEL-98 : sur One Piece (1 183 chapitres), la liste brute est
+    // inexploitable — et le filtre comme le tri repartaient de zero a chaque
+    // ouverture de fiche. Un reglage qu'il faut reposer a chaque visite n'est
+    // pas un reglage. Ils sont persistes globalement (et non par serie) : c'est
+    // une habitude de lecture, pas une propriete de l'oeuvre.
+    const PREF_TRI    = 'serie_chap_tri_asc';
+    const PREF_FILTRE = 'serie_chap_filtre';
+    let chapSortAsc = window.Storage?.getPref(PREF_TRI) === '1';
     let chapFilter  = '';
     let favorited   = false;
     let libStatus   = null;     // statut de lecture (library)
     let libCategory = null;     // catégorie (favorites.category)
+    let libNotify   = true;     // surveillée pour les nouveaux chapitres (audit AMEL-54)
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('serie');
@@ -43,6 +51,7 @@
                 favorited   = !!myFav;
                 libStatus   = myFav?.status || null;
                 libCategory = myFav?.category || null;
+                libNotify   = myFav ? myFav.notify !== false : true;
                 readChapsSet = new Set((allRead[manga.id] || []).map(r => r.chapterId));
                 progress    = allProg[manga.id] || null;
             }
@@ -113,7 +122,7 @@
             <div class="serie-cover-wrap">
                 <div class="serie-cover-status">${MH.statusBadge(manga.status)}</div>
                 <div class="serie-cover">
-                    <img src="${manga.coverLarge || manga.cover || ''}" alt="${MH.esc(manga.title)}"
+                    <img src="${MH.cover(manga.coverLarge, manga.cover)}" alt="${MH.esc(manga.title)}"
                          onerror="this.src='${MH.placeholderCover(manga.id)}'">
                 </div>
                 ${manga.rating?.bayesian ? `<div class="serie-cover-rating">${manga.rating.bayesian.toFixed(2)}</div>` : ''}
@@ -135,9 +144,25 @@
                 </div>
                 <p class="serie-desc-short">${MH.esc((manga.description || '').slice(0, 400))}${manga.description?.length > 400 ? '…' : ''}</p>
                 <div class="serie-actions">
-                    <button class="btn btn-primary" id="btnReadStart">▶ Lire depuis le début</button>
-                    ${resumeChap ? `<button class="btn btn-secondary" id="btnResume">${resumeLabel}</button>` : ''}
-                    <button class="btn btn-secondary" id="btnNextUnread" title="Ouvrir le premier chapitre non lu">⏭ 1er non-lu</button>
+                    <!-- Audit AMEL-100 : « Lire depuis le début », « Reprendre
+                         Ch.X » et « 1er non-lu » se présentaient comme trois
+                         boutons de même poids. Trois façons de commencer, aucune
+                         hiérarchie : il fallait les lire pour choisir.
+                         L'action PRINCIPALE est désormais unique et nommée
+                         d'après la situation réelle (reprendre si une lecture
+                         est en cours, sinon commencer) ; les deux autres
+                         deviennent des replis discrets. -->
+                    ${resumeChap
+                        ? `<button class="btn btn-primary btn-reprise" id="btnResume">
+                               <span class="reprise-label">${resumeLabel.replace(/^↻\s*/, '')}</span>
+                               <span class="reprise-sub">Reprendre où tu t'es arrêté·e</span>
+                           </button>
+                           <button class="btn btn-ghost btn-sm" id="btnReadStart" title="Repartir du chapitre 1">Depuis le début</button>`
+                        : `<button class="btn btn-primary btn-reprise" id="btnReadStart">
+                               <span class="reprise-label">Commencer la lecture</span>
+                               <span class="reprise-sub">Premier chapitre disponible</span>
+                           </button>`}
+                    <button class="btn btn-ghost btn-sm" id="btnNextUnread" title="Ouvrir le premier chapitre non lu">1er non-lu</button>
                     <button class="btn btn-ghost ${favorited ? 'is-fav' : ''}" id="btnFavorite">
                         ${favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste'}
                     </button>
@@ -150,6 +175,25 @@
                         <option value="dropped"   ${libStatus==='dropped'  ?'selected':''}>Abandonné</option>
                     </select>
                     <button class="btn btn-ghost btn-sm" id="btnCategory">${libCategory ? MH.esc(libCategory) : '+ Catégorie'}</button>
+                    <!-- Audit AMEL-54 : suivre une série et vouloir en être
+                         averti sont deux choses. Le bouton n'apparaît que
+                         lorsqu'elle est dans la bibliothèque : il n'y a rien à
+                         mettre en sourdine avant. -->
+                    <!-- Audit AMEL-63 : la liste d'epingles existait depuis
+                         toujours et restait vide — rien ne permettait d'y
+                         mettre quoi que ce soit. C'est la seule chose qu'un
+                         profil montre par CHOIX plutot que par agregation. -->
+                    <!-- Audit AMEL-108 : le besoin reel est de masquer UNE
+                         lecture, pas toute une session. Couper globalement
+                         oblige a penser a rallumer — et a perdre la trace de
+                         tout ce qu'on lit ensuite si on oublie. -->
+                    <button class="btn btn-ghost btn-sm" id="btnPrive" aria-pressed="false"
+                        title="Lire cette serie sans laisser de trace">Lire en prive</button>
+                    ${favorited ? `<button class="btn btn-ghost btn-sm" id="btnPin"
+                        title="Mettre en avant sur ton profil public" aria-pressed="false">📌 Épingler</button>` : ''}
+                    ${favorited ? `<button class="btn btn-ghost btn-sm" id="btnNotify"
+                        title="${libNotify ? 'Ne plus être averti des nouveaux chapitres' : 'Être averti des nouveaux chapitres'}"
+                        aria-pressed="${libNotify}">${libNotify ? '🔔 Alertes' : '🔕 En sourdine'}</button>` : ''}
                     <button class="btn btn-ghost btn-sm" id="btnAddList">+ Liste</button>
                     <button class="btn btn-ghost btn-sm" id="btnAniList" title="Suivi AniList — pousse ta progression, ton statut et ta note">
                         <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style="vertical-align:-2px;margin-right:5px"><path d="M6.361 2.943 0 21.056h4.942l1.077-3.133H11.4l1.052 3.133H22.9c.71 0 1.1-.392 1.1-1.101V17.53c0-.71-.39-1.101-1.1-1.101h-6.483V4.045c0-.71-.392-1.102-1.101-1.102h-2.422c-.71 0-1.101.392-1.101 1.102v1.064l-.758-2.166zm2.324 5.948 1.688 5.018H7.144z"/></svg>AniList
@@ -231,7 +275,72 @@
                 libStatus = status || null;
                 if (status) { try { window.AniList?.syncByTitle(manga.title, { status }); } catch (e) { window.MH?.err?.('serie.js', e); } }
                 MH.toast(status ? 'Statut : ' + e.target.options[e.target.selectedIndex].text : 'Statut retiré');
+                if (status === 'completed') proposerNotation();
             } catch (err) { MH.toast('Erreur : ' + err.message); }
+        });
+
+        // Audit AMEL-54 : bascule de surveillance. On ne recharge pas la fiche
+        // — seul le libellé du bouton change, et un rechargement complet ferait
+        // perdre l'onglet et la position de lecture en cours.
+        // Audit AMEL-96 : une ambiance qui colle a ce qu'on lit, plutot qu'une
+        // liste de huit stations sans rapport avec la page. Suggeree, JAMAIS
+        // lancee : deviner l'ambiance d'une oeuvre est subjectif, et se
+        // tromper en imposant serait pire que ne rien proposer.
+        proposerAmbiance();
+
+        // Audit AMEL-108 : portee par serie, memorisee pour la session comme
+        // le mode global. Aucun appel reseau : c'est un etat local qui change
+        // seulement ce que les autres appels ont le droit d'enregistrer.
+        const btnPrive = document.getElementById('btnPrive');
+        if (btnPrive) {
+            const majPrive = (on) => {
+                btnPrive.textContent = on ? 'Lecture privée' : 'Lire en privé';
+                btnPrive.classList.toggle('is-fav', on);
+                btnPrive.setAttribute('aria-pressed', String(on));
+                btnPrive.title = on
+                    ? 'Cette série ne laisse aucune trace — cliquer pour réactiver le suivi'
+                    : 'Lire cette série sans laisser de trace';
+            };
+            majPrive(!!MH.isSeriePrivee?.(manga.id));
+            btnPrive.addEventListener('click', () => {
+                const on = MH.toggleSeriePrivee(manga.id);
+                majPrive(on);
+                MH.toast(on
+                    ? 'Lecture privée pour cette série — ni progression, ni activité'
+                    : 'Suivi réactivé pour cette série');
+            });
+        }
+
+        // Épingle : purement locale (UserData se synchronise tout seul), donc
+        // aucun appel réseau et un retour immédiat.
+        const btnPin = document.getElementById('btnPin');
+        if (btnPin) {
+            const src = API.sources.current;
+            const majPin = (on) => {
+                btnPin.textContent = on ? '📌 Épinglée' : '📌 Épingler';
+                btnPin.setAttribute('aria-pressed', String(on));
+                btnPin.title = on ? 'Retirer de la vitrine de ton profil' : 'Mettre en avant sur ton profil public';
+            };
+            window.UserData?.ready?.().then(() => majPin(!!UserData.isPinned(manga.id, src)));
+            btnPin.addEventListener('click', () => {
+                const on = UserData.togglePin(manga.id, src);
+                majPin(on);
+                MH.toast(on ? 'Épinglée sur ton profil' : 'Retirée de ta vitrine');
+            });
+        }
+
+        document.getElementById('btnNotify')?.addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            try {
+                const r = await API.notifications.watch(manga.id, !libNotify);
+                libNotify = r.notify;
+                btn.textContent = libNotify ? '🔔 Alertes' : '🔕 En sourdine';
+                btn.title = libNotify ? 'Ne plus être averti des nouveaux chapitres' : 'Être averti des nouveaux chapitres';
+                btn.setAttribute('aria-pressed', String(libNotify));
+                MH.toast(libNotify ? 'Tu seras averti des nouveaux chapitres' : 'Série mise en sourdine');
+            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            finally { btn.disabled = false; }
         });
 
         document.getElementById('btnCategory')?.addEventListener('click', async () => {
@@ -464,6 +573,26 @@
                 </div>
             </div>
             <div id="similarRow" style="display:flex;gap:12px;overflow-x:auto;padding:4px 2px 8px"></div>
+        </div>
+        <!-- Audit AMEL-102 : quand une source casse, l'utilisateur ne sait pas
+             que le titre existe ailleurs — alors que la recherche sait déjà
+             regrouper une œuvre entre plusieurs sources. -->
+        <div class="chapters-block" id="autresSourcesBlock" style="display:none">
+            <div class="chapters-block-header">
+                <div>
+                    <div class="chapters-block-title">Aussi disponible sur</div>
+                    <div style="font-size:12px;color:var(--text3);margin-top:2px">Mêmes chapitres, autre source — utile si celle-ci est indisponible</div>
+                </div>
+            </div>
+            <div id="autresSourcesRow" style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 2px 8px"></div>
+        </div>
+        <!-- Audit AMEL-101 : l'auteur et les tags étaient affichés sans être
+             cliquables au-delà des 4 premiers genres du titre. -->
+        <div class="chapters-block" id="lieesBlock" style="display:none">
+            <div class="chapters-block-header">
+                <div class="chapters-block-title">Explorer</div>
+            </div>
+            <div id="lieesRow" style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 2px 8px"></div>
         </div>`;
         el.querySelectorAll('[data-goto="chapitres"]').forEach(btn => {
             btn.addEventListener('click', e => {
@@ -474,6 +603,278 @@
             });
         });
         loadSimilar();
+        chargerAutresSources();
+        rendreLiees();
+    }
+
+    // ── Comparaison avec AniList (audit AMEL-49) ─────────────
+    async function afficherScoreAniList(maNote10) {
+        const el = document.getElementById('anilistScore');
+        if (!el || !window.AniList?.publicScore || !manga?.title) return;
+        let s = null;
+        try { s = await window.AniList.publicScore(manga.title); } catch (e) { return; }
+        if (!s || !s.score100) return;
+        // AniList note sur 100 ; on ramène sur 5, l'échelle affichée ici.
+        const publicSur5 = s.score100 / 20;
+        let comparaison = '';
+        if (maNote10) {
+            const mienneSur5 = maNote10 / 2;
+            const ecart = mienneSur5 - publicSur5;
+            const abs = Math.abs(ecart);
+            comparaison = abs < 0.25
+                ? ' — tu es dans la moyenne'
+                : ` — tu notes ${abs.toFixed(1).replace('.', ',')} point${abs >= 2 ? 's' : ''} ${ecart > 0 ? 'au-dessus' : 'en dessous'}`;
+        }
+        el.hidden = false;
+        el.textContent = `AniList : ${publicSur5.toFixed(1).replace('.', ',')}/5${comparaison}`;
+    }
+
+    // ── Sollicitation de notation (audit AMEL-48) ────────────
+    // 0 avis enregistré pour 27 chapitres lus : la notation existait, mais
+    // n'était JAMAIS demandée. On ne note pas une œuvre en allant chercher un
+    // panneau — on la note quand on vient de la finir.
+    //
+    // Le moment retenu est le passage au statut « Terminé » : c'est là que le
+    // jugement est formé. Une seule sollicitation par série, et jamais si une
+    // note existe déjà — un rappel qui revient devient une nuisance.
+    async function proposerNotation() {
+        try {
+            const data = await API.ratings.get(manga.id);
+            if (data?.mine?.rating) return;              // déjà notée
+        } catch (e) { return; }
+        const vu = 'inko_note_demandee_' + manga.id;
+        try { if (localStorage.getItem(vu)) return; } catch (e) { /* stockage indisponible */ }
+
+        const reponse = await MH.prompt(
+            `Tu viens de terminer « ${manga.title} ». Quelle note lui donnes-tu ?\n`
+            + 'De 0,5 à 5, les demis sont acceptés (3,5). Laisse vide pour passer.',
+            { title: 'Noter cette œuvre', placeholder: 'ex. 4,5', okText: 'Noter' });
+        try { localStorage.setItem(vu, '1'); } catch (e) { /* stockage indisponible */ }
+        if (!reponse) return;
+
+        const surCinq = parseFloat(String(reponse).replace(',', '.'));
+        if (!(surCinq >= 0.5 && surCinq <= 5)) { MH.toast('Note ignorée : attendu entre 0,5 et 5'); return; }
+        const surDix = Math.round(surCinq * 2);
+        try {
+            await API.ratings.set(manga.id, { rating: surDix });
+            MH.toast(`Noté ${(surDix / 2).toFixed(1).replace('.', ',')}/5`);
+            // Le panneau de notation est dans la BARRE LATÉRALE, pas dans un
+            // onglet : rafraîchir l'onglet courant laissait les étoiles vides
+            // juste après avoir noté.
+            renderRating();
+        } catch (e) { MH.toast('Erreur : ' + e.message); }
+    }
+
+    // ── Ambiance musicale suggeree (audit AMEL-96) ───────────
+    function proposerAmbiance() {
+        const cible = document.getElementById('serieStatus')?.parentElement;
+        if (!cible || !window.Music?.suggestionPourTags) return;
+        if (document.getElementById('btnAmbiance')) return;
+        const st = window.Music.suggestionPourTags(manga.tags || []);
+        if (!st) return;   // aucun tag reconnu : on ne propose rien plutot qu'au hasard
+        const b = document.createElement('button');
+        b.id = 'btnAmbiance';
+        b.className = 'btn btn-ghost btn-sm';
+        b.title = `Lancer la station « ${st.name} » — ${st.sub}`;
+        b.textContent = `♪ ${st.name}`;
+        b.addEventListener('click', () => {
+            window.Music.playStationId(st.id);
+            MH.toast(`Ambiance : ${st.name}`);
+        });
+        cible.appendChild(b);
+    }
+
+    // ── Annulation d'un marquage en masse (audit AMEL-40) ────
+    // « Tout lu » touche des centaines de chapitres d'un coup et n'avait aucun
+    // retour arrière. La frontière entre lu et non lu est pourtant la donnée la
+    // plus longue à reconstituer à la main.
+    //
+    // Une barre visible et persistante, pas un simple message : un toast de
+    // trois secondes ne laisse pas le temps de réaliser qu'on s'est trompé.
+    // Elle reste jusqu'à ce qu'on l'utilise ou qu'on la ferme.
+    function proposerAnnulation(nouveaux) {
+        document.getElementById('undoMarkBar')?.remove();
+        if (!nouveaux.length) { MH.toast?.('Tous les chapitres étaient déjà lus'); return; }
+
+        const bar = document.createElement('div');
+        bar.id = 'undoMarkBar';
+        bar.className = 'undo-bar';
+        bar.setAttribute('role', 'status');
+        bar.innerHTML = `<span>${nouveaux.length} chapitre(s) marqué(s) comme lus.</span>
+            <button type="button" class="undo-bar-action" id="undoMarkGo">Annuler</button>
+            <button type="button" class="undo-bar-close" id="undoMarkClose" aria-label="Fermer">✕</button>`;
+        document.body.appendChild(bar);
+
+        bar.querySelector('#undoMarkClose').onclick = () => bar.remove();
+        bar.querySelector('#undoMarkGo').onclick = async () => {
+            const btn = bar.querySelector('#undoMarkGo');
+            btn.disabled = true; btn.textContent = 'Annulation…';
+            try {
+                await API.me.unmarkChaptersBulk(manga.id, nouveaux);
+                nouveaux.forEach(id => readChapsSet.delete(id));
+                renderTab('chapitres'); renderSidebar();
+                MH.toast?.(`${nouveaux.length} chapitre(s) remis en non-lus`);
+                bar.remove();
+            } catch (e) {
+                btn.disabled = false; btn.textContent = 'Réessayer';
+                MH.toast?.('Annulation impossible : ' + e.message);
+            }
+        };
+    }
+
+    // ── Téléchargement d'une plage (audit AMEL-99) ───────────
+    // Le bouton n'existait que dans le lecteur, chapitre par chapitre :
+    // préparer un trajet demandait d'ouvrir chaque chapitre l'un après l'autre.
+    //
+    // Choix de conception : les chapitres sont téléchargés UN PAR UN, en série.
+    // Les paralléliser irait plus vite mais assommerait la source scrapée — et
+    // c'est exactement ce qui fait bannir une adresse IP. La progression est
+    // affichée et l'opération interruptible, parce qu'une plage un peu large
+    // peut durer plusieurs minutes.
+    async function telechargerPlage() {
+        if (!window.Downloads) { MH.toast?.('Téléchargement hors-ligne indisponible'); return; }
+        if (MH.isNovelSource(API.sources.current)) {
+            MH.toast?.('Pour un roman, le téléchargement se fait depuis le lecteur.');
+            return;
+        }
+        if (!chapters.length) { MH.toast?.('Aucun chapitre à télécharger'); return; }
+
+        // Du plus ancien au plus récent : « les 10 premiers » veut dire le début
+        // de la série, pas les dix derniers parus.
+        const asc = [...chapters].sort((a, b) => (+a.chapter || 0) - (+b.chapter || 0));
+        const nonTelecharges = [];
+        for (const c of asc) if (!(await window.Downloads.has(c.id))) nonTelecharges.push(c);
+        if (!nonTelecharges.length) { MH.toast?.('Tous les chapitres sont déjà téléchargés'); return; }
+
+        const combien = await MH.prompt(
+            `Combien de chapitres télécharger, à partir du plus ancien non téléchargé `
+            + `(Ch. ${MH.chapNum(nonTelecharges[0].chapter)}) ? ${nonTelecharges.length} disponibles.`,
+            { value: String(Math.min(5, nonTelecharges.length)), okText: 'Télécharger' });
+        const n = Math.max(0, Math.min(nonTelecharges.length, parseInt(combien, 10) || 0));
+        if (!n) return;
+
+        const lot = nonTelecharges.slice(0, n);
+        const btn = document.getElementById('chapDlRange');
+        let annule = false;
+        if (btn) {
+            btn.dataset.libelle = btn.textContent;
+            btn.title = 'Cliquer pour interrompre';
+            btn.onclick = () => { annule = true; MH.toast?.('Interruption après le chapitre en cours…'); };
+        }
+
+        let ok = 0, echecs = 0, premiereErreur = null;
+        for (let i = 0; i < lot.length; i++) {
+            if (annule) break;
+            const c = lot[i];
+            if (btn) btn.textContent = `↓ ${i + 1}/${lot.length}…`;
+            try {
+                const d = await API.mangas.pages(c.id);
+                const pages = d.pages || [];
+                if (!pages.length) throw new Error('aucune page renvoyée par la source');
+                await window.Downloads.download({
+                    mangaId: manga.id, chapterId: c.id, chapterNum: c.chapter,
+                    mangaTitle: manga.title, cover: manga.cover || manga.coverThumb,
+                    source: API.sources.current,
+                }, pages);
+                ok++;
+            } catch (e) {
+                echecs++;
+                // « 1 en échec » sans raison n'est pas exploitable : ni par
+                // l'utilisateur (que faire ?), ni au diagnostic. On garde la
+                // première cause pour la dire.
+                if (!premiereErreur) premiereErreur = e.message || String(e);
+                window.MH?.err?.('serie.js', e);
+            }
+        }
+
+        if (btn) {
+            btn.textContent = btn.dataset.libelle || '↓ Télécharger…';
+            btn.title = 'Télécharger une plage de chapitres pour le hors-ligne';
+            btn.onclick = telechargerPlage;
+        }
+        MH.toast?.(echecs
+            ? `${ok} chapitre(s) téléchargé(s), ${echecs} en échec — ${premiereErreur}`
+            : `${ok} chapitre(s) disponibles hors-ligne`);
+    }
+
+    // ── Disponibilité sur les autres sources (audit AMEL-102) ──
+    // Quand une source tombe ou retire un titre, l'utilisateur se retrouve
+    // devant une fiche vide sans savoir que la même œuvre est lisible ailleurs.
+    // La recherche sait déjà rapprocher un titre entre sources ; on applique le
+    // même rapprochement, restreint à CETTE œuvre.
+    // Le cache est une PROMESSE, pas un tableau. Première version : je posais
+    // `cache = []` avant les `await`, si bien qu'un second rendu d'onglet —
+    // loadChapters() en déclenche un — voyait un cache « prêt mais vide » et
+    // sortait aussitôt, tandis que le premier appel écrivait dans un élément
+    // déjà remplacé. Le bloc n'apparaissait donc jamais, alors que les sources
+    // répondaient correctement. Avec une promesse, tout appel attend le même
+    // résultat puis écrit dans le DOM COURANT.
+    let autresSourcesPromesse = null;
+
+    async function chargerAutresSources() {
+        if (!manga?.title) return;
+
+        if (!autresSourcesPromesse) {
+            autresSourcesPromesse = (async () => {
+                const trouves = [];
+                let sources = [];
+                try { sources = (await API.sources.list()) || []; } catch (e) { return trouves; }
+                const courante = API.sources.current;
+                const candidates = sources.filter(s => s.id !== courante
+                    && (MH.isSourceEnabled ? MH.isSourceEnabled(s.id) : true)
+                    && (s.capabilities || []).includes('search'));
+
+                const norm = (t) => (t || '').toLowerCase().normalize('NFD')
+                    .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+                const cible = norm(manga.title);
+
+                // En parallèle, et chaque échec est absorbé : ce bloc est un
+                // bonus, il ne doit jamais retarder ni casser la fiche.
+                await Promise.all(candidates.map(async (s) => {
+                    try {
+                        const r = await API.mangas.searchFor(s.id, { q: manga.title, limit: 6 });
+                        const m = (r.results || []).find(x => norm(x.title) === cible);
+                        if (m) trouves.push({ source: s.id, nom: s.name || s.id, id: m.id });
+                    } catch (e) { /* source muette : simplement pas listée */ }
+                }));
+                return trouves;
+            })();
+        }
+
+        const trouves = await autresSourcesPromesse;
+        if (!trouves.length) return;   // rien à dire : pas de bloc vide
+        // Éléments relus APRÈS l'attente : entre-temps l'onglet a pu être
+        // reconstruit, et les anciens nœuds ne sont plus dans le document.
+        const block = document.getElementById('autresSourcesBlock');
+        const row   = document.getElementById('autresSourcesRow');
+        if (!block || !row) return;
+        row.innerHTML = trouves.map(a => `
+            <a class="tag tag-link" style="padding:7px 13px;font-size:12.5px"
+               href="serie.html?id=${encodeURIComponent(a.id)}&source=${encodeURIComponent(a.source)}">
+                ${MH.esc(a.nom)}
+            </a>`).join('');
+        block.style.display = '';
+    }
+
+    // ── Explorer : auteur et genres (audit AMEL-101) ──────────
+    function rendreLiees() {
+        const block = document.getElementById('lieesBlock');
+        const row   = document.getElementById('lieesRow');
+        if (!block || !row) return;
+        const liens = [];
+        if (manga.author) {
+            liens.push(`<a class="tag tag-link" style="padding:7px 13px;font-size:12.5px"
+                href="recherche.html?q=${encodeURIComponent(manga.author)}">Du même auteur · ${MH.esc(manga.author)}</a>`);
+        }
+        // Tous les genres, pas seulement les 4 du titre : c'est ici qu'on
+        // explore, la place ne manque pas.
+        (manga.tags || []).slice(0, 12).forEach(t => {
+            liens.push(`<a class="tag tag-link" style="padding:7px 13px;font-size:12.5px"
+                href="catalogue.html?tags=${encodeURIComponent(t)}">${MH.esc(t)}</a>`);
+        });
+        if (!liens.length) return;
+        row.innerHTML = liens.join('');
+        block.style.display = '';
     }
 
     // ── Commentaires ──
@@ -487,6 +888,31 @@
         const j = Math.floor(h / 24); if (j < 30) return `il y a ${j} j`;
         return new Date(d).toLocaleDateString('fr-FR');
     }
+    // ── Portée, spoiler, ancrage (audit AMEL-50/51/52) ───────
+    // La portée par défaut est `instance` : c'est ce que faisait le code
+    // jusqu'ici pour un utilisateur connecté. Un défaut plus fermé aurait
+    // change le sens des commentaires deja publiés ; un défaut plus ouvert
+    // aurait publié sur le web des textes écrits pour des membres.
+    const PREF_PORTEE = 'comment_portee';
+    const PORTEES = ['private', 'instance', 'public'];
+    const PORTEE_LABEL = { private: 'Moi seul', instance: 'Membres', public: 'Public' };
+    function lirePortee() {
+        const v = window.Storage?.getPref(PREF_PORTEE);
+        return PORTEES.includes(v) ? v : 'instance';
+    }
+    function ecrirePortee(v) { if (PORTEES.includes(v)) window.Storage?.setPref(PREF_PORTEE, v); }
+    function chapLabel(c) {
+        const num = c.chapter != null && c.chapter !== '' ? `Ch. ${c.chapter}` : '';
+        const t = (c.title || '').trim();
+        return [num, t && t !== num ? t : ''].filter(Boolean).join(' — ') || c.id;
+    }
+    // Étiquette d'un commentaire ancré : on rattache l'id au chapitre chargé
+    // pour afficher un numéro plutôt qu'un slug d'URL.
+    function chapLabelParId(id) {
+        const c = (chapters || []).find(x => x.id === id);
+        return c ? chapLabel(c) : id;
+    }
+
     // Pagination par fil (audit N51) : on garde en mémoire les fils déjà chargés,
     // et « Voir les commentaires précédents » va chercher les fils plus anciens.
     const COMMENTS_PAGE = 50;
@@ -502,9 +928,36 @@
         if (!listEl) return;
         if (!more && formEl) {
             if (API.isLoggedIn()) {
+                // Audit AMEL-50/51/52 : la portée, le marqueur de spoiler et
+                // l'ancrage se décident À LA PUBLICATION. Reléguer ces choix
+                // dans un réglage global reviendrait à ne jamais les faire —
+                // ils dépendent du commentaire, pas de l'utilisateur.
+                const portee = lirePortee();
+                const chapsAncrables = (chapters || []).slice(0, 200);
                 formEl.innerHTML = `
                     <div class="comment-compose">
                         <textarea id="commentInput" class="comment-textarea" rows="2" maxlength="1000" placeholder="Partage ton avis sur ${MH.esc(manga.title || 'cette série')}…"></textarea>
+                        <div class="comment-compose-opts">
+                            <label class="comment-opt" title="Qui pourra lire ce commentaire">
+                                <span>Visible par</span>
+                                <select id="commentVis">
+                                    <option value="private"  ${portee === 'private'  ? 'selected' : ''}>Moi seul</option>
+                                    <option value="instance" ${portee === 'instance' ? 'selected' : ''}>Les membres</option>
+                                    <option value="public"   ${portee === 'public'   ? 'selected' : ''}>Tout le monde</option>
+                                </select>
+                            </label>
+                            ${chapsAncrables.length ? `
+                            <label class="comment-opt" title="Rattacher ce commentaire à un chapitre">
+                                <span>Chapitre</span>
+                                <select id="commentChap">
+                                    <option value="">Toute la série</option>
+                                    ${chapsAncrables.map(c => `<option value="${MH.esc(c.id)}">${MH.esc(chapLabel(c))}</option>`).join('')}
+                                </select>
+                            </label>` : ''}
+                            <label class="comment-opt comment-opt-check" title="Masquer le texte derrière un avertissement">
+                                <input type="checkbox" id="commentSpoiler"> <span>Spoiler</span>
+                            </label>
+                        </div>
                         <div class="comment-compose-foot">
                             <span class="comment-len" id="commentLen">0 / 1000</span>
                             <button class="btn btn-primary btn-sm" id="commentSend">Publier</button>
@@ -513,14 +966,28 @@
                 const ta = formEl.querySelector('#commentInput');
                 const len = formEl.querySelector('#commentLen');
                 ta.addEventListener('input', () => { len.textContent = `${ta.value.length} / 1000`; });
+                // La portée est le seul des trois choix qui relève d'une
+                // habitude : on la retient, pas le spoiler ni le chapitre.
+                formEl.querySelector('#commentVis')?.addEventListener('change', e => ecrirePortee(e.target.value));
+                // Pré-sélectionne le chapitre en cours de lecture : c'est
+                // presque toujours celui dont on veut parler.
+                const selChap = formEl.querySelector('#commentChap');
+                const enCours = progress?.chapterId;
+                if (selChap && enCours && [...selChap.options].some(o => o.value === enCours)) selChap.value = enCours;
                 const send = async () => {
                     const text = ta.value.trim();
                     if (!text) return;
                     const btn = formEl.querySelector('#commentSend');
                     btn.disabled = true;
                     try {
-                        await API.comments.add(manga.id, { text });
+                        await API.comments.add(manga.id, {
+                            text,
+                            visibility: formEl.querySelector('#commentVis')?.value || 'instance',
+                            chapterId: selChap?.value || null,
+                            spoiler: !!formEl.querySelector('#commentSpoiler')?.checked,
+                        });
                         ta.value = ''; len.textContent = '0 / 1000';
+                        const sp = formEl.querySelector('#commentSpoiler'); if (sp) sp.checked = false;
                         await loadComments();
                         MH.toast?.('Commentaire publié');
                     } catch (e) { MH.toast?.('Erreur : ' + e.message); }
@@ -584,6 +1051,23 @@
         const one = (c, isReply) => {
             const canDel = loggedIn && (c.user === myName || isAdmin);
             const flagged = isAdmin && c.reports > 0 ? `<span title="${c.reports} signalement(s)" style="color:#ef4444;font-size:11px">⚑ ${c.reports}</span>` : '';
+            // Audit AMEL-50 : la portée n'est affichée que quand elle s'écarte
+            // du défaut — signaler « membres » sur chaque commentaire serait du
+            // bruit, signaler « privé » ou « public » est une information.
+            const badgePortee = c.visibility && c.visibility !== 'instance'
+                ? `<span class="comment-vis comment-vis-${c.visibility}">${PORTEE_LABEL[c.visibility] || c.visibility}</span>` : '';
+            // Audit AMEL-52 : sans étiquette, un commentaire sur le chapitre 3
+            // et un sur le 300 se ressemblent — et le second gâche le premier.
+            const badgeChap = c.chapterId
+                ? `<a class="comment-chap" href="${MH.esc(MH.readerHref(manga.id, c.chapterId, API.sources.current))}">${MH.esc(chapLabelParId(c.chapterId))}</a>` : '';
+            // Audit AMEL-51 : masqué par défaut, révélé au clic. Le texte reste
+            // dans le DOM (il est déjà arrivé du serveur) mais n'est pas
+            // lisible : c'est un avertissement, pas un contrôle d'accès.
+            const corps = linkifyMentions(MH.esc(c.text || ''));
+            const texte = c.spoiler
+                ? `<div class="comment-text comment-spoiler" data-spoiler="${c.id}" role="button" tabindex="0"
+                        aria-label="Spoiler masqué — afficher"><span class="comment-spoiler-veil">Spoiler — cliquer pour afficher</span><span class="comment-spoiler-body">${corps}</span></div>`
+                : `<div class="comment-text">${corps}</div>`;
             return `
             <div class="comment-item" id="comment-${c.id}" data-cid="${c.id}" style="${isReply ? 'margin-left:42px;' : ''}">
                 <div class="comment-avatar">${MH.esc((c.user || '?').slice(0, 1).toUpperCase())}</div>
@@ -591,9 +1075,9 @@
                     <div class="comment-head">
                         <a class="comment-user" href="u.html?u=${encodeURIComponent(c.user || '')}">${MH.esc(c.user || 'Anonyme')}</a>
                         <span class="comment-date">${commentTimeAgo(c.createdAt)}</span>
-                        ${flagged}
+                        ${badgeChap}${badgePortee}${flagged}
                     </div>
-                    <div class="comment-text">${linkifyMentions(MH.esc(c.text || ''))}</div>
+                    ${texte}
                     <div class="comment-actions" style="display:flex;gap:14px;margin-top:5px;font-size:11.5px;color:var(--text3)">
                         ${loggedIn ? `<button type="button" data-reply="${c.id}" data-replyuser="${MH.esc(c.user || '')}" class="comment-act" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0">Répondre</button>` : ''}
                         ${loggedIn && c.user !== myName ? `<button type="button" data-report="${c.id}" class="comment-act" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0">Signaler</button>` : ''}
@@ -621,12 +1105,28 @@
 
         // Interactions (handler unique, ré-assigné à chaque rendu)
         listEl.onclick = async (e) => {
+            const spoil     = e.target.closest('[data-spoiler]');
             const replyBtn  = e.target.closest('[data-reply]');
             const reportBtn = e.target.closest('[data-report]');
             const delBtn    = e.target.closest('[data-del]');
+            // Le dévoilement passe avant : un lien @mention à l'intérieur d'un
+            // spoiler ne doit pas être cliquable tant qu'il est masqué.
+            if (spoil && !spoil.classList.contains('revealed')) {
+                e.preventDefault(); spoil.classList.add('revealed');
+                spoil.setAttribute('aria-label', 'Spoiler affiché'); return;
+            }
             if (replyBtn)  return openReplyBox(replyBtn.dataset.reply, replyBtn.dataset.replyuser);
             if (reportBtn) return reportComment(reportBtn.dataset.report);
             if (delBtn)    return deleteComment(delBtn.dataset.del);
+        };
+        // Accessible au clavier : le voile est un `role=button`, il doit
+        // répondre à Entrée et Espace comme n'importe quel bouton.
+        listEl.onkeydown = (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            const spoil = e.target.closest('[data-spoiler]');
+            if (!spoil || spoil.classList.contains('revealed')) return;
+            e.preventDefault(); spoil.classList.add('revealed');
+            spoil.setAttribute('aria-label', 'Spoiler affiché');
         };
     }
 
@@ -638,7 +1138,10 @@
         box.innerHTML = `
             <div style="margin-top:8px">
                 <textarea class="comment-textarea" rows="2" maxlength="1000" placeholder="Répondre à @${MH.esc(replyUser)}…"></textarea>
-                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px">
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;align-items:center">
+                    <label class="comment-opt comment-opt-check" style="margin-right:auto">
+                        <input type="checkbox" data-replyspoiler="${parentId}"> <span>Spoiler</span>
+                    </label>
                     <button class="btn btn-sm" data-replycancel="${parentId}">Annuler</button>
                     <button class="btn btn-primary btn-sm" data-replysend="${parentId}">Répondre</button>
                 </div>
@@ -653,7 +1156,12 @@
         box.querySelector('[data-replysend]').onclick = async (ev) => {
             const text = ta.value.trim(); if (!text) return;
             ev.target.disabled = true;
-            try { await API.comments.reply(manga.id, +parentId, text); await loadComments(); MH.toast?.('Réponse publiée'); }
+            // La portée n'est pas proposée ici : le serveur ramène de toute
+            // façon la réponse à celle du parent (on ne peut pas rendre plus
+            // visible un fil en y répondant). Proposer un choix sans effet
+            // serait pire que de ne rien proposer.
+            const spoiler = !!box.querySelector('[data-replyspoiler]')?.checked;
+            try { await API.comments.reply(manga.id, +parentId, text, { spoiler }); await loadComments(); MH.toast?.('Réponse publiée'); }
             catch (e2) { MH.toast?.('Erreur : ' + e2.message); ev.target.disabled = false; }
         };
     }
@@ -838,7 +1346,11 @@
             return;
         }
 
-        let readFilter = 'all';   // all | unread | read
+        // Repris des preferences (audit AMEL-98). Une valeur inconnue —
+        // preference ecrite par une version anterieure — retombe sur 'all'
+        // plutot que de filtrer sur rien.
+        const filtreEnregistre = window.Storage?.getPref(PREF_FILTRE);
+        let readFilter = ['all', 'unread', 'read'].includes(filtreEnregistre) ? filtreEnregistre : 'all';
         el.innerHTML = `
         <div class="chapters-block">
             <div class="chapters-block-header">
@@ -852,13 +1364,17 @@
                     <button class="chap-sort-btn ic-btn" id="chapRandom" title="Ouvrir un chapitre au hasard">${MH.icon('dice', 14)} Au hasard</button>
                     <button class="chap-sort-btn" id="chapCheckNew" title="Vérifier maintenant s'il y a de nouveaux chapitres sur cette série">↻ Vérifier</button>
                     <button class="chap-sort-btn" id="chapMarkAll" title="Marquer tous les chapitres comme lus">✓ Tout lu</button>
+                    <!-- Audit AMEL-99 : le téléchargement n'existait que DANS le
+                         lecteur, chapitre par chapitre. Préparer un trajet
+                         demandait d'ouvrir chaque chapitre l'un après l'autre. -->
+                    <button class="chap-sort-btn" id="chapDlRange" title="Télécharger une plage de chapitres pour le hors-ligne">↓ Télécharger…</button>
                     <button class="chap-sort-btn" id="chapSortBtn">${chapSortAsc ? '↑ Ancien' : '↓ Récent'}</button>
                 </div>
             </div>
             <div class="chap-filters" id="chapFilters" style="display:flex;gap:6px;margin-bottom:10px">
-                <button class="chap-filter on" data-rf="all">Tous</button>
-                <button class="chap-filter" data-rf="unread">Non lus</button>
-                <button class="chap-filter" data-rf="read">Lus</button>
+                <button class="chap-filter ${readFilter === 'all' ? 'on' : ''}" data-rf="all">Tous</button>
+                <button class="chap-filter ${readFilter === 'unread' ? 'on' : ''}" data-rf="unread">Non lus</button>
+                <button class="chap-filter ${readFilter === 'read' ? 'on' : ''}" data-rf="read">Lus</button>
             </div>
             <div class="chapters-list" id="chapsList"></div>
         </div>`;
@@ -897,8 +1413,11 @@
         const list    = el.querySelector('#chapsList');
         const countEl = el.querySelector('#chapCount');
 
+        el.querySelector('#chapDlRange')?.addEventListener('click', telechargerPlage);
+
         el.querySelectorAll('.chap-filter').forEach(b => b.addEventListener('click', () => {
             readFilter = b.dataset.rf;
+            window.Storage?.setPref(PREF_FILTRE, readFilter);   // audit AMEL-98
             el.querySelectorAll('.chap-filter').forEach(x => x.classList.toggle('on', x === b));
             render();
         }));
@@ -915,10 +1434,15 @@
             if (!items.length) return;
             markAll.disabled = true; const lbl = markAll.textContent; markAll.textContent = '…';
             try {
+                // Audit AMEL-40 : on retient ce qui n'était PAS lu avant, et
+                // seulement cela. Annuler en démarquant tout effacerait aussi
+                // les chapitres lus de longue date — l'annulation ferait alors
+                // plus de dégâts que l'action qu'elle répare.
+                const nouveaux = chapters.filter(c => !readChapsSet.has(c.id)).map(c => c.id);
                 await API.me.markChaptersBulk(manga.id, items);
                 chapters.forEach(c => readChapsSet.add(c.id));
                 render(); renderSidebar();
-                MH.toast?.(`${items.length} chapitre(s) marqué(s) comme lus`);
+                proposerAnnulation(nouveaux);
             } catch (e) { MH.toast?.('Erreur : ' + e.message); }
             finally { markAll.disabled = false; markAll.textContent = lbl; }
         });
@@ -943,6 +1467,7 @@
         if (sortBtn) {
             sortBtn.addEventListener('click', () => {
                 chapSortAsc = !chapSortAsc;
+                window.Storage?.setPref(PREF_TRI, chapSortAsc ? '1' : '0');
                 sortBtn.textContent = chapSortAsc ? '↑ Ancien' : '↓ Récent';
                 render();
             });
@@ -1045,18 +1570,31 @@
         let data = { average: null, count: 0, mine: null };
         try { data = await API.ratings.get(manga.id); } catch (e) { window.MH?.err?.('serie.js', e); }
 
-        const myStars = data.mine?.rating || 0;
+        // Audit AMEL-47 : la note est stockée sur 10 et affichée en 5 étoiles
+        // avec demis — deux fois plus de granularité sans changer le repère
+        // visuel auquel les gens sont habitués.
+        const maNote10 = data.mine?.rating || 0;      // 0-10
         const avgTxt = data.average != null
-            ? `<strong style="color:var(--text);font-size:15px">${data.average.toFixed(1)}</strong>/5 · ${MH.fmt(data.count)} note${data.count > 1 ? 's' : ''}`
+            ? `<strong style="color:var(--text);font-size:15px">${(data.average / 2).toFixed(1)}</strong>/5 · ${MH.fmt(data.count)} note${data.count > 1 ? 's' : ''}`
             : 'Aucune note pour l\'instant';
 
         const myReview = data.mine?.review || '';
         body.innerHTML = `
             <div style="margin-bottom:10px">${avgTxt}</div>
-            <div class="rate-stars" style="display:flex;gap:4px;font-size:24px;line-height:1">
-                ${[1,2,3,4,5].map(n => `<span class="rate-star" data-n="${n}" style="cursor:pointer;color:${n <= myStars ? '#f59e0b' : 'var(--bg4)'}">★</span>`).join('')}
+            <!-- Audit AMEL-49 : sans point de comparaison, une note personnelle
+                 ne dit rien — « 4/5 » ne prend son sens qu'à côté de la
+                 moyenne du public. -->
+            <div id="anilistScore" style="font-size:12px;color:var(--text3);margin:-4px 0 10px" hidden></div>
+            <div class="rate-stars" role="group" aria-label="Noter cette oeuvre">
+                ${[1,2,3,4,5].map(n => `
+                <span class="rate-star" data-n="${n}">
+                    <span class="rate-star-bg">★</span>
+                    <span class="rate-star-fill" data-fill="${n}" style="width:${Math.max(0, Math.min(1, maNote10 / 2 - (n - 1))) * 100}%">★</span>
+                    <button type="button" class="rate-hit rate-hit-half" data-v="${n * 2 - 1}" aria-label="${String(n - 0.5).replace('.', ',')} étoile sur 5"></button>
+                    <button type="button" class="rate-hit rate-hit-full" data-v="${n * 2}" aria-label="${n} étoile${n > 1 ? 's' : ''} sur 5"></button>
+                </span>`).join('')}
             </div>
-            <div style="font-size:11px;color:var(--text3);margin-top:6px">${API.isLoggedIn() ? (myStars ? 'Ta note · clique pour changer' : 'Clique une étoile pour noter') : 'Connecte-toi pour noter'}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px" id="rateHint">${API.isLoggedIn() ? (maNote10 ? `Ta note : ${(maNote10 / 2).toFixed(1).replace('.', ',')}/5 · clique pour changer` : 'Clique une étoile (ou sa moitié gauche) pour noter') : 'Connecte-toi pour noter'}</div>
             ${API.isLoggedIn() ? `
             <div class="my-review" style="margin-top:14px">
                 <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Mon avis</label>
@@ -1067,33 +1605,50 @@
                 </div>
             </div>` : ''}`;
 
+        // Audit AMEL-49 : en arrière-plan, sans bloquer le panneau. Un échec ou
+        // une œuvre inconnue d'AniList laisse simplement le bloc masqué —
+        // afficher « comparaison indisponible » ajouterait du bruit sans
+        // rien apporter.
+        afficherScoreAniList(maNote10);
+
         if (!API.isLoggedIn()) return;
 
-        let currentStars = myStars;
-        const stars = [...body.querySelectorAll('.rate-star')];
-        const paint = (n) => stars.forEach(s => s.style.color = (+s.dataset.n <= n) ? '#f59e0b' : 'var(--bg4)');
-        stars.forEach(s => {
-            s.addEventListener('mouseenter', () => paint(+s.dataset.n));
-            s.addEventListener('mouseleave', () => paint(currentStars));
-            s.addEventListener('click', async () => {
-                const n = +s.dataset.n;
+        // `note` est sur 10 ; chaque etoile vaut 2, sa moitie gauche 1.
+        let note10 = maNote10;
+        const remplissages = [...body.querySelectorAll('.rate-star-fill')];
+        const peindre = (v10) => remplissages.forEach(f => {
+            const n = +f.dataset.fill;
+            f.style.width = Math.max(0, Math.min(1, v10 / 2 - (n - 1))) * 100 + '%';
+        });
+        body.querySelectorAll('.rate-hit').forEach(h => {
+            h.addEventListener('mouseenter', () => peindre(+h.dataset.v));
+            h.addEventListener('focus', () => peindre(+h.dataset.v));
+            h.addEventListener('click', async () => {
+                const v = +h.dataset.v;
                 try {
-                    // On garde l'avis déjà saisi pour ne pas l'écraser en notant.
+                    // On garde l'avis deja saisi pour ne pas l'ecraser en notant.
                     const review = document.getElementById('reviewText')?.value.trim() || null;
-                    await API.ratings.set(manga.id, { rating: n, review });
-                    currentStars = n; paint(n);
-                    MH.toast(`Noté ${n}/5`);
+                    await API.ratings.set(manga.id, { rating: v, review });
+                    note10 = v; peindre(v);
+                    const hint = document.getElementById('rateHint');
+                    if (hint) hint.textContent = `Ta note : ${(v / 2).toFixed(1).replace('.', ',')}/5 · clique pour changer`;
+                    // La comparaison au public n'a de sens qu'avec la note
+                    // COURANTE : rendue une seule fois, elle serait restée
+                    // muette pour quiconque note depuis un panneau vierge.
+                    afficherScoreAniList(v);
+                    MH.toast(`Note ${(v / 2).toFixed(1).replace('.', ',')}/5`);
                 } catch (e) { MH.toast('Erreur : ' + e.message); }
             });
         });
+        body.querySelector('.rate-stars')?.addEventListener('mouseleave', () => peindre(note10));
 
         // Enregistrer « Mon avis » (§16) — s'appuie sur ratings.review déjà en base.
         document.getElementById('btnSaveReview')?.addEventListener('click', async (e) => {
-            if (!currentStars) { MH.toast('Choisis d\'abord une note (les étoiles) pour publier ton avis'); return; }
+            if (!note10) { MH.toast('Choisis d\'abord une note (les étoiles) pour publier ton avis'); return; }
             const review = document.getElementById('reviewText').value.trim();
             e.target.disabled = true; const lbl = e.target.textContent; e.target.textContent = '…';
             try {
-                await API.ratings.set(manga.id, { rating: currentStars, review: review || null });
+                await API.ratings.set(manga.id, { rating: note10, review: review || null });
                 MH.toast('Ton avis est enregistré');
             } catch (err) { MH.toast('Erreur : ' + err.message); }
             finally { e.target.disabled = false; e.target.textContent = lbl; }

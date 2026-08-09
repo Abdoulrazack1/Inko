@@ -178,7 +178,7 @@
 .sidebar-nav-item:hover { background: var(--bg3); color: var(--text); }
 .sidebar-nav-item.active {
   background: rgba(255,107,26,.12);
-  color: var(--orange);
+  color: var(--accent-text);
 }
 .sidebar-nav-icon { font-size: 14px; width: 16px; text-align: center; }
 .sidebar-notif {
@@ -210,13 +210,13 @@
 .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
 .card-title { font-size: 14px; font-weight: 600; color: var(--text); }
 .card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.card-link { font-size: 12px; color: var(--orange); }
+.card-link { font-size: 12px; color: var(--accent-text); }
 .card-link:hover { text-decoration: underline; }
 
 /* ── Overview: top row ──────────────────────────────────────── */
 .overview-top-row { display: grid; grid-template-columns: 1fr 200px; gap: 16px; }
 .last-read-card { padding: 16px; }
-.last-read-label { font-size: 10px; font-weight: 700; color: var(--orange); letter-spacing: .08em; margin-bottom: 12px; }
+.last-read-label { font-size: 10px; font-weight: 700; color: var(--accent-text); letter-spacing: .08em; margin-bottom: 12px; }
 .last-read-body { display: flex; gap: 14px; }
 .last-read-cover img { width: 64px; height: 88px; object-fit: cover; border-radius: 6px; }
 .last-read-info { flex: 1; }
@@ -246,8 +246,8 @@
   font-size: 10px; font-weight: 700;
   padding: 2px 6px; border-radius: 4px;
 }
-.stat-mini-badge.green { background: rgba(34,197,94,.15); color: var(--green); }
-.stat-mini-badge.blue  { background: rgba(59,130,246,.15); color: var(--blue); }
+.stat-mini-badge.green { background: rgba(34,197,94,.15); color: var(--green-text); }
+.stat-mini-badge.blue  { background: rgba(59,130,246,.15); color: var(--blue-text); }
 .stat-mini-num { font-family: var(--font-head); font-size: 22px; font-weight: 800; }
 .stat-mini-label { font-size: 11.5px; color: var(--text2); margin-top: 2px; }
 
@@ -416,7 +416,7 @@
   cursor: pointer;
   transition: all var(--transition);
 }
-.pref-btn.active { background: rgba(255,107,26,.15); color: var(--orange); border-color: rgba(255,107,26,.3); }
+.pref-btn.active { background: rgba(255,107,26,.15); color: var(--accent-text); border-color: rgba(255,107,26,.3); }
 .pref-slider { width: 100%; accent-color: var(--orange); margin-top: 4px; }
 
 /* Footer cards */
@@ -611,6 +611,22 @@
 .timeline-manga-name { font-size: 13px; font-weight: 500; }
 .timeline-chap { font-size: 11.5px; color: var(--text2); margin-top: 1px; }
 .timeline-status { font-size: 11px; font-weight: 500; flex-shrink: 0; }
+
+/* Suppression ciblée d'une ligne d'historique (audit AMEL-112).
+   Discrète au repos : c'est une action rare et irréversible, elle ne doit pas
+   concurrencer « Reprendre » du regard. Toujours au clavier, jamais masquée
+   derrière un survol — un contrôle qui n'existe qu'au hover n'existe pas au
+   toucher ni au clavier. */
+.timeline-del {
+  flex-shrink: 0; margin-left: 8px;
+  width: 24px; height: 24px; line-height: 1;
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  color: var(--text3); font-size: 16px; cursor: pointer;
+}
+.timeline-del:hover, .timeline-del:focus-visible {
+  color: var(--red-text, #ef4444); border-color: var(--border2); background: var(--bg3);
+}
+.timeline-del:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .timeline-status.lu { color: var(--green); }
 .timeline-status.cours { color: var(--blue); }
 .timeline-status.relecture { color: var(--orange); }

@@ -5,6 +5,17 @@
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inko — Accueil</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Ta bibliothèque de mangas et de romans : reprends ta lecture, suis les nouveaux chapitres, découvre de nouvelles séries.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Accueil">
+    <meta property="og:description" content="Ta bibliothèque de mangas et de romans : reprends ta lecture, suis les nouveaux chapitres, découvre de nouvelles séries.">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Accueil">
+    <meta name="twitter:description" content="Ta bibliothèque de mangas et de romans : reprends ta lecture, suis les nouveaux chapitres, découvre de nouvelles séries.">
+    <!-- meta:auto -->
   <link rel="manifest" href="./manifest.webmanifest">
   <meta name="theme-color" content="#ff6b1a">
   <link rel="icon" type="image/svg+xml" href="./assets/img/icon.svg">
@@ -13,6 +24,7 @@
 </head>
 <body class="page-body">
   <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
 
   <!-- ══ HERO ══════════════════════════════════════════════ -->
   <section class="hero" id="hero" aria-roledescription="carrousel">
@@ -24,8 +36,12 @@
     <div class="hero-progress"><div class="hero-progress-fill" id="heroProgress"></div></div>
   </section>
 
-  <!--REPRENDRE LECTURE ══════════════════════════════════ -->
-  <section class="section-resume container">
+  <!--REPRENDRE LECTURE ══════════════════════════════════
+       Audit AMEL-01 : ce bloc remonte AU-DESSUS du hero dès qu'une lecture
+       est en cours (accueil.js, loadResume). Sur une bibliothèque de plusieurs
+       centaines de séries, on revient sur l'accueil pour reprendre, pas pour
+       découvrir — la découverte reste juste en dessous. -->
+  <section class="section-resume container" id="sectionResume">
     <div class="section-header">
       <div>
         <div class="section-title">Reprendre la lecture</div>
@@ -124,6 +140,7 @@
     </aside>
   </div>
 
+  </main>
   <div id="footer-slot"></div>
 
   <script src="assets/js/api.js"></script>
@@ -133,7 +150,10 @@
   
   <script src="assets/js/i18n.js"></script>
   <script src="assets/js/global.js"></script>
-  <script src="assets/vendor/three.min.js"></script>
+  <!-- Audit PERF-06 : three.min.js (594 Ko) était chargé ici en dur, sur le
+       chemin critique de la page d'entrée, pour tout le monde — y compris sans
+       WebGL, en mouvement réduit ou en économiseur de données. hero3d.js le
+       charge désormais à la demande, après le premier rendu. -->
   <script src="assets/js/hero3d.js"></script>
   <script src="assets/js/accueil.js"></script>
   <script src="assets/js/card-hover.js"></script>

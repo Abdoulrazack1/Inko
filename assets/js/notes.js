@@ -14,6 +14,21 @@
         await MH.loadSourceTypes?.();
         await loadStats();
         await loadNotes();
+        document.getElementById('jrExportMd')?.addEventListener('click', exporterMarkdown);
+        const btnRecit = document.getElementById('jrRecit');
+        if (btnRecit) {
+            const peindre = () => {
+                btnRecit.classList.toggle('btn-primary', modeRecit);
+                btnRecit.setAttribute('aria-pressed', String(modeRecit));
+            };
+            peindre();
+            btnRecit.addEventListener('click', () => {
+                modeRecit = !modeRecit;
+                window.Storage?.setPref('journal_recit', modeRecit ? '1' : '0');
+                peindre();
+                render(document.getElementById('jrSearch').value.trim().toLowerCase());
+            });
+        }
         document.getElementById('jrSearch').addEventListener('input', (e) => {
             clearTimeout(searchTimer);
             searchTimer = setTimeout(() => render(e.target.value.trim().toLowerCase()), 200);
@@ -36,7 +51,93 @@
         } catch (e) { window.MH?.err?.('notes.js', e); }
     }
 
+    // ── Humeurs dans le temps (audit AMEL-46) ────────────────
+    // Le champ `mood` était collecté à chaque note et restitué sous la forme
+    // d'UNE seule valeur : « humeur dominante ». Toute l'évolution — le moment
+    // où une série devient pesante, celui où elle décolle — était perdue.
+    //
+    // Une frise par mois, construite à partir des notes déjà chargées : aucune
+    // requête supplémentaire, et elle se met à jour avec la pagination.
+    function renderMoodTimeline(notes) {
+        const el = document.getElementById('jrMoods');
+        if (!el) return;
+        const avecHumeur = notes.filter(n => n.mood);
+        if (avecHumeur.length < 3) { el.hidden = true; return; }
+
+        const parMois = new Map();
+        avecHumeur.forEach(n => {
+            const d = new Date(n.createdAt || n.created_at || Date.now());
+            const cle = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (!parMois.has(cle)) parMois.set(cle, {});
+            const m = parMois.get(cle);
+            m[n.mood] = (m[n.mood] || 0) + 1;
+        });
+        const mois = [...parMois.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-12);
+
+        el.hidden = false;
+        el.innerHTML = `<div class="jr-moods-title">Humeurs au fil du temps</div>
+            <div class="jr-moods-row">${mois.map(([cle, compte]) => {
+        const total = Object.values(compte).reduce((a, b) => a + b, 0);
+        const label = new Date(cle + '-01').toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+        // Barre empilée : chaque humeur occupe sa part du mois. Les nombres
+        // sont dans le title, la couleur ne portant pas seule l'information.
+        const segments = Object.entries(compte).sort((a, b) => b[1] - a[1]).map(([m, n]) =>
+            `<span style="height:${(n / total * 100).toFixed(1)}%;background:${MOOD_COLOR[m] || 'var(--accent)'}"></span>`).join('');
+        const detail = Object.entries(compte).map(([m, n]) => `${MOOD_LABEL[m] || m} : ${n}`).join(', ');
+        return `<div class="jr-mood-col" title="${MH.esc(label + ' — ' + detail)}">
+                        <div class="jr-mood-bar">${segments}</div>
+                        <div class="jr-mood-label">${MH.esc(label)}</div>
+                    </div>`;
+    }).join('')}</div>`;
+    }
+
+    // ── Export Markdown (audit AMEL-43) ──────────────────────
+    // `/me/export` couvre tout, en JSON — un format fait pour être réimporté,
+    // pas pour être LU. Or une note de lecture n'a d'intérêt qu'ouverte, et
+    // son usage naturel est un carnet (Obsidian, Logseq, un simple éditeur).
+    function exporterMarkdown() {
+        if (!allNotes.length) { MH.toast?.('Aucune note à exporter'); return; }
+        // Groupé par série, chronologique à l'intérieur : c'est l'ordre dans
+        // lequel on relit un carnet, pas l'ordre d'écriture toutes séries
+        // mêlées.
+        const parSerie = new Map();
+        allNotes.forEach(n => {
+            const cle = n.mangaTitle || n.mangaId || 'Sans série';
+            if (!parSerie.has(cle)) parSerie.set(cle, []);
+            parSerie.get(cle).push(n);
+        });
+
+        const lignes = ['# Journal de lecture Inko', '',
+            `Export du ${new Date().toLocaleDateString('fr-FR')} — ${allNotes.length} note(s).`, ''];
+        [...parSerie.entries()].sort((a, b) => a[0].localeCompare(b[0])).forEach(([serie, notes]) => {
+            lignes.push(`## ${serie}`, '');
+            notes.slice().sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).forEach(n => {
+                const d = new Date(n.createdAt).toLocaleDateString('fr-FR');
+                const contexte = [n.chapterNum != null ? `Ch. ${n.chapterNum}` : null,
+                    n.page ? `p. ${n.page}` : null].filter(Boolean).join(' · ');
+                lignes.push(`### ${d}${contexte ? ' — ' + contexte : ''}`);
+                if (n.mood) lignes.push(`*Humeur : ${MOOD_LABEL[n.mood] || n.mood}*`, '');
+                // `>` : le corps est cité, ce qui le distingue des en-têtes
+                // qu'on vient d'ajouter et rend le fichier lisible tel quel.
+                lignes.push(String(n.body || '').split('\n').map(l => '> ' + l).join('\n'), '');
+            });
+        });
+
+        const blob = new Blob([lignes.join('\n')], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `inko-journal-${new Date().toISOString().slice(0, 10)}.md`;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        MH.toast?.(`${allNotes.length} note(s) exportée(s) en Markdown`);
+    }
+
     let notesTotal = 0;   // total serveur (pagination, audit J2)
+    // Audit AMEL-45 : lecture « en recit » (chronologique) ou consultation
+    // (recent d'abord). Persiste, comme tout reglage de lecture.
+    let modeRecit = false;
+    try { modeRecit = window.Storage?.getPref('journal_recit') === '1'; } catch (e) { modeRecit = false; }
 
     async function loadNotes() {
         try {
@@ -78,7 +179,14 @@
             if (!groups.has(n.mangaId)) groups.set(n.mangaId, { manga: n, notes: [] });
             groups.get(n.mangaId).notes.push(n);
         });
+        // Audit AMEL-45 : en mode « recit », chaque serie se lit du debut a la
+        // fin — c'est ainsi qu'on relit un carnet. Par defaut on garde le plus
+        // recent en tete, qui est ce qu'on veut en consultation courante.
+        if (modeRecit) {
+            groups.forEach(g => g.notes.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)));
+        }
         body.innerHTML = [...groups.values()].map(renderGroup).join('');
+        renderMoodTimeline(allNotes);   // audit AMEL-46
 
         // Pagination (audit J2) : indicateur honnête + « charger plus ».
         // En recherche (J3), rappelle que seules les notes chargées sont filtrées.
@@ -102,7 +210,7 @@
         <section class="jr-group">
             <div class="jr-group-head">
                 <a class="jr-group-cover" href="${serieHref}">
-                    <img src="${m.cover || MH.placeholderCover(m.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(m.mangaId)}'">
+                    <img src="${MH.cover(m.cover, MH.placeholderCover(m.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(m.mangaId)}'">
                 </a>
                 <div>
                     <div class="jr-group-title"><a href="${serieHref}">${MH.esc(m.mangaTitle || m.mangaId)}</a></div>

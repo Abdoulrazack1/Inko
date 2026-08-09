@@ -5,6 +5,17 @@
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inko — Paramètres</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Réglages de lecture, apparence, confidentialité et comptes liés.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Paramètres">
+    <meta property="og:description" content="Réglages de lecture, apparence, confidentialité et comptes liés.">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Paramètres">
+    <meta name="twitter:description" content="Réglages de lecture, apparence, confidentialité et comptes liés.">
+    <!-- meta:auto -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#0d0d0f">
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
@@ -44,14 +55,23 @@
     }
     .seg button.active { background: var(--orange); color: #fff; font-weight: 600; }
     .danger-zone { border-color: rgba(239,68,68,.3); }
-    .danger-zone h2 { color: var(--red); }
+    .danger-zone h2 { color: var(--red-text); }
     .btn-danger {
-      background: rgba(239,68,68,.12); color: var(--red); border: 1px solid rgba(239,68,68,.3);
+      background: rgba(239,68,68,.12); color: var(--red-text); border: 1px solid rgba(239,68,68,.3);
       padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
     }
     .btn-danger:hover { background: rgba(239,68,68,.2); }
     .nsfw-card { border-color: rgba(236,72,153,.25); }
-    .nsfw-card h2 { color: #ec4899; }
+    /* Audit A11Y-02 (defaut residuel) : #ec4899 sur le fond clair donne
+       2,77:1 — tres en dessous du seuil AA de 4,5:1. Le defaut echappait aux
+       campagnes precedentes parce que cette carte n'est PAS toujours rendue :
+       axe ignore ce qui est masque, la violation n'apparaissait donc que
+       certains passages. Rose assombri (5,8:1) ; sur fond sombre le rose
+       d'origine passait deja, il y est conserve. */
+    .nsfw-card h2 { color: #a3185c; }
+    html[data-theme="dark"] .nsfw-card h2,
+    html[data-theme="amoled"] .nsfw-card h2 { color: #ec4899; }
+    html[data-theme="contrast"] .nsfw-card h2 { color: #85114a; }
     .pill { font-size: 10px; padding: 2px 8px; border-radius: 5px; font-weight: 600; }
     .pill-on  { background: rgba(34,197,94,.15); color: var(--green); }
     .pill-off { background: var(--bg4); color: var(--text3); }
@@ -59,6 +79,7 @@
 </head>
 <body class="page-body">
   <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
 
   <div class="set-wrap">
     <div class="set-head">
@@ -142,6 +163,10 @@
           <button data-val="dark">Sombre</button>
           <button data-val="amoled">AMOLED</button>
           <button data-val="light">Clair</button>
+          <!-- Audit AMEL-83 : AA est un PLANCHER. Ce theme vise AAA (7:1) pour
+               la basse vision, les ecrans en plein soleil et les dalles mal
+               calibrees. Choisi explicitement, jamais deduit du systeme. -->
+          <button data-val="contrast" title="Contraste renforce (AAA) — texte plus sombre, bordures opaques, aucun texte sous 12 px">Contraste</button>
           <button data-val="auto">Auto</button>
         </div>
       </div>
@@ -265,6 +290,96 @@
       </div>
     </div>
 
+    <!-- SANTE DE L'INSTANCE (audit AMEL-116) -->
+    <!-- /api/health repond par oui/non : il sert de sonde Docker. Il ne dit ni
+         depuis quand, ni si les sauvegardes tournent, ni s'il reste de la
+         place — donc rien de ce qu'on veut savoir AVANT que ca casse. -->
+    <div class="set-card" id="instanceCard" style="display:none">
+      <h2>Sante de l'instance</h2>
+      <div class="sub" id="instanceSub"></div>
+      <div id="instanceList" style="margin-top:12px"></div>
+    </div>
+
+    <!-- APPLICATION DE BUREAU (audit AMEL-93) -->
+    <!-- Masquee hors de l'app Tauri : proposer « demarrer au login » dans un
+         navigateur serait une promesse que rien ne peut tenir. -->
+    <div class="set-card" id="desktopCard" style="display:none">
+      <h2>Application de bureau</h2>
+      <div class="sub">Inko sert aussi de hub : les autres appareils de la maison lisent via ce serveur.</div>
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Demarrer avec Windows</div>
+          <div class="set-row-desc">Le serveur est pret des l'ouverture de session, sans avoir a y penser</div>
+        </div>
+        <div class="toggle" id="tglAutostart"></div>
+      </div>
+      <div class="set-row" style="border-bottom:none">
+        <div>
+          <div class="set-row-label">Fermeture de la fenetre</div>
+          <div class="set-row-desc">La croix reduit dans la zone de notification et garde le serveur actif. Pour arreter vraiment : clic droit sur l'icone puis « Quitter Inko ».</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RACCOURCIS CLAVIER (audit AMEL-82) -->
+    <!-- Ils existaient (J, B, A…) mais etaient codes en dur : une lettre qui
+         tombe mal sur un clavier non-AZERTY ne pouvait pas etre changee. -->
+    <div class="set-card" id="shortcutsCard">
+      <h2>Raccourcis clavier</h2>
+      <div class="sub">Clique sur une touche pour la remplacer. Laisse vide pour desactiver le raccourci.</div>
+      <div id="shortcutsList" style="margin-top:12px"></div>
+      <div class="set-row" style="border-bottom:none">
+        <div>
+          <div class="set-row-label">Retour aux valeurs par defaut</div>
+          <div class="set-row-desc">Annule toutes tes personnalisations</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnResetShortcuts">Reinitialiser</button>
+      </div>
+    </div>
+
+    <!-- FILE HORS-LIGNE (audit AMEL-79) -->
+    <!-- La file existait mais restait invisible : marquer des chapitres lus
+         sans reseau semblait ne rien faire. -->
+    <div class="set-card" id="syncCard" style="display:none">
+      <h2>Synchronisation en attente</h2>
+      <div class="sub" id="syncSub"></div>
+      <div id="syncList" style="margin-top:12px"></div>
+      <div class="set-row" style="border-bottom:none">
+        <div>
+          <div class="set-row-label">Envoyer maintenant</div>
+          <div class="set-row-desc">Rejoue les actions faites hors-ligne</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnFlushSync">Envoyer</button>
+      </div>
+    </div>
+
+    <!-- SAUVEGARDES (audit AMEL-73/75) -->
+    <!-- Le script de restauration existe (BUG-12) mais suppose un acces shell
+         au serveur. Une sauvegarde qu'on ne sait restaurer qu'en SSH n'existe
+         pas pour la personne qui utilise l'app. -->
+    <div class="set-card" id="backupCard" style="display:none">
+      <h2>Sauvegardes automatiques</h2>
+      <div class="sub" id="backupSub"></div>
+      <div id="backupList" style="margin-top:12px"></div>
+    </div>
+
+    <!-- SESSIONS ACTIVES (audit AMEL-69) -->
+    <!-- `token_version` ne savait revoquer que TOUT : changer son mot de passe
+         deconnectait l'intrus ET tous ses propres appareils. Et rien ne
+         montrait ou l'on etait connecte, sur un jeton qui vit 30 jours. -->
+    <div class="set-card" id="sessionsCard" style="display:none">
+      <h2>Sessions actives</h2>
+      <div class="sub">Les appareils sur lesquels ton compte est connecte. Ferme ceux que tu ne reconnais pas.</div>
+      <div id="sessionsList" style="margin-top:12px"></div>
+      <div class="set-row" style="border-bottom:none">
+        <div>
+          <div class="set-row-label">Fermer les autres sessions</div>
+          <div class="set-row-desc">Garde celle-ci, deconnecte tous les autres appareils</div>
+        </div>
+        <button class="btn-danger" id="btnRevokeOthers">Fermer les autres</button>
+      </div>
+    </div>
+
     <!-- ZONE DANGER -->
     <div class="set-card danger-zone" id="dangerCard" style="display:none">
       <h2>Zone de danger</h2>
@@ -279,6 +394,7 @@
     </div>
   </div>
 
+  </main>
   <div id="footer-slot"></div>
 
   <script src="assets/js/api.js"></script>

@@ -32,17 +32,21 @@
 
     // Stations (live, un clic) — YouTube IFrame API.
     const STATIONS = [
-        { id: 'lofi',  name: 'Lofi Hip-Hop', sub: 'Détente & lecture', g: ['#fc5c7d', '#6a82fb'], yt: 'jfKfPfyJRdk' },
-        { id: 'anime', name: 'Anime Lofi',   sub: 'Vibes asiatiques',  g: ['#f857a6', '#ff5858'], yt: 'Na0w3Mz46GA' },
-        { id: 'chill', name: 'Chillhop',     sub: 'Jazzy beats',       g: ['#43cea2', '#185a9d'], yt: '5yx6BWlEVcY' },
-        { id: 'jazz',  name: 'Jazz Café',    sub: 'Piano lent',        g: ['#c79081', '#dfa579'], yt: 'Dx5qFachd3A' },
-        { id: 'synth', name: 'Synthwave',    sub: 'Rétro nocturne',    g: ['#7028e4', '#e5b2ca'], yt: '4xDzrJKXOOY' },
-        { id: 'rain',  name: 'Pluie',        sub: 'Ambiance nature',   g: ['#2c3e50', '#3f5efb'], yt: 'yIQd2Ya0Ziw' },
+        // Audit AMEL-95 : `alt` = flux de secours. Un live YouTube qui s'arrete
+        // casse la station EN SILENCE — l'interface annonce « en lecture » et
+        // rien ne sort. Les identifiants sont en dur par construction ; ce
+        // qu'on peut faire, c'est ne pas dependre d'UN SEUL.
+        { id: 'lofi',  name: 'Lofi Hip-Hop', sub: 'Détente & lecture', g: ['#fc5c7d', '#6a82fb'], yt: 'jfKfPfyJRdk', alt: ['4xDzrJKXOOY', '5yx6BWlEVcY'] },
+        { id: 'anime', name: 'Anime Lofi',   sub: 'Vibes asiatiques',  g: ['#f857a6', '#ff5858'], yt: 'Na0w3Mz46GA', alt: ['jfKfPfyJRdk'] },
+        { id: 'chill', name: 'Chillhop',     sub: 'Jazzy beats',       g: ['#43cea2', '#185a9d'], yt: '5yx6BWlEVcY', alt: ['jfKfPfyJRdk'] },
+        { id: 'jazz',  name: 'Jazz Café',    sub: 'Piano lent',        g: ['#c79081', '#dfa579'], yt: 'Dx5qFachd3A', alt: ['4oStw0r33so'] },
+        { id: 'synth', name: 'Synthwave',    sub: 'Rétro nocturne',    g: ['#7028e4', '#e5b2ca'], yt: '4xDzrJKXOOY', alt: ['jfKfPfyJRdk'] },
+        { id: 'rain',  name: 'Pluie',        sub: 'Ambiance nature',   g: ['#2c3e50', '#3f5efb'], yt: 'yIQd2Ya0Ziw', alt: ['4oStw0r33so'] },
         // Ex-stations Spotify (résidu audit F.1) : re-câblées sur de vrais flux
         // YouTube — un champ `sp:` seul faisait playYouTube(undefined) (aucun son,
         // UI « en lecture » quand même).
-        { id: 'focus', name: 'Deep Focus',   sub: 'Concentration',     g: ['#11998e', '#38ef7d'], yt: 'lTRiuFIWV54' },
-        { id: 'piano', name: 'Piano',        sub: 'Piano paisible',    g: ['#2c3e50', '#4ca1af'], yt: '4oStw0r33so' },
+        { id: 'focus', name: 'Deep Focus',   sub: 'Concentration',     g: ['#11998e', '#38ef7d'], yt: 'lTRiuFIWV54', alt: ['jfKfPfyJRdk'] },
+        { id: 'piano', name: 'Piano',        sub: 'Piano paisible',    g: ['#2c3e50', '#4ca1af'], yt: '4oStw0r33so', alt: ['Dx5qFachd3A'] },
     ];
 
     // ── État ──
@@ -309,11 +313,36 @@
                     events: {
                         onReady: e => { e.target.setVolume(S.vol * 100); e.target.playVideo(); },
                         onStateChange: e => setPlaying(e.data === 1),
+                        // Audit AMEL-95 : sans ce gestionnaire, un flux mort
+                        // laissait le lecteur affiche « en lecture » sans un
+                        // son — et rien ne l'indiquait.
+                        onError: () => basculerSecours(),
                     },
                 });
             }
         });
         show();
+    }
+
+    // Audit AMEL-95 : bascule sur le flux de secours de la station courante,
+    // puis sur celui de la suivante. On garde la trace des identifiants deja
+    // essayes : sans elle, deux stations qui se citent mutuellement
+    // boucleraient a l'infini.
+    let secoursEssayes = new Set();
+    function basculerSecours() {
+        const st = STATIONS.find(x => x.yt === S.ytId)
+            || STATIONS.find(x => (x.alt || []).includes(S.ytId));
+        secoursEssayes.add(S.ytId);
+        const candidats = st ? [st.yt, ...(st.alt || [])] : STATIONS.map(x => x.yt);
+        const suivant = candidats.find(id => id && !secoursEssayes.has(id));
+        if (!suivant) {
+            secoursEssayes.clear();
+            setPlaying(false);
+            window.MH?.toast?.('Ce flux est indisponible — essaie une autre station');
+            return;
+        }
+        window.MH?.toast?.('Flux indisponible, bascule sur un autre');
+        playYouTube(suivant, S.label, S.sub);
     }
 
     // ══════════════════════ LECTURE — Fichiers locaux ══════════════════════
@@ -398,7 +427,14 @@
 
     // ══════════════════════ Utilitaires ══════════════════════
     function parseYT(url) { const m = (url || '').match(/[?&]v=([A-Za-z0-9_-]{11})/) || (url || '').match(/youtu\.be\/([A-Za-z0-9_-]{11})/) || (url || '').match(/^([A-Za-z0-9_-]{11})$/); return m ? m[1] : null; }
-    function esc(s) { return (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    // Audit SEC-01 : plus de copie locale de l'échappement (celle-ci n'échappait
+    // ni " ni ') — point de vérité unique dans global.js. Repli complet au cas
+    // où music.js serait chargé seul.
+    const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    function esc(s) {
+        if (window.MH && window.MH.esc) return window.MH.esc(s);
+        return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ESC_MAP[c]);
+    }
 
     // ══════════════════════ Init ══════════════════════
     function init() {
@@ -409,7 +445,101 @@
         if (S.visible && S.mode === 'yt' && S.ytId) playYouTube(S.ytId, S.label, S.sub);
     }
 
-    window.Music = { open, close, toggle, show, playStationId: id => { const s = STATIONS.find(x => x.id === id); if (s && s.yt) playYouTube(s.yt, s.name, 'Station · ' + s.sub, s.g); } };
+    // ══════════════════════ Baisse automatique (audit AMEL-97) ══════════════
+    // Deux sources audio simultanees etaient possibles : la musique continuait
+    // a plein volume pendant qu'une video demarrait ailleurs dans la page. On
+    // baisse au lieu de couper — couper obligerait a relancer manuellement,
+    // alors que la musique de fond a vocation a rester.
+    let volAvantBaisse = null;
+    function baisserVolume() {
+        if (volAvantBaisse !== null) return;              // deja baisse
+        volAvantBaisse = S.vol;
+        appliquerVolume(Math.min(S.vol, 0.15));
+        marquerBaisse(true);
+    }
+    function retablirVolume() {
+        if (volAvantBaisse === null) return;
+        appliquerVolume(volAvantBaisse);
+        volAvantBaisse = null;
+        marquerBaisse(false);
+    }
+    // Sans retour visible, une musique qui devient inaudible ressemble a une
+    // panne : on cherche le bouton pause, on remonte le curseur a la main.
+    // Le curseur, lui, n'est PAS bouge — il porte le volume choisi, qui sera
+    // rendu tel quel.
+    function marquerBaisse(on) {
+        root?.classList.toggle('im-ducked', !!on);
+        const el = root?.querySelector('#im-s');
+        if (!el) return;
+        if (on) { el.dataset.avant = el.textContent; el.textContent = 'Volume baisse — une autre source audio joue'; }
+        else if (el.dataset.avant !== undefined) { el.textContent = el.dataset.avant; delete el.dataset.avant; }
+    }
+    function appliquerVolume(v) {
+        if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(v * 100);
+        if (localAudio) localAudio.volume = v;
+    }
+    function surveillerMediasTiers() {
+        // Capture : les evenements `play` ne remontent pas, ils doivent etre
+        // interceptes a la descente. Et on ignore NOTRE propre lecteur, sinon
+        // la musique se baisserait elle-meme.
+        document.addEventListener('play', (e) => {
+            const el = e.target;
+            if (!el || typeof el.pause !== 'function') return;   // pas un media
+            if (el === localAudio || el.closest?.('#im-media')) return;
+            baisserVolume();
+        }, true);
+        ['pause', 'ended'].forEach(ev => document.addEventListener(ev, (e) => {
+            const el = e.target;
+            if (!el || typeof el.pause !== 'function') return;   // pas un media
+            if (el === localAudio || el.closest?.('#im-media')) return;
+            // On ne retablit que si PLUS AUCUN media tiers ne joue : sur une
+            // page qui en contient deux, en mettre un en pause ne doit pas
+            // remonter le son par-dessus l'autre.
+            const encore = [...document.querySelectorAll('audio,video')]
+                .some(m => m !== localAudio && !m.closest?.('#im-media') && !m.paused && !m.ended);
+            if (!encore) retablirVolume();
+        }, true));
+    }
+    surveillerMediasTiers();
+
+    // ══════════════════════ Ambiance selon l'oeuvre (audit AMEL-96) ═════════
+    // Les tags sont deja cote client : on peut proposer une station qui colle
+    // a ce qu'on lit, au lieu de laisser choisir dans une liste de huit sans
+    // rapport avec la page.
+    //
+    // La correspondance est volontairement GROSSIERE et ne s'impose jamais :
+    // elle suggere. Deviner l'ambiance d'une oeuvre est subjectif — se tromper
+    // en imposant serait pire que ne rien proposer.
+    const AMBIANCES = [
+        { station: 'rain',  tags: ['horror', 'horreur', 'mystery', 'mystere', 'psychological', 'psychologique', 'thriller', 'drama', 'drame'] },
+        { station: 'synth', tags: ['sci-fi', 'science fiction', 'mecha', 'cyberpunk', 'action'] },
+        { station: 'jazz',  tags: ['romance', 'slice of life', 'tranche de vie', 'josei', 'seinen'] },
+        { station: 'anime', tags: ['shounen', 'shonen', 'adventure', 'aventure', 'fantasy', 'fantastique'] },
+        { station: 'focus', tags: ['historical', 'historique', 'philosophical', 'medical', 'mystery'] },
+        { station: 'piano', tags: ['music', 'musique', 'school life', 'shoujo'] },
+    ];
+    function stationPourTags(tags) {
+        const norm = (tags || []).map(t => String(t).toLowerCase());
+        if (!norm.length) return null;
+        for (const a of AMBIANCES) {
+            if (a.tags.some(t => norm.some(n => n.includes(t)))) return STATIONS.find(s => s.id === a.station) || null;
+        }
+        return null;
+    }
+
+    window.Music = {
+        open, close, toggle, show,
+        playStationId: id => { const s = STATIONS.find(x => x.id === id); if (s && s.yt) playYouTube(s.yt, s.name, 'Station · ' + s.sub, s.g); },
+        // Renvoie la station suggeree sans rien lancer : c'est a l'appelant de
+        // proposer, jamais a la musique de demarrer toute seule.
+        suggestionPourTags: (tags) => {
+            const st = stationPourTags(tags);
+            return st ? { id: st.id, name: st.name, sub: st.sub } : null;
+        },
+        duck: baisserVolume,
+        unduck: retablirVolume,
+        isDucked: () => volAvantBaisse !== null,
+    };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();

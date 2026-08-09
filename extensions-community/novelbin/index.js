@@ -24,6 +24,21 @@ catch (e) { console.warn('[novelbin] cheerio manquant — `cd server && npm inst
 
 // novelbin.com ne résout plus ; .co est un domaine parqué ; .net exige du JS.
 // novel-bin.com est le miroir fonctionnel avec le même balisage.
+// ⚠ SOURCE EN PANNE — le site a restructuré ses URL et son balisage.
+// Constaté le 4 août 2026 (audit) : `popular()` renvoie 0 résultat, ce que le
+// job hebdomadaire sources-health signale déjà. Ce n'est PAS un bug d'Inko.
+// Relevé sur place pour la prochaine tentative de réparation :
+//   · novelbin.com ne résout plus du tout ; novel-bin.com répond (Cloudflare).
+//   · Les fiches sont désormais sous  /novel-bin/<slug>  (ancien schéma mort).
+//   · FONCTIONNENT :  /search?keyword=<q>       → ~10 résultats
+//                     /genre/<Genre>            → ~50 résultats
+//   · 404 :  /sort/novelbin-popular, /sort/hot-novel, /sort/most-popular,
+//            /sort/latest, /sort/new-novel, /hot, /latest, /completed
+//     → il n'existe plus d'endpoint « populaire » ou « récent » évident.
+//   · Les classes ont changé : plus de `.novel-title`, on trouve `.col-title`,
+//     `.chapter-title`, `.list-novel`.
+// Réparer demande de recâbler popular/latest sur /genre ou /search, et de
+// réécrire les sélecteurs — un travail de scraping à part entière.
 const BASE = 'https://novel-bin.com';
 const UA   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -41,7 +56,13 @@ const http = axios.create({
 
 // Cloudflare bloque l'empreinte TLS de Node mais laisse passer curl (présent
 // nativement Win10+/macOS/Linux). curl en priorité, repli axios si absent.
-function curlGet(url) {
+// Audit EXT-04 : aucun reessai. Un scan de bibliotheque enchaine des dizaines
+// de requetes sur un site scrape derriere Cloudflare : un blocage ponctuel ou
+// un hoquet reseau faisait echouer toute la serie et remontait a l'utilisateur
+// comme une source cassee. Deux tentatives, 800 ms d'attente. On ne reessaie
+// que le transitoire : une reponse vide (blocage anti-bot) ou une erreur curl,
+// jamais une reponse valide mais inattendue.
+function curlGetOnce(url) {
     return new Promise((resolve, reject) => {
         execFile('curl', [
             '-s', '-L', '--max-redirs', '5', '--compressed', '-m', '25',
@@ -56,6 +77,15 @@ function curlGet(url) {
             resolve(stdout);
         });
     });
+}
+const sleepMs = (ms) => new Promise(r => setTimeout(r, ms));
+async function curlGet(url) {
+    let last;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try { return await curlGetOnce(url); }
+        catch (e) { last = e; if (attempt < 2) await sleepMs(800); }
+    }
+    throw last;
 }
 
 // ── Cache mémoire ──

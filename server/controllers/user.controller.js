@@ -2,8 +2,34 @@
 const { pool } = require('../config/db');
 const { notifyMentions, createNotification } = require('../lib/notify');
 
+// Identifiant d'œuvre plausible. Les routes se contentaient d'un `if
+// (!mangaId)` : une valeur non-chaîne passait donc au travers et arrivait en
+// base sérialisée — un favori réellement enregistré sous l'identifiant
+// « [object Object] » a été créé de cette façon (erreur d'appel côté client,
+// `addFavorite({mangaId})` au lieu de `addFavorite(mangaId, meta)`).
+// Le serveur ne peut pas empêcher un mauvais appel, mais il peut refuser
+// d'écrire une donnée qu'aucune source ne produira jamais.
+function idOeuvreValide(v) {
+    if (typeof v !== 'string') return false;
+    const t = v.trim();
+    if (!t || t.length > 191) return false;
+    return !/^\[object /.test(t) && t !== 'undefined' && t !== 'null';
+}
+
 // ── helper events ───────────────────────────────────────────────
-async function pushEvent(userId, type, payload = {}) {
+// Audit AMEL-107 : le mode « lecture privée » ne couvrait que la progression,
+// parce qu'il vivait entièrement côté client — le serveur n'en savait rien et
+// continuait d'écrire dans `events`, qui alimente le flux d'activité et le
+// profil. L'en-tête `X-Inko-Private` le lui apprend.
+//
+// L'ACTION demandée reste exécutée (ajouter un favori, poser un statut) :
+// seule sa TRACE est omise. Refuser l'action serait de la perte de données
+// déguisée en confidentialité.
+function lecturePrivee(req) {
+    return req?.headers?.['x-inko-private'] === '1';
+}
+async function pushEvent(userId, type, payload = {}, req = null) {
+    if (req && lecturePrivee(req)) return;
     const { mangaId, chapterId, metadata } = payload;
     await pool.query(
         'INSERT INTO events (user_id, type, manga_id, chapter_id, metadata) VALUES (?, ?, ?, ?, ?)',
@@ -11,31 +37,69 @@ async function pushEvent(userId, type, payload = {}) {
     );
 }
 
+// ── Pagination homogene (audit AMEL-121) ────────────────────
+// Certaines routes paginaient, d'autres renvoyaient tout : /me/favorites sort
+// 365 entrees d'un bloc, et un client tiers n'avait aucun moyen d'en demander
+// moins. Les collections acceptent desormais `limit` et `offset`.
+//
+// LA FORME DE REPONSE NE CHANGE QUE SI ON LA DEMANDE. Sans `limit` ni
+// `offset`, le tableau brut est renvoye comme avant — passer tout le monde a
+// `{items,total}` casserait le frontend embarque, les exports et tout client
+// existant, pour un benefice nul dans le cas courant.
+function pagination(req, defaut = 100, max = 500) {
+    const l = parseInt(req.query.limit, 10);
+    const o = parseInt(req.query.offset, 10);
+    const demande = Number.isFinite(l) || Number.isFinite(o);
+    return {
+        demande,
+        limit: Number.isFinite(l) ? Math.min(Math.max(l, 1), max) : defaut,
+        offset: Number.isFinite(o) ? Math.max(o, 0) : 0,
+    };
+}
+// `total` est celui de la COLLECTION, pas de la tranche : sans lui, un client
+// ne sait pas s'il doit redemander, et pagine a l'aveugle jusqu'a une page vide.
+function repondreCollection(res, req, tous, mapper) {
+    const p = pagination(req);
+    if (!p.demande) return res.json(tous.map(mapper));
+    return res.json({
+        items: tous.slice(p.offset, p.offset + p.limit).map(mapper),
+        total: tous.length,
+        limit: p.limit,
+        offset: p.offset,
+    });
+}
+
 // ──────────────────────────────────────────────────────────────
 // FAVORITES
 // ──────────────────────────────────────────────────────────────
 async function getFavorites(req, res, next) {
     try {
+        // Audit DB-02 : le statut vivait dans une table `library` de même clé
+        // primaire, ce qui imposait un LEFT JOIN sur la lecture la plus
+        // fréquente de l'application. Il est désormais une colonne de
+        // `favorites` (migration 7).
         const [rows] = await pool.query(
-            `SELECT f.manga_id, f.source, f.title, f.cover, f.last_chapter, f.category, f.added_at, l.status
-             FROM favorites f
-             LEFT JOIN library l ON l.user_id = f.user_id AND l.manga_id = f.manga_id
-             WHERE f.user_id = ? ORDER BY f.added_at DESC`,
+            `SELECT manga_id, source, title, cover, last_chapter, category, added_at, status, notify
+             FROM favorites
+             WHERE user_id = ? ORDER BY added_at DESC`,
             [req.user.id]
         );
-        res.json(rows.map(r => ({
+        repondreCollection(res, req, rows, r => ({
             mangaId: r.manga_id, source: r.source || 'mangadex',
             title: r.title, cover: r.cover, lastChapter: r.last_chapter,
             category: r.category || null, status: r.status || null,
+            // Audit AMEL-54 : surveillée pour les nouveaux chapitres ou en
+            // sourdine — distinct du fait de suivre la série.
+            notify: r.notify !== 0,
             addedAt: r.added_at,
-        })));
+        }));
     } catch (e) { next(e); }
 }
 
 async function addFavorite(req, res, next) {
     try {
         const { mangaId, source, title, cover } = req.body;
-        if (!mangaId) return res.status(400).json({ error: 'mangaId requis' });
+        if (!idOeuvreValide(mangaId)) return res.status(400).json({ error: 'mangaId invalide' });
         await pool.query(
             `INSERT INTO favorites (user_id, manga_id, source, title, cover)
              VALUES (?, ?, ?, ?, ?)
@@ -44,7 +108,7 @@ async function addFavorite(req, res, next) {
                 cover = COALESCE(VALUES(cover), cover)`,
             [req.user.id, mangaId, source || 'mangadex', title || null, cover || null]
         );
-        await pushEvent(req.user.id, 'favorite', { mangaId });
+        await pushEvent(req.user.id, 'favorite', { mangaId }, req);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -55,7 +119,7 @@ async function removeFavorite(req, res, next) {
             'DELETE FROM favorites WHERE user_id = ? AND manga_id = ?',
             [req.user.id, req.params.mangaId]
         );
-        await pushEvent(req.user.id, 'unfavorite', { mangaId: req.params.mangaId });
+        await pushEvent(req.user.id, 'unfavorite', { mangaId: req.params.mangaId }, req);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -80,14 +144,24 @@ async function setFavoriteCategory(req, res, next) {
 // ──────────────────────────────────────────────────────────────
 async function getLibrary(req, res, next) {
     try {
+        // `library.rating` a été supprimée (migration 5) : c'était une colonne
+        // morte, jamais renseignée, doublon de la table `ratings` qui porte la
+        // note, l'avis et l'horodatage. On garde `rating: null` dans la réponse
+        // pour ne pas casser un client qui lirait encore ce champ.
+        //
+        // Audit DB-02 : la table `library` elle-même a fusionné dans
+        // `favorites` (migration 7). « Être dans la bibliothèque avec un
+        // statut » = une ligne de favoris dont `status` n'est pas NULL. La
+        // forme de la réponse ne change pas.
         const [rows] = await pool.query(
-            'SELECT manga_id, status, rating, added_at, updated_at FROM library WHERE user_id = ? ORDER BY updated_at DESC',
+            `SELECT manga_id, status, added_at, status_updated_at FROM favorites
+             WHERE user_id = ? AND status IS NOT NULL ORDER BY status_updated_at DESC`,
             [req.user.id]
         );
-        res.json(rows.map(r => ({
-            mangaId: r.manga_id, status: r.status, rating: r.rating,
-            addedAt: r.added_at, updatedAt: r.updated_at,
-        })));
+        repondreCollection(res, req, rows, r => ({
+            mangaId: r.manga_id, status: r.status, rating: null,
+            addedAt: r.added_at, updatedAt: r.status_updated_at,
+        }));
     } catch (e) { next(e); }
 }
 
@@ -98,20 +172,33 @@ async function setLibraryStatus(req, res, next) {
         if (status && !valid.includes(status))
             return res.status(400).json({ error: 'Statut invalide' });
 
+        // Audit DB-02 : retirer le statut ne supprime plus une ligne d'une
+        // table dédiée — c'est le champ qui repasse à NULL. Le favori, lui,
+        // reste : perdre son titre et sa couverture parce qu'on a effacé un
+        // statut serait une régression.
         if (!status) {
-            await pool.query('DELETE FROM library WHERE user_id = ? AND manga_id = ?',
+            await pool.query(
+                'UPDATE favorites SET status = NULL, status_updated_at = NULL WHERE user_id = ? AND manga_id = ?',
                 [req.user.id, req.params.mangaId]);
             return res.json({ ok: true, removed: true });
         }
 
+        // La note n'est plus stockée ici (colonne supprimée, migration 5) :
+        // elle appartient à la table `ratings`, via PUT /me/ratings/:mangaId.
+        //
+        // L'INSERT ... ON DUPLICATE KEY crée le favori s'il n'existe pas :
+        // poser un statut sur une série revient à la mettre dans sa
+        // bibliothèque. C'était déjà ce que l'interface montrait — elle
+        // n'affiche que `favorites`, donc un statut sans favori n'était visible
+        // nulle part.
         await pool.query(
-            `INSERT INTO library (user_id, manga_id, status, rating)
-             VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE status = VALUES(status), rating = COALESCE(VALUES(rating), rating)`,
-            [req.user.id, req.params.mangaId, status, rating || null]
+            `INSERT INTO favorites (user_id, manga_id, status, status_updated_at)
+             VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+             ON DUPLICATE KEY UPDATE status = VALUES(status), status_updated_at = CURRENT_TIMESTAMP`,
+            [req.user.id, req.params.mangaId, status]
         );
         await pushEvent(req.user.id, 'status_change',
-            { mangaId: req.params.mangaId, metadata: { status, rating } });
+            { mangaId: req.params.mangaId, metadata: { status, rating } }, req);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -148,20 +235,96 @@ async function setProgress(req, res, next) {
         // chapitre pour que le profil calcule un % exact au lieu de deviner 20.
         const tp = Number.isFinite(parseInt(totalPages, 10)) && parseInt(totalPages, 10) > 0
             ? parseInt(totalPages, 10) : null;
+        // Audit AMEL-29 : le dernier écrivain gagnait, sans comparaison de
+        // dates. Deux appareils qui lisent la même série — un téléphone hors
+        // ligne qui rejoue sa file au retour du réseau, une tablette restée
+        // ouverte — pouvaient donc faire RECULER la progression : l'écriture
+        // arrivée en dernier écrasait la plus avancée.
+        //
+        // `updated_at` sert d'arbitre. `clientAt` est la date à laquelle le
+        // client a réellement lu ; sans elle on retombe sur l'heure du serveur,
+        // ce qui reste le comportement d'avant.
+        //
+        // La comparaison est faite DANS le UPDATE, pas en JS : deux requêtes
+        // concurrentes sur la même ligne s'entrelaceraient entre le SELECT et
+        // l'UPDATE, et on retomberait sur le défaut qu'on corrige.
+        const clientAt = Number.isFinite(Date.parse(req.body.clientAt || ''))
+            ? new Date(req.body.clientAt) : null;
         await pool.query(
-            `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, total_pages, source)
-             VALUES (?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, total_pages, source, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
              ON DUPLICATE KEY UPDATE
-                chapter_id     = VALUES(chapter_id),
-                chapter_number = VALUES(chapter_number),
-                page           = VALUES(page),
-                total_pages    = VALUES(total_pages),
-                source         = COALESCE(VALUES(source), source)`,
-            [req.user.id, mangaId, chapterId || null, chapter || null, page || 1, tp, source || null]
+                chapter_id     = IF(VALUES(updated_at) >= updated_at, VALUES(chapter_id),     chapter_id),
+                chapter_number = IF(VALUES(updated_at) >= updated_at, VALUES(chapter_number), chapter_number),
+                page           = IF(VALUES(updated_at) >= updated_at, VALUES(page),           page),
+                total_pages    = IF(VALUES(updated_at) >= updated_at, VALUES(total_pages),    total_pages),
+                source         = IF(VALUES(updated_at) >= updated_at, COALESCE(VALUES(source), source), source),
+                updated_at     = GREATEST(updated_at, VALUES(updated_at))`,
+            [req.user.id, mangaId, chapterId || null, chapter || null, page || 1, tp, source || null, clientAt]
         );
+        await enregistrerHistorique(req.user.id, mangaId, chapterId, chapter, page, source);
         await pushEvent(req.user.id, 'read',
-            { mangaId, chapterId, metadata: { chapter, page } });
+            { mangaId, chapterId, metadata: { chapter, page } }, req);
         res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+// ── Historique de progression (audit AMEL-28) ────────────────
+// `progress` ne garde qu'une ligne par (compte, série) : ouvrir par erreur le
+// chapitre 1 d'une série lue au chapitre 300 écrasait définitivement la
+// position. On conserve une trace, mais UNIQUEMENT aux changements de chapitre
+// — enregistrer chaque page tournée produirait des milliers de lignes par série
+// sans rien apporter : ce qu'on veut retrouver, c'est « j'étais au chapitre
+// 300 », pas « page 14 ».
+const HISTO_MAX = 20;
+
+async function enregistrerHistorique(userId, mangaId, chapterId, chapter, page, source) {
+    if (!chapterId) return;
+    try {
+        const [[dernier]] = await pool.query(
+            `SELECT chapter_id FROM progress_history
+             WHERE user_id = ? AND manga_id = ? ORDER BY recorded_at DESC, id DESC LIMIT 1`,
+            [userId, mangaId]);
+        if (dernier && dernier.chapter_id === chapterId) return;   // même chapitre : rien à noter
+
+        await pool.query(
+            `INSERT INTO progress_history (user_id, manga_id, chapter_id, chapter_number, page, source)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [userId, mangaId, chapterId, chapter || null, page || 1, source || null]);
+
+        // Purge bornée : sans elle, une longue série accumulerait indéfiniment.
+        // On garde les 20 dernières positions, ce qui couvre largement le
+        // « je viens de perdre ma place » sans devenir un journal de lecture.
+        await pool.query(
+            `DELETE FROM progress_history
+             WHERE user_id = ? AND manga_id = ?
+               AND id NOT IN (
+                   SELECT id FROM (
+                       SELECT id FROM progress_history
+                       WHERE user_id = ? AND manga_id = ?
+                       ORDER BY recorded_at DESC, id DESC LIMIT ?
+                   ) AS derniers
+               )`,
+            [userId, mangaId, userId, mangaId, HISTO_MAX]);
+    } catch (e) {
+        // L'historique est un filet de sécurité, pas une donnée critique : son
+        // échec ne doit jamais empêcher d'enregistrer la progression elle-même.
+        console.warn('[progress] historique non enregistré :', e.code || e.message);
+    }
+}
+
+// GET /api/me/progress/:mangaId/history — positions précédentes
+async function getProgressHistory(req, res, next) {
+    try {
+        const [rows] = await pool.query(
+            `SELECT chapter_id, chapter_number, page, source, recorded_at
+             FROM progress_history WHERE user_id = ? AND manga_id = ?
+             ORDER BY recorded_at DESC, id DESC LIMIT ?`,
+            [req.user.id, req.params.mangaId, HISTO_MAX]);
+        res.json(rows.map(r => ({
+            chapterId: r.chapter_id, chapter: r.chapter_number,
+            page: r.page, source: r.source, at: r.recorded_at,
+        })));
     } catch (e) { next(e); }
 }
 
@@ -202,7 +365,7 @@ async function markChapter(req, res, next) {
                  VALUES (?, ?, ?, ?)`,
                 [req.user.id, mangaId, chapterId, chapter || null]
             );
-            if (r.affectedRows) await pushEvent(req.user.id, 'read', { mangaId, chapterId, chapter });
+            if (r.affectedRows) await pushEvent(req.user.id, 'read', { mangaId, chapterId, chapter }, req);
         } else {
             await pool.query(
                 'DELETE FROM read_chapters WHERE user_id = ? AND chapter_id = ?',
@@ -231,13 +394,83 @@ async function markChaptersBulk(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// POST /me/read-chapters/unmark-bulk — annulation d'un marquage (audit AMEL-40)
+// « Marquer tout comme lu » touche des centaines de chapitres d'un coup et
+// n'avait AUCUN retour arrière : un clic malheureux effaçait la frontière entre
+// lu et non lu, qui est la donnée la plus longue à reconstituer.
+// Le démarquage un par un existait, mais 1 183 requêtes pour annuler un geste
+// unique n'est pas une annulation.
+async function unmarkChaptersBulk(req, res, next) {
+    try {
+        const { mangaId, chapterIds } = req.body || {};
+        if (!mangaId || !Array.isArray(chapterIds) || !chapterIds.length) {
+            return res.status(400).json({ error: 'mangaId et chapterIds[] requis' });
+        }
+        const ids = chapterIds.filter(c => typeof c === 'string' && c).slice(0, 5000);
+        if (!ids.length) return res.json({ ok: true, count: 0 });
+        const [r] = await pool.query(
+            `DELETE FROM read_chapters
+             WHERE user_id = ? AND manga_id = ? AND chapter_id IN (${ids.map(() => '?').join(',')})`,
+            [req.user.id, mangaId, ...ids]);
+        res.json({ ok: true, count: r.affectedRows });
+    } catch (e) { next(e); }
+}
+
 // ──────────────────────────────────────────────────────────────
 // LISTS
 // ──────────────────────────────────────────────────────────────
+// ── Listes intelligentes (audit AMEL-38) ────────────────────
+// Les filtres de la bibliothèque calculaient déjà « statut X + genre Y », mais
+// ce calcul était jetable : impossible de le figer, de le nommer, d'y revenir.
+// Une liste intelligente n'a pas de membres — elle a des RÈGLES, et son contenu
+// se recalcule à chaque lecture. Elle ne se périme donc jamais.
+//
+// Les règles portent sur ce que la BASE connaît (statut, catégorie, note,
+// source), et pas sur les genres : ceux-ci vivent chez les sources distantes,
+// et les évaluer imposerait autant de scrapes que de séries à chaque
+// affichage. La restriction est explicite plutôt que subie.
+const REGLES_STATUT = new Set(['reading', 'completed', 'planned', 'paused', 'dropped']);
+
+function lireRegles(brut) {
+    if (!brut) return null;
+    let r;
+    try { r = typeof brut === 'string' ? JSON.parse(brut) : brut; } catch (e) { return null; }
+    if (!r || typeof r !== 'object') return null;
+    const out = {};
+    if (Array.isArray(r.status)) out.status = r.status.filter(s => REGLES_STATUT.has(s));
+    if (typeof r.category === 'string' && r.category.trim()) out.category = r.category.trim().slice(0, 64);
+    if (typeof r.source === 'string' && r.source.trim()) out.source = r.source.trim().slice(0, 64);
+    if (Number.isFinite(+r.minRating) && +r.minRating >= 1 && +r.minRating <= 5) out.minRating = +r.minRating;
+    return Object.keys(out).length ? out : null;
+}
+
+async function itemsDeRegles(userId, regles) {
+    const where = ['f.user_id = ?'];
+    const params = [userId];
+    if (regles.status?.length) {
+        where.push(`f.status IN (${regles.status.map(() => '?').join(',')})`);
+        params.push(...regles.status);
+    }
+    if (regles.category) { where.push('f.category = ?'); params.push(regles.category); }
+    if (regles.source)   { where.push('f.source = ?');   params.push(regles.source); }
+    let jointure = '';
+    if (regles.minRating) {
+        jointure = 'JOIN ratings r ON r.user_id = f.user_id AND r.manga_id = f.manga_id';
+        where.push('r.rating >= ?');
+        params.push(regles.minRating);
+    }
+    const [rows] = await pool.query(
+        `SELECT f.manga_id, f.source, f.title, f.cover
+         FROM favorites f ${jointure}
+         WHERE ${where.join(' AND ')}
+         ORDER BY f.added_at DESC LIMIT 500`, params);
+    return rows.map(r => ({ id: r.manga_id, source: r.source, title: r.title, cover: r.cover }));
+}
+
 async function getLists(req, res, next) {
     try {
         const [lists] = await pool.query(
-            'SELECT id, name, description, is_public, created_at FROM lists WHERE user_id = ? ORDER BY created_at DESC',
+            'SELECT id, name, description, is_public, rules, created_at FROM lists WHERE user_id = ? ORDER BY created_at DESC',
             [req.user.id]
         );
         if (!lists.length) return res.json([]);
@@ -251,36 +484,54 @@ async function getLists(req, res, next) {
             byList[it.list_id] = byList[it.list_id] || [];
             byList[it.list_id].push({ id: it.manga_id, source: it.source, title: it.title, cover: it.cover });
         });
-        res.json(lists.map(l => ({
-            id: l.id, name: l.name, description: l.description,
-            isPublic: !!l.is_public, createdAt: l.created_at,
-            items: byList[l.id] || [],
-            mangaIds: (byList[l.id] || []).map(it => it.id),
-        })));
+
+        const sortie = [];
+        for (const l of lists) {
+            const regles = lireRegles(l.rules);
+            const contenu = regles ? await itemsDeRegles(req.user.id, regles) : (byList[l.id] || []);
+            sortie.push({
+                id: l.id, name: l.name, description: l.description,
+                isPublic: !!l.is_public, createdAt: l.created_at,
+                rules: regles || null, smart: !!regles,
+                items: contenu,
+                mangaIds: contenu.map(it => it.id),
+            });
+        }
+        res.json(sortie);
     } catch (e) { next(e); }
 }
 
 async function createList(req, res, next) {
     try {
-        const { name, description, isPublic } = req.body;
+        const { name, description, isPublic, rules } = req.body;
         if (!name || name.trim().length < 1)
             return res.status(400).json({ error: 'Nom requis' });
+        // Audit AMEL-38 : les regles sont NORMALISEES avant stockage. On
+        // n'enregistre que ce qu'on sait evaluer — un critere inconnu serait
+        // accepte, affiche, et ne filtrerait rien.
+        const regles = lireRegles(rules);
         const [r] = await pool.query(
-            'INSERT INTO lists (user_id, name, description, is_public) VALUES (?, ?, ?, ?)',
-            [req.user.id, name.trim(), description || null, !!isPublic]
+            'INSERT INTO lists (user_id, name, description, is_public, rules) VALUES (?, ?, ?, ?, ?)',
+            [req.user.id, name.trim(), description || null, !!isPublic, regles ? JSON.stringify(regles) : null]
         );
-        res.json({ id: r.insertId, name: name.trim(), mangaIds: [] });
+        res.json({ id: r.insertId, name: name.trim(), smart: !!regles, mangaIds: [] });
     } catch (e) { next(e); }
 }
 
 async function updateList(req, res, next) {
     try {
-        const { name, description, isPublic } = req.body;
+        const { name, description, isPublic, rules } = req.body;
         const fields = [];
         const params = [];
         if (name)        { fields.push('name = ?');        params.push(name.trim()); }
         if (description !== undefined) { fields.push('description = ?'); params.push(description); }
         if (isPublic !== undefined) { fields.push('is_public = ?'); params.push(!!isPublic); }
+        // `rules: null` retire les regles et rend la liste ordinaire ; absent,
+        // le champ n'est pas touche (audit AMEL-38).
+        if (rules !== undefined) {
+            const regles = lireRegles(rules);
+            fields.push('rules = ?'); params.push(regles ? JSON.stringify(regles) : null);
+        }
         if (!fields.length) return res.json({ ok: true });
         params.push(req.params.id, req.user.id);
         await pool.query(`UPDATE lists SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`, params);
@@ -296,10 +547,86 @@ async function deleteList(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ──────────────────────────────────────────────────────────────
+// SIGNETS (audit AMEL-41)
+// ──────────────────────────────────────────────────────────────
+// Ils vivaient dans `user_settings.data.userdata.bookmarks` : un blob JSON
+// rechargé à chaque page et réécrit EN ENTIER au moindre ajout. Un signet n'est
+// pas une préférence — c'est une donnée qui croît, se liste et se supprime à
+// l'unité. Le plafond arbitraire de 200 disparaît avec le blob.
+async function getBookmarks(req, res, next) {
+    try {
+        const [rows] = await pool.query(
+            `SELECT manga_id, chapter_id, source, title, cover, chapter_num, page, label, created_at
+             FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC`, [req.user.id]);
+        res.json(rows.map(r => ({
+            mangaId: r.manga_id, chapterId: r.chapter_id, source: r.source,
+            title: r.title, cover: r.cover, chapterNum: r.chapter_num,
+            page: r.page, label: r.label, at: new Date(r.created_at).getTime(),
+        })));
+    } catch (e) { next(e); }
+}
+
+async function addBookmark(req, res, next) {
+    try {
+        const { mangaId, chapterId, source, title, cover, chapterNum, page, label } = req.body || {};
+        if (!idOeuvreValide(mangaId) || !idOeuvreValide(chapterId)) {
+            return res.status(400).json({ error: 'mangaId et chapterId requis' });
+        }
+        await pool.query(
+            `INSERT INTO bookmarks
+             (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                source = VALUES(source), title = VALUES(title), cover = VALUES(cover),
+                chapter_num = VALUES(chapter_num), page = VALUES(page), label = VALUES(label),
+                created_at = CURRENT_TIMESTAMP`,
+            [req.user.id, mangaId, chapterId, source || null, title || null, cover || null,
+                Number.isFinite(+chapterNum) ? +chapterNum : null,
+                Number.isFinite(+page) ? +page : 1, label || null]);
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+async function removeBookmark(req, res, next) {
+    try {
+        await pool.query('DELETE FROM bookmarks WHERE user_id = ? AND manga_id = ? AND chapter_id = ?',
+            [req.user.id, req.params.mangaId, req.params.chapterId]);
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
+// PUT /me/lists/:id/order — réordonne les éléments (audit AMEL-37)
+// `list_items.position` existait en base et était déjà utilisée pour TRIER
+// (ORDER BY position, added_at), mais aucune route ne l'écrivait : elle valait
+// 0 partout, si bien que l'ordre affiché était en réalité l'ordre d'ajout.
+async function reorderList(req, res, next) {
+    try {
+        const ids = Array.isArray(req.body?.mangaIds) ? req.body.mangaIds : null;
+        if (!ids || !ids.length) return res.status(400).json({ error: 'mangaIds requis' });
+
+        const [[list]] = await pool.query('SELECT id FROM lists WHERE id = ? AND user_id = ?',
+            [req.params.id, req.user.id]);
+        if (!list) return res.status(404).json({ error: 'Liste introuvable' });
+
+        // Un seul aller-retour plutôt qu'un UPDATE par ligne : une liste de
+        // cent titres ferait sinon cent requêtes, et un réordonnancement à la
+        // souris en déclenche un à chaque dépôt.
+        const cas = ids.map((_, i) => 'WHEN ? THEN ?').join(' ');
+        const params = [];
+        ids.forEach((id, i) => { params.push(String(id), i); });
+        await pool.query(
+            `UPDATE list_items SET position = CASE manga_id ${cas} ELSE position END
+             WHERE list_id = ? AND manga_id IN (${ids.map(() => '?').join(',')})`,
+            [...params, req.params.id, ...ids.map(String)]);
+        res.json({ ok: true });
+    } catch (e) { next(e); }
+}
+
 async function addToList(req, res, next) {
     try {
         const { mangaId, source, title, cover } = req.body;
-        if (!mangaId) return res.status(400).json({ error: 'mangaId requis' });
+        if (!idOeuvreValide(mangaId)) return res.status(400).json({ error: 'mangaId invalide' });
         // Check ownership
         const [[list]] = await pool.query('SELECT id FROM lists WHERE id = ? AND user_id = ?',
             [req.params.id, req.user.id]);
@@ -329,6 +656,20 @@ async function removeFromList(req, res, next) {
 // ──────────────────────────────────────────────────────────────
 // COMMENTS
 // ──────────────────────────────────────────────────────────────
+
+// Audit AMEL-50 : trois portées, et une seule règle pour toutes les
+// requêtes de lecture — dupliquer la condition, c'est se garantir qu'une
+// des copies finira par diverger et laisser fuiter du privé.
+//   private  : seulement son auteur (un carnet, pas un message)
+//   instance : les membres connectés de cette instance (l'ancien défaut)
+//   public   : tout le monde, y compris les visiteurs non connectés
+const VISIBILITES = ['private', 'instance', 'public'];
+function visibiliteSql(user) {
+    if (user?.role === 'admin') return { where: '1=1', params: [] };   // modération
+    if (!user) return { where: "visibility = 'public'", params: [] };
+    return { where: "(visibility IN ('public','instance') OR user_id = ?)", params: [user.id] };
+}
+
 async function getComments(req, res, next) {
     try {
         // Pagination par fil de discussion (audit N51) : l'ancien plafond dur
@@ -340,12 +681,21 @@ async function getComments(req, res, next) {
         const isAdmin = req.user?.role === 'admin';
         const limit   = Math.min(Math.max(parseInt(req.query.limit  || '50', 10) || 50, 1), 100);
         const offset  = Math.max(parseInt(req.query.offset || '0', 10) || 0, 0);
+        // Audit AMEL-50 : filtre de visibilité. Un visiteur anonyme ne voit que
+        // le public ; un membre voit en plus l'instance et SES propres notes
+        // privées. Le filtre est posé en SQL, pas après coup en JavaScript :
+        // un commentaire privé ne doit jamais quitter la base.
+        const visSql = visibiliteSql(req.user);
+        // Audit AMEL-52 : commentaires d'un chapitre précis. Sans ce filtre,
+        // l'ancrage ne servirait qu'à afficher une étiquette.
+        const chapId = (req.query.chapterId || '').trim() || null;
+        const filtreChap = chapId ? ' AND chapter_id = ?' : '';
         const [roots] = await pool.query(
             `SELECT id FROM comments
-             WHERE manga_id = ? AND parent_id IS NULL
+             WHERE manga_id = ? AND parent_id IS NULL AND ${visSql.where}${filtreChap}
              ORDER BY created_at DESC
              LIMIT ? OFFSET ?`,
-            [req.params.mangaId, limit, offset]
+            [req.params.mangaId, ...visSql.params, ...(chapId ? [chapId] : []), limit, offset]
         );
         let rows = [];
         if (roots.length) {
@@ -356,18 +706,18 @@ async function getComments(req, res, next) {
                      SELECT c.id FROM comments c JOIN thread t ON c.parent_id = t.id
                  )
                  SELECT c.id, c.text, c.chapter_id, c.parent_id, c.created_at,
-                        c.user_id, u.username, u.avatar
+                        c.visibility, c.spoiler, c.user_id, u.username, u.avatar
                  FROM comments c
                  JOIN users u ON u.id = c.user_id
-                 WHERE c.id IN (SELECT id FROM thread)
+                 WHERE c.id IN (SELECT id FROM thread) AND ${visSql.where.replace(/\b(visibility|user_id)\b/g, 'c.$1')}
                  ORDER BY c.created_at ASC`,
-                [roots.map(r => r.id)]
+                [roots.map(r => r.id), ...visSql.params]
             );
         }
         const [[counts]] = await pool.query(
             `SELECT COUNT(*) AS total, COALESCE(SUM(parent_id IS NULL), 0) AS roots
-             FROM comments WHERE manga_id = ?`,
-            [req.params.mangaId]
+             FROM comments WHERE manga_id = ? AND ${visSql.where}${filtreChap}`,
+            [req.params.mangaId, ...visSql.params, ...(chapId ? [chapId] : [])]
         );
         let reportCounts = {};
         if (isAdmin && rows.length) {
@@ -382,6 +732,7 @@ async function getComments(req, res, next) {
             items: rows.map(r => ({
                 id: r.id, text: r.text, chapterId: r.chapter_id,
                 parentId: r.parent_id || null,
+                visibility: r.visibility, spoiler: !!r.spoiler,
                 user: r.username, avatar: r.avatar || r.username[0].toUpperCase(),
                 createdAt: r.created_at,
                 reports: reportCounts[r.id] || 0,
@@ -397,7 +748,7 @@ async function getRecentComments(req, res, next) {
     try {
         const limit = Math.min(parseInt(req.query.limit || '6', 10), 20);
         const [rows] = await pool.query(
-            `SELECT c.id, c.text, c.manga_id, c.created_at,
+            `SELECT c.id, c.text, c.manga_id, c.created_at, c.spoiler,
                     u.username, u.avatar,
                     rt.rating,
                     (SELECT f.title  FROM favorites f WHERE f.manga_id = c.manga_id AND f.title IS NOT NULL LIMIT 1) AS manga_title,
@@ -405,12 +756,13 @@ async function getRecentComments(req, res, next) {
              FROM comments c
              JOIN users u ON u.id = c.user_id
              LEFT JOIN ratings rt ON rt.user_id = c.user_id AND rt.manga_id = c.manga_id
+             WHERE c.visibility IN ('public','instance')
              ORDER BY c.created_at DESC
              LIMIT ?`,
             [limit]
         );
         res.json(rows.map(r => ({
-            id: r.id, text: r.text, mangaId: r.manga_id,
+            id: r.id, text: r.text, mangaId: r.manga_id, spoiler: !!r.spoiler,
             mangaTitle: r.manga_title || null, mangaSource: r.manga_source || null,
             rating: r.rating || null,
             user: r.username, avatar: r.avatar || r.username[0].toUpperCase(),
@@ -421,39 +773,54 @@ async function getRecentComments(req, res, next) {
 
 async function addComment(req, res, next) {
     try {
-        const { text, chapterId, parentId } = req.body;
+        const { text, chapterId, parentId, spoiler } = req.body;
         const mangaId = req.params.mangaId;
         if (!text || text.trim().length < 1)
             return res.status(400).json({ error: 'Commentaire vide' });
         if (text.length > 1000)
             return res.status(400).json({ error: 'Commentaire trop long (1000 caractères max)' });
+        // Audit AMEL-50 : une portée inconnue ne doit pas silencieusement
+        // retomber sur le défaut le plus ouvert — on refuse.
+        let visibility = req.body.visibility || 'instance';
+        if (!VISIBILITES.includes(visibility))
+            return res.status(400).json({ error: 'Portée invalide (private, instance ou public)' });
 
         // Réponse : valide que le parent existe et appartient à la même œuvre
         let parent = null;
         if (parentId) {
             const [[p]] = await pool.query(
-                'SELECT id, user_id FROM comments WHERE id = ? AND manga_id = ?',
+                'SELECT id, user_id, visibility FROM comments WHERE id = ? AND manga_id = ?',
                 [parentId, mangaId]
             );
             if (!p) return res.status(400).json({ error: 'Commentaire parent introuvable' });
             parent = p;
+            // Une réponse ne peut pas être plus visible que ce à quoi elle
+            // répond : elle en cite le contenu, l'élargir le divulguerait.
+            if (VISIBILITES.indexOf(visibility) > VISIBILITES.indexOf(p.visibility))
+                visibility = p.visibility;
         }
 
         const [r] = await pool.query(
-            'INSERT INTO comments (user_id, manga_id, chapter_id, text, parent_id) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, mangaId, chapterId || null, text.trim(), parent ? parent.id : null]
+            'INSERT INTO comments (user_id, manga_id, chapter_id, text, parent_id, visibility, spoiler) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [req.user.id, mangaId, chapterId || null, text.trim(), parent ? parent.id : null,
+                visibility, spoiler ? 1 : 0]
         );
-        await pushEvent(req.user.id, 'comment', { mangaId, chapterId });
+        await pushEvent(req.user.id, 'comment', { mangaId, chapterId }, req);
 
-        // Notifications : réponse au parent + mentions @username
+        // Notifications : réponse au parent + mentions @username.
+        // Un commentaire privé ne notifie personne — la notification porte les
+        // 140 premiers caractères du texte, elle contournerait la portée que
+        // l'on vient d'appliquer en base.
         const link = `/serie.html?id=${encodeURIComponent(mangaId)}#comment-${r.insertId}`;
-        if (parent && parent.user_id !== req.user.id) {
-            await createNotification(parent.user_id, {
-                type: 'reply', title: `@${req.user.username} a répondu à ton commentaire`,
-                body: text.trim().slice(0, 140), link, actor: req.user.username,
-            });
+        if (visibility !== 'private') {
+            if (parent && parent.user_id !== req.user.id) {
+                await createNotification(parent.user_id, {
+                    type: 'reply', title: `@${req.user.username} a répondu à ton commentaire`,
+                    body: text.trim().slice(0, 140), link, actor: req.user.username,
+                });
+            }
+            await notifyMentions(text, { actor: req.user.username, link });
         }
-        await notifyMentions(text, { actor: req.user.username, link });
 
         res.json({ id: r.insertId, ok: true });
     } catch (e) { next(e); }
@@ -523,7 +890,7 @@ async function getStats(req, res, next) {
         const [[totals]] = await pool.query(
             `SELECT
                 (SELECT COUNT(*) FROM favorites WHERE user_id = ?) AS favorites,
-                (SELECT COUNT(*) FROM library WHERE user_id = ?) AS library,
+                (SELECT COUNT(*) FROM favorites WHERE user_id = ? AND status IS NOT NULL) AS library,
                 (SELECT COUNT(*) FROM read_chapters WHERE user_id = ?) AS chapters_read,
                 (SELECT COUNT(*) FROM read_chapters WHERE user_id = ? AND read_at > NOW() - INTERVAL 30 DAY) AS chapters_this_month,
                 (SELECT COUNT(DISTINCT manga_id) FROM read_chapters WHERE user_id = ?) AS series_read,
@@ -575,6 +942,66 @@ async function getStats(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ── Répartition des lectures dans le temps (audit AMEL-57) ──
+// Les statistiques étaient des compteurs : « 1 042 chapitres », « 27 séries ».
+// Aucun ne dit COMMENT la lecture évolue — ni qu'on a basculé des scans vers
+// les romans, ni qu'une source a pris toute la place.
+//
+// La source vient de `favorites` quand la série est suivie, sinon de
+// `progress` : on peut lire sans mettre en bibliothèque, et ces lectures-là
+// existent aussi. Le format (manga / roman) se déduit de la source côté
+// client, qui connaît déjà la liste des sources de romans — le dupliquer ici
+// créerait deux vérités à tenir d'accord.
+//
+// Le genre, lui, N'EST PAS calculable : aucune table ne stocke les tags des
+// œuvres. Il faudrait interroger chaque source pour les 391 favoris, à chaque
+// consultation ou via une table à alimenter — hors de proportion avec ce que
+// la question rapporte. La répartition par genre est donc absente, et c'est
+// délibéré.
+async function getStatsDistribution(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const mois = Math.min(Math.max(parseInt(req.query.months || '12', 10) || 12, 1), 36);
+        const TZ = process.env.STATS_TZ || 'Europe/Paris';
+        const moisFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit' });
+
+        const [rows] = await pool.query(
+            `SELECT rc.read_at, COALESCE(f.source, p.source, 'inconnue') AS source
+             FROM read_chapters rc
+             LEFT JOIN favorites f ON f.user_id = rc.user_id AND f.manga_id = rc.manga_id
+             LEFT JOIN progress  p ON p.user_id = rc.user_id AND p.manga_id = rc.manga_id
+             WHERE rc.user_id = ? AND rc.read_at > NOW() - INTERVAL ? MONTH`,
+            [uid, mois]
+        );
+
+        // Axe des mois construit à partir d'AUJOURD'HUI, pas des données : un
+        // mois sans lecture doit apparaître comme un creux, pas disparaître.
+        const cles = [];
+        const maintenant = new Date();
+        for (let i = mois - 1; i >= 0; i--) {
+            const d = new Date(maintenant.getFullYear(), maintenant.getMonth() - i, 1);
+            cles.push(moisFmt.format(d).slice(0, 7));
+        }
+        const index = new Map(cles.map((k, i) => [k, i]));
+
+        const parSource = {};
+        let horsFenetre = 0;
+        for (const r of rows) {
+            const k = moisFmt.format(r.read_at).slice(0, 7);
+            const i = index.get(k);
+            if (i === undefined) { horsFenetre++; continue; }
+            (parSource[r.source] = parSource[r.source] || new Array(cles.length).fill(0))[i]++;
+        }
+
+        res.json({
+            months: cles,
+            bySource: parSource,
+            total: rows.length - horsFenetre,
+            genresAvailable: false,   // aucune table de tags : voir le commentaire ci-dessus
+        });
+    } catch (e) { next(e); }
+}
+
 // ──────────────────────────────────────────────────────────────
 // RATINGS (note + review)
 // ──────────────────────────────────────────────────────────────
@@ -607,16 +1034,21 @@ async function setMangaRating(req, res, next) {
     try {
         const mangaId = req.params.mangaId;
         const { rating, review } = req.body || {};
-        const r = parseInt(rating, 10);
-        if (!r || r < 1 || r > 5)
-            return res.status(400).json({ error: 'Note entre 1 et 5 requise' });
+        // Audit AMEL-47 : echelle sur 10 (demi-etoiles). Une note sur 5
+        // envoyee par un client anterieur reste acceptee et convertie, plutot
+        // que rejetee : un ancien onglet ouvert ne doit pas casser.
+        let r = parseInt(rating, 10);
+        const surCinq = req.body?.scale === 5;
+        if (surCinq && r >= 1 && r <= 5) r = r * 2;
+        if (!r || r < 1 || r > 10)
+            return res.status(400).json({ error: 'Note entre 1 et 10 requise (demi-etoiles)' });
         await pool.query(
             `INSERT INTO ratings (user_id, manga_id, rating, review)
              VALUES (?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE rating = VALUES(rating), review = VALUES(review)`,
             [req.user.id, mangaId, r, review || null]
         );
-        await pushEvent(req.user.id, 'rating', { mangaId, metadata: { rating: r } });
+        await pushEvent(req.user.id, 'rating', { mangaId, metadata: { rating: r } }, req);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -675,6 +1107,52 @@ async function setSettings(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ── Liens AniList (audit PERF-09) ────────────────────────────
+// Ce cache titre → id AniList vivait dans user_settings.data, chargé À CHAQUE
+// PAGE : 7 348 octets sur les 8 188 du blob, une entrée par titre jamais
+// résolu, sans éviction. Table dédiée, chargée uniquement par anilist.js —
+// donc seulement sur les pages qui en ont besoin.
+async function getAnilistLinks(req, res, next) {
+    try {
+        const [rows] = await pool.query(
+            'SELECT title_key, anilist_id, exact FROM anilist_links WHERE user_id = ?', [req.user.id]);
+        const out = {};
+        rows.forEach(r => { out[r.title_key] = { id: r.anilist_id, exact: !!r.exact }; });
+        res.json(out);
+    } catch (e) { next(e); }
+}
+
+// Fusion partielle : { "<clé>": { id, exact } } ; une valeur null supprime.
+async function setAnilistLinks(req, res, next) {
+    try {
+        const body = req.body || {};
+        if (typeof body !== 'object' || Array.isArray(body))
+            return res.status(400).json({ error: 'Objet attendu' });
+        const keys = Object.keys(body).slice(0, 500);
+        const toUpsert = [], toDelete = [];
+        for (const k of keys) {
+            const key = String(k).slice(0, 191);
+            if (!key) continue;
+            const v = body[k];
+            if (v === null) { toDelete.push(key); continue; }
+            const id = parseInt(v && v.id, 10);
+            if (!Number.isFinite(id)) continue;
+            toUpsert.push([req.user.id, key, id, v.exact ? 1 : 0]);
+        }
+        if (toDelete.length) {
+            await pool.query('DELETE FROM anilist_links WHERE user_id = ? AND title_key IN (?)',
+                [req.user.id, toDelete]);
+        }
+        if (toUpsert.length) {
+            await pool.query(
+                `INSERT INTO anilist_links (user_id, title_key, anilist_id, exact) VALUES ?
+                 ON DUPLICATE KEY UPDATE anilist_id = VALUES(anilist_id), exact = VALUES(exact)`,
+                [toUpsert]);
+        }
+        res.json({ ok: true, updated: toUpsert.length, removed: toDelete.length });
+    } catch (e) { next(e); }
+}
+
 // ──────────────────────────────────────────────────────────────
 // EXPORT / RESET data
 // ──────────────────────────────────────────────────────────────
@@ -682,7 +1160,13 @@ async function exportData(req, res, next) {
     try {
         const uid = req.user.id;
         const [favorites]    = await pool.query('SELECT manga_id, source, title, cover, category, last_chapter, added_at FROM favorites WHERE user_id = ?', [uid]);
-        const [library]      = await pool.query('SELECT manga_id, status, rating FROM library WHERE user_id = ?', [uid]);
+        // `library.rating` supprimée (migration 5) — les notes sont exportées
+        // depuis la table `ratings`, plus bas. La table `library` elle-même a
+        // fusionné dans `favorites` (migration 7, audit DB-02) ; la clé
+        // `library` du fichier d'export est CONSERVÉE telle quelle pour que les
+        // sauvegardes restent lisibles par les deux versions.
+        const [library]      = await pool.query(
+            'SELECT manga_id, status FROM favorites WHERE user_id = ? AND status IS NOT NULL', [uid]);
         const [progress]     = await pool.query('SELECT manga_id, chapter_id, chapter_number, page, source FROM progress WHERE user_id = ?', [uid]);
         const [readChapters] = await pool.query('SELECT manga_id, chapter_id, chapter_number FROM read_chapters WHERE user_id = ?', [uid]);
         const [ratings]      = await pool.query('SELECT manga_id, rating, review FROM ratings WHERE user_id = ?', [uid]);
@@ -696,7 +1180,11 @@ async function exportData(req, res, next) {
         const [notifications] = await pool.query('SELECT type, title, body, link, is_read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 500', [uid]).catch(() => [[]]);
         const [[settingsRow]] = await pool.query('SELECT data FROM user_settings WHERE user_id = ?', [uid]);
         res.json({
-            inkoVersion: 2,
+            inkoVersion: 3,
+            // Audit AMEL-47 : sans ce marqueur, une note « 4 » est ambiguë —
+            // 4/5 dans un fichier d'avant la bascule, 4/10 après. L'import
+            // doublerait les unes ou laisserait les autres divisées par deux.
+            ratingScale: 10,
             exportedAt: new Date().toISOString(),
             user: { username: req.user.username, email: req.user.email, avatar: req.user.avatar, createdAt: req.user.created_at },
             favorites, library, progress, readChapters, ratings,
@@ -744,12 +1232,19 @@ async function importData(req, res, next) {
                category=COALESCE(VALUES(category),category)`,
             favRows, n => counts.favorites += n);
 
+        // `library.rating` supprimée (migration 5) : un ancien fichier d'export
+        // peut encore la porter, on l'ignore simplement — la note utile est
+        // dans `d.ratings`, importée plus bas.
+        // Audit DB-02 : le statut est maintenant une colonne de `favorites`.
+        // L'import écrit donc dans la même table que le bloc précédent — d'où
+        // l'ordre : les favoris d'abord (titre, couverture, source), les
+        // statuts ensuite, sans écraser ce qui vient d'être posé.
         const libRows = (d.library || [])
             .filter(l => l.manga_id || l.mangaId)
-            .map(l => [uid, l.manga_id || l.mangaId, l.status || 'reading', l.rating ?? null]);
+            .map(l => [uid, l.manga_id || l.mangaId, l.status || 'reading']);
         await bulk(
-            `INSERT INTO library (user_id, manga_id, status, rating) VALUES ?
-             ON DUPLICATE KEY UPDATE status=VALUES(status), rating=VALUES(rating)`,
+            `INSERT INTO favorites (user_id, manga_id, status) VALUES ?
+             ON DUPLICATE KEY UPDATE status=VALUES(status), status_updated_at=CURRENT_TIMESTAMP`,
             libRows, n => counts.library += n);
 
         const progRows = (d.progress || [])
@@ -771,9 +1266,25 @@ async function importData(req, res, next) {
             'INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES ?',
             readRows, n => counts.readChapters += n);
 
+        // Audit DB-04 : l'import écrivait la note telle quelle. La validation
+        // 1..5 n'existait qu'à l'écriture par l'API, donc un fichier d'import
+        // (fabriqué à la main, exporté d'un autre outil, ou simplement ancien)
+        // pouvait insérer n'importe quelle valeur. Depuis que la contrainte
+        // CHECK existe en base, ces lignes seraient rejetées EN SILENCE et
+        // l'utilisateur perdrait ses notes sans le savoir. On borne donc ici.
+        //
+        // Audit AMEL-47 : l'échelle est passée à 10. Un fichier qui ne porte
+        // pas `ratingScale` vient forcément d'avant la bascule — ses notes sont
+        // sur 5 et doivent être doublées, exactement comme la migration 12 l'a
+        // fait en base. Sans cela, réimporter sa propre sauvegarde divisait
+        // toutes ses notes par deux.
+        const echelleSource = Number(d.ratingScale) === 10 ? 10 : 5;
+        const facteur = echelleSource === 10 ? 1 : 2;
         const rateRows = (d.ratings || [])
-            .filter(r => (r.manga_id || r.mangaId) && r.rating != null)
-            .map(r => [uid, r.manga_id || r.mangaId, r.rating, r.review || null]);
+            .filter(r => (r.manga_id || r.mangaId) && r.rating != null && !isNaN(parseFloat(r.rating)))
+            .map(r => [uid, r.manga_id || r.mangaId,
+                       Math.min(10, Math.max(1, Math.round(parseFloat(r.rating) * facteur))),
+                       r.review || null]);
         await bulk(
             `INSERT INTO ratings (user_id, manga_id, rating, review) VALUES ?
              ON DUPLICATE KEY UPDATE rating=VALUES(rating), review=VALUES(review)`,
@@ -786,10 +1297,185 @@ async function importData(req, res, next) {
 async function clearHistory(req, res, next) {
     try {
         const uid = req.user.id;
+        // Audit AMEL-112 : `days` restreint la purge à une fenêtre récente.
+        // L'interface proposait « Effacer les 30 derniers jours » depuis
+        // toujours — sans aucun code derrière le bouton.
+        const jours = parseInt(req.body?.days, 10);
+        if (jours > 0 && jours <= 3650) {
+            const [e] = await pool.query(
+                'DELETE FROM events WHERE user_id = ? AND created_at > (NOW() - INTERVAL ? DAY)', [uid, jours]);
+            const [r] = await pool.query(
+                'DELETE FROM read_chapters WHERE user_id = ? AND read_at > (NOW() - INTERVAL ? DAY)', [uid, jours]);
+            // `progress` porte la position COURANTE, pas une trace datée : la
+            // purger sur une fenêtre reviendrait à perdre sa place dans les
+            // séries qu'on est en train de lire. On n'y touche pas ici.
+            return res.json({ ok: true, scope: `${jours}j`, deleted: { events: e.affectedRows, readChapters: r.affectedRows } });
+        }
         await pool.query('DELETE FROM events WHERE user_id = ?', [uid]);
         await pool.query('DELETE FROM progress WHERE user_id = ?', [uid]);
         await pool.query('DELETE FROM read_chapters WHERE user_id = ?', [uid]);
-        res.json({ ok: true });
+        res.json({ ok: true, scope: 'tout' });
+    } catch (e) { next(e); }
+}
+
+// ── Sauvegardes : lister, prévisualiser, restaurer (audit AMEL-73) ──
+// Le script CLI existe (BUG-12) mais suppose un accès shell au serveur. Une
+// sauvegarde qu'on ne sait restaurer qu'en SSH n'existe pas pour la personne
+// qui utilise l'app — c'est exactement ce que l'audit reproche.
+//
+// Trois principes :
+//   · on ne restaure QUE son propre compte, jamais celui d'un autre ;
+//   · l'aperçu vient AVANT la confirmation, et il chiffre ce qui va entrer ;
+//   · la restauration FUSIONNE (comme l'import) : rien n'est supprimé. Une
+//     restauration qui écrase serait irréversible depuis un bouton.
+const sauvegardes = require('../lib/backup');
+
+async function listBackups(req, res, next) {
+    try {
+        res.json({
+            encrypted: sauvegardes.chiffrementActif(),
+            // Le chemin est affiché mais NON modifiable ici : laisser le web
+            // choisir un dossier d'écriture, c'est laisser écrire n'importe où.
+            // Il reste réglé par BACKUP_DIR (audit AMEL-75).
+            directory: sauvegardes.BACKUP_DIR,
+            items: sauvegardes.listerSauvegardes(),
+        });
+    } catch (e) { next(e); }
+}
+
+function extraireMonCompte(data, user) {
+    // Rattachement par email puis par pseudo : l'`id` d'un dump vient d'une
+    // AUTRE base (celle du jour de la sauvegarde) — s'y fier restaurerait les
+    // donnees de quelqu'un d'autre apres une reinstallation.
+    const cle = (v) => String(v || '').toLowerCase();
+    return data.accounts.find(a => cle(a.user?.email) === cle(user.email))
+        || data.accounts.find(a => cle(a.user?.username) === cle(user.username))
+        || null;
+}
+
+async function previewBackup(req, res, next) {
+    try {
+        const data = sauvegardes.lireSauvegarde(req.params.file, req.body?.passphrase);
+        const mien = extraireMonCompte(data, req.user);
+        if (!mien) return res.status(404).json({ error: "Ton compte n'apparait pas dans cette sauvegarde" });
+        const n = (a) => (Array.isArray(a) ? a.length : 0);
+        res.json({
+            createdAt: data.createdAt || null,
+            accounts: data.accounts.length,
+            mine: {
+                username: mien.user?.username || null,
+                favorites: n(mien.favorites), progress: n(mien.progress),
+                readChapters: n(mien.readChapters), ratings: n(mien.ratings),
+                lists: n(mien.lists),
+            },
+        });
+    } catch (e) {
+        if (e.status) return res.status(e.status).json({ error: e.message });
+        next(e);
+    }
+}
+
+async function restoreBackup(req, res, next) {
+    try {
+        const data = sauvegardes.lireSauvegarde(req.params.file, req.body?.passphrase);
+        const mien = extraireMonCompte(data, req.user);
+        if (!mien) return res.status(404).json({ error: "Ton compte n'apparait pas dans cette sauvegarde" });
+        // On reutilise importData : meme code, donc memes bornes, meme
+        // conversion d'echelle de notes, meme fusion. Une seconde
+        // implementation divergerait tot ou tard.
+        req.body = { ...mien, ratingScale: 5 };   // les dumps datent d'avant AMEL-47
+        return importData(req, res, next);
+    } catch (e) {
+        if (e.status) return res.status(e.status).json({ error: e.message });
+        next(e);
+    }
+}
+
+// ── Suppression sélective d'historique (audit AMEL-112) ──
+// « Tout effacer » était la seule option : pour retirer UNE série d'une
+// machine partagée, il fallait perdre l'intégralité de sa progression. La
+// suppression ciblée porte sur les trois tables qui composent l'historique
+// (events, progress, read_chapters) — n'en oublier une laisserait la ligne
+// réapparaître au prochain rendu, ce qui est pire que ne rien supprimer.
+async function deleteHistoryEntry(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const mangaId = req.params.mangaId;
+        if (!idOeuvreValide(mangaId)) return res.status(400).json({ error: 'mangaId invalide' });
+        const chapterId = (req.query.chapterId || '').trim() || null;
+
+        const compte = { events: 0, progress: 0, readChapters: 0 };
+        if (chapterId) {
+            // Une entrée précise. `progress` n'est effacée que si elle pointe
+            // ce chapitre : supprimer une vieille ligne d'historique ne doit
+            // pas faire perdre la position de lecture COURANTE.
+            const [e] = await pool.query(
+                'DELETE FROM events WHERE user_id = ? AND manga_id = ? AND chapter_id = ?',
+                [uid, mangaId, chapterId]);
+            const [r] = await pool.query(
+                'DELETE FROM read_chapters WHERE user_id = ? AND manga_id = ? AND chapter_id = ?',
+                [uid, mangaId, chapterId]);
+            const [p] = await pool.query(
+                'DELETE FROM progress WHERE user_id = ? AND manga_id = ? AND chapter_id = ?',
+                [uid, mangaId, chapterId]);
+            compte.events = e.affectedRows; compte.readChapters = r.affectedRows; compte.progress = p.affectedRows;
+        } else {
+            const [e] = await pool.query('DELETE FROM events WHERE user_id = ? AND manga_id = ?', [uid, mangaId]);
+            const [r] = await pool.query('DELETE FROM read_chapters WHERE user_id = ? AND manga_id = ?', [uid, mangaId]);
+            const [p] = await pool.query('DELETE FROM progress WHERE user_id = ? AND manga_id = ?', [uid, mangaId]);
+            compte.events = e.affectedRows; compte.readChapters = r.affectedRows; compte.progress = p.affectedRows;
+        }
+        // Le favori n'est PAS touché : effacer sa trace de lecture n'est pas
+        // se désabonner d'une série.
+        res.json({ ok: true, deleted: compte });
+    } catch (e) { next(e); }
+}
+
+// ── Export de l'historique seul (audit AMEL-113) ──
+// L'export global existe, mais il mélange favoris, réglages, listes et
+// notifications : l'historique n'y est pas exploitable à part. En CSV il
+// s'ouvre dans un tableur, ce qui est l'usage réel qu'on en a.
+async function exportHistory(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const [rows] = await pool.query(
+            `SELECT rc.manga_id, rc.chapter_id, rc.chapter_number, rc.read_at,
+                    COALESCE(f.title, rc.manga_id) AS title,
+                    COALESCE(f.source, p.source, '') AS source
+             FROM read_chapters rc
+             LEFT JOIN favorites f ON f.user_id = rc.user_id AND f.manga_id = rc.manga_id
+             LEFT JOIN progress  p ON p.user_id = rc.user_id AND p.manga_id = rc.manga_id
+             WHERE rc.user_id = ?
+             ORDER BY rc.read_at DESC`,
+            [uid]
+        );
+
+        if (req.query.format === 'csv') {
+            // Séparateur ; et BOM : Excel en locale française lit le CSV
+            // virgule comme une seule colonne, et l'UTF-8 sans BOM en mojibake.
+            const esc = (v) => {
+                const s = v == null ? '' : String(v);
+                return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+            };
+            const lignes = [['Titre', 'Chapitre', 'Source', 'Lu le', 'Identifiant', 'Chapitre (id)'].join(';')];
+            for (const r of rows) {
+                lignes.push([r.title, r.chapter_number, r.source,
+                    r.read_at ? new Date(r.read_at).toISOString() : '',
+                    r.manga_id, r.chapter_id].map(esc).join(';'));
+            }
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', 'attachment; filename="inko-historique.csv"');
+            return res.send('﻿' + lignes.join('\r\n'));
+        }
+
+        res.json({
+            exportedAt: new Date().toISOString(),
+            count: rows.length,
+            entries: rows.map(r => ({
+                mangaId: r.manga_id, title: r.title, source: r.source || null,
+                chapterId: r.chapter_id, chapter: r.chapter_number, readAt: r.read_at,
+            })),
+        });
     } catch (e) { next(e); }
 }
 
@@ -827,14 +1513,17 @@ async function checkUpdates(req, res, next) {
 
 module.exports = {
     getFavorites, addFavorite, removeFavorite, setFavoriteCategory,
+    getAnilistLinks, setAnilistLinks,
     getLibrary, setLibraryStatus,
-    getAllProgress, setProgress, deleteProgress,
-    getReadChapters, markChapter, markChaptersBulk,
-    getLists, createList, updateList, deleteList, addToList, removeFromList,
+    getAllProgress, setProgress, deleteProgress, getProgressHistory,
+    getReadChapters, markChapter, markChaptersBulk, unmarkChaptersBulk,
+    getLists, createList, updateList, deleteList, addToList, removeFromList, reorderList,
+    getBookmarks, addBookmark, removeBookmark,
     getComments, addComment, getRecentComments, reportComment, deleteComment,
-    getEvents, getStats,
+    getEvents, getStats, getStatsDistribution,
     getMangaRating, setMangaRating, deleteMangaRating, getMyRatings,
     getSettings, setSettings,
-    exportData, importData, clearHistory,
+    exportData, importData, clearHistory, deleteHistoryEntry, exportHistory,
+    listBackups, previewBackup, restoreBackup,
     checkUpdates,
 };

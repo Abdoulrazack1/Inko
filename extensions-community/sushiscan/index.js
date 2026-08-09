@@ -42,7 +42,13 @@ function requireCheerio() {
 
 // SushiScan est protégé par Cloudflare : l'empreinte TLS de Node est bloquée.
 // curl (présent nativement Win10+/macOS/Linux) passe ; repli axios si absent.
-function curlGet(url) {
+// Audit EXT-04 : aucun reessai. Un scan de bibliotheque enchaine des dizaines
+// de requetes sur un site scrape derriere Cloudflare : un blocage ponctuel ou
+// un hoquet reseau faisait echouer toute la serie et remontait a l'utilisateur
+// comme une source cassee. Deux tentatives, 800 ms d'attente. On ne reessaie
+// que le transitoire : une reponse vide (blocage anti-bot) ou une erreur curl,
+// jamais une reponse valide mais inattendue.
+function curlGetOnce(url) {
     return new Promise((resolve, reject) => {
         execFile('curl', [
             '-s', '-L', '--compressed', '-m', '25',
@@ -57,6 +63,15 @@ function curlGet(url) {
             resolve(stdout);
         });
     });
+}
+const sleepMs = (ms) => new Promise(r => setTimeout(r, ms));
+async function curlGet(url) {
+    let last;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try { return await curlGetOnce(url); }
+        catch (e) { last = e; if (attempt < 2) await sleepMs(800); }
+    }
+    throw last;
 }
 
 // Messages lisibles pour les limites HTTP (audit F.15) : avant, un 429/503
@@ -295,58 +310,99 @@ async function fetchGenrePage(g, p) {
     } catch (e) { return null; } // 404 → fin du genre
 }
 
+// Audit EXT-03 : cet index conditionne TOUT le parcours du catalogue — tant
+// qu'il n'est pas prêt, on ne peut pas afficher une liste sans risquer d'y
+// laisser du contenu +18 (les titres adultes du site ont des noms ordinaires,
+// aucun filtre sur le slug ne les rattrape). Il était construit genre par
+// genre, en série, à chaque démarrage du serveur : 17,3 s avant le premier
+// affichage. Deux corrections, sans toucher au résultat produit :
+//   · les 7 genres sont parcourus EN PARALLÈLE (ils sont indépendants) ;
+//   · le résultat est écrit sur disque, donc un redémarrage ne le reconstruit
+//     pas — c'est le cas courant, le premier build ne se paie qu'une fois
+//     toutes les 6 h.
+const ADULT_CACHE_FILE = require('path').join(require('os').tmpdir(), 'inko-sushiscan-adult-v1.json');
+const ADULT_TTL_MS = 6 * 3600_000;
+
+function readAdultCacheFile() {
+    try {
+        const fs = require('fs');
+        const raw = JSON.parse(fs.readFileSync(ADULT_CACHE_FILE, 'utf8'));
+        if (!raw || !Array.isArray(raw.list) || !(raw.expires > Date.now())) return null;
+        return { set: new Set(raw.list.map(m => m.id)), list: raw.list, expires: raw.expires };
+    } catch (e) { return null; }   // absent, illisible ou périmé → on reconstruit
+}
+function writeAdultCacheFile(cache) {
+    try {
+        require('fs').writeFileSync(ADULT_CACHE_FILE,
+            JSON.stringify({ expires: cache.expires, list: cache.list }));
+    } catch (e) { /* disque en lecture seule : le cache mémoire suffit */ }
+}
+
+async function collectGenre(g, add) {
+    // Page 1 d'abord (pour savoir si le genre existe)
+    const first = await fetchGenrePage(g, 1);
+    if (!first || !first.length) return;
+    add(first);
+    // Pages 2..MAX par lots, on s'arrête à la 1re page vide
+    for (let base = 2; base <= MAX_PAGES; base += 4) {
+        const batch = await Promise.all(
+            [0, 1, 2, 3].map(i => base + i <= MAX_PAGES ? fetchGenrePage(g, base + i) : Promise.resolve(null))
+        );
+        let stop = false;
+        batch.forEach(items => {
+            if (!items || !items.length) { stop = true; return; }
+            add(items);
+        });
+        if (stop) break;
+    }
+}
+
 async function buildAdultIndex() {
     if (_adultCache.set && _adultCache.expires > Date.now()) return _adultCache;
     if (_building) return _building;
+
+    const fromDisk = readAdultCacheFile();
+    if (fromDisk) { _adultCache = fromDisk; return _adultCache; }
 
     _building = (async () => {
         const set  = new Set();
         const list = [];
         const seen = new Set();
+        // `add` est appelé depuis plusieurs genres concurrents. Node est
+        // mono-thread et cette fonction ne contient aucun `await` : elle
+        // s'exécute donc d'un bloc, sans entrelacement possible.
         const add = (items) => items.forEach(m => {
             set.add(m.id);
             if (!seen.has(m.id)) { seen.add(m.id); m.contentRating = 'pornographic'; list.push(m); }
         });
 
-        for (const g of ADULT_GENRES) {
-            // Page 1 d'abord (pour savoir si le genre existe)
-            const first = await fetchGenrePage(g, 1);
-            if (!first || !first.length) continue;
-            add(first);
-            // Pages 2..MAX en parallèle, on s'arrête à la 1re page vide
-            for (let base = 2; base <= MAX_PAGES; base += 4) {
-                const batch = await Promise.all(
-                    [0, 1, 2, 3].map(i => base + i <= MAX_PAGES ? fetchGenrePage(g, base + i) : Promise.resolve(null))
-                );
-                let stop = false;
-                batch.forEach(items => {
-                    if (!items || !items.length) { stop = true; return; }
-                    add(items);
-                });
-                if (stop) break;
-            }
-        }
-        _adultCache = { set, list, expires: Date.now() + 6 * 3600_000 };
+        // Les genres sont indépendants : rien ne justifiait de les enchaîner.
+        // allSettled et non all — un genre qui échoue ne doit pas vider
+        // l'index et faire disparaître le filtrage pour tous les autres.
+        await Promise.allSettled(ADULT_GENRES.map(g => collectGenre(g, add)));
+
+        _adultCache = { set, list, expires: Date.now() + ADULT_TTL_MS };
+        writeAdultCacheFile(_adultCache);
         _building = null;
         return _adultCache;
     })();
     return _building;
 }
 
+// Audit EXT-03 : il existait ici un filtre de repli non bloquant
+// (`peekAdultIndex` + `ADULT_SLUG_RE` + `looksAdult`) censé masquer le contenu
+// adulte par mot-clé de slug tant que l'index n'était pas construit.
+// Supprimé, car il ne protégeait pas : mesuré sur les 24 premiers résultats du
+// catalogue, 15 titres +18 passaient au travers. Les séries adultes de
+// SushiScan s'appellent « arretez-la », « just-friends », « sous-hypnose » —
+// il n'y a rien à reconnaître dans le slug.
+//
+// Le laisser en place aurait été pire que rien : du code qui RESSEMBLE à une
+// protection invite à s'y fier. Les deux chemins concernés (parcours du
+// catalogue et recherche) attendent désormais le véritable index, dont le coût
+// a été ramené de 17,3 s à ~6,6 s au premier build, puis à zéro grâce au cache
+// disque de 6 h.
 const isAdultFlag = (a) => a === 'only' || a === '1' || a === 'all' || a === true;
-
-// Index adulte SANS blocage : renvoie le cache s'il est prêt, sinon null et
-// lance la construction en arrière-plan. Évite que la recherche attende ~12 s
-// (le build de l'index adulte) et tombe sur le timeout de la recherche.
-function peekAdultIndex() {
-    if (_adultCache.set && _adultCache.expires > Date.now()) return _adultCache;
-    if (!_building) buildAdultIndex().catch(() => {});   // build en fond
-    return null;
-}
-// Filtre de repli instantané tant que l'index adulte n'est pas prêt : masque
-// les slugs contenant un mot-clé adulte évident (couvre l'essentiel).
-const ADULT_SLUG_RE = /(^|[-_])(hentai|hentaï|smut|erotique|erotik|pornhwa|porn|adulte|adult|nsfw|ecchi|18|xxx)([-_]|$)/i;
-const looksAdult = (m) => ADULT_SLUG_RE.test(m.id || '') || ADULT_SLUG_RE.test(m.title || '');
 
 // ── Source export ──
 module.exports = {
@@ -355,8 +411,22 @@ module.exports = {
     lang:         'fr',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '0.7.2',
+    // 1.0.0 (audit EXT-03) : c'était la seule source restée sous 1.0, et le
+    // numéro était mérité — le parcours du catalogue bloquait 17 s au premier
+    // appel, un catalogue injoignable se présentait comme un catalogue vide, et
+    // le filtre +18 de repli laissait passer 15 titres sur 24. Les trois sont
+    // traités et la chaîne complète est vérifiée bout en bout (populaires,
+    // dernières sorties, recherche, fiche, chapitres, pages).
+    // Le site reste scrapé derrière Cloudflare : la source dépend d'un HTML
+    // tiers qui peut changer sans préavis. C'est la nature de la source, pas un
+    // défaut à corriger.
+    version:      '1.0.0',
     unit:      'chapter',
+    // Audit PERF-08 : sushiscan.fr sert ses PLANCHES depuis un CDN distinct.
+    // Sans cette déclaration, le proxy d'images refuse ces hôtes (403) et le
+    // lecteur charge en direct — exposant l'adresse IP de l'utilisateur au
+    // site source à chaque page tournée.
+    imageHosts: ['anime-sama.me', 'sushiscan.fr'],
     description:  '⚠ Expérimental — scrape sushiscan.fr (Madara/TS). Populaires & dernières sorties distinctes, dates de sortie des chapitres, recherche sur tout le catalogue, contenu adulte filtré hors espace +18.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
 
@@ -378,7 +448,20 @@ module.exports = {
             const off = +offset || 0;
             return { total: idx.list.length, results: idx.list.slice(off, off + (+limit || 24)) };
         }
+        // Audit EXT-03 : le parcours du catalogue ATTEND l'index adulte, et
+        // c'est volontaire. Tenté puis REJETÉ : servir un repli instantané
+        // (peekAdultIndex + filtre sur le slug) le temps que l'index se
+        // construise. Mesuré sur les 24 premiers résultats de `popular`,
+        // 15 titres +18 passaient au travers — les titres adultes de SushiScan
+        // s'appellent « arretez-la », « just-friends », « sous-hypnose », donc
+        // aucun motif de slug ne les distingue. On échangeait une attente
+        // contre du contenu pornographique sur la page d'accueil.
+        //
+        // L'attente est donc conservée, et c'est le COÛT de l'index qui a été
+        // traité : genres construits en parallèle et cache persisté sur disque
+        // (voir buildAdultIndex).
         const idx = await buildAdultIndex();
+        const isAdultItem = (m) => idx.set.has(m.id);
         const lim = +limit || 24;
         const off = +offset || 0;
         const ord = order === 'popular' ? 'popular' : 'update';
@@ -398,10 +481,21 @@ module.exports = {
             const qp = `order=${ord}` + (page > 1 ? `&page=${page}` : '');
             let items = [];
             try { items = parseMangaList(cheerio.load(await fetchHtml(`/catalogue/?${qp}`, 300_000))); }
-            catch (e) {}
+            catch (e) {
+                // Audit EXT-03 : ce catch était vide. Site injoignable, blocage
+                // Cloudflare, cheerio absent — tout finissait en `results: []`,
+                // que l'interface affiche « aucun résultat ». Indiscernable d'un
+                // catalogue vide : l'utilisateur croyait la source sans contenu
+                // au lieu de savoir qu'elle est en panne, et personne ne pouvait
+                // diagnostiquer.
+                // Sur la PREMIÈRE page on remonte l'erreur ; sur les suivantes on
+                // continue avec ce qu'on a déjà (le déficit est comblé au mieux).
+                if (n === 0) throw friendlyHttpError(e);
+                break;
+            }
             if (!items.length) break;   // fin réelle du catalogue (ou site HS)
             sawItems = true;
-            items.forEach(m => { if (!idx.set.has(m.id) && !seen.has(m.id)) { seen.add(m.id); sfw.push(m); } });
+            items.forEach(m => { if (!isAdultItem(m) && !seen.has(m.id)) { seen.add(m.id); sfw.push(m); } });
         }
         // Pas d'items du tout → au-delà de la dernière page : total = position
         // réelle. Sinon : total généreux pour garder « page suivante » actif.
@@ -440,12 +534,21 @@ module.exports = {
             const idx = await buildAdultIndex();
             list = list.filter(m => idx.set.has(m.id)).map(m => ({ ...m, contentRating: 'pornographic' }));
         } else {
-            // Catalogue normal : NON bloquant. Index prêt → filtre complet ;
-            // sinon repli instantané par mots-clés (la recherche reste rapide).
-            const idx = peekAdultIndex();
-            list = idx
-                ? list.filter(m => !idx.set.has(m.id))
-                : list.filter(m => !looksAdult(m));
+            // Audit EXT-03 : cette branche se repliait sur `looksAdult` (motif
+            // de slug) quand l'index n'était pas prêt, pour rester rapide.
+            // Mesuré : sur les 24 premiers résultats du catalogue, ce repli
+            // laissait passer 15 titres +18 — « arretez-la », « just-friends »,
+            // « sous-hypnose »… aucun mot-clé ne les distingue. Le filtrage ne
+            // tenait donc qu'à une course entre deux index, gagnée « en
+            // général ». Ce n'est pas un critère acceptable pour du contenu
+            // pornographique.
+            //
+            // On attend l'index, comme le parcours du catalogue. Le coût est
+            // borné : il est désormais construit en parallèle et persisté sur
+            // disque, donc payé une fois toutes les 6 h et non à chaque
+            // démarrage. La recherche à chaud reste à ~250 ms.
+            const idx = await buildAdultIndex();
+            list = list.filter(m => !idx.set.has(m.id));
         }
         // Tri : les correspondances en début de titre d'abord
         const qn = norm(q);

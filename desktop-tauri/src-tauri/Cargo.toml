@@ -1,6 +1,6 @@
 [package]
 name = "inko"
-version = "2.3.4"
+version = "2.5.0"
 description = "Inko — lecteur de mangas, romans et livres"
 edition = "2021"
 
@@ -8,8 +8,12 @@ edition = "2021"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# `tray-icon` : l'app doit pouvoir vivre reduite quand elle sert de hub
+# (audit AMEL-93). Sans lui, fermer la fenetre arrete le serveur pour les
+# autres appareils de la maison.
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-shell = "2"
+tauri-plugin-autostart = "2"
 
 [profile.release]
 strip = true

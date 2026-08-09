@@ -58,7 +58,11 @@
 .lib2-chip { padding:6px 13px; border-radius:20px; font-size:12.5px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; font-weight:500; transition:all .12s; }
 .lib2-chip:hover { color:var(--text); border-color:var(--text3); }
 .lib2-chip.on { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
-.lib2-chip .cnt { opacity:.65; margin-left:5px; font-size:11px; }
+.lib2-chip .cnt { opacity:.85; margin-left:5px; font-size:11px; }
+/* Audit QUAL-05 : sur une pastille active le fond devient l'accent ; l'opacité
+   ramenait le compteur à 3,79:1. Sur ce fond-là, le blanc plein (4,65:1). */
+.lib2-chip.on .cnt, .lib2-chip.active .cnt,
+.lib2-kind.on .cnt, .lib2-kind.active .cnt { opacity:1; color:#fff; }
 .lib2-chip-add { color:var(--text3); border-style:dashed; }
 .lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; color:#fff; }
 .lib2-kind-badge { position:absolute; bottom:8px; left:8px; font-size:8.5px; font-weight:800; padding:2px 6px; border-radius:5px; letter-spacing:.04em; color:#fff; background:var(--ai); box-shadow:0 2px 6px rgba(0,0,0,.4); }
@@ -69,7 +73,7 @@
 .lib2-kind { padding:5px 14px; border-radius:18px; font-size:12.5px; font-weight:600; color:var(--text2); background:none; border:none; cursor:pointer; transition:all .12s; }
 .lib2-kind:hover { color:var(--text); }
 .lib2-kind.on { background:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
-.lib2-kind .cnt { opacity:.7; margin-left:5px; font-size:11px; }
+.lib2-kind .cnt { opacity:.85; margin-left:5px; font-size:11px; }
 
 /* Rangée « Reprendre où j'en étais » (audit §10.3) */
 .lib2-resume { margin-bottom:22px; }

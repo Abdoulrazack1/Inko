@@ -75,7 +75,13 @@ function corsOptions() {
     // En prod sans liste blanche : permissif UNIQUEMENT si CORS_ALLOW_ANY=1
     // (audit S-1). Sinon on n'autorise que les requêtes sans Origin (apps
     // natives, curl, same-origin) et on bloque tout site tiers.
-    const permissiveOk = !IS_PROD || CORS_ALLOW_ANY;
+    // Audit SEC-09 : IS_DESKTOP manquait ici. Le sidecar desktop tourne sans
+    // NODE_ENV=production — c'est précisément pour ça que IS_DESKTOP existe
+    // deux dizaines de lignes plus haut, pour la CSP. Sans lui, n'importe quelle
+    // page web visitée pouvait interroger http://127.0.0.1:8088 et lister les
+    // sources installées (le cookie SameSite=Lax protégeait les endpoints
+    // authentifiés, pas les publics).
+    const permissiveOk = !(IS_PROD || IS_DESKTOP) || CORS_ALLOW_ANY;
     return {
         credentials: true,
         origin(origin, cb) {
@@ -125,4 +131,20 @@ const imgLimiter = rateLimit({
     message: { error: 'Trop de requêtes images.' },
 });
 
-module.exports = { securityHeaders, corsOptions, authLimiter, writeLimiter, searchLimiter, imgLimiter };
+// Audit SEC-10 : /search-all et /img étaient limités, mais PAS les 18 autres
+// routes de relais (mangas/search, popular, latest, tags, :id, chapters, pages,
+// text, artwork, anilist/similar + leurs équivalents scopés /sources/:id/...).
+// Chacune déclenche pourtant un appel sortant vers un site tiers : sur une
+// instance exposée, c'était un amplificateur de déni de service PAR RICOCHET
+// vers les sites scrapés — exactement le risque que searchLimiter couvrait
+// déjà pour la recherche multi-sources. Fenêtre large : une page catalogue
+// légitime enchaîne facilement 30 appels.
+const relayLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: parseInt(process.env.RELAY_RATE_MAX || '180', 10),   // 180 relais / min / IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Trop de requêtes vers les sources. Patiente quelques secondes.' },
+});
+
+module.exports = { securityHeaders, corsOptions, authLimiter, writeLimiter, searchLimiter, imgLimiter, relayLimiter };

@@ -41,6 +41,13 @@
 
     // ── Cartes de bas de profil : valeurs réelles ──
     async function renderMiniCards() {
+        // Audit QUAL-04 : `dl` était utilisé sans jamais être déclaré — la
+        // fonction levait donc une ReferenceError dès sa première ligne, et la
+        // carte « Téléchargements » du profil restait sur son tiret. Même
+        // classe de bug que le `reads7`/`reads7ev` déjà relevé : invisible en
+        // lecture, avalée à l'exécution. C'est exactement ce que la règle
+        // no-undef, réactivée, attrape.
+        const dl = document.getElementById('miniDownloads');
         if (dl) {
             try {
                 if (window.Downloads) {
@@ -62,8 +69,47 @@
 
     // ── Helpers ──
     const CACHE_MAX = 300;   // borne le cache (audit DF8 : Map non évincée)
+
+    // Audit BUG-02 / PERF-01 : cette page déclenchait 201 appels
+    // /api/sources/<src>/mangas/<id> par affichage — soit 201 SCRAPES du site
+    // distant, ~80 s de temps réseau cumulé, et un risque de bannissement d'IP.
+    // Or la donnée nécessaire (titre + couverture) est déjà renvoyée par
+    // /api/me/favorites, EN UN SEUL APPEL, pour toute la bibliothèque. On amorce
+    // donc le cache avec elle et on ne va sur le réseau que pour les œuvres
+    // absentes des favoris (historique d'une série retirée, par ex.).
+    let _favSeed = null;
+    function favSeed() {
+        if (!_favSeed) {
+            _favSeed = Promise.resolve(API.me.favorites())
+                .then(list => {
+                    const map = new Map();
+                    (list || []).forEach(f => {
+                        const id = f.id || f.mangaId;
+                        if (!id) return;
+                        map.set(id, {
+                            id,
+                            title:      f.title || id,
+                            cover:      f.cover || null,
+                            coverThumb: f.cover || null,
+                            source:     f.source || null,
+                            fromSeed:   true,   // pas de tags : voir loadMangaFull()
+                        });
+                    });
+                    return map;
+                })
+                .catch(() => new Map());
+        }
+        return _favSeed;
+    }
+
     async function loadManga(id) {
         if (cacheMangas.has(id)) return cacheMangas.get(id);
+        const seed = await favSeed();
+        if (seed.has(id)) {
+            const m = seed.get(id);
+            cacheMangas.set(id, m);
+            return m;
+        }
         try {
             const m = await API.mangas.get(id);
             if (cacheMangas.size >= CACHE_MAX) cacheMangas.delete(cacheMangas.keys().next().value);
@@ -72,9 +118,43 @@
         } catch(e) { return null; }
     }
 
+    // Récupère la fiche COMPLÈTE (avec tags) — nécessaire uniquement pour le
+    // calcul des genres. Ignore l'amorce, qui n'a pas les tags.
+    async function loadMangaFull(id) {
+        const c = cacheMangas.get(id);
+        if (c && !c.fromSeed) return c;
+        try {
+            const m = await API.mangas.get(id);
+            if (cacheMangas.size >= CACHE_MAX) cacheMangas.delete(cacheMangas.keys().next().value);
+            cacheMangas.set(id, m);
+            return m;
+        } catch(e) { return null; }
+    }
+
+    // Concurrence bornée : l'ancien Promise.all lançait N requêtes d'un coup.
+    async function mapLimit(items, limit, fn) {
+        const out = new Array(items.length);
+        let idx = 0;
+        await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+            while (idx < items.length) { const i = idx++; out[i] = await fn(items[i], i); }
+        }));
+        return out;
+    }
+
+    // Renvoie une Map id → œuvre (l'ancien tableau filtré désalignait les
+    // index quand une œuvre manquait — les appelants indexaient par position).
+    async function loadMangasMap(ids, { full = false } = {}) {
+        const uniq = [...new Set(ids.filter(Boolean))];
+        const fetcher = full ? loadMangaFull : loadManga;
+        const list = await mapLimit(uniq, 4, fetcher);
+        const map = new Map();
+        uniq.forEach((id, i) => { if (list[i]) map.set(id, list[i]); });
+        return map;
+    }
+
     async function loadMangas(ids) {
-        const results = await Promise.all(ids.map(id => loadManga(id)));
-        return results.filter(Boolean);
+        const map = await loadMangasMap(ids);
+        return ids.map(id => map.get(id)).filter(Boolean);
     }
 
     // Audit P3 : un seul fetch de /me/stats partagé entre les 5 fonctions de
@@ -204,7 +284,12 @@
         if (num)  num.textContent = `${read}/${goal}`;
         if (lab) {
             lab.textContent = ratio >= 1 ? 'Objectif atteint !' : ratio >= 0.6 ? 'Excellent rythme !' : ratio > 0 ? 'En bonne voie' : 'C\'est parti ?';
-            lab.style.color = ratio >= 1 ? 'var(--green)' : 'var(--text2)';
+            // `--green` est une couleur de REMPLISSAGE (anneaux, pastilles) ;
+            // posée en texte de 11,5 px elle tombe sous le seuil AA. La
+            // variante `--green-text` existe pour cet usage (audit A11Y-02).
+            // Le défaut ne se voyait qu'objectif ATTEINT, d'où sa découverte
+            // tardive : le contrôle a11y ne l'avait jamais rencontré.
+            lab.style.color = ratio >= 1 ? 'var(--green-text)' : 'var(--text2)';
         }
         if (sub) sub.textContent = ratio >= 1 ? 'Bien joué cette semaine' : `Plus que ${goal - read} chapitre(s)`;
 
@@ -288,7 +373,7 @@
                 return `
                 <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
                     <a href="serie.html?id=${encodeURIComponent(r.mangaId)}" style="flex-shrink:0">
-                        <img src="${m?.coverThumb || m?.cover || ''}" alt="" loading="lazy"
+                        <img src="${MH.cover(m?.coverThumb, m?.cover)}" alt="" loading="lazy"
                              style="width:44px;height:62px;object-fit:cover;border-radius:6px;background:var(--bg4)">
                     </a>
                     <div style="min-width:0">
@@ -314,10 +399,16 @@
             // Audit P6 : échantillon RÉPARTI sur toute la bibliothèque (60 max,
             // pas les 20 premiers) — les genres reflètent l'ensemble des goûts
             // sans marteler les sources d'un appel par favori pour autant.
-            const SAMPLE = 60;
+            // Audit PERF-01 : c'est le SEUL bloc qui a réellement besoin des tags,
+            // donc des fiches complètes (l'amorce via /me/favorites ne les porte
+            // pas). L'échantillon descend de 60 à 24 : au-delà, la répartition des
+            // genres ne bouge plus, et chaque fiche est un appel sortant vers la
+            // source. Concurrence bornée à 4 par loadMangasMap.
+            const SAMPLE = 24;
             const step = Math.max(1, Math.ceil(favs.length / SAMPLE));
             const sample = favs.filter((_, i) => i % step === 0).slice(0, SAMPLE);
-            const mangas = await loadMangas(sample.map(f => f.mangaId));
+            const byId = await loadMangasMap(sample.map(f => f.id || f.mangaId), { full: true });
+            const mangas = [...byId.values()];
             const counts = {};
             let total = 0;
             mangas.filter(Boolean).forEach(m => (m.tags || []).slice(0, 6).forEach(t => {
@@ -462,7 +553,7 @@
             // (correct pour une bibliothèque multi-sources, et plus rapide)
             el.innerHTML = favs.slice(0, 6).map(f => `
                 <a href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}" class="fav-item">
-                    <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
+                    <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                     <div class="fav-item-title">${MH.esc(f.title || f.mangaId)}</div>
                 </a>
             `).join('') + `<div class="fav-add" onclick="window.location.href='catalogue.html'">+</div>`;
@@ -502,7 +593,7 @@
                 if (!m) return '';
                 return `
                 <div class="history-entry">
-                    <div class="history-entry-cover"><img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" decoding="async"></div>
+                    <div class="history-entry-cover"><img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy" decoding="async"></div>
                     <div class="history-entry-info">
                         <div class="history-entry-title">${MH.esc(m.title)}</div>
                         <div class="history-entry-chap">Chapitre ${MH.chapNum(p.chapter)}</div>
@@ -519,7 +610,12 @@
             const m = items[0] ? mangas[0] : null;
             if (lastCard && m) {
                 const pct = pctOf(items[0]);
-                lastCard.querySelector('.last-read-cover img').src = m.coverThumb || m.cover || '';
+                // Audit BUG-14 : `|| ''` reposait un src VIDE quand l'œuvre n'a
+                // pas de couverture — le navigateur recharge alors la page
+                // courante comme image. `MH.cover` retombe sur BLANK_IMG et
+                // passe par le proxy comme partout ailleurs (PERF-08) ; c'était
+                // le seul endroit du fichier à contourner le helper.
+                lastCard.querySelector('.last-read-cover img').src = MH.cover(m.coverThumb, m.cover);
                 lastCard.querySelector('.last-read-title').textContent = m.title;
                 lastCard.querySelector('.last-read-chap').textContent = `Chapitre ${MH.chapNum(items[0].chapter)}`;
                 // pct=null : nombre de pages inconnu (ancienne progression) —
@@ -556,7 +652,13 @@
         if (!el) return;
         try {
             const fetchCount = Math.min(500, Math.max(50, histShown + 20));
-            const events = await API.me.events(fetchCount);
+            // Audit AMEL-114 : la progression donne la page exacte du chapitre
+            // en cours. Chargee ici pour que « Reprendre » y renvoie
+            // directement au lieu de rouvrir a la page 1.
+            const [events] = await Promise.all([
+                API.me.events(fetchCount),
+                API.me.progress().then(p => { _posProgression = p; }).catch(() => {}),
+            ]);
             const readEvents = events.filter(e => e.type === 'read');
             if (!readEvents.length) {
                 el.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Aucune activité enregistrée. Lis un chapitre pour démarrer.</div>`;
@@ -598,16 +700,31 @@
                     <div class="timeline-item">
                         <div class="timeline-dot green"></div>
                         <div class="timeline-time">${new Date(item.at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}</div>
-                        <div class="timeline-cover"><img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy"></div>
+                        <div class="timeline-cover"><img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy"></div>
                         <div class="timeline-info">
                             <div class="timeline-manga-name">${MH.esc(m.title)}</div>
                             <div class="timeline-chap">Chapitre ${item.metadata?.chapter || '?'}</div>
                         </div>
-                        <a href="${MH.readerHref(m.id, item.chapterId, item.source)}" class="timeline-status lu" style="text-decoration:none">Reprendre</a>
+                        <a href="${MH.readerHref(m.id, item.chapterId, sourceDe(m.id, item.source), posDe(m.id, item.chapterId))}" class="timeline-status lu" style="text-decoration:none">Reprendre</a>
+                        <button type="button" class="timeline-del" title="Retirer de l'historique"
+                            aria-label="Retirer « ${MH.esc(m.title || m.id)} » de l'historique"
+                            data-del-manga="${MH.esc(m.id)}" data-del-titre="${MH.esc(m.title)}"
+                            data-del-chap="${MH.esc(item.chapterId || '')}">×</button>
                     </div>`;
                 }).join('');
                 return `<div class="timeline-group-label">${label}</div>${itemsHTML}`;
             }).join('') || `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Aucune activité récente.</div>`;
+
+            // Audit AMEL-112 : delegation, le contenu etant re-rendu a chaque
+            // filtre ou pagination — rattacher N ecouteurs a chaque rendu les
+            // accumulerait.
+            el.onclick = async (ev) => {
+                const b = ev.target.closest('[data-del-manga]');
+                if (!b) return;
+                ev.preventDefault();
+                const ok = await supprimerHistorique(b.dataset.delManga, b.dataset.delTitre, b.dataset.delChap || null);
+                if (ok) { _statsPromise = null; renderHistoryTimeline(); renderHistoryMini(); }
+            };
 
             // « Charger plus » tant qu'il reste des événements de lecture
             if (readEvents.length > histShown && histShown < 500) {
@@ -673,11 +790,15 @@
                 if (!top.length) {
                     cont.innerHTML = `<div style="color:var(--text3);font-size:11.5px;padding:8px 4px">Aucune lecture cette semaine.</div>`;
                 } else {
-                    const mangas = await loadMangas(top.map(([id]) => id));
-                    cont.innerHTML = top.map(([id, n], i) => {
-                        const m = mangas[i] || {};
+                    // Audit PERF-01 : indexation par id, pas par position — le
+                    // tableau était filtré des valeurs nulles, donc une œuvre
+                    // introuvable décalait tous les suivants (mauvaise couverture
+                    // en face du mauvais titre).
+                    const byId = await loadMangasMap(top.map(([id]) => id));
+                    cont.innerHTML = top.map(([id, n]) => {
+                        const m = byId.get(id) || {};
                         return `<div class="top-series-item">
-                            <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" decoding="async" style="min-width:36px;min-height:50px;border-radius:4px;object-fit:cover;background:var(--bg4)" onerror="this.style.visibility='hidden'">
+                            <img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy" decoding="async" style="min-width:36px;min-height:50px;border-radius:4px;object-fit:cover;background:var(--bg4)" onerror="this.style.visibility='hidden'">
                             <div>
                                 <div class="top-series-name">${MH.esc(m.title || id)}</div>
                                 <div class="top-series-count">${n} chapitre${n > 1 ? 's' : ''} cette semaine</div>
@@ -805,7 +926,7 @@
                 return `
                 <div class="list-manga-item">
                     <a href="serie.html?id=${encodeURIComponent(m.id)}">
-                        <div class="list-manga-cover"><img src="${m.cover || m.coverThumb || ''}" alt="${MH.esc(m.title)}" loading="lazy"></div>
+                        <div class="list-manga-cover"><img src="${MH.cover(m.cover, m.coverThumb)}" alt="${MH.esc(m.title)}" loading="lazy"></div>
                         <div class="list-manga-name">${MH.esc(m.title)}</div>
                         <div class="list-manga-meta">${chapRead ? 'Ch. ' + MH.chapNum(chapRead) : '—'}</div>
                     </a>
@@ -825,7 +946,13 @@
         try { privacy = (await API.me.settings())?.privacy || {}; } catch (e) { window.MH?.err?.('profil.js', e); }
         document.querySelectorAll('.toggle[data-privacy]').forEach(t => {
             const key = t.dataset.privacy;
-            const on = key === 'privateProfile' ? !!privacy[key] : (privacy[key] !== false); // défaut visible
+            // Audit AMEL-61 : deux défauts différents. `privateProfile` et
+            // `showLibrary` sont des ADDITIONS d'exposition — défaut NON, sans
+            // quoi une mise à jour publierait rétroactivement des données que
+            // personne n'a accepté de montrer. Les autres reprennent ce qui
+            // était déjà public : défaut OUI.
+            const defautNon = key === 'privateProfile' || key === 'showLibrary';
+            const on = defautNon ? privacy[key] === true : privacy[key] !== false;
             t.classList.toggle('on', on);
         });
         document.querySelectorAll('.toggle').forEach(t => {
@@ -845,6 +972,16 @@
                 }
             });
         });
+
+        // Audit AMEL-62 : l'aperçu passe par la vraie page publique avec le
+        // vrai calcul serveur. Rediriger vers une maquette locale reviendrait
+        // à vérifier son reflet dans un miroir qu'on a peint soi-même.
+        const apercu = document.getElementById('btnApercuPublic');
+        if (apercu) {
+            const nom = API.user?.username;
+            if (nom) apercu.href = `u.html?u=${encodeURIComponent(nom)}&preview=1`;
+            else { apercu.setAttribute('aria-disabled', 'true'); apercu.style.opacity = '.5'; }
+        }
     }
     function initPrefBtns() {
         // Mappe chaque groupe de préférences vers une vraie clé de réglage
@@ -964,6 +1101,78 @@
             MH.toast('Déconnecté');
             setTimeout(() => { window.location.href = 'accueil.html'; }, 500);
         });
+
+        // Audit AMEL-112/113 : ces quatre boutons existaient dans la page sans
+        // aucun gestionnaire. On les cliquait, rien ne se passait — pas même
+        // un message d'erreur. Un contrôle qui ne fait rien est pire qu'un
+        // contrôle absent : il fait croire que l'action a eu lieu.
+        const telecharger = (format) => {
+            const a = document.createElement('a');
+            a.href = API.me.historyExportUrl(format);
+            a.download = 'inko-historique.' + format;
+            document.body.appendChild(a); a.click(); a.remove();
+            MH.toast('Export lancé');
+        };
+        document.getElementById('btnExportHistCsv')?.addEventListener('click', () => telecharger('csv'));
+        document.getElementById('btnExportHistJson')?.addEventListener('click', () => telecharger('json'));
+
+        document.getElementById('btnClearHist30')?.addEventListener('click', async () => {
+            if (!await MH.confirm('Effacer les 30 derniers jours de ton historique ?', {
+                danger: true, okText: 'Effacer',
+                message: 'Ta position de lecture en cours est conservée. Les chapitres marqués lus sur cette période seront oubliés.',
+            })) return;
+            try {
+                const r = await API.me.clearHistory(30);
+                MH.toast(`${r.deleted?.readChapters || 0} chapitre(s) retiré(s) de l'historique`);
+                renderHistoryTimeline(); renderHistoryMini();
+            } catch (e) { MH.toast('Erreur : ' + e.message); }
+        });
+        document.getElementById('btnClearHistAll')?.addEventListener('click', async () => {
+            if (!await MH.confirm('Effacer TOUT ton historique de lecture ?', {
+                danger: true, okText: 'Tout effacer',
+                message: 'Progression, chapitres lus et activité seront perdus. Tes favoris et tes listes restent.',
+            })) return;
+            try {
+                await API.me.clearHistory();
+                MH.toast('Historique effacé');
+                renderHistoryTimeline(); renderHistoryMini();
+            } catch (e) { MH.toast('Erreur : ' + e.message); }
+        });
+    }
+
+    // Audit AMEL-114 : la position exacte n'est connue que pour le chapitre
+    // ou l'on s'est arrete — c'est justement celui qu'on veut rouvrir. Pour les
+    // autres lignes, aucune page n'est passee et le lecteur ouvre au debut,
+    // ce qui est correct : on n'invente pas une position qu'on n'a pas.
+    let _posProgression = null;
+    function posDe(mangaId, chapterId) {
+        const p = _posProgression && _posProgression[mangaId];
+        return (p && p.chapterId === chapterId) ? p.page : null;
+    }
+    // La table `events` ne porte PAS de source : `item.source` etait donc
+    // toujours indefini et readerHref retombait sur la source COURANTE. Un
+    // roman Gutenberg consulte depuis une session ouverte sur weebcentral
+    // ouvrait ainsi le lecteur d'IMAGES — page blanche garantie. La
+    // progression et les favoris, eux, connaissent la vraie source.
+    function sourceDe(mangaId, secours) {
+        return _posProgression?.[mangaId]?.source
+            || cacheMangas.get(mangaId)?.source
+            || secours || null;
+    }
+
+    // Audit AMEL-112 : retirer UNE série de l'historique. Sans elle, cacher une
+    // seule lecture sur une machine partagée imposait de tout effacer.
+    async function supprimerHistorique(mangaId, titre, chapterId) {
+        const quoi = chapterId ? 'ce chapitre' : `toute la série « ${titre} »`;
+        if (!await MH.confirm(`Retirer ${quoi} de ton historique ?`, {
+            danger: true, okText: 'Retirer',
+            message: 'La série reste dans tes favoris ; seule sa trace de lecture disparaît.',
+        })) return false;
+        try {
+            await API.me.deleteHistoryEntry(mangaId, chapterId);
+            MH.toast('Retiré de ton historique');
+            return true;
+        } catch (e) { MH.toast('Erreur : ' + e.message); return false; }
     }
 
     function relativeTime(ts) {

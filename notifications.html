@@ -5,6 +5,17 @@
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inko — Notifications</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Tes notifications : nouveaux chapitres des séries que tu suis.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Notifications">
+    <meta property="og:description" content="Tes notifications : nouveaux chapitres des séries que tu suis.">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Notifications">
+    <meta name="twitter:description" content="Tes notifications : nouveaux chapitres des séries que tu suis.">
+    <!-- meta:auto -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#0d0d0f">
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
@@ -24,10 +35,24 @@
     .nt-text { font-size: 12.5px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
     .nt-when { font-size: 11px; color: var(--text3); margin-top: 5px; }
     .nt-empty { text-align: center; padding: 60px 20px; color: var(--text3); }
+    /* Regroupement (audit AMEL-53) : le nombre de parutions recouvertes par
+       la ligne. Rendu en pastille et non en texte — il se lit d'un coup d'œil
+       et ne concurrence pas le titre. */
+    .nt-count { display: inline-block; margin-left: 7px; padding: 0 7px; border-radius: 999px;
+      background: var(--orange); color: #fff; font-size: 10.5px; font-weight: 700; line-height: 16px;
+      vertical-align: middle; }
+    /* Réglages (audit AMEL-54) */
+    .nt-prefs { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px 14px; margin-bottom: 16px; font-size: 12.5px; color: var(--text2); }
+    .nt-prefs select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+      border-radius: 8px; padding: 5px 9px; font-size: 12.5px; font-family: inherit; cursor: pointer; }
+    .nt-prefs-note { color: var(--text3); font-size: 11.5px; }
   </style>
 </head>
 <body class="page-body">
   <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
   <div class="nt-wrap">
     <div class="nt-head">
       <h1>Notifications</h1>
@@ -38,15 +63,32 @@
         <button class="btn btn-sm" id="ntMarkAll">Tout marquer lu</button>
       </div>
     </div>
+    <!-- Audit AMEL-54 : le scan était global et non paramétrable. Le réglage
+         vit ici, à côté de ce qu'il produit, plutôt que noyé dans les
+         préférences générales. -->
+    <div class="nt-prefs" id="ntPrefs" hidden>
+      <label style="display:inline-flex;align-items:center;gap:8px">
+        <span>Me prévenir</span>
+        <select id="ntFreq" aria-label="Fréquence de vérification des nouveaux chapitres">
+          <option value="4">toutes les 4 heures</option>
+          <option value="12">deux fois par jour</option>
+          <option value="24">une fois par jour</option>
+          <option value="72">tous les 3 jours</option>
+          <option value="0">jamais</option>
+        </select>
+      </label>
+      <span class="nt-prefs-note" id="ntWatched"></span>
+    </div>
     <div class="nt-filters" id="ntFilters">
-      <button class="nt-pill active" data-f="all">Toutes</button>
-      <button class="nt-pill" data-f="unread">Non lues</button>
-      <button class="nt-pill" data-f="reply">Réponses</button>
-      <button class="nt-pill" data-f="mention">Mentions</button>
-      <button class="nt-pill" data-f="chapter">Chapitres</button>
+      <button class="nt-pill active" aria-pressed="true" data-f="all">Toutes</button>
+      <button class="nt-pill" aria-pressed="false" data-f="unread">Non lues</button>
+      <button class="nt-pill" aria-pressed="false" data-f="reply">Réponses</button>
+      <button class="nt-pill" aria-pressed="false" data-f="mention">Mentions</button>
+      <button class="nt-pill" aria-pressed="false" data-f="chapter">Chapitres</button>
     </div>
     <div id="ntList"><div class="nt-empty"><div class="spinner-inline"></div></div></div>
   </div>
+  </main>
   <div id="footer-slot"></div>
   <script src="assets/js/api.js"></script>
   <script src="assets/js/storage.js"></script>

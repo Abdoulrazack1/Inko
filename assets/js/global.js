@@ -8,11 +8,48 @@
     const $   = (sel, ctx = document) => ctx.querySelector(sel);
     const $$  = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     const fmt = n => n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : n;
-    const esc = s => (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Audit SEC-01 : le guillemet double DOIT être échappé. esc() est utilisé
+    // dans des attributs (`src="${esc(n.image)}"`, `href="${esc(n.link)}"`) —
+    // sans lui, une couverture piégée renvoyée par une source referme
+    // l'attribut et injecte `onerror=` : XSS stocké dans la cloche de
+    // notifications, présente sur toutes les pages. L'apostrophe est incluse
+    // pour couvrir aussi les attributs délimités par des quotes simples.
+    const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    const esc = s => (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ESC_MAP[c]);
+
+    // Audit BUG-14 : `<img src="">` est résolu par le navigateur vers l'URL de
+    // la PAGE COURANTE, qu'il re-télécharge comme image (3 images cassées
+    // relevées sur profil.html, src = ".../profil.html"). Ce helper renvoie le
+    // premier candidat non vide — échappé — ou un GIF 1×1 transparent.
+    const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+
+    // Audit PERF-08 : les couvertures partaient EN DIRECT vers les CDN des
+    // sources — 326 des 367 images de la bibliothèque. L'IP de l'utilisateur
+    // était donc exposée aux sites scrapés à chaque page, et le proxy
+    // /api/img (liste blanche, cache borné, rate-limit) ne servait qu'à une
+    // minorité d'images. On y route désormais toute URL externe.
+    // Les PAGES DE CHAPITRE restent en direct : proxifier un volume de 326
+    // planches ferait transiter des centaines de Mo par le serveur, ce qui
+    // pénaliserait un hub modeste (Raspberry Pi, NAS) pour un gain marginal.
+    const proxify = (u) => {
+        if (!u || typeof u !== 'string') return u;
+        if (u.startsWith('data:') || u.startsWith('blob:')) return u;
+        if (u.startsWith('/') || u.includes('/api/img?')) return u;   // déjà local ou proxifié
+        if (!/^https?:\/\//i.test(u)) return u;
+        try {
+            if (new URL(u).origin === location.origin) return u;
+        } catch (e) { return u; }
+        const base = (window.API && window.API.base) ? window.API.base : '/api';
+        return base + '/img?u=' + encodeURIComponent(u);
+    };
+    const cover = (...candidates) => {
+        for (const c of candidates) if (c) return esc(proxify(c));
+        return BLANK_IMG;
+    };
 
     // Fusion (pas remplacement) : i18n.js se charge AVANT et pose déjà
     // MH.t / MH.loadI18n / MH.setLang sur window.MH (audit N40 v2).
-    window.MH = Object.assign(window.MH || {}, { $, $$, fmt, esc });
+    window.MH = Object.assign(window.MH || {}, { $, $$, fmt, esc, cover, proxify, BLANK_IMG });
 
     // Journal d'erreurs non fatales (audit B-3) : les nombreux catch qui
     // avalaient silencieusement une erreur passent désormais par ici. Rien
@@ -34,17 +71,31 @@
     // « Serveur injoignable » alors que le serveur répondait très bien —
     // la vraie cause était l'absence de session (mode hub, session expirée).
     // Message honnête + action adaptée, factorisé pour ne plus dériver.
+    // Audit BUG-04 : le front assimilait TOUT échec d'authentification à une
+    // session expirée. Quand la base de données tombe, /api/auth/local répond
+    // 503 et l'utilisateur lisait « Ta session a expiré, recharge la page » —
+    // il se reconnecte en boucle pour un problème qui n'a rien à voir.
+    // On distingue désormais l'indisponibilité serveur de l'absence de session.
+    // MH.lastApiError est renseigné par api.js à chaque erreur.
+    window.MH.serverIsDown = function () {
+        const e = window.MH.lastApiError;
+        return !!e && (e.network || (e.status >= 500 && e.status <= 599));
+    };
     window.MH.guestNotice = function ({ compact = false } = {}) {
-        const title = 'Connexion requise';
-        const body  = 'Ta session a expiré ou tu n\'es pas connecté. Recharge la page pour rétablir la session.';
+        const down  = window.MH.serverIsDown();
+        const title = down ? 'Serveur indisponible' : 'Connexion requise';
+        const body  = down
+            ? 'Le serveur ne répond pas (base de données injoignable ou service arrêté). Tes données sont intactes — réessaie dans un instant.'
+            : 'Ta session a expiré ou tu n\'es pas connecté. Recharge la page pour rétablir la session.';
+        const cta   = down ? 'Réessayer' : 'Se reconnecter';
         if (compact) {
             return `<div style="font-size:12.5px;color:var(--text3);padding:4px 0 2px">
-                ${title} — <a href="#" class="link-orange" onclick="location.reload();return false">se reconnecter</a>.</div>`;
+                ${title} — <a href="#" class="link-orange" onclick="location.reload();return false">${cta.toLowerCase()}</a>.</div>`;
         }
         return `<div style="text-align:center;padding:34px 16px">
             <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">${title}</div>
             <div style="color:var(--text3);margin-bottom:18px">${body}</div>
-            <button class="btn btn-primary" onclick="location.reload()">Se reconnecter</button>
+            <button class="btn btn-primary" onclick="location.reload()">${cta}</button>
         </div>`;
     };
 
@@ -68,7 +119,10 @@
         bookmark:  '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
         moon:      '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
         incognito: '<path d="M2 12h20"/><path d="M5 12l1.5-5a2 2 0 0 1 1.9-1.4h7.2A2 2 0 0 1 19 7l1.5 5"/><circle cx="7.5" cy="15.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/><path d="M10 15.5c1-0.7 3-0.7 4 0"/>',
-        book:      '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+        /* `book` était déclaré deux fois à l'identique (l. 106 et ici) — sans
+           conséquence, la seconde écrasant la première, mais c'est le genre de
+           doublon qui devient un vrai bug le jour où les deux valeurs diffèrent.
+           Attrapé par no-dupe-keys, réactivé (audit QUAL-04). */
         comment:   '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
         award:     '<circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/>',
         trophy:    '<path d="M6 9a6 6 0 0 0 12 0V3H6z"/><path d="M6 5H3v2a4 4 0 0 0 4 4"/><path d="M18 5h3v2a4 4 0 0 1-4 4"/><path d="M12 15v3"/><path d="M8 21h8"/>',
@@ -89,19 +143,108 @@
     /* ── Mode incognito (lecture privée : ni progression, ni historique) ──
        Persisté par session (comme un navigateur). Les lecteurs vérifient
        MH.isIncognito() avant de sauver la progression / marquer comme lu. */
-    window.MH.isIncognito = function () {
-        try { return sessionStorage.getItem('inko_incognito') === '1'; } catch (e) { return false; }
+    // Audit AMEL-108 : le besoin réel est presque toujours de masquer UNE
+    // lecture, pas toute une session. Couper globalement pour une série oblige
+    // à penser à le rallumer — et à perdre la trace de tout ce qu'on lit
+    // ensuite si on oublie. La portée par série est mémorisée pour la session.
+    const CLE_SERIES = 'inko_incognito_series';
+    function seriesPrivees() {
+        try { return new Set(JSON.parse(sessionStorage.getItem(CLE_SERIES) || '[]')); }
+        catch (e) { return new Set(); }
+    }
+    function ecrireSeries(s) {
+        try { sessionStorage.setItem(CLE_SERIES, JSON.stringify([...s])); }
+        catch (e) { window.MH?.err?.('global.js', e); }
+    }
+    // `mangaId` optionnel : sans lui, on interroge le mode GLOBAL. Les appelants
+    // qui connaissent l'œuvre doivent le passer, sinon la portée par série
+    // n'aurait aucun effet.
+    window.MH.isIncognito = function (mangaId) {
+        let global = false;
+        try { global = sessionStorage.getItem('inko_incognito') === '1'; } catch (e) { global = false; }
+        if (global) return true;
+        return mangaId ? seriesPrivees().has(String(mangaId)) : false;
+    };
+    window.MH.isSeriePrivee = (mangaId) => seriesPrivees().has(String(mangaId));
+    window.MH.toggleSeriePrivee = function (mangaId) {
+        const s = seriesPrivees();
+        const k = String(mangaId);
+        const on = !s.has(k);
+        if (on) s.add(k); else s.delete(k);
+        ecrireSeries(s);
+        window.MH.majBandeauIncognito();
+        return on;
     };
     window.MH.setIncognito = function (on) {
         try { sessionStorage.setItem('inko_incognito', on ? '1' : '0'); } catch (e) { window.MH?.err?.('global.js', e); }
         document.body.classList.toggle('incognito-on', !!on);
         document.querySelectorAll('#btnIncognito').forEach(b => b.classList.toggle('on', !!on));
+        window.MH.majBandeauIncognito();
     };
     window.MH.toggleIncognito = function () {
         const on = !window.MH.isIncognito();
         window.MH.setIncognito(on);
         window.MH.toast?.(on ? 'Mode incognito activé — lecture non enregistrée' : 'Mode incognito désactivé');
         return on;
+    };
+
+    /* Audit AMEL-106 : un liseré de 3 px en haut de page ne DIT rien — on peut
+       lire une heure sans savoir ce qui est en cours ni comment en sortir. Le
+       bandeau nomme l'état, dit ce qui n'est pas enregistré, et se coupe d'un
+       clic depuis n'importe quelle page. */
+    window.MH.majBandeauIncognito = function () {
+        const globalOn = window.MH.isIncognito();
+        const series = seriesPrivees();
+        const actif = globalOn || series.size > 0;
+        let el = document.getElementById('incognitoBar');
+        if (!actif) { el?.remove(); return; }
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'incognitoBar';
+            el.setAttribute('role', 'status');
+            document.body.appendChild(el);
+            el.addEventListener('click', (e) => {
+                if (!e.target.closest('[data-inco-off]')) return;
+                if (globalOn) window.MH.setIncognito(false);
+                ecrireSeries(new Set());
+                window.MH.majBandeauIncognito();
+                window.MH.toast?.('Lecture privée désactivée');
+            });
+        }
+        const quoi = globalOn
+            ? 'Lecture privée — toute cette session'
+            : `Lecture privée — ${series.size} série${series.size > 1 ? 's' : ''}`;
+        el.innerHTML = `<span class="inco-pastille"></span>
+            <span class="inco-texte">${quoi}</span>
+            <span class="inco-detail">progression, chapitres lus, activité et recherches ne sont pas enregistrés</span>
+            <button type="button" class="inco-off" data-inco-off>Désactiver</button>`;
+    };
+
+    /* ── Annonces aux lecteurs d'écran (audit A11Y-06) ─────────
+       Aucune des 22 pages n'avait de région aria-live : un utilisateur non
+       voyant filtrait le catalogue ou la bibliothèque sans jamais savoir que
+       le résultat avait changé, ni combien d'éléments s'affichaient.
+       On n'annote PAS les grilles elles-mêmes — une liste de 358 séries en
+       aria-live serait insupportable. À la place, une région discrète unique
+       où les pages poussent un résumé ("24 résultats"). */
+    let _liveRegion = null;
+    window.MH.announce = function (msg) {
+        if (!msg) return;
+        if (!_liveRegion) {
+            _liveRegion = document.createElement('div');
+            _liveRegion.id = 'mh-live';
+            _liveRegion.setAttribute('role', 'status');
+            _liveRegion.setAttribute('aria-live', 'polite');
+            _liveRegion.setAttribute('aria-atomic', 'true');
+            // Masqué visuellement, lisible par les lecteurs d'écran
+            _liveRegion.style.cssText = 'position:absolute;width:1px;height:1px;margin:-1px;' +
+                'padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0';
+            document.body.appendChild(_liveRegion);
+        }
+        // Réécrire la même chaîne ne déclenche pas d'annonce : on force le
+        // changement en vidant d'abord.
+        _liveRegion.textContent = '';
+        setTimeout(() => { if (_liveRegion) _liveRegion.textContent = msg; }, 60);
     };
 
     // Numéro de chapitre lisible (gère prologue/null sans afficher "null")
@@ -213,10 +356,15 @@
         } catch (e) { /* hors-ligne : l'état local reste valable */ }
     };
     // URL du lecteur adapté au type de la source (texte pour les romans)
-    window.MH.readerHref = function (mangaId, chapterId, source) {
+    // Audit AMEL-114 : `page` optionnel. Le lecteur ne reprenait la position
+    // que si la progression enregistrée portait SUR LE MÊME chapitre — ouvrir
+    // une ligne d'historique plus ancienne repartait donc de la page 1. Quand
+    // l'appelant connaît la position (l'historique la stocke), il la passe.
+    window.MH.readerHref = function (mangaId, chapterId, source, page) {
         const src = source || window.API?.sources?.current || '';
-        const page = window.MH.isNovelSource(src) ? 'lecture.html' : 'chapitre.html';
-        return `${page}?manga=${encodeURIComponent(mangaId)}&chapter=${encodeURIComponent(chapterId)}&source=${encodeURIComponent(src)}`;
+        const fichier = window.MH.isNovelSource(src) ? 'lecture.html' : 'chapitre.html';
+        const pos = Number(page) > 1 ? `&page=${Math.floor(Number(page))}` : '';
+        return `${fichier}?manga=${encodeURIComponent(mangaId)}&chapter=${encodeURIComponent(chapterId)}&source=${encodeURIComponent(src)}${pos}`;
     };
 
     /* ── Lecteur musique intégré (dock en bas de page) ────── */
@@ -437,15 +585,27 @@
         } catch (e) { window.MH._favSet = new Set(); }
         return window.MH._favSet;
     };
+    // Audit A11Y-08 / BUG-21 : l'état du bouton favori n'existait QUE par la
+    // classe `is-fav` et l'icône. L'infobulle restait « Ajouter aux favoris »
+    // sur une œuvre déjà en favori, et aucun `aria-pressed` n'exposait l'état —
+    // un lecteur d'écran ne pouvait pas savoir si l'action avait pris. La fiche
+    // série faisait déjà correctement ce travail (« Non lu » → « Lu »,
+    // « Ajouter un signet » → « Retirer le signet ») : le catalogue était
+    // l'exception. Point unique pour que les deux restent synchronisés.
+    window.MH.setFavButtonState = function (btn, fav) {
+        btn.classList.toggle('is-fav', !!fav);
+        btn.innerHTML = window.MH.heartIcon(!!fav);
+        btn.title = fav ? 'Retirer des favoris' : 'Ajouter aux favoris';
+        btn.setAttribute('aria-pressed', String(!!fav));
+        btn.setAttribute('aria-label', btn.title);
+    };
     // Marque dans le DOM les cœurs déjà en favori (état initial)
     window.MH.markFavorites = async function (root) {
         if (!window.API?.isLoggedIn()) return;
         const set = await window.MH.getFavSet();
         (root || document).querySelectorAll('.card-fav-btn[data-fav]').forEach(btn => {
             if (btn.dataset.favTouched) return; // ne pas écraser une action en cours de l'utilisateur
-            const fav = set.has(String(btn.dataset.fav));
-            btn.classList.toggle('is-fav', fav);
-            btn.innerHTML = window.MH.heartIcon(fav);
+            window.MH.setFavButtonState(btn, set.has(String(btn.dataset.fav)));
         });
     };
 
@@ -682,7 +842,131 @@
         if (!btn) return;
         const last = await window.MH.lastReadTarget();
         btn.style.display = last ? '' : 'none';
+        if (last) btn.title = 'Reprendre ma dernière lecture (clic droit : choisir)';
     };
+
+    // ── Ajout à une liste depuis une carte (audit AMEL-39) ───
+    // L'ajout n'était possible que depuis la fiche série : constituer une liste
+    // en parcourant le catalogue demandait d'ouvrir chaque titre puis de
+    // revenir. Le geste est délégué ICI (et non dans catalogue.js) pour que
+    // n'importe quelle page affichant des cartes en bénéficie sans y penser.
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-addlist]');
+        if (!btn) return;
+        e.preventDefault(); e.stopPropagation();
+        if (!window.API?.isLoggedIn?.()) { MH.toast('Connecte-toi pour utiliser les listes'); return; }
+
+        let listes = [];
+        try { listes = await API.me.lists(); } catch (err) { MH.toast('Listes indisponibles'); return; }
+
+        const meta = {
+            source: btn.dataset.src || undefined,
+            title:  btn.dataset.title || undefined,
+            cover:  btn.dataset.cover || undefined,
+        };
+        const id = btn.dataset.addlist;
+
+        // Aucune liste : on propose d'en créer une plutôt que d'annoncer un
+        // vide — c'est le premier usage, et il ne doit pas être un cul-de-sac.
+        if (!listes.length) {
+            const nom = await MH.prompt('Tu n’as pas encore de liste. Nom de la première ?',
+                { placeholder: 'ex. À lire', okText: 'Créer et ajouter' });
+            if (!nom || !nom.trim()) return;
+            try {
+                const l = await API.me.createList({ name: nom.trim() });
+                await API.me.addToList(l.id, id, meta);
+                MH.toast(`Ajouté à « ${nom.trim()} »`);
+            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            return;
+        }
+
+        const choix = await MH.prompt(`Ajouter « ${btn.dataset.title || id} » à une liste`, {
+            message: listes.map((l, i) => `${i + 1}. ${l.name}`).join('\n') + `\n${listes.length + 1}. Nouvelle liste…`,
+            value: '1', okText: 'Ajouter',
+        });
+        const n = parseInt(choix, 10);
+        if (!(n >= 1 && n <= listes.length + 1)) return;
+
+        try {
+            let cible = listes[n - 1];
+            if (n === listes.length + 1) {
+                const nom = await MH.prompt('Nom de la nouvelle liste', { placeholder: 'ex. Pépites', okText: 'Créer' });
+                if (!nom || !nom.trim()) return;
+                cible = await API.me.createList({ name: nom.trim() });
+            }
+            await API.me.addToList(cible.id, id, meta);
+            MH.toast(`Ajouté à « ${cible.name} »`);
+        } catch (err) { MH.toast('Erreur : ' + err.message); }
+    });
+
+    // ── Choix parmi les lectures récentes (audit AMEL-30) ────
+    // Les entrées sont enrichies en parallèle avec leur titre : un menu qui
+    // n'afficherait que des identifiants n'aiderait pas à choisir.
+    function fermerMenuReprise() { document.getElementById('mhContinueMenu')?.remove(); }
+
+    async function ouvrirMenuReprise(btn) {
+        fermerMenuReprise();
+        if (!window.API?.isLoggedIn?.()) { MH.toast('Connecte-toi pour retrouver tes lectures'); return; }
+        let entrees = [];
+        try {
+            const progress = await API.me.progress();
+            entrees = Object.entries(progress)
+                .map(([id, p]) => ({ mangaId: id, ...p }))
+                .filter(e => e.chapterId)
+                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                .slice(0, 6);
+        } catch (e) { MH.toast('Lectures récentes indisponibles'); return; }
+        if (!entrees.length) { MH.toast('Aucune lecture en cours pour le moment'); return; }
+
+        const fiches = await Promise.allSettled(
+            entrees.map(e => API.mangas.getFrom(e.source, e.mangaId)));
+
+        // Repli sur le miroir local de la bibliothèque quand la source ne
+        // répond pas : afficher « 01J76XYD7E91K8QP6CY0Y53900 » dans un menu de
+        // reprise n'aide personne à choisir, alors que le titre est déjà connu
+        // hors-ligne.
+        let cache = [];
+        try { cache = window.Storage?.getCachedLibrary?.()?.favs || []; } catch (e) { cache = []; }
+        const titreDeSecours = (id) => cache.find(f => String(f.mangaId) === String(id));
+
+        const menu = document.createElement('div');
+        menu.id = 'mhContinueMenu';
+        menu.className = 'mh-continue-menu';
+        menu.setAttribute('role', 'menu');
+        menu.innerHTML = entrees.map((e, i) => {
+            const m = fiches[i].status === 'fulfilled' ? fiches[i].value : null;
+            const secours = m ? null : titreDeSecours(e.mangaId);
+            const titre = m?.title || secours?.title || e.mangaId;
+            const unite = MH.unitLabel(e.source, { short: true });
+            return `<a role="menuitem" class="mh-cm-item" href="${MH.readerHref(e.mangaId, e.chapterId, e.source)}">
+                <img src="${MH.cover(m?.coverThumb, m?.cover, secours?.cover, MH.placeholderCover(e.mangaId))}" alt="" loading="lazy">
+                <span class="mh-cm-txt">
+                    <span class="mh-cm-title">${MH.esc(titre)}</span>
+                    <span class="mh-cm-sub">${unite} ${MH.chapNum(e.chapter)} · ${MH.relTime(e.updatedAt)}</span>
+                </span>
+            </a>`;
+        }).join('');
+
+        const r = btn.getBoundingClientRect();
+        menu.style.top  = (r.bottom + 8) + 'px';
+        // Aligné à droite du bouton, borné à la fenêtre : près du bord droit,
+        // un menu ancré à gauche déborderait hors de l'écran.
+        menu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+        document.body.appendChild(menu);
+
+        // Fermeture au clic extérieur ou à Échap — enregistrées APRÈS coup pour
+        // que le clic qui vient d'ouvrir le menu ne le referme pas aussitôt.
+        setTimeout(() => {
+            const dehors = (ev) => { if (!ev.target.closest('#mhContinueMenu')) { fermerMenuReprise(); nettoyer(); } };
+            const echap  = (ev) => { if (ev.key === 'Escape') { fermerMenuReprise(); nettoyer(); } };
+            const nettoyer = () => {
+                document.removeEventListener('click', dehors);
+                document.removeEventListener('keydown', echap);
+            };
+            document.addEventListener('click', dehors);
+            document.addEventListener('keydown', echap);
+        }, 0);
+    }
 
     /* ── Header HTML ─────────────────────────────────────── */
     const headerHTML = (activePage) => {
@@ -697,7 +981,7 @@
         // Cloche de notifications (connecté) + accès admin (role admin)
         const bell = u ? `
           <div class="notif-wrap" style="position:relative;display:inline-flex">
-            <button class="header-icon-btn" id="btnNotif" title="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" style="display:none;position:absolute;top:1px;right:1px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;line-height:15px;text-align:center"></span></button>
+            <button class="header-icon-btn" id="btnNotif" title="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" style="display:none;position:absolute;top:1px;right:1px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#b91c1c;color:#fff;font-size:9px;font-weight:700;line-height:15px;text-align:center"></span></button>
             <div id="notifDropdown" style="display:none;position:absolute;right:0;top:44px;width:330px;max-height:440px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45);z-index:200"></div>
           </div>` : '';
         // L'administration vivra dans une app dédiée (Inko Admin) — pas de
@@ -758,18 +1042,25 @@
           </ul>
         </div>
         <div class="footer-col">
-          <h4>Communauté</h4>
+          <h4>Projet</h4>
           <ul>
-            <li><a href="#" class="footer-coming">Forum</a></li>
-            <li><a href="#" class="footer-coming">Discord</a></li>
-            <li><a href="#" class="footer-coming">Contact</a></li>
+            <!-- Audit UX-03 : « Forum », « Discord » et « Contact » pointaient
+                 vers href="#" et affichaient « Bientôt disponible » — trois
+                 liens morts sur les 22 pages, pour des espaces qui n'existent
+                 pas. Remplacés par les seuls canaux réels du projet. -->
+            <li><a href="https://github.com/Abdoulrazack1/Inko" target="_blank" rel="noopener noreferrer">Code source</a></li>
+            <li><a href="https://github.com/Abdoulrazack1/Inko/issues" target="_blank" rel="noopener noreferrer">Signaler un bug</a></li>
+            <li><a href="https://github.com/Abdoulrazack1/Inko/releases" target="_blank" rel="noopener noreferrer">Versions</a></li>
           </ul>
         </div>
         <div class="footer-col">
           <h4>Légal</h4>
           <ul>
+            <!-- Audit UX-04 : « Conditions » pointait vers la politique de
+                 confidentialité. Deux libellés, une seule page : la licence
+                 (Apache-2.0) est le vrai texte qui régit l'usage du logiciel. -->
             <li><a href="confidentialite.html">Confidentialité</a></li>
-            <li><a href="confidentialite.html">Conditions</a></li>
+            <li><a href="https://github.com/Abdoulrazack1/Inko/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Licence</a></li>
           </ul>
         </div>
       </div>
@@ -852,6 +1143,10 @@
         renderMobileNav(activePage);
         window.MH.updateLibBadge();
         window.MH.loadSourceTypes();   // pré-charge les types pour le routage lecteur
+        // Audit AMEL-111 : astuce contextuelle a la premiere visite de cette
+        // page. Differee : elle ne doit pas concurrencer le chargement, ni
+        // s'afficher pendant la visite guidee (que InkoTour ecarte lui-meme).
+        if (activePage) setTimeout(() => window.InkoTour?.astuce?.(activePage), 2200);
         window.MH.syncDisabledSources();   // audit MD1 : état des sources suivi par compte
         // Check des nouveautés au lancement (pas pendant la lecture : priorité aux pages)
         if (activePage !== 'chapitre') launchUpdateCheck();
@@ -903,6 +1198,14 @@
     window.MH.notifItemHTML = function (n, { variant = 'page', timeAgo } = {}) {
         const ago = (timeAgo || notifTimeAgo)(n.at);
         const iconName = window.MH.notifIconName(n.type);
+        /* Audit AMEL-53 : une série qui publie trois fois entre deux visites
+           occupait trois lignes. Elle n'en occupe plus qu'une, et la pastille
+           dit combien de parutions elle recouvre — l'information perdue par le
+           regroupement est ainsi rendue, sans reprendre la place. */
+        // `aria-label` et pas seulement `title` : un lecteur d'écran annoncerait
+        // sinon « Nouveau chapitre 8 », qui ne veut rien dire.
+        const pastille = n.count > 1
+            ? `<span class="nt-count" title="${n.count} parutions regroupées" aria-label="${n.count} parutions regroupées">${n.count}</span>` : '';
         if (variant === 'dropdown') {
             return `
                 <a href="${esc(n.link || '#')}" data-nid="${n.id}" style="display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;background:${n.read ? 'transparent' : 'rgba(255,140,66,.07)'}">
@@ -910,7 +1213,7 @@
                         ? `<img src="${esc(n.image)}" alt="" loading="lazy" style="flex:0 0 auto;width:34px;height:46px;object-fit:cover;border-radius:6px;background:var(--bg3)" onerror="this.style.display='none'">`
                         : `<div style="flex:0 0 auto;color:var(--accent)">${window.MH.icon(iconName, 16)}</div>`}
                     <div style="min-width:0">
-                        <div style="font-size:12.5px;font-weight:600;line-height:1.3">${esc(n.title || '')}</div>
+                        <div style="font-size:12.5px;font-weight:600;line-height:1.3">${esc(n.title || '')}${pastille}</div>
                         ${n.body ? `<div style="font-size:11.5px;color:var(--text2);line-height:1.35;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(n.body)}</div>` : ''}
                         <div style="font-size:10.5px;color:var(--text3);margin-top:3px">${ago}</div>
                     </div>
@@ -923,7 +1226,7 @@
                     ? `<img class="nt-cover" src="${esc(n.image)}" alt="" loading="lazy" style="width:38px;height:52px;object-fit:cover;border-radius:7px;background:var(--bg3);flex:0 0 auto" onerror="this.style.display='none'">`
                     : `<div class="nt-ico" style="color:var(--accent)">${window.MH.icon(iconName, 18)}</div>`}
                 <div class="nt-body">
-                    <div class="nt-title">${esc(n.title || '')}</div>
+                    <div class="nt-title">${esc(n.title || '')}${pastille}</div>
                     ${n.body ? `<div class="nt-text">${esc(n.body)}</div>` : ''}
                     <div class="nt-when">${ago}</div>
                 </div>
@@ -1007,14 +1310,23 @@
         if (document.querySelector('.skip-link')) return;
         const a = document.createElement('a');
         a.className = 'skip-link';
-        a.href = '#';
+        // Audit A11Y-07 : la cible était `header.nextElementSibling`, une
+        // heuristique de position — sur l'accueil elle déposait l'utilisateur
+        // sur le carrousel, pas sur le contenu. Et href="#" laissait un lien
+        // mort si le JS échouait. On vise désormais le vrai landmark <main>,
+        // ajouté sur toutes les pages (audit A11Y-01), avec repli sur l'ancien
+        // comportement pour les pages qui n'en auraient pas.
+        a.href = '#main';
         a.textContent = 'Aller au contenu';
         a.addEventListener('click', (e) => {
+            const target = document.getElementById('main')
+                || document.querySelector('main')
+                || document.querySelector('.site-header')?.nextElementSibling;
+            if (!target) return;              // laisse l'ancre native opérer
             e.preventDefault();
-            // Cible : l'élément qui suit le header (contenu principal de chaque page)
-            const header = document.querySelector('.site-header');
-            const main = header && header.nextElementSibling;
-            if (main) { main.setAttribute('tabindex', '-1'); main.focus(); }
+            if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+            target.focus();
+            target.scrollIntoView({ block: 'start' });
         });
         document.body.insertBefore(a, document.body.firstChild);
     }
@@ -1037,7 +1349,7 @@
         bar.innerHTML = `
             <div style="flex:1;min-width:220px;font-size:13px;color:var(--text2);line-height:1.5">
                 Inko stocke des données locales (session, préférences) pour fonctionner et synchroniser ta bibliothèque.
-                Aucune télémétrie, aucune publicité. <a href="confidentialite.html" style="color:var(--orange)">En savoir plus</a>.
+                Aucune télémétrie, aucune publicité. <a href="confidentialite.html" style="color:var(--accent-text);text-decoration:underline">En savoir plus</a>.
             </div>
             <button id="inkoConsentOk" class="btn btn-primary btn-sm">J'ai compris</button>`;
         document.body.appendChild(bar);
@@ -1116,7 +1428,7 @@
             } else {
                 dropdown.innerHTML = results.map((m, i) => `
                   <a href="serie.html?id=${encodeURIComponent(m.id)}" class="search-result-item" role="option" id="searchOpt${i}" aria-selected="false">
-                      <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" onerror="this.style.display='none'">
+                      <img src="${cover(m.coverThumb, m.cover)}" alt="" loading="lazy" onerror="this.style.display='none'">
                       <div class="search-result-info">
                           <div class="title">${esc(m.title)}</div>
                           <div class="meta">${esc(m.author || '')} ${m.year ? `· ${m.year}` : ''}</div>
@@ -1206,12 +1518,9 @@
     function initFooterButtons() {
         // (audit S15) handler newsletter retiré avec le formulaire — il
         // confirmait un succès sans jamais envoyer l'email nulle part.
-        document.addEventListener('click', e => {
-            const link = e.target.closest('.footer-coming');
-            if (!link) return;
-            e.preventDefault();
-            MH.toast('Bientôt disponible !');
-        });
+        // (audit UX-03) handler `.footer-coming` retiré avec les trois liens
+        // morts qu'il servait : le pied de page ne pointe plus que vers des
+        // destinations réelles.
     }
 
     /* ── Header buttons ──────────────────────────────────── */
@@ -1239,15 +1548,35 @@
             window.MH.checkUpdates({ force: true });
         });
 
-        // Bouton « Continuer » : reprend la dernière lecture en cours
+        // Bouton « Continuer » (audit AMEL-30) : il n'ouvrait QUE la dernière
+        // série lue. Or on lit souvent plusieurs séries en parallèle, et la
+        // dernière ouverte n'est pas forcément celle qu'on veut reprendre —
+        // parfois on l'a juste effleurée. Clic simple : la dernière, comme
+        // avant. Clic maintenu ou clic droit : le choix parmi les récentes.
         document.addEventListener('click', async e => {
             const btn = e.target.closest('#btnContinue');
             if (!btn) return;
             e.preventDefault();
+            if (document.getElementById('mhContinueMenu')) { fermerMenuReprise(); return; }
             const last = await window.MH.lastReadTarget();
             if (last) window.location.href = last.href;
             else MH.toast('Aucune lecture en cours pour le moment');
         });
+        document.addEventListener('contextmenu', async e => {
+            const btn = e.target.closest('#btnContinue');
+            if (!btn) return;
+            e.preventDefault();
+            ouvrirMenuReprise(btn);
+        });
+        // Appui long au toucher : même geste, là où le clic droit n'existe pas.
+        let appuiLong = null;
+        document.addEventListener('touchstart', (e) => {
+            const btn = e.target.closest('#btnContinue');
+            if (!btn) return;
+            appuiLong = setTimeout(() => ouvrirMenuReprise(btn), 480);
+        }, { passive: true });
+        ['touchend', 'touchmove', 'touchcancel'].forEach(ev =>
+            document.addEventListener(ev, () => clearTimeout(appuiLong), { passive: true }));
 
         // Bouton incognito (lecture privée)
         document.addEventListener('click', e => {
@@ -1292,9 +1621,15 @@
             };
             const willFav = !btn.classList.contains('is-fav');
             btn.dataset.favTouched = '1';
-            btn.classList.toggle('is-fav', willFav);
-            if (isIcon) btn.innerHTML = MH.heartIcon(willFav);
-            else        btn.textContent = willFav ? 'Suivi' : '+ Suivre';
+            // Audit A11Y-08 : passe par le point unique, qui met aussi à jour
+            // l'infobulle et aria-pressed (le clic ne le faisait pas non plus).
+            if (isIcon) {
+                MH.setFavButtonState(btn, willFav);
+            } else {
+                btn.classList.toggle('is-fav', willFav);
+                btn.textContent = willFav ? 'Suivi' : '+ Suivre';
+                btn.setAttribute('aria-pressed', String(willFav));
+            }
             try {
                 if (willFav) await API.me.addFavorite(id, meta);
                 else         await API.me.removeFavorite(id);
@@ -1369,7 +1704,7 @@
         ov.addEventListener('click', e => { if (e.target === ov) close(); });
 
         const rowHTML = (it, i) => `<div class="cmd-row" data-i="${i}" style="display:flex;align-items:center;gap:12px;padding:11px 16px;cursor:pointer;${i===sel?'background:var(--bg4)':''}">
-            ${it.cover ? `<img src="${it.cover}" style="width:30px;height:40px;object-fit:cover;border-radius:4px" onerror="this.style.visibility='hidden'">` : `<span style="width:30px;text-align:center;font-size:17px">${it.icon||'•'}</span>`}
+            ${it.cover ? `<img src="${esc(it.cover)}" style="width:30px;height:40px;object-fit:cover;border-radius:4px" onerror="this.style.visibility='hidden'">` : `<span style="width:30px;text-align:center;font-size:17px">${it.icon||'•'}</span>`}
             <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px">${esc(it.label)}</span>
             ${it.tag ? `<span style="font-size:10.5px;color:var(--text3)">${esc(it.tag)}</span>` : ''}</div>`;
         const paint = () => {
@@ -1429,31 +1764,88 @@
                 if (e.key === 'Escape') e.target.blur();
                 return;
             }
-            switch (e.key) {
-                case '/':
-                    e.preventDefault();
-                    document.getElementById('headerSearch')?.focus();
-                    break;
-                case 'r': document.getElementById('navRandom')?.click(); break;
-                case 'b': window.location.href = 'bibliotheque.html'; break;
-                case 'h': window.location.href = 'accueil.html'; break;
-                case 'c': {
-                    const last = await window.MH.lastReadTarget?.();
-                    if (last) window.location.href = last.href; else MH.toast('Aucune lecture en cours');
-                    break;
-                }
-                case '?': toggleShortcutsHelp(); break;
-                case 'Escape': document.getElementById('mhShortcuts')?.remove(); break;
-            }
+            // Audit AMEL-82 : les touches sont remappables. Les raccourcis
+            // etaient codes en dur dans ce switch — une lettre qui tombe mal
+            // sur un clavier non-AZERTY, ou qui entre en conflit avec une
+            // habitude, ne pouvait pas etre changee.
+            if (e.key === 'Escape') { document.getElementById('mhShortcuts')?.remove(); return; }
+            const action = MH.actionRaccourci(e.key);
+            if (!action) return;
+            e.preventDefault();
+            await MH.executerRaccourci(action);
         });
     }
+    /* ── Raccourcis remappables (audit AMEL-82) ──────────────
+       Les touches vivaient en dur dans le `switch`. Sur un clavier non-AZERTY,
+       ou face a une habitude prise ailleurs, aucune n'etait modifiable — et
+       l'aide `?` les presentait comme immuables. */
+    const RACCOURCIS = [
+        { id: 'recherche',  defaut: '/', label: 'Rechercher' },
+        { id: 'aleatoire',  defaut: 'r', label: 'Lecture aleatoire' },
+        { id: 'reprendre',  defaut: 'c', label: 'Reprendre la lecture' },
+        { id: 'bibliotheque', defaut: 'b', label: 'Ma bibliotheque' },
+        { id: 'accueil',    defaut: 'h', label: 'Accueil' },
+        { id: 'aide',       defaut: '?', label: 'Afficher cette aide' },
+    ];
+    const CLE_RACCOURCIS = 'raccourcis';
+    function mapRaccourcis() {
+        let perso = {};
+        try { perso = JSON.parse(window.Storage?.getPref(CLE_RACCOURCIS) || '{}'); } catch (e) { perso = {}; }
+        const m = {};
+        for (const r of RACCOURCIS) {
+            const touche = typeof perso[r.id] === 'string' ? perso[r.id] : r.defaut;
+            if (touche) m[touche] = r.id;   // une touche vide desactive le raccourci
+        }
+        return m;
+    }
+    window.MH.raccourcis = () => RACCOURCIS.map(r => ({ ...r, touche: toucheDe(r.id) }));
+    function toucheDe(id) {
+        let perso = {};
+        try { perso = JSON.parse(window.Storage?.getPref(CLE_RACCOURCIS) || '{}'); } catch (e) { perso = {}; }
+        const r = RACCOURCIS.find(x => x.id === id);
+        return typeof perso[id] === 'string' ? perso[id] : (r ? r.defaut : '');
+    }
+    window.MH.setRaccourci = function (id, touche) {
+        let perso = {};
+        try { perso = JSON.parse(window.Storage?.getPref(CLE_RACCOURCIS) || '{}'); } catch (e) { perso = {}; }
+        // Une touche deja prise par une AUTRE action est liberee : deux actions
+        // sur la meme touche rendraient l'une des deux inatteignable, en
+        // silence.
+        if (touche) {
+            for (const k of Object.keys(perso)) if (k !== id && perso[k] === touche) perso[k] = '';
+            for (const r of RACCOURCIS) if (r.id !== id && perso[r.id] === undefined && r.defaut === touche) perso[r.id] = '';
+        }
+        perso[id] = touche || '';
+        window.Storage?.setPref(CLE_RACCOURCIS, JSON.stringify(perso));
+    };
+    window.MH.resetRaccourcis = function () {
+        window.Storage?.setPref(CLE_RACCOURCIS, '{}');
+    };
+    window.MH.actionRaccourci = (touche) => mapRaccourcis()[touche] || null;
+    window.MH.executerRaccourci = async function (action) {
+        switch (action) {
+            case 'recherche':    document.getElementById('headerSearch')?.focus(); break;
+            case 'aleatoire':    document.getElementById('navRandom')?.click(); break;
+            case 'bibliotheque': window.location.href = 'bibliotheque.html'; break;
+            case 'accueil':      window.location.href = 'accueil.html'; break;
+            case 'reprendre': {
+                const last = await window.MH.lastReadTarget?.();
+                if (last) window.location.href = last.href; else MH.toast('Aucune lecture en cours');
+                break;
+            }
+            case 'aide': toggleShortcutsHelp(); break;
+        }
+    };
+
     function toggleShortcutsHelp() {
         const ex = document.getElementById('mhShortcuts');
         if (ex) { ex.remove(); return; }
-        const rows = [
-            ['/', 'Rechercher'], ['r', 'Lecture aléatoire'], ['c', 'Reprendre la lecture'],
-            ['b', 'Ma bibliothèque'], ['h', 'Accueil'], ['?', 'Afficher cette aide'], ['Échap', 'Fermer'],
-        ];
+        // L'aide lit la configuration REELLE : la presenter en dur la ferait
+        // mentir des la premiere personnalisation.
+        const rows = window.MH.raccourcis()
+            .filter(r => r.touche)
+            .map(r => [r.touche, r.label])
+            .concat([['Ctrl+K', 'Palette de commandes'], ['Echap', 'Fermer']]);
         const ov = document.createElement('div');
         ov.id = 'mhShortcuts';
         ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)';
@@ -1481,7 +1873,7 @@
         exeUrl: UPDATE_EXE,
         // → { current, latest, hasUpdate } ; current absent en dev (pas d'APP_VERSION)
         async check() {
-            const h = await fetch((window.API?.base || '/api') + '/health').then(r => r.json());
+            const h = await window.API.health();
             if (!h.version) return { current: null, latest: null, hasUpdate: false };
             // Timeout sur l'API GitHub (peut être lente/dégradée) : on renvoie au
             // moins la version courante plutôt que de faire tourner le bouton.
@@ -1547,7 +1939,7 @@
     (async function () {
         try {
             if (sessionStorage.getItem('inko_dbfb_seen')) return;
-            const h = await fetch((window.API?.base || '/api') + '/health').then(r => r.json());
+            const h = await window.API.health();
             if (!h.dbFallback || document.getElementById('dbFallbackBar')) return;
             const bar = document.createElement('div');
             bar.id = 'dbFallbackBar';
@@ -1591,6 +1983,16 @@
     window.MH.startTour = async function () { await loadTour(); window.InkoTour?.start(); };
     try {
         if (!localStorage.getItem('inko_tour_done')) loadTour(true); // autostart interne
+        else {
+            // Audit AMEL-111 : le module portait UNIQUEMENT la visite, il
+            // n'etait donc jamais charge pour qui l'avait deja faite — et les
+            // astuces contextuelles n'auraient existe pour personne. On le
+            // charge aussi tant qu'il reste une page dont l'astuce n'a pas ete
+            // vue, puis plus jamais.
+            const vues = JSON.parse(localStorage.getItem('inko_astuces_vues') || '[]');
+            const PAGES = ['catalogue', 'bibliotheque', 'serie', 'chapitre', 'stats', 'profil', 'notifications'];
+            if (PAGES.some(p => !vues.includes(p))) loadTour(false);
+        }
     } catch (e) { window.MH?.err?.('global.js', e); }
 
 })();

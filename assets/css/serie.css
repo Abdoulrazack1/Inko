@@ -866,6 +866,59 @@
   border-top: 1px solid var(--border);
 }
 .comment-len { font-size: 12px; color: var(--text3); }
+
+/* ── Portée, ancrage, spoiler (audit AMEL-50/51/52) ──────────
+   Les trois options tiennent sur une ligne au-dessus du pied :
+   elles se décident avant de publier, pas après. */
+.comment-compose-opts {
+  display: flex; flex-wrap: wrap; gap: 8px 14px;
+  align-items: center; margin-top: 8px;
+}
+.comment-opt {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--text3); cursor: pointer;
+}
+.comment-opt select {
+  background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+  border-radius: 7px; padding: 4px 7px; font-size: 11.5px;
+  font-family: inherit; cursor: pointer; max-width: 220px;
+}
+.comment-opt-check input { accent-color: var(--accent); cursor: pointer; }
+
+/* Étiquette de chapitre : un lien, parce qu'on veut y aller. */
+.comment-chap {
+  font-size: 11px; color: var(--accent-text); text-decoration: none;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-radius: 6px; padding: 1px 7px; white-space: nowrap;
+}
+.comment-chap:hover { text-decoration: underline; }
+
+/* Portée : affichée seulement quand elle s'écarte du défaut. */
+.comment-vis {
+  font-size: 10.5px; border-radius: 6px; padding: 1px 7px;
+  border: 1px solid var(--border2); color: var(--text3);
+}
+.comment-vis-private { color: var(--text2); border-style: dashed; }
+.comment-vis-public  { color: var(--green-text); border-color: var(--green); }
+
+/* Spoiler : le texte est bien là, il n'est simplement pas lisible.
+   `color: transparent` seul laisserait le texte sélectionnable et copiable —
+   `user-select: none` ferme cette porte tant que le voile est en place. */
+.comment-spoiler { position: relative; cursor: pointer; border-radius: 8px; }
+.comment-spoiler:not(.revealed) .comment-spoiler-body {
+  color: transparent; user-select: none;
+  text-shadow: 0 0 9px var(--text2);
+}
+.comment-spoiler:not(.revealed) .comment-spoiler-body a { pointer-events: none; color: transparent; }
+.comment-spoiler-veil {
+  display: block; font-size: 11px; font-weight: 600;
+  color: var(--red-text); margin-bottom: 3px; letter-spacing: .02em;
+}
+.comment-spoiler.revealed .comment-spoiler-veil { display: none; }
+.comment-spoiler:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  .comment-spoiler-body { transition: color .18s ease, text-shadow .18s ease; }
+}
 .comment-login-hint {
   background: var(--bg3);
   border: 1px dashed var(--border);
@@ -896,3 +949,39 @@
 .comment-user { font-weight: 600; font-size: 13.5px; color: var(--text); }
 .comment-date { font-size: 12px; color: var(--text3); }
 .comment-text { font-size: 14px; line-height: 1.55; color: var(--text2); white-space: pre-wrap; word-break: break-word; }
+
+/* ── Action de lecture principale (audit AMEL-100) ──
+   Un seul bouton porte l'action, avec sa raison en sous-titre ; les replis
+   (« Depuis le début », « 1er non-lu ») deviennent des liens discrets. */
+.btn-reprise {
+  flex-direction: column; align-items: flex-start; gap: 1px;
+  height: auto; padding: 9px 20px; line-height: 1.25;
+}
+.reprise-label { font-size: 14px; font-weight: 700; }
+.reprise-sub { font-size: 11px; font-weight: 500; opacity: .82; }
+
+/* ── Notation en demi-étoiles (audit AMEL-47) ──
+   `TINYINT` 1-5 est trop grossier pour classer des centaines de séries :
+   tout finit à 4 ou 5. La note est stockée sur 10 et rendue en 5 étoiles,
+   chaque moitié gauche valant un demi-point. */
+.rate-stars { display: flex; gap: 4px; }
+.rate-star {
+  position: relative; display: inline-block;
+  font-size: 26px; line-height: 1; width: 1em; height: 1em;
+}
+.rate-star-bg   { color: var(--bg4); }
+.rate-star-fill {
+  position: absolute; inset: 0; overflow: hidden;
+  color: #d98a00;               /* assombri : #f59e0b tombait sous AA sur fond clair */
+  white-space: nowrap;
+}
+/* Deux zones de clic invisibles par étoile : gauche = demi, droite = entier.
+   Ce sont de vrais <button>, donc atteignables au clavier et annoncés — une
+   notation qui n'existe qu'à la souris exclut ceux qui n'en ont pas. */
+.rate-hit {
+  position: absolute; top: 0; bottom: 0; width: 50%;
+  background: none; border: none; padding: 0; cursor: pointer;
+}
+.rate-hit-half { left: 0; }
+.rate-hit-full { right: 0; }
+.rate-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 2px; }

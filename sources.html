@@ -5,6 +5,17 @@
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inko — Sources</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Gère tes sources de contenu : extensions mangas et romans.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Sources">
+    <meta property="og:description" content="Gère tes sources de contenu : extensions mangas et romans.">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Sources">
+    <meta name="twitter:description" content="Gère tes sources de contenu : extensions mangas et romans.">
+    <!-- meta:auto -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#ff6b1a">
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
@@ -19,7 +30,7 @@
       background: rgba(255,107,26,.08); border: 1px solid rgba(255,107,26,.25);
       border-radius: 10px; font-size: 12.5px; color: var(--text2); line-height: 1.55;
     }
-    .sources-warning strong { color: var(--orange); }
+    .sources-warning strong { color: var(--accent-text); }
     .sources-grid { display: flex; flex-direction: column; gap: 28px; }
     .sources-group { display: grid; gap: 12px; }
     .sources-group-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
@@ -41,6 +52,10 @@
       transition: border-color .18s ease;
     }
     .source-card.active { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange) inset; }
+    /* Etat de la source, visible en permanence (audit AMEL-65). La couleur ne
+       porte pas seule l'information : le mot l'accompagne toujours. */
+    .src-sante { font-size: 11px; margin-top: 5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .src-sante-point { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
     .source-icon {
       width: 48px; height: 48px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
@@ -57,12 +72,13 @@
     .source-caps { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
     .source-cap { font-size: 10px; padding: 1px 6px; background: var(--bg3); border-radius: 4px; color: var(--text3); }
     .source-actions { flex-shrink: 0; display: flex; gap: 8px; align-items: center; }
-    .source-active-badge { font-size: 11px; color: var(--orange); font-weight: 600; }
+    .source-active-badge { font-size: 11px; color: var(--accent-text); font-weight: 600; }
     .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
   </style>
 </head>
 <body class="page-body">
   <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
 
   <div class="sources-wrap">
     <div class="sources-head">
@@ -92,6 +108,7 @@
 
   </div>
 
+  </main>
   <div id="footer-slot"></div>
 
   <script src="assets/js/api.js"></script>

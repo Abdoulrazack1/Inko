@@ -9,6 +9,11 @@
     let lastTotal     = 0;
     let allTags       = [];
     let activeTags    = new Set();   // genres (multi)
+    // Audit AMEL-05 : un genre a trois états — neutre, inclus, exclu. Deux
+    // ensembles disjoints plutôt qu'une valeur par genre : les deux listes
+    // partent telles quelles vers l'API, et « est-ce inclus ? » reste un test
+    // en O(1) aux quelque quinze endroits qui le posent.
+    let excludedTags  = new Set();   // genres explicitement écartés
     let activeStatus  = new Set();   // statuts (multi)
     let activeDemo    = new Set();   // démographies (multi)
     let activeSort    = 'popularity'; // popularity | latest | alpha | added | rating
@@ -42,7 +47,41 @@
         const p = new URLSearchParams(location.search);
         if (p.get('q'))    lastQuery  = p.get('q');
         if (p.get('sort')) activeSort = p.get('sort');
+        // `tag` reste au singulier pour ne pas casser les liens déjà en
+        // circulation (les cartes du hero pointent vers ?tag=Romance).
         if (p.get('tag'))  activeTags.add(p.get('tag'));
+        p.getAll('tags').forEach(t => activeTags.add(t));
+        p.getAll('sans').forEach(t => excludedTags.add(t));
+        p.getAll('statut').forEach(s => activeStatus.add(s));
+        p.getAll('demo').forEach(d => activeDemo.add(d));
+        const page = parseInt(p.get('page') || '', 10);
+        if (page > 0) currentPage = page;
+    }
+
+    // Audit AMEL-06 : les filtres ne vivaient que dans localStorage. Un
+    // catalogue filtré ne se partageait pas, ne se mettait pas en favori, et le
+    // bouton Précédent du navigateur ne ramenait pas à l'état d'avant. L'état
+    // est désormais dans l'URL, qui redevient ce qu'elle doit être : l'adresse
+    // de ce qu'on regarde.
+    //
+    // `replaceState` et non `pushState` : chaque clic sur un genre créerait
+    // sinon une entrée d'historique, et il faudrait vingt « Précédent » pour
+    // sortir de la page. La mémorisation locale reste, pour retrouver son
+    // contexte en arrivant sans paramètres.
+    function syncURL() {
+        const p = new URLSearchParams();
+        if (lastQuery)              p.set('q', lastQuery);
+        if (activeSort && activeSort !== 'popularity') p.set('sort', activeSort);
+        activeTags.forEach(t   => p.append('tags', t));
+        excludedTags.forEach(t => p.append('sans', t));
+        activeStatus.forEach(s => p.append('statut', s));
+        activeDemo.forEach(d   => p.append('demo', d));
+        if (currentPage > 1) p.set('page', String(currentPage));
+        const qs = p.toString();
+        const url = location.pathname + (qs ? '?' + qs : '');
+        if (url !== location.pathname + location.search) {
+            try { history.replaceState(null, '', url); } catch (e) { window.MH?.err?.('catalogue.js', e); }
+        }
     }
 
     // ── Mémorisation du contexte (filtres / tri / vue) ──
@@ -50,7 +89,8 @@
     function saveCtx() {
         try {
             localStorage.setItem(CTX_KEY, JSON.stringify({
-                tags: [...activeTags], status: [...activeStatus], demo: [...activeDemo],
+                tags: [...activeTags], excluded: [...excludedTags],
+                status: [...activeStatus], demo: [...activeDemo],
                 sort: activeSort, view: viewMode, source: API.sources.current,
             }));
         } catch (e) { window.MH?.err?.('catalogue.js', e); }
@@ -60,7 +100,8 @@
         if (!c) return;
         // Ne restaure les filtres que si on revient sur la même source
         if (c.source && c.source === API.sources.current) {
-            (c.tags   || []).forEach(t => activeTags.add(t));
+            (c.tags     || []).forEach(t => activeTags.add(t));
+            (c.excluded || []).forEach(t => excludedTags.add(t));
             (c.status || []).forEach(s => activeStatus.add(s));
             (c.demo   || []).forEach(d => activeDemo.add(d));
         }
@@ -74,6 +115,7 @@
         sourcesList = sources || [];
         const cur = API.sources.current;
         sourceInfo = sourcesList.find(s => s.id === cur) || null;
+        syncSortOptions();   // les tris dépendent de la source (audit BUG-06)
         renderSourceBar();   // re-rend maintenant que la liste est connue
     }
 
@@ -84,6 +126,30 @@
     function enabledSources() {
         return sourcesList.filter(s => window.MH?.isSourceEnabled ? MH.isSourceEnabled(s.id) : true);
     }
+    // Audit BUG-06 : le menu proposait « Note » quelle que soit la source. Sur
+    // WeebCentral — la source par défaut — ce tri n'existe pas : la requête
+    // partait avec le bon paramètre et revenait dans l'ordre de popularité,
+    // sans le moindre signal. Une source déclare désormais ses tris réellement
+    // honorés (`sorts`) ; on désactive les autres au lieu de mentir.
+    // Une source qui ne déclare rien garde toutes les options.
+    function syncSortOptions() {
+        const sel = document.getElementById('sortSelect');
+        if (!sel) return;
+        const supported = allSources ? null : (sourceInfo && sourceInfo.sorts);
+        [...sel.options].forEach(opt => {
+            const ok = !supported || supported.includes(opt.value);
+            opt.disabled = !ok;
+            const base = opt.dataset.label || (opt.dataset.label = opt.textContent.trim());
+            opt.textContent = ok ? base : `${base} — non géré par cette source`;
+        });
+        // Si le tri courant n'est pas géré, on retombe sur un tri valide plutôt
+        // que de laisser un choix sans effet.
+        if (supported && !supported.includes(sel.value)) {
+            sel.value = supported[0] || 'popularity';
+            activeSort = sel.value;
+        }
+    }
+
     function renderSourceBar() {
         let bar = document.getElementById('sourceBar');
         if (!bar) {
@@ -95,7 +161,7 @@
             anchor.parentNode.insertBefore(bar, anchor);
         }
         const chip = (label, on, data) =>
-            `<button class="quick-filter-btn ${on ? 'active' : ''}" ${data}>${MH.esc(label)}</button>`;
+            `<button class="quick-filter-btn ${on ? 'active' : ''}" aria-pressed="${!!on}" ${data}>${MH.esc(label)}</button>`;
         bar.innerHTML =
             chip('Toutes les sources', allSources, 'data-allsrc="1"') +
             enabledSources().map(s => chip(s.name, !allSources && s.id === API.sources.current, `data-src="${MH.esc(s.id)}"`)).join('');
@@ -111,7 +177,7 @@
             API.sources.current = b.dataset.src;
             currentPage = 1;
             sourceInfo = sourcesList.find(s => s.id === b.dataset.src) || null;
-            renderSourceBar(); renderChips();
+            renderSourceBar(); renderChips(); syncSortOptions();
             loadTags().then(renderFilterSidebar).catch(() => {});
             await runSearch();
         }));
@@ -154,6 +220,10 @@
         lastTotal = lastResults.length;
         const okCount = settled.filter(r => r.status === 'fulfilled').length;
         if (count) count.innerHTML = `<strong>${lastResults.length}</strong> séries · ${okCount}/${srcs.length} sources`;
+        // Audit A11Y-06 : annonce le résultat aux lecteurs d'écran
+        MH.announce?.(lastResults.length
+            ? `${lastResults.length} séries trouvées sur ${okCount} source(s)`
+            : 'Aucun résultat sur tes sources actives');
         if (!lastResults.length) {
             grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2)">Aucun résultat sur tes sources actives.</div>';
         } else {
@@ -241,10 +311,30 @@
     function renderTagGroup(el, items, emptyMsg) {
         if (!el) return;
         el.innerHTML = items.length
-            ? items.map(g =>
-                `<button class="filter-tag ${activeTags.has(g.id) ? 'active' : ''}" data-tag="${MH.esc(g.id)}">${MH.esc(g.name)}</button>`
-              ).join('')
+            ? items.map(g => tagButtonHTML(g)).join('')
             : (emptyMsg ? `<div style="font-size:12px;color:var(--text3);padding:8px">${emptyMsg}</div>` : '');
+    }
+
+    // Audit AMEL-05 : trois états à rendre lisibles SANS s'appuyer seulement sur
+    // la couleur — un daltonien doit distinguer « inclus » de « exclu ».
+    // D'où le préfixe « − » et le titre explicite, en plus du style.
+    function tagButtonHTML(g) {
+        const inclus = activeTags.has(g.id);
+        const exclu  = excludedTags.has(g.id);
+        const classe = inclus ? 'filter-tag active' : exclu ? 'filter-tag excluded' : 'filter-tag';
+        const titre  = inclus ? 'Inclus — cliquer pour exclure'
+            : exclu ? 'Exclu — cliquer pour ne plus filtrer'
+                : 'Cliquer pour inclure';
+        return `<button class="${classe}" aria-pressed="${inclus}" title="${titre}"
+            data-tag="${MH.esc(g.id)}">${exclu ? '−&nbsp;' : ''}${MH.esc(g.name)}</button>`;
+    }
+
+    // Repeint un bouton après un changement d'état (le libellé change aussi :
+    // on ne peut pas se contenter de basculer une classe).
+    function peindreTag(btn) {
+        const id = btn.dataset.tag;
+        const nom = btn.textContent.replace(/^−\s*/, '').trim();
+        btn.outerHTML = tagButtonHTML({ id, name: nom });
     }
     function renderFilterSidebar() {
         // Tous les tags disponibles, répartis par groupe (genre / thème / format).
@@ -270,7 +360,7 @@
                 { v: 'hiatus',    l: 'En pause'  },
                 { v: 'cancelled', l: 'Annulé'    },
             ].map(s =>
-                `<button class="filter-status-btn ${activeStatus.has(s.v) ? 'active' : ''}" data-status="${s.v}">${s.l}</button>`
+                `<button class="filter-status-btn ${activeStatus.has(s.v) ? 'active' : ''}" aria-pressed="${activeStatus.has(s.v)}" data-status="${s.v}">${s.l}</button>`
             ).join('');
         }
 
@@ -298,15 +388,17 @@
             b.classList.toggle('active', activeStatus.has(b.dataset.status)));
         document.querySelectorAll('#filterDemo [data-demo]').forEach(i =>
             { i.checked = activeDemo.has(i.dataset.demo); });
-        document.querySelectorAll('#filterGenres [data-tag], #filterThemes [data-tag], #filterFormats [data-tag]').forEach(b =>
-            b.classList.toggle('active', activeTags.has(b.dataset.tag)));
+        // Audit AMEL-05 : trois états, donc un repaint complet du bouton —
+        // basculer une classe ne suffit plus, le libellé porte aussi le « − ».
+        document.querySelectorAll('#filterGenres [data-tag], #filterThemes [data-tag], #filterFormats [data-tag]')
+            .forEach(b => peindreTag(b));
         updateFiltersCount();
     }
 
     function updateFiltersCount() {
         const el = document.getElementById('activeFiltersCount');
         if (!el) return;
-        const n = activeTags.size + activeStatus.size + activeDemo.size;
+        const n = activeTags.size + excludedTags.size + activeStatus.size + activeDemo.size;
         el.textContent = n ? `${n} filtre(s) actif(s)` : '';
     }
 
@@ -343,12 +435,14 @@
             if (activeStatus.size) params.status      = [...activeStatus];
             if (activeDemo.size)   params.demographic = [...activeDemo];
             if (activeTags.size)   params.includedTags = [...activeTags];
+            if (excludedTags.size) params.excludedTags = [...excludedTags];   // audit AMEL-05
 
             const data = await API.mangas.search(params);
             if (myReq !== inFlight) return; // requête plus récente en cours
             lastResults = data.results || [];
             lastTotal   = data.total || 0;
             saveCtx();   // mémorise le contexte courant pour la prochaine visite
+            syncURL();   // audit AMEL-06 : l'URL décrit ce qui est affiché
 
             if (count) count.innerHTML = `Affichage de <strong>${lastResults.length}</strong> sur <strong>${MH.fmt ? MH.fmt(lastTotal) : lastTotal}</strong> séries`;
 
@@ -398,14 +492,21 @@
         <div class="manga-card" data-manga-id="${MH.esc(m.id)}">
             <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}" class="manga-card-link" aria-label="${MH.esc(m.title)}"${MH.nsfwCardAttrs(m, srcNsfw)}></a>
             <div class="manga-card-cover">
-                <img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
+                <img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
                 <div class="manga-card-badges">
                     ${isNovel ? '<span class="badge" style="background:var(--ai);color:#fff">ROMAN</span>' : ''}
                     ${m.status === 'completed' ? '<span class="badge badge-termine">TERMINÉ</span>' : ''}
                     ${m.status === 'hiatus' ? '<span class="badge badge-pause">PAUSE</span>' : ''}
                 </div>
-                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">${MH.heartIcon(false)}</button>
+                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris" aria-pressed="false" aria-label="Ajouter aux favoris">${MH.heartIcon(false)}</button>
+                <!-- Audit AMEL-39 : l'ajout à une liste n'était possible que
+                     depuis la fiche série — il fallait donc ouvrir chaque titre
+                     pour le ranger, alors qu'on constitue une liste EN
+                     parcourant le catalogue. -->
+                <button class="card-list-btn" data-addlist="${MH.esc(m.id)}" data-src="${MH.esc(src)}"
+                        data-title="${MH.esc(m.title || '')}" data-cover="${MH.esc(m.cover || '')}"
+                        title="Ajouter à une liste" aria-label="Ajouter à une liste">+</button>
                 <div class="manga-card-overlay">
                     <div class="btn-read-overlay">Lire</div>
                 </div>
@@ -456,6 +557,79 @@
         if (visible[visible.length-1] < pages) { if (visible[visible.length-1] < pages - 1) html += `<span class="page-sep">…</span>`; html += `<button class="page-btn" data-page="${pages}">${pages}</button>`; }
         html += `<button class="page-btn" data-page="${currentPage + 1}" ${currentPage === pages ? 'disabled' : ''}>›</button>`;
         el.innerHTML = html;
+        renderLoadMore(pages);
+    }
+
+    // ── Chargement de la suite (audit AMEL-09) ───────────────
+    // 24 séries par page pour parcourir un catalogue de plusieurs dizaines de
+    // milliers de titres : la pagination oblige à repartir du haut à chaque
+    // clic, et fait perdre le fil.
+    //
+    // Choix : la pagination RESTE (elle permet d'aller directement page 40 et
+    // rend l'état adressable, cf. AMEL-06), et un bouton « Charger la suite »
+    // ajoute la page suivante à la fin de la grille. Un observateur le
+    // déclenche quand on approche du bas — mais ce n'est qu'un raccourci :
+    // le bouton existe, il est focusable au clavier, et rien ne dépend du
+    // déclenchement de l'observateur. Même principe que le rendu progressif de
+    // la bibliothèque (PERF-05) : un défaut de confort ne doit jamais devenir
+    // un contenu inatteignable.
+    let loadMoreObserver = null;
+    let chargementEnCours = false;
+
+    function renderLoadMore(pages) {
+        const zone = document.getElementById('pagination');
+        if (!zone) return;
+        document.getElementById('catLoadMore')?.remove();
+        loadMoreObserver?.disconnect();
+        if (currentPage >= pages) return;
+
+        const btn = document.createElement('button');
+        btn.id = 'catLoadMore';
+        btn.className = 'btn btn-secondary';
+        btn.style.cssText = 'display:block;margin:18px auto 0';
+        btn.textContent = 'Charger la suite';
+        zone.parentNode.insertBefore(btn, zone);
+        btn.addEventListener('click', () => chargerSuite(btn, pages));
+
+        loadMoreObserver = new IntersectionObserver((entries) => {
+            if (entries.some(e => e.isIntersecting)) chargerSuite(btn, pages);
+        }, { rootMargin: '400px' });
+        loadMoreObserver.observe(btn);
+    }
+
+    async function chargerSuite(btn, pages) {
+        if (chargementEnCours || currentPage >= pages) return;
+        chargementEnCours = true;
+        btn.disabled = true;
+        btn.textContent = 'Chargement…';
+        const grid = document.getElementById('catalogueGrid') || document.getElementById('resultsGrid');
+        try {
+            const params = { limit: PER_PAGE, offset: currentPage * PER_PAGE, sort: activeSort };
+            if (lastQuery)         params.q            = lastQuery;
+            if (activeStatus.size) params.status       = [...activeStatus];
+            if (activeDemo.size)   params.demographic  = [...activeDemo];
+            if (activeTags.size)   params.includedTags = [...activeTags];
+            if (excludedTags.size) params.excludedTags = [...excludedTags];
+
+            const data = await API.mangas.search(params);
+            const nouveaux = data.results || [];
+            currentPage += 1;
+            if (grid && nouveaux.length) {
+                grid.insertAdjacentHTML('beforeend', nouveaux.map(m => mangaCardHTML(m)).join(''));
+                MH.markFavorites(grid);
+                lastResults = lastResults.concat(nouveaux);
+            }
+            const count = document.getElementById('resultsCount');
+            if (count) count.innerHTML = `Affichage de <strong>${lastResults.length}</strong> sur <strong>${MH.fmt ? MH.fmt(lastTotal) : lastTotal}</strong> séries`;
+            saveCtx(); syncURL();
+            renderPagination();   // recrée le bouton pour la page d'après, ou le retire
+        } catch (e) {
+            btn.disabled = false;
+            btn.textContent = 'Réessayer';
+            MH.toast?.('Chargement interrompu : ' + e.message);
+        } finally {
+            chargementEnCours = false;
+        }
     }
 
     // ══ Sections annexes ══════════════════════════════════════
@@ -494,7 +668,7 @@
             const m = list[daySeed % list.length];
             el.innerHTML = `
                 <div class="focus-label">Focus du moment</div>
-                <div class="focus-cover"><img src="${m.cover || ''}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"></div>
+                <div class="focus-cover"><img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"></div>
                 <div class="focus-title">${MH.esc(m.title)}</div>
                 <div class="focus-stats">
                     <div class="focus-stat"><div class="focus-stat-label">Statut</div><div class="focus-stat-value">${m.status === 'completed' ? 'Terminé' : m.status === 'hiatus' ? 'En pause' : 'En cours'}</div></div>
@@ -518,7 +692,7 @@
                 <a class="latest-mini-row" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}" title="${MH.esc(m.title)}">
                     <span class="latest-mini-rank">${i + 1}</span>
                     <span class="latest-mini-cover">
-                        <img src="${m.coverThumb || m.cover || ''}" alt="" loading="lazy" decoding="async" onerror="this.closest('.latest-mini-cover').classList.add('noimg')">
+                        <img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy" decoding="async" onerror="this.closest('.latest-mini-cover').classList.add('noimg')">
                     </span>
                     <span class="latest-mini-info">
                         <span class="latest-mini-title">${MH.esc(m.title)}</span>
@@ -540,7 +714,7 @@
             el.innerHTML = lists.slice(0, 3).map(l => `
                 <div class="collection-mini-card" onclick="location.href='collection-detail.html?id=${l.id}'">
                     <div class="collection-mini-cover">
-                        ${(l.covers || []).slice(0, 4).map(c => `<img src="${c}" alt="" loading="lazy">`).join('') || ''}
+                        ${(l.covers || []).slice(0, 4).map(c => `<img src="${MH.esc(c)}" alt="" loading="lazy">`).join('') || ''}
                     </div>
                     <div class="collection-mini-info">
                         <div class="collection-mini-title">${MH.esc(l.name)}</div>
@@ -553,13 +727,21 @@
     // ══ Événements (tous bindés UNE fois) ═════════════════════
     function bindEvents() {
         // Tags (genres, thèmes, formats — même set activeTags, délégation)
+        // Audit AMEL-05 : cycle à trois temps sur un même bouton —
+        // neutre → inclus → EXCLU → neutre. Un second clic est le geste
+        // naturel pour dire « pas celui-là » ; l'alternative (clic droit)
+        // n'existe pas au toucher et reste invisible tant qu'on ne l'a pas
+        // découverte.
+        const cycleTag = (id) => {
+            if (activeTags.has(id))        { activeTags.delete(id); excludedTags.add(id); }
+            else if (excludedTags.has(id)) { excludedTags.delete(id); }
+            else                           { activeTags.add(id); }
+        };
         const onTagClick = async e => {
             const btn = e.target.closest('[data-tag]');
             if (!btn) return;
-            const id = btn.dataset.tag;
-            if (activeTags.has(id)) activeTags.delete(id);
-            else activeTags.add(id);
-            btn.classList.toggle('active');
+            cycleTag(btn.dataset.tag);
+            peindreTag(btn);
             currentPage = 1;
             updateFiltersCount();
             await runSearch();
@@ -592,7 +774,7 @@
 
         // Reset
         document.getElementById('filtersReset')?.addEventListener('click', async () => {
-            activeTags.clear(); activeStatus.clear(); activeDemo.clear();
+            activeTags.clear(); excludedTags.clear(); activeStatus.clear(); activeDemo.clear();
             lastQuery = ''; currentPage = 1; activeSort = 'popularity';
             const sortSel = document.getElementById('sortSelect'); if (sortSel) sortSel.value = 'popularity';
             renderFilterSidebar();
@@ -615,6 +797,7 @@
         // Tri
         const sortSel = document.getElementById('sortSelect');
         if (sortSel) {
+            syncSortOptions();
             sortSel.value = activeSort;
             if (sortSel.value !== activeSort) sortSel.value = 'popularity'; // valeur inconnue
             sortSel.addEventListener('change', async () => {

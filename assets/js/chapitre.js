@@ -100,6 +100,12 @@
                     }
                 } catch (e) { window.MH?.err?.('chapitre.js', e); }
             }
+            // Audit AMEL-114 : une position explicite dans l'URL prime sur la
+            // progression enregistrée. C'est ce qui permet à une ligne
+            // d'historique de rouvrir EXACTEMENT là où on s'était arrêté, y
+            // compris sur un chapitre qui n'est plus le chapitre courant.
+            const pageDemandee = parseInt(new URLSearchParams(location.search).get('page') || '', 10);
+            if (pageDemandee > 1) currentPage = Math.min(pageDemandee, totalPages);
 
             doubleBase = currentPage;   // ancre de la planche double (reprise correcte)
             renderToolbar();
@@ -244,15 +250,28 @@
     }
 
     // ── Rendering pages ──
+    // Audit PERF-08 — reste de constat, à corriger ici : la bibliothèque et
+    // les couvertures passaient bien par /api/img, mais LE LECTEUR chargeait
+    // ses pages en direct depuis le site scrapé. C'est pourtant là que le
+    // volume est : une session de lecture, c'est des centaines d'images.
+    //
+    // Trois conséquences, dans l'ordre d'importance :
+    //   · l'adresse IP de l'utilisateur est envoyée au site source à chaque
+    //     page tournée, alors que l'application annonce ne rien exposer ;
+    //   · les hôtes qui refusent le hotlink rendent des images cassées ;
+    //   · le canvas est « teinté », ce qui interdit toute analyse locale de
+    //     l'image (c'est ce qui a fait échouer AMEL-17, et c'est ce qui l'a
+    //     révélé).
     function pageSrc(p) {
         const quality = window.Storage?.getPref('quality') || 'high';
-        return quality === 'saver' ? (p.urlSaver || p.url) : p.url;
+        const brute = quality === 'saver' ? (p.urlSaver || p.url) : p.url;
+        return MH.proxify ? MH.proxify(brute) : brute;
     }
 
     // Markup d'une image de page : fade-in au chargement + retry en cas d'échec
     function pageImg(idx, extra = '', lazy = false) {
         const p = pages[idx];
-        return `<img class="reader-page-img" data-idx="${idx}" src="${pageSrc(p)}" alt="Page ${idx + 1}"
+        return `<img class="reader-page-img" data-idx="${idx}" src="${MH.esc(pageSrc(p))}" alt="Page ${idx + 1}"
                  onload="this.classList.add('loaded')" onerror="window.imgFail&&window.imgFail(this)"
                  decoding="async" loading="${lazy ? 'lazy' : 'eager'}" ${extra}>`;
     }
@@ -322,17 +341,125 @@
     function armImages(root) {
         (root || document).querySelectorAll('.reader-page-img').forEach(im => {
             if (im.complete && im.naturalWidth) im.classList.add('loaded');
+            armerRecadrage(im);
         });
+    }
+
+    // ── Recadrage des marges (audit AMEL-17) ─────────────────
+    // Beaucoup de scans arrivent avec une bordure blanche ou noire qui peut
+    // manger 10 à 15 % de la hauteur utile — sensible sur un écran étroit, où
+    // c'est justement la surface qui manque.
+    //
+    // Trois décisions qui font tenir la fonctionnalité :
+    //
+    //  · OPTION, décochée par défaut. Un recadrage automatique qui se trompe
+    //    ampute une planche ; ce n'est pas un défaut acceptable par défaut.
+    //  · Analyse sur une vignette de 64 px de large, pas sur l'image pleine.
+    //    Décoder 326 pages en pleine résolution coûterait plus que le gain.
+    //    Une marge est une zone uniforme : 64 px suffisent à la trouver.
+    //  · Garde-fou : si la zone de contenu détectée couvre moins de la moitié
+    //    de l'image, on ne recadre PAS. Une page très claire (planche de neige,
+    //    fond blanc volontaire) serait sinon massacrée. Mieux vaut ne rien
+    //    faire que mutiler.
+    //
+    // Les images passent par /api/img, donc même origine : le canvas n'est pas
+    // « teinté » et reste lisible.
+    const CROP_KEY = 'reader_autocrop';
+    const cropCache = new Map();   // src → {top,right,bottom,left} en %
+
+    function autoCropActif() { return window.Storage?.getPref(CROP_KEY) === '1'; }
+
+    function armerRecadrage(im) {
+        if (!autoCropActif()) { im.style.clipPath = ''; im.style.margin = ''; return; }
+        const appliquer = () => {
+            const connu = cropCache.get(im.src);
+            if (connu) return appliquerRecadrage(im, connu);
+            const m = mesurerMarges(im);
+            if (m) { cropCache.set(im.src, m); appliquerRecadrage(im, m); }
+        };
+        if (im.complete && im.naturalWidth) appliquer();
+        else im.addEventListener('load', appliquer, { once: true });
+    }
+
+    function appliquerRecadrage(im, m) {
+        im.style.clipPath = `inset(${m.top}% ${m.right}% ${m.bottom}% ${m.left}%)`;
+        // clip-path masque sans réduire la place occupée : on rattrape avec des
+        // marges négatives, sinon la page garderait le vide qu'on vient de
+        // cacher et le recadrage ne servirait à rien.
+        im.style.marginTop    = `-${m.top}%`;
+        im.style.marginBottom = `-${m.bottom}%`;
+    }
+
+    function mesurerMarges(im) {
+        try {
+            const L = 64;
+            const H = Math.max(1, Math.round(L * (im.naturalHeight / im.naturalWidth)));
+            const c = document.createElement('canvas');
+            c.width = L; c.height = H;
+            const ctx = c.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(im, 0, 0, L, H);
+            const d = ctx.getImageData(0, 0, L, H).data;
+
+            // Une ligne/colonne est « marge » si TOUS ses pixels sont proches
+            // du blanc ou du noir. On compare à la teinte du coin supérieur
+            // gauche, qui donne la couleur de fond réelle de ce scan.
+            const fond = [d[0], d[1], d[2]];
+            const proche = (i) => Math.abs(d[i] - fond[0]) < 18
+                && Math.abs(d[i + 1] - fond[1]) < 18 && Math.abs(d[i + 2] - fond[2]) < 18;
+            const ligneVide = (y) => { for (let x = 0; x < L; x++) if (!proche((y * L + x) * 4)) return false; return true; };
+            const colVide   = (x) => { for (let y = 0; y < H; y++) if (!proche((y * L + x) * 4)) return false; return true; };
+
+            let haut = 0;   while (haut < H && ligneVide(haut)) haut++;
+            let bas  = 0;   while (bas < H - haut && ligneVide(H - 1 - bas)) bas++;
+            let gauche = 0; while (gauche < L && colVide(gauche)) gauche++;
+            let droite = 0; while (droite < L - gauche && colVide(L - 1 - droite)) droite++;
+
+            const hUtile = H - haut - bas, lUtile = L - gauche - droite;
+            if (hUtile < H * 0.5 || lUtile < L * 0.5) return null;   // garde-fou
+            const m = {
+                top: +(haut / H * 100).toFixed(2), bottom: +(bas / H * 100).toFixed(2),
+                left: +(gauche / L * 100).toFixed(2), right: +(droite / L * 100).toFixed(2),
+            };
+            // Moins de 1,5 % de marge : le gain ne vaut pas le décalage.
+            if (m.top + m.bottom + m.left + m.right < 1.5) return null;
+            return m;
+        } catch (e) {
+            // Canvas teinté (image d'une autre origine) ou décodage impossible :
+            // on renonce silencieusement, l'image reste telle quelle.
+            return null;
+        }
     }
 
     // Échec de chargement : bascule éco → sinon bouton Réessayer
     window.imgFail = function (img) {
         const p = pages[+img.dataset.idx];
         if (!p) return;
-        if (!img.dataset.triedSaver && p.urlSaver && img.src !== p.urlSaver) {
-            img.dataset.triedSaver = '1';
-            img.src = p.urlSaver;
+        // Audit PERF-08 : les pages passent désormais par /api/img. Si le
+        // proxy refuse l'hôte (403 : CDN non déclaré par l'extension, voir
+        // `imageHosts`), on retombe sur l'URL DIRECTE plutôt que de laisser un
+        // trou dans le chapitre. C'est un compromis assumé et non un oubli :
+        // l'utilisateur voit sa page, mais son adresse IP part chez la source.
+        // La correction propre est de déclarer l'hôte côté extension — le
+        // message de console dit lequel.
+        if (!img.dataset.triedDirect && /\/api\/img\?/.test(img.src)) {
+            img.dataset.triedDirect = '1';
+            const brute = window.Storage?.getPref('quality') === 'saver' ? (p.urlSaver || p.url) : p.url;
+            try {
+                console.warn('[inko] proxy d’images refusé pour', new URL(brute).hostname,
+                    '— chargement direct. Ajoute cet hôte à `imageHosts` de l’extension.');
+            } catch (e) { /* URL illisible */ }
+            img.src = brute;
             return;
+        }
+        if (!img.dataset.triedSaver && p.urlSaver) {
+            // Le repli « qualité éco » posait l'URL brute, rouvrant en direct
+            // la connexion que pageSrc venait de faire passer par le proxy.
+            const replique = MH.proxify ? MH.proxify(p.urlSaver) : p.urlSaver;
+            if (img.src !== replique) {
+                img.dataset.triedSaver = '1';
+                img.src = replique;
+                return;
+            }
         }
         if (img.nextElementSibling?.classList.contains('reader-img-fail')) return;
         const div = document.createElement('div');
@@ -465,7 +592,9 @@
 
     function updateUIPage(p) {
         currentPage = p;   // MAJ immédiate → l'affichage (numéro, barre) est toujours juste
-        preloadPage(p + 1); preloadPage(p + 2); preloadPage(p + 3);   // précharge les pages suivantes
+        // Audit AMEL-14 : fenêtre ajustée à la vitesse réellement mesurée.
+        const fenetre = fenetrePrechargement();
+        for (let i = 1; i <= fenetre; i++) preloadPage(p + i);
         document.querySelectorAll('.reader-thumb').forEach((t, i) => t.classList.toggle('active', i + 1 === p));
         centerActiveThumb();   // recentre la miniature SANS jamais bouger la fenêtre
         const pct = document.querySelector('.modebar-pct');
@@ -477,11 +606,59 @@
         }
         const fill = document.getElementById('readerProgressFill');
         if (fill) fill.style.width = `${(p / totalPages) * 100}%`;
+        armerBarreProgression();
         renderNavigation();
 
         // Sauvegarde progression (debounce)
         if (p === totalPages && API.isLoggedIn()) markChapterRead();
         debouncedSave();
+
+        // Audit AMEL-15 : c'est ICI que la fin du chapitre est constatée.
+        // Quitter la dernière page (retour en arrière) annule l'enchaînement —
+        // sinon on serait emmené au chapitre suivant après avoir explicitement
+        // fait demi-tour.
+        if (p >= totalPages && autoNextActif()) armerEnchainement(chapitreSuivant());
+        else if (p < totalPages) annulerEnchainement();
+    }
+
+    // ── Barre de progression cliquable (audit AMEL-19) ───────
+    // Sur un chapitre de 326 pages, la navigation n'existait qu'en séquentiel
+    // ou par saisie du numéro. La barre affichait déjà la position : elle
+    // devient le moyen de la CHANGER, ce que tout lecteur suppose d'une barre
+    // de progression.
+    //
+    // Câblée une seule fois (marqueur data-arme) : updateUIPage est appelée à
+    // chaque page, on ne veut pas empiler 326 écouteurs.
+    function armerBarreProgression() {
+        const bar = document.querySelector('.reader-progressbar');
+        if (!bar || bar.dataset.arme === '1') return;
+        bar.dataset.arme = '1';
+        bar.setAttribute('role', 'slider');
+        bar.setAttribute('aria-label', 'Progression dans le chapitre');
+        bar.tabIndex = 0;
+
+        const pageSousCurseur = (e) => {
+            const r = bar.getBoundingClientRect();
+            const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+            return Math.min(totalPages, Math.max(1, Math.round(ratio * totalPages) || 1));
+        };
+        bar.addEventListener('click', (e) => {
+            const n = pageSousCurseur(e);
+            if (typeof window.goToPage === 'function') window.goToPage(n);
+        });
+        // Aperçu au survol : sauter à l'aveugle dans 326 pages n'aiderait pas.
+        bar.addEventListener('mousemove', (e) => {
+            bar.title = `Aller à la page ${pageSousCurseur(e)} sur ${totalPages}`;
+        });
+        // Au clavier, la barre se comporte comme le curseur qu'elle annonce.
+        bar.addEventListener('keydown', (e) => {
+            const pas = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1
+                : e.key === 'PageDown' ? 10 : e.key === 'PageUp' ? -10 : 0;
+            if (!pas) return;
+            e.preventDefault();
+            const n = Math.min(totalPages, Math.max(1, currentPage + pas));
+            if (typeof window.goToPage === 'function') window.goToPage(n);
+        });
     }
 
     // Recentre la miniature active dans SA bande horizontale uniquement
@@ -522,7 +699,7 @@
     });
 
     async function saveProgress() {
-        if (window.MH?.isIncognito?.()) return;   // lecture privée : pas de progression
+        if (window.MH?.isIncognito?.(manga?.id)) return;   // lecture privée (globale ou série)
         if (!API.isLoggedIn() || !manga || !currentChap) return;
         try {
             await API.me.setProgress(manga.id, {
@@ -535,7 +712,7 @@
     }
 
     async function markChapterRead() {
-        if (window.MH?.isIncognito?.()) return;   // lecture privée : pas de marquage
+        if (window.MH?.isIncognito?.(manga?.id)) return;   // lecture privée (globale ou série)
         if (!API.isLoggedIn() || !manga || !currentChap) return;
         // Audit N53 : au double-appui « chapitre suivant » (le geste que l'écran
         // de transition suggère), la navigation interrompait cette requête et le
@@ -563,7 +740,7 @@
         if (!el) return;
         el.innerHTML = pages.map((p, i) => `
             <div class="reader-thumb ${i + 1 === currentPage ? 'active' : ''}" data-page="${i + 1}" onclick="window.goToPage(${i + 1})">
-                <img src="${p.urlSaver || p.url}" alt="p${i+1}" loading="lazy">
+                <img src="${MH.cover(p.urlSaver, p.url)}" alt="p${i+1}" loading="lazy">
                 <div class="reader-thumb-num">${i + 1}</div>
             </div>`).join('');
     }
@@ -604,14 +781,96 @@
         el.innerHTML = `
         <div class="reader-next-chapter">
             <div class="next-chapter-cover">
-                <img src="${manga.coverThumb || manga.cover || ''}" alt="" loading="lazy">
+                <img src="${MH.cover(manga.coverThumb, manga.cover)}" alt="" loading="lazy">
             </div>
             <div class="next-chapter-info">
                 <div class="next-chapter-label">À suivre</div>
                 <div class="next-chapter-title">Chapitre ${next.chapter}${next.title ? ' — ' + MH.esc(next.title) : ''}</div>
             </div>
-            <a href="chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(next.id)}" class="btn btn-primary">Lire →</a>
-        </div>`;
+            <a href="chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(next.id)}" class="btn btn-primary" id="btnNextChapterCTA">Lire →</a>
+        </div>
+        <label class="next-chapter-auto">
+            <input type="checkbox" id="autoNextChap" ${autoNextActif() ? 'checked' : ''}>
+            <span>Enchaîner automatiquement</span>
+        </label>`;
+        document.getElementById('autoNextChap')?.addEventListener('change', (e) => {
+            window.Storage?.setPref('reader_autonext', e.target.checked ? '1' : '0');
+            if (e.target.checked) armerEnchainement(next);
+            else annulerEnchainement();
+        });
+        if (autoNextActif()) armerEnchainement(next);
+    }
+
+    // ── Enchaînement automatique (audit AMEL-15) ─────────────
+    // Arriver au bout d'un chapitre et vouloir le suivant est le geste le plus
+    // fréquent d'une session de lecture ; il fallait pourtant repasser par le
+    // sélecteur ou viser un bouton.
+    //
+    // Deux garde-fous délibérés, parce qu'une navigation qu'on n'a pas demandée
+    // est pire que pas de raccourci du tout :
+    //   · c'est une OPTION, décochée par défaut, et son état est mémorisé ;
+    //   · même activée, elle laisse un délai visible et annulable — arriver à
+    //     la dernière page ne veut pas toujours dire « continue », on peut
+    //     vouloir relire la double page ou simplement s'arrêter là.
+    let minuterieEnchainement = null;
+    const AUTONEXT_MS = 4000;
+
+    function autoNextActif() {
+        return window.Storage?.getPref('reader_autonext') === '1';
+    }
+
+    // Le chapitre suivant, calculé à la demande. renderNextChapter le connaît
+    // déjà mais dans sa portée locale, et updateUIPage en a besoin AUSSI :
+    // c'est en arrivant à la dernière page que l'enchaînement doit s'armer, pas
+    // au chargement (où l'on n'y est jamais). Sans ça, l'option était cochable
+    // mais ne se déclenchait pour personne.
+    function chapitreSuivant() {
+        if (!chapters || !currentChap) return null;
+        const asc = [...chapters].sort((a, b) => a.chapter - b.chapter);
+        const idx = asc.findIndex(c => c.id === currentChap.id);
+        return idx >= 0 && idx < asc.length - 1 ? asc[idx + 1] : null;
+    }
+    function annulerEnchainement() {
+        clearTimeout(minuterieEnchainement);
+        minuterieEnchainement = null;
+        document.getElementById('autoNextCountdown')?.remove();
+    }
+    function armerEnchainement(next) {
+        annulerEnchainement();
+        if (!next || currentPage < totalPages) return;   // seulement à la fin
+
+        const hote = document.querySelector('.reader-next-chapter');
+        if (!hote) return;
+        const info = document.createElement('div');
+        info.id = 'autoNextCountdown';
+        info.className = 'next-chapter-countdown';
+        let reste = Math.round(AUTONEXT_MS / 1000);
+        const peindre = () => {
+            info.innerHTML = `Chapitre suivant dans ${reste} s · `
+                + '<button type="button" class="next-chapter-cancel">Annuler</button>';
+            info.querySelector('.next-chapter-cancel').onclick = () => {
+                annulerEnchainement();
+                MH.toast?.('Enchaînement annulé');
+            };
+        };
+        peindre();
+        hote.appendChild(info);
+
+        const tic = setInterval(() => {
+            reste -= 1;
+            if (reste <= 0) { clearInterval(tic); return; }
+            if (document.getElementById('autoNextCountdown')) peindre(); else clearInterval(tic);
+        }, 1000);
+
+        minuterieEnchainement = setTimeout(() => {
+            clearInterval(tic);
+            if (!document.getElementById('autoNextCountdown')) return;   // annulé entre-temps
+            // `chapURL` est local à renderToolbar : on reprend la même forme
+            // d'URL que le lien « Lire → » juste au-dessus, source comprise.
+            const lien = document.getElementById('btnNextChapterCTA');
+            window.location.href = lien ? lien.getAttribute('href')
+                : `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(next.id)}`;
+        }, AUTONEXT_MS);
     }
 
     function renderDetails() {
@@ -696,6 +955,11 @@
             // les modes. On empêche le zoom natif du navigateur/page.
             if (e.ctrlKey) {
                 e.preventDefault();
+                // Audit AMEL-18 : le zoom se faisait depuis le haut de la page,
+                // si bien qu'agrandir ÉLOIGNAIT du détail visé — il fallait
+                // ensuite faire défiler pour le retrouver. On ancre au curseur :
+                // le point sous la souris reste sous la souris.
+                ancrerZoomSur({ x: e.clientX, y: e.clientY });
                 window.changeZoom(e.deltaY < 0 ? 10 : -10);
                 return;
             }
@@ -721,6 +985,14 @@
         const area = document.getElementById('readerPagesArea');
         if (!area || area.dataset.touchBound) return;
         area.dataset.touchBound = '1';
+
+        // Audit AMEL-18 : PAS de double-clic pour zoomer au bureau. Tenté puis
+        // écarté après essai : la zone de lecture est déjà découpée en bandes
+        // de navigation (page-zone-prev / page-zone-next), donc le premier clic
+        // tourne la page avant que le second n'arrive. On aurait tourné deux
+        // pages puis zoomé — pire que pas de raccourci.
+        // Le geste desktop équivalent est Ctrl + molette, qui n'a aucun
+        // conflit ; il est désormais ancré au curseur (voir bindWheel).
         let sx = 0, sy = 0, st = 0, moved = false, lastTap = 0;
         area.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) return;
@@ -738,7 +1010,7 @@
             // Double-tap → bascule le zoom (immobile + tap rapide)
             if (!moved && dt < 250) {
                 const now = Date.now();
-                if (now - lastTap < 300) { lastTap = 0; toggleTapZoom(); }
+                if (now - lastTap < 300) { lastTap = 0; toggleTapZoom({ x: t.clientX, y: t.clientY }); }
                 else lastTap = now;
                 return;
             }
@@ -751,11 +1023,36 @@
             }
         }, { passive: true });
     }
-    function toggleTapZoom() {
+    // ── Zoom ancré (audit AMEL-18) ───────────────────────────
+    // Le zoom partait de `transform-origin: top center` : agrandir éloignait
+    // du détail visé, et il fallait ensuite faire défiler pour le retrouver.
+    // Sur une planche, on zoome pour lire une case précise — le point qu'on
+    // désigne doit rester sous le doigt (ou le curseur).
+    //
+    // `point` est en coordonnées écran ; on le convertit en position dans le
+    // conteneur, ce que `transform-origin` attend.
+    // Fixe le point d'ancrage du zoom à partir d'une coordonnée écran.
+    // `transform-origin` attend une position DANS l'élément : on convertit.
+    function ancrerZoomSur(point) {
+        document.querySelectorAll('.reader-page-wrapper').forEach(w => {
+            if (!point) { w.style.transformOrigin = 'top center'; return; }
+            const r = w.getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            const x = Math.min(100, Math.max(0, ((point.x - r.left) / r.width) * 100));
+            const y = Math.min(100, Math.max(0, ((point.y - r.top) / r.height) * 100));
+            w.style.transformOrigin = `${x.toFixed(2)}% ${y.toFixed(2)}%`;
+        });
+    }
+
+    function toggleTapZoom(point) {
         if (readMode === 'scroll') return;
-        zoom = zoom > 110 ? 100 : 170;
+        const agrandi = zoom > 110;
+        zoom = agrandi ? 100 : 170;
         const label = document.getElementById('zoomLabel'); if (label) label.textContent = zoom + '%';
-        document.querySelectorAll('.reader-page-wrapper').forEach(w => { w.style.transform = `scale(${zoom / 100})`; });
+        // Retour à 100 % : origine neutre, sinon la page resterait décalée.
+        ancrerZoomSur(agrandi ? null : point);
+        document.querySelectorAll('.reader-page-wrapper')
+            .forEach(w => { w.style.transform = `scale(${zoom / 100})`; });
         window.Storage?.setPref('zoom', zoom);
     }
 
@@ -1059,6 +1356,11 @@
             ${seg('fit', [{v:'original',l:'Original'},{v:'width',l:'Largeur'},{v:'height',l:'Hauteur'}], rs.fit)}
             <label class="rs-label">Sens de lecture</label>
             ${seg('direction', [{v:'rtl',l:'← RTL'},{v:'ltr',l:'LTR →'}], rs.direction)}
+            <label class="rs-label">Marges des scans (audit AMEL-17)</label>
+            <label class="rs-check">
+                <input type="checkbox" id="rsAutoCrop" ${autoCropActif() ? 'checked' : ''}>
+                <span>Rogner automatiquement les bordures</span>
+            </label>
             <label class="rs-label">Luminosité <span id="rsBrightVal">${rs.brightness}%</span></label>
             <input type="range" id="rsBright" min="40" max="100" value="${rs.brightness}" class="rs-range">
             <label class="rs-label">Confort des yeux (lumière chaude) <span id="rsWarmVal">${rs.warm || 0}%</span></label>
@@ -1090,6 +1392,17 @@
                 saveReaderSetting(key, val, ['gap', 'fit', 'direction'].includes(key));
             }));
         });
+        // Audit AMEL-17 : bascule du recadrage. Le cache de mesures est vidé
+        // à chaque changement, sinon désactiver puis réactiver resservirait des
+        // marges calculées pour d'autres pages.
+        panel.querySelector('#rsAutoCrop')?.addEventListener('change', e => {
+            window.Storage?.setPref(CROP_KEY, e.target.checked ? '1' : '0');
+            cropCache.clear();
+            document.querySelectorAll('.reader-page-img').forEach(im => {
+                im.style.clipPath = ''; im.style.marginTop = ''; im.style.marginBottom = '';
+            });
+            rerender();
+        });
         panel.querySelector('#rsBright').addEventListener('input', e => {
             document.getElementById('rsBrightVal').textContent = e.target.value + '%';
             saveReaderSetting('brightness', +e.target.value, false);
@@ -1117,6 +1430,15 @@
 
     // ── Marquer comme lu (en masse) ──
     async function bulkMark(items, msg) {
+        // Audit BUG-22 : saveProgress() et markChapterRead() respectaient le mode
+        // incognito, pas celui-ci. Le bouton « Marquer ce chapitre (et les
+        // précédents) » écrivait donc jusqu'à 18 lignes en base alors que l'app
+        // affiche « lecture non enregistrée » — et le geste est irréversible
+        // sans dépiler les chapitres un à un.
+        if (window.MH?.isIncognito?.(manga?.id)) {
+            MH.toast?.('Mode incognito : rien n\'a été enregistré');
+            return;
+        }
         if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour suivre ta lecture'); return; }
         if (!items.length) return;
         try { await API.me.markChaptersBulk(manga.id, items); MH.toast?.(msg); }
@@ -1232,16 +1554,57 @@
     }
 
     // ── Préchargement ──
+    // ── Préchargement adaptatif (audit AMEL-14) ──────────────
+    // La fenêtre était fixe à 3 pages, quelle que soit la liaison. Sur une
+    // connexion lente, 3 pages en vol se disputent la bande passante avec
+    // celle qu'on regarde ; sur une bonne liaison, 3 pages c'est trop peu et
+    // on attend à chaque tour.
+    //
+    // Deux signaux, dans cet ordre : la durée RÉELLEMENT mesurée des dernières
+    // pages (elle intègre tout — réseau, proxy, lenteur de la source), et à
+    // défaut `navigator.connection` au premier chargement, quand on n'a encore
+    // rien mesuré.
+    let dureesPages = [];   // ms des dernières images chargées
+
+    function noterDureePage(ms) {
+        if (!(ms > 0)) return;
+        dureesPages.push(ms);
+        if (dureesPages.length > 8) dureesPages.shift();
+    }
+
+    function fenetrePrechargement() {
+        if (dureesPages.length >= 3) {
+            const triees = [...dureesPages].sort((a, b) => a - b);
+            const mediane = triees[Math.floor(triees.length / 2)];
+            if (mediane > 2500) return 1;    // liaison poussive : ne pas encombrer
+            if (mediane > 900)  return 3;
+            return 6;                        // rapide : on prend de l'avance
+        }
+        // Aucune mesure encore : on se fie à ce que déclare le navigateur.
+        const c = navigator.connection;
+        if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''))) return 1;
+        if (c && c.effectiveType === '3g') return 2;
+        return 3;
+    }
+
     function preloadPage(num) {
         const p = pages[num - 1];
-        if (p) { const im = new Image(); im.src = pageSrc(p); }
+        if (!p) return;
+        const t0 = performance.now();
+        const im = new Image();
+        im.onload = () => noterDureePage(performance.now() - t0);
+        im.src = pageSrc(p);
     }
     function preloadNextChapter() {
         const next = neighborChapter(1);
         if (!next) return;
         API.mangas.pages(next.id).then(d => {
             const first = d.pages?.[0];
-            if (first) { const im = new Image(); im.src = first.url; }
+            // Audit PERF-08 : cette ligne posait l'URL BRUTE. Un seul appel,
+            // mais suffisant pour contacter le site source en direct — donc
+            // pour rendre l'ensemble de l'effort inutile, puisqu'il suffit
+            // d'une requête pour révéler l'adresse IP.
+            if (first) { const im = new Image(); im.src = MH.proxify ? MH.proxify(first.url) : first.url; }
         }).catch(() => {});
     }
 })();

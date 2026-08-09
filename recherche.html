@@ -5,6 +5,17 @@
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inko — Recherche</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Cherche une œuvre sur toutes tes sources à la fois, mangas comme romans.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Recherche">
+    <meta property="og:description" content="Cherche une œuvre sur toutes tes sources à la fois, mangas comme romans.">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Recherche">
+    <meta name="twitter:description" content="Cherche une œuvre sur toutes tes sources à la fois, mangas comme romans.">
+    <!-- meta:auto -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#0d0d0f">
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
@@ -13,6 +24,7 @@
 </head>
 <body class="page-body">
   <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
   <div class="se-wrap">
     <div class="se-bar">
       <input type="text" class="se-input" id="seInput" placeholder="Rechercher un manga sur toutes les sources…" autocomplete="off">
@@ -20,8 +32,12 @@
     </div>
     <div class="se-sub" id="seSub">Tape un titre : Inko cherche sur toutes tes sources installées en même temps.</div>
     <div class="se-hist" id="seHist" style="display:none"></div>
+    <!-- Audit AMEL-12 : la bibliothèque est déjà en cache client. Elle
+         s'affiche avant tout appel réseau, et fonctionne hors-ligne. -->
+    <div class="se-local" id="seLocal" hidden></div>
     <div id="seResults"></div>
   </div>
+  </main>
   <div id="footer-slot"></div>
   <script src="assets/js/api.js"></script>
   <script src="assets/js/storage.js"></script>

@@ -14,12 +14,17 @@
     let selectMode = false;    // mode sélection multiple (audit §10.3)
     const selected = new Set(); // mangaIds sélectionnés
 
+    // Audit A11Y-02 : ces pastilles portent du texte BLANC en 9px sur un aplat
+    // plein — le contraste dépend donc entièrement du fond. Les teintes vives
+    // d'origine donnaient 2.28:1 (vert), 2.15:1 (ambre) et 3.68:1 (bleu), pour
+    // un seuil AA de 4.5:1. Teintes assombries jusqu'à franchir le seuil, en
+    // gardant la même sémantique de couleur.
     const STATUS = {
-        reading:   ['En cours',  '#22c55e'],
-        completed: ['Terminé',   '#3b82f6'],
-        planned:   ['À lire',    '#a855f7'],
-        paused:    ['En pause',  '#f59e0b'],
-        dropped:   ['Abandonné', '#ef4444'],
+        reading:   ['En cours',  '#15703a'],
+        completed: ['Terminé',   '#1d4ed8'],
+        planned:   ['À lire',    '#7e22ce'],
+        paused:    ['En pause',  '#8a5108'],
+        dropped:   ['Abandonné', '#b3261e'],
     };
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -41,6 +46,7 @@
         wireLibExtras();
         wireViewToggle();
         wireSelect();
+        wireGridDelegation();
         maybeAutoCheck();
     });
 
@@ -202,10 +208,20 @@
             const f = iFile.files?.[0];
             if (!f) return;
             try {
-                const data = JSON.parse(await f.text());
-                if (!await MH.confirm('Restaurer cette sauvegarde ? Tes favoris, progression et listes seront fusionnés avec les données importées.', { okText: 'Restaurer' })) { iFile.value = ''; return; }
-                await API.me.importData(data);
-                MH.toast?.('Sauvegarde restaurée');
+                const texte = await f.text();
+                // Audit AMEL-34 : l'export CSV existait, l'import correspondant
+                // non — on pouvait sortir sa bibliothèque mais pas la remettre.
+                // Le même bouton accepte désormais les deux formats, reconnus
+                // au CONTENU et non à l'extension : un fichier renommé reste
+                // lisible, et un JSON déguisé en .csv ne casse pas.
+                if (/^\s*[[{]/.test(texte)) {
+                    const data = JSON.parse(texte);
+                    if (!await MH.confirm('Restaurer cette sauvegarde ? Tes favoris, progression et listes seront fusionnés avec les données importées.', { okText: 'Restaurer' })) { iFile.value = ''; return; }
+                    await API.me.importData(data);
+                    MH.toast?.('Sauvegarde restaurée');
+                } else {
+                    await importerCsv(texte);
+                }
                 setTimeout(() => window.location.reload(), 700);
             } catch (e) {
                 MH.toast?.('Fichier invalide : ' + e.message);
@@ -234,9 +250,16 @@
         document.getElementById('btnLibExportCsv')?.addEventListener('click', () => {
             if (!favs.length) { MH.toast?.('Ta bibliothèque est vide'); return; }
             const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+            // Audit AMEL-34 : deux colonnes étaient MORTES. `f.rating` n'existe
+            // plus (la note vit dans la table `ratings` depuis la migration 5)
+            // et `f.last_chapter` n'a jamais été le bon nom — l'API renvoie
+            // `lastChapter`. Les deux sortaient donc vides pour tout le monde.
+            // On exporte ce qui existe réellement, catégorie comprise : c'est
+            // ce que l'import saura relire.
             const rows = [
-                ['titre', 'source', 'statut', 'note', 'dernier_chapitre', 'id'],
-                ...favs.map(f => [f.title || f.mangaId, f.source || '', f.status || '', f.rating ?? '', f.last_chapter ?? '', f.mangaId]),
+                ['titre', 'source', 'statut', 'categorie', 'dernier_chapitre', 'id'],
+                ...favs.map(f => [f.title || f.mangaId, f.source || '', f.status || '',
+                    f.category || '', f.lastChapter ?? '', f.mangaId]),
             ];
             const csv = '﻿' + rows.map(r => r.map(esc).join(';')).join('\r\n');
             const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -247,6 +270,88 @@
             URL.revokeObjectURL(url);
             MH.toast?.('CSV téléchargé');
         });
+    }
+
+    // ── Import CSV (audit AMEL-34) ───────────────────────────
+    // Symétrique de l'export : mêmes colonnes, même séparateur. Il sert aussi à
+    // faire entrer une liste venue d'ailleurs (tableur, autre lecteur), d'où
+    // la tolérance sur l'ordre des colonnes et sur le séparateur.
+    function analyserCsv(texte) {
+        // BOM retiré : Excel l'ajoute à l'export, et il collerait au nom de la
+        // première colonne (« ﻿titre »), qui ne serait alors jamais reconnue.
+        const t = texte.replace(/^﻿/, '');
+        const sep = (t.split('\n')[0].match(/;/g) || []).length
+                 >= (t.split('\n')[0].match(/,/g) || []).length ? ';' : ',';
+        const lignes = [];
+        let champ = '', ligne = [], dansGuillemets = false;
+        for (let i = 0; i < t.length; i++) {
+            const c = t[i];
+            if (dansGuillemets) {
+                if (c === '"') {
+                    if (t[i + 1] === '"') { champ += '"'; i++; }   // guillemet échappé
+                    else dansGuillemets = false;
+                } else champ += c;
+            } else if (c === '"') dansGuillemets = true;
+            else if (c === sep) { ligne.push(champ); champ = ''; }
+            else if (c === '\n') { ligne.push(champ); lignes.push(ligne); ligne = []; champ = ''; }
+            else if (c !== '\r') champ += c;
+        }
+        if (champ || ligne.length) { ligne.push(champ); lignes.push(ligne); }
+        return lignes.filter(l => l.some(v => String(v).trim()));
+    }
+
+    async function importerCsv(texte) {
+        const lignes = analyserCsv(texte);
+        if (lignes.length < 2) throw new Error('CSV vide ou sans données');
+        const entete = lignes[0].map(h => h.trim().toLowerCase());
+        const col = (...noms) => {
+            for (const n of noms) { const i = entete.indexOf(n); if (i >= 0) return i; }
+            return -1;
+        };
+        const iId = col('id', 'manga_id', 'mangaid');
+        const iTitre = col('titre', 'title', 'nom');
+        if (iId < 0 && iTitre < 0) {
+            throw new Error('colonnes attendues : au moins « id » ou « titre »');
+        }
+        const iSrc = col('source'), iStatut = col('statut', 'status'), iCat = col('categorie', 'category');
+
+        const entrees = lignes.slice(1).map(l => ({
+            mangaId: iId >= 0 ? (l[iId] || '').trim() : '',
+            title:   iTitre >= 0 ? (l[iTitre] || '').trim() : '',
+            source:  iSrc >= 0 ? (l[iSrc] || '').trim() : '',
+            status:  iStatut >= 0 ? (l[iStatut] || '').trim() : '',
+            category: iCat >= 0 ? (l[iCat] || '').trim() : '',
+        // Sans identifiant, on ne peut RIEN rattacher de façon fiable : deux
+        // œuvres peuvent porter le même titre sur deux sources. On ignore la
+        // ligne plutôt que de deviner et de créer un doublon.
+        })).filter(e => e.mangaId);
+
+        if (!entrees.length) throw new Error('aucune ligne exploitable (colonne « id » requise)');
+        const dejaLa = new Set(favs.map(f => String(f.mangaId)));
+        const nouvelles = entrees.filter(e => !dejaLa.has(String(e.mangaId)));
+
+        if (!await MH.confirm(
+            `${entrees.length} ligne(s) lue(s) : ${nouvelles.length} à ajouter, `
+            + `${entrees.length - nouvelles.length} déjà dans ta bibliothèque (statut et catégorie mis à jour).`,
+            { okText: 'Importer' })) return;
+
+        let ok = 0, ko = 0;
+        for (const e of entrees) {
+            try {
+                // `addFavorite(mangaId, meta)` — deux arguments, pas un objet.
+                // Lui passer un objet en premier a produit un favori dont
+                // l'identifiant valait littéralement « [object Object] »,
+                // découvert en testant l'aller-retour CSV.
+                await API.me.addFavorite(e.mangaId, {
+                    source: e.source || undefined,
+                    title:  e.title  || undefined,
+                });
+                if (e.status) await API.me.setLibrary(e.mangaId, e.status);
+                if (e.category) await API.me.setCategory(e.mangaId, e.category);
+                ok++;
+            } catch (err) { ko++; }
+        }
+        MH.toast?.(ko ? `${ok} importée(s), ${ko} en échec` : `${ok} série(s) importée(s)`);
     }
 
     function wireLibRandom() {
@@ -290,8 +395,14 @@
         const panels = { library: 'tabLibrary', updates: 'tabUpdates', bookmarks: 'tabBookmarks', downloads: 'tabDownloads' };
         document.querySelectorAll('.lib2-tab').forEach(tab => {
             tab.addEventListener('click', () => {
-                document.querySelectorAll('.lib2-tab').forEach(t => t.classList.remove('active'));
+                // Audit A11Y-03 : aria-selected suit la classe active (l'etat n'existait
+                // que visuellement - invisible pour les lecteurs d'ecran).
+                document.querySelectorAll('.lib2-tab').forEach(t => {
+                    t.classList.remove('active');
+                    t.setAttribute('aria-selected', 'false');
+                });
                 tab.classList.add('active');
+                tab.setAttribute('aria-selected', 'true');
                 const t = tab.dataset.tab;
                 Object.entries(panels).forEach(([k, id]) => {
                     const el = document.getElementById(id); if (el) el.style.display = (k === t) ? '' : 'none';
@@ -319,7 +430,7 @@
             return `
             <div class="upd-row">
                 <a class="upd-cover" href="${href}">
-                    <img src="${b.cover || MH.placeholderCover(b.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(b.mangaId)}'">
+                    <img src="${MH.cover(b.cover, MH.placeholderCover(b.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(b.mangaId)}'">
                 </a>
                 <div class="upd-info">
                     <a class="upd-name" href="${href}" style="color:inherit;text-decoration:none">${MH.esc(b.title || b.mangaId)}</a>
@@ -360,7 +471,7 @@
             return `
             <div class="upd-row">
                 <a class="upd-cover" href="${readHref}">
-                    <img src="${g.cover || MH.placeholderCover(g.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(g.mangaId)}'">
+                    <img src="${MH.cover(g.cover, MH.placeholderCover(g.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(g.mangaId)}'">
                 </a>
                 <div class="upd-info">
                     <a class="upd-name" href="${readHref}" style="color:inherit;text-decoration:none">${MH.esc(g.title || g.mangaId)}</a>
@@ -447,7 +558,7 @@
         favs.forEach(f => { if (f.category) cc[f.category] = (cc[f.category] || 0) + 1; });
 
         const chip = (type, val, label, count, on) =>
-            `<button class="lib2-chip ${on ? 'on' : ''}" data-ftype="${type}" data-fval="${MH.esc(val == null ? '' : val)}">${MH.esc(label)}${count != null ? `<span class="cnt">${count}</span>` : ''}</button>`;
+            `<button class="lib2-chip ${on ? 'on' : ''}" aria-pressed="${!!on}" data-ftype="${type}" data-fval="${MH.esc(val == null ? '' : val)}">${MH.esc(label)}${count != null ? `<span class="cnt">${count}</span>` : ''}</button>`;
 
         // Segment Mangas / Romans (n'apparaît que si la biblio contient des deux)
         const nManga = favs.filter(f => !MH.isNovelSource(f.source)).length;
@@ -455,7 +566,7 @@
         let kindHtml = '';
         if (nManga && nNovel) {
             const k = (val, label, count) =>
-                `<button class="lib2-kind ${kindFilter === val ? 'on' : ''}" data-kind="${val}">${label}<span class="cnt">${count}</span></button>`;
+                `<button class="lib2-kind ${kindFilter === val ? 'on' : ''}" aria-pressed="${kindFilter === val}" data-kind="${val}">${label}<span class="cnt">${count}</span></button>`;
             kindHtml = `<div class="lib2-kinds">${k('all', 'Tout', favs.length)}${k('manga', 'Mangas', nManga)}${k('novel', 'Romans', nNovel)}</div>`;
         }
 
@@ -470,11 +581,11 @@
         const sources = Object.keys(srcCount);
         if (sources.length > 1) {
             srcHtml = `<span style="width:100%;height:1px"></span>` +
-                `<button class="lib2-chip ${!sourceFilter ? 'on' : ''}" data-src="">Toutes sources</button>` +
-                sources.sort().map(s => `<button class="lib2-chip ${sourceFilter === s ? 'on' : ''}" data-src="${MH.esc(s)}">${MH.esc(s)}<span class="cnt">${srcCount[s]}</span></button>`).join('');
+                `<button class="lib2-chip ${!sourceFilter ? 'on' : ''}" aria-pressed="${!sourceFilter}" data-src="">Toutes sources</button>` +
+                sources.sort().map(s => `<button class="lib2-chip ${sourceFilter === s ? 'on' : ''}" aria-pressed="${sourceFilter === s}" data-src="${MH.esc(s)}">${MH.esc(s)}<span class="cnt">${srcCount[s]}</span></button>`).join('');
         }
         // Bascule « Non lus uniquement »
-        const unreadHtml = `<button class="lib2-chip ${unreadOnly ? 'on' : ''}" id="chipUnread" style="margin-left:auto" title="N'afficher que les séries avec des chapitres non lus">● Non lus</button>`;
+        const unreadHtml = `<button class="lib2-chip ${unreadOnly ? 'on' : ''}" aria-pressed="${!!unreadOnly}" id="chipUnread" style="margin-left:auto" title="N'afficher que les séries avec des chapitres non lus">● Non lus</button>`;
         el.innerHTML = kindHtml + html + srcHtml + unreadHtml;
 
         el.querySelectorAll('[data-src]').forEach(ch => ch.addEventListener('click', () => {
@@ -519,7 +630,7 @@
                 return `
                 <a class="lib2-card lib2-resume-card" href="${href}">
                     <div class="lib2-cover">
-                        <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy"
+                        <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy"
                              onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                         ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
                     </div>
@@ -559,6 +670,25 @@
         if (sort === 'progress') list.sort((a, b) => (progressByManga[b.mangaId]?.chapter || 0) - (progressByManga[a.mangaId]?.chapter || 0));
         if (sort === 'recent-read') list.sort((a, b) =>
             new Date(progressByManga[b.mangaId]?.updatedAt || 0) - new Date(progressByManga[a.mangaId]?.updatedAt || 0));
+        // Audit AMEL-32 : « a rattraper ». Le tri « unread » existait deja mais
+        // gardait les series a jour dans la liste ; ici on ECARTE celles sans
+        // retard — une vue « a rattraper » qui montre ce qui est deja lu ne
+        // sert a rien.
+        if (sort === 'backlog') {
+            list = list.filter(f => unreadCount(f) > 0)
+                .sort((a, b) => unreadCount(b) - unreadCount(a));
+        }
+        // Audit AMEL-35 : derniere parution connue de la source, pour voir
+        // quelles series bougent encore. Celles dont on ne sait rien passent
+        // derriere plutot que devant : une absence d'information n'est pas une
+        // activite recente.
+        if (sort === 'activity') {
+            const quand = (f) => {
+                const u = updatesByManga[f.mangaId];
+                return u?.latest?.publishedAt ? new Date(u.latest.publishedAt).getTime() : 0;
+            };
+            list.sort((a, b) => quand(b) - quand(a));
+        }
         // 'recent' = ordre par défaut (added_at desc)
 
         // Épingles toujours en tête (stable vis-à-vis du tri choisi)
@@ -570,7 +700,75 @@
             return;
         }
 
-        grid.innerHTML = list.map(f => {
+        renderList = list;
+        renderBmSet = bmSet;
+        renderedCount = 0;
+        // Le rendu repart de zéro : l'observateur pointe sur une sentinelle qui
+        // va disparaître, et des tranches du rendu précédent peuvent encore être
+        // en attente dans la file d'inactivité. Le jeton les neutralise, sans
+        // quoi un tri rapidement suivi d'un autre mélangerait les deux listes.
+        chunkObserver?.disconnect();
+        const token = ++renderToken;
+        grid.innerHTML = '';
+        appendChunk(token);
+    }
+
+    // ── Rendu progressif (audit PERF-05) ─────────────────────
+    // 373 séries produisaient 4 913 nœuds en un seul `innerHTML`, et chaque
+    // changement de tri reconstruisait le tout (27 ms bloquants mesurés).
+    //
+    // Une pagination classique aurait été une régression d'usage : on parcourt
+    // une bibliothèque en faisant défiler, pas en cliquant « page 4 ». Un
+    // défilement infini pur, lui, fait dépendre l'accès au contenu d'un
+    // déclencheur : si l'observateur ne se déclenche pas (conteneur défilant
+    // inattendu, onglet en arrière-plan, recherche Ctrl+F du navigateur), la
+    // bibliothèque paraît s'arrêter à 60 séries. Un défaut de performance
+    // deviendrait un défaut de contenu — bien pire.
+    //
+    // On peint donc une première tranche tout de suite, et les suivantes se
+    // posent d'elles-mêmes pendant les temps morts du navigateur. L'observateur
+    // ne fait qu'accélérer les choses quand l'utilisateur descend vite : rien
+    // ne dépend de lui. Tout finit rendu, mais réparti au lieu d'être bloquant.
+    //
+    // Aucun appel réseau supplémentaire : la liste est déjà entièrement en
+    // mémoire, seul le travail DOM est étalé.
+    const CHUNK = 60;
+    const idle = window.requestIdleCallback
+        ? (fn) => window.requestIdleCallback(fn, { timeout: 500 })
+        : (fn) => setTimeout(fn, 32);
+    let renderList = [];
+    let renderBmSet = new Set();
+    let renderedCount = 0;
+    let renderToken = 0;          // invalide les tranches d'un rendu abandonné
+    let chunkObserver = null;
+
+    function appendChunk(token) {
+        if (token !== renderToken) return;         // un nouveau tri a eu lieu
+        const grid = document.getElementById('libGrid');
+        if (!grid) return;
+        const slice = renderList.slice(renderedCount, renderedCount + CHUNK);
+        if (!slice.length) return;
+
+        document.getElementById('libGridSentinel')?.remove();
+        grid.insertAdjacentHTML('beforeend', slice.map(f => cardHTML(f, renderBmSet)).join(''));
+        renderedCount += slice.length;
+        if (renderedCount >= renderList.length) return;
+
+        // La sentinelle vit DANS la grille : la sortir la placerait hors du
+        // flux observé et l'observateur ne se déclencherait jamais.
+        grid.insertAdjacentHTML('beforeend',
+            '<div id="libGridSentinel" style="grid-column:1/-1;height:1px"></div>');
+        const sentinel = document.getElementById('libGridSentinel');
+        if (!chunkObserver) {
+            chunkObserver = new IntersectionObserver((entries) => {
+                if (entries.some(e => e.isIntersecting)) appendChunk(renderToken);
+            }, { rootMargin: '600px' });
+        }
+        chunkObserver.observe(sentinel);
+        idle(() => appendChunk(token));
+    }
+
+    function cardHTML(f, bmSet) {
             const prog = progressByManga[f.mangaId];
             const u = unreadCount(f);
             const isPin = window.UserData?.isPinned?.(f.mangaId, f.source);
@@ -591,7 +789,7 @@
             return `
             <a class="lib2-card ${selectMode ? 'selectable' : ''} ${isSel ? 'selected' : ''}" href="${href}" data-manga-id="${f.mangaId}" data-src="${MH.esc(f.source || '')}">
                 <div class="lib2-cover">
-                    <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="${MH.esc(f.title || '')}" loading="lazy"
+                    <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy"
                          onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                     ${selectMode ? `<div class="lib2-check">${isSel ? '✓' : ''}</div>` : ''}
                     ${st}
@@ -610,11 +808,48 @@
                     ${f.category ? `<div class="lib2-cat">${MH.esc(f.category)}</div>` : ''}
                 </div>
             </a>`;
-        }).join('');
+    }
 
-        // En mode sélection : le clic sur une carte (de)sélectionne au lieu de naviguer.
-        if (selectMode) {
-            grid.querySelectorAll('.lib2-card').forEach(card => card.addEventListener('click', (e) => {
+    // ── Écouteurs délégués (audit PERF-05) ───────────────────
+    // Chaque carte recevait jusqu'à trois écouteurs (épingle, retrait, et le
+    // clic de sélection) : ~1 100 écouteurs pour 373 séries, recréés à chaque
+    // tri ou changement de filtre. Avec un rendu par tranches, il aurait fallu
+    // en plus les recâbler après chaque ajout. Un seul écouteur sur la grille
+    // règle les deux problèmes, et vaut pour les cartes pas encore peintes.
+    function wireGridDelegation() {
+        const grid = document.getElementById('libGrid');
+        if (!grid) return;
+
+        grid.addEventListener('click', async (e) => {
+            const pin = e.target.closest('.lib2-pin');
+            if (pin) {
+                e.preventDefault(); e.stopPropagation();
+                const nowPinned = window.UserData?.togglePin?.(pin.dataset.pin, pin.dataset.src);
+                MH.toast?.(nowPinned ? 'Épinglé en haut de la bibliothèque' : 'Désépinglé');
+                render();
+                return;
+            }
+
+            const del = e.target.closest('.lib2-del');
+            if (del) {
+                e.preventDefault(); e.stopPropagation();
+                if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour modifier ta bibliothèque'); return; }
+                const id = del.dataset.del;
+                if (!await MH.confirm(`Retirer « ${del.dataset.title || id} » de ta bibliothèque ?`, { danger: true, okText: 'Retirer' })) return;
+                try {
+                    await API.me.removeFavorite(id);
+                    favs = favs.filter(f => f.mangaId !== id);
+                    try { const set = await MH.getFavSet?.(); set?.delete(String(id)); } catch (er) { window.MH?.err?.('bibliotheque.js', er); }
+                    window.Storage?.cacheLibrary?.(favs);
+                    MH.toast?.('Retiré de ta bibliothèque');
+                    renderSummary(); renderFilters(); render();
+                } catch (err) { MH.toast?.('Erreur : ' + err.message); }
+                return;
+            }
+
+            // En mode sélection : le clic sur une carte (dé)sélectionne au lieu de naviguer.
+            const card = selectMode && e.target.closest('.lib2-card');
+            if (card) {
                 e.preventDefault();
                 const id = card.dataset.mangaId;
                 if (selected.has(id)) selected.delete(id); else selected.add(id);
@@ -622,30 +857,8 @@
                 const chk = card.querySelector('.lib2-check');
                 if (chk) chk.textContent = selected.has(id) ? '✓' : '';
                 renderBulkBar();
-            }));
-        }
-
-        grid.querySelectorAll('.lib2-pin').forEach(btn => btn.addEventListener('click', (e) => {
-            e.preventDefault(); e.stopPropagation();
-            const nowPinned = window.UserData?.togglePin?.(btn.dataset.pin, btn.dataset.src);
-            MH.toast?.(nowPinned ? 'Épinglé en haut de la bibliothèque' : 'Désépinglé');
-            render();
-        }));
-
-        grid.querySelectorAll('.lib2-del').forEach(btn => btn.addEventListener('click', async (e) => {
-            e.preventDefault(); e.stopPropagation();
-            if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour modifier ta bibliothèque'); return; }
-            const id = btn.dataset.del;
-            if (!await MH.confirm(`Retirer « ${btn.dataset.title || id} » de ta bibliothèque ?`, { danger: true, okText: 'Retirer' })) return;
-            try {
-                await API.me.removeFavorite(id);
-                favs = favs.filter(f => f.mangaId !== id);
-                try { const set = await MH.getFavSet?.(); set?.delete(String(id)); } catch (er) { window.MH?.err?.('bibliotheque.js', er); }
-                window.Storage?.cacheLibrary?.(favs);
-                MH.toast?.('Retiré de ta bibliothèque');
-                renderSummary(); renderFilters(); render();
-            } catch (err) { MH.toast?.('Erreur : ' + err.message); }
-        }));
+            }
+        });
     }
 
     // re-render on search (debounce, audit §2 — évite un render complet à chaque frappe) / sort
@@ -676,6 +889,7 @@
         document.getElementById('bulkCancel')?.addEventListener('click', () => setSelectMode(false));
         document.getElementById('bulkDelete')?.addEventListener('click', bulkDelete);
         document.getElementById('bulkStatus')?.addEventListener('click', bulkStatus);
+        document.getElementById('bulkCategory')?.addEventListener('click', bulkCategory);   // audit AMEL-33
         btn?.addEventListener('click', () => setSelectMode(!selectMode));
     }
     function setSelectMode(on) {
@@ -740,6 +954,53 @@
         renderFilters(); render();
     }
 
+    // ── Catégorie en masse (audit AMEL-33) ───────────────────
+    // `favorites.category` alimente déjà les puces de filtrage et s'affiche sur
+    // les cartes, mais ne pouvait être posée QUE série par série depuis la
+    // fiche. Ranger 358 séries à la main n'est pas une option ; c'est
+    // exactement ce à quoi sert la sélection multiple.
+    async function bulkCategory() {
+        if (!selected.size) { MH.toast?.('Rien de sélectionné'); return; }
+        // On propose les catégories DÉJÀ utilisées : c'est le cas courant, et
+        // les retaper à l'identique créerait des doublons à une faute près.
+        const existantes = [...new Set(favs.map(f => f.category).filter(Boolean))].sort();
+        const aide = existantes.length
+            ? `Catégories existantes : ${existantes.join(', ')}.\nLaisse vide pour retirer la catégorie.`
+            : 'Laisse vide pour retirer la catégorie.';
+        const cat = await MH.prompt(`Catégorie pour ${selected.size} série(s)`,
+            { message: aide, placeholder: 'ex. À lire, Terminé 2026…', okText: 'Appliquer' });
+        if (cat === null) return;   // annulé (≠ chaîne vide, qui retire)
+        const valeur = String(cat).trim();
+
+        if (!await MH.confirm(
+            valeur ? `Ranger ${selected.size} série(s) dans « ${valeur} » ?`
+                : `Retirer la catégorie de ${selected.size} série(s) ?`,
+            { okText: 'Appliquer' })) return;
+
+        const ids = [...selected];
+        let done = 0, ko = 0;
+        for (const id of ids) {
+            bulkProgress(++done, ids.length);
+            try {
+                const f = favs.find(x => x.mangaId === id);
+                await API.me.setCategory(id, {
+                    category: valeur || null,
+                    // Titre et couverture accompagnent l'écriture : la route
+                    // crée le favori s'il manque, et sans eux elle l'inscrirait
+                    // sans nom ni image.
+                    title: f?.title, cover: f?.cover, source: f?.source,
+                });
+                if (f) f.category = valeur || null;
+            } catch (e) { ko++; }
+        }
+        window.Storage?.cacheLibrary?.(favs);
+        MH.toast?.(ko ? `${ids.length - ko} rangée(s), ${ko} en échec`
+            : valeur ? `${ids.length} série(s) rangée(s) dans « ${valeur} »`
+                : `Catégorie retirée de ${ids.length} série(s)`);
+        setSelectMode(false);
+        renderFilters(); render();
+    }
+
     // Case « Inclure terminé/abandonné » (§15.4-1) — persistée
     function includeFinished() {
         try { return localStorage.getItem('inko_upd_all') === '1'; } catch (e) { return false; }
@@ -784,7 +1045,7 @@
                 const failsHtml = fails.map(f => `
                     <div class="upd-row" style="border-left:3px solid var(--hanko)">
                         <a class="upd-cover" href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}">
-                            <img src="${f.cover || MH.placeholderCover(f.mangaId)}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
+                            <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                         </a>
                         <div class="upd-info">
                             <div class="upd-name">${MH.esc(f.title)} <span class="upd-new" style="background:rgba(168,50,50,.14);color:var(--hanko)">ÉCHEC</span></div>
@@ -796,7 +1057,7 @@
                     return `
                     <div class="upd-row">
                         <a class="upd-cover" href="serie.html?id=${encodeURIComponent(u.mangaId)}&source=${src}">
-                            <img src="${u.cover || MH.placeholderCover(u.mangaId)}" alt="" loading="lazy"
+                            <img src="${MH.cover(u.cover, MH.placeholderCover(u.mangaId))}" alt="" loading="lazy"
                                  onerror="this.src='${MH.placeholderCover(u.mangaId)}'">
                         </a>
                         <div class="upd-info">
@@ -807,7 +1068,7 @@
                             </div>
                         </div>
                         <div style="display:flex;gap:6px;flex-shrink:0">
-                            ${u.unreadCount > 0 ? `<button class="btn btn-secondary btn-sm" data-markread="${encodeURIComponent(u.mangaId)}" data-src="${src}" title="Marquer toute la série comme lue">Tout lu</button>` : ''}
+                            ${u.unreadCount > 0 ? `<button class="btn btn-secondary btn-sm" data-markread="${encodeURIComponent(u.mangaId)}" data-src="${MH.esc(src)}" title="Marquer toute la série comme lue">Tout lu</button>` : ''}
                             ${u.latest ? `<a class="btn btn-primary btn-sm" href="${MH.readerHref(u.mangaId, u.latest.id, u.source || decodeURIComponent(src))}">Lire</a>` : ''}
                         </div>
                     </div>`;
