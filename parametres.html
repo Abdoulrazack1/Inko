@@ -290,6 +290,27 @@
       </div>
     </div>
 
+    <!-- APPLICATION DE BUREAU (audit AMEL-93) -->
+    <!-- Masquee hors de l'app Tauri : proposer « demarrer au login » dans un
+         navigateur serait une promesse que rien ne peut tenir. -->
+    <div class="set-card" id="desktopCard" style="display:none">
+      <h2>Application de bureau</h2>
+      <div class="sub">Inko sert aussi de hub : les autres appareils de la maison lisent via ce serveur.</div>
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Demarrer avec Windows</div>
+          <div class="set-row-desc">Le serveur est pret des l'ouverture de session, sans avoir a y penser</div>
+        </div>
+        <div class="toggle" id="tglAutostart"></div>
+      </div>
+      <div class="set-row" style="border-bottom:none">
+        <div>
+          <div class="set-row-label">Fermeture de la fenetre</div>
+          <div class="set-row-desc">La croix reduit dans la zone de notification et garde le serveur actif. Pour arreter vraiment : clic droit sur l'icone puis « Quitter Inko ».</div>
+        </div>
+      </div>
+    </div>
+
     <!-- RACCOURCIS CLAVIER (audit AMEL-82) -->
     <!-- Ils existaient (J, B, A…) mais etaient codes en dur : une lettre qui
          tombe mal sur un clavier non-AZERTY ne pouvait pas etre changee. -->

@@ -98,6 +98,38 @@
         renderBackups();
         renderFileSync();
         renderRaccourcis();
+        renderDesktop();
+    }
+
+    // ── APP DE BUREAU (audit AMEL-93) ───────────────────────
+    // Le plugin d'autostart est CHARGE mais l'option reste desactivee par
+    // defaut : decider tout seul qu'un logiciel se lance a l'ouverture de
+    // session n'est pas une amelioration, c'est une intrusion. C'est donc un
+    // reglage, visible et reversible.
+    async function renderDesktop() {
+        const carte = document.getElementById('desktopCard');
+        const tgl = document.getElementById('tglAutostart');
+        const invoke = window.__TAURI__?.core?.invoke;
+        if (!carte || !tgl || !invoke) return;   // hors app Tauri : rien a proposer
+        carte.style.display = '';
+        let actif = false;
+        try { actif = await invoke('autostart_actif'); } catch (e) { return; }
+        tgl.classList.toggle('on', !!actif);
+        tgl.addEventListener('click', async () => {
+            const veut = !tgl.classList.contains('on');
+            tgl.classList.toggle('on', veut);
+            try {
+                // On relit l'etat REEL renvoye par le systeme plutot que de
+                // supposer que l'appel a marche : une politique d'entreprise ou
+                // un antivirus peuvent refuser l'entree de registre.
+                const obtenu = await invoke('definir_autostart', { actif: veut });
+                tgl.classList.toggle('on', !!obtenu);
+                toast(obtenu ? 'Inko demarrera avec Windows' : 'Demarrage automatique desactive');
+            } catch (e) {
+                tgl.classList.toggle('on', !veut);
+                toast('Impossible de modifier le demarrage automatique : ' + e);
+            }
+        });
     }
 
     // ── RACCOURCIS CLAVIER (audit AMEL-82) ──────────────────

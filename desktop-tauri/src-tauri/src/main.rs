@@ -9,6 +9,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::Manager;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::TrayIconBuilder;
+use tauri_plugin_autostart::MacosLauncher;
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 use std::io::Write;
@@ -32,9 +36,34 @@ fn log(msg: &str) {
     }
 }
 
+// Commandes exposees a l'interface : l'option vit dans les Parametres, pas
+// dans un menu cache — c'est un reglage de l'app, pas une manipulation systeme.
+#[tauri::command]
+fn autostart_actif(app: tauri::AppHandle) -> bool {
+    app.autolaunch().is_enabled().unwrap_or(false)
+}
+
+#[tauri::command]
+fn definir_autostart(app: tauri::AppHandle, actif: bool) -> Result<bool, String> {
+    let m = app.autolaunch();
+    let r = if actif { m.enable() } else { m.disable() };
+    r.map_err(|e| e.to_string())?;
+    Ok(m.is_enabled().unwrap_or(actif))
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        // Audit AMEL-93 : le mode « hub » suppose une app toujours active —
+        // les autres appareils de la maison tapent sur ce serveur. Sans
+        // demarrage au login, il faut penser a ouvrir Inko avant de lire sur
+        // son telephone, ce qui vide le mode hub de son interet.
+        //
+        // Le plugin est CHARGE mais l'option reste DESACTIVEE par defaut :
+        // decider tout seul qu'un logiciel se lance a l'ouverture de session
+        // n'est pas une amelioration, c'est une intrusion.
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .invoke_handler(tauri::generate_handler![autostart_actif, definir_autostart])
         .setup(|app| {
             let resource_dir = app.path().resource_dir()?;
             // resource_dir() renvoie un chemin « extended-length » (\\?\C:\…) que
@@ -82,9 +111,61 @@ fn main() {
                 }
                 Err(e) => log(&format!("[inko] spawn error: {e}")),
             }
+            // ── Icone de zone de notification (audit AMEL-93) ──
+            // Fermer la fenetre arretait le serveur : sur un hub, ca coupe la
+            // lecture des autres appareils sans prevenir. On propose donc de
+            // continuer en arriere-plan, avec un menu explicite — et « Quitter
+            // Inko » reste la sortie franche, distincte du bouton de fermeture.
+            let ouvrir  = MenuItem::with_id(app, "ouvrir", "Ouvrir Inko", true, None::<&str>)?;
+            let quitter = MenuItem::with_id(app, "quitter", "Quitter Inko", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&ouvrir, &quitter])?;
+            let _ = TrayIconBuilder::with_id("inko-tray")
+                .icon(app.default_window_icon().unwrap().clone())
+                .tooltip("Inko — serveur actif")
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, ev| match ev.id().as_ref() {
+                    "ouvrir" => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.unminimize();
+                            let _ = w.set_focus();
+                        }
+                    }
+                    // Quitter par le menu doit VRAIMENT quitter : c'est le seul
+                    // geste qui arrete le serveur volontairement.
+                    "quitter" => { app.exit(0); }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    // Clic gauche sur l'icone = rouvrir. C'est le geste attendu,
+                    // et sans lui l'app parait perdue une fois reduite.
+                    if let tauri::tray::TrayIconEvent::Click { button, button_state, .. } = event {
+                        if button == tauri::tray::MouseButton::Left
+                            && button_state == tauri::tray::MouseButtonState::Up
+                        {
+                            if let Some(w) = tray.app_handle().get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
+                        }
+                    }
+                })
+                .build(app);
+
             Ok(())
         })
         .on_window_event(|window, event| {
+            // Audit AMEL-93 : la croix REDUIT au lieu de tuer le serveur.
+            // Sur un hub, fermer la fenetre coupait la lecture des autres
+            // appareils sans le dire. La sortie franche existe toujours :
+            // « Quitter Inko » dans le menu de la zone de notification.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+                return;
+            }
             if let tauri::WindowEvent::Destroyed = event {
                 // Arrête proprement le backend quand la fenêtre se ferme.
                 if let Some(state) = window
