@@ -3,6 +3,143 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.5.0 — Remediation complete de l'audit de juillet 2026
+
+Cette version traite l'integralite de la partie « ameliorations » de
+l'audit du 28 juillet : 32 domaines fonctionnels, hors interface
+d'administration. Chaque lot a ete verifie dans un vrai navigateur, sur
+les vraies donnees, et pas seulement par des tests.
+
+**Notations et avis**
+- **Demi-etoiles** : la note passe sur 10 et s'affiche en 5 etoiles avec
+  demis. Cinq crans, c'etait trop grossier — tout finissait a 4.
+- On te propose de noter une serie **au moment ou tu la termines**, une
+  seule fois, jamais si tu l'as deja notee.
+- Ta note est comparee a la **moyenne AniList** : « 4/5 » ne veut rien
+  dire sans point de comparaison.
+
+**Commentaires**
+- **Portee explicite** a la publication : moi seul, les membres, ou tout
+  le monde. L'interface promettait « prive » pendant que l'API servait
+  tout a n'importe quel visiteur — ce n'etait pas un reglage manquant,
+  c'etait une promesse fausse.
+- Avertissement **spoiler** avec devoilement au clic, et rattachement
+  d'un commentaire a un chapitre precis.
+
+**Notifications**
+- **Regroupement** : une serie qui publie trois fois occupe une ligne,
+  pas trois. Les 110 notifications accumulees ont ete fusionnees en 61.
+- **Frequence reglable** (jamais, 4 h, 12 h, 24 h, 3 jours) et **mise en
+  sourdine par serie**, sans cesser de la suivre.
+- « Lire maintenant » ouvre le premier chapitre **non lu**, plus le
+  dernier paru : sur trois chapitres de retard, l'ancien lien faisait
+  sauter les deux du milieu.
+- Les notifications lues de plus de 30 jours sont effacees.
+
+**Statistiques**
+- Repartition de tes lectures **par source et par mois**, sur 12 mois,
+  avec la part scans / romans.
+- **Retrospective annuelle** copiable dans le presse-papiers.
+- Les badges affichent ce qu'il **reste a faire** et nomment le prochain
+  palier a portee.
+- L'objectif hebdomadaire peut se caler sur **ton rythme reel** (mediane
+  des 8 dernieres semaines).
+
+**Profil**
+- **Confidentialite par section** : statistiques, listes, series
+  epinglees et bibliotheque se reglent separement.
+- **Apercu public** : voir son profil exactement comme le voit un
+  inconnu.
+- **Vitrine de series epinglees**, choisie depuis une fiche.
+
+**Historique**
+- **Suppression ciblee** : retirer une serie, ou un seul chapitre, sans
+  perdre le reste.
+- **Export** de l'historique en CSV ou JSON.
+- « Reprendre » rouvre a la **position exacte**, pas au debut du
+  chapitre.
+
+**Lecture privee**
+- **Bandeau permanent** qui nomme l'etat et se coupe d'un clic : un
+  liseré de 3 px ne disait pas ce qui etait actif.
+- Couverture etendue : progression, chapitres lus, **activite** et
+  **recherches recentes** ne sont plus enregistres.
+- **Portee par serie** : masquer une lecture sans couper toute la
+  session.
+
+**Premier lancement**
+- La visite guidee est **interruptible et reprenable** : quitter posait
+  le meme drapeau que terminer.
+- **« Refuser » les conditions fait enfin quelque chose** : le choix est
+  memorise et respecte, avec une explication et un retour possible.
+  Auparavant, recharger la page suffisait a passer outre.
+- Chaque page presente son **astuce** a la premiere visite, au lieu de
+  sept ecrans avant d'avoir rien vu.
+
+**Sources**
+- **Etat de chaque source** visible en permanence, et **journal des
+  derniers appels** pour comprendre pourquoi une source ne repond pas.
+- **Ordre de preference** personnalisable.
+- Duree de cache propre a chaque source (un livre du domaine public ne
+  change jamais).
+
+**Compte et securite**
+- **Sessions actives** listees et revocables **une par une** : changer
+  son mot de passe deconnectait jusqu'ici tous ses propres appareils.
+- **Politique de mot de passe** : 8 caracteres minimum, refus des mots
+  de passe les plus courants et de ceux contenant ton pseudo. La
+  longueur prime sur la composition.
+
+**Sauvegarde**
+- **Restauration depuis les parametres** : apercu de ce qui va entrer,
+  puis confirmation. Le script existait mais demandait un acces SSH.
+
+**Hors-ligne**
+- **Poids de chaque serie telechargee** et tri par taille : « 6 Mo
+  utilises » ne disait pas par quoi.
+- La **file de synchronisation** est visible : une ecriture en attente
+  qu'on ne voit pas ressemble a une ecriture perdue.
+
+**Interface**
+- **Raccourcis clavier personnalisables**, avec detection des conflits.
+- **Theme a contraste renforce** (AAA), pour la basse vision et les
+  ecrans en plein soleil.
+
+**Musique**
+- Un flux mort **bascule sur un secours** au lieu d'afficher « en
+  lecture » sans un son.
+- **Ambiance suggeree** selon les tags de la serie.
+- Le volume **baisse automatiquement** quand une autre source audio
+  demarre, et le dock le dit.
+
+**Application de bureau**
+- La croix **reduit dans la zone de notification** et garde le serveur
+  actif : la fermer coupait la lecture des autres appareils.
+- **Demarrage au login**, desactive par defaut.
+- L'ecran de demarrage **dit ce qui a echoue** (serveur, base ou
+  extensions) au lieu d'un message unique.
+
+**Deploiement et API**
+- `npm run setup` genere une configuration complete avec un vrai secret,
+  et `npm run setup:check` l'audite.
+- **Page de sante de l'instance** : base, volumes, extensions, age de la
+  derniere sauvegarde, espace disque.
+- **HTTPS automatique** via une surcouche Caddy optionnelle.
+- **Reference d'API generee** (128 operations) et prefixe **`/api/v1`**
+  pour les clients tiers.
+- Pagination `limit`/`offset` sur les collections, **sans changer la
+  forme de reponse existante**.
+
+**Corrections trouvees en verifiant**
+- Une image sans source sur le profil rechargeait la page entiere comme
+  image.
+- Un roman consulte depuis l'historique ouvrait le lecteur d'images.
+- Les listes marquees « publiques » n'apparaissaient sur aucun ecran.
+- Sept boutons et interrupteurs presents dans l'interface n'etaient
+  relies a aucun code.
+- Cinq flux Web Push simultanes se remplacaient l'un l'autre : un seul
+  arrivait.
+
 ## 2.3.4 — Lecture fluide sur les longs chapitres et les volumes
 
 **Lecteur**
