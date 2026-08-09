@@ -95,6 +95,63 @@
         });
 
         renderSessions();
+        renderBackups();
+    }
+
+    // ── SAUVEGARDES (audit AMEL-73) ─────────────────────────
+    // Restauration en trois temps : voir ce qui existe, previsualiser CE QUI
+    // VA ENTRER, puis confirmer. Un bouton « restaurer » sans apercu demande
+    // de faire confiance a un nom de fichier.
+    async function renderBackups() {
+        const carte = document.getElementById('backupCard');
+        const liste = document.getElementById('backupList');
+        const sous  = document.getElementById('backupSub');
+        if (!carte || !liste) return;
+        let d;
+        try { d = await API.me.backups(); } catch (e) { return; }
+        if (!d.items.length) return;   // rien a montrer : une section vide n'informe pas
+        carte.style.display = '';
+
+        if (sous) {
+            sous.textContent = `${d.items.length} sauvegarde(s) · ${d.encrypted ? 'chiffrees (AES-256-GCM)' : 'en clair sur le disque'}`
+                + ` · dossier ${d.directory}`;
+        }
+        liste.innerHTML = d.items.map(b => `
+            <div class="set-row" data-bk="${MH.esc(b.file)}">
+                <div>
+                    <div class="set-row-label">${MH.esc(new Date(b.at).toLocaleString('fr-FR'))}${b.encrypted ? ' · chiffree' : ''}</div>
+                    <div class="set-row-desc">${MH.esc(b.file)} · ${(b.size / 1024).toFixed(0)} Ko</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" data-bk-restore="${MH.esc(b.file)}" data-enc="${b.encrypted ? '1' : ''}">Restaurer</button>
+            </div>`).join('');
+
+        liste.querySelectorAll('[data-bk-restore]').forEach(b => {
+            b.addEventListener('click', async () => {
+                const file = b.dataset.bkRestore;
+                let phrase = null;
+                if (b.dataset.enc) {
+                    phrase = await MH.prompt('Cette sauvegarde est chiffree.', {
+                        title: 'Phrase secrete', placeholder: 'BACKUP_PASSPHRASE', okText: 'Continuer' });
+                    if (phrase === null) return;
+                }
+                b.disabled = true;
+                try {
+                    const p = await API.me.backupPreview(file, phrase);
+                    const ok = await MH.confirm(
+                        `Restaurer ta sauvegarde du ${new Date(p.createdAt || Date.now()).toLocaleDateString('fr-FR')} ?`,
+                        { okText: 'Restaurer',
+                            message: `Elle contient ${p.mine.favorites} favori(s), ${p.mine.readChapters} chapitre(s) lu(s), `
+                                + `${p.mine.progress} progression(s), ${p.mine.ratings} note(s), ${p.mine.lists} liste(s).`
+                                + String.fromCharCode(10, 10)
+                                + "La restauration FUSIONNE : rien de ce que tu as aujourd'hui ne sera supprime." });
+                    if (!ok) return;
+                    const r = await API.me.backupRestore(file, phrase);
+                    const n = r.imported || {};
+                    toast(`Restaure : ${n.favorites || 0} favoris, ${n.readChapters || 0} chapitres lus`);
+                } catch (e) { toast('Erreur : ' + e.message); }
+                finally { b.disabled = false; }
+            });
+        });
     }
 
     // ── SESSIONS ACTIVES (audit AMEL-69) ────────────────────

@@ -813,3 +813,96 @@ test('auth.register : la politique s\'applique aussi a l\'inscription (audit AME
     await Auth.register(bon.req, bon.res, nextThrow);
     assert.equal(bon.res.statusCode, 200);
 });
+
+// ── Restauration depuis l'interface (audit AMEL-73) ──────────
+test('sauvegardes : on ne restaure QUE son propre compte (audit AMEL-73)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const fs = require('fs');
+    const path = require('path');
+    const bk = require('../lib/backup');
+    const u = await createUser('bk_moi', 'bk_moi@test.local');
+    const autre = await createUser('bk_autre', 'bk_autre@test.local');
+
+    // Dump fabrique : deux comptes, des donnees differentes
+    const dump = {
+        inkoBackup: 1, createdAt: '2026-08-01T00:00:00.000Z',
+        accounts: [
+            { user: { id: 999, username: 'bk_moi', email: 'bk_moi@test.local' },
+                favorites: [{ manga_id: 'aa', title: 'A' }, { manga_id: 'bb', title: 'B' }],
+                readChapters: [{ manga_id: 'aa', chapter_id: 'c1', chapter_number: 1 }],
+                ratings: [{ manga_id: 'aa', rating: 4 }], progress: [], lists: [] },
+            { user: { id: 998, username: 'bk_autre', email: 'bk_autre@test.local' },
+                favorites: [{ manga_id: 'zz', title: 'Z' }], readChapters: [], ratings: [], progress: [], lists: [] },
+        ],
+    };
+    fs.mkdirSync(bk.BACKUP_DIR, { recursive: true });
+    const nom = 'inko-backup-2026-08-01.json';
+    fs.writeFileSync(path.join(bk.BACKUP_DIR, nom), JSON.stringify(dump));
+
+    try {
+        // Apercu : les compteurs de MON compte, pas ceux du dump entier
+        const p = rr({ user: u, params: { file: nom }, body: {} });
+        await User.previewBackup(p.req, p.res, nextThrow);
+        assert.equal(p.res.body.accounts, 2);
+        assert.equal(p.res.body.mine.favorites, 2);
+        assert.equal(p.res.body.mine.username, 'bk_moi');
+
+        // Restauration : mes donnees arrivent, celles de l'autre compte non
+        const r = rr({ user: u, params: { file: nom }, body: {} });
+        await User.restoreBackup(r.req, r.res, nextThrow);
+        assert.equal(r.res.body.imported.favorites, 2);
+
+        const [mesFavs] = await pool.query(
+            'SELECT manga_id FROM favorites WHERE user_id = ? ORDER BY manga_id', [u.id]);
+        assert.deepEqual(mesFavs.map(f => f.manga_id), ['aa', 'bb']);
+        const [sesFavs] = await pool.query('SELECT manga_id FROM favorites WHERE user_id = ?', [autre.id]);
+        assert.equal(sesFavs.length, 0, 'restaurer son compte ne touche pas celui des autres');
+
+        // Le dump date d'avant AMEL-47 : ses notes sont sur 5 et doivent
+        // etre converties, sinon 4/5 deviendrait 4/10.
+        const [[note]] = await pool.query(
+            'SELECT rating FROM ratings WHERE user_id = ? AND manga_id = ?', [u.id, 'aa']);
+        assert.equal(note.rating, 8);
+
+        // Un compte absent du dump obtient un 404 explicite, pas un import vide
+        const inconnu = await createUser('bk_absent', 'bk_absent@test.local');
+        const ko = rr({ user: inconnu, params: { file: nom }, body: {} });
+        await User.previewBackup(ko.req, ko.res, nextThrow);
+        assert.equal(ko.res.statusCode, 404);
+
+        // Traversee de chemin : le nom vient du client, il doit etre retrouve
+        // dans la liste REELLE avant d'etre concatene au dossier.
+        const trav = rr({ user: u, params: { file: '../../../etc/passwd' }, body: {} });
+        await User.previewBackup(trav.req, trav.res, nextThrow);
+        assert.equal(trav.res.statusCode, 404);
+    } finally {
+        try { fs.unlinkSync(path.join(bk.BACKUP_DIR, nom)); } catch (e) { /* deja retire */ }
+    }
+});
+
+test('sauvegardes : un dump chiffre exige la bonne phrase (audit AMEL-74)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const fs = require('fs');
+    const path = require('path');
+    const bk = require('../lib/backup');
+    const u = await createUser('bk_enc', 'bk_enc@test.local');
+
+    const dump = { inkoBackup: 1, accounts: [{ user: { username: 'bk_enc', email: 'bk_enc@test.local' },
+        favorites: [{ manga_id: 'aa', title: 'A' }], readChapters: [], ratings: [], progress: [], lists: [] }] };
+    fs.mkdirSync(bk.BACKUP_DIR, { recursive: true });
+    const nom = 'inko-backup-2026-08-02.json.enc';
+    fs.writeFileSync(path.join(bk.BACKUP_DIR, nom), bk.encrypt(JSON.stringify(dump), 'bonne-phrase'));
+
+    try {
+        const mauvais = rr({ user: u, params: { file: nom }, body: { passphrase: 'mauvaise' } });
+        await User.previewBackup(mauvais.req, mauvais.res, nextThrow);
+        assert.equal(mauvais.res.statusCode, 400);
+        assert.match(mauvais.res.body.error, /incorrecte/i);
+
+        const bon = rr({ user: u, params: { file: nom }, body: { passphrase: 'bonne-phrase' } });
+        await User.previewBackup(bon.req, bon.res, nextThrow);
+        assert.equal(bon.res.body.mine.favorites, 1);
+    } finally {
+        try { fs.unlinkSync(path.join(bk.BACKUP_DIR, nom)); } catch (e) { /* deja retire */ }
+    }
+});

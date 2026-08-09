@@ -245,6 +245,10 @@ router.post  ('/me/import',               auth.authRequired, User.importData);
 router.post  ('/me/clear-history',        auth.authRequired, User.clearHistory);
 // Historique : suppression ciblee et export dedie (audit AMEL-112/113)
 router.get   ('/me/history/export',       auth.authRequired, User.exportHistory);
+// Sauvegardes : lister, previsualiser, restaurer SON compte (audit AMEL-73)
+router.get   ('/me/backups',              auth.authRequired, User.listBackups);
+router.post  ('/me/backups/:file/preview', auth.authRequired, User.previewBackup);
+router.post  ('/me/backups/:file/restore', auth.authRequired, writeLimiter, User.restoreBackup);
 router.delete('/me/history/:mangaId',     auth.authRequired, User.deleteHistoryEntry);
 
 router.get   ('/me/events',               auth.authRequired, User.getEvents);

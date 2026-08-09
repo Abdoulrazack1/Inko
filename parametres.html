@@ -277,6 +277,16 @@
       </div>
     </div>
 
+    <!-- SAUVEGARDES (audit AMEL-73/75) -->
+    <!-- Le script de restauration existe (BUG-12) mais suppose un acces shell
+         au serveur. Une sauvegarde qu'on ne sait restaurer qu'en SSH n'existe
+         pas pour la personne qui utilise l'app. -->
+    <div class="set-card" id="backupCard" style="display:none">
+      <h2>Sauvegardes automatiques</h2>
+      <div class="sub" id="backupSub"></div>
+      <div id="backupList" style="margin-top:12px"></div>
+    </div>
+
     <!-- SESSIONS ACTIVES (audit AMEL-69) -->
     <!-- `token_version` ne savait revoquer que TOUT : changer son mot de passe
          deconnectait l'intrus ET tous ses propres appareils. Et rien ne

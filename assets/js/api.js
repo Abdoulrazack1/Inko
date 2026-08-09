@@ -605,6 +605,14 @@
                 del('/me/history/' + encodeURIComponent(mangaId)
                     + (chapterId ? '?chapterId=' + encodeURIComponent(chapterId) : '')),
             historyExportUrl: (format = 'json') => API.base + '/me/history/export?format=' + encodeURIComponent(format),
+            // Sauvegardes nocturnes : lister, previsualiser, restaurer SON
+            // compte (audit AMEL-73). Le script CLI existait deja mais suppose
+            // un acces shell au serveur.
+            backups:          ()          => get('/me/backups'),
+            backupPreview:    (file, passphrase) =>
+                post('/me/backups/' + encodeURIComponent(file) + '/preview', { passphrase }),
+            backupRestore:    (file, passphrase) =>
+                post('/me/backups/' + encodeURIComponent(file) + '/restore', { passphrase }),
         },
 
         comments: {

@@ -1286,6 +1286,79 @@ async function clearHistory(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ── Sauvegardes : lister, prévisualiser, restaurer (audit AMEL-73) ──
+// Le script CLI existe (BUG-12) mais suppose un accès shell au serveur. Une
+// sauvegarde qu'on ne sait restaurer qu'en SSH n'existe pas pour la personne
+// qui utilise l'app — c'est exactement ce que l'audit reproche.
+//
+// Trois principes :
+//   · on ne restaure QUE son propre compte, jamais celui d'un autre ;
+//   · l'aperçu vient AVANT la confirmation, et il chiffre ce qui va entrer ;
+//   · la restauration FUSIONNE (comme l'import) : rien n'est supprimé. Une
+//     restauration qui écrase serait irréversible depuis un bouton.
+const sauvegardes = require('../lib/backup');
+
+async function listBackups(req, res, next) {
+    try {
+        res.json({
+            encrypted: sauvegardes.chiffrementActif(),
+            // Le chemin est affiché mais NON modifiable ici : laisser le web
+            // choisir un dossier d'écriture, c'est laisser écrire n'importe où.
+            // Il reste réglé par BACKUP_DIR (audit AMEL-75).
+            directory: sauvegardes.BACKUP_DIR,
+            items: sauvegardes.listerSauvegardes(),
+        });
+    } catch (e) { next(e); }
+}
+
+function extraireMonCompte(data, user) {
+    // Rattachement par email puis par pseudo : l'`id` d'un dump vient d'une
+    // AUTRE base (celle du jour de la sauvegarde) — s'y fier restaurerait les
+    // donnees de quelqu'un d'autre apres une reinstallation.
+    const cle = (v) => String(v || '').toLowerCase();
+    return data.accounts.find(a => cle(a.user?.email) === cle(user.email))
+        || data.accounts.find(a => cle(a.user?.username) === cle(user.username))
+        || null;
+}
+
+async function previewBackup(req, res, next) {
+    try {
+        const data = sauvegardes.lireSauvegarde(req.params.file, req.body?.passphrase);
+        const mien = extraireMonCompte(data, req.user);
+        if (!mien) return res.status(404).json({ error: "Ton compte n'apparait pas dans cette sauvegarde" });
+        const n = (a) => (Array.isArray(a) ? a.length : 0);
+        res.json({
+            createdAt: data.createdAt || null,
+            accounts: data.accounts.length,
+            mine: {
+                username: mien.user?.username || null,
+                favorites: n(mien.favorites), progress: n(mien.progress),
+                readChapters: n(mien.readChapters), ratings: n(mien.ratings),
+                lists: n(mien.lists),
+            },
+        });
+    } catch (e) {
+        if (e.status) return res.status(e.status).json({ error: e.message });
+        next(e);
+    }
+}
+
+async function restoreBackup(req, res, next) {
+    try {
+        const data = sauvegardes.lireSauvegarde(req.params.file, req.body?.passphrase);
+        const mien = extraireMonCompte(data, req.user);
+        if (!mien) return res.status(404).json({ error: "Ton compte n'apparait pas dans cette sauvegarde" });
+        // On reutilise importData : meme code, donc memes bornes, meme
+        // conversion d'echelle de notes, meme fusion. Une seconde
+        // implementation divergerait tot ou tard.
+        req.body = { ...mien, ratingScale: 5 };   // les dumps datent d'avant AMEL-47
+        return importData(req, res, next);
+    } catch (e) {
+        if (e.status) return res.status(e.status).json({ error: e.message });
+        next(e);
+    }
+}
+
 // ── Suppression sélective d'historique (audit AMEL-112) ──
 // « Tout effacer » était la seule option : pour retirer UNE série d'une
 // machine partagée, il fallait perdre l'intégralité de sa progression. La
@@ -1419,5 +1492,6 @@ module.exports = {
     getMangaRating, setMangaRating, deleteMangaRating, getMyRatings,
     getSettings, setSettings,
     exportData, importData, clearHistory, deleteHistoryEntry, exportHistory,
+    listBackups, previewBackup, restoreBackup,
     checkUpdates,
 };

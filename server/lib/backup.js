@@ -136,4 +136,55 @@ function scheduleBackups() {
     setInterval(run, 24 * 3600_000).unref();
 }
 
-module.exports = { runBackup, scheduleBackups, encrypt, decrypt, isEncrypted };
+// ── Acces depuis l'interface (audit AMEL-73/75) ──────────────
+// Le script CLI de restauration existe (BUG-12), mais il faut un acces shell
+// au serveur. Une sauvegarde qu'on ne sait restaurer qu'en SSH n'existe pas
+// pour la personne qui utilise l'app.
+//
+// Le dossier reste hors de l'arborescence statique : rien n'est SERVI, on
+// expose seulement la liste et une lecture ciblee, cote serveur.
+function listerSauvegardes() {
+    try {
+        return fs.readdirSync(BACKUP_DIR)
+            .filter(f => /^inko-backup-.*\.json(\.enc)?$/.test(f))
+            .sort().reverse()
+            .map(f => {
+                const st = fs.statSync(path.join(BACKUP_DIR, f));
+                return { file: f, size: st.size, at: st.mtime, encrypted: f.endsWith('.enc') };
+            });
+    } catch (e) { return []; }
+}
+
+// Le nom vient du client : on ne le concatene JAMAIS au chemin sans l'avoir
+// retrouve dans la liste reelle. Un `../../etc/passwd` ne correspond a aucune
+// entree, donc ne mene nulle part.
+function cheminSur(nom) {
+    const connu = listerSauvegardes().find(b => b.file === nom);
+    return connu ? path.join(BACKUP_DIR, connu.file) : null;
+}
+
+function lireSauvegarde(nom, passphrase) {
+    const chemin = cheminSur(nom);
+    if (!chemin) { const e = new Error('Sauvegarde introuvable'); e.status = 404; throw e; }
+    const brut = fs.readFileSync(chemin);
+    let json;
+    if (isEncrypted(brut)) {
+        const pass = passphrase || PASSPHRASE;
+        if (!pass) { const e = new Error('Cette sauvegarde est chiffree : phrase secrete requise'); e.status = 400; throw e; }
+        try { json = decrypt(brut, pass); }
+        catch (err) { const e = new Error('Phrase secrete incorrecte'); e.status = 400; throw e; }
+    } else {
+        json = brut.toString('utf8');
+    }
+    const data = JSON.parse(json);
+    if (!data || !Array.isArray(data.accounts)) {
+        const e = new Error('Fichier de sauvegarde illisible'); e.status = 400; throw e;
+    }
+    return data;
+}
+
+module.exports = {
+    runBackup, scheduleBackups, encrypt, decrypt, isEncrypted,
+    listerSauvegardes, lireSauvegarde, BACKUP_DIR,
+    chiffrementActif: () => !!PASSPHRASE,
+};
