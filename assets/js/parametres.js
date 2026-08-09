@@ -93,6 +93,70 @@
                 window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: API.user } }));
             } catch (e) { toast('Erreur : ' + e.message); }
         });
+
+        renderSessions();
+    }
+
+    // ── SESSIONS ACTIVES (audit AMEL-69) ────────────────────
+    // Avant : aucune visibilite ni controle. Le seul levier etait
+    // `token_version`, qui deconnecte TOUT — y compris les appareils qu'on
+    // voulait garder.
+    async function renderSessions() {
+        const carte = document.getElementById('sessionsCard');
+        const liste = document.getElementById('sessionsList');
+        if (!carte || !liste) return;
+        let sessions;
+        try { sessions = await API.auth.sessions(); }
+        catch (e) { return; }   // carte masquee : mieux qu'une section vide et inerte
+        if (!sessions.length) return;
+        carte.style.display = '';
+
+        liste.innerHTML = sessions.map(s => `
+            <div class="set-row" data-sess="${MH.esc(s.id)}">
+                <div>
+                    <div class="set-row-label">${MH.esc(s.device)}${s.current ? ' <span style="color:var(--accent-text);font-size:11px">· cet appareil</span>' : ''}</div>
+                    <div class="set-row-desc">${MH.esc(s.ip || 'adresse inconnue')} · vue ${ilYA(s.lastSeenAt)} · ouverte ${ilYA(s.createdAt)}</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" data-revoke="${MH.esc(s.id)}">${s.current ? 'Me deconnecter' : 'Fermer'}</button>
+            </div>`).join('');
+
+        liste.querySelectorAll('[data-revoke]').forEach(b => {
+            b.addEventListener('click', async () => {
+                const id = b.dataset.revoke;
+                const soi = sessions.find(x => x.id === id)?.current;
+                if (soi && !await MH.confirm('Fermer cette session te deconnecte immediatement.', {
+                    danger: true, okText: 'Me deconnecter' })) return;
+                try {
+                    const r = await API.auth.revokeSession(id);
+                    if (r.self) { toast('Deconnecte'); setTimeout(() => location.reload(), 600); return; }
+                    toast('Session fermee');
+                    renderSessions();
+                } catch (e) { toast('Erreur : ' + e.message); }
+            });
+        });
+
+        const autres = document.getElementById('btnRevokeOthers');
+        if (autres && !autres.dataset.lie) {
+            autres.dataset.lie = '1';
+            autres.addEventListener('click', async () => {
+                if (!await MH.confirm('Fermer toutes les autres sessions ?', {
+                    danger: true, okText: 'Fermer les autres',
+                    message: 'Cet appareil reste connecte. Tous les autres devront se reconnecter.' })) return;
+                try {
+                    const r = await API.auth.revokeOthers();
+                    toast(r.closed ? `${r.closed} session(s) fermee(s)` : 'Aucune autre session');
+                    renderSessions();
+                } catch (e) { toast('Erreur : ' + e.message); }
+            });
+        }
+    }
+
+    function ilYA(ts) {
+        const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+        if (s < 60) return "a l'instant";
+        if (s < 3600) return `il y a ${Math.floor(s / 60)} min`;
+        if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`;
+        return `le ${new Date(ts).toLocaleDateString('fr-FR')}`;
     }
 
     // ── SEGMENTS (lecteur + thème) ──

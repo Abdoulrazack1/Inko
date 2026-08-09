@@ -340,6 +340,16 @@
                 return r;
             },
             providers() { return get('/auth/providers'); },
+            // Sessions actives, revocables une a une (audit AMEL-69)
+            sessions()            { return get('/auth/sessions'); },
+            revokeSession(id)     { return del('/auth/sessions/' + encodeURIComponent(id)); },
+            revokeOthers()        { return del('/auth/sessions/others'); },
+            // Force du mot de passe, evaluee par le MEME code que la
+            // validation serveur (audit AMEL-70) : un indicateur qui a sa
+            // propre regle finit par contredire celle qui decide vraiment.
+            passwordStrength(password, meta = {}) {
+                return post('/auth/password-strength', { password, ...meta });
+            },
             async google(credential) {
                 const r = await post('/auth/google', { credential });
                 _user = r.user; _token = r.token; persist();

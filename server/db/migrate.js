@@ -285,6 +285,27 @@ const MIGRATIONS = [
             WHERE n.id <> g.garde`);
         console.log(`[migrate] ${supp.affectedRows} notification(s) fusionnées dans leur série (${avant.n} → ${avant.n - supp.affectedRows})`);
     } },
+    { version: 16, name: 'sessions révocables une à une (audit AMEL-69)', apply: async () => {
+        // `token_version` (migration 4) ne sait révoquer que TOUT : changer son
+        // mot de passe déconnecte l'intrus ET tous ses propres appareils. On ne
+        // pouvait ni voir où l'on était connecté, ni fermer une seule session
+        // — sur un jeton qui vit 30 jours, c'est long.
+        //
+        // Chaque jeton porte désormais un identifiant (`jti`) et une ligne
+        // ici. Absence de ligne = session révoquée : le défaut est donc de
+        // REFUSER, ce qui vaut mieux que d'accepter faute d'information.
+        await run(`CREATE TABLE IF NOT EXISTS sessions (
+            id          CHAR(36) NOT NULL,
+            user_id     INT NOT NULL,
+            user_agent  VARCHAR(255) DEFAULT NULL,
+            ip          VARCHAR(45)  DEFAULT NULL,
+            created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_sessions_user (user_id, last_seen_at),
+            CONSTRAINT sessions_user_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──

@@ -1,5 +1,6 @@
 // controllers/auth.controller.js
 const bcrypt = require('bcryptjs');
+const politique = require('../lib/password-policy');   // audit AMEL-70
 const crypto = require('crypto');
 const axios  = require('axios');
 const fs     = require('fs');
@@ -96,7 +97,7 @@ async function resolveOwner() {
     } catch (e) { /* non bloquant */ }
     return owner;
 }
-async function localAuth(_req, res, next) {
+async function localAuth(req, res, next) {
     try {
         if (!localModeEnabled()) return res.status(403).json({ error: 'Mode local désactivé' });
         const owner = await resolveOwner();
@@ -104,7 +105,7 @@ async function localAuth(_req, res, next) {
             await pool.query("UPDATE users SET role = 'admin' WHERE id = ?", [owner.id]);
             owner.role = 'admin';
         }
-        const token = sign(owner);
+        const token = await sign(owner, req);
         res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
         res.json({ user: publicUser(owner), token, localMode: true });
     } catch (e) { next(e); }
@@ -122,8 +123,11 @@ async function register(req, res, next) {
             return res.status(400).json({ error: "Nom d'utilisateur invalide (lettres, chiffres, espaces, . _ - uniquement, 32 caractères max)" });
         if (!EMAIL_RE.test(email || ''))
             return res.status(400).json({ error: 'Email invalide' });
-        if (!password || password.length < 6)
-            return res.status(400).json({ error: 'Mot de passe trop court (6 caractères min)' });
+        // Audit AMEL-70 : 6 caracteres et rien d'autre laissaient passer
+        // « azerty » et « 123456 » — les deux mots de passe les plus utilises
+        // au monde, soit deux essais pour entrer.
+        const pol = politique.verifier(password, { username, email });
+        if (!pol.ok) return res.status(400).json({ error: pol.error });
 
         const [[exists]] = await pool.query('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
         if (exists) return res.status(409).json({ error: 'Un compte existe déjà avec cet email' });
@@ -153,7 +157,7 @@ async function register(req, res, next) {
         }
         const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [result.insertId]);
 
-        const token = sign(user);
+        const token = await sign(user, req);
         res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
         res.json({ user: publicUser(user), token });
     } catch (e) { next(e); }
@@ -172,7 +176,7 @@ async function login(req, res, next) {
         const ok = await bcrypt.compare(password, user.password_hash);
         if (!ok) return res.status(401).json({ error: 'Identifiants incorrects' });
 
-        const token = sign(user);
+        const token = await sign(user, req);
         res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
         res.json({ user: publicUser(user), token });
     } catch (e) { next(e); }
@@ -244,7 +248,7 @@ async function googleAuth(req, res, next) {
             );
             [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [r.insertId]);
         }
-        const token = sign(user);
+        const token = await sign(user, req);
         res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
         res.json({ user: publicUser(user), token });
     } catch (e) { next(e); }
@@ -313,8 +317,8 @@ async function resetPassword(req, res, next) {
         const { email, token, newPassword } = req.body || {};
         if (!EMAIL_RE.test(email || '')) return res.status(400).json({ error: 'Email invalide' });
         if (!token) return res.status(400).json({ error: 'Token manquant' });
-        if (!newPassword || newPassword.length < 6)
-            return res.status(400).json({ error: 'Mot de passe trop court (6 caractères min)' });
+        const polReset = politique.verifier(newPassword);
+        if (!polReset.ok) return res.status(400).json({ error: polReset.error });
 
         const [[reset]] = await pool.query(
             'SELECT * FROM password_resets WHERE email = ? AND token = ? AND used = 0 AND expires_at > NOW()',
@@ -343,8 +347,9 @@ async function changePassword(req, res, next) {
         const { currentPassword, newPassword } = req.body || {};
         if (!currentPassword || !newPassword)
             return res.status(400).json({ error: 'Champs requis' });
-        if (newPassword.length < 6)
-            return res.status(400).json({ error: 'Nouveau mot de passe trop court (6 caractères min)' });
+        const polChange = politique.verifier(newPassword,
+            { username: req.user.username, email: req.user.email });
+        if (!polChange.ok) return res.status(400).json({ error: polChange.error });
 
         const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
         if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
@@ -358,7 +363,7 @@ async function changePassword(req, res, next) {
         // ré-authentifie la session courante pour ne pas déconnecter
         // l'utilisateur qui vient légitimement de changer son mot de passe.
         const tv = await revokeTokens(req.user.id);
-        const fresh = sign({ id: req.user.id, email: req.user.email, token_version: tv });
+        const fresh = await sign({ id: req.user.id, email: req.user.email, token_version: tv }, req);
         res.cookie(COOKIE_NAME, fresh, COOKIE_OPTS);
         res.json({ ok: true, token: fresh });
     } catch (e) { next(e); }
@@ -437,7 +442,86 @@ async function deleteAccount(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ── Sessions actives (audit AMEL-69) ────────────────────────
+// `token_version` ne savait revoquer que TOUT : changer son mot de passe
+// deconnectait l'intrus ET tous ses propres appareils. On ne pouvait ni voir
+// ou l'on etait connecte, ni fermer une seule session — sur un jeton qui vit
+// 30 jours, c'est long.
+async function listSessions(req, res, next) {
+    try {
+        const [rows] = await pool.query(
+            `SELECT id, user_agent, ip, created_at, last_seen_at
+             FROM sessions WHERE user_id = ? ORDER BY last_seen_at DESC`,
+            [req.user.id]);
+        res.json(rows.map(r => ({
+            id: r.id,
+            current: r.id === req.sessionId,
+            device: decrireAppareil(r.user_agent),
+            userAgent: r.user_agent,
+            // L'IP n'est montree qu'a son proprietaire, et sert a reconnaitre
+            // « ce n'est pas chez moi » — c'est tout l'interet de la liste.
+            ip: r.ip,
+            createdAt: r.created_at,
+            lastSeenAt: r.last_seen_at,
+        })));
+    } catch (e) { next(e); }
+}
+
+// Un user-agent brut est illisible. On en tire ce qui permet de RECONNAITRE
+// un appareil : le navigateur et le systeme, rien de plus.
+function decrireAppareil(ua) {
+    const s = String(ua || '');
+    if (!s) return 'Appareil inconnu';
+    if (/Inko-Desktop|Tauri|wry/i.test(s)) return 'Application desktop';
+    const nav = /Edg\//.test(s) ? 'Edge'
+        : /OPR\//.test(s) ? 'Opera'
+            : /Firefox\//.test(s) ? 'Firefox'
+                : /Chrome\//.test(s) ? 'Chrome'
+                    : /Safari\//.test(s) ? 'Safari' : 'Navigateur';
+    const os = /Windows/i.test(s) ? 'Windows'
+        : /Android/i.test(s) ? 'Android'
+            : /iPhone|iPad|iOS/i.test(s) ? 'iOS'
+                : /Mac OS X|Macintosh/i.test(s) ? 'macOS'
+                    : /Linux/i.test(s) ? 'Linux' : '';
+    return os ? `${nav} sur ${os}` : nav;
+}
+
+// Ferme UNE session. Fermer la sienne revient a se deconnecter : on l'autorise
+// (c'est previsible depuis la liste) mais on efface aussi le cookie, sans quoi
+// l'onglet resterait avec un jeton mort et des 401 en boucle.
+async function revokeSession(req, res, next) {
+    try {
+        const [r] = await pool.query(
+            'DELETE FROM sessions WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        if (!r.affectedRows) return res.status(404).json({ error: 'Session introuvable' });
+        const soiMeme = req.params.id === req.sessionId;
+        if (soiMeme) { res.clearCookie('inko_token'); res.clearCookie('token'); }
+        res.json({ ok: true, self: soiMeme });
+    } catch (e) { next(e); }
+}
+
+// Ferme toutes les AUTRES : le geste attendu apres « je me suis connecte sur
+// un ordinateur qui n'est pas a moi ». Se deconnecter soi-meme au passage
+// serait une punition, pas une protection.
+async function revokeOtherSessions(req, res, next) {
+    try {
+        const [r] = req.sessionId
+            ? await pool.query('DELETE FROM sessions WHERE user_id = ? AND id <> ?', [req.user.id, req.sessionId])
+            : await pool.query('DELETE FROM sessions WHERE user_id = ?', [req.user.id]);
+        res.json({ ok: true, closed: r.affectedRows });
+    } catch (e) { next(e); }
+}
+
+// Force de mot de passe, evaluee par le MEME code que la validation : un
+// indicateur qui n'utilise pas la regle du serveur finit par la contredire.
+function passwordStrength(req, res) {
+    const { password, username, email } = req.body || {};
+    const v = politique.verifier(password || '', { username, email });
+    res.json({ ok: v.ok, score: v.ok ? v.score : 0, error: v.error || null, min: politique.MIN });
+}
+
 module.exports = {
+    listSessions, revokeSession, revokeOtherSessions, passwordStrength,
     register, login, me, logout, requestReset, resetPassword,
     changePassword, updateProfile, deleteAccount,
     providers, googleAuth, getGoogleConfig, setGoogleConfig,

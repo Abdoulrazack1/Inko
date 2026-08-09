@@ -81,7 +81,9 @@ after(async () => {
 
 // Petit helper : crée un compte et renvoie l'objet user
 async function createUser(username, email) {
-    const { req, res } = rr({ body: { username, email, password: 'motdepasse1' } });
+    // « motdepasse1 » est desormais refuse par la politique (audit AMEL-70) —
+    // c'est precisement ce qu'on lui demande de faire.
+    const { req, res } = rr({ body: { username, email, password: 'phrase de test longue' } });
     await Auth.register(req, res, nextThrow);
     assert.equal(res.statusCode, 200, JSON.stringify(res.body));
     return res.body.user;
@@ -93,14 +95,14 @@ test('auth.register : crée un compte et rejette les doublons d\'email', async (
     assert.ok(u.id > 0);
     assert.equal(u.username, 'Kaito Test');
 
-    const { req, res } = rr({ body: { username: 'Autre', email: 'kaito@test.local', password: 'motdepasse1' } });
+    const { req, res } = rr({ body: { username: 'Autre', email: 'kaito@test.local', password: 'phrase de test longue' } });
     await Auth.register(req, res, nextThrow);
     assert.equal(res.statusCode, 409);
 });
 
 test('auth.register : rejette un pseudo à caractères dangereux (audit S3)', async (t) => {
     if (!available) return t.skip('MySQL indisponible');
-    const { req, res } = rr({ body: { username: '</textarea><img src=x>', email: 'xss@test.local', password: 'motdepasse1' } });
+    const { req, res } = rr({ body: { username: '</textarea><img src=x>', email: 'xss@test.local', password: 'phrase de test longue' } });
     await Auth.register(req, res, nextThrow);
     assert.equal(res.statusCode, 400);
     assert.match(res.body.error, /invalide/i);
@@ -108,7 +110,7 @@ test('auth.register : rejette un pseudo à caractères dangereux (audit S3)', as
 
 test('auth.login : accepte le bon mot de passe, refuse le mauvais', async (t) => {
     if (!available) return t.skip('MySQL indisponible');
-    const ok = rr({ body: { email: 'kaito@test.local', password: 'motdepasse1' } });
+    const ok = rr({ body: { email: 'kaito@test.local', password: 'phrase de test longue' } });
     await Auth.login(ok.req, ok.res, nextThrow);
     assert.equal(ok.res.statusCode, 200);
     assert.ok(ok.res.body.token);
@@ -698,4 +700,116 @@ test('setProgress et markChapter : aucune trace en lecture privée (audit AMEL-1
 
     const [[n]] = await pool.query('SELECT COUNT(*) AS n FROM events WHERE user_id = ?', [u.id]);
     assert.equal(n.n, 0, 'ni la progression ni le marquage ne remplissent le flux d\'activité');
+});
+
+// ── Sessions et mots de passe (audit AMEL-69/70) ─────────────
+test('sessions : une session se ferme sans emporter les autres (audit AMEL-69)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const authMw = require('../middleware/auth');
+    const u = await createUser('sess_a', 'sess_a@test.local');
+
+    // L'inscription ouvre deja une session : on repart d'une table propre pour
+    // ne mesurer que les deux connexions ajoutees ici.
+    await pool.query('DELETE FROM sessions WHERE user_id = ?', [u.id]);
+
+    // Deux connexions depuis deux appareils differents
+    const faux = (ua) => ({ headers: { 'user-agent': ua }, ip: '10.0.0.1', socket: {} });
+    await authMw.sign(u, faux('Mozilla/5.0 (Windows NT 10.0) Chrome/120 Safari/537'));
+    await authMw.sign(u, faux('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/604'));
+
+    const l1 = rr({ user: u });
+    await Auth.listSessions(l1.req, l1.res, nextThrow);
+    assert.equal(l1.res.body.length, 2);
+    const libelles = l1.res.body.map(s => s.device).sort();
+    assert.deepEqual(libelles, ['Chrome sur Windows', 'Safari sur iOS'],
+        'un user-agent brut est illisible : on en garde ce qui permet de reconnaitre l\'appareil');
+
+    // Fermer l'une laisse l'autre
+    const cible = l1.res.body[0].id;
+    const del = rr({ user: u, params: { id: cible } });
+    await Auth.revokeSession(del.req, del.res, nextThrow);
+    assert.equal(del.res.statusCode, 200);
+    const l2 = rr({ user: u });
+    await Auth.listSessions(l2.req, l2.res, nextThrow);
+    assert.equal(l2.res.body.length, 1, 'fermer une session n\'emporte pas les autres');
+
+    // Une session d'un AUTRE compte n'est pas fermable
+    const v = await createUser('sess_b', 'sess_b@test.local');
+    const vol = rr({ user: v, params: { id: l2.res.body[0].id } });
+    await Auth.revokeSession(vol.req, vol.res, nextThrow);
+    assert.equal(vol.res.statusCode, 404, 'on ne ferme que ses propres sessions');
+});
+
+test("sessions : l'inscription ouvre une session revocable (audit AMEL-69)", async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('sess_reg', 'sess_reg@test.local');
+    const [rows] = await pool.query('SELECT id FROM sessions WHERE user_id = ?', [u.id]);
+    assert.equal(rows.length, 1,
+        "un jeton emis sans ligne de session serait irrevocable a l'unite");
+});
+
+test('sessions : « fermer les autres » epargne la session courante (audit AMEL-69)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const authMw = require('../middleware/auth');
+    const u = await createUser('sess_c', 'sess_c@test.local');
+    await pool.query('DELETE FROM sessions WHERE user_id = ?', [u.id]);
+    const faux = { headers: { 'user-agent': 'Chrome/120 Windows' }, ip: '10.0.0.2', socket: {} };
+    for (let i = 0; i < 3; i++) await authMw.sign(u, faux);
+
+    const [avant] = await pool.query('SELECT id FROM sessions WHERE user_id = ?', [u.id]);
+    assert.equal(avant.length, 3);
+
+    const courante = avant[1].id;
+    const { req, res } = rr({ user: u });
+    req.sessionId = courante;
+    await Auth.revokeOtherSessions(req, res, nextThrow);
+    assert.equal(res.body.closed, 2);
+
+    const [apres] = await pool.query('SELECT id FROM sessions WHERE user_id = ?', [u.id]);
+    assert.deepEqual(apres.map(s => s.id), [courante],
+        'se deconnecter soi-meme au passage serait une punition, pas une protection');
+});
+
+test('sessions : revokeTokens nettoie les lignes devenues caduques (audit AMEL-69)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const authMw = require('../middleware/auth');
+    const u = await createUser('sess_d', 'sess_d@test.local');
+    await authMw.sign(u, { headers: {}, ip: '10.0.0.3', socket: {} });
+
+    await authMw.revokeTokens(u.id);
+    const [restantes] = await pool.query('SELECT id FROM sessions WHERE user_id = ?', [u.id]);
+    assert.equal(restantes.length, 0,
+        'les garder afficherait des sessions mortes dans la liste');
+});
+
+test('mot de passe : la politique refuse les evidences (audit AMEL-70)', async (t) => {
+    const p = require('../lib/password-policy');
+    // Les deux mots de passe les plus utilises au monde passaient la regle
+    // « 6 caracteres minimum ».
+    for (const mauvais of ['azerty', '123456', 'password', 'motdepasse', '11111111', 'abcdefgh']) {
+        assert.equal(p.verifier(mauvais).ok, false, `« ${mauvais} » doit etre refuse`);
+    }
+    // Le pseudo ou l'email : le PREMIER essai d'un attaquant qui connait le
+    // compte — et il le connait, il est dans l'URL du profil.
+    assert.equal(p.verifier('kaito-lecteur', { username: 'Kaito' }).ok, false);
+    assert.equal(p.verifier('monmail2026', { email: 'monmail@example.com' }).ok, false);
+    // La longueur prime sur la composition : une phrase vaut mieux qu'un
+    // « Motdepasse1! » conforme et trivial.
+    const phrase = p.verifier('le chat dort sur le clavier');
+    assert.equal(phrase.ok, true);
+    assert.ok(phrase.score >= 3, 'une phrase longue doit bien scorer');
+    assert.equal(p.verifier('Tr0ub4dor').ok, true);
+    assert.equal(p.verifier('court1').ok, false, 'moins de 8 caracteres');
+});
+
+test('auth.register : la politique s\'applique aussi a l\'inscription (audit AMEL-70)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const faible = rr({ body: { username: 'faible1', email: 'faible1@test.local', password: 'azerty' } });
+    await Auth.register(faible.req, faible.res, nextThrow);
+    assert.equal(faible.res.statusCode, 400);
+    assert.match(faible.res.body.error, /court|utilises au monde/i);
+
+    const bon = rr({ body: { username: 'solide1', email: 'solide1@test.local', password: 'un mot de passe long' } });
+    await Auth.register(bon.req, bon.res, nextThrow);
+    assert.equal(bon.res.statusCode, 200);
 });

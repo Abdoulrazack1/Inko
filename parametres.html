@@ -277,6 +277,23 @@
       </div>
     </div>
 
+    <!-- SESSIONS ACTIVES (audit AMEL-69) -->
+    <!-- `token_version` ne savait revoquer que TOUT : changer son mot de passe
+         deconnectait l'intrus ET tous ses propres appareils. Et rien ne
+         montrait ou l'on etait connecte, sur un jeton qui vit 30 jours. -->
+    <div class="set-card" id="sessionsCard" style="display:none">
+      <h2>Sessions actives</h2>
+      <div class="sub">Les appareils sur lesquels ton compte est connecte. Ferme ceux que tu ne reconnais pas.</div>
+      <div id="sessionsList" style="margin-top:12px"></div>
+      <div class="set-row" style="border-bottom:none">
+        <div>
+          <div class="set-row-label">Fermer les autres sessions</div>
+          <div class="set-row-desc">Garde celle-ci, deconnecte tous les autres appareils</div>
+        </div>
+        <button class="btn-danger" id="btnRevokeOthers">Fermer les autres</button>
+      </div>
+    </div>
+
     <!-- ZONE DANGER -->
     <div class="set-card danger-zone" id="dangerCard" style="display:none">
       <h2>Zone de danger</h2>

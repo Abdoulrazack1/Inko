@@ -63,6 +63,11 @@ router.post('/auth/local',          Auth.localAuth);   // mode local sans écran
 router.post('/auth/register',       authLimiter, Auth.register);
 router.post('/auth/login',          authLimiter, Auth.login);
 router.post('/auth/logout',         Auth.logout);
+// Sessions actives et politique de mot de passe (audit AMEL-69/70)
+router.get   ('/auth/sessions',         auth.authRequired, Auth.listSessions);
+router.delete('/auth/sessions/others',  auth.authRequired, Auth.revokeOtherSessions);
+router.delete('/auth/sessions/:id',     auth.authRequired, Auth.revokeSession);
+router.post  ('/auth/password-strength', authLimiter, Auth.passwordStrength);
 router.get ('/auth/me', auth.authRequired, Auth.me);
 router.post('/auth/forgot',         authLimiter, Auth.requestReset);
 router.post('/auth/reset',          authLimiter, Auth.resetPassword);
