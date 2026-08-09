@@ -131,8 +131,13 @@ const json = JSON.stringify(spec, null, 2) + '\n';
 const nb = Object.values(spec.paths).reduce((n, o) => n + Object.keys(o).length, 0);
 
 if (CHECK) {
+    // Comparaison a fins de ligne NORMALISEES. Git convertit en CRLF a la
+    // sortie sur Windows : compare octet a octet, ce controle echouait dans
+    // tout clone Windows alors que le contenu etait identique — un controle
+    // qui echoue sans raison est un controle qu'on desactive.
+    const nl = (v) => String(v).split(String.fromCharCode(13) + String.fromCharCode(10)).join(String.fromCharCode(10));
     const actuel = fs.existsSync(SORTIE) ? fs.readFileSync(SORTIE, 'utf8') : '';
-    if (actuel !== json) {
+    if (nl(actuel) !== nl(json)) {
         console.error('::error::server/openapi.json a dérivé du routeur.');
         console.error("Lance 'npm run gen-openapi' et committe le résultat.");
         process.exit(1);

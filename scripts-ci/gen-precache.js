@@ -104,7 +104,12 @@ if (!reVer.test(next)) {
 next = next.replace(reVer, `const CACHE_VERSION = '${cacheVersion}';`);
 
 if (CHECK) {
-    if (next !== sw) {
+    // Fins de ligne normalisees avant comparaison : Git convertit en CRLF a la
+    // sortie sur Windows, et ce controle echouait alors dans tout clone
+    // Windows pour un contenu identique. Meme correctif que gen-openapi.
+    const CR = String.fromCharCode(13), LF = String.fromCharCode(10);
+    const nl = (v) => String(v).split(CR + LF).join(LF);
+    if (nl(next) !== nl(sw)) {
         console.error('::error::La liste de précache du service worker a dérivé.');
         console.error("Lance 'npm run gen-precache' et committe le résultat.");
         process.exit(1);

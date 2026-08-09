@@ -1,2 +1,14 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# ── Integrite des extensions (audit SEC-08) ──────────────────
+# `text=auto` convertit en CRLF au checkout Windows. Or l'empreinte SHA-256
+# d'une extension est calculee sur les OCTETS du fichier : les memes sources
+# donnaient donc deux empreintes selon la plateforme, et le controle
+# d'integrite refusait 7 des 9 extensions officielles sur un clone Windows —
+# l'app demarrait avec un catalogue quasi vide. Constate en basculant sur
+# `main` apres la 2.5.0.
+# On fige donc les fins de ligne de tout ce qui entre dans une empreinte.
+extensions-community/**/*.js text eol=lf
+extensions-community/hashes.json text eol=lf
+server/extensions/**/*.js text eol=lf
