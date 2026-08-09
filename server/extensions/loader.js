@@ -82,8 +82,45 @@ function integrityProblem(id, file) {
     return `empreinte SHA-256 différente de la référence (attendu ${want.slice(0, 12)}…, obtenu ${got.slice(0, 12)}…)`;
 }
 
+// ── Installation des sources de reference (defaut d'installation) ──
+// `server/extensions/` est gitignore : c'est la copie RUNTIME. Mais RIEN ne
+// la remplissait — ni le Dockerfile, ni le build desktop, ni un script
+// d'installation. Consequence : tout clone frais, toute image Docker et
+// toute CI demarraient avec ZERO source, donc un catalogue vide, sans que
+// rien ne l'explique. Ca ne se voyait pas en developpement parce que le
+// dossier existait deja sur les machines qui avaient servi a le creer.
+//
+// On installe donc les sources de reference quand elles manquent. On ne
+// REMPLACE jamais une extension deja presente : un contributeur qui en
+// modifie une localement doit garder sa version.
+const COMMUNITY_DIR = path.join(__dirname, '..', '..', 'extensions-community');
+function installerSourcesManquantes() {
+    let refs;
+    try { refs = fs.readdirSync(COMMUNITY_DIR, { withFileTypes: true }); }
+    catch (e) { return 0; }   // pas de dossier de reference (image minimale) : on n'invente rien
+    let posees = 0;
+    for (const d of refs) {
+        if (!d.isDirectory()) continue;
+        const src = path.join(COMMUNITY_DIR, d.name, 'index.js');
+        const dst = path.join(EXT_DIR, d.name, 'index.js');
+        if (!fs.existsSync(src) || fs.existsSync(dst)) continue;
+        try {
+            fs.mkdirSync(path.dirname(dst), { recursive: true });
+            // copyFileSync, pas de reecriture : l'empreinte SHA-256 doit
+            // rester identique a la reference, sinon le controle d'integrite
+            // refuserait l'extension qu'on vient d'installer.
+            fs.copyFileSync(src, dst);
+            posees++;
+        } catch (e) { console.warn(`[ext] installation de "${d.name}" impossible : ${e.message}`); }
+    }
+    if (posees) console.log(`[ext] ${posees} source(s) de reference installee(s) depuis extensions-community/`);
+    return posees;
+}
+
 function loadAll() {
     if (registry.size) return registry; // déjà chargé
+
+    installerSourcesManquantes();
 
     const uninstalled = readUninstalled();
     let entries;
