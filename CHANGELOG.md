@@ -3,6 +3,27 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.5.2 — L'installeur 2.5.1 ne contenait aucune source
+
+**A installer si tu as telecharge la 2.5.1.** Celle-ci s'ouvrait sur
+« Impossible de demarrer / Serveur interne ne repond pas » : elle etait
+livree sans aucune source, donc sans rien a lire.
+
+`server/extensions/` est le dossier d'execution, et il est *gitignore* :
+il contient ce que chaque machine a installe. Sur la mienne il y avait
+9 sources, donc mon installeur en contenait 9 ; sur le checkout propre
+de la CI il est vide, donc l'installeur publie n'en contenait aucune.
+Le build local ne pouvait pas reveler le defaut, puisqu'il est
+precisement ce qui le masquait.
+
+L'installeur embarque desormais `extensions-community/` — la reference
+versionnee, celle qui porte aussi les empreintes d'integrite — et la
+preparation du bundle **purge** ce qui vient du dossier d'execution
+local : le paquet est identique qu'il soit construit ici ou en CI. Un
+controle arrete le build si moins de 5 sources ou les empreintes
+manquent, parce qu'une source absente ne se voit pas au build : elle se
+voit au demarrage, chez toi.
+
 ## 2.5.1 — Catalogue : filtres etendus, et un catalogue qui ne s'arrete plus a 48
 
 **Le catalogue s'arretait a 48 series.** Il chargeait deux pages puis

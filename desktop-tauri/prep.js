@@ -55,6 +55,39 @@ for (const nom of INTERDITS) {
     }
 }
 
+// ── Sources : la reference versionnee, jamais l'etat local ──
+// `server/extensions/` est le dossier RUNTIME, et il est gitignore. Sur ma
+// machine il contient 9 sources, donc le bundle en contenait 9 ; sur un
+// checkout propre il est VIDE, donc l'installeur publie par la CI n'en
+// contenait AUCUNE. « Aucune extension chargee » au demarrage, ecran
+// « Impossible de demarrer » — constate sur le build 2.5.1 telecharge.
+//
+// On purge donc ce qui vient du runtime local, et on embarque
+// `extensions-community/` : c'est de la que le loader installe les sources au
+// premier demarrage, et c'est la que vit hashes.json (controle d'integrite).
+// Le bundle devient identique qu'il soit construit ici ou en CI.
+console.log('[prep] sources de reference…');
+const EXT_RUNTIME = path.join(RES, 'server', 'extensions');
+for (const e of fs.readdirSync(EXT_RUNTIME, { withFileTypes: true })) {
+    if (e.isDirectory()) fs.rmSync(path.join(EXT_RUNTIME, e.name), { recursive: true, force: true });
+}
+const EXT_REF = path.join(RES, 'extensions-community');
+robocopy(path.join(ROOT, 'extensions-community'), EXT_REF);
+
+// Meme filet que pour les donnees personnelles, et pour la meme raison : une
+// source absente ne se voit pas au build, elle se voit au demarrage, chez
+// l'utilisateur. Le build s'arrete plutot que de produire une app sans source.
+const refs = fs.existsSync(EXT_REF)
+    ? fs.readdirSync(EXT_REF, { withFileTypes: true })
+        .filter(d => d.isDirectory() && fs.existsSync(path.join(EXT_REF, d.name, 'index.js')))
+    : [];
+if (refs.length < 5 || !fs.existsSync(path.join(EXT_REF, 'hashes.json'))) {
+    throw new Error(`[prep] ABANDON : ${refs.length} source(s) de reference embarquee(s)`
+        + (fs.existsSync(path.join(EXT_REF, 'hashes.json')) ? '' : ', et hashes.json manque')
+        + ". L'app demarrerait sans aucune source.");
+}
+console.log(`[prep] ${refs.length} source(s) de reference embarquee(s)`);
+
 console.log('[prep] frontend…');
 fs.mkdirSync(path.join(RES, 'frontend'), { recursive: true });
 for (const f of fs.readdirSync(ROOT)) {
