@@ -1764,31 +1764,88 @@
                 if (e.key === 'Escape') e.target.blur();
                 return;
             }
-            switch (e.key) {
-                case '/':
-                    e.preventDefault();
-                    document.getElementById('headerSearch')?.focus();
-                    break;
-                case 'r': document.getElementById('navRandom')?.click(); break;
-                case 'b': window.location.href = 'bibliotheque.html'; break;
-                case 'h': window.location.href = 'accueil.html'; break;
-                case 'c': {
-                    const last = await window.MH.lastReadTarget?.();
-                    if (last) window.location.href = last.href; else MH.toast('Aucune lecture en cours');
-                    break;
-                }
-                case '?': toggleShortcutsHelp(); break;
-                case 'Escape': document.getElementById('mhShortcuts')?.remove(); break;
-            }
+            // Audit AMEL-82 : les touches sont remappables. Les raccourcis
+            // etaient codes en dur dans ce switch — une lettre qui tombe mal
+            // sur un clavier non-AZERTY, ou qui entre en conflit avec une
+            // habitude, ne pouvait pas etre changee.
+            if (e.key === 'Escape') { document.getElementById('mhShortcuts')?.remove(); return; }
+            const action = MH.actionRaccourci(e.key);
+            if (!action) return;
+            e.preventDefault();
+            await MH.executerRaccourci(action);
         });
     }
+    /* ── Raccourcis remappables (audit AMEL-82) ──────────────
+       Les touches vivaient en dur dans le `switch`. Sur un clavier non-AZERTY,
+       ou face a une habitude prise ailleurs, aucune n'etait modifiable — et
+       l'aide `?` les presentait comme immuables. */
+    const RACCOURCIS = [
+        { id: 'recherche',  defaut: '/', label: 'Rechercher' },
+        { id: 'aleatoire',  defaut: 'r', label: 'Lecture aleatoire' },
+        { id: 'reprendre',  defaut: 'c', label: 'Reprendre la lecture' },
+        { id: 'bibliotheque', defaut: 'b', label: 'Ma bibliotheque' },
+        { id: 'accueil',    defaut: 'h', label: 'Accueil' },
+        { id: 'aide',       defaut: '?', label: 'Afficher cette aide' },
+    ];
+    const CLE_RACCOURCIS = 'raccourcis';
+    function mapRaccourcis() {
+        let perso = {};
+        try { perso = JSON.parse(window.Storage?.getPref(CLE_RACCOURCIS) || '{}'); } catch (e) { perso = {}; }
+        const m = {};
+        for (const r of RACCOURCIS) {
+            const touche = typeof perso[r.id] === 'string' ? perso[r.id] : r.defaut;
+            if (touche) m[touche] = r.id;   // une touche vide desactive le raccourci
+        }
+        return m;
+    }
+    window.MH.raccourcis = () => RACCOURCIS.map(r => ({ ...r, touche: toucheDe(r.id) }));
+    function toucheDe(id) {
+        let perso = {};
+        try { perso = JSON.parse(window.Storage?.getPref(CLE_RACCOURCIS) || '{}'); } catch (e) { perso = {}; }
+        const r = RACCOURCIS.find(x => x.id === id);
+        return typeof perso[id] === 'string' ? perso[id] : (r ? r.defaut : '');
+    }
+    window.MH.setRaccourci = function (id, touche) {
+        let perso = {};
+        try { perso = JSON.parse(window.Storage?.getPref(CLE_RACCOURCIS) || '{}'); } catch (e) { perso = {}; }
+        // Une touche deja prise par une AUTRE action est liberee : deux actions
+        // sur la meme touche rendraient l'une des deux inatteignable, en
+        // silence.
+        if (touche) {
+            for (const k of Object.keys(perso)) if (k !== id && perso[k] === touche) perso[k] = '';
+            for (const r of RACCOURCIS) if (r.id !== id && perso[r.id] === undefined && r.defaut === touche) perso[r.id] = '';
+        }
+        perso[id] = touche || '';
+        window.Storage?.setPref(CLE_RACCOURCIS, JSON.stringify(perso));
+    };
+    window.MH.resetRaccourcis = function () {
+        window.Storage?.setPref(CLE_RACCOURCIS, '{}');
+    };
+    window.MH.actionRaccourci = (touche) => mapRaccourcis()[touche] || null;
+    window.MH.executerRaccourci = async function (action) {
+        switch (action) {
+            case 'recherche':    document.getElementById('headerSearch')?.focus(); break;
+            case 'aleatoire':    document.getElementById('navRandom')?.click(); break;
+            case 'bibliotheque': window.location.href = 'bibliotheque.html'; break;
+            case 'accueil':      window.location.href = 'accueil.html'; break;
+            case 'reprendre': {
+                const last = await window.MH.lastReadTarget?.();
+                if (last) window.location.href = last.href; else MH.toast('Aucune lecture en cours');
+                break;
+            }
+            case 'aide': toggleShortcutsHelp(); break;
+        }
+    };
+
     function toggleShortcutsHelp() {
         const ex = document.getElementById('mhShortcuts');
         if (ex) { ex.remove(); return; }
-        const rows = [
-            ['/', 'Rechercher'], ['r', 'Lecture aléatoire'], ['c', 'Reprendre la lecture'],
-            ['b', 'Ma bibliothèque'], ['h', 'Accueil'], ['?', 'Afficher cette aide'], ['Échap', 'Fermer'],
-        ];
+        // L'aide lit la configuration REELLE : la presenter en dur la ferait
+        // mentir des la premiere personnalisation.
+        const rows = window.MH.raccourcis()
+            .filter(r => r.touche)
+            .map(r => [r.touche, r.label])
+            .concat([['Ctrl+K', 'Palette de commandes'], ['Echap', 'Fermer']]);
         const ov = document.createElement('div');
         ov.id = 'mhShortcuts';
         ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)';

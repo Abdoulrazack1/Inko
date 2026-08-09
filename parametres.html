@@ -62,7 +62,16 @@
     }
     .btn-danger:hover { background: rgba(239,68,68,.2); }
     .nsfw-card { border-color: rgba(236,72,153,.25); }
-    .nsfw-card h2 { color: #ec4899; }
+    /* Audit A11Y-02 (defaut residuel) : #ec4899 sur le fond clair donne
+       2,77:1 — tres en dessous du seuil AA de 4,5:1. Le defaut echappait aux
+       campagnes precedentes parce que cette carte n'est PAS toujours rendue :
+       axe ignore ce qui est masque, la violation n'apparaissait donc que
+       certains passages. Rose assombri (5,8:1) ; sur fond sombre le rose
+       d'origine passait deja, il y est conserve. */
+    .nsfw-card h2 { color: #a3185c; }
+    html[data-theme="dark"] .nsfw-card h2,
+    html[data-theme="amoled"] .nsfw-card h2 { color: #ec4899; }
+    html[data-theme="contrast"] .nsfw-card h2 { color: #85114a; }
     .pill { font-size: 10px; padding: 2px 8px; border-radius: 5px; font-weight: 600; }
     .pill-on  { background: rgba(34,197,94,.15); color: var(--green); }
     .pill-off { background: var(--bg4); color: var(--text3); }
@@ -154,6 +163,10 @@
           <button data-val="dark">Sombre</button>
           <button data-val="amoled">AMOLED</button>
           <button data-val="light">Clair</button>
+          <!-- Audit AMEL-83 : AA est un PLANCHER. Ce theme vise AAA (7:1) pour
+               la basse vision, les ecrans en plein soleil et les dalles mal
+               calibrees. Choisi explicitement, jamais deduit du systeme. -->
+          <button data-val="contrast" title="Contraste renforce (AAA) — texte plus sombre, bordures opaques, aucun texte sous 12 px">Contraste</button>
           <button data-val="auto">Auto</button>
         </div>
       </div>
@@ -274,6 +287,22 @@
           <div class="set-row-desc">Progression et activité (favoris conservés)</div>
         </div>
         <button class="btn-danger" id="btnClearHistory">Effacer</button>
+      </div>
+    </div>
+
+    <!-- RACCOURCIS CLAVIER (audit AMEL-82) -->
+    <!-- Ils existaient (J, B, A…) mais etaient codes en dur : une lettre qui
+         tombe mal sur un clavier non-AZERTY ne pouvait pas etre changee. -->
+    <div class="set-card" id="shortcutsCard">
+      <h2>Raccourcis clavier</h2>
+      <div class="sub">Clique sur une touche pour la remplacer. Laisse vide pour desactiver le raccourci.</div>
+      <div id="shortcutsList" style="margin-top:12px"></div>
+      <div class="set-row" style="border-bottom:none">
+        <div>
+          <div class="set-row-label">Retour aux valeurs par defaut</div>
+          <div class="set-row-desc">Annule toutes tes personnalisations</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnResetShortcuts">Reinitialiser</button>
       </div>
     </div>
 

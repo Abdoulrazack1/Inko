@@ -36,7 +36,7 @@ async function ouvrir(page, chemin) {
     await page.waitForTimeout(3500);
 }
 
-async function analyser(page) {
+async function analyser(page, opts = {}) {
     // Les transitions CSS faussent la mesure de contraste : un élément saisi
     // en plein fondu a une couleur composée avec son fond, et axe la juge
     // insuffisante. C'est ainsi que le recensement a rapporté 25 violations
@@ -47,10 +47,16 @@ async function analyser(page) {
     }` });
     await page.waitForTimeout(250);
     await page.addScriptTag({ content: AXE });
+    await page.evaluate((aaa) => { window.__aaa = aaa; }, !!opts.aaa);
     return page.evaluate(async () => {
         const res = await window.axe.run(document, {
             // WCAG 2.1 niveau AA : la cible que l'audit a retenue.
-            runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+            // Le theme « contraste » vise AAA : on ajoute alors la regle
+            // color-contrast-enhanced (7:1), sinon on ne verifierait de lui
+            // que ce qu'on verifie deja partout ailleurs.
+            runOnly: window.__aaa
+                ? { type: 'rule', values: ['color-contrast-enhanced'] }
+                : { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
         });
         return res.violations.map(v => ({
             id: v.id,
@@ -61,6 +67,24 @@ async function analyser(page) {
         }));
     });
 }
+
+// Audit AMEL-83 : le theme « contraste » promet AAA (7:1). Une promesse de
+// contraste qui n'est pas mesuree derive au premier composant ajoute — c'est
+// exactement ce qui est arrive au theme clair (A11Y-02, 58 echecs).
+test('le theme contraste tient le niveau AAA (AMEL-83)', async ({ page }) => {
+    await ouvrir(page, '/parametres.html');
+    await page.evaluate(() => window.Theme.apply('contrast'));
+    await page.waitForTimeout(600);
+    const attribut = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+    expect(attribut).toBe('contrast');
+
+    const violations = await analyser(page, { aaa: true });
+    const NL = String.fromCharCode(10);
+    const rapport = violations
+        .map(v => `  ${v.id} (${v.nb}) — ${v.aide}` + NL + '    ' + v.exemples.join(NL + '    '))
+        .join(NL);
+    expect(violations, NL + rapport).toEqual([]);
+});
 
 const PAGES = [
     '/accueil.html',

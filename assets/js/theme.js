@@ -11,6 +11,11 @@
         if (theme === 'light')  return 'light';
         if (theme === 'dark')   return 'dark';
         if (theme === 'amoled') return 'amoled';   // noir pur (OLED)
+        // Audit AMEL-83 : contraste renforce (AAA). Ce n'est PAS une variante
+        // de « clair » : il doit rester choisi explicitement, y compris quand
+        // le systeme est en sombre — quelqu'un qui en a besoin en a besoin
+        // tout le temps.
+        if (theme === 'contrast') return 'contrast';
         // auto → suit le système
         try {
             return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
@@ -49,7 +54,11 @@
         document.documentElement.setAttribute('data-theme', t);
         // Met aussi à jour la meta theme-color pour la PWA
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.content = t === 'light' ? '#eeece6' : (t === 'amoled' ? '#000000' : '#111113');
+        if (meta) {
+            meta.content = t === 'light' ? '#eeece6'
+                : t === 'amoled' ? '#000000'
+                    : t === 'contrast' ? '#ffffff' : '#111113';
+        }
         if (restore) restore();
         booted = true;
     }

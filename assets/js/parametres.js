@@ -97,6 +97,59 @@
         renderSessions();
         renderBackups();
         renderFileSync();
+        renderRaccourcis();
+    }
+
+    // ── RACCOURCIS CLAVIER (audit AMEL-82) ──────────────────
+    function renderRaccourcis() {
+        const liste = document.getElementById('shortcutsList');
+        if (!liste || !MH.raccourcis) return;
+        liste.innerHTML = MH.raccourcis().map(r => `
+            <div class="set-row">
+                <div>
+                    <div class="set-row-label">${MH.esc(r.label)}</div>
+                    <div class="set-row-desc">${r.touche ? '' : 'Desactive'}</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" data-sc="${MH.esc(r.id)}"
+                    aria-label="Modifier le raccourci ${MH.esc(r.label)}"
+                    style="font-family:monospace;min-width:64px">${r.touche ? MH.esc(r.touche) : '—'}</button>
+            </div>`).join('');
+
+        liste.querySelectorAll('[data-sc]').forEach(b => {
+            b.addEventListener('click', () => {
+                const prec = b.textContent;
+                b.textContent = '…';
+                b.disabled = false;
+                // On capture la touche PHYSIQUEMENT plutot que de la faire
+                // saisir : demander « tape la lettre » dans un champ texte
+                // laisserait passer « Ctrl » ou une chaine de trois caracteres.
+                const onKey = (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    document.removeEventListener('keydown', onKey, true);
+                    if (e.key === 'Escape') { b.textContent = prec; return; }
+                    // Retour arriere = desactiver, pas « touche Backspace ».
+                    const touche = (e.key === 'Backspace' || e.key === 'Delete') ? '' : e.key;
+                    if (touche && touche.length > 1) {   // F1, Tab, Enter…
+                        toast('Choisis un caractere simple');
+                        b.textContent = prec; return;
+                    }
+                    MH.setRaccourci(b.dataset.sc, touche);
+                    toast(touche ? `Raccourci : ${touche}` : 'Raccourci desactive');
+                    renderRaccourcis();
+                };
+                document.addEventListener('keydown', onKey, true);
+            });
+        });
+
+        const reset = document.getElementById('btnResetShortcuts');
+        if (reset && !reset.dataset.lie) {
+            reset.dataset.lie = '1';
+            reset.addEventListener('click', () => {
+                MH.resetRaccourcis();
+                toast('Raccourcis reinitialises');
+                renderRaccourcis();
+            });
+        }
     }
 
     // ── FILE HORS-LIGNE (audit AMEL-79) ─────────────────────
