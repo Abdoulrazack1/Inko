@@ -96,6 +96,42 @@
 
         renderSessions();
         renderBackups();
+        renderFileSync();
+    }
+
+    // ── FILE HORS-LIGNE (audit AMEL-79) ─────────────────────
+    function renderFileSync() {
+        const carte = document.getElementById('syncCard');
+        const liste = document.getElementById('syncList');
+        const sous  = document.getElementById('syncSub');
+        if (!carte || !liste || !API.offlineQueue) return;
+        const q = API.offlineQueue();
+        // Rien en attente = rien a dire. Une carte « 0 action » ferait croire
+        // a un probleme la ou tout va bien.
+        if (!q.length) { carte.style.display = 'none'; return; }
+        carte.style.display = '';
+        if (sous) {
+            sous.textContent = navigator.onLine
+                ? `${q.length} action(s) en attente d'envoi.`
+                : `${q.length} action(s) gardees hors-ligne — elles partiront au retour du reseau.`;
+        }
+        liste.innerHTML = q.slice(0, 20).map(e => `
+            <div class="set-row">
+                <div>
+                    <div class="set-row-label">${MH.esc(e.label)}</div>
+                    <div class="set-row-desc">${MH.esc(ilYA(e.at))}</div>
+                </div>
+            </div>`).join('');
+
+        const b = document.getElementById('btnFlushSync');
+        if (b && !b.dataset.lie) {
+            b.dataset.lie = '1';
+            b.addEventListener('click', async () => {
+                if (!navigator.onLine) { toast('Toujours hors-ligne'); return; }
+                b.disabled = true;
+                try { await API.flushOffline(); } finally { b.disabled = false; renderFileSync(); }
+            });
+        }
     }
 
     // ── SAUVEGARDES (audit AMEL-73) ─────────────────────────

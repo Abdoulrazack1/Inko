@@ -277,6 +277,22 @@
       </div>
     </div>
 
+    <!-- FILE HORS-LIGNE (audit AMEL-79) -->
+    <!-- La file existait mais restait invisible : marquer des chapitres lus
+         sans reseau semblait ne rien faire. -->
+    <div class="set-card" id="syncCard" style="display:none">
+      <h2>Synchronisation en attente</h2>
+      <div class="sub" id="syncSub"></div>
+      <div id="syncList" style="margin-top:12px"></div>
+      <div class="set-row" style="border-bottom:none">
+        <div>
+          <div class="set-row-label">Envoyer maintenant</div>
+          <div class="set-row-desc">Rejoue les actions faites hors-ligne</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnFlushSync">Envoyer</button>
+      </div>
+    </div>
+
     <!-- SAUVEGARDES (audit AMEL-73/75) -->
     <!-- Le script de restauration existe (BUG-12) mais suppose un acces shell
          au serveur. Une sauvegarde qu'on ne sait restaurer qu'en SSH n'existe

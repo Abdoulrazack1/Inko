@@ -316,6 +316,24 @@
     // ── API publique ──────────────────────────────────────────
     const API = {
         get base()   { return API_BASE; },
+        // Audit AMEL-79 : la file d'ecritures hors-ligne existait mais restait
+        // INVISIBLE. Marquer des chapitres lus sans reseau semblait ne rien
+        // faire, et rien ne disait si c'etait finalement parti. Une ecriture
+        // en attente qu'on ne voit pas est indistinguable d'une ecriture
+        // perdue — l'utilisateur refait le geste, ou renonce.
+        offlineQueue() {
+            return readQueue().map(e => ({
+                method: e.method, path: e.path, at: e.at,
+                // Le chemin brut ne parle pas : on en tire ce que l'action VEUT dire.
+                label: /read-chapters/.test(e.path) ? 'Chapitre marque lu'
+                    : /progress/.test(e.path) ? 'Progression de lecture'
+                        : /favorites/.test(e.path) ? 'Favori'
+                            : /library/.test(e.path) ? 'Statut de suivi'
+                                : /ratings/.test(e.path) ? 'Note'
+                                    : e.path,
+            }));
+        },
+        flushOffline() { return flushOfflineQueue(); },
         get user()   { return _user; },
         get token()  { return _token; },
         isLoggedIn() { return !!_user; },

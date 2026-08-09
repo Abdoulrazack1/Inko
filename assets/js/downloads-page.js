@@ -26,6 +26,32 @@
         return (n / 1073741824).toFixed(2) + ' Go';
     }
 
+    // Audit AMEL-78 : « 6 Mo utilises » ne dit pas PAR QUOI. Sans repartition,
+    // liberer de la place revient a supprimer au hasard. La mesure lit les
+    // reponses en cache : elle est differee apres le rendu, la page ne doit pas
+    // attendre pour s'afficher.
+    async function mesurerPoids() {
+        if (!window.Downloads?.sizeByManga) return;
+        let tailles;
+        try { tailles = await window.Downloads.sizeByManga(); } catch (e) { return; }
+        const total = tailles.reduce((n, t) => n + t.bytes, 0);
+        tailles.forEach(t => {
+            const el = document.querySelector(`[data-poids="${CSS.escape(t.mangaId)}"]`);
+            if (!el) return;
+            const part = total ? Math.round((t.bytes / total) * 100) : 0;
+            el.textContent = ` · ${fmtSize(t.bytes)}${t.estimated ? ' (estime)' : ''}`
+                + (part >= 10 ? ` · ${part}% de tes telechargements` : '');
+        });
+        // La plus lourde d'abord : c'est celle qu'on veut voir quand on cherche
+        // de la place. Sans ce tri, la liste reste chronologique et la serie a
+        // supprimer peut etre en bas.
+        const corps = document.getElementById('dlBody');
+        const rang = new Map(tailles.map((t, i) => [t.mangaId, i]));
+        [...corps.querySelectorAll('.dl-group')]
+            .sort((a, b) => (rang.get(a.dataset.manga) ?? 1e9) - (rang.get(b.dataset.manga) ?? 1e9))
+            .forEach(el => corps.appendChild(el));
+    }
+
     async function render() {
         const body = document.getElementById('dlBody');
         const groups = await window.Downloads.byManga();
@@ -60,7 +86,7 @@
                 <div class="dl-ghead">
                     <img class="dl-gcover" src="${MH.esc(cover)}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
                     <div class="dl-gtitle">${MH.esc(g.mangaTitle || g.mangaId)}
-                        <div class="dl-gcount">${chaps.length} chapitre(s)</div>
+                        <div class="dl-gcount">${chaps.length} chapitre(s)<span data-poids="${MH.esc(g.mangaId)}"></span></div>
                     </div>
                     <button class="btn btn-sm" data-delmanga="${MH.esc(g.mangaId)}" style="color:#ef4444">Supprimer la série</button>
                 </div>
@@ -109,5 +135,7 @@
             }
             render();
         }));
+
+        mesurerPoids();
     }
 })();
