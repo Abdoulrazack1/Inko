@@ -37,6 +37,38 @@ async function pushEvent(userId, type, payload = {}, req = null) {
     );
 }
 
+// ── Pagination homogene (audit AMEL-121) ────────────────────
+// Certaines routes paginaient, d'autres renvoyaient tout : /me/favorites sort
+// 365 entrees d'un bloc, et un client tiers n'avait aucun moyen d'en demander
+// moins. Les collections acceptent desormais `limit` et `offset`.
+//
+// LA FORME DE REPONSE NE CHANGE QUE SI ON LA DEMANDE. Sans `limit` ni
+// `offset`, le tableau brut est renvoye comme avant — passer tout le monde a
+// `{items,total}` casserait le frontend embarque, les exports et tout client
+// existant, pour un benefice nul dans le cas courant.
+function pagination(req, defaut = 100, max = 500) {
+    const l = parseInt(req.query.limit, 10);
+    const o = parseInt(req.query.offset, 10);
+    const demande = Number.isFinite(l) || Number.isFinite(o);
+    return {
+        demande,
+        limit: Number.isFinite(l) ? Math.min(Math.max(l, 1), max) : defaut,
+        offset: Number.isFinite(o) ? Math.max(o, 0) : 0,
+    };
+}
+// `total` est celui de la COLLECTION, pas de la tranche : sans lui, un client
+// ne sait pas s'il doit redemander, et pagine a l'aveugle jusqu'a une page vide.
+function repondreCollection(res, req, tous, mapper) {
+    const p = pagination(req);
+    if (!p.demande) return res.json(tous.map(mapper));
+    return res.json({
+        items: tous.slice(p.offset, p.offset + p.limit).map(mapper),
+        total: tous.length,
+        limit: p.limit,
+        offset: p.offset,
+    });
+}
+
 // ──────────────────────────────────────────────────────────────
 // FAVORITES
 // ──────────────────────────────────────────────────────────────
@@ -52,7 +84,7 @@ async function getFavorites(req, res, next) {
              WHERE user_id = ? ORDER BY added_at DESC`,
             [req.user.id]
         );
-        res.json(rows.map(r => ({
+        repondreCollection(res, req, rows, r => ({
             mangaId: r.manga_id, source: r.source || 'mangadex',
             title: r.title, cover: r.cover, lastChapter: r.last_chapter,
             category: r.category || null, status: r.status || null,
@@ -60,7 +92,7 @@ async function getFavorites(req, res, next) {
             // sourdine — distinct du fait de suivre la série.
             notify: r.notify !== 0,
             addedAt: r.added_at,
-        })));
+        }));
     } catch (e) { next(e); }
 }
 
@@ -126,10 +158,10 @@ async function getLibrary(req, res, next) {
              WHERE user_id = ? AND status IS NOT NULL ORDER BY status_updated_at DESC`,
             [req.user.id]
         );
-        res.json(rows.map(r => ({
+        repondreCollection(res, req, rows, r => ({
             mangaId: r.manga_id, status: r.status, rating: null,
             addedAt: r.added_at, updatedAt: r.status_updated_at,
-        })));
+        }));
     } catch (e) { next(e); }
 }
 

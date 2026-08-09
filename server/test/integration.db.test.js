@@ -906,3 +906,40 @@ test('sauvegardes : un dump chiffre exige la bonne phrase (audit AMEL-74)', asyn
         try { fs.unlinkSync(path.join(bk.BACKUP_DIR, nom)); } catch (e) { /* deja retire */ }
     }
 });
+
+// ── API : versionnement et pagination (audit AMEL-120/121) ───
+test('collections : la pagination ne change la forme QUE si on la demande (audit AMEL-121)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('pag_u', 'pag_u@test.local');
+    const lignes = [];
+    for (let i = 0; i < 12; i++) lignes.push([u.id, 'm' + String(i).padStart(2, '0'), 'T' + i]);
+    await pool.query('INSERT INTO favorites (user_id, manga_id, title) VALUES ?', [lignes]);
+
+    // Sans parametre : tableau brut, comme avant. Passer tout le monde a
+    // { items, total } casserait le frontend embarque et les exports.
+    const brut = rr({ user: u, query: {} });
+    await User.getFavorites(brut.req, brut.res, nextThrow);
+    assert.ok(Array.isArray(brut.res.body), 'la forme historique est preservee');
+    assert.equal(brut.res.body.length, 12);
+
+    // Avec limit : enveloppe { items, total, limit, offset }
+    const page = rr({ user: u, query: { limit: '5' } });
+    await User.getFavorites(page.req, page.res, nextThrow);
+    assert.equal(page.res.body.items.length, 5);
+    assert.equal(page.res.body.total, 12, 'le total est celui de la collection, pas de la tranche');
+    assert.equal(page.res.body.limit, 5);
+    assert.equal(page.res.body.offset, 0);
+
+    // offset seul suffit a declencher l'enveloppe
+    const deux = rr({ user: u, query: { offset: '10' } });
+    await User.getFavorites(deux.req, deux.res, nextThrow);
+    assert.equal(deux.res.body.items.length, 2, 'derniere tranche, plus courte');
+    assert.equal(deux.res.body.total, 12);
+
+    // Bornes : une limite absurde ne doit pas faire tomber le serveur ni
+    // renvoyer la table entiere sous couvert de pagination.
+    const abus = rr({ user: u, query: { limit: '99999', offset: '-5' } });
+    await User.getFavorites(abus.req, abus.res, nextThrow);
+    assert.equal(abus.res.body.limit, 500);
+    assert.equal(abus.res.body.offset, 0);
+});

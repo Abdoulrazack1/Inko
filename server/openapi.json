@@ -1,0 +1,3714 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "API Inko",
+    "version": "2.3.4",
+    "description": "Référence générée depuis server/routes/index.js. Ne pas éditer à la main : régénérer avec `npm run gen-openapi`."
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Version figée — à utiliser depuis un client tiers"
+    },
+    {
+      "url": "/api",
+      "description": "Alias non versionné — suit toujours la dernière version"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "inko_token"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "GET /health",
+        "tags": [
+          "health"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/app/update": {
+      "post": {
+        "summary": "MAJ intégrée (app desktop). authRequired (audit S2) : sans lui, n'importe quelle page web ouverte pendant que l'app tourne pouvait POST ici (CSRF simple request) et déclencher fermeture + réinstallation silencieuse.",
+        "operationId": "Update_runUpdate",
+        "tags": [
+          "app"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "── Reference de l'API (audit AMEL-119) ────────── Generee depuis CE fichier par scripts-ci/gen-openapi.js, et verifiee en CI : une reference ecrite a la main diverge du code au premier ajout de route — c'est deja ce qui etait arrive ici (96 routes, une poignee documentees).",
+        "tags": [
+          "openapi.json"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/auth/providers": {
+      "get": {
+        "summary": "── Auth ─────────────────────────────────────────",
+        "operationId": "Auth_providers",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/auth/google": {
+      "post": {
+        "summary": "Auth.googleAuth",
+        "operationId": "Auth_googleAuth",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/auth/google-config": {
+      "get": {
+        "summary": "Auth.getGoogleConfig",
+        "operationId": "Auth_getGoogleConfig",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "put": {
+        "summary": "Auth.setGoogleConfig",
+        "operationId": "Auth_setGoogleConfig",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/auth/local": {
+      "post": {
+        "summary": "Auth.localAuth",
+        "operationId": "Auth_localAuth",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "summary": "Auth.register",
+        "operationId": "Auth_register",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "authLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Auth.login",
+        "operationId": "Auth_login",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "authLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Auth.logout",
+        "operationId": "Auth_logout",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/auth/sessions": {
+      "get": {
+        "summary": "Sessions actives et politique de mot de passe (audit AMEL-69/70)",
+        "operationId": "Auth_listSessions",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/auth/sessions/others": {
+      "delete": {
+        "summary": "Auth.revokeOtherSessions",
+        "operationId": "Auth_revokeOtherSessions",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/auth/sessions/{id}": {
+      "delete": {
+        "summary": "Auth.revokeSession",
+        "operationId": "Auth_revokeSession",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/auth/password-strength": {
+      "post": {
+        "summary": "Auth.passwordStrength",
+        "operationId": "Auth_passwordStrength",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "authLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Auth.me",
+        "operationId": "Auth_me",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/auth/forgot": {
+      "post": {
+        "summary": "Auth.requestReset",
+        "operationId": "Auth_requestReset",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "authLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/auth/reset": {
+      "post": {
+        "summary": "Auth.resetPassword",
+        "operationId": "Auth_resetPassword",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "authLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/auth/password": {
+      "put": {
+        "summary": "Auth.changePassword",
+        "operationId": "Auth_changePassword",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/auth/profile": {
+      "put": {
+        "summary": "Auth.updateProfile",
+        "operationId": "Auth_updateProfile",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/auth/delete": {
+      "post": {
+        "summary": "Auth.deleteAccount",
+        "operationId": "Auth_deleteAccount",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/sources": {
+      "get": {
+        "summary": "── Sources (extensions installées) ───────────────",
+        "operationId": "Manga_listSources",
+        "tags": [
+          "sources"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/extensions/updates": {
+      "get": {
+        "summary": "── Extensions : mises à jour (modèle Mihon) ────── Audit SRC1 : updates/uninstalled exigent désormais au moins une session.",
+        "operationId": "Ext_checkUpdates",
+        "tags": [
+          "extensions"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/extensions/health": {
+      "get": {
+        "summary": "Audit AMEL-65/68 : la sante et le journal repondent a une question d'utilisateur (« pourquoi cette source ne renvoie rien ? »), pas d'administrateur. Aucune donnee confidentielle : des compteurs de disponibilite de sites publics.",
+        "operationId": "Ext_healthStatus",
+        "tags": [
+          "extensions"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/extensions/{id}/log": {
+      "get": {
+        "summary": "Ext.sourceLog",
+        "operationId": "Ext_sourceLog",
+        "tags": [
+          "extensions"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/extensions/{id}/test": {
+      "get": {
+        "summary": "Ext.testSource",
+        "operationId": "Ext_testSource",
+        "tags": [
+          "extensions"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/extensions/update": {
+      "post": {
+        "summary": "applyUpdates écrit des fichiers .js exécutés côté serveur pour toute l'instance : exige un rôle admin, pas seulement une session valide (audit §7.3).",
+        "operationId": "Ext_applyUpdates",
+        "tags": [
+          "extensions"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "admin",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
+          }
+        }
+      }
+    },
+    "/extensions/{id}/uninstall": {
+      "post": {
+        "summary": "Audit S9 : uninstall/reinstall désactivent une source pour TOUTE l'instance (même impact qu'applyUpdates) — adminRequired, pas seulement une session. Sans conséquence en mode local (compte unique = admin de facto).",
+        "operationId": "Ext_uninstall",
+        "tags": [
+          "extensions"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
+          }
+        }
+      }
+    },
+    "/extensions/{id}/reinstall": {
+      "post": {
+        "summary": "Ext.reinstall",
+        "operationId": "Ext_reinstall",
+        "tags": [
+          "extensions"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
+          }
+        }
+      }
+    },
+    "/extensions/uninstalled": {
+      "get": {
+        "summary": "GET /extensions/uninstalled",
+        "tags": [
+          "extensions"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/img": {
+      "get": {
+        "summary": "── Proxy de couvertures (cache + anti-hotlink) ───",
+        "operationId": "Image_proxy",
+        "tags": [
+          "img"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "imgLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/artwork": {
+      "get": {
+        "summary": "── Artwork officiel (AniList) pour le hero ───────",
+        "operationId": "Artwork_artwork",
+        "tags": [
+          "artwork"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/anilist/config": {
+      "get": {
+        "summary": "── AniList (suivi : config OAuth implicite) ──────",
+        "operationId": "AniList_config",
+        "tags": [
+          "anilist"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      },
+      "put": {
+        "summary": "AniList.setConfig",
+        "operationId": "AniList_setConfig",
+        "tags": [
+          "anilist"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/anilist/similar": {
+      "get": {
+        "summary": "AniList.similar",
+        "operationId": "AniList_similar",
+        "tags": [
+          "anilist"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/mangas/search": {
+      "get": {
+        "summary": "── Mangas (relais vers source active, ?source=<id> pour cibler) ──",
+        "operationId": "Manga_search",
+        "tags": [
+          "mangas"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/search-all": {
+      "get": {
+        "summary": "Manga.searchAll",
+        "operationId": "Manga_searchAll",
+        "tags": [
+          "search-all"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "searchLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/mangas/popular": {
+      "get": {
+        "summary": "Manga.popular",
+        "operationId": "Manga_popular",
+        "tags": [
+          "mangas"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/mangas/latest": {
+      "get": {
+        "summary": "Manga.latest",
+        "operationId": "Manga_latest",
+        "tags": [
+          "mangas"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/mangas/tags": {
+      "get": {
+        "summary": "Manga.tags",
+        "operationId": "Manga_tags",
+        "tags": [
+          "mangas"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/mangas/{id}": {
+      "get": {
+        "summary": "Manga.getOne",
+        "operationId": "Manga_getOne",
+        "tags": [
+          "mangas"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/mangas/{id}/chapters": {
+      "get": {
+        "summary": "Manga.chapters",
+        "operationId": "Manga_chapters",
+        "tags": [
+          "mangas"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/chapters/{id}/pages": {
+      "get": {
+        "summary": "Manga.pages",
+        "operationId": "Manga_pages",
+        "tags": [
+          "chapters"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/chapters/{id}/text": {
+      "get": {
+        "summary": "Manga.text",
+        "operationId": "Manga_text",
+        "tags": [
+          "chapters"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/mangas/search": {
+      "get": {
+        "summary": "── Routes scoping par source : /sources/:sourceId/mangas/* ──",
+        "operationId": "Manga_search",
+        "tags": [
+          "sources"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/mangas/popular": {
+      "get": {
+        "summary": "Manga.popular",
+        "operationId": "Manga_popular",
+        "tags": [
+          "sources"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/mangas/latest": {
+      "get": {
+        "summary": "Manga.latest",
+        "operationId": "Manga_latest",
+        "tags": [
+          "sources"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/mangas/tags": {
+      "get": {
+        "summary": "Manga.tags",
+        "operationId": "Manga_tags",
+        "tags": [
+          "sources"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/mangas/{id}": {
+      "get": {
+        "summary": "Manga.getOne",
+        "operationId": "Manga_getOne",
+        "tags": [
+          "sources"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/mangas/{id}/chapters": {
+      "get": {
+        "summary": "Manga.chapters",
+        "operationId": "Manga_chapters",
+        "tags": [
+          "sources"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/chapters/{id}/pages": {
+      "get": {
+        "summary": "Manga.pages",
+        "operationId": "Manga_pages",
+        "tags": [
+          "sources"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/chapters/{id}/text": {
+      "get": {
+        "summary": "Manga.text",
+        "operationId": "Manga_text",
+        "tags": [
+          "sources"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/me/favorites": {
+      "get": {
+        "summary": "── User data (auth required) ───────────────────",
+        "operationId": "User_getFavorites",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Taille de page. Fournir limit ou offset fait passer la reponse de tableau brut a { items, total, limit, offset } (audit AMEL-121)."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "post": {
+        "summary": "User.addFavorite",
+        "operationId": "User_addFavorite",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/favorites/{mangaId}": {
+      "delete": {
+        "summary": "User.removeFavorite",
+        "operationId": "User_removeFavorite",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/favorites/{mangaId}/category": {
+      "put": {
+        "summary": "User.setFavoriteCategory",
+        "operationId": "User_setFavoriteCategory",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/library": {
+      "get": {
+        "summary": "User.getLibrary",
+        "operationId": "User_getLibrary",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Taille de page. Fournir limit ou offset fait passer la reponse de tableau brut a { items, total, limit, offset } (audit AMEL-121)."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/library/{mangaId}": {
+      "put": {
+        "summary": "User.setLibraryStatus",
+        "operationId": "User_setLibraryStatus",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/progress": {
+      "get": {
+        "summary": "User.getAllProgress",
+        "operationId": "User_getAllProgress",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/progress/{mangaId}": {
+      "put": {
+        "summary": "User.setProgress",
+        "operationId": "User_setProgress",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "delete": {
+        "summary": "User.deleteProgress",
+        "operationId": "User_deleteProgress",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/progress/{mangaId}/history": {
+      "get": {
+        "summary": "Audit AMEL-28 : positions precedentes, pour recuperer une place ecrasee par une ouverture accidentelle.",
+        "operationId": "User_getProgressHistory",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/read-chapters": {
+      "get": {
+        "summary": "User.getReadChapters",
+        "operationId": "User_getReadChapters",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "post": {
+        "summary": "User.markChapter",
+        "operationId": "User_markChapter",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/read-chapters/bulk": {
+      "post": {
+        "summary": "User.markChaptersBulk",
+        "operationId": "User_markChaptersBulk",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/read-chapters/unmark-bulk": {
+      "post": {
+        "summary": "Audit AMEL-40 : annulation d'un marquage en masse.",
+        "operationId": "User_unmarkChaptersBulk",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/lists": {
+      "get": {
+        "summary": "User.getLists",
+        "operationId": "User_getLists",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "post": {
+        "summary": "User.createList",
+        "operationId": "User_createList",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/lists/{id}": {
+      "put": {
+        "summary": "User.updateList",
+        "operationId": "User_updateList",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "delete": {
+        "summary": "User.deleteList",
+        "operationId": "User_deleteList",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/lists/{id}/items": {
+      "post": {
+        "summary": "User.addToList",
+        "operationId": "User_addToList",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/lists/{id}/items/{mangaId}": {
+      "delete": {
+        "summary": "User.removeFromList",
+        "operationId": "User_removeFromList",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/lists/{id}/order": {
+      "put": {
+        "summary": "Audit AMEL-37 : `list_items.position` servait deja au tri mais n'etait ecrite nulle part — l'ordre affiche etait donc l'ordre d'ajout.",
+        "operationId": "User_reorderList",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/bookmarks": {
+      "get": {
+        "summary": "Audit AMEL-41 : les signets sortent du blob de reglages, qui etait recharge a chaque page et reecrit en entier au moindre ajout.",
+        "operationId": "User_getBookmarks",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "post": {
+        "summary": "User.addBookmark",
+        "operationId": "User_addBookmark",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/bookmarks/{mangaId}/{chapterId}": {
+      "delete": {
+        "summary": "User.removeBookmark",
+        "operationId": "User_removeBookmark",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chapterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/comments-recent": {
+      "get": {
+        "summary": "Audit SEC-04 : cette route était la SEULE du groupe sans middleware d'auth. Un visiteur anonyme obtenait un flux en direct de « qui lit quoi » — texte du commentaire, pseudo, avatar, titre et source de l'œuvre, horodatage — alors que l'interface promet « ton avis reste privé pour l'instant ». Elle exige désormais une session, comme le reste de /me/*.",
+        "operationId": "User_getRecentComments",
+        "tags": [
+          "comments-recent"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/comments/{mangaId}": {
+      "get": {
+        "summary": "User.getComments",
+        "operationId": "User_getComments",
+        "tags": [
+          "comments"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "optionnelle",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Taille de page. Fournir limit ou offset fait passer la reponse de tableau brut a { items, total, limit, offset } (audit AMEL-121)."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "post": {
+        "summary": "User.addComment",
+        "operationId": "User_addComment",
+        "tags": [
+          "comments"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "x-rate-limit": "writeLimiter",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/comments/{commentId}/report": {
+      "post": {
+        "summary": "User.reportComment",
+        "operationId": "User_reportComment",
+        "tags": [
+          "comments"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "x-rate-limit": "writeLimiter",
+        "parameters": [
+          {
+            "name": "commentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/comments/{commentId}": {
+      "delete": {
+        "summary": "User.deleteComment",
+        "operationId": "User_deleteComment",
+        "tags": [
+          "comments"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "commentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/library/import/local": {
+      "post": {
+        "summary": "── Import local (EPUB / PDF / CBZ) ───────────── Audit BUG-17 : ce commentaire annonçait « CBR » — un format que le contrôleur REFUSE explicitement (le lecteur ne sait pas lire le RAR) — et omettait le PDF, qui lui est réellement accepté. Voir ALLOWED dans local.controller.js, seule source de vérité.",
+        "operationId": "Local_importLocal",
+        "tags": [
+          "library"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/library/local": {
+      "get": {
+        "summary": "Local.listLocal",
+        "operationId": "Local_listLocal",
+        "tags": [
+          "library"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/library/local/{id}/file": {
+      "get": {
+        "summary": "Local.getLocalFile",
+        "operationId": "Local_getLocalFile",
+        "tags": [
+          "library"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/library/local/{id}": {
+      "delete": {
+        "summary": "Local.deleteLocal",
+        "operationId": "Local_deleteLocal",
+        "tags": [
+          "library"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/users/profile/{username}": {
+      "get": {
+        "summary": "── Profils publics ─────────────────────────────",
+        "operationId": "Profile_publicProfile",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "optionnelle",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/lists/{id}": {
+      "get": {
+        "summary": "Audit BUG-09 : `lists.is_public` était un drapeau mort — aucune route ne l'exposait, donc marquer une liste « publique » ne la rendait publique nulle part. Lecture seule, sans session (c'est le sens du mot), et une liste privée répond 404 plutôt que 403 pour ne pas révéler son existence.",
+        "operationId": "Profile_publicList",
+        "tags": [
+          "lists"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/me/notifications": {
+      "get": {
+        "summary": "── Notifications in-app + Web Push ─────────────",
+        "operationId": "Notif_list",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Taille de page. Fournir limit ou offset fait passer la reponse de tableau brut a { items, total, limit, offset } (audit AMEL-121)."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/notifications/unread": {
+      "get": {
+        "summary": "Notif.unreadCount",
+        "operationId": "Notif_unreadCount",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/notifications/read-all": {
+      "post": {
+        "summary": "Notif.markAllRead",
+        "operationId": "Notif_markAllRead",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/notifications/{id}/read": {
+      "post": {
+        "summary": "Notif.markRead",
+        "operationId": "Notif_markRead",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/notif-prefs": {
+      "get": {
+        "summary": "Réglages de notification (audit AMEL-54)",
+        "operationId": "Notif_getPrefs",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "put": {
+        "summary": "Notif.setPrefs",
+        "operationId": "Notif_setPrefs",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/notif-watch/{mangaId}": {
+      "put": {
+        "summary": "Notif.setWatch",
+        "operationId": "Notif_setWatch",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/push/vapid": {
+      "get": {
+        "summary": "Notif.vapid",
+        "operationId": "Notif_vapid",
+        "tags": [
+          "push"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/me/push/subscribe": {
+      "post": {
+        "summary": "Notif.subscribe",
+        "operationId": "Notif_subscribe",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "summary": "── Administration & modération (role=admin) ────",
+        "operationId": "Admin_stats",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "admin",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "summary": "Admin.listUsers",
+        "operationId": "Admin_listUsers",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "admin",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/role": {
+      "put": {
+        "summary": "Admin.setUserRole",
+        "operationId": "Admin_setUserRole",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/ban": {
+      "put": {
+        "summary": "Admin.setUserBan",
+        "operationId": "Admin_setUserBan",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
+          }
+        }
+      }
+    },
+    "/admin/reports": {
+      "get": {
+        "summary": "Admin.listReports",
+        "operationId": "Admin_listReports",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "admin",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
+          }
+        }
+      }
+    },
+    "/admin/reports/{id}/resolve": {
+      "post": {
+        "summary": "Admin.resolveReport",
+        "operationId": "Admin_resolveReport",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
+          }
+        }
+      }
+    },
+    "/ratings/{mangaId}": {
+      "get": {
+        "summary": "── Ratings ─────────────────────────────────────",
+        "operationId": "User_getMangaRating",
+        "tags": [
+          "ratings"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "optionnelle",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "put": {
+        "summary": "User.setMangaRating",
+        "operationId": "User_setMangaRating",
+        "tags": [
+          "ratings"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "delete": {
+        "summary": "User.deleteMangaRating",
+        "operationId": "User_deleteMangaRating",
+        "tags": [
+          "ratings"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/notes": {
+      "get": {
+        "summary": "── Journal de lecture : notes personnelles ──",
+        "operationId": "Notes_listNotes",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "post": {
+        "summary": "Notes.createNote",
+        "operationId": "Notes_createNote",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/notes/stats": {
+      "get": {
+        "summary": "Notes.notesStats",
+        "operationId": "Notes_notesStats",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/notes/{id}": {
+      "put": {
+        "summary": "Notes.updateNote",
+        "operationId": "Notes_updateNote",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Notes.deleteNote",
+        "operationId": "Notes_deleteNote",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/ratings": {
+      "get": {
+        "summary": "User.getMyRatings",
+        "operationId": "User_getMyRatings",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/settings": {
+      "get": {
+        "summary": "── Settings synchronisés ───────────────────────",
+        "operationId": "User_getSettings",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "put": {
+        "summary": "User.setSettings",
+        "operationId": "User_setSettings",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/anilist-links": {
+      "get": {
+        "summary": "Audit PERF-09 : le cache titre → id AniList vivait dans user_settings.data, rechargé À CHAQUE PAGE (7 348 des 8 188 octets du blob, sans éviction). Table dédiée, chargée seulement par anilist.js.",
+        "operationId": "User_getAnilistLinks",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "put": {
+        "summary": "User.setAnilistLinks",
+        "operationId": "User_setAnilistLinks",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/export": {
+      "get": {
+        "summary": "── Données ─────────────────────────────────────",
+        "operationId": "User_exportData",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/import": {
+      "post": {
+        "summary": "User.importData",
+        "operationId": "User_importData",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/clear-history": {
+      "post": {
+        "summary": "User.clearHistory",
+        "operationId": "User_clearHistory",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/history/export": {
+      "get": {
+        "summary": "Historique : suppression ciblee et export dedie (audit AMEL-112/113)",
+        "operationId": "User_exportHistory",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/backups": {
+      "get": {
+        "summary": "Sauvegardes : lister, previsualiser, restaurer SON compte (audit AMEL-73)",
+        "operationId": "User_listBackups",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/backups/{file}/preview": {
+      "post": {
+        "summary": "User.previewBackup",
+        "operationId": "User_previewBackup",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/backups/{file}/restore": {
+      "post": {
+        "summary": "User.restoreBackup",
+        "operationId": "User_restoreBackup",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "x-rate-limit": "writeLimiter",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/history/{mangaId}": {
+      "delete": {
+        "summary": "User.deleteHistoryEntry",
+        "operationId": "User_deleteHistoryEntry",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/events": {
+      "get": {
+        "summary": "User.getEvents",
+        "operationId": "User_getEvents",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/stats": {
+      "get": {
+        "summary": "User.getStats",
+        "operationId": "User_getStats",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/stats/distribution": {
+      "get": {
+        "summary": "User.getStatsDistribution",
+        "operationId": "User_getStatsDistribution",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/updates": {
+      "get": {
+        "summary": "User.checkUpdates",
+        "operationId": "User_checkUpdates",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    }
+  }
+}

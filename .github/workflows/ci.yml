@@ -92,6 +92,11 @@ jobs:
       - name: Vérifier la couverture i18n
         run: node scripts-ci/check-i18n.js --check
 
+      # Audit AMEL-119 : la reference d'API est DERIVEE du routeur. Une
+      # documentation ecrite a la main diverge au premier ajout de route.
+      - name: Vérifier la référence d'API
+        run: node scripts-ci/gen-openapi.js --check
+
       - name: Regénérer les empreintes
         run: node scripts-ci/gen-ext-hashes.js
       - name: Échouer si hashes.json n'est pas à jour

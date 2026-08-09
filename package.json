@@ -12,6 +12,7 @@
     "gen-ext-hashes": "node scripts-ci/gen-ext-hashes.js",
     "check-sources": "node scripts-ci/check-sources.js",
     "gen-precache": "node scripts-ci/gen-precache.js",
+    "gen-openapi": "node scripts-ci/gen-openapi.js",
     "gen-meta": "node scripts-ci/gen-meta.js",
     "fetch-fonts": "node scripts-ci/fetch-fonts.js",
     "clean": "node scripts-ci/clean.js",

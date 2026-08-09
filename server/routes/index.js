@@ -54,6 +54,18 @@ router.get('/health', async (_req, res) => {
 // simple request) et déclencher fermeture + réinstallation silencieuse.
 router.post('/app/update', auth.authRequired, Update.runUpdate);
 
+// ── Reference de l'API (audit AMEL-119) ──────────
+// Generee depuis CE fichier par scripts-ci/gen-openapi.js, et verifiee en CI :
+// une reference ecrite a la main diverge du code au premier ajout de route —
+// c'est deja ce qui etait arrive ici (96 routes, une poignee documentees).
+router.get('/openapi.json', (_req, res) => {
+    try {
+        res.json(require('../openapi.json'));
+    } catch (e) {
+        res.status(503).json({ error: 'Reference non generee — lance `npm run gen-openapi`' });
+    }
+});
+
 // ── Auth ─────────────────────────────────────────
 router.get ('/auth/providers',      Auth.providers);
 router.post('/auth/google',         Auth.googleAuth);
