@@ -3,6 +3,53 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.5.1 — Catalogue : filtres etendus, et un catalogue qui ne s'arrete plus a 48
+
+**Le catalogue s'arretait a 48 series.** Il chargeait deux pages puis
+plus rien. Les sources qui ignorent la taille de leur catalogue
+renvoient un total *provisoire* — une borne basse qui grandit a chaque
+page. Le code gardait le PLUS GRAND total vu ; des qu'une page
+renvoyait une estimation plus prudente que la precedente, le compteur
+restait bloque au-dessus du nombre charge et le defilement infini
+concluait « tout est charge ». On prend desormais la valeur la plus
+recente, qui est la mieux informee.
+
+Et tant qu'un total n'est qu'une borne basse, l'affichage ne pretend
+plus le connaitre : « Affichage de 48 series — d'autres sont
+disponibles » plutot qu'un « 48 sur 48 » qui a l'air definitif.
+
+**Trois filtres etaient acceptes par MangaDex depuis toujours sans
+qu'aucune interface ne les expose** — annee de publication, langue de
+traduction, classification. Ils sont la.
+
+- **Annee** en liste deroulante, pas en saisie libre : l'API attend une
+  annee exacte, et un champ texte inviterait a taper « 2020-2024 », qui
+  ne renverrait rien sans expliquer pourquoi.
+- **Traduit en** : 11 langues, cumulables.
+- **Classification** : tout public, suggestif, erotique.
+- **Recherche dans les genres** : 25 tags sur MangaDex, sans quoi
+  trouver « Psychological » demande de parcourir toute la liste.
+- **Resume des filtres actifs**, avec compteur, en haut de la barre :
+  sur une colonne longue on perd de vue ce qui est coche, et donc
+  pourquoi le catalogue semble vide. Chaque filtre se retire d'un clic.
+
+Une section de filtre que la source ne sait pas traiter est **masquee**
+au lieu d'etre affichee sans effet. MangaDex montre les six, WeebCentral
+trois. Un filtre visible qui ne change rien est pire qu'un filtre
+absent : on le coche, le resultat ne bouge pas, et on croit le catalogue
+casse.
+
+Les trois nouveaux filtres se partagent par l'URL, comme les autres.
+
+**Accueil** : « Reprendre la lecture » remontait au-dessus du hero des
+qu'une lecture etait en cours. La page changeait donc de structure selon
+l'etat du compte, et le hero passait sous la ligne de flottaison pour
+tout utilisateur actif. La section reste maintenant a sa place, juste
+en dessous.
+
+Extensions mangadex et weebcentral en 1.3.0 (declaration des filtres
+supportes, et langue de traduction pour mangadex).
+
 ## 2.5.0 — Remediation complete de l'audit de juillet 2026
 
 Cette version traite l'integralite de la partie « ameliorations » de
