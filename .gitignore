@@ -1,6 +1,12 @@
 /node_modules/
 # Backend
 server/node_modules/
+# Le .env de la RACINE alimente docker-compose (substitution de variables) ;
+# celui de server/ alimente le serveur en dev. Les deux contiennent des secrets.
+# Sans cette ligne, `setup-env.js` produisait un fichier commitable — c'est
+# exactement le genre de fuite qu'on ne remarque qu'apres coup.
+.env
+.env.local
 server/.env
 server/.env.local
 server/uploads/

@@ -13,6 +13,8 @@
     "check-sources": "node scripts-ci/check-sources.js",
     "gen-precache": "node scripts-ci/gen-precache.js",
     "gen-openapi": "node scripts-ci/gen-openapi.js",
+    "setup": "node scripts-ci/setup-env.js",
+    "setup:check": "node scripts-ci/setup-env.js --check",
     "gen-meta": "node scripts-ci/gen-meta.js",
     "fetch-fonts": "node scripts-ci/fetch-fonts.js",
     "clean": "node scripts-ci/clean.js",

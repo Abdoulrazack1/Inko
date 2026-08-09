@@ -568,6 +568,33 @@
         }
       }
     },
+    "/instance": {
+      "get": {
+        "summary": "Sante de l'instance (audit AMEL-116) : /api/health repond par oui/non et sert de sonde Docker. Celui-ci dit depuis quand, avec quoi, et si les sauvegardes tournent encore.",
+        "operationId": "Ext_instanceStatus",
+        "tags": [
+          "instance"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
     "/extensions/{id}/log": {
       "get": {
         "summary": "Ext.sourceLog",

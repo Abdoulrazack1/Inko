@@ -99,6 +99,61 @@
         renderFileSync();
         renderRaccourcis();
         renderDesktop();
+        renderInstance();
+    }
+
+    // ── SANTE DE L'INSTANCE (audit AMEL-116) ────────────────
+    async function renderInstance() {
+        const carte = document.getElementById('instanceCard');
+        const liste = document.getElementById('instanceList');
+        const sous  = document.getElementById('instanceSub');
+        if (!carte || !liste) return;
+        let d;
+        try { d = await API.instance(); } catch (e) { return; }
+        carte.style.display = '';
+
+        const mo = (o) => (o == null ? '—' : (o / 1073741824 >= 1
+            ? (o / 1073741824).toFixed(1) + ' Go' : Math.round(o / 1048576) + ' Mo'));
+        const duree = (s) => {
+            if (s < 3600) return Math.round(s / 60) + ' min';
+            if (s < 86400) return Math.round(s / 3600) + ' h';
+            return Math.round(s / 86400) + ' j';
+        };
+        if (sous) {
+            sous.textContent = `Version ${d.version || 'dev'} · Node ${d.node} · en ligne depuis ${duree(d.uptimeSec)}`
+                + ` · ${d.memoireMo} Mo de memoire`;
+        }
+
+        // La sauvegarde est le seul poste ou l'AGE compte plus que l'etat :
+        // « 12 fichiers » ne dit pas si le mecanisme tourne encore.
+        const age = d.sauvegardes.derniere?.ageJours;
+        const sauvEtat = !d.sauvegardes.derniere ? 'err'
+            : age > 3 ? 'warn' : 'ok';
+        const lignes = [
+            [d.base.ok ? 'ok' : 'err', 'Base de donnees',
+                d.base.ok ? `repond en ${d.base.latenceMs} ms` : (d.base.error || 'injoignable')],
+            [d.volumes ? 'ok' : 'warn', 'Contenu',
+                d.volumes ? `${MH.fmt(d.volumes.comptes)} compte(s) · ${MH.fmt(d.volumes.favoris)} favoris · ${MH.fmt(d.volumes.chapitresLus)} chapitres lus`
+                    : 'non mesurable'],
+            [d.extensions.total ? 'ok' : 'err', 'Extensions',
+                d.extensions.total ? `${d.extensions.total} source(s) chargee(s)` : 'aucune — catalogue vide'],
+            [sauvEtat, 'Sauvegardes',
+                d.sauvegardes.derniere
+                    ? `${d.sauvegardes.total} fichier(s) · derniere il y a ${age} j`
+                        + (d.sauvegardes.chiffrees ? ' · chiffrees' : ' · EN CLAIR')
+                    : 'aucune sauvegarde trouvee'],
+            ...(d.disque ? [[d.disque.libre / d.disque.total < 0.1 ? 'warn' : 'ok', 'Disque',
+                `${mo(d.disque.libre)} libres sur ${mo(d.disque.total)}`]] : []),
+        ];
+        const couleur = { ok: 'var(--green-text)', warn: 'var(--amber-text)', err: 'var(--red-text)' };
+        const signe = { ok: '✓', warn: '!', err: '✕' };
+        liste.innerHTML = lignes.map(([e, quoi, detail]) => `
+            <div class="set-row">
+                <div>
+                    <div class="set-row-label"><span style="color:${couleur[e]}">${signe[e]}</span> ${MH.esc(quoi)}</div>
+                    <div class="set-row-desc">${MH.esc(detail)}</div>
+                </div>
+            </div>`).join('');
     }
 
     // ── APP DE BUREAU (audit AMEL-93) ───────────────────────

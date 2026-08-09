@@ -98,6 +98,10 @@ router.get ('/extensions/updates',  auth.authRequired, Ext.checkUpdates);
 // d'administrateur. Aucune donnee confidentielle : des compteurs de
 // disponibilite de sites publics.
 router.get ('/extensions/health',   auth.authRequired, Ext.healthStatus);
+// Sante de l'instance (audit AMEL-116) : /api/health repond par oui/non et
+// sert de sonde Docker. Celui-ci dit depuis quand, avec quoi, et si les
+// sauvegardes tournent encore.
+router.get ('/instance',            auth.authRequired, Ext.instanceStatus);
 router.get ('/extensions/:id/log',  auth.authRequired, Ext.sourceLog);
 router.get ('/extensions/:id/test', auth.authRequired, Ext.testSource);
 // applyUpdates écrit des fichiers .js exécutés côté serveur pour toute l'instance :

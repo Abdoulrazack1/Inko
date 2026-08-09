@@ -201,6 +201,73 @@ async function healthStatus(_req, res, next) {
     } catch (e) { next(e); }
 }
 
+// GET /api/instance — sante de l'instance (audit AMEL-116)
+//
+// /api/health repond par oui/non : il sert de sonde Docker, pas de tableau de
+// bord. Quand quelque chose ne va pas, il ne dit ni depuis quand, ni si les
+// sauvegardes tournent, ni s'il reste de la place — donc rien de ce qu'on a
+// besoin de savoir AVANT que ca casse.
+async function instanceStatus(_req, res, next) {
+    try {
+        const os = require('os');
+        const fsp = require('fs');
+        const { pool } = require('../config/db');
+        const bk = require('../lib/backup');
+
+        let base = { ok: false, error: null, latenceMs: null };
+        const t0 = Date.now();
+        try {
+            await pool.query('SELECT 1');
+            base = { ok: true, error: null, latenceMs: Date.now() - t0 };
+        } catch (e) { base = { ok: false, error: String(e.message || e).slice(0, 160), latenceMs: null }; }
+
+        // Comptages : ce sont eux qui disent si l'instance SERT a quelque chose.
+        // Une base « up » sans aucune donnee est un symptome, pas une sante.
+        let volumes = null;
+        if (base.ok) {
+            try {
+                const [[c]] = await pool.query(`SELECT
+                    (SELECT COUNT(*) FROM users) AS comptes,
+                    (SELECT COUNT(*) FROM favorites) AS favoris,
+                    (SELECT COUNT(*) FROM read_chapters) AS chapitresLus,
+                    (SELECT COUNT(*) FROM notifications) AS notifications`);
+                volumes = c;
+            } catch (e) { volumes = null; }
+        }
+
+        const sauvegardes = bk.listerSauvegardes();
+        const derniere = sauvegardes[0] || null;
+        // « La derniere sauvegarde date de 9 jours » est l'information utile ;
+        // « il y a 12 fichiers » ne dit pas si le mecanisme tourne encore.
+        const ageJours = derniere
+            ? Math.floor((Date.now() - new Date(derniere.at).getTime()) / 86400000) : null;
+
+        let disque = null;
+        try {
+            const st = fsp.statfsSync ? fsp.statfsSync(process.cwd()) : null;
+            if (st) disque = { libre: st.bfree * st.bsize, total: st.blocks * st.bsize };
+        } catch (e) { disque = null; }
+
+        const ext = extensions.manifest();
+        res.json({
+            version: process.env.APP_VERSION || null,
+            uptimeSec: Math.round(process.uptime()),
+            node: process.version,
+            memoireMo: Math.round(process.memoryUsage().rss / 1048576),
+            chargeSysteme: os.loadavg ? os.loadavg()[0] : null,
+            base, volumes,
+            extensions: { total: ext.length, ids: ext.map(e => e.id) },
+            sauvegardes: {
+                total: sauvegardes.length,
+                chiffrees: bk.chiffrementActif(),
+                derniere: derniere ? { fichier: derniere.file, at: derniere.at, ageJours } : null,
+                dossier: bk.BACKUP_DIR,
+            },
+            disque,
+        });
+    } catch (e) { next(e); }
+}
+
 // GET /api/extensions/:id/log — journal des derniers appels (audit AMEL-68)
 // Les compteurs agrégés ne gardent que le DERNIER message d'erreur, écrasé au
 // prochain échec : impossible de voir si une source est lente, limitée par
@@ -251,4 +318,4 @@ function reinstall(req, res, next) {
 }
 
 module.exports = {
-    sourceLog, checkUpdates, applyUpdates, testSource, healthStatus, uninstall, reinstall };
+    sourceLog, instanceStatus, checkUpdates, applyUpdates, testSource, healthStatus, uninstall, reinstall };

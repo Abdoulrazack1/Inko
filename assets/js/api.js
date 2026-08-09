@@ -344,6 +344,9 @@
         // Exposé ici, il bénéficie du cache partagé et n'est plus demandé
         // qu'une fois par chargement.
         health: () => get('/health'),
+        // Sante de l'instance (audit AMEL-116) : /health repond par oui/non,
+        // celui-ci dit depuis quand, avec quoi, et si les sauvegardes tournent.
+        instance: () => get('/instance'),
 
         // ── Auth ──
         auth: {

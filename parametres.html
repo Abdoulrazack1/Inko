@@ -290,6 +290,16 @@
       </div>
     </div>
 
+    <!-- SANTE DE L'INSTANCE (audit AMEL-116) -->
+    <!-- /api/health repond par oui/non : il sert de sonde Docker. Il ne dit ni
+         depuis quand, ni si les sauvegardes tournent, ni s'il reste de la
+         place — donc rien de ce qu'on veut savoir AVANT que ca casse. -->
+    <div class="set-card" id="instanceCard" style="display:none">
+      <h2>Sante de l'instance</h2>
+      <div class="sub" id="instanceSub"></div>
+      <div id="instanceList" style="margin-top:12px"></div>
+    </div>
+
     <!-- APPLICATION DE BUREAU (audit AMEL-93) -->
     <!-- Masquee hors de l'app Tauri : proposer « demarrer au login » dans un
          navigateur serait une promesse que rien ne peut tenir. -->
