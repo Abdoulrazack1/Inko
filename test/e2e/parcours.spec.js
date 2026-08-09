@@ -188,6 +188,56 @@ test.describe('Sources (BUG-05)', () => {
     });
 });
 
+test.describe('Catalogue', () => {
+    // Le bouton « Charger la suite » disparaissait apres 48 series sur un
+    // catalogue de plusieurs milliers de titres. Cause : beaucoup de sources
+    // ignorent la taille de leur catalogue et renvoient un total « page
+    // pleine » — une borne BASSE qui grandit a chaque page. Le client la
+    // figeait au premier appel, en deduisait 2 pages, et s'arretait.
+    test('le catalogue continue de charger au-dela de deux pages', async ({ page }) => {
+        const c = await contexte(page);
+        test.skip(!c.sourcesEnLigne, 'sources distantes injoignables depuis cet environnement');
+        await ouvrir(page, '/catalogue.html');
+        // `> *` attrapait aussi le message « Chargement… » : depart valait 1 et
+        // le test se comparait a un placeholder. On vise la vraie carte.
+        const grille = '#catalogueGrid .manga-card, #resultsGrid .manga-card';
+        await expect(page.locator(grille).first()).toBeVisible({ timeout: 20_000 });
+        const depart = await page.locator(grille).count();
+
+        // Trois pages suffisent a prouver qu'on ne s'arrete pas a la deuxieme.
+        for (let i = 0; i < 3; i++) {
+            const b = page.locator('#catLoadMore');
+            if (!(await b.count())) break;
+            await b.click({ force: true });
+            await page.waitForTimeout(3500);
+        }
+        const arrivee = await page.locator(grille).count();
+        expect(arrivee, 'le catalogue doit depasser deux pages').toBeGreaterThan(depart * 2);
+    });
+
+    // Le compteur affichait « 168 sur 192 series » : 192 etant la borne basse,
+    // il laissait croire qu'on touchait au bout d'un catalogue de milliers de
+    // titres. On n'affirme plus un total qu'on ne connait pas.
+    test('le compteur n’annonce pas un total qu’il ignore', async ({ page }) => {
+        const c = await contexte(page);
+        test.skip(!c.sourcesEnLigne, 'sources distantes injoignables depuis cet environnement');
+        await ouvrir(page, '/catalogue.html');
+        await expect(page.locator('#catalogueGrid .manga-card, #resultsGrid .manga-card').first()).toBeVisible({ timeout: 20_000 });
+        const b = page.locator('#catLoadMore');
+        if (await b.count()) { await b.click({ force: true }); await page.waitForTimeout(3500); }
+        const texte = (await page.locator('#resultsCount').innerText()).replace(/\s+/g, ' ');
+        const charges = await page.locator('#catalogueGrid .manga-card, #resultsGrid .manga-card').count();
+        const m = texte.match(/sur ([0-9  ]+)/);
+        if (m) {
+            const annonce = parseInt(m[1].replace(/[^0-9]/g, ''), 10);
+            expect(annonce, 'un total annonce doit etre franchement superieur a ce qui est charge')
+                .toBeGreaterThan(charges + 24);
+        } else {
+            expect(texte).toMatch(/d.autres sont disponibles/i);
+        }
+    });
+});
+
 test.describe('Notifications', () => {
     // BUG-08 : le filtre « Chapitres » comparait `chapter` au type réellement
     // stocké `new_chapter` — l'onglet restait vide en permanence.

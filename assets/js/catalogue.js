@@ -444,7 +444,7 @@
             saveCtx();   // mémorise le contexte courant pour la prochaine visite
             syncURL();   // audit AMEL-06 : l'URL décrit ce qui est affiché
 
-            if (count) count.innerHTML = `Affichage de <strong>${lastResults.length}</strong> sur <strong>${MH.fmt ? MH.fmt(lastTotal) : lastTotal}</strong> séries`;
+            if (count) count.innerHTML = texteCompteur(lastResults.length, lastTotal);
 
             if (!lastResults.length) {
                 grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2)">Aucune série correspondante. Modifiez les filtres.</div>';
@@ -560,6 +560,27 @@
         renderLoadMore(pages);
     }
 
+
+    // Compteur honnete (defaut releve avec le blocage a 48 series).
+    // Beaucoup de sources ne connaissent pas la taille de leur catalogue et
+    // renvoient un total « page pleine » : une borne BASSE valant exactement
+    // « ce qui est charge + une page de plus ». Affiche tel quel, ca donnait
+    // « 168 sur 192 series » sur un catalogue de plusieurs MILLIERS de titres —
+    // un chiffre faux, qui laisse croire qu'on touche au bout.
+    //
+    // On ne peut pas deviner le vrai total. On peut, en revanche, ne pas
+    // affirmer ce qu'on ne sait pas : quand le total porte cette signature, on
+    // dit ce qui est charge et qu'il y en a d'autres.
+    function texteCompteur(charges, total) {
+        const n = (v) => (MH.fmt ? MH.fmt(v) : String(v));
+        if (!charges) return 'Aucune série';
+        const borneBasse = total <= charges + PER_PAGE;
+        if (borneBasse) {
+            return `Affichage de <strong>${n(charges)}</strong> séries<span style="color:var(--text3)"> — d’autres sont disponibles</span>`;
+        }
+        return `Affichage de <strong>${n(charges)}</strong> sur <strong>${n(total)}</strong> séries`;
+    }
+
     // ── Chargement de la suite (audit AMEL-09) ───────────────
     // 24 séries par page pour parcourir un catalogue de plusieurs dizaines de
     // milliers de titres : la pagination oblige à repartir du haut à chaque
@@ -613,6 +634,19 @@
 
             const data = await API.mangas.search(params);
             const nouveaux = data.results || [];
+            // Le total DOIT etre relu a chaque page. Plusieurs sources ne
+            // connaissent pas la taille de leur catalogue et renvoient un
+            // total « page pleine » : une borne BASSE qui grandit a mesure
+            // qu'on avance (48, puis 72, puis 96…). Fige au premier appel, il
+            // faisait croire a 2 pages et le bouton « Charger la suite »
+            // disparaissait apres 48 series — sur un catalogue de plusieurs
+            // milliers de titres.
+            //
+            // On prend la NOUVELLE valeur, jamais le maximum : sur la derniere
+            // page, une source honnete renvoie un total plus PETIT que la borne
+            // precedente (offset + ce qui reste). Garder le maximum proposerait
+            // alors une page qui n'existe pas.
+            if (Number.isFinite(data.total) && data.total > 0) lastTotal = data.total;
             currentPage += 1;
             if (grid && nouveaux.length) {
                 grid.insertAdjacentHTML('beforeend', nouveaux.map(m => mangaCardHTML(m)).join(''));
@@ -620,7 +654,7 @@
                 lastResults = lastResults.concat(nouveaux);
             }
             const count = document.getElementById('resultsCount');
-            if (count) count.innerHTML = `Affichage de <strong>${lastResults.length}</strong> sur <strong>${MH.fmt ? MH.fmt(lastTotal) : lastTotal}</strong> séries`;
+            if (count) count.innerHTML = texteCompteur(lastResults.length, lastTotal);
             saveCtx(); syncURL();
             renderPagination();   // recrée le bouton pour la page d'après, ou le retire
         } catch (e) {
