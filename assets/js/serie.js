@@ -282,6 +282,12 @@
         // Audit AMEL-54 : bascule de surveillance. On ne recharge pas la fiche
         // — seul le libellé du bouton change, et un rechargement complet ferait
         // perdre l'onglet et la position de lecture en cours.
+        // Audit AMEL-96 : une ambiance qui colle a ce qu'on lit, plutot qu'une
+        // liste de huit stations sans rapport avec la page. Suggeree, JAMAIS
+        // lancee : deviner l'ambiance d'une oeuvre est subjectif, et se
+        // tromper en imposant serait pire que ne rien proposer.
+        proposerAmbiance();
+
         // Audit AMEL-108 : portee par serie, memorisee pour la session comme
         // le mode global. Aucun appel reseau : c'est un etat local qui change
         // seulement ce que les autres appels ont le droit d'enregistrer.
@@ -657,6 +663,25 @@
             // juste après avoir noté.
             renderRating();
         } catch (e) { MH.toast('Erreur : ' + e.message); }
+    }
+
+    // ── Ambiance musicale suggeree (audit AMEL-96) ───────────
+    function proposerAmbiance() {
+        const cible = document.getElementById('serieStatus')?.parentElement;
+        if (!cible || !window.Music?.suggestionPourTags) return;
+        if (document.getElementById('btnAmbiance')) return;
+        const st = window.Music.suggestionPourTags(manga.tags || []);
+        if (!st) return;   // aucun tag reconnu : on ne propose rien plutot qu'au hasard
+        const b = document.createElement('button');
+        b.id = 'btnAmbiance';
+        b.className = 'btn btn-ghost btn-sm';
+        b.title = `Lancer la station « ${st.name} » — ${st.sub}`;
+        b.textContent = `♪ ${st.name}`;
+        b.addEventListener('click', () => {
+            window.Music.playStationId(st.id);
+            MH.toast(`Ambiance : ${st.name}`);
+        });
+        cible.appendChild(b);
     }
 
     // ── Annulation d'un marquage en masse (audit AMEL-40) ────
