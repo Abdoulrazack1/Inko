@@ -22,6 +22,9 @@
     const KEY = 'inko_lang';
     let dict = {};        // clés data-i18n (rétro-compat)
     let strMap = {};      // texte FR exact → EN
+    // Audit AMEL-85 : index normalisé (casse, accents, apostrophes, ponctuation
+    // finale). Sert de repli quand le texte a été légèrement reformulé.
+    let normMap = {};
     let patterns = [];    // [RegExp, remplacement]
     let active = false;   // traduction runtime active (lang !== 'fr')
     let observer = null;
@@ -51,7 +54,35 @@
         for (let i = 0; i < patterns.length; i++) {
             if (patterns[i][0].test(t)) return lead + t.replace(patterns[i][0], patterns[i][1]) + tail;
         }
+        // Audit AMEL-85 : repli sur une correspondance NORMALISEE. La cle est
+        // le texte francais EXACT — remplacer une apostrophe droite par une
+        // typographique, changer une majuscule ou ajouter un point suffisait a
+        // perdre la traduction, en silence et sans qu'aucun test ne le voie.
+        //
+        // Ce repli ne remplace pas le catalogue de cles stables (le vrai
+        // correctif, gros chantier) : il empeche les reformulations MINEURES
+        // de casser. Une vraie reecriture reste non traduite, et c'est le
+        // controle CI qui la signale.
+        const n = normaliser(t);
+        const approx = normMap[n];
+        if (approx !== undefined) return lead + approx + tail;
         return s;
+    }
+
+    // Insensible a la casse, aux accents, aux apostrophes/guillemets typo et a
+    // la ponctuation finale. Volontairement grossier : deux libelles que cette
+    // normalisation confond auraient de toute facon la meme traduction.
+    function normaliser(v) {
+        return String(v || '')
+            .toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[‘’ʼ]/g, "'")
+            .replace(/[“”]/g, '"')
+            .replace(/…/g, '...')
+            .replace(/[–—]/g, '-')
+            .replace(/[.:!?\s]+$/, '')
+            .replace(/\s+/g, ' ')
+            .trim();
     }
 
     // Restaure tout ce qui a été traduit dans cette page (audit I18N-05)
@@ -234,10 +265,19 @@
                 const data = await res.json();
                 dict = data.keys || data;
                 strMap = data.strings || {};
+                // Construit une seule fois : recalculer la normalisation a
+                // chaque nœud texte coûterait sur des pages à 800 chaînes.
+                // La première occurrence gagne — deux libellés que la
+                // normalisation confond auraient la même traduction.
+                normMap = {};
+                for (const [fr, en] of Object.entries(strMap)) {
+                    const n = normaliser(fr);
+                    if (normMap[n] === undefined) normMap[n] = en;
+                }
                 patterns = (data.patterns || []).map(p => { try { return [new RegExp(p[0]), p[1]]; } catch (e) { return null; } }).filter(Boolean);
-            } catch (e) { dict = {}; strMap = {}; patterns = []; active = false; }
+            } catch (e) { dict = {}; strMap = {}; patterns = []; normMap = {}; active = false; }
         } else {
-            dict = {}; strMap = {}; patterns = [];
+            dict = {}; strMap = {}; patterns = []; normMap = {};
         }
         MH.lang = lang;
         try { document.documentElement.lang = lang; } catch (e) { window.MH?.err?.('i18n.js', e); }

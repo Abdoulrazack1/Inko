@@ -35,7 +35,10 @@ const JSON_OUT = process.argv.includes('--json');
 // Un lot de 60 libellés l'a portée à 59 %. À RELEVER à chaque lot traduit :
 // le but de ce seuil est d'empêcher le retour en arrière, pas d'entériner
 // l'état actuel.
-const MIN_COVERAGE = 58;
+// Relevé après le lot AMEL-64/68 (122 traductions ajoutées) : la couverture
+// est passée de 47 % à 63 %. Un seuil qu'on ne relève jamais finit par
+// autoriser une régression silencieuse de 15 points.
+const MIN_COVERAGE = 60;
 
 const en = JSON.parse(fs.readFileSync(DICT, 'utf8'));
 const known = new Set(Object.keys(en.strings || {}));
@@ -87,10 +90,45 @@ const all = [...found.keys()];
 const missing = all.filter(s => !covered(s));
 const pct = all.length ? Math.round(((all.length - missing.length) / all.length) * 100) : 100;
 
+// ── Traductions orphelines (audit AMEL-85) ───────────────────
+// L'autre moitié du problème de dérive. La clé est le texte français EXACT :
+// quand un libellé est reformulé, sa traduction ne casse pas seulement — elle
+// reste dans le dictionnaire, invisible et morte. On finit avec un fichier qui
+// grossit sans que personne ne sache ce qui sert encore.
+//
+// On ne fait PAS échouer la CI là-dessus : une chaîne peut légitimement
+// n'apparaître que dans un code rarement atteint, et l'extracteur ne voit pas
+// tout. Un avertissement chiffré suffit à décider quand faire le ménage.
+// PREMIERE VERSION FAUSSE, corrigee : je comparais aux chaines EXTRAITES, ce
+// qui donnait 382 orphelines dont « Accueil » et « Catalogue » — des libelles
+// bien vivants, mais poses depuis un gabarit JS que l'extracteur ne decoupe
+// pas en chaines isolees. Un signal a 382 faux positifs est pire qu'aucun
+// signal : on apprend a l'ignorer.
+//
+// On cherche donc le texte francais N'IMPORTE OU dans les sources. C'est
+// grossier mais ca ne se trompe que dans un sens : une chaine encore presente
+// ne sera jamais declaree morte.
+const CORPUS = [
+    ...fs.readdirSync(ROOT).filter(x => x.endsWith('.html')).map(f => path.join(ROOT, f)),
+    ...fs.readdirSync(JS_DIR).filter(x => x.endsWith('.js')).map(f => path.join(JS_DIR, f)),
+].map(f => { try { return fs.readFileSync(f, 'utf8'); } catch (e) { return ''; } }).join(String.fromCharCode(10));
+const presentes = new Set(all);
+const orphelines = [...known].filter(k => !presentes.has(k) && !CORPUS.includes(k));
+if (!JSON_OUT && orphelines.length) {
+    console.log(`
+Traductions orphelines : ${orphelines.length} entrée(s) de en.json`);
+    console.log('ne correspondent plus à aucun texte source (libellé reformulé ou supprimé).');
+    console.log("Ce n'est pas bloquant — juste du poids mort dans le dictionnaire :");
+    for (const o of orphelines.slice(0, 8)) console.log(`  · "${o}"`);
+    if (orphelines.length > 8) console.log(`  … et ${orphelines.length - 8} autres`);
+}
+
+
 if (JSON_OUT) {
     console.log(JSON.stringify({
         total: all.length, couvertes: all.length - missing.length, pourcentage: pct,
         manquantes: missing.map(s => ({ texte: s, fichiers: [...found.get(s)] })),
+        orphelines,
     }, null, 2));
 } else {
     console.log(`Chaînes françaises détectées : ${all.length}`);
