@@ -204,6 +204,10 @@ function manifest() {
         // Audit BUG-06 : tris réellement honorés. Absent = la source ne se
         // prononce pas, l'UI garde tous ses tris (rétro-compatible).
         sorts:        Array.isArray(s.sorts) ? s.sorts : null,
+        // Filtres reellement honores par la source. Meme contrat que `sorts` :
+        // absent = la source ne se prononce pas, l'interface garde tout
+        // (retro-compatible). Declare = elle ne montre que ce qui agit.
+        filters:      Array.isArray(s.filters) ? s.filters : null,
         // Audit PERF-08 : hôtes servant les IMAGES de cette source, quand ils
         // diffèrent du site lui-même (CDN de scans). Ils élargissent la liste
         // blanche du proxy d'images — et rien d'autre.

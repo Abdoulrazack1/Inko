@@ -35,29 +35,60 @@
         <button class="filters-reset" id="filtersReset">Réinitialiser</button>
       </div>
 
-      <div class="filter-section">
+      <!-- Resume des filtres actifs : sur une barre laterale longue, on
+           perdait de vue ce qui etait coche — et donc pourquoi le catalogue
+           semblait vide. -->
+      <div class="filter-section" id="filterSummary" hidden>
+        <div class="filter-label">Filtres actifs <span id="filterCount"></span></div>
+        <div class="filter-active-chips" id="filterActiveChips"></div>
+      </div>
+
+      <div class="filter-section" data-filter="tags">
         <div class="filter-label">Genres</div>
+        <!-- Des dizaines de genres : sans recherche, trouver « Psychological »
+             demande de parcourir la liste entiere. -->
+        <input class="filter-search" id="filterGenreSearch" type="search"
+               placeholder="Chercher un genre…" aria-label="Chercher un genre">
         <div class="filter-tags" id="filterGenres"></div>
       </div>
 
-      <div class="filter-section">
+      <div class="filter-section" data-filter="tags">
         <div class="filter-label">Thèmes</div>
         <div class="filter-tags" id="filterThemes"></div>
       </div>
 
-      <div class="filter-section">
+      <div class="filter-section" data-filter="tags">
         <div class="filter-label">Format</div>
         <div class="filter-tags" id="filterFormats"></div>
       </div>
 
-      <div class="filter-section">
+      <div class="filter-section" data-filter="status">
         <div class="filter-label">Statut</div>
         <div class="filter-status" id="filterStatus"></div>
       </div>
 
-      <div class="filter-section">
+      <div class="filter-section" data-filter="demographic">
         <div class="filter-label">Démographie</div>
         <div class="filter-checkboxes" id="filterDemo"></div>
+      </div>
+
+      <!-- Trois filtres que MangaDex acceptait DEJA sans qu'aucune interface
+           ne les propose : annee, classification et langue de traduction. -->
+      <div class="filter-section" data-filter="year">
+        <div class="filter-label">Année de publication</div>
+        <select class="filter-select" id="filterYear" aria-label="Année de publication">
+          <option value="">Toutes les années</option>
+        </select>
+      </div>
+
+      <div class="filter-section" data-filter="lang">
+        <div class="filter-label">Traduit en</div>
+        <div class="filter-tags" id="filterLang"></div>
+      </div>
+
+      <div class="filter-section" data-filter="contentRating">
+        <div class="filter-label">Classification</div>
+        <div class="filter-checkboxes" id="filterRating"></div>
       </div>
 
       <div class="filter-section">

@@ -17,6 +17,12 @@
     let activeStatus  = new Set();   // statuts (multi)
     let activeDemo    = new Set();   // démographies (multi)
     let activeSort    = 'popularity'; // popularity | latest | alpha | added | rating
+    // Trois filtres que MangaDex acceptait DEJA cote source sans qu'aucune
+    // interface ne les propose : annee de publication, langue de traduction
+    // disponible et classification du contenu.
+    let activeYear    = '';          // annee EXACTE (ce que l'API accepte)
+    let activeLangs   = new Set();   // langues de traduction (multi)
+    let activeRatings = new Set();   // safe | suggestive | erotica
     let viewMode      = 'grid';       // grid | list
     let inFlight      = 0;
     let sourceInfo    = null;         // { id, name, lang } de la source active
@@ -54,6 +60,9 @@
         p.getAll('sans').forEach(t => excludedTags.add(t));
         p.getAll('statut').forEach(s => activeStatus.add(s));
         p.getAll('demo').forEach(d => activeDemo.add(d));
+        if (p.get('annee')) activeYear = p.get('annee');
+        p.getAll('langue').forEach(l => activeLangs.add(l));
+        p.getAll('classification').forEach(c => activeRatings.add(c));
         const page = parseInt(p.get('page') || '', 10);
         if (page > 0) currentPage = page;
     }
@@ -76,6 +85,9 @@
         excludedTags.forEach(t => p.append('sans', t));
         activeStatus.forEach(s => p.append('statut', s));
         activeDemo.forEach(d   => p.append('demo', d));
+        if (activeYear) p.set('annee', activeYear);
+        activeLangs.forEach(l   => p.append('langue', l));
+        activeRatings.forEach(c => p.append('classification', c));
         if (currentPage > 1) p.set('page', String(currentPage));
         const qs = p.toString();
         const url = location.pathname + (qs ? '?' + qs : '');
@@ -116,6 +128,9 @@
         const cur = API.sources.current;
         sourceInfo = sourcesList.find(s => s.id === cur) || null;
         syncSortOptions();   // les tris dépendent de la source (audit BUG-06)
+        syncSectionsFiltres();   // idem pour les filtres : rien d'inopérant à l'écran
+        renderFiltresEtendus();
+        renderResumeFiltres();
         renderSourceBar();   // re-rend maintenant que la liste est connue
     }
 
@@ -177,7 +192,7 @@
             API.sources.current = b.dataset.src;
             currentPage = 1;
             sourceInfo = sourcesList.find(s => s.id === b.dataset.src) || null;
-            renderSourceBar(); renderChips(); syncSortOptions();
+            renderSourceBar(); renderChips(); syncSortOptions(); syncSectionsFiltres();
             loadTags().then(renderFilterSidebar).catch(() => {});
             await runSearch();
         }));
@@ -373,6 +388,10 @@
             ).join('');
         }
         updateFiltersCount();
+        // La recherche de genres se lie APRES le rendu des tags : avant, la
+        // liste est vide et il n'y aurait rien a filtrer.
+        initRechercheGenres();
+        renderResumeFiltres();
     }
 
     // Masque une section de filtres (et son libellé) quand elle est vide
@@ -436,6 +455,7 @@
             if (activeDemo.size)   params.demographic = [...activeDemo];
             if (activeTags.size)   params.includedTags = [...activeTags];
             if (excludedTags.size) params.excludedTags = [...excludedTags];   // audit AMEL-05
+            ajouterFiltresEtendus(params);
 
             const data = await API.mangas.search(params);
             if (myReq !== inFlight) return; // requête plus récente en cours
@@ -581,6 +601,176 @@
         return `Affichage de <strong>${n(charges)}</strong> sur <strong>${n(total)}</strong> séries`;
     }
 
+
+    // ── Filtres étendus (année, langue, classification) ──────
+    // On n'envoie QUE ce que la source déclare honorer. Envoyer un filtre
+    // qu'elle ignore ne casse rien, mais laisse croire qu'il agit — et c'est
+    // exactement le défaut qu'on corrige ici : `year` et `contentRating`
+    // étaient acceptés par MangaDex depuis le début, sans aucune interface.
+    function sourceGere(cle) {
+        if (allSources) return true;            // agrégé : au moins une source peut gérer
+        const dec = sourceInfo && sourceInfo.filters;
+        return !dec || dec.includes(cle);       // pas de déclaration = on ne préjuge pas
+    }
+    function ajouterFiltresEtendus(params) {
+        if (activeYear && sourceGere('year')) params.year = activeYear;
+        if (activeLangs.size && sourceGere('lang')) params.lang = [...activeLangs];
+        if (activeRatings.size && sourceGere('contentRating')) params.contentRating = [...activeRatings];
+    }
+
+    // Masque les sections que la source courante n'honore pas. Un filtre visible
+    // qui ne change rien est pire qu'un filtre absent : on le coche, le résultat
+    // ne bouge pas, et on croit le catalogue cassé.
+    function syncSectionsFiltres() {
+        document.querySelectorAll('.filter-section[data-filter]').forEach(sec => {
+            sec.hidden = !sourceGere(sec.dataset.filter);
+        });
+    }
+
+    const LANGUES = [
+        ['fr', 'Français'], ['en', 'Anglais'], ['es', 'Espagnol'], ['es-la', 'Espagnol (LatAm)'],
+        ['pt-br', 'Portugais (BR)'], ['de', 'Allemand'], ['it', 'Italien'], ['ru', 'Russe'],
+        ['ja', 'Japonais'], ['ko', 'Coréen'], ['zh', 'Chinois'],
+    ];
+    const CLASSIFICATIONS = [
+        ['safe', 'Tout public'], ['suggestive', 'Suggestif'], ['erotica', 'Érotique'],
+    ];
+
+    function renderFiltresEtendus() {
+        // Année : liste déroulante plutôt que saisie libre. L'API attend une
+        // année EXACTE ; un champ texte inviterait à taper « 2020-2024 », qui
+        // ne renverrait rien sans expliquer pourquoi.
+        const selY = document.getElementById('filterYear');
+        if (selY && selY.options.length <= 1) {
+            const courante = new Date().getFullYear();
+            for (let a = courante; a >= 1960; a--) {
+                const o = document.createElement('option');
+                o.value = String(a); o.textContent = String(a);
+                selY.appendChild(o);
+            }
+        }
+        if (selY) {
+            selY.value = activeYear || '';
+            if (!selY.dataset.lie) {
+                selY.dataset.lie = '1';
+                selY.addEventListener('change', () => {
+                    activeYear = selY.value;
+                    currentPage = 1; runSearch(); renderResumeFiltres();
+                });
+            }
+        }
+
+        const zoneL = document.getElementById('filterLang');
+        if (zoneL && !zoneL.dataset.lie) {
+            zoneL.dataset.lie = '1';
+            zoneL.innerHTML = LANGUES.map(([c, n]) =>
+                '<button type="button" class="filter-tag" data-lang="' + c + '" aria-pressed="false">' + MH.esc(n) + '</button>').join('');
+            zoneL.addEventListener('click', (e) => {
+                const b = e.target.closest('[data-lang]'); if (!b) return;
+                const c = b.dataset.lang;
+                if (activeLangs.has(c)) activeLangs.delete(c); else activeLangs.add(c);
+                majEtatChips(zoneL, 'lang', activeLangs);
+                currentPage = 1; runSearch(); renderResumeFiltres();
+            });
+        }
+        if (zoneL) majEtatChips(zoneL, 'lang', activeLangs);
+
+        const zoneR = document.getElementById('filterRating');
+        if (zoneR && !zoneR.dataset.lie) {
+            zoneR.dataset.lie = '1';
+            zoneR.innerHTML = CLASSIFICATIONS.map(([c, n]) =>
+                '<label class="filter-checkbox"><input type="checkbox" data-rating="' + c + '"> <span>' + MH.esc(n) + '</span></label>').join('');
+            zoneR.addEventListener('change', (e) => {
+                const i = e.target.closest('[data-rating]'); if (!i) return;
+                if (i.checked) activeRatings.add(i.dataset.rating); else activeRatings.delete(i.dataset.rating);
+                currentPage = 1; runSearch(); renderResumeFiltres();
+            });
+        }
+        if (zoneR) {
+            zoneR.querySelectorAll('[data-rating]').forEach(i => { i.checked = activeRatings.has(i.dataset.rating); });
+        }
+    }
+    function majEtatChips(zone, attr, ens) {
+        zone.querySelectorAll('[data-' + attr + ']').forEach(b => {
+            const on = ens.has(b.dataset[attr]);
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', String(on));
+        });
+    }
+
+    // ── Résumé des filtres actifs ────────────────────────────
+    // Sur une barre latérale longue, on perd de vue ce qui est coché — et donc
+    // pourquoi le catalogue semble vide. Chaque filtre actif se retire d'un clic.
+    function renderResumeFiltres() {
+        const bloc = document.getElementById('filterSummary');
+        const zone = document.getElementById('filterActiveChips');
+        const cpt  = document.getElementById('filterCount');
+        if (!bloc || !zone) return;
+        const nomLangue = (v) => (LANGUES.find(x => x[0] === v) || [null, v])[1];
+        const nomClasse = (v) => (CLASSIFICATIONS.find(x => x[0] === v) || [null, v])[1];
+        const actifs = [];
+        activeTags.forEach(t    => actifs.push({ k: 'tag', v: t, l: t }));
+        excludedTags.forEach(t  => actifs.push({ k: 'sans', v: t, l: 'sans ' + t }));
+        activeStatus.forEach(v  => actifs.push({ k: 'statut', v, l: v }));
+        activeDemo.forEach(v    => actifs.push({ k: 'demo', v, l: v }));
+        activeLangs.forEach(v   => actifs.push({ k: 'langue', v, l: nomLangue(v) }));
+        activeRatings.forEach(v => actifs.push({ k: 'classification', v, l: nomClasse(v) }));
+        if (activeYear) actifs.push({ k: 'annee', v: activeYear, l: activeYear });
+
+        bloc.hidden = !actifs.length;
+        if (cpt) cpt.textContent = actifs.length ? '(' + actifs.length + ')' : '';
+        zone.innerHTML = actifs.map(a =>
+            '<button type="button" class="filter-active-chip" data-off="' + MH.esc(a.k) + '" data-val="' + MH.esc(a.v) + '"'
+            + ' aria-label="Retirer le filtre ' + MH.esc(a.l) + '">' + MH.esc(a.l) + ' <span aria-hidden="true">×</span></button>').join('');
+        if (!zone.dataset.lie) {
+            zone.dataset.lie = '1';
+            zone.addEventListener('click', (e) => {
+                const b = e.target.closest('[data-off]'); if (!b) return;
+                const off = b.dataset.off, val = b.dataset.val;
+                if (off === 'tag')                 activeTags.delete(val);
+                else if (off === 'sans')           excludedTags.delete(val);
+                else if (off === 'statut')         activeStatus.delete(val);
+                else if (off === 'demo')           activeDemo.delete(val);
+                else if (off === 'langue')         activeLangs.delete(val);
+                else if (off === 'classification') activeRatings.delete(val);
+                else if (off === 'annee')          activeYear = '';
+                currentPage = 1;
+                renderFiltresEtendus();
+                renderFilterSidebar();
+                runSearch();
+                renderResumeFiltres();
+            });
+        }
+    }
+
+    // Recherche dans la liste des genres : des dizaines de tags, sans quoi
+    // trouver « Psychological » demande de parcourir toute la liste.
+    function initRechercheGenres() {
+        const inp = document.getElementById('filterGenreSearch');
+        const zone = document.getElementById('filterGenres');
+        if (!inp || !zone || inp.dataset.lie) return;
+        inp.dataset.lie = '1';
+        inp.addEventListener('input', () => {
+            const q = inp.value.trim().toLowerCase();
+            let visibles = 0;
+            zone.querySelectorAll('.filter-tag').forEach(b => {
+                const ok = !q || b.textContent.toLowerCase().includes(q);
+                b.hidden = !ok;
+                if (ok) visibles++;
+            });
+            let vide = zone.querySelector('.filter-empty');
+            if (!visibles) {
+                if (!vide) {
+                    vide = document.createElement('div');
+                    vide.className = 'filter-empty';
+                    vide.textContent = 'Aucun genre ne correspond';
+                    zone.appendChild(vide);
+                }
+                vide.hidden = false;
+            } else if (vide) { vide.hidden = true; }
+        });
+    }
+
     // ── Chargement de la suite (audit AMEL-09) ───────────────
     // 24 séries par page pour parcourir un catalogue de plusieurs dizaines de
     // milliers de titres : la pagination oblige à repartir du haut à chaque
@@ -631,6 +821,7 @@
             if (activeDemo.size)   params.demographic  = [...activeDemo];
             if (activeTags.size)   params.includedTags = [...activeTags];
             if (excludedTags.size) params.excludedTags = [...excludedTags];
+            ajouterFiltresEtendus(params);
 
             const data = await API.mangas.search(params);
             const nouveaux = data.results || [];
@@ -809,9 +1000,17 @@
         // Reset
         document.getElementById('filtersReset')?.addEventListener('click', async () => {
             activeTags.clear(); excludedTags.clear(); activeStatus.clear(); activeDemo.clear();
+            // Les filtres étendus doivent partir aussi : une réinitialisation
+            // qui en laisse trois en place n'en est pas une, et l'utilisateur
+            // cherche ensuite pourquoi le catalogue reste filtré.
+            activeLangs.clear(); activeRatings.clear(); activeYear = '';
+            const inpG = document.getElementById('filterGenreSearch');
+            if (inpG) { inpG.value = ''; inpG.dispatchEvent(new Event('input')); }
             lastQuery = ''; currentPage = 1; activeSort = 'popularity';
             const sortSel = document.getElementById('sortSelect'); if (sortSel) sortSel.value = 'popularity';
             renderFilterSidebar();
+            renderFiltresEtendus();
+            renderResumeFiltres();
             syncQuickFilters();
             await runSearch();
         });

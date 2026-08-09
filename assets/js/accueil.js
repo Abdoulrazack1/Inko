@@ -439,17 +439,24 @@
         });
     }
 
-    // Audit AMEL-01 : place la reprise avant le hero. Idempotent — loadResume
-    // peut être rappelé (retrait d'une entrée) sans réordonner deux fois.
-    function promouvoirReprise() {
+    // AMEL-01 faisait remonter la reprise AU-DESSUS du hero des qu'une lecture
+    // etait en cours. Revenu en arriere sur demande : le hero reste la premiere
+    // chose qu'on voit, et la reprise se place juste en dessous — sa position
+    // dans le HTML.
+    //
+    // Sans lecture en cours, la section affiche son etat vide (« Aucune lecture
+    // en cours » + lien vers le catalogue) : c'est utile pour un nouvel
+    // arrivant, et ca evite un trou dans la page.
+    function placerReprise() {
         const section = document.getElementById('sectionResume');
-        const hero    = document.getElementById('hero');
-        if (!section || !hero || section.dataset.promue === '1') return;
-        hero.parentNode.insertBefore(section, hero);
-        section.dataset.promue = '1';
-        // Marqueur pour l'habillage : en tête de page, ce bloc n'a plus la
-        // marge haute d'une section intercalée entre deux autres.
-        section.classList.add('section-resume--prioritaire');
+        if (!section) return;
+        // Filet : si une version precedente avait deja deplace le bloc dans
+        // ce document, on le remet a sa place.
+        section.classList.remove('section-resume--prioritaire');
+        const hero = document.getElementById('hero');
+        if (hero && hero.previousElementSibling === section) {
+            hero.parentNode.insertBefore(section, hero.nextElementSibling);
+        }
     }
 
     // ── Reprendre la lecture ──────────────────────────────
@@ -475,12 +482,9 @@
                 return;
             }
 
-            // Audit AMEL-01 : une lecture est en cours → la reprise passe
-            // devant le hero. Le déplacement se fait ICI et pas dans le HTML
-            // parce qu'il dépend d'une donnée qu'on ne connaît qu'après appel :
-            // sans lecture en cours, remonter un bloc vide au-dessus du hero
-            // serait une régression pour un nouvel arrivant.
-            promouvoirReprise();
+            // Une lecture est en cours : la section devient visible, a sa
+            // place — juste sous le hero.
+            placerReprise();
 
             await MH.loadSourceTypes();
             // Récupère les détails des mangas depuis LEUR source d'origine

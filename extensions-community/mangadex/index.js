@@ -104,10 +104,18 @@ module.exports = {
     lang:        'multi',
     baseUrl:     BASE,
     nsfw:        false,
-    version:     '1.2.1',
+    version:     '1.3.0',
     unit:      'chapter',
     description: 'Source officielle MangaDex API (scanlations communautaires, 80 000+ titres)',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],
+    // Filtres REELLEMENT honores par cette source. Meme principe que `sorts`
+    // (audit BUG-06) : l'interface n'affiche pas un controle qui ne ferait
+    // rien. `year` et `contentRating` etaient d'ailleurs deja acceptes ici
+    // sans qu'aucune interface ne les propose.
+    // `year` est une annee EXACTE, pas un intervalle : c'est ce que l'API
+    // accepte, et annoncer une fourchette qu'elle ne sait pas traiter
+    // reviendrait a proposer un filtre qui ment.
+    filters: ['status', 'demographic', 'tags', 'excludedTags', 'year', 'contentRating', 'lang'],
 
     // UUIDs MangaDex des tags adultes à masquer hors espace +18
     _ADULT_TAGS: [
@@ -177,6 +185,11 @@ module.exports = {
         const dem = arr(filters.demographic); if (dem.length) params['publicationDemographic[]'] = dem;
         const st  = arr(filters.status);      if (st.length)  params['status[]']                = st;
         if (filters.year)        params.year                       = filters.year;
+        // Langue de traduction disponible : c'est la question qu'on se pose
+        // vraiment devant un catalogue international — « est-ce lisible dans
+        // ma langue ? ». MangaDex l'expose, personne ne la demandait.
+        const langs = arr(filters.lang || filters['lang[]']).filter(Boolean);
+        if (langs.length) params['availableTranslatedLanguage[]'] = langs;
         const inc = arr(filters.includedTags || filters['includedTags[]']);
         if (inc.length) params['includedTags[]'] = inc;
 

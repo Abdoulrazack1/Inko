@@ -206,19 +206,13 @@
 
 /* ── Reprendre lecture ─────────────────────────────────────── */
 .section-resume { padding-top: 28px; }
-/* Audit AMEL-01 : quand la reprise passe devant le hero, elle devient le
-   premier contenu de la page — l'espacement qui la séparait de la section
-   précédente n'a plus d'objet, et le hero qui la suit reprend le sien. */
-.section-resume--prioritaire { padding-top: 18px; padding-bottom: 26px; }
-/* La grille fixe à 3 colonnes laissait la 4ᵉ reprise seule sur une ligne, avec
-   deux tiers de vide — visible au premier coup d'œil maintenant que ce bloc
-   ouvre la page. En colonnes automatiques, les 4 entrées se répartissent, et
-   le nombre de colonnes suit la largeur disponible. */
-.section-resume--prioritaire .resume-list {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
+/* La règle `--prioritaire` d'AMEL-01 est retirée avec le déplacement au-dessus
+   du hero : plus rien ne pose cette classe. Ce qu'elle apportait de bon est
+   conservé ici — une grille fixe à 3 colonnes laissait la 4ᵉ reprise seule sur
+   sa ligne avec deux tiers de vide. En colonnes automatiques, les entrées se
+   répartissent et le nombre de colonnes suit la largeur disponible. */
 .resume-list {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;
 }
 .resume-item {
   display: flex; align-items: center; gap: 10px;

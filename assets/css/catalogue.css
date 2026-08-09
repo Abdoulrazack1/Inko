@@ -29,6 +29,41 @@
 .filters-reset:hover { opacity: .75; }
 
 .filter-section { margin-bottom: 18px; }
+/* Une section masquee l'est parce que la source ne sait pas la traiter :
+   `hidden` ne suffit pas quand la regle d'affichage est portee ailleurs. */
+.filter-section[hidden] { display: none; }
+
+/* Recherche de genre : des dizaines de tags, sans quoi trouver
+   « Psychological » demande de parcourir toute la liste. */
+.filter-search {
+  width: 100%; margin-bottom: 8px; padding: 7px 10px;
+  background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+  border-radius: 8px; font-size: 12.5px; font-family: inherit;
+}
+.filter-search::placeholder { color: var(--text3); }
+.filter-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.filter-empty { font-size: 12px; color: var(--text3); padding: 4px 2px; }
+
+/* Annee : liste deroulante, alignee sur les autres champs de la barre. */
+.filter-select {
+  width: 100%; padding: 7px 10px;
+  background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+  border-radius: 8px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+}
+
+/* Resume des filtres actifs : chaque entree se retire d'un clic. La croix est
+   dans le bouton, pas a cote — c'est toute la pastille qui est cliquable. */
+.filter-active-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-active-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 999px; cursor: pointer;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 1px solid var(--accent); color: var(--accent-text);
+  font-size: 11.5px; font-family: inherit;
+}
+.filter-active-chip:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+.filter-active-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.filter-active-chip span { font-size: 13px; line-height: 1; }
 .filter-label {
   font-size: 11px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .06em; color: var(--text2); margin-bottom: 8px;

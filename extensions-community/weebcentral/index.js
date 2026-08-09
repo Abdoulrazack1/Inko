@@ -200,7 +200,7 @@ module.exports = {
     lang:         'en',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '1.2.1',
+    version:      '1.3.0',
     unit:      'chapter',
     description:  'Weeb Central — large catalogue anglais de scans (HTMX). Recherche, chapitres et lecture.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],
@@ -210,6 +210,10 @@ module.exports = {
     // signal. Une source qui ne déclare rien garde l'ancien comportement
     // (tous les tris proposés).
     sorts: ['popularity', 'latest', 'added', 'alpha'],
+    // Ce que la recherche du site sait reellement filtrer. Ni annee, ni
+    // classification de contenu, ni langue : les proposer ici afficherait des
+    // controles sans effet.
+    filters: ['status', 'tags', 'demographic', 'excludedTags'],
 
     async getTags() {
         return TAGS.map(t => ({ id: t, name: t, group: 'genre' }));
