@@ -45,6 +45,17 @@ jobs:
         working-directory: desktop-tauri
         run: npm run build
 
+      # On inspecte le .exe REELLEMENT produit, pas le dossier qui a servi a le
+      # construire. Les versions 2.5.1 et 2.5.2 sont parties avec zero source :
+      # le dossier de reference etait bien prepare, mais absent de la liste
+      # blanche `bundle.resources` de Tauri. Le controle existant regardait la
+      # preparation, donc il etait vert. Celui-ci ouvre l'archive.
+      - name: Verifier le contenu de l'installeur
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem "desktop-tauri/src-tauri/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          node scripts-ci/verifier-installeur.js $setup.FullName
+
       - name: Stable-name copy for the permanent download link
         shell: pwsh
         run: |

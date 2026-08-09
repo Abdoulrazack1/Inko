@@ -3,6 +3,24 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.5.3 — Les sources arrivent vraiment dans l'installeur
+
+**A installer si tu as telecharge la 2.5.1 ou la 2.5.2.** Les deux
+s'ouvraient sur « Impossible de demarrer ».
+
+La 2.5.2 devait corriger l'absence de sources. Elle ne l'a pas fait : le
+dossier de reference etait bien prepare, mais Tauri ne met dans
+l'installeur que ce que sa liste blanche declare, et il n'y figurait
+pas. Le controle ajoute en 2.5.2 regardait le dossier de preparation —
+il etait vert sur un installeur vide.
+
+Un installeur ne se verifie pas par ce qu'on a voulu y mettre. La chaine
+de publication **ouvre desormais le .exe produit** et refuse de le
+publier s'il ne contient pas au moins 5 sources, leurs empreintes, le
+serveur, le frontend et la base — ou s'il contient la moindre donnee
+personnelle (`backups`, `uploads`, `.env`, secrets de configuration).
+Le controle a d'abord ete lance sur l'installeur 2.5.2 : il le refuse.
+
 ## 2.5.2 — L'installeur 2.5.1 ne contenait aucune source
 
 **A installer si tu as telecharge la 2.5.1.** Celle-ci s'ouvrait sur

@@ -1,6 +1,6 @@
 {
   "name": "inko",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "private": true,
   "description": "Inko — lecteur de mangas et romans (frontend vanilla + backend Express dans server/)",
   "scripts": {
@@ -12,6 +12,7 @@
     "gen-ext-hashes": "node scripts-ci/gen-ext-hashes.js",
     "check-sources": "node scripts-ci/check-sources.js",
     "gen-precache": "node scripts-ci/gen-precache.js",
+    "verifier-installeur": "node scripts-ci/verifier-installeur.js",
     "gen-openapi": "node scripts-ci/gen-openapi.js",
     "setup": "node scripts-ci/setup-env.js",
     "setup:check": "node scripts-ci/setup-env.js --check",
