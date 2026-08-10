@@ -200,7 +200,7 @@ module.exports = {
     lang:         'en',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '1.3.0',
+    version: '1.4.0',
     unit:      'chapter',
     description:  'Weeb Central — large catalogue anglais de scans (HTMX). Recherche, chapitres et lecture.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],
@@ -214,6 +214,19 @@ module.exports = {
     // classification de contenu, ni langue : les proposer ici afficherait des
     // controles sans effet.
     filters: ['status', 'tags', 'demographic', 'excludedTags'],
+
+    // Audit PERF-08 : hotes servant les PLANCHES. Le proxy /api/img est ferme
+    // par defaut et n'ouvre que ce qu'une extension declare. WeebCentral a
+    // change de CDN : la liste statique du serveur ne connaissait plus que
+    // compsci88.com et lowee.us, si bien que chaque page de chapitre se voyait
+    // refuser le proxy (17 reponses 403 sur un chapitre de One Piece). Le
+    // lecteur retombe alors sur l'URL DIRECTE — la page s'affiche, mais
+    // l'adresse IP du lecteur part chez la source a chaque planche tournee.
+    // C'est precisement ce que PERF-08 avait ferme.
+    //
+    // Releve sur 6 series (One Piece, Blue Lock, Gachiakuta, Hunter x Hunter,
+    // The Exiled Heavy Knight), premier / milieu / dernier chapitre.
+    imageHosts: ['planeptune.us', 'lastation.us', 'lowee.us', 'compsci88.com'],
 
     async getTags() {
         return TAGS.map(t => ({ id: t, name: t, group: 'genre' }));

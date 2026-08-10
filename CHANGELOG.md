@@ -3,6 +3,25 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.5.6 — Les planches WeebCentral repassent par le proxy
+
+WeebCentral a change de CDN. Le proxy d'images d'Inko est ferme par
+defaut : il n'ouvre que les hotes qu'une extension DECLARE. La liste ne
+connaissait plus que les anciens, si bien que chaque planche se voyait
+refuser le proxy — 17 reponses 403 sur un chapitre de One Piece.
+
+Le lecteur retombait alors sur l'URL directe. La page s'affichait, mais
+ton adresse IP partait chez la source a chaque planche tournee, ce qui
+est exactement ce que le proxy existe pour eviter. Et sur une source qui
+limite le debit, ces chargements directs echouent en rafale.
+
+L'extension WeebCentral declare desormais ses quatre hotes reels
+(planeptune.us, lastation.us, lowee.us, compsci88.com), releves sur six
+series aux premier, milieu et dernier chapitres. Verifie : 17 reponses
+200 la ou il y avait 17 refus, et plus aucun chargement direct.
+
+Extension weebcentral en 1.4.0.
+
 ## 2.5.5 — La pagination du catalogue redevient atteignable
 
 « Ou est la pagination ? On ne fait que descendre. » Elle etait la

@@ -1,6 +1,6 @@
 [package]
 name = "inko"
-version = "2.5.5"
+version = "2.5.6"
 description = "Inko — lecteur de mangas, romans et livres"
 edition = "2021"
 
