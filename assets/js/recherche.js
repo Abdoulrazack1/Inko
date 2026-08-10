@@ -169,7 +169,7 @@
                 groupesRecus = data.groups || [];
                 sourcesEnEchec = groupesRecus.filter(g => g.error)
                     .map(g => ({ nom: g.sourceName || g.source, raison: g.error }));
-                lastMerged = mergeByTitle(groupesRecus);
+                lastMerged = mergeByTitle(groupesRecus, q);
                 renderResults(q);
             } catch (e) {
                 if (my !== reqSeq) return;
@@ -199,7 +199,7 @@
             } finally {
                 if (my !== reqSeq) return;
                 repondues++;
-                lastMerged = mergeByTitle(groupesRecus);
+                lastMerged = mergeByTitle(groupesRecus, q);
                 renderResults(q, { enCours: repondues < actives.length });
             }
         }));
@@ -243,16 +243,50 @@
 
     // Regroupe les résultats de toutes les sources PAR TITRE (audit §11) : une œuvre
     // présente sur plusieurs sources = une seule carte avec un sélecteur de source.
-    function mergeByTitle(groups) {
+    // Proximite d'un titre avec ce qui a ete tape. Sans elle, l'ordre ne tenait
+    // qu'au NOMBRE DE SOURCES : pour « solo leveling », « Solo Apocalypse » et
+    // « After Becoming a Solo Player… » passaient devant « Solo Leveling:
+    // Ragnarok », uniquement parce qu'ils existent sur plus de catalogues.
+    // Le nombre de sources reste utile — il departage a pertinence egale.
+    function scoreTitre(titre, q) {
+        const mots = (t) => (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ').trim();
+        const t = mots(titre), qn = mots(q);
+        if (!qn) return 9;
+        if (t === qn) return 0;
+        if (normTitle(titre) === normTitle(q)) return 1;   // « one-piece » = « one piece »
+        if (t.startsWith(qn + ' ')) return 2;
+        if (t.startsWith(qn)) return 3;
+        if (t.includes(' ' + qn + ' ') || t.endsWith(' ' + qn)) return 4;
+        if (t.includes(qn)) return 5;
+        // Tous les mots de la requete presents, mais disperses.
+        const termes = qn.split(' ').filter(Boolean);
+        if (termes.length > 1 && termes.every(x => t.includes(x))) return 6;
+        return 7;
+    }
+
+    function mergeByTitle(groups, q = '') {
         const map = new Map();
+        const alias = new Map();   // titre alternatif normalise -> cle principale
         const disabled = MH.disabledSources?.() || new Set();
         groups.forEach(g => {
             if (g.error || !g.items) return;
             if (disabled.has(g.source)) return;   // source désactivée : exclue (audit §9)
             const isNovel = MH.isNovelSource(g.source);
             g.items.forEach(m => {
-                const key = normTitle(m.title);
+                // Une meme oeuvre porte souvent deux noms selon la source :
+                // « Solo Leveling » chez l'une, « Na Honjaman Level-Up » chez
+                // l'autre. Elles arrivaient donc en DEUX cartes distinctes.
+                // Les sources qui exposent un titre alternatif permettent de
+                // les rapprocher : on enregistre l'alias, et la carte deja
+                // creee le recupere.
+                const direct = normTitle(m.title);
+                const key = (map.has(direct) ? direct : alias.get(direct)) || direct;
                 if (!key) return;
+                for (const alt of [].concat(m.titleAlt || []).filter(Boolean)) {
+                    const na = normTitle(alt);
+                    if (na && na !== key && !map.has(na)) alias.set(na, key);
+                }
                 if (!map.has(key)) {
                     map.set(key, {
                         title: m.title, cover: m.cover || m.coverThumb || '',
@@ -269,8 +303,11 @@
                 if (favSet.has(String(m.id))) { w.inLibrary = true; w.libSource = { source: g.source, id: m.id }; }
             });
         });
-        // Multi-sources d'abord (plus pertinent), puis ordre d'apparition.
-        return [...map.values()].sort((a, b) => b.sources.length - a.sources.length);
+        // Pertinence d'abord, nombre de sources ensuite, ordre d'apparition enfin.
+        return [...map.values()]
+            .map((w, i) => ({ w, s: scoreTitre(w.title, q), i }))
+            .sort((a, b) => (a.s - b.s) || (b.w.sources.length - a.w.sources.length) || (a.i - b.i))
+            .map(x => x.w);
     }
 
     const STATUS_LABEL = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };

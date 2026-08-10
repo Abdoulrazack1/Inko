@@ -3,6 +3,50 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.5.7 — SushiScan trouve enfin ses titres, et la recherche classe par pertinence
+
+**SushiScan ne trouvait pas « Solo Leveling ».** Le titre le plus lu de
+son catalogue, introuvable : la recherche s'appuyait sur un index
+construit a partir des SLUGS d'URL, et le slug de Solo Leveling est
+`na-honjaman-level-up`. Le vrai titre n'entrait jamais dans l'index. On
+obtenait ses deux spin-offs, jamais l'oeuvre.
+
+Le code partait du principe que le moteur du site etait hors service.
+Verifie : il fonctionne, et rend les vrais noms d'affichage. SushiScan
+l'interroge desormais en premier ; l'index de slugs reste en secours
+quand le site ne repond pas. « Solo Leveling » arrive en tete, et les
+titres s'affichent tels que le site les ecrit — accents et ponctuation
+compris.
+
+Le moteur du site ratisse large : « chainsaw man » ramenait « Look
+Back » et « 22-26 ». Ne sont gardes que les resultats partageant au
+moins un mot avec la requete — et si ce tamis ne laisse rien, la liste
+brute est rendue plutot qu'un « aucun resultat » trompeur.
+
+**Genres SushiScan.** Le site en expose 26 ; l'extension n'en declarait
+aucun, la section « Genres » restait donc vide pour cette source. Elle
+lit maintenant la liste sur le site (elle suivra donc ses ajouts) et
+sait parcourir un genre, ou croiser jusqu'a trois genres — ce que le
+site ne fait pas lui-meme.
+
+SushiScan declare aussi ses tris reels (popularite, dernieres sorties,
+alphabetique) et son seul filtre reel (genre). Avant, l'interface
+proposait « Note » et des filtres de statut ou d'annee qui ne
+changeaient rien.
+
+**Recherche multi-sources : la pertinence avant le nombre de sources.**
+L'ordre ne tenait qu'au nombre de catalogues ou une oeuvre apparait.
+Pour « solo leveling », « Solo Apocalypse » et « After Becoming a Solo
+Player… » passaient devant « Solo Leveling: Ragnarok ». Le titre le plus
+proche de ce que tu tapes vient d'abord ; le nombre de sources departage
+a pertinence egale.
+
+Et une meme oeuvre portant deux noms selon la source — « Solo Leveling »
+ici, « Na Honjaman Level-Up » la — donnait deux cartes. Les titres
+alternatifs sont desormais rapproches.
+
+Extension sushiscan en 1.1.0.
+
 ## 2.5.6 — Les planches WeebCentral repassent par le proxy
 
 WeebCentral a change de CDN. Le proxy d'images d'Inko est ferme par

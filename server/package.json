@@ -1,7 +1,7 @@
 {
   "name": "inko-server",
   "//version": "Audit QUAL-07 : bloquée à 1.0.0 alors que le reste du projet (racine, desktop-tauri, tauri.conf) était en 2.3.4. Alignée.",
-  "version": "2.5.6",
+  "version": "2.5.7",
   "description": "Backend Inko — Express + MySQL, lecteur manga/novel multi-sources",
   "main": "server.js",
   "type": "commonjs",

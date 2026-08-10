@@ -404,6 +404,124 @@ async function buildAdultIndex() {
 // disque de 6 h.
 const isAdultFlag = (a) => a === 'only' || a === '1' || a === 'all' || a === true;
 
+// ── Genres du site ──────────────────────────────────────────
+// Le catalogue d'Inko propose un filtre par genre pour les sources qui savent
+// le traiter. SushiScan expose /genres/<slug>/ depuis toujours, mais ne le
+// DECLARAIT pas : la section « Genres » restait donc vide pour cette source,
+// alors que le site en propose 26.
+//
+// La liste est LUE sur la page catalogue plutot qu'ecrite en dur : le jour ou
+// le site en ajoute un, il apparait sans qu'on ait a toucher a l'extension.
+let _genres = { list: null, expires: 0 };
+function joliGenre(slug) {
+    return slug.split('-').map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(' ');
+}
+async function listeGenres() {
+    if (_genres.list && _genres.expires > Date.now()) return _genres.list;
+    let slugs = [];
+    try {
+        const html = await fetchHtml('/catalogue/', 6 * 3600_000);
+        slugs = [...new Set((html.match(/\/genres\/([a-z0-9-]+)\//g) || [])
+            .map(u => u.replace(/\//g, '').replace('genres', '')))].filter(Boolean);
+    } catch (e) { slugs = []; }
+    // Repli : les genres adultes sont connus, et une liste vide vaudrait
+    // « cette source n'a pas de genres », ce qui serait faux.
+    if (!slugs.length) slugs = ADULT_GENRES.slice();
+    _genres = { list: slugs.sort().map(g => ({ id: g, name: joliGenre(g), group: 'genre' })), expires: Date.now() + 6 * 3600_000 };
+    return _genres.list;
+}
+
+// Parcours par genre : /genres/<g>/ pagine par /page/N/. Plusieurs genres
+// demandes = INTERSECTION (« action ET romance »), ce que le site ne sait pas
+// faire lui-meme — il faut donc croiser ici.
+async function parGenres(genres, { limit, offset, exclureAdulte }) {
+    // Une page de genre rend ~50 titres : une seule suffit le plus souvent.
+    const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil((offset + limit) / 50) + 1));
+    const listes = [];
+    let exhaustif = true;
+    for (const g of genres.slice(0, 3)) {      // 3 genres suffisent, au-dela le croisement est vide
+        const acc = new Map();
+        for (let p = 1; p <= pages; p++) {
+            const items = await fetchGenrePage(g, p);
+            if (!items || !items.length) break;
+            items.forEach(m => acc.set(m.id, m));
+            if (p === pages && items.length >= 40) exhaustif = false;   // il en reste
+        }
+        listes.push(acc);
+    }
+    if (!listes.length) return { items: [], exhaustif: true };
+    let res = [...listes[0].values()];
+    for (const autre of listes.slice(1)) res = res.filter(m => autre.has(m.id));
+    if (exclureAdulte) {
+        const idx = await buildAdultIndex();
+        res = res.filter(m => !idx.set.has(m.id));
+    }
+    // `exhaustif` : on a vu la fin du genre (une page vide ou courte). Sinon il
+    // reste des pages, et le total annonce doit rester une borne BASSE.
+    return { items: res, exhaustif };
+}
+
+// ── Moteur de recherche du site ─────────────────────────────
+// L'index de secours ci-dessus derive les titres du SLUG. C'est suffisant tant
+// que le slug ressemble au titre, et faux des qu'il en differe : « Solo
+// Leveling » a pour slug `na-honjaman-level-up`, donc le titre le plus
+// populaire du catalogue etait INTROUVABLE — la recherche renvoyait ses deux
+// spin-offs et pas lui.
+//
+// Le code partait du principe que « le moteur du site est HS ». Verifie :
+// `/?s=solo+leveling` rend aujourd'hui les trois titres attendus, avec leurs
+// vrais noms d'affichage. On l'interroge donc en premier, et l'index de slugs
+// ne sert plus que de secours quand le site ne repond pas.
+//
+// Pagination : `/page/N/?s=…` (et non `?s=…&page=N`, qui rend la page 1).
+async function searchSite(q, page = 1) {
+    const qs = 's=' + encodeURIComponent(q);
+    const url = page <= 1 ? `/?${qs}` : `/page/${page}/?${qs}`;
+    const html = await fetchHtml(url, 300_000);
+    return parseMangaList(cheerio.load(html));
+}
+
+// Classement : le site rend ses resultats dans SON ordre, qui melange les
+// correspondances exactes et lointaines. « one piece » sortait « One Piece
+// Episode A » avant « One Piece ». On reordonne sur le titre, du plus proche
+// au plus lointain, sans jamais retirer de resultat.
+// Le moteur du site ratisse large : « chainsaw man » ramenait « Look Back » et
+// « 22-26 », qui n'ont aucun mot en commun avec la requete. On ne garde que ce
+// qui partage au moins un terme significatif — et si ce tamis ne laisse rien,
+// on rend la liste brute plutot que de transformer un resultat faible en
+// « aucun resultat ».
+function pertinents(list, q) {
+    const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ').trim();
+    const termes = norm(q).split(' ').filter(t => t.length >= 3);
+    if (!termes.length) return list;
+    const garde = list.filter(m => {
+        const t = norm(m.title);
+        return termes.some(x => t.includes(x));
+    });
+    return garde.length ? garde : list;
+}
+
+function classer(list, q) {
+    const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ').trim();
+    const qn = norm(q);
+    const compact = (x) => x.replace(/ /g, '');
+    const score = (m) => {
+        const t = norm(m.title);
+        if (t === qn) return 0;
+        if (compact(t) === compact(qn)) return 1;      // « sololeveling » = « solo leveling »
+        if (t.startsWith(qn + ' ')) return 2;
+        if (t.startsWith(qn)) return 3;
+        if (t.includes(' ' + qn + ' ')) return 4;
+        if (t.includes(qn)) return 5;
+        return 6;
+    };
+    return list.map((m, i) => ({ m, s: score(m), i }))
+        .sort((a, b) => (a.s - b.s) || (a.i - b.i))
+        .map(x => x.m);
+}
+
 // ── Source export ──
 module.exports = {
     id:           'sushiscan',
@@ -420,7 +538,7 @@ module.exports = {
     // Le site reste scrapé derrière Cloudflare : la source dépend d'un HTML
     // tiers qui peut changer sans préavis. C'est la nature de la source, pas un
     // défaut à corriger.
-    version:      '1.0.0',
+    version:      '1.1.0',
     unit:      'chapter',
     // Audit PERF-08 : sushiscan.fr sert ses PLANCHES depuis un CDN distinct.
     // Sans cette déclaration, le proxy d'images refuse ces hôtes (403) et le
@@ -428,7 +546,17 @@ module.exports = {
     // site source à chaque page tournée.
     imageHosts: ['anime-sama.me', 'sushiscan.fr'],
     description:  '⚠ Expérimental — scrape sushiscan.fr (Madara/TS). Populaires & dernières sorties distinctes, dates de sortie des chapitres, recherche sur tout le catalogue, contenu adulte filtré hors espace +18.',
-    capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages'],
+    capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],
+    // Audit BUG-06 : tris REELLEMENT honores. Le site accepte ?order=popular,
+    // update et title ; il n'expose aucune note. Sans cette declaration
+    // l'interface proposait « Note », et le resultat revenait dans l'ordre de
+    // popularite sans le moindre signal.
+    sorts: ['popularity', 'latest', 'alpha'],
+    // Ce que la recherche sait reellement restreindre. Le genre passe par les
+    // pages /genres/<slug>/ ; le site ne sait filtrer ni par statut, ni par
+    // demographie, ni par annee — les proposer afficherait des controles sans
+    // effet.
+    filters: ['tags'],
 
     // Pré-chauffage : construit l'index du catalogue en arrière-plan dès le
     // démarrage, pour que la 1re recherche soit instantanée (avant, le build
@@ -464,7 +592,11 @@ module.exports = {
         const isAdultItem = (m) => idx.set.has(m.id);
         const lim = +limit || 24;
         const off = +offset || 0;
-        const ord = order === 'popular' ? 'popular' : 'update';
+        // `title` est un ordre que le site accepte reellement (?order=title).
+        // Le laisser retomber sur `update` reviendrait a declarer un tri
+        // alphabetique qui rend l'ordre des dernieres sorties — exactement le
+        // defaut BUG-06 qu'on corrige ailleurs.
+        const ord = order === 'popular' ? 'popular' : order === 'title' ? 'title' : 'update';
         // Audit N-EXT-12 : le retrait du contenu adulte APRÈS récupération
         // laissait des pages incomplètes (déficit erratique selon la proportion
         // +18 de la page du site). On boucle désormais sur les pages suivantes
@@ -509,24 +641,63 @@ module.exports = {
     async search({ q, limit = 20, offset = 0, filters = {} } = {}) {
         requireCheerio();
         const adult = filters.adult;
+        const genres = []
+            .concat(filters.includedTags || filters['includedTags[]'] || [])
+            .filter(Boolean).map(String);
+
+        // Sans texte : soit on parcourt un ou plusieurs genres, soit le
+        // catalogue trie. Le filtre par genre sans mot-cle est le cas courant
+        // (« montre-moi de l'action »), et il ne marchait pas du tout.
         if (!q) {
+            if (genres.length) {
+                const off0 = +offset || 0, lim0 = +limit || 20;
+                const { items, exhaustif } = await parGenres(genres, { limit: lim0, offset: off0, exclureAdulte: !isAdultFlag(adult) });
+                // Total exact si on a vu la fin du genre, borne BASSE sinon.
+                return { total: items.length + (exhaustif ? 0 : 1), results: items.slice(off0, off0 + lim0) };
+            }
             const sort = (filters && filters.sort) || '';
+            if (/alpha|title|titre/i.test(sort)) return this._browse('title', { limit, offset, adult });
             if (/latest|updat|nouveau|added|recent|new/i.test(sort)) return this.latest({ limit, offset, adult });
             return this.popular({ limit, offset, adult });
         }
 
-        // Recherche dans l'index complet du catalogue (le moteur du site est HS).
-        // On normalise (sans accents/tirets) pour matcher « arslan senki », etc.
+        // 1) Le moteur du site : il connait les VRAIS titres. L'index de slugs ne
+        //    connait que ce que le slug laisse deviner, et ne trouvait donc pas
+        //    « Solo Leveling » (slug `na-honjaman-level-up`).
+        //
+        //    Le site pagine par 10 : on va chercher assez de pages pour couvrir
+        //    offset+limit, borne a 3 requetes — au-dela on servirait surtout du
+        //    bruit, et chaque page est un aller-retour derriere Cloudflare.
+        const off = +offset || 0;
+        const lim = +limit || 20;
         const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-        const terms = norm(q).split(' ').filter(Boolean);
         let list = [];
+        let viaSite = false;
         try {
-            const cat = await buildCatalogIndex();
-            list = cat.list.filter(m => {
-                const hay = norm(m.id) + ' ' + norm(m.title);
-                return terms.every(t => hay.includes(t));
-            });
+            const pagesVoulues = Math.min(3, Math.ceil((off + lim) / 10) || 1);
+            const vues = new Set();
+            for (let p = 1; p <= pagesVoulues; p++) {
+                const items = await searchSite(q, p);
+                if (!items || !items.length) break;
+                for (const m of items) if (!vues.has(m.id)) { vues.add(m.id); list.push(m); }
+                if (items.length < 8) break;    // derniere page
+            }
+            viaSite = list.length > 0;
         } catch (e) { list = []; }
+
+        // 2) Secours : l'index de slugs, quand le site ne repond pas (Cloudflare,
+        //    limite de debit, changement de theme). Mieux vaut un resultat
+        //    approximatif que pas de recherche du tout.
+        if (!viaSite) {
+            const terms = norm(q).split(' ').filter(Boolean);
+            try {
+                const cat = await buildCatalogIndex();
+                list = cat.list.filter(m => {
+                    const hay = norm(m.id) + ' ' + norm(m.title);
+                    return terms.every(t => hay.includes(t));
+                });
+            } catch (e) { list = []; }
+        }
 
         if (isAdultFlag(adult)) {
             // Espace +18 explicite : on attend l'index adulte (l'utilisateur
@@ -550,11 +721,30 @@ module.exports = {
             const idx = await buildAdultIndex();
             list = list.filter(m => !idx.set.has(m.id));
         }
-        // Tri : les correspondances en début de titre d'abord
-        const qn = norm(q);
-        list.sort((a, b) => (norm(b.title).startsWith(qn) ? 1 : 0) - (norm(a.title).startsWith(qn) ? 1 : 0));
-        const off = +offset || 0;
-        return { total: list.length, results: list.slice(off, off + (+limit || 20)) };
+        // Genre + texte : le moteur du site ne croise pas les deux, on restreint
+        // donc apres coup sur les titres du genre demande.
+        if (genres.length && list.length) {
+            const duGenre = await parGenres(genres, { limit: 200, offset: 0, exclureAdulte: false });
+            const ids = new Set(duGenre.items.map(m => m.id));
+            const restreint = list.filter(m => ids.has(m.id));
+            // Un croisement vide vient plus souvent d'un genre peu parcouru que
+            // d'une absence reelle : on prefere alors ne rien retirer plutot que
+            // d'annoncer « aucun resultat » a tort.
+            if (restreint.length) list = restreint;
+        }
+        if (viaSite) list = pertinents(list, q);
+        list = classer(list, q);
+        // Total « page pleine » quand il vient du site : on ne connait pas le
+        // nombre exact de correspondances, seulement ce qu'on a rapatrie. On
+        // annonce donc une borne BASSE qui grandit — jamais un total ferme qui
+        // ferait proposer des pages inexistantes (meme convention que _browse).
+        const total = viaSite && list.length >= off + lim ? off + lim + 1 : list.length;
+        return { total, results: list.slice(off, off + lim) };
+    },
+
+    async getTags() {
+        requireCheerio();
+        return listeGenres();
     },
 
     async getManga(id) {
