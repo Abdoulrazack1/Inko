@@ -84,3 +84,57 @@ test('adminRequired : laisse passer un admin', () => {
     assert.equal(passed, true);
     assert.equal(res.statusCode, null);
 });
+
+// ── CORS : l'app desktop doit pouvoir parler a son propre serveur ──
+// L'ecran de demarrage de l'app est servi par la webview, donc depuis
+// `tauri://localhost` : vis-a-vis du serveur embarque c'est une origine
+// tierce. SEC-09 a ferme le mode permissif cote desktop pour empecher
+// n'importe quelle page web d'interroger 127.0.0.1:8088 — et a ferme du meme
+// coup le demarrage de l'app, qui affichait « Impossible de demarrer » apres
+// 150 s pendant que le serveur repondait 200.
+//
+// Ce defaut ne pouvait etre attrape ni par les tests e2e (qui visent le
+// serveur web, en same-origin) ni par les tests d'API (sans en-tete Origin) :
+// il ne se voit qu'ici, sur la decision elle-meme.
+function decisionCors(origin, env = {}) {
+    const sauvegarde = { ...process.env };
+    Object.assign(process.env, env);
+    // Le module lit son environnement au chargement.
+    delete require.cache[require.resolve('../middleware/security')];
+    const { corsOptions } = require('../middleware/security');
+    let autorise = null;
+    corsOptions().origin(origin, (_e, ok) => { autorise = ok; });
+    for (const k of Object.keys(process.env)) if (!(k in sauvegarde)) delete process.env[k];
+    Object.assign(process.env, sauvegarde);
+    delete require.cache[require.resolve('../middleware/security')];
+    return autorise;
+}
+
+for (const origine of ['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost']) {
+    test(`CORS : la webview desktop (${origine}) est autorisee`, () => {
+        assert.equal(decisionCors(origine, { APP_VERSION: '9.9.9' }), true);
+    });
+}
+
+test('CORS : un site tiers reste refuse en desktop (SEC-09 intact)', () => {
+    assert.equal(decisionCors('https://exemple-malveillant.test', { APP_VERSION: '9.9.9' }), false);
+});
+
+test('CORS : une origine qui imite la webview sans en etre une est refusee', () => {
+    // `https://tauri.localhost.exemple.test` contient la bonne sous-chaine :
+    // une comparaison laxiste l'accepterait.
+    assert.equal(decisionCors('https://tauri.localhost.exemple.test', { APP_VERSION: '9.9.9' }), false);
+});
+
+test('CORS : sans Origin (app native, curl, same-origin) on laisse passer', () => {
+    assert.equal(decisionCors(undefined, { APP_VERSION: '9.9.9' }), true);
+});
+
+test('CORS : une liste blanche explicite reste prioritaire pour les autres', () => {
+    assert.equal(decisionCors('https://inko.exemple.test', {
+        APP_VERSION: '9.9.9', CORS_ORIGINS: 'https://inko.exemple.test',
+    }), true);
+    assert.equal(decisionCors('https://autre.exemple.test', {
+        APP_VERSION: '9.9.9', CORS_ORIGINS: 'https://inko.exemple.test',
+    }), false);
+});

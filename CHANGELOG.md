@@ -3,6 +3,45 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.5.4 — L'installeur ferme le serveur avant d'ecrire
+
+**« Erreur lors de l'ouverture du fichier en ecriture : node.exe »**, avec
+Abandonner / Recommencer / Ignorer, et une installation bloquee a 94 %.
+
+NSIS sait fermer l'application qu'il installe : il cherche `inko.exe`.
+Mais Inko ne tient pas ses fichiers avec `inko.exe`, il les tient avec
+son serveur — un `node.exe` lance depuis le dossier d'installation, que
+l'installeur ne connaissait pas. Et comme la croix REDUIT Inko dans la
+zone de notification, on croit l'avoir ferme alors qu'il tourne
+toujours : ce n'etait pas un cas rare, c'etait le cas normal. La mise a
+jour integree lance justement cet installeur pendant que l'app tourne.
+
+« Ignorer » etait le piege : l'installation se poursuivait avec l'ancien
+`node.exe` et les nouvelles ressources — deux versions dans la meme app.
+
+L'installeur arrete maintenant le serveur, la base embarquee et la
+fenetre avant d'ecrire, en filtrant par CHEMIN : jamais ton Node ni ton
+MariaDB personnels. La desinstallation fait de meme, sinon le dossier
+resiste a la suppression.
+
+**L'app ne demarrait plus du tout.** « Impossible de demarrer / Serveur
+interne ne repond pas », apres 150 secondes d'attente — pendant que le
+serveur repondait 200. L'ecran de demarrage est servi par la webview,
+donc depuis `tauri://localhost` : vis-a-vis du serveur embarque, c'est
+une origine tierce. Le durcissement CORS de la 2.5.0 (SEC-09), qui
+empeche n'importe quelle page web d'interroger `127.0.0.1:8088`, fermait
+aussi cette porte-la. Les 303 sondes etaient bien dans le journal du
+serveur : la requete arrivait, c'est la REPONSE que la webview jetait,
+faute d'en-tete `Access-Control-Allow-Origin`. Les trois origines de la
+webview sont desormais reconnues — une liste fermee, qu'aucun site web
+ne peut se donner : la protection reste entiere.
+
+**Une seule instance.** Recliquer sur le raccourci pendant qu'Inko etait
+reduit lancait une SECONDE application complete, serveur compris, qui se
+disputait le port 8088 avec la premiere — trois instances empilees
+constatees en une soiree. Le second lancement rend desormais la fenetre
+qui existe deja.
+
 ## 2.5.3 — Les sources arrivent vraiment dans l'installeur
 
 **A installer si tu as telecharge la 2.5.1 ou la 2.5.2.** Les deux

@@ -53,6 +53,19 @@ fn definir_autostart(app: tauri::AppHandle, actif: bool) -> Result<bool, String>
 
 fn main() {
     tauri::Builder::default()
+        // Doit etre enregistre EN PREMIER : c'est lui qui decide si ce
+        // processus a le droit d'exister. Fermer la fenetre reduit Inko dans
+        // la zone de notification (audit AMEL-93) ; recliquer sur le raccourci
+        // lancait alors une seconde app complete, sidecar compris, qui se
+        // disputait le port 8088 avec la premiere. Le second lancement rend
+        // desormais simplement la fenetre existante.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_shell::init())
         // Audit AMEL-93 : le mode « hub » suppose une app toujours active —
         // les autres appareils de la maison tapent sur ce serveur. Sans

@@ -1,6 +1,6 @@
 [package]
 name = "inko"
-version = "2.5.3"
+version = "2.5.4"
 description = "Inko — lecteur de mangas, romans et livres"
 edition = "2021"
 
@@ -14,6 +14,12 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-shell = "2"
 tauri-plugin-autostart = "2"
+# `single-instance` : la croix REDUIT Inko dans la barre d'etat (AMEL-93).
+# Recliquer sur le raccourci lancait donc une SECONDE app, avec son propre
+# serveur, qui se disputait le port 8088 avec le premier. Trois instances
+# empilees constatees en une soiree. Le second lancement rend desormais la
+# main a celui qui tourne deja.
+tauri-plugin-single-instance = "2"
 
 [profile.release]
 strip = true

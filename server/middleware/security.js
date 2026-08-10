@@ -69,6 +69,15 @@ const securityHeaders = helmet({
 // dont les origines varient : capacitor://, http://localhost, file://…).
 // En PRODUCTION, définir CORS_ORIGINS="https://app.exemple.com,https://…"
 // pour passer en liste blanche stricte (recommandé dès qu'on expose Inko en ligne).
+// Origines de la webview Tauri, selon la plateforme et la version de WebView2.
+// Ce ne sont pas des origines « externes » : c'est l'app qui parle a son propre
+// serveur embarque.
+const ORIGINES_WEBVIEW = new Set([
+    'tauri://localhost',        // macOS, iOS
+    'http://tauri.localhost',   // Windows (WebView2)
+    'https://tauri.localhost',  // Windows (WebView2 recent)
+]);
+
 function corsOptions() {
     const allow = (process.env.CORS_ORIGINS || '')
         .split(',').map(s => s.trim()).filter(Boolean);
@@ -86,6 +95,20 @@ function corsOptions() {
         credentials: true,
         origin(origin, cb) {
             if (!origin) return cb(null, true);          // apps natives / curl / same-origin
+            // L'APPLICATION ELLE-MEME. Son écran de démarrage est servi par la
+            // webview, donc depuis `tauri://localhost` : vis-à-vis du serveur
+            // c'est une origine tierce. En fermant le permissif côté desktop,
+            // SEC-09 a ferme cette porte-la aussi — et l'app affichait
+            // « Impossible de démarrer / Serveur interne ne répond pas » après
+            // 150 s d'attente pendant que le serveur répondait 200. Les 303
+            // sondes étaient dans le journal du serveur : la requête arrivait,
+            // c'est la REPONSE que la webview jetait, faute d'en-tête
+            // Access-Control-Allow-Origin.
+            //
+            // La liste est fermée et connue : elle n'ouvre rien à un site web,
+            // qui ne peut pas se donner une de ces origines. La protection de
+            // SEC-09 reste donc entière.
+            if (IS_DESKTOP && ORIGINES_WEBVIEW.has(origin)) return cb(null, true);
             if (allow.length) return cb(null, allow.includes(origin));   // liste blanche stricte
             return cb(null, permissiveOk);               // permissif seulement hors prod ou opt-in
         },
