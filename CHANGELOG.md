@@ -3,6 +3,35 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.5.5 — La pagination du catalogue redevient atteignable
+
+« Ou est la pagination ? On ne fait que descendre. » Elle etait la
+depuis le debut, sous la grille, et elle annonce 3 483 pages sur
+MangaDex. Simplement, personne ne pouvait l'atteindre : le chargement
+automatique se declenche 400 pixels AVANT le bas, donc la grille
+grandissait toujours plus vite qu'on ne descendait. Le raccourci avait
+mange la fonctionnalite.
+
+Le chargement automatique est desormais **borne a deux pages**. Ensuite,
+le bouton « Charger la suite » reste — rien ne devient inatteignable —
+et la barre de pagination arrive a l'ecran. Le quota repart a zero a
+chaque nouvelle recherche et a chaque changement de filtre : la borne
+vaut par serie de defilement, pas pour la session.
+
+Et **un saut de page ne charge plus que la page demandee**. Cliquer
+« 3 » y ajoutait aussitot la page 4 — la grille etant courte apres un
+saut, l'observateur se declenchait dans la foulee — si bien que l'URL
+affichait `page=4` quand on avait clique 3. Demander une page precise
+est une demande explicite : elle est servie telle quelle.
+
+Cote tests : la suite e2e verifie maintenant que le serveur interroge
+sert bien le code du depot. `reuseExistingServer` reprend n'importe quel
+serveur repondant sur le port — y compris l'application installee, qui
+sert son frontend embarque fige au dernier build. Une modification a
+ete validee « verte » alors que le fichier servi ne la contenait pas :
+un test qui valide un autre code que celui qu'on vient d'ecrire est pire
+qu'un test absent.
+
 ## 2.5.4 — L'installeur ferme le serveur avant d'ecrire
 
 **« Erreur lors de l'ouverture du fichier en ecriture : node.exe »**, avec

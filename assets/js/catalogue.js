@@ -426,6 +426,11 @@
         const grid = document.getElementById('resultsGrid');
         if (!grid) return;
         const count = document.getElementById('resultsCount');
+        // Nouvelle recherche ou filtre modifie : la grille repart de zero, donc
+        // le quota de defilement automatique aussi. Apres un saut de page, en
+        // revanche, on ne charge rien de plus sans geste de l'utilisateur.
+        reinitAutoDefilement(sautDePage);
+        sautDePage = false;
 
         inFlight++;
         const myReq = inFlight;
@@ -787,6 +792,26 @@
     let loadMoreObserver = null;
     let chargementEnCours = false;
 
+    // Le raccourci avait mange la fonctionnalite. L'observateur se declenche
+    // 400 px AVANT le bas : la grille grandissait donc toujours plus vite
+    // qu'on ne descendait, et la barre de pagination — qui se trouve sous le
+    // bouton — restait hors d'atteinte. Sur MangaDex elle annonce 3 483 pages
+    // que personne ne pouvait atteindre autrement qu'en modifiant l'URL.
+    //
+    // Le chargement automatique est donc BORNE. Passe ce seuil, le bouton
+    // « Charger la suite » reste (rien ne devient inatteignable) et la
+    // pagination redevient accessible. Le compteur est remis a zero a chaque
+    // nouvelle recherche, chaque changement de filtre et chaque saut de page :
+    // la borne vaut par serie de defilement, pas pour la session.
+    const AUTO_MAX = 2;
+    let autoCharges = 0;
+    // Un saut de page est une demande EXPLICITE : « montre-moi la page 3 ».
+    // Y ajouter d'office la page 4 — ce que faisait l'observateur, la grille
+    // etant courte apres un saut — repondait a cote et rendait le numero de
+    // page actif faux (on cliquait 3, l'URL affichait 4).
+    let sautDePage = false;
+    function reinitAutoDefilement(desactive) { autoCharges = desactive ? AUTO_MAX : 0; }
+
     function renderLoadMore(pages) {
         const zone = document.getElementById('pagination');
         if (!zone) return;
@@ -802,10 +827,15 @@
         zone.parentNode.insertBefore(btn, zone);
         btn.addEventListener('click', () => chargerSuite(btn, pages));
 
-        loadMoreObserver = new IntersectionObserver((entries) => {
-            if (entries.some(e => e.isIntersecting)) chargerSuite(btn, pages);
-        }, { rootMargin: '400px' });
-        loadMoreObserver.observe(btn);
+        if (autoCharges < AUTO_MAX) {
+            loadMoreObserver = new IntersectionObserver((entries) => {
+                if (!entries.some(e => e.isIntersecting)) return;
+                if (autoCharges >= AUTO_MAX) { loadMoreObserver?.disconnect(); return; }
+                autoCharges += 1;
+                chargerSuite(btn, pages);
+            }, { rootMargin: '400px' });
+            loadMoreObserver.observe(btn);
+        }
     }
 
     async function chargerSuite(btn, pages) {
@@ -1023,6 +1053,7 @@
             const pages = Math.ceil(lastTotal / PER_PAGE);
             if (p < 1 || p > pages || p === currentPage) return;
             currentPage = p;
+            sautDePage = true;
             window.scrollTo({ top: 0, behavior: 'smooth' });
             await runSearch();
         });

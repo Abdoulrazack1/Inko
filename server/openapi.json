@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "API Inko",
-    "version": "2.5.4",
+    "version": "2.5.5",
     "description": "Référence générée depuis server/routes/index.js. Ne pas éditer à la main : régénérer avec `npm run gen-openapi`."
   },
   "servers": [
