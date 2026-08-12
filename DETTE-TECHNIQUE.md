@@ -140,3 +140,82 @@ d'architecture** plutôt qu'un travail mécanique : faut-il
 
 (c) est le moins ambitieux et le plus honnête si l'on veut préserver le modèle
 « une extension = un fichier ». À trancher avant d'écrire une ligne du lot 3.
+
+---
+
+# Feuille de route — prochaine version (2.6.0)
+
+*Chaque ligne est soit **vérifiée** (reproduite ici, avec la mesure), soit
+**signalée** (rapportée mais pas encore reproduite), soit **reportée** de
+l'audit du 28 juillet. La distinction est maintenue : une liste où tout se
+vaut ne se priorise pas.*
+
+## A. Corrections — défauts vérifiés
+
+| # | Défaut | Preuve | Effort |
+|---|---|---|---|
+| C1 | **`novelbin` est hors service** : 0 résultat | `check-sources` : « balisage ou URL du site probablement changés ». **L'alarme hebdomadaire est rouge depuis le 20 juillet — 4 fois de suite** | M |
+| C2 | **`gutenberg-fr` ne rend aucun titre populaire** (la recherche, elle, répond) | `popular?limit=3` → 0 résultat | M |
+| C3 | **`chireads` : des titres, aucun chapitre** | 3 titres, `chapters` du premier → 0 | M |
+| C4 | **`weebcentral` ignore `limit`** | `popular?limit=3` → **32** résultats. Toute pagination bâtie dessus est fausse | S |
+| C5 | **Lecteur page par page** : la 1re flèche droite reste sans effet, `data-idx` n'est pas mis à jour au changement de planche | Mesuré sur MangaDex, 32 pages | S |
+| C6 | **`gen-precache` salit `service-worker.js`** à chaque exécution sous Windows (LF réécrit sur du CRLF) | `git status` non vide après un `npm run gen-precache` sans changement | S |
+| C7 | **`CACHE_VERSION` ne dépend que du numéro de version**, pas du contenu des assets : deux builds d'une même version servent le même cache | Empreinte `ce7c71` inchangée de 2.5.0 à 2.5.7 malgré des assets modifiés | S |
+
+## B. Sécurité — à traiter en premier
+
+| # | Défaut | Pourquoi ça compte | Effort |
+|---|---|---|---|
+| **S1** | **Toute installation desktop partage le même secret JWT littéral** `inko-dev-secret-change-me` (`server/lib/secret.js`) | Le repli est prévu pour le développement, mais le desktop n'est pas du développement : en **mode hub** (AMEL-93) le serveur répond à d'autres appareils du foyer. Qui atteint le port forge un jeton pour n'importe quel compte. **Correctif : générer un secret aléatoire par installation au premier démarrage**, à côté de `db-credentials.json` qui fait déjà exactement ça | S |
+| S2 | **Sauvegardes en clair par défaut** : email + bibliothèque de tous les comptes | `BACKUP_PASSPHRASE` vide = dumps lisibles. Le chiffrement AES-256-GCM existe déjà, il n'est simplement pas activé. Même correctif que S1 : passphrase générée à l'installation | S |
+| S3 | AMEL-67 — **bac à sable des extensions** | Une extension = du JS avec les pleins pouvoirs de Node. SEC-08 vérifie l'*intégrité*, pas les *droits* | L |
+
+## C. Améliorations
+
+| # | Sujet | État | Effort |
+|---|---|---|---|
+| A1 | **Interface d'administration** | **Jamais traitée** : exclue de bout en bout de la remédiation de l'audit | L |
+| A2 | Recherche : `sololeveling` collé ne trouve rien | Ni le moteur du site ni l'index de secours ne rapprochent la forme sans espace | S |
+| A3 | AMEL-85 / 87 — catalogue de clés i18n, puis ES et DE | La clé est le texte français exact : toute reformulation casse la traduction en silence | L |
+| A4 | AMEL-84 — mode « une main » sur mobile | 781 cibles sous 44 px | M |
+| A5 | AMEL-92 / 117 — builds macOS et Linux, image Docker arm64 | Volontairement gelés (« Windows seulement pour l'instant ») | L |
+
+## D. Nouvelles fonctionnalités — reportées de l'audit
+
+| # | Sujet | Effort |
+|---|---|---|
+| F1 | AMEL-76 — import depuis Mihon / Tachiyomi / MangaDex | L |
+| F2 | AMEL-72 — synchronisation AniList bidirectionnelle | L |
+| F3 | AMEL-71 — 2FA TOTP | L |
+
+## E. À instruire — signalé, pas reproduit
+
+**« Les pages des chapitres ne se chargent pas. »** Quatre parcours testés
+(MangaDex, WeebCentral, SushiScan, lecteurs de romans) affichent leurs pages.
+C5 en est peut-être la cause — en mode page par page, une planche figée se
+décrit exactement ainsi. À confirmer avec la source et le titre concernés avant
+d'écrire quoi que ce soit.
+
+---
+
+## Découpe proposée pour la 2.6.0
+
+**Dans la version :** S1, S2 (sécurité, effort faible, gain immédiat) · C1 à C7
+(défauts vérifiés, tous ≤ M) · lots 0 et 1 du plan de dette (filet, puis
+découpe de `global.js`).
+
+**Après :** A1 (l'admin est un chantier à elle seule) · S3, A3, A5, F1–F3
+(chacun est une version en soi).
+
+**Deux remarques de méthode.**
+
+L'alarme `sources-health` **sonne dans le vide depuis quatre semaines**. Un
+signal qu'on n'écoute pas est pire qu'une absence de signal : il donne
+l'impression d'une surveillance. Avant d'en ajouter, il faut soit agir sur
+celui-là, soit l'éteindre.
+
+C1, C2 et C3 sont trois sources cassées par des changements **côté site**. Ce
+n'est pas un défaut d'Inko, c'est la nature d'un lecteur qui scrape — et cela
+se reproduira. La bonne réponse à moyen terme n'est pas de les réparer une par
+une, c'est de rendre la panne **visible dans l'app** (une source muette doit se
+dire muette) plutôt que de la laisser ressembler à un catalogue vide.
