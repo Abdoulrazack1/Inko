@@ -143,79 +143,232 @@ d'architecture** plutôt qu'un travail mécanique : faut-il
 
 ---
 
-# Feuille de route — prochaine version (2.6.0)
+# Feuille de route 2.6.0 — issue d'une campagne QA
 
-*Chaque ligne est soit **vérifiée** (reproduite ici, avec la mesure), soit
-**signalée** (rapportée mais pas encore reproduite), soit **reportée** de
-l'audit du 28 juillet. La distinction est maintenue : une liste où tout se
-vaut ne se priorise pas.*
+*Campagne du 10 août 2026 sur la 2.5.7 : 20 pages balayées (erreurs console,
+requêtes en échec, a11y, poids), 10 pages testées à 375 px, sondage de sécurité
+de l'API, thèmes, i18n, hors-ligne, navigation au clavier, performance des
+assets, santé des 9 sources.*
 
-## A. Corrections — défauts vérifiés
-
-| # | Défaut | Preuve | Effort |
-|---|---|---|---|
-| C1 | **`novelbin` est hors service** : 0 résultat | `check-sources` : « balisage ou URL du site probablement changés ». **L'alarme hebdomadaire est rouge depuis le 20 juillet — 4 fois de suite** | M |
-| C2 | **`gutenberg-fr` ne rend aucun titre populaire** (la recherche, elle, répond) | `popular?limit=3` → 0 résultat | M |
-| C3 | **`chireads` : des titres, aucun chapitre** | 3 titres, `chapters` du premier → 0 | M |
-| C4 | **`weebcentral` ignore `limit`** | `popular?limit=3` → **32** résultats. Toute pagination bâtie dessus est fausse | S |
-| C5 | **Lecteur page par page** : la 1re flèche droite reste sans effet, `data-idx` n'est pas mis à jour au changement de planche | Mesuré sur MangaDex, 32 pages | S |
-| C6 | **`gen-precache` salit `service-worker.js`** à chaque exécution sous Windows (LF réécrit sur du CRLF) | `git status` non vide après un `npm run gen-precache` sans changement | S |
-| C7 | **`CACHE_VERSION` ne dépend que du numéro de version**, pas du contenu des assets : deux builds d'une même version servent le même cache | Empreinte `ce7c71` inchangée de 2.5.0 à 2.5.7 malgré des assets modifiés | S |
-
-## B. Sécurité — à traiter en premier
-
-| # | Défaut | Pourquoi ça compte | Effort |
-|---|---|---|---|
-| **S1** | **Toute installation desktop partage le même secret JWT littéral** `inko-dev-secret-change-me` (`server/lib/secret.js`) | Le repli est prévu pour le développement, mais le desktop n'est pas du développement : en **mode hub** (AMEL-93) le serveur répond à d'autres appareils du foyer. Qui atteint le port forge un jeton pour n'importe quel compte. **Correctif : générer un secret aléatoire par installation au premier démarrage**, à côté de `db-credentials.json` qui fait déjà exactement ça | S |
-| S2 | **Sauvegardes en clair par défaut** : email + bibliothèque de tous les comptes | `BACKUP_PASSPHRASE` vide = dumps lisibles. Le chiffrement AES-256-GCM existe déjà, il n'est simplement pas activé. Même correctif que S1 : passphrase générée à l'installation | S |
-| S3 | AMEL-67 — **bac à sable des extensions** | Une extension = du JS avec les pleins pouvoirs de Node. SEC-08 vérifie l'*intégrité*, pas les *droits* | L |
-
-## C. Améliorations
-
-| # | Sujet | État | Effort |
-|---|---|---|---|
-| A1 | **Interface d'administration** | **Jamais traitée** : exclue de bout en bout de la remédiation de l'audit | L |
-| A2 | Recherche : `sololeveling` collé ne trouve rien | Ni le moteur du site ni l'index de secours ne rapprochent la forme sans espace | S |
-| A3 | AMEL-85 / 87 — catalogue de clés i18n, puis ES et DE | La clé est le texte français exact : toute reformulation casse la traduction en silence | L |
-| A4 | AMEL-84 — mode « une main » sur mobile | 781 cibles sous 44 px | M |
-| A5 | AMEL-92 / 117 — builds macOS et Linux, image Docker arm64 | Volontairement gelés (« Windows seulement pour l'instant ») | L |
-
-## D. Nouvelles fonctionnalités — reportées de l'audit
-
-| # | Sujet | Effort |
-|---|---|---|
-| F1 | AMEL-76 — import depuis Mihon / Tachiyomi / MangaDex | L |
-| F2 | AMEL-72 — synchronisation AniList bidirectionnelle | L |
-| F3 | AMEL-71 — 2FA TOTP | L |
-
-## E. À instruire — signalé, pas reproduit
-
-**« Les pages des chapitres ne se chargent pas. »** Quatre parcours testés
-(MangaDex, WeebCentral, SushiScan, lecteurs de romans) affichent leurs pages.
-C5 en est peut-être la cause — en mode page par page, une planche figée se
-décrit exactement ainsi. À confirmer avec la source et le titre concernés avant
-d'écrire quoi que ce soit.
+**Notation** : 🔴 bloquant · 🟠 sérieux · 🟡 à traiter · ⚪ confort.
+Chaque ligne porte sa **preuve**. Ce qui n'a pas été reproduit est marqué comme
+tel.
 
 ---
 
-## Découpe proposée pour la 2.6.0
+## 🔒 Casquette sécurité
 
-**Dans la version :** S1, S2 (sécurité, effort faible, gain immédiat) · C1 à C7
-(défauts vérifiés, tous ≤ M) · lots 0 et 1 du plan de dette (filet, puis
-découpe de `global.js`).
+### 🔴 SEC-1 — `POST /api/auth/local` donne un compte **admin** à qui atteint le port
 
-**Après :** A1 (l'admin est un chantier à elle seule) · S3, A3, A5, F1–F3
-(chacun est une version en soi).
+**Vérifié.** Le serveur écoute sur `::` (toutes interfaces). Depuis l'adresse
+réseau de la machine — pas la boucle locale — un `POST` sans le moindre
+identifiant renvoie :
 
-**Deux remarques de méthode.**
+    {"user":{"id":26,"username":"Kaito","role":"admin",…},"token":"eyJhbGciOi…","localMode":true}
 
-L'alarme `sources-health` **sonne dans le vide depuis quatre semaines**. Un
-signal qu'on n'écoute pas est pire qu'une absence de signal : il donne
-l'impression d'une surveillance. Avant d'en ajouter, il faut soit agir sur
-celui-là, soit l'éteindre.
+La route (`server/routes/index.js:74`) n'a **aucun intergiciel** : ni
+authentification, ni filtre d'adresse, ni limitation de débit — alors que
+`/auth/login` et `/auth/register` en ont une. `localAuth` promeut au passage le
+propriétaire en `admin`.
 
-C1, C2 et C3 sont trois sources cassées par des changements **côté site**. Ce
-n'est pas un défaut d'Inko, c'est la nature d'un lecteur qui scrape — et cela
-se reproduira. La bonne réponse à moyen terme n'est pas de les réparer une par
-une, c'est de rendre la panne **visible dans l'app** (une source muette doit se
-dire muette) plutôt que de la laisser ressembler à un catalogue vide.
+Ce n'est pas un bug d'implémentation, c'est le mode « façon Mihon, sans écran de
+connexion », volontaire et légitime. Ce qui manque, c'est le garde qui le rend
+sûr : **restreindre à la boucle locale**, et exiger un appairage explicite pour
+tout le reste. Le mode hub (AMEL-93) sert justement d'autres appareils du foyer
+— toute personne sur le même Wi-Fi devient administrateur de la bibliothèque.
+
+### 🔴 SEC-2 — Toutes les installations desktop partagent le même secret JWT
+
+`server/lib/secret.js` : hors production, le repli est la chaîne littérale
+`inko-dev-secret-change-me`. Le desktop n'est pas de la production au sens de
+`NODE_ENV`, mais ce n'est pas non plus du développement. Conséquence : les
+jetons sont forgeables hors ligne, sans même toucher au serveur. Combiné à
+SEC-1, la porte est ouverte deux fois.
+
+**Correctif** : générer un secret aléatoire par installation au premier
+démarrage. Le modèle existe déjà — `db-credentials.json` fait exactement cela
+pour le mot de passe de la base.
+
+### 🟠 SEC-3 — Sauvegardes en clair par défaut
+
+Le dump quotidien contient l'email et la bibliothèque de **tous** les comptes.
+`BACKUP_PASSPHRASE` vide = lisible. Le chiffrement AES-256-GCM est déjà écrit
+(`lib/backup.js`), il n'est simplement pas activé. Même correctif que SEC-2.
+
+### 🟠 SEC-4 — La posture de sécurité dépend d'une variable qu'il faut penser à poser
+
+Sans `NODE_ENV=production` : pas de CSP, CORS qui **reflète n'importe quelle
+origine** (vérifié : `https://site-tiers.test` renvoyé tel quel), secret de
+développement. C'est cohérent et documenté (S-6, S-1) — mais un auto-hébergeur
+qui lance `node server/server.js` sur un VPS obtient tout cela sans qu'aucun
+message ne l'en avertisse.
+
+**Correctif** : une bannière au démarrage qui énonce la posture réelle
+(« CSP désactivée · CORS permissif · secret de développement ») dès que le
+serveur écoute ailleurs que sur la boucle locale.
+
+### 🟡 SEC-5 — AMEL-67, bac à sable des extensions
+
+Une extension = du JS avec les pleins pouvoirs de Node. SEC-08 vérifie son
+*intégrité*, jamais ses *droits*.
+
+### ✅ Ce qui a résisté aux sondes — à ne pas « améliorer »
+
+| Test | Résultat |
+|---|---|
+| SSRF sur le proxy d'images (7 charges : `127.0.0.1`, `169.254.169.254`, `[::1]`, `10.x`, `192.168.x`, `localhost:3306`, `file://`) | **7/7 bloquées** (403, et 400 pour `file://`) |
+| `/api/me/*` et `/api/admin/*` sans jeton | **401** partout |
+| En-têtes | `nosniff` · `frame-ancestors` · `no-referrer` · `X-Powered-By` masqué |
+| Limitation de débit sur `/auth/login` | **429 après 12 essais** |
+| Fuite de pile dans les erreurs | aucune (`{"error":"Endpoint introuvable"}`) |
+
+---
+
+## 🐞 Casquette QA fonctionnelle
+
+| # | Défaut | Preuve | Gravité |
+|---|---|---|---|
+| QA-1 | **`novelbin` hors service** | `check-sources` : 0 résultat. Alarme hebdomadaire **rouge depuis le 20 juillet, 4 lundis** | 🟠 |
+| QA-2 | **`gutenberg-fr` : aucun titre populaire** (la recherche répond) | `popular?limit=3` → 0 | 🟠 |
+| QA-3 | **`chireads` : des titres, aucun chapitre** | 3 titres, `chapters` du 1er → 0 | 🟠 |
+| QA-4 | **`weebcentral` ignore `limit`** | `popular?limit=3` → **32** résultats. Toute pagination bâtie dessus est fausse | 🟠 |
+| QA-5 | **`profil.html` déclenche des 504 en rafale** sur WeebCentral | 3 × `504 Gateway Timeout` sur `/api/sources/weebcentral/mangas/<id>` en un seul chargement : la page interroge une source scrapée série par série | 🟠 |
+| QA-6 | **Lecteur page par page** : la 1re flèche droite reste sans effet, `data-idx` fige à `0` au changement de planche | Mesuré sur MangaDex, 32 pages | 🟡 |
+| QA-7 | **Identifiant invalide → `200` avec une fiche vide** au lieu de `404` | `/api/sources/mangadex/mangas/%00%01` → `{"title":"","author":"",…}` | 🟡 |
+| QA-8 | **`gen-precache` salit `service-worker.js`** à chaque exécution sous Windows (LF réécrit sur du CRLF) | `git status` non vide après un run sans changement | ⚪ |
+| QA-9 | **`CACHE_VERSION` ne dépend que du numéro de version**, pas du contenu | empreinte `ce7c71` identique de 2.5.0 à 2.5.7 malgré des assets modifiés | ⚪ |
+| QA-10 | Recherche : `sololeveling` collé ne trouve rien | Ni le moteur du site ni l'index de secours ne rapprochent la forme sans espace | ⚪ |
+
+---
+
+## ♿ Casquette accessibilité
+
+| # | Défaut | Preuve | Gravité |
+|---|---|---|---|
+| A11Y-1 | **4 pages sans `<h1>`** | `liste.html`, `localreader.html`, `recherche.html`, `u.html` | 🟡 |
+| A11Y-2 | **3 pages sans `<main>`** | `anilist.html`, `localreader.html`, `offline.html` | 🟡 |
+| A11Y-3 | **8 champs sans étiquette accessible** | biblio 2 · profil 2 · stats 2 · import 1 · localreader 1 · parametres 1 · recherche 1 | 🟡 |
+
+**✅ Solide** : 0 image sans `alt` sur 20 pages · 0 bouton sans nom accessible ·
+indicateur de focus présent sur les 12 premiers arrêts de tabulation · ordre de
+tabulation cohérent (évitement → navigation → recherche → actions) · les 4
+thèmes déclarés s'appliquent · axe-core vert en critical/serious et thème
+contraste AAA.
+
+---
+
+## 📱 Casquette mobile — le point le plus dégradé
+
+| # | Défaut | Preuve | Gravité |
+|---|---|---|---|
+| MOB-1 | **Débordement horizontal sur 6 pages sur 10** à 375 px | `sources` **+488 px** · `profil` +145 · `parametres` +111 · `notifications` +80 · `accueil` +78 · `bibliotheque` +52 | 🔴 |
+| MOB-2 | **Cibles tactiles sous 32 px** | `bibliotheque` **770** · `catalogue` 132 · `accueil` 61 · les 7 autres pages entre 19 et 39. C'est AMEL-84, jamais traité | 🟠 |
+
+Une page qui déborde de 488 px sur un écran de 375 px ne se « règle » pas au
+zoom : elle est inutilisable. À traiter avant tout ajout de fonctionnalité
+mobile.
+
+---
+
+## ⚡ Casquette performance
+
+| # | Sujet | Mesure | Gravité |
+|---|---|---|---|
+| PERF-1 | **`notifications.html` transfère 1,9 Mo** | ~28 couvertures **pleine taille** (42 à 155 Ko chacune) pour une liste de notifications. Les vignettes existent, elles ne sont pas utilisées | 🟠 |
+| PERF-2 | **`bibliotheque.html` : 109 requêtes** au chargement | contre 22 à 37 pour les pages calmes | 🟡 |
+| PERF-3 | `pdf.min.js` pèse 313 Ko | chargé sur des pages qui n'en ont pas toujours besoin | ⚪ |
+
+**✅ Solide** : gzip actif · `immutable` 30 jours sur les vendors ·
+`must-revalidate` sur le code de l'app (cohérent avec le service worker
+network-first) · pages entre 153 et 358 Ko hors notifications.
+
+---
+
+## 🔌 Casquette fiabilité des sources
+
+| # | Sujet | Gravité |
+|---|---|---|
+| SRC-1 | **L'alarme `sources-health` sonne dans le vide depuis 4 semaines.** Elle fonctionne, elle dit vrai, personne ne l'écoute. Un signal ignoré est pire qu'une absence de signal : il donne l'illusion d'une surveillance | 🟠 |
+| SRC-2 | **Une source en panne ressemble à un catalogue vide** dans l'app. Trois sources cassées par des changements côté site — cela se reproduira : la réponse durable est de rendre la panne **visible**, pas de réparer une par une | 🟠 |
+| SRC-3 | **Aucun test de contrat d'extension** : rien ne vérifie qu'une source honore `limit`, rend les champs annoncés, ou respecte ses propres `capabilities`. QA-4 serait tombé tout seul | 🟡 |
+
+---
+
+## 🌍 Casquette internationalisation
+
+| # | Sujet | Mesure | Gravité |
+|---|---|---|---|
+| I18N-1 | Restes de français après bascule EN | `Fermer` (paramètres), `Chapitre` (profil) — le reste bascule | ⚪ |
+| I18N-2 | **410 textes visibles en dur dans le HTML, 0 attribut `data-i18n`** | `profil.html` 120 · `parametres.html` 94 · `confidentialite.html` 31 | 🟡 |
+| I18N-3 | AMEL-85 : la clé **est** le texte français exact | toute reformulation casse la traduction en silence | 🟡 |
+
+**✅ Bien meilleur que l'audit ne le laissait croire** : 861 chaînes + 55 motifs
+traduits, `MH.setLang('en')` bascule réellement les pages testées.
+
+---
+
+## 🛠️ Casquette exploitation / auto-hébergeur
+
+| # | Sujet | Gravité |
+|---|---|---|
+| OPS-1 | Bannière de démarrage énonçant la posture réelle (cf. SEC-4) | 🟠 |
+| OPS-2 | Aucune vue « santé » dans l'app : sources, base, espace disque, dernière sauvegarde | 🟡 |
+| OPS-3 | `AMEL-117` — image Docker arm64, alors que le README vise Raspberry Pi et NAS | 🟡 |
+| OPS-4 | `AMEL-92` — builds macOS et Linux (gelés volontairement) | ⚪ |
+
+---
+
+## 👩‍💻 Casquette contributeur
+
+| # | Sujet | Gravité |
+|---|---|---|
+| DX-1 | **9 modules serveur sans test**, dont `image.controller` — le proxy, en cause deux fois (PERF-08, puis le CDN WeebCentral) | 🟠 |
+| DX-2 | **10 fichiers front sur 36** couverts par un test unitaire | 🟡 |
+| DX-3 | Les 5 lots de dette structurelle (première partie de ce document) | 🟡 |
+
+---
+
+## ✨ Casquette produit — fonctionnalités
+
+| # | Sujet | Effort |
+|---|---|---|
+| F-1 | **Interface d'administration** : exclue de bout en bout de la remédiation d'audit, jamais traitée | L |
+| F-2 | `AMEL-76` — import depuis Mihon / Tachiyomi / MangaDex : enlève la barrière d'entrée pour qui migre | L |
+| F-3 | `AMEL-72` — synchronisation AniList bidirectionnelle | L |
+| F-4 | `AMEL-71` — 2FA TOTP | L |
+| F-5 | `AMEL-84` — mode « une main » sur mobile (lié à MOB-2) | M |
+| F-6 | `AMEL-87` — espagnol et allemand, une fois I18N-2/3 traités | M |
+
+---
+
+## 🎯 Découpe proposée
+
+**2.6.0 — « on ferme les portes »**
+SEC-1 · SEC-2 · SEC-3 · SEC-4 · QA-1 à QA-9 · MOB-1 · SRC-1 et SRC-2.
+
+Rien de spectaculaire, mais c'est la version qui rend l'app **sûre à
+auto-héberger** et **utilisable sur téléphone** — deux choses qu'elle promet
+aujourd'hui sans les tenir.
+
+**2.7.0 — « on consolide »**
+A11Y-1/2/3 · PERF-1/2 · SRC-3 · DX-1/2 · lots 0 à 2 de la dette structurelle.
+
+**Ensuite, une version par sujet** : F-1 (admin), SEC-5 (bac à sable),
+I18N-2/3 puis F-6, F-2, F-3, F-4.
+
+---
+
+## ⚠️ Ce que cette campagne n'a **pas** couvert
+
+La valeur du rapport tient à ce qu'il exclut :
+
+- **Parcours authentifiés multi-comptes** : commentaires, notes, listes
+  partagées, profils publics. Tout a été testé sous le compte propriétaire.
+- **Le signalement « les pages des chapitres ne se chargent pas »**, toujours
+  pas reproduit. QA-6 en est peut-être la cause.
+- **L'app desktop empaquetée** : tout a été mesuré sur le serveur de
+  développement. Le comportement diffère (CSP active, CORS fermé).
+- **Charge et volumétrie** : aucune mesure au-delà d'une bibliothèque
+  personnelle.
+- **Navigateurs autres que Chromium**, et lecteurs d'écran réels — axe-core ne
+  détecte que 30 à 50 % des défauts d'accessibilité.
