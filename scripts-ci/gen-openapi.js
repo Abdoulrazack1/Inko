@@ -56,8 +56,12 @@ function analyser() {
             : /authRequired/.test(reste) ? 'session'
                 : /authOptional/.test(reste) ? 'optionnelle' : 'aucune';
         const limite = (reste.match(/(\w*Limiter)/) || [])[1] || null;
+        // SEC-01 : `localOnly` restreint la route a la boucle locale. Sans
+        // cette marque, la reference decrit `/auth/local` comme ouverte a
+        // tous (`security: []`) — ce qui etait vrai, et ne l'est plus.
+        const localeSeule = /localOnly/.test(reste);
         const handler = (reste.match(/([A-Z]\w*)\.(\w+)/) || []).slice(1).join('.') || null;
-        routes.push({ methode, chemin, auth, limite, handler, resume: commentaireAvant(src, m.index) });
+        routes.push({ methode, chemin, auth, limite, localeSeule, handler, resume: commentaireAvant(src, m.index) });
     }
     return routes;
 }
@@ -92,6 +96,9 @@ function construire() {
             // en description les rendrait illisibles a la machine.
             'x-auth': r.auth,
             'x-rate-limit': r.limite || undefined,
+            // Joignable uniquement depuis la machine qui heberge le serveur.
+            // Un client distant recoit 403 (code `LOCAL_ONLY`).
+            'x-local-only': r.localeSeule || undefined,
             parameters: parametres(r.chemin).concat(paginables(r) ? [
                 { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 500 },
                     description: 'Taille de page. Fournir limit ou offset fait passer la reponse de tableau brut a { items, total, limit, offset } (audit AMEL-121).' },

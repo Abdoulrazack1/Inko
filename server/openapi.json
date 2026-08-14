@@ -184,6 +184,8 @@
         ],
         "security": [],
         "x-auth": "aucune",
+        "x-rate-limit": "authLimiter",
+        "x-local-only": true,
         "parameters": [],
         "responses": {
           "200": {
