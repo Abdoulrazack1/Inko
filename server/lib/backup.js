@@ -24,7 +24,20 @@ const KEEP = Math.max(2, parseInt(process.env.BACKUP_KEEP || '14', 10) || 14);
 // clé dérivée par scrypt avec un sel aléatoire par fichier. Sans passphrase on
 // garde le clair — l'imposer casserait les installations existantes et
 // rendrait les dumps irrécupérables si l'utilisateur perd la phrase.
-const PASSPHRASE = process.env.BACKUP_PASSPHRASE || '';
+// SEC-04 : en desktop, une passphrase est TIRÉE AU SORT au premier démarrage
+// plutôt que de laisser les dumps en clair. Le raisonnement d'origine
+// ci-dessus reste valable pour un serveur — imposer une phrase à un
+// administrateur casserait ses sauvegardes existantes et les rendrait
+// irrécupérables s'il la perd. Mais sur une installation desktop, personne ne
+// pose jamais cette variable : le défaut était donc « email et bibliothèque de
+// tous les comptes, en clair sur le disque », pour tout le monde.
+//
+// La passphrase générée vit dans le profil de l'utilisateur, avec les mêmes
+// droits que le mot de passe de la base (`lib/secrets-locaux.js`). Elle est
+// donc récupérable pour restaurer — c'est la différence avec une phrase perdue.
+const IS_DESKTOP = !!process.env.APP_VERSION;
+const PASSPHRASE = process.env.BACKUP_PASSPHRASE
+    || (IS_DESKTOP ? (require('./secrets-locaux').obtenir('backup-passphrase', 32) || '') : '');
 const MAGIC = 'INKOENC1';           // en-tête : permet de reconnaître un dump chiffré
 
 function encrypt(plaintext, passphrase) {
@@ -126,6 +139,11 @@ function scheduleBackups() {
     if (!PASSPHRASE) {
         console.warn('[backup] ⚠ sauvegardes EN CLAIR (email + bibliothèque de tous les comptes).');
         console.warn('         Définis BACKUP_PASSPHRASE pour les chiffrer (AES-256-GCM).');
+    } else if (!process.env.BACKUP_PASSPHRASE) {
+        // Le chiffrement est actif sans que l'utilisateur ait rien fait : il
+        // doit savoir OÙ est la clé, sinon une restauration depuis une autre
+        // machine est impossible et le dump devient un fichier inerte.
+        console.log(`[backup] sauvegardes chiffrées — clé dans ${path.join(require('./secrets-locaux').dossier(), 'backup-passphrase.json')}`);
     }
     const run = () => runBackup()
         .then(r => console.log(`[backup] ${r.accounts} compte(s) → ${r.file}${r.encrypted ? ' (chiffré)' : ''}`))

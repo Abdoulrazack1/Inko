@@ -71,7 +71,7 @@ router.get ('/auth/providers',      Auth.providers);
 router.post('/auth/google',         Auth.googleAuth);
 router.get ('/auth/google-config',  auth.authRequired, Auth.getGoogleConfig);
 router.put ('/auth/google-config',  auth.authRequired, Auth.setGoogleConfig);
-router.post('/auth/local',          Auth.localAuth);   // mode local sans écran de connexion
+router.post('/auth/local',          auth.localOnly, authLimiter, Auth.localAuth);   // SEC-01 : boucle locale uniquement
 router.post('/auth/register',       authLimiter, Auth.register);
 router.post('/auth/login',          authLimiter, Auth.login);
 router.post('/auth/logout',         Auth.logout);

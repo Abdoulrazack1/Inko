@@ -118,4 +118,54 @@ async function revokeTokens(userId) {
     return row ? row.token_version : 0;
 }
 
-module.exports = { authRequired, authOptional, sign, revokeTokens };
+// ── SEC-01 : le mode local ne sort pas de la machine ─────────
+//
+// `POST /api/auth/local` résout le compte propriétaire, LE PROMEUT ADMIN, signe
+// un jeton et pose le cookie — sans authentification, sans limitation de débit,
+// sans aucun filtre. Or le serveur écoute sur toutes les interfaces.
+//
+// Vérifié pendant l'audit, depuis l'adresse réseau de la machine et non la
+// boucle locale :
+//
+//   $ curl -X POST http://192.168.1.34:8088/api/auth/local -d '{}'
+//   {"user":{"username":"Kaito","role":"admin",…},"token":"eyJhbGciOi…"}
+//
+// Toute personne sur le même Wi-Fi devenait donc administrateur de la
+// bibliothèque. Le mode « façon Mihon, sans écran de connexion » est un choix
+// produit légitime ; ce qui manquait est le garde qui le rend sûr.
+//
+// Ce filtre le pose : la connexion automatique n'est possible que depuis la
+// machine elle-même. Un appareil du réseau devra passer par un appairage
+// explicite (à venir) ou par l'écran de connexion, qui existe toujours.
+//
+// `INKO_LOCAL_ANY_HOST=1` rouvre le comportement précédent — pour un hub
+// volontairement partagé, en connaissance de cause. Ce n'est plus le défaut.
+const IP_LOCALES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost']);
+
+// Les DEUX adresses doivent être locales. Chacune seule laisse un trou :
+//
+//   · `req.ip` seul — avec `TRUST_PROXY` posé, express fait confiance à
+//     `X-Forwarded-For`, que l'appelant écrit lui-même. `XFF: 127.0.0.1`
+//     depuis n'importe où et le filtre s'ouvre.
+//   · la socket seule — derrière un reverse proxy tournant sur la même
+//     machine, `remoteAddress` vaut TOUJOURS 127.0.0.1, quel que soit le
+//     client réel. Le filtre ne filtre alors plus rien.
+//
+// L'intersection ferme les deux : un client distant échoue sur la socket
+// (attaque directe) ou sur `req.ip` (derrière un proxy), et une connexion
+// vraiment locale satisfait les deux.
+function estLocale(req) {
+    const socket = req.socket?.remoteAddress || '';
+    return IP_LOCALES.has(socket) && IP_LOCALES.has(req.ip);
+}
+
+function localOnly(req, res, next) {
+    if (process.env.INKO_LOCAL_ANY_HOST === '1') return next();
+    if (estLocale(req)) return next();
+    return res.status(403).json({
+        error: 'La connexion automatique n’est possible que depuis cet ordinateur.',
+        code: 'LOCAL_ONLY',
+    });
+}
+
+module.exports = { authRequired, authOptional, sign, revokeTokens, localOnly };

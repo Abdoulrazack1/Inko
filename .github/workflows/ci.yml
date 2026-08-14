@@ -62,6 +62,15 @@ jobs:
 
       # REQUIRE_DB_TESTS=1 : les suites d'intégration ÉCHOUENT si MySQL est
       # injoignable, au lieu de se sauter en silence (audit QUAL-01).
+      #
+      # `server/package.json` fixe `--test-concurrency=1`. Ce n'est pas de la
+      # prudence gratuite : au-delà de 4 processus, le runner de Node perd le
+      # flux de l'un de ses enfants (« Unable to deserialize cloned data ») et
+      # le fichier entier est compté en échec. Constaté en passant de 4 à 5
+      # fichiers de test — n'importe quel cinquième fichier, même trivial,
+      # déclenchait la panne. Et ces suites partagent UNE base `inko_test`
+      # que l'une d'elles supprime et recrée : les sérialiser est de toute
+      # façon la seule exécution correcte. Coût mesuré : 6 secondes.
       - name: Unit + integration tests
         run: npm test
         env:
