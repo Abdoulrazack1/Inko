@@ -16,6 +16,8 @@
 const { defineConfig, devices } = require('@playwright/test');
 
 const PORT = process.env.E2E_PORT || 8088;
+// Second port : serveur en mode desktop, CSP active (cf. le bloc webServer).
+const PORT_CSP = process.env.E2E_PORT_CSP || 8188;
 const BASE = `http://127.0.0.1:${PORT}`;
 
 module.exports = defineConfig({
@@ -36,7 +38,23 @@ module.exports = defineConfig({
         screenshot: 'only-on-failure',
     },
     projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-    webServer: {
+    // DEUX serveurs.
+    //
+    // Le premier est le serveur de développement habituel, sans CSP — c'est
+    // dans cette configuration que tourne l'essentiel de la suite.
+    //
+    // Le second tourne en mode DESKTOP (`APP_VERSION` défini), ce qui active la
+    // CSP exactement comme dans l'application installée. Il n'existe que pour
+    // `csp.spec.js` : sans lui, une violation de CSP est structurellement
+    // invisible aux tests — c'est ainsi que le lecteur a pu se retrouver
+    // entièrement blanc dans l'app sans qu'aucun test ne bronche.
+    //
+    // Pourquoi un second serveur plutôt qu'`APP_VERSION` sur le premier :
+    // la variable ne pilote pas que la CSP, elle allume aussi l'interface
+    // desktop (bannière de mise à jour). Toute la suite a11y tombait alors sur
+    // un défaut de contraste de cette bannière — un vrai défaut, mais qui n'a
+    // rien à voir avec les tests qui échouaient.
+    webServer: [{
         command: 'node server/server.js',
         url: `${BASE}/api/health`,
         reuseExistingServer: !process.env.CI,
@@ -59,5 +77,18 @@ module.exports = defineConfig({
             // voyaient qu'en integration continue.
             ...(process.env.DB_NAME ? { DB_NAME: process.env.DB_NAME } : {}),
         },
-    },
+    }, {
+        command: 'node server/server.js',
+        url: `http://127.0.0.1:${PORT_CSP}/api/health`,
+        reuseExistingServer: !process.env.CI,
+        timeout: 60_000,
+        env: {
+            PORT: String(PORT_CSP),
+            LOCAL_MODE: '1',
+            APP_VERSION: 'test-csp',    // → IS_DESKTOP → CSP active
+            IMG_RATE_MAX: '5000',
+            SEARCH_RATE_MAX: '500',
+            ...(process.env.DB_NAME ? { DB_NAME: process.env.DB_NAME } : {}),
+        },
+    }],
 });

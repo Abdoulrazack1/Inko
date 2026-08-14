@@ -306,6 +306,37 @@ const MIGRATIONS = [
             CONSTRAINT sessions_user_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
     } },
+
+    { version: 17, name: 'couvertures : retirer le proxy figé dans la donnée', apply: async () => {
+        // `global.js` enregistrait la couverture d'un favori en lisant le `src`
+        // de l'image AFFICHÉE — donc déjà passée par le proxy, et résolue en
+        // ABSOLU par le navigateur. La base contenait ainsi des couvertures du
+        // type `http://127.0.0.1:8088/api/img?u=<source>`.
+        //
+        // Relevé avant correction : 83 favoris proxifiés, dont 67 en absolu.
+        //
+        // Deux conséquences, la seconde décisive : les couvertures cassent si
+        // le port du hub change, et depuis un autre appareil `127.0.0.1`
+        // désigne CET appareil — un téléphone n'afficherait donc aucune
+        // couverture. Le proxy doit être appliqué à l'AFFICHAGE, jamais stocké.
+        //
+        // Le client est corrigé et le serveur normalise désormais à l'écriture ;
+        // cette migration répare l'existant. `SUBSTRING_INDEX` isole la valeur
+        // de `u=`, et `urldecode` n'existant pas en SQL, on ne remet en clair
+        // que les deux séquences réellement produites par `encodeURIComponent`
+        // sur une URL http(s) : `%3A` et `%2F`.
+        await run(`UPDATE favorites
+            SET cover = REPLACE(REPLACE(
+                    SUBSTRING_INDEX(SUBSTRING_INDEX(cover, 'u=', -1), '&', 1),
+                    '%3A', ':'), '%2F', '/')
+            WHERE cover LIKE '%/api/img?u=%'`);
+        // Même défaut dans les notifications, écrites par `lib/notify.js`.
+        await run(`UPDATE notifications
+            SET image = REPLACE(REPLACE(
+                    SUBSTRING_INDEX(SUBSTRING_INDEX(image, 'u=', -1), '&', 1),
+                    '%3A', ':'), '%2F', '/')
+            WHERE image LIKE '%/api/img?u=%'`);
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──

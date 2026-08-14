@@ -1,6 +1,7 @@
 // controllers/user.controller.js — user data : favoris, library, progress, lists, comments, events
 const { pool } = require('../config/db');
 const { notifyMentions, createNotification } = require('../lib/notify');
+const couverture = require('../lib/couverture');
 
 // Identifiant d'œuvre plausible. Les routes se contentaient d'un `if
 // (!mangaId)` : une valeur non-chaîne passait donc au travers et arrivait en
@@ -98,7 +99,8 @@ async function getFavorites(req, res, next) {
 
 async function addFavorite(req, res, next) {
     try {
-        const { mangaId, source, title, cover } = req.body;
+        const { mangaId, source, title } = req.body;
+        const cover = couverture.brute(req.body && req.body.cover);
         if (!idOeuvreValide(mangaId)) return res.status(400).json({ error: 'mangaId invalide' });
         await pool.query(
             `INSERT INTO favorites (user_id, manga_id, source, title, cover)

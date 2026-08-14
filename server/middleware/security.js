@@ -41,6 +41,26 @@ const cspDirectives = {
     defaultSrc: ["'self'"],
     scriptSrc: ["'self'", "'unsafe-inline'",
         'https://accounts.google.com', 'https://apis.google.com', 'https://www.youtube.com', 'https://s.ytimg.com'],
+    // Gestionnaires en ATTRIBUT (`onclick=`, `onerror=`…). Sans cette ligne,
+    // helmet applique son défaut `script-src-attr 'none'` : la CSP autorisait
+    // le script en ligne tout en interdisant, EN SILENCE, les gestionnaires
+    // écrits en attribut — dont le code en pose une cinquantaine.
+    //
+    // La CSP n'étant active qu'en desktop et en production, la panne était
+    // invisible en développement. Mesuré sur l'app installée 2.5.7, chapitre de
+    // One Piece : planche téléchargée (`naturalWidth > 0`), classe `loaded`
+    // jamais posée, opacité 0, violation « script-src-attr | inline ». Le
+    // chapitre s'affichait entièrement blanc, et les zones de changement de
+    // page ne répondaient pas.
+    //
+    // On aligne donc la directive sur `scriptSrc`, qui accepte déjà
+    // `'unsafe-inline'` : aucune classe de risque nouvelle.
+    //
+    // ⚠️ C'est une mesure TRANSITOIRE. Le lecteur (chapitre.js) n'en dépend
+    // plus — il écoute `load`/`error` en capture et délègue ses clics. Les 38
+    // gestionnaires restants (repli de couverture `onerror`, rechargements)
+    // doivent suivre le même chemin, après quoi cette ligne pourra tomber.
+    scriptSrcAttr: ["'unsafe-inline'"],
     styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],  // Google Fonts CSS
     imgSrc: ["'self'", 'data:', 'blob:', 'https:'],   // couvertures proxifiées + externes
     connectSrc: ["'self'", 'https:'],                 // fetch API + AniList/Google

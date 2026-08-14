@@ -191,10 +191,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M20 6 9 17l-5-5"/></svg>
             </button>
             <button class="reader-icon-btn" id="btnDownload" title="Télécharger pour lire hors-ligne"></button>
-            <button class="reader-icon-btn" onclick="window.changeZoom(-10)" title="Zoom −">−</button>
+            <button class="reader-icon-btn" id="btnZoomOut" title="Zoom −">−</button>
             <span class="reader-zoom-label" id="zoomLabel">${zoom}%</span>
-            <button class="reader-icon-btn" onclick="window.changeZoom(10)" title="Zoom +">+</button>
-            <button class="reader-icon-btn" onclick="window.toggleFullscreen()" title="Plein écran">
+            <button class="reader-icon-btn" id="btnZoomIn" title="Zoom +">+</button>
+            <button class="reader-icon-btn" id="btnFullscreen" title="Plein écran">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
             </button>
             <button class="reader-icon-btn" id="btnAutoScroll" title="Défilement automatique (A)">
@@ -205,6 +205,9 @@
             </button>
         </div>`;
 
+        document.getElementById('btnZoomOut')?.addEventListener('click', () => window.changeZoom(-10));
+        document.getElementById('btnZoomIn')?.addEventListener('click', () => window.changeZoom(10));
+        document.getElementById('btnFullscreen')?.addEventListener('click', () => window.toggleFullscreen());
         document.getElementById('btnReaderSettings')?.addEventListener('click', toggleReaderSettings);
         document.getElementById('btnAutoScroll')?.addEventListener('click', toggleAutoScroll);
         document.getElementById('btnMarkRead')?.addEventListener('click', markUpToHere);
@@ -268,11 +271,52 @@
         return MH.proxify ? MH.proxify(brute) : brute;
     }
 
+    // ── Écouteurs délégués : le lecteur ne dépend d'AUCUN attribut ──────
+    //
+    // L'app desktop applique `script-src-attr 'none'` (défaut de helmet, la CSP
+    // du serveur ne déclarant pas `scriptSrcAttr`). Les gestionnaires écrits en
+    // ATTRIBUT n'y sont donc jamais exécutés. Comme `.reader-page-img` part à
+    // `opacity: 0` et n'est révélée que par la classe `loaded`, les planches se
+    // téléchargeaient normalement et restaient INVISIBLES : chapitre blanc.
+    // Le zoom, le plein écran et les zones de changement de page étaient morts
+    // pour la même raison.
+    //
+    // Mesuré sur l'app installée 2.5.7, chapitre de One Piece :
+    //   1 balise · 1 téléchargée (naturalWidth > 0) · classe `loaded` absente
+    //   opacité 0 · violation « script-src-attr | inline »
+    //
+    // `load` et `error` ne remontent PAS dans l'arbre : on les écoute en phase
+    // de CAPTURE. Cela couvre toutes les planches quelle que soit la façon dont
+    // elles ont été insérées — y compris celles que le chargement paresseux
+    // crée plus tard.
+    document.addEventListener('load', (e) => {
+        const t = e.target;
+        if (t && t.tagName === 'IMG' && t.classList.contains('reader-page-img')) {
+            t.classList.add('loaded');
+        }
+    }, true);
+    document.addEventListener('error', (e) => {
+        const t = e.target;
+        if (t && t.tagName === 'IMG' && t.classList.contains('reader-page-img')) {
+            window.imgFail?.(t);
+        }
+    }, true);
+
+    // Un seul écouteur pour toutes les commandes de navigation : zones latérales,
+    // vignettes, boutons de bas de page. `data-act` remplace `onclick`.
+    document.addEventListener('click', (e) => {
+        const el = e.target.closest?.('[data-act]');
+        if (!el) return;
+        const arg = Number(el.dataset.arg);
+        if (!Number.isFinite(arg)) return;
+        if (el.dataset.act === 'page')      window.goToPage?.(arg);
+        else if (el.dataset.act === 'step') window.navStep?.(arg);
+    });
+
     // Markup d'une image de page : fade-in au chargement + retry en cas d'échec
     function pageImg(idx, extra = '', lazy = false) {
         const p = pages[idx];
         return `<img class="reader-page-img" data-idx="${idx}" src="${MH.esc(pageSrc(p))}" alt="Page ${idx + 1}"
-                 onload="this.classList.add('loaded')" onerror="window.imgFail&&window.imgFail(this)"
                  decoding="async" loading="${lazy ? 'lazy' : 'eager'}" ${extra}>`;
     }
 
@@ -298,7 +342,7 @@
         return `<img class="reader-page-img" data-idx="${idx}" data-page="${idx + 1}"
                  alt="Page ${idx + 1}" decoding="async"
                  style="width:100%;aspect-ratio:1/${ratioOf(idx)};background:var(--bg2,#141414)"
-                 onerror="window.imgFail&&window.imgFail(this)">`;
+                 >`;
     }
 
     function enqueueLoad(img) {
@@ -491,8 +535,8 @@
         const leftTarget  = rs.direction === 'rtl' ? num + 1 : num - 1;
         const rightTarget = rs.direction === 'rtl' ? num - 1 : num + 1;
         el.innerHTML = `
-        <div class="page-zone-prev" onclick="window.goToPage(${leftTarget})"><div class="page-zone-arrow">‹</div></div>
-        <div class="page-zone-next" onclick="window.goToPage(${rightTarget})"><div class="page-zone-arrow">›</div></div>
+        <div class="page-zone-prev" data-act="page" data-arg="${leftTarget}"><div class="page-zone-arrow">‹</div></div>
+        <div class="page-zone-next" data-act="page" data-arg="${rightTarget}"><div class="page-zone-arrow">›</div></div>
         <div class="reader-page-wrapper" style="transform:scale(${zoom/100});transform-origin:top center">
             ${pageImg(num - 1)}
         </div>
@@ -580,8 +624,8 @@
         const leftStep  = rtl ? 1 : -1;   // en RTL, la gauche fait avancer
         const rightStep = rtl ? -1 : 1;
         el.innerHTML = `
-        <div class="page-zone-prev" onclick="window.navStep(${leftStep})"><div class="page-zone-arrow">‹</div></div>
-        <div class="page-zone-next" onclick="window.navStep(${rightStep})"><div class="page-zone-arrow">›</div></div>
+        <div class="page-zone-prev" data-act="step" data-arg="${leftStep}"><div class="page-zone-arrow">‹</div></div>
+        <div class="page-zone-next" data-act="step" data-arg="${rightStep}"><div class="page-zone-arrow">›</div></div>
         <div class="reader-page-wrapper reader-spread" style="transform:scale(${zoom/100});transform-origin:top center">
             ${spread}
         </div>
@@ -739,7 +783,7 @@
         const el = document.getElementById('readerThumbnails');
         if (!el) return;
         el.innerHTML = pages.map((p, i) => `
-            <div class="reader-thumb ${i + 1 === currentPage ? 'active' : ''}" data-page="${i + 1}" onclick="window.goToPage(${i + 1})">
+            <div class="reader-thumb ${i + 1 === currentPage ? 'active' : ''}" data-page="${i + 1}" data-act="page" data-arg="${i + 1}">
                 <img src="${MH.cover(p.urlSaver, p.url)}" alt="p${i+1}" loading="lazy">
                 <div class="reader-thumb-num">${i + 1}</div>
             </div>`).join('');
@@ -750,8 +794,8 @@
         const el = document.getElementById('readerNavigation');
         if (!el) return;
         el.innerHTML = `
-        <button class="reader-nav-btn reader-nav-edge" onclick="window.goToPage(1)" ${currentPage <= 1 ? 'disabled' : ''} title="Première page (Début)">⤒</button>
-        <button class="reader-nav-btn" onclick="window.goToPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>← Précédent</button>
+        <button class="reader-nav-btn reader-nav-edge" data-act="page" data-arg="1" ${currentPage <= 1 ? 'disabled' : ''} title="Première page (Début)">⤒</button>
+        <button class="reader-nav-btn" data-act="page" data-arg="${currentPage - 1}" ${currentPage <= 1 ? 'disabled' : ''}>← Précédent</button>
         <div class="reader-nav-center">
             <div class="reader-nav-page">Page <strong>${currentPage}</strong> / ${totalPages}</div>
             <input type="range" class="reader-scrub" id="pageScrub" min="1" max="${totalPages}" value="${currentPage}"
@@ -764,8 +808,8 @@
                 <span class="shortcut-key">F</span> plein écran
             </div>
         </div>
-        <button class="reader-nav-btn" onclick="window.goToPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>Suivant →</button>
-        <button class="reader-nav-btn reader-nav-edge" onclick="window.goToPage(${totalPages})" ${currentPage >= totalPages ? 'disabled' : ''} title="Dernière page (Fin)">⤓</button>`;
+        <button class="reader-nav-btn" data-act="page" data-arg="${currentPage + 1}" ${currentPage >= totalPages ? 'disabled' : ''}>Suivant →</button>
+        <button class="reader-nav-btn reader-nav-edge" data-act="page" data-arg="${totalPages}" ${currentPage >= totalPages ? 'disabled' : ''} title="Dernière page (Fin)">⤓</button>`;
         const scrub = el.querySelector('#pageScrub');
         if (scrub) scrub.addEventListener('input', () => window.goToPage(+scrub.value));
     }

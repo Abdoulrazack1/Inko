@@ -1614,9 +1614,28 @@
             // Bouton icône (cœur) sur les cartes ET le hero ; bouton texte ailleurs
             const isIcon = btn.classList.contains('card-fav-btn') || btn.classList.contains('hero-fav-btn');
             const ctx = btn.closest('.manga-card') || btn.closest('.hero-inner');
+            // La couverture enregistrée doit être l'URL DE LA SOURCE, jamais
+            // celle du proxy. Lire `img.src` rend deux défauts d'un coup :
+            //   · l'URL est déjà proxifiée (`/api/img?u=…`) ;
+            //   · `.src` la résout en ABSOLU, donc figée sur l'origine du
+            //     moment — `http://127.0.0.1:8088/api/img?u=…`.
+            // Relevé en base avant correction : 83 favoris avec une couverture
+            // proxifiée, dont 67 en absolu vers 127.0.0.1. Conséquences : les
+            // couvertures cassent si le port change, et depuis un autre
+            // appareil `127.0.0.1` désigne CET appareil, pas le hub.
+            // Le bouton porte déjà l'URL brute dans `data-cover` (c'est ce que
+            // fait le menu « ajouter à une liste », plus haut) : on la préfère,
+            // et on ne retombe sur le `src` qu'en la dé-proxifiant.
+            const brute = (u) => {
+                if (!u) return null;
+                const m = /\/api\/img\?u=([^&]+)/.exec(u);
+                return m ? decodeURIComponent(m[1]) : u;
+            };
             const meta = {
                 title: ctx?.querySelector('.manga-card-title, .hero-title')?.textContent?.trim() || null,
-                cover: ctx?.querySelector('.hero-poster, img')?.src || null,
+                cover: btn.dataset.cover
+                    || brute(ctx?.querySelector('.hero-poster, img')?.getAttribute('src'))
+                    || null,
                 source: API.sources.current,
             };
             const willFav = !btn.classList.contains('is-fav');

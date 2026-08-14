@@ -72,6 +72,7 @@ async function analyser(page, opts = {}) {
 // contraste qui n'est pas mesuree derive au premier composant ajoute — c'est
 // exactement ce qui est arrive au theme clair (A11Y-02, 58 echecs).
 test('le theme contraste tient le niveau AAA (AMEL-83)', async ({ page }) => {
+    test.setTimeout(180_000);   // même raison : axe sur `parametres.html`
     await ouvrir(page, '/parametres.html');
     await page.evaluate(() => window.Theme.apply('contrast'));
     await page.waitForTimeout(600);
@@ -98,6 +99,11 @@ const PAGES = [
 
 for (const p of PAGES) {
     test(`aucune violation critique ou sérieuse sur ${p}`, async ({ page }) => {
+        // axe parcourt TOUT l'arbre : sur `parametres.html`, qui expose 1 517
+        // occurrences de contrôles, l'analyse demande à elle seule ~80 s. Le
+        // délai commun de 45 s la faisait échouer sur un dépassement, pas sur
+        // une violation — un rouge qui ne dit rien du sujet du test.
+        test.setTimeout(180_000);
         await ouvrir(page, p);
         const violations = await analyser(page);
         // On bloque sur `critical` et `serious` : ce sont les défauts qui

@@ -3,6 +3,7 @@
 // ============================================================
 const { pool } = require('../config/db');
 const { sendPush } = require('./push');
+const couverture = require('./couverture');
 
 // Crée une notification (silencieux si la table n'existe pas encore) + push navigateur.
 //
@@ -30,7 +31,7 @@ async function createNotification(userId, { type, title, body, link, actor, imag
                      SET title = ?, body = ?, link = ?, image = COALESCE(?, image),
                          group_count = ?, created_at = CURRENT_TIMESTAMP
                      WHERE id = ?`,
-                    [title || null, body || null, link || null, image || null, count, existant.id]
+                    [title || null, body || null, link || null, couverture.brute(image), count, existant.id]
                 );
                 sendPush(userId, { title: title || 'Inko', body: body || '', link: link || '/', type, groupKey }).catch(() => {});
                 return;
@@ -38,7 +39,7 @@ async function createNotification(userId, { type, title, body, link, actor, imag
         }
         await pool.query(
             'INSERT INTO notifications (user_id, type, title, body, link, actor, image, group_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [userId, type, title || null, body || null, link || null, actor || null, image || null, groupKey || null]
+            [userId, type, title || null, body || null, link || null, actor || null, couverture.brute(image), groupKey || null]
         );
     } catch (e) { /* migration pas encore passée : on ignore */ }
     // Push navigateur — fire-and-forget, n'impacte jamais l'action métier
