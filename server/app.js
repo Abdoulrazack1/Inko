@@ -158,6 +158,12 @@ app.use(errorHandler);
     // DISABLE_BACKUPS=1, dossier configurable via BACKUP_DIR.
     require('./lib/backup').scheduleBackups();
 
+    // Purge des sessions périmées (audit DB-01) : la table grossissait d'une
+    // ligne par PAGE AFFICHÉE et rien ne l'expirait — 4 578 lignes pour un
+    // seul compte. La migration 18 pose les échéances, `localAuth` cesse d'en
+    // créer une par page, et ce passage quotidien emporte ce qui a expiré.
+    require('./lib/sessions').planifier();
+
     app.listen(PORT, () => {
         console.log(`Inko backend → http://localhost:${PORT}`);
         console.log(`   API base  → http://localhost:${PORT}/api`);

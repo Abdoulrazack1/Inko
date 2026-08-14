@@ -943,3 +943,98 @@ test('collections : la pagination ne change la forme QUE si on la demande (audit
     assert.equal(abus.res.body.limit, 500);
     assert.equal(abus.res.body.offset, 0);
 });
+
+// ── DB-01 : `sessions` ne doit plus grossir d'une ligne par page ──
+// `/api/auth/local` est appelé à CHAQUE chargement de page, et signer un jeton
+// insérait une session. Relevé sur la base réelle : 1 820 lignes au moment de
+// l'audit pour un seul compte, 4 578 deux jours plus tard, pic à 626 en une
+// heure. Le volume suivait le nombre de pages vues, pas celui des connexions.
+//
+// C'est la régression la plus facile à réintroduire de toute la phase : il
+// suffit qu'un appel à `sign()` revienne dans `localAuth` pour que la fuite
+// reprenne, sans que rien ne casse à l'écran.
+test('auth.local : un appel avec un jeton vivant NE crée PAS de session (audit DB-01)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+
+    const [[avant]] = await pool.query('SELECT COUNT(*) AS n FROM sessions');
+
+    // Premier appel : aucun jeton présenté, une session doit naître.
+    const un = rr({});
+    await Auth.localAuth(un.req, un.res, nextThrow);
+    assert.equal(un.res.statusCode, 200, JSON.stringify(un.res.body));
+    const jeton = un.res.body.token;
+    assert.ok(jeton, 'le premier appel doit délivrer un jeton');
+    assert.ok(!un.res.body.reutilise, 'rien à réutiliser au premier appel');
+
+    const [[apres1]] = await pool.query('SELECT COUNT(*) AS n FROM sessions');
+    assert.equal(apres1.n, avant.n + 1, 'le premier appel crée exactement une session');
+
+    // Les suivants présentent le jeton, comme le fait le client à chaque page.
+    for (let i = 0; i < 5; i++) {
+        const suite = rr({});
+        suite.req.headers.authorization = `Bearer ${jeton}`;
+        await Auth.localAuth(suite.req, suite.res, nextThrow);
+        assert.equal(suite.res.statusCode, 200);
+        assert.equal(suite.res.body.reutilise, true, `appel ${i + 2} : la session doit être réutilisée`);
+        assert.equal(suite.res.body.token, jeton, 'le jeton rendu doit être le même');
+    }
+
+    const [[apres]] = await pool.query('SELECT COUNT(*) AS n FROM sessions');
+    assert.equal(apres.n, avant.n + 1,
+        `5 chargements de page de plus ont créé ${apres.n - avant.n - 1} session(s) — la fuite est revenue`);
+});
+
+test('auth.local : un jeton dont la session est révoquée n’est pas reconduit (audit DB-01)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+
+    const un = rr({});
+    await Auth.localAuth(un.req, un.res, nextThrow);
+    const jeton = un.res.body.token;
+
+    // Révocation SANS suppression de ligne — c'est ce que `revoked_at` permet,
+    // et ce dont l'appairage a besoin pour fermer un appareil perdu.
+    await pool.query('UPDATE sessions SET revoked_at = NOW() WHERE revoked_at IS NULL');
+
+    const deux = rr({});
+    deux.req.headers.authorization = `Bearer ${jeton}`;
+    await Auth.localAuth(deux.req, deux.res, nextThrow);
+    assert.ok(!deux.res.body.reutilise, 'une session révoquée ne doit jamais être reconduite');
+    assert.notEqual(deux.res.body.token, jeton, 'un jeton neuf doit être délivré');
+});
+
+test('sessions.purger : emporte les périmées et les révoquées, garde les vivantes (audit DB-01)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+
+    const u = await createUser('PurgeTest', 'purge@test.local');
+    await pool.query('DELETE FROM sessions');
+    await pool.query(
+        `INSERT INTO sessions (id, user_id, expires_at, revoked_at) VALUES
+            ('11111111-1111-1111-1111-111111111111', ?, NOW() + INTERVAL 30 DAY, NULL),
+            ('22222222-2222-2222-2222-222222222222', ?, NOW() - INTERVAL 1 DAY,  NULL),
+            ('33333333-3333-3333-3333-333333333333', ?, NOW() + INTERVAL 30 DAY, NOW()),
+            ('44444444-4444-4444-4444-444444444444', ?, NULL,                    NULL)`,
+        [u.id, u.id, u.id, u.id]);
+
+    const n = await require('../lib/sessions').purger();
+    assert.equal(n, 2, 'exactement la périmée et la révoquée');
+
+    const [restantes] = await pool.query('SELECT id FROM sessions ORDER BY id');
+    assert.deepEqual(restantes.map(r => r.id[0]), ['1', '4'],
+        'la session vivante et celle d’avant la migration 18 (sans échéance) doivent rester');
+});
+
+test('sessions.dureeJeton : l’échéance suit JWT_EXPIRES', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const { dureeJeton } = require('../lib/sessions');
+    const avant = process.env.JWT_EXPIRES;
+    const cas = [['30d', 30 * 86400e3], ['12h', 12 * 3600e3], ['45m', 45 * 60e3], ['90', 90e3]];
+    for (const [valeur, attendu] of cas) {
+        process.env.JWT_EXPIRES = valeur;
+        assert.equal(dureeJeton(), attendu, `JWT_EXPIRES=${valeur}`);
+    }
+    // Une valeur que `jsonwebtoken` accepterait mais que ce module ne sait pas
+    // lire ne doit pas produire une échéance absurde (0 = tout expire aussitôt).
+    process.env.JWT_EXPIRES = 'n’importe quoi';
+    assert.equal(dureeJeton(), 30 * 86400e3, 'repli sur le défaut documenté');
+    if (avant === undefined) delete process.env.JWT_EXPIRES; else process.env.JWT_EXPIRES = avant;
+});

@@ -6,6 +6,8 @@ const axios  = require('axios');
 const fs     = require('fs');
 const path   = require('path');
 const { pool } = require('../config/db');
+const jwt    = require('jsonwebtoken');
+const SECRET = require('../lib/secret');
 const { sign, revokeTokens } = require('../middleware/auth');
 
 // Client ID Google : priorité à la variable d'environnement, sinon fichier de
@@ -105,10 +107,63 @@ async function localAuth(req, res, next) {
             await pool.query("UPDATE users SET role = 'admin' WHERE id = ?", [owner.id]);
             owner.role = 'admin';
         }
+        // ── DB-01 : ne pas signer un jeton par page affichée ──
+        // Le client appelle cette route à CHAQUE chargement de page (vérifié
+        // sur accueil, profil, bibliothèque, stats). Chaque appel signait un
+        // jeton, donc insérait une session : 4 578 lignes pour un seul compte,
+        // et un pic à 626 en une heure. Le volume suivait le nombre de pages
+        // vues, pas celui des connexions.
+        //
+        // Si l'appelant présente déjà un jeton dont la session est vivante et
+        // appartient au propriétaire, on le lui rend tel quel. Rien n'est
+        // inséré, et il n'est pas déconnecté au passage. C'est la seule des
+        // trois pièces du correctif qui empêche la table de regrossir : la
+        // migration et la purge ne font que rattraper l'existant.
+        const existant = jetonPresente(req);
+        if (existant) {
+            const vivant = await sessionVivante(existant, owner);
+            if (vivant) {
+                return res.json({ user: publicUser(owner), token: existant, localMode: true, reutilise: true });
+            }
+        }
+
         const token = await sign(owner, req);
         res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
         res.json({ user: publicUser(owner), token, localMode: true });
     } catch (e) { next(e); }
+}
+
+// Le jeton tel que le client le présente — cookie ou en-tête `Authorization`.
+// Les deux existent : le cookie sert la navigation, le Bearer les appels
+// depuis `localStorage` (et, demain, l'app mobile).
+function jetonPresente(req) {
+    const brut = req.headers?.authorization || '';
+    if (brut.startsWith('Bearer ')) return brut.slice(7).trim() || null;
+    return req.cookies?.[COOKIE_NAME] || req.cookies?.[LEGACY_COOKIE_NAME] || null;
+}
+
+// Le jeton est-il encore bon POUR CE COMPTE ? On vérifie la signature, puis la
+// session en base — un jeton signé mais dont la session a été révoquée ne doit
+// évidemment pas être reconduit.
+async function sessionVivante(token, owner) {
+    let payload;
+    try {
+        payload = jwt.verify(token, SECRET);
+    } catch (e) { return false; }                      // expiré, altéré, ou signé d'un autre secret
+    if (!payload || payload.uid !== owner.id) return false;
+    if ((payload.tv || 0) !== (owner.token_version || 0)) return false;   // révocation en masse
+    // Un jeton d'avant la migration 16 n'a pas de `jti` : pas de session à
+    // vérifier, donc rien à réutiliser — on en signe un neuf, qui en aura une.
+    if (!payload.jti) return false;
+    try {
+        const [[sess]] = await pool.query(
+            `SELECT id FROM sessions
+              WHERE id = ? AND user_id = ?
+                AND revoked_at IS NULL
+                AND (expires_at IS NULL OR expires_at > NOW())`,
+            [payload.jti, owner.id]);
+        return !!sess;
+    } catch (e) { return false; }
 }
 
 async function register(req, res, next) {

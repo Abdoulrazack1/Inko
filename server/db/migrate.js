@@ -337,6 +337,113 @@ const MIGRATIONS = [
                     '%3A', ':'), '%2F', '/')
             WHERE image LIKE '%/api/img?u=%'`);
     } },
+
+    { version: 18, name: 'sessions expirables + appareils appairés (audit DB-01/DB-02/DB-05)', apply: async () => {
+        // ── DB-01 : `sessions` grossit d'une ligne par PAGE AFFICHÉE ──
+        // `/api/auth/local` est appelé à chaque chargement de page, et `sign()`
+        // insère une ligne. Relevé pendant l'audit : 1 820 lignes pour UN seul
+        // compte sur 82 h, pic à 626 en une heure. Deux jours plus tard, 4 578.
+        // Le volume suit le nombre de pages vues, pas celui des connexions.
+        //
+        // La table n'a ni expiration ni révocation — alors que la migration 16
+        // s'intitule « sessions révocables une à une ». On ne pouvait révoquer
+        // qu'en SUPPRIMANT la ligne, et rien ne purgeait.
+        //
+        // Le correctif tient en trois parties : ces colonnes, la purge plus bas,
+        // et surtout la réutilisation de session dans `localAuth` — sans quoi la
+        // fuite reprend dès le prochain démarrage.
+
+        // ── DB-05 d'abord : la collation de `sessions` diverge ──
+        // Elle est en `utf8mb4_0900_ai_ci` là où les 22 autres tables sont en
+        // `utf8mb4_unicode_ci`. Ce n'est pas cosmétique ici : MySQL refuse une
+        // clé étrangère entre deux colonnes de collations différentes
+        // (errno 3780). La FK `sessions.device_id → devices.id` ci-dessous
+        // échouerait donc. On aligne AVANT de créer la contrainte.
+        //
+        // `utf8mb4_0900_ai_ci` est propre à MySQL 8 : il n'existe pas sur la
+        // MariaDB embarquée du desktop, où la table a hérité d'un autre défaut.
+        // `utf8mb4_unicode_ci` existe des deux côtés — c'est la seule valeur
+        // qui rende cette migration portable.
+        const [[coll]] = await pool.query(
+            `SELECT TABLE_COLLATION AS c FROM information_schema.TABLES
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sessions'`);
+        if (coll && coll.c && coll.c !== 'utf8mb4_unicode_ci') {
+            await run('ALTER TABLE sessions CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+        }
+
+        // ── Appareils appairés (stratégie mobile VIII.5) ──
+        // Créés ici et non plus tard : `sessions.device_id` doit pouvoir les
+        // référencer, et une session révoquée depuis un téléphone perdu doit
+        // l'être immédiatement — d'où `revoked_at` des deux côtés.
+        await run(`CREATE TABLE IF NOT EXISTS devices (
+            id           CHAR(36)     NOT NULL,
+            user_id      INT          NOT NULL,
+            nom          VARCHAR(64)  NOT NULL,
+            plateforme   ENUM('android','ios','desktop','web') NOT NULL,
+            app_version  VARCHAR(16)  DEFAULT NULL,
+            empreinte    CHAR(64)     NOT NULL,
+            push_token   VARCHAR(255) DEFAULT NULL,
+            push_type    ENUM('fcm','webpush') DEFAULT NULL,
+            created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            revoked_at   TIMESTAMP    NULL DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY idx_devices_user (user_id, revoked_at),
+            CONSTRAINT fk_devices_user FOREIGN KEY (user_id)
+                REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+
+        // Code d'appairage à usage unique et à durée de vie courte.
+        // `used_at` plutôt qu'une suppression : un code rejoué doit être
+        // distinguable d'un code inconnu, sinon on ne peut pas le dire à
+        // l'utilisateur ni le repérer dans les journaux.
+        await run(`CREATE TABLE IF NOT EXISTS pair_codes (
+            code       CHAR(9)   NOT NULL,
+            user_id    INT       NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used_at    TIMESTAMP NULL DEFAULT NULL,
+            PRIMARY KEY (code),
+            KEY idx_pair_exp (expires_at),
+            CONSTRAINT fk_pair_user FOREIGN KEY (user_id)
+                REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+
+        // ── Les colonnes qui manquaient à `sessions` ──
+        if (!(await columnExists('sessions', 'device_id')))
+            await run('ALTER TABLE sessions ADD COLUMN device_id CHAR(36) NULL DEFAULT NULL');
+        if (!(await columnExists('sessions', 'expires_at')))
+            await run('ALTER TABLE sessions ADD COLUMN expires_at TIMESTAMP NULL DEFAULT NULL');
+        if (!(await columnExists('sessions', 'revoked_at')))
+            await run('ALTER TABLE sessions ADD COLUMN revoked_at TIMESTAMP NULL DEFAULT NULL');
+        await run('ALTER TABLE sessions ADD KEY idx_sessions_exp (expires_at)');
+        await run(`ALTER TABLE sessions ADD CONSTRAINT fk_sessions_device
+            FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE`);
+
+        // Les lignes existantes n'ont pas d'échéance. On leur donne celle que
+        // portait déjà leur jeton — 30 jours après émission (`JWT_EXPIRES`) —
+        // plutôt que de les traiter comme éternelles ou de les tuer d'un coup.
+        // La purge juste après les emportera si elles sont déjà dépassées.
+        await run(`UPDATE sessions SET expires_at = created_at + INTERVAL 30 DAY
+                    WHERE expires_at IS NULL`);
+
+        // ── La purge de rattrapage ──
+        // Sans elle, la migration ajoute des colonnes à un tas qui reste un
+        // tas. `sessionsExpirees()` (lib/sessions.js) rejoue le même nettoyage
+        // au démarrage puis chaque jour.
+        await run('DELETE FROM sessions WHERE expires_at < NOW() OR revoked_at IS NOT NULL');
+
+        // ── DB-02 : `progress.source` NULL, racine de BUG-01 ──
+        // Sans source, `getFrom(undefined, id)` interroge la source COURANTE
+        // avec l'identifiant d'une autre — d'où des chapitres introuvables.
+        // Le favori correspondant connaît presque toujours la bonne source :
+        // on la recopie. Ce qu'aucun favori ne couvre reste NULL, et sera
+        // IGNORÉ à la lecture (P0.4) : deviner une source produirait un
+        // résultat faux, ce qui est pire qu'une entrée sautée.
+        await run(`UPDATE progress p
+                     JOIN favorites f ON f.user_id = p.user_id AND f.manga_id = p.manga_id
+                      SET p.source = f.source
+                    WHERE (p.source IS NULL OR p.source = '') AND f.source IS NOT NULL AND f.source <> ''`);
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──

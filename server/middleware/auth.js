@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { pool } = require('../config/db');
 
 const SECRET = require('../lib/secret');   // secret centralisé (audit S12)
+const sessions = require('../lib/sessions');  // échéance et purge (audit DB-01)
 
 // Audit SEC-11 : cookie préfixé `inko_token` (les cookies ne sont pas isolés
 // par port — un projet voisin sur localhost écrasait un cookie nommé `token`).
@@ -43,8 +44,17 @@ async function authRequired(req, res, next) {
         // prochaine connexion. Un jeton AVEC `jti` doit avoir sa ligne :
         // absente = session fermee, donc refus.
         if (payload.jti) {
+            // DB-01 : la ligne ne suffit plus. Depuis la migration 18 une
+            // session peut être révoquée SANS être supprimée (`revoked_at`,
+            // nécessaire pour révoquer un appareil perdu depuis un autre), et
+            // porte une échéance. Ne regarder que l'existence de la ligne
+            // laisserait donc passer une session explicitement fermée.
             const [[sess]] = await pool.query(
-                'SELECT id FROM sessions WHERE id = ? AND user_id = ?', [payload.jti, user.id]);
+                `SELECT id FROM sessions
+                  WHERE id = ? AND user_id = ?
+                    AND revoked_at IS NULL
+                    AND (expires_at IS NULL OR expires_at > NOW())`,
+                [payload.jti, user.id]);
             if (!sess) {
                 return res.status(401).json({ error: 'Session fermee — reconnecte-toi', code: 'SESSION_REVOKED' });
             }
@@ -96,11 +106,15 @@ async function sign(user, req) {
         // empecher de se connecter : on retombe alors sur un jeton sans `jti`,
         // valide mais non revocable a l'unite — degradation, pas blocage.
         try {
+            // DB-01 : `expires_at` accompagne la ligne depuis la migration 18.
+            // Sans elle, la session survivait à son propre jeton et rien ne
+            // pouvait la purger — la table ne faisait que croître.
             await pool.query(
-                'INSERT INTO sessions (id, user_id, user_agent, ip) VALUES (?, ?, ?, ?)',
+                'INSERT INTO sessions (id, user_id, user_agent, ip, expires_at) VALUES (?, ?, ?, ?, ?)',
                 [payload.jti, user.id,
                     String(req.headers?.['user-agent'] || '').slice(0, 255) || null,
-                    String(req.ip || req.socket?.remoteAddress || '').slice(0, 45) || null]
+                    String(req.ip || req.socket?.remoteAddress || '').slice(0, 45) || null,
+                    sessions.echeance()]
             );
         } catch (e) { delete payload.jti; }
     }
