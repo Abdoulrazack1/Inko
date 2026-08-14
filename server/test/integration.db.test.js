@@ -1038,3 +1038,50 @@ test('sessions.dureeJeton : l’échéance suit JWT_EXPIRES', async (t) => {
     assert.equal(dureeJeton(), 30 * 86400e3, 'repli sur le défaut documenté');
     if (avant === undefined) delete process.env.JWT_EXPIRES; else process.env.JWT_EXPIRES = avant;
 });
+
+// ── BUG-01 : `events` porte désormais la source ──
+// C'est la racine du défaut : sans source en base, le client lisait
+// `item.source === undefined` et retombait sur la source COURANTE. Un roman
+// Gutenberg ouvert depuis une session WeebCentral partait vers le mauvais
+// catalogue, qui répondait 200 avec une fiche vide (BUG-02) — donc en silence.
+test('events : la source accompagne l’identifiant (audit BUG-01)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('SourceEvt', 'srcevt@test.local');
+
+    // 1. Source explicitement fournie par l'appelant (ajout d'un favori).
+    const fav = rr({ user: u, body: { mangaId: '2701', source: 'gutenberg', title: 'Moby Dick' } });
+    await User.addFavorite(fav.req, fav.res, nextThrow);
+    const [[e1]] = await pool.query(
+        "SELECT source FROM events WHERE user_id = ? AND type = 'favorite' AND manga_id = '2701'", [u.id]);
+    assert.equal(e1?.source, 'gutenberg');
+
+    // 2. Source ABSENTE de l'appel : elle doit être retrouvée depuis le favori.
+    //    C'est le cas des cinq appelants qui ne l'ont pas sous la main
+    //    (statut, note, commentaire, chapitre lu, retrait).
+    const st = rr({ user: u, params: { mangaId: '2701' }, body: { status: 'reading' } });
+    await User.setLibraryStatus(st.req, st.res, nextThrow);
+    const [[e2]] = await pool.query(
+        "SELECT source FROM events WHERE user_id = ? AND type = 'status_change' AND manga_id = '2701'", [u.id]);
+    assert.equal(e2?.source, 'gutenberg', 'la source doit être résolue depuis le favori');
+
+    // 3. Œuvre totalement inconnue : NULL, et surtout pas une source devinée.
+    const note = rr({ user: u, params: { mangaId: 'inconnue-nulle-part' }, body: { rating: 8 } });
+    await User.setMangaRating(note.req, note.res, nextThrow);
+    const [[e3]] = await pool.query(
+        "SELECT source FROM events WHERE user_id = ? AND manga_id = 'inconnue-nulle-part'", [u.id]);
+    assert.equal(e3?.source, null, 'deviner une source est exactement le défaut qu’on referme');
+});
+
+test('getEvents : la source ressort de l’API (audit BUG-01)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('SourceApi', 'srcapi@test.local');
+    const fav = rr({ user: u, body: { mangaId: 'abc-123', source: 'mangadex', title: 'X' } });
+    await User.addFavorite(fav.req, fav.res, nextThrow);
+
+    const ev = rr({ user: u, query: { limit: '10' } });
+    await User.getEvents(ev.req, ev.res, nextThrow);
+    const ligne = (ev.res.body || []).find(x => x.mangaId === 'abc-123');
+    assert.ok(ligne, 'l’événement doit être listé');
+    assert.equal(ligne.source, 'mangadex',
+        'sans ce champ, le client retombe sur la source courante — la boucle se rouvre');
+});

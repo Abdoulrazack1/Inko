@@ -29,12 +29,42 @@ function idOeuvreValide(v) {
 function lecturePrivee(req) {
     return req?.headers?.['x-inko-private'] === '1';
 }
+// BUG-01 : un identifiant sans sa source finit envoyé à la source COURANTE.
+// Plutôt que d'exiger que les sept appelants de `pushEvent` la transmettent —
+// dont plusieurs ne l'ont pas sous la main — on la résout ici, une fois.
+//
+// L'ordre n'est pas arbitraire : le favori porte la source que l'utilisateur a
+// CHOISIE en ajoutant la série, la progression celle où il l'a effectivement
+// lue. En cas de désaccord, le choix explicite prime.
+//
+// Rien trouvé = NULL, et NULL sera ignoré à la lecture. Retomber sur la source
+// courante est précisément le défaut qu'on referme : `2701` (Moby Dick chez
+// Gutenberg) partait ainsi vers WeebCentral, qui répondait 200 avec une fiche
+// vide.
+async function sourceConnue(userId, mangaId, fournie) {
+    if (fournie) return String(fournie).slice(0, 64);
+    if (!mangaId) return null;
+    try {
+        const [[r]] = await pool.query(
+            `SELECT source FROM (
+                SELECT source, 1 AS rang FROM favorites
+                 WHERE user_id = ? AND manga_id = ? AND source IS NOT NULL AND source <> ''
+                UNION ALL
+                SELECT source, 2 AS rang FROM progress
+                 WHERE user_id = ? AND manga_id = ? AND source IS NOT NULL AND source <> ''
+             ) t ORDER BY rang LIMIT 1`,
+            [userId, mangaId, userId, mangaId]);
+        return r?.source || null;
+    } catch (e) { return null; }
+}
+
 async function pushEvent(userId, type, payload = {}, req = null) {
     if (req && lecturePrivee(req)) return;
     const { mangaId, chapterId, metadata } = payload;
+    const source = await sourceConnue(userId, mangaId, payload.source);
     await pool.query(
-        'INSERT INTO events (user_id, type, manga_id, chapter_id, metadata) VALUES (?, ?, ?, ?, ?)',
-        [userId, type, mangaId || null, chapterId || null, metadata ? JSON.stringify(metadata) : null]
+        'INSERT INTO events (user_id, type, manga_id, source, chapter_id, metadata) VALUES (?, ?, ?, ?, ?, ?)',
+        [userId, type, mangaId || null, source, chapterId || null, metadata ? JSON.stringify(metadata) : null]
     );
 }
 
@@ -110,7 +140,7 @@ async function addFavorite(req, res, next) {
                 cover = COALESCE(VALUES(cover), cover)`,
             [req.user.id, mangaId, source || 'mangadex', title || null, cover || null]
         );
-        await pushEvent(req.user.id, 'favorite', { mangaId }, req);
+        await pushEvent(req.user.id, 'favorite', { mangaId, source }, req);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -266,7 +296,7 @@ async function setProgress(req, res, next) {
         );
         await enregistrerHistorique(req.user.id, mangaId, chapterId, chapter, page, source);
         await pushEvent(req.user.id, 'read',
-            { mangaId, chapterId, metadata: { chapter, page } }, req);
+            { mangaId, source, chapterId, metadata: { chapter, page } }, req);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -872,14 +902,18 @@ async function getEvents(req, res, next) {
     try {
         const limit = Math.min(parseInt(req.query.limit || '200', 10), 500);
         const [rows] = await pool.query(
-            `SELECT id, type, manga_id, chapter_id, metadata, created_at
+            `SELECT id, type, manga_id, source, chapter_id, metadata, created_at
              FROM events WHERE user_id = ?
              ORDER BY created_at DESC LIMIT ?`,
             [req.user.id, limit]
         );
+        // BUG-01 : `source` manquait ici, donc chaque entrée d'historique
+        // arrivait au client sans elle — et le client la remplaçait par la
+        // source courante. C'est le bout de la chaîne que la migration 19
+        // rend enfin lisible.
         res.json(rows.map(r => ({
             id: r.id, type: r.type,
-            mangaId: r.manga_id, chapterId: r.chapter_id,
+            mangaId: r.manga_id, source: r.source || null, chapterId: r.chapter_id,
             metadata: r.metadata ? (typeof r.metadata === 'string' ? JSON.parse(r.metadata) : r.metadata) : null,
             at: r.created_at,
         })));
@@ -1174,7 +1208,7 @@ async function exportData(req, res, next) {
         const [ratings]      = await pool.query('SELECT manga_id, rating, review FROM ratings WHERE user_id = ?', [uid]);
         // Portabilité complète (RGPD art. 20, audit P3) : TOUTES les données du compte
         const [comments]     = await pool.query('SELECT manga_id, chapter_id, text, parent_id, created_at FROM comments WHERE user_id = ?', [uid]);
-        const [events]       = await pool.query('SELECT type, manga_id, chapter_id, metadata, created_at FROM events WHERE user_id = ? ORDER BY created_at DESC LIMIT 5000', [uid]);
+        const [events]       = await pool.query('SELECT type, manga_id, source, chapter_id, metadata, created_at FROM events WHERE user_id = ? ORDER BY created_at DESC LIMIT 5000', [uid]);
         const [lists]        = await pool.query('SELECT id, name, description, is_public, created_at FROM lists WHERE user_id = ?', [uid]);
         const [listItems] = lists.length
             ? await pool.query('SELECT list_id, manga_id, source, title, position FROM list_items WHERE list_id IN (?)', [lists.map(l => l.id)])

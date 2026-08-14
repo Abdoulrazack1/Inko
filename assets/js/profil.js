@@ -78,6 +78,7 @@
     // donc le cache avec elle et on ne va sur le réseau que pour les œuvres
     // absentes des favoris (historique d'une série retirée, par ex.).
     let _favSeed = null;
+    let _favSources = null;      // id → source, dérivée des favoris (voir favSourcesPretes)
     function favSeed() {
         if (!_favSeed) {
             _favSeed = Promise.resolve(API.me.favorites())
@@ -110,12 +111,17 @@
             cacheMangas.set(id, m);
             return m;
         }
-        try {
-            const m = await API.mangas.get(id);
-            if (cacheMangas.size >= CACHE_MAX) cacheMangas.delete(cacheMangas.keys().next().value);
-            cacheMangas.set(id, m);
-            return m;
-        } catch(e) { return null; }
+        // BUG-01 : `API.mangas.get(id)` sans source interroge la source
+        // COURANTE. Mesuré sur cette page après le reste du correctif : 12
+        // requêtes sur 35 partaient encore vers `weebcentral` avec un UUID
+        // MangaDex ou un slug SushiScan — et le serveur répondait 200 avec une
+        // fiche vide, donc rien ne le signalait.
+        //
+        // On demande donc la fiche À SA SOURCE. Source inconnue = on renonce :
+        // l'entrée ne s'affichera pas, ce que les appelants gèrent déjà
+        // (`if (!m) return ''`). Afficher l'œuvre d'un autre catalogue sous ce
+        // titre serait pire que ne rien afficher.
+        return chargerDepuisSaSource(id);
     }
 
     // Récupère la fiche COMPLÈTE (avec tags) — nécessaire uniquement pour le
@@ -123,8 +129,15 @@
     async function loadMangaFull(id) {
         const c = cacheMangas.get(id);
         if (c && !c.fromSeed) return c;
+        return chargerDepuisSaSource(id);
+    }
+
+    async function chargerDepuisSaSource(id) {
+        await favSourcesPretes();
+        const src = sourceDe(id);
+        if (!src) return null;
         try {
-            const m = await API.mangas.get(id);
+            const m = await API.mangas.getFrom(src, id);
             if (cacheMangas.size >= CACHE_MAX) cacheMangas.delete(cacheMangas.keys().next().value);
             cacheMangas.set(id, m);
             return m;
@@ -1154,8 +1167,27 @@
     // roman Gutenberg consulte depuis une session ouverte sur weebcentral
     // ouvrait ainsi le lecteur d'IMAGES — page blanche garantie. La
     // progression et les favoris, eux, connaissent la vraie source.
+    // Les favoris sont la source la plus fiable — c'est celle que
+    // l'utilisateur a choisie en ajoutant la série. `favSeed()` est une
+    // promesse ; on garde sa résolution ici pour pouvoir répondre de façon
+    // synchrone, `loadMangasMap` l'ayant déjà attendue.
+    // `sourceDe` doit rester SYNCHRONE : elle sert aussi au rendu des gabarits.
+    // On remplit donc la table au premier passage par `favSourcesPretes()`,
+    // que le chargement attend explicitement — un remplissage « en arrière-plan »
+    // marcherait presque toujours, et échouerait sur un réseau lent, là où
+    // personne ne le reproduirait.
+    async function favSourcesPretes() {
+        if (_favSources) return _favSources;
+        try {
+            const map = await favSeed();
+            _favSources = new Map([...map].map(([id, f]) => [id, f.source]).filter(([, s]) => s));
+        } catch (e) { _favSources = new Map(); }
+        return _favSources;
+    }
+
     function sourceDe(mangaId, secours) {
         return _posProgression?.[mangaId]?.source
+            || _favSources?.get(mangaId)
             || cacheMangas.get(mangaId)?.source
             || secours || null;
     }

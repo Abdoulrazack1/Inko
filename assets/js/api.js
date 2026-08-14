@@ -493,9 +493,26 @@
             // historique). Omis, le comportement d'origine est conservé.
             get:      (id, source)  => get((source ? '/sources/' + encodeURIComponent(source) : API.mangas._prefix())
                 + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
-            getFrom:  (source, id)  => get((source ? `/sources/${encodeURIComponent(source)}` : '') + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
+            // BUG-01 : sans `source`, l'URL partait SANS préfixe et le serveur
+            // appliquait la source courante. Mesuré pendant l'audit : 14
+            // requêtes avec un identifiant étranger à la source appelée, dont
+            // `/api/sources/weebcentral/mangas/2701` — 2701 est l'identifiant
+            // de Moby Dick chez Project Gutenberg. Le serveur répondait 200
+            // avec une fiche VIDE (BUG-02), donc rien ne signalait la faute :
+            // un roman ouvrait le lecteur d'images, d'où la « page blanche ».
+            //
+            // On refuse désormais d'envoyer la requête. Ne rien afficher est
+            // honnête ; afficher l'œuvre d'un autre catalogue ne l'est pas.
+            // Les six appelants passent tous par `allSettled` ou un `catch`.
+            getFrom:  (source, id)  => (source
+                ? get(`/sources/${encodeURIComponent(source)}/mangas/${encodeURIComponent(id)}`).then(mapManga)
+                : Promise.reject(new Error(`source inconnue pour « ${id} » — requête non envoyée (BUG-01)`))),
             chapters: (id, params={}) => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
-            chaptersFor: (source, id, params={}) => get((source ? `/sources/${encodeURIComponent(source)}` : '') + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
+            // Même défaut que `getFrom`, mêmes conséquences : demander les
+            // chapitres d'une série à un catalogue qui ne la contient pas.
+            chaptersFor: (source, id, params={}) => (source
+                ? get(`/sources/${encodeURIComponent(source)}/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params))
+                : Promise.reject(new Error(`source inconnue pour « ${id} » — requête non envoyée (BUG-01)`))),
             pages:    (chapterId)   => get(API.mangas._prefix() + `/chapters/${encodeURIComponent(chapterId)}/pages`),
             text:     (chapterId)   => get(API.mangas._prefix() + `/chapters/${encodeURIComponent(chapterId)}/text`),
         },

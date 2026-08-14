@@ -523,9 +523,13 @@
         if (missing.length) {
             await Promise.allSettled(missing.map(async f => {
                 try {
-                    const m = f.source
-                        ? await API.mangas.getFrom(f.source, f.mangaId)
-                        : await API.mangas.get(f.mangaId);   // très ancien favori sans source : best-effort
+                    // BUG-01 : le repli « best-effort » interrogeait la source
+                    // COURANTE. Il ne complétait donc pas la fiche, il y
+                    // recopiait le titre et la couverture d'une AUTRE œuvre,
+                    // sans que rien ne le signale. Un favori sans source reste
+                    // affiché tel quel — incomplet et visiblement incomplet.
+                    if (!f.source) return;
+                    const m = await API.mangas.getFrom(f.source, f.mangaId);
                     f.title = f.title || m.title;
                     f.cover = f.cover || m.cover || m.coverThumb;
                 } catch (e) { window.MH?.err?.('bibliotheque.js', e); }

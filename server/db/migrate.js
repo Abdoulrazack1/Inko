@@ -444,6 +444,39 @@ const MIGRATIONS = [
                       SET p.source = f.source
                     WHERE (p.source IS NULL OR p.source = '') AND f.source IS NOT NULL AND f.source <> ''`);
     } },
+
+    { version: 19, name: 'events.source — la source voyage avec l’identifiant (audit BUG-01/BUG-11)', apply: async () => {
+        // BUG-01 : `events` ne porte PAS de source. Le client lisait donc
+        // `item.source === undefined` sur chaque entrée d'historique, et
+        // `getFrom(undefined, id)` envoyait la requête à la source COURANTE.
+        //
+        // Mesuré pendant l'audit : 14 requêtes avec un identifiant étranger à
+        // la source appelée, dont `/api/sources/weebcentral/mangas/2701` —
+        // 2701 est l'identifiant de Moby Dick chez Project Gutenberg. Le
+        // serveur répondait 200 avec une fiche vide (BUG-02), ce qui rendait
+        // la faute invisible : un roman ouvrait le lecteur d'IMAGES, d'où la
+        // « page blanche » signalée.
+        //
+        // Le correctif `sourceDe()` avait été appliqué à `readerHref` mais pas
+        // à `getFrom` — soigner l'un des deux chemins laisse l'autre ouvert.
+        // La colonne referme la cause plutôt que ses symptômes.
+        if (!(await columnExists('events', 'source')))
+            await run('ALTER TABLE events ADD COLUMN source VARCHAR(64) NULL DEFAULT NULL AFTER manga_id');
+
+        // Rattrapage de l'existant. Les favoris d'abord : c'est la source que
+        // l'utilisateur a explicitement choisie en ajoutant la série. La
+        // progression ensuite, qui la connaît aussi depuis la migration 18.
+        await run(`UPDATE events e
+                     JOIN favorites f ON f.user_id = e.user_id AND f.manga_id = e.manga_id
+                      SET e.source = f.source
+                    WHERE e.source IS NULL AND f.source IS NOT NULL AND f.source <> ''`);
+        await run(`UPDATE events e
+                     JOIN progress p ON p.user_id = e.user_id AND p.manga_id = e.manga_id
+                      SET e.source = p.source
+                    WHERE e.source IS NULL AND p.source IS NOT NULL AND p.source <> ''`);
+        // Ce qu'aucune des deux ne couvre reste NULL — et sera IGNORÉ à la
+        // lecture. Deviner produirait exactement le défaut qu'on referme.
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──

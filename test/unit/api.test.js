@@ -133,3 +133,43 @@ test('un échec n’est pas resservi depuis le cache', async () => {
     assert.strictEqual(JSON.stringify(ok), JSON.stringify([{ mangaId: 'a' }]),
         'la lecture suivante doit vraiment repartir au réseau');
 });
+
+// ── BUG-01 : un identifiant ne part JAMAIS sans sa source ────
+// `getFrom(source, id)` construisait l'URL sans préfixe quand `source` était
+// absent, et le serveur appliquait alors la source COURANTE. Mesuré pendant
+// l'audit : 14 requêtes avec un identifiant étranger à la source appelée, dont
+// `/api/sources/weebcentral/mangas/2701` — 2701 est l'identifiant de Moby Dick
+// chez Project Gutenberg. Le serveur répondait 200 avec une fiche VIDE, donc
+// rien ne signalait la faute : un roman ouvrait le lecteur d'images.
+//
+// La régression est indétectable à l'œil — elle ne casse rien, elle affiche
+// l'œuvre d'un autre catalogue. D'où ces tests.
+test('mangas.getFrom sans source : la requête n’est PAS envoyée (audit BUG-01)', async () => {
+    const { API, gets } = chargerAPI({});
+    await assert.rejects(() => API.mangas.getFrom(undefined, '2701'),
+        /source inconnue/i, 'renoncer est plus honnête que d’interroger la mauvaise source');
+    await assert.rejects(() => API.mangas.getFrom('', '2701'), /source inconnue/i);
+    await assert.rejects(() => API.mangas.getFrom(null, '2701'), /source inconnue/i);
+    assert.strictEqual(gets().length, 0, 'aucune requête ne doit partir');
+});
+
+test('mangas.getFrom avec source : la source est bien dans l’URL', async () => {
+    const { API, gets } = chargerAPI({ '/api/sources/gutenberg/mangas/2701': { id: '2701', title: 'Moby Dick' } });
+    const m = await API.mangas.getFrom('gutenberg', '2701');
+    assert.strictEqual(m.title, 'Moby Dick');
+    assert.strictEqual(gets()[0].chemin, '/api/sources/gutenberg/mangas/2701');
+});
+
+test('mangas.chaptersFor sans source : même refus (audit BUG-01)', async () => {
+    const { API, gets } = chargerAPI({});
+    await assert.rejects(() => API.mangas.chaptersFor(undefined, '2701'), /source inconnue/i);
+    assert.strictEqual(gets().length, 0);
+});
+
+test('mangas.getFrom : la source est encodée, pas concaténée', async () => {
+    // Une source au nom exotique ne doit pas pouvoir sortir du chemin.
+    const { API, gets } = chargerAPI({});
+    await API.mangas.getFrom('a/b', 'x').catch(() => {});
+    assert.ok(gets()[0].chemin.startsWith('/api/sources/a%2Fb/mangas/'),
+        `chemin inattendu : ${gets()[0].chemin}`);
+});

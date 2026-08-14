@@ -826,9 +826,21 @@
             if (!window.API?.isLoggedIn?.()) return null;
             try {
                 const progress = await API.me.progress();
+                // BUG-11 : sans source, `readerHref` retombait sur la source
+                // COURANTE — et c'est elle qui décide du LECTEUR. Un roman
+                // Gutenberg repris depuis une session ouverte sur WeebCentral
+                // ouvrait donc le lecteur d'images :
+                //   501 /api/sources/gutenberg/chapters/2701%3Afull/pages
+                // Relevé depuis `parametres`, `notifications` et `import` : ce
+                // bouton est dans l'en-tête commun, le défaut était global.
+                //
+                // On saute les entrées sans source plutôt que d'en inventer
+                // une. Reprendre la lecture précédente est plus utile que
+                // d'ouvrir la mauvaise ; aucune entrée exploitable = bouton
+                // masqué, ce que `refreshContinueButton` fait déjà.
                 const entries = Object.entries(progress)
                     .map(([id, p]) => ({ mangaId: id, ...p }))
-                    .filter(e => e.chapterId)
+                    .filter(e => e.chapterId && e.source)
                     .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
                 if (!entries.length) return null;
                 const e = entries[0];
@@ -910,9 +922,12 @@
         let entrees = [];
         try {
             const progress = await API.me.progress();
+            // Même filtre que `lastReadTarget` (BUG-11) : une entrée sans
+            // source ouvrirait le mauvais lecteur, et `getFrom` refuse de
+            // toute façon de la résoudre depuis BUG-01.
             entrees = Object.entries(progress)
                 .map(([id, p]) => ({ mangaId: id, ...p }))
-                .filter(e => e.chapterId)
+                .filter(e => e.chapterId && e.source)
                 .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
                 .slice(0, 6);
         } catch (e) { MH.toast('Lectures récentes indisponibles'); return; }
