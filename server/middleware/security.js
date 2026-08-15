@@ -155,20 +155,48 @@ const writeLimiter = rateLimit({
     message: { error: 'Trop de requêtes. Ralentis un peu.' },
 });
 
+// ── BUG-13 : le limiteur ne doit pas brider l'app elle-même ──
+// Relevé pendant l'audit : `429` sur 12 pages sur 20 en navigation NORMALE —
+// un lien cliqué, un bouton « Actualiser ». Ce n'était donc pas un pic
+// accidentel dû aux sondes, c'était le chemin ordinaire.
+//
+// Ces limiteurs protègent un vrai risque : une instance exposée sur Internet
+// devient un amplificateur de déni de service PAR RICOCHET vers les sites
+// scrapés. Mais ce risque suppose un client DISTANT. Les requêtes de la boucle
+// locale, elles, viennent de l'application installée sur la machine — le seul
+// « abus » possible y est une boucle du logiciel, pas une attaque.
+//
+// On ne SUPPRIME donc pas le plafond en local : on le relève. Un plafond
+// supprimé laisserait une boucle folle marteler un site tiers sans rien pour
+// l'arrêter ; un plafond dix fois plus haut ne gêne aucune navigation humaine
+// et coupe quand même l'emballement.
+//
+// Même raisonnement que SEC-01 (`middleware/auth.js`), et même définition de
+// « local » : les DEUX adresses doivent l'être, sinon `X-Forwarded-For`
+// suffirait à s'octroyer le plafond haut.
+const { estLocale } = require('../lib/reseau');
+const FACTEUR_LOCAL = parseInt(process.env.LOCAL_RATE_FACTOR || '10', 10);
+
+// Rend un `max` qui s'adapte à l'appelant. `express-rate-limit` accepte une
+// fonction : elle est évaluée à chaque requête, donc le facteur suit l'origine.
+function plafond(base) {
+    return (req) => (estLocale(req) ? base * FACTEUR_LOCAL : base);
+}
+
 // Audit S14 : /api/search-all et /api/img n'avaient aucun rate-limit —
 // surface d'abus (déni de service par ricochet vers les sites scrapés,
 // vol de bande passante via le proxy d'images). Fenêtres larges pour ne
 // pas gêner l'usage normal (une page catalogue charge ~24 couvertures).
 const searchLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: parseInt(process.env.SEARCH_RATE_MAX || '30', 10),   // 30 recherches multi-sources / min / IP
+    max: plafond(parseInt(process.env.SEARCH_RATE_MAX || '30', 10)),   // 30/min à distance, 300 en local
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Trop de recherches. Patiente quelques secondes.' },
 });
 const imgLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: parseInt(process.env.IMG_RATE_MAX || '300', 10),     // 300 images / min / IP
+    max: plafond(parseInt(process.env.IMG_RATE_MAX || '300', 10)),     // 300/min à distance, 3000 en local
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Trop de requêtes images.' },
@@ -184,10 +212,10 @@ const imgLimiter = rateLimit({
 // légitime enchaîne facilement 30 appels.
 const relayLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: parseInt(process.env.RELAY_RATE_MAX || '180', 10),   // 180 relais / min / IP
+    max: plafond(parseInt(process.env.RELAY_RATE_MAX || '180', 10)),   // 180/min à distance, 1800 en local
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Trop de requêtes vers les sources. Patiente quelques secondes.' },
 });
 
-module.exports = { securityHeaders, corsOptions, authLimiter, writeLimiter, searchLimiter, imgLimiter, relayLimiter };
+module.exports = { securityHeaders, corsOptions, authLimiter, writeLimiter, searchLimiter, imgLimiter, relayLimiter, plafond };

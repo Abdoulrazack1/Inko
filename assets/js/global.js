@@ -740,7 +740,16 @@
                 } else if (newCount > 0) {
                     MH.toast(`${newCount} série(s) avec des chapitres non lus`);
                 } else if (force) {
-                    MH.toast('Tout est à jour ✓');
+                    // BUG-13 : le serveur garde 15 min entre deux scans complets
+                    // et rend alors le DERNIER résultat connu (`frais: false`).
+                    // Annoncer « Tout est à jour ✓ » serait faux : rien n'a été
+                    // vérifié à l'instant. On dit ce qui s'est réellement passé.
+                    if (data && data.frais === false) {
+                        const min = Math.ceil((data.prochainScanDansMs || 0) / 60000);
+                        MH.toast(`Déjà vérifié récemment — nouvelle recherche possible dans ${min} min`);
+                    } else {
+                        MH.toast('Tout est à jour ✓');
+                    }
                 }
             }
             return data;

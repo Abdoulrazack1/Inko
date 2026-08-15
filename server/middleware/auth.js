@@ -154,24 +154,9 @@ async function revokeTokens(userId) {
 //
 // `INKO_LOCAL_ANY_HOST=1` rouvre le comportement précédent — pour un hub
 // volontairement partagé, en connaissance de cause. Ce n'est plus le défaut.
-const IP_LOCALES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost']);
-
-// Les DEUX adresses doivent être locales. Chacune seule laisse un trou :
-//
-//   · `req.ip` seul — avec `TRUST_PROXY` posé, express fait confiance à
-//     `X-Forwarded-For`, que l'appelant écrit lui-même. `XFF: 127.0.0.1`
-//     depuis n'importe où et le filtre s'ouvre.
-//   · la socket seule — derrière un reverse proxy tournant sur la même
-//     machine, `remoteAddress` vaut TOUJOURS 127.0.0.1, quel que soit le
-//     client réel. Le filtre ne filtre alors plus rien.
-//
-// L'intersection ferme les deux : un client distant échoue sur la socket
-// (attaque directe) ou sur `req.ip` (derrière un proxy), et une connexion
-// vraiment locale satisfait les deux.
-function estLocale(req) {
-    const socket = req.socket?.remoteAddress || '';
-    return IP_LOCALES.has(socket) && IP_LOCALES.has(req.ip);
-}
+// La définition de « local » vit dans `lib/reseau.js` : le limiteur de relais
+// (BUG-13) s'appuie sur la MÊME, et deux copies auraient fini par diverger.
+const { estLocale } = require('../lib/reseau');
 
 function localOnly(req, res, next) {
     if (process.env.INKO_LOCAL_ANY_HOST === '1') return next();

@@ -1529,11 +1529,33 @@ async function checkUpdates(req, res, next) {
         const scope  = req.query.scope === 'all' ? 'all' : 'active';  // défaut : ignore Terminé/Abandonné
         const lang   = (req.query.lang || 'fr,en');
 
-        // Cooldown serveur (§15.4-5) : 15 min entre deux scans COMPLETS.
-        // Pas de cooldown pour la vérification d'une seule série.
+        // Garde serveur (§15.4-5) : 15 min entre deux scans COMPLETS, pour ne
+        // pas marteler les sites scrapés. Pas de garde pour la vérification
+        // d'une seule série.
+        //
+        // BUG-13 : ce garde répondait 429 — un code d'ERREUR pour un état
+        // parfaitement normal. Relevé pendant l'audit sur 12 pages sur 20 :
+        // chaque page affichait un échec en console alors que rien n'allait
+        // mal, et le client traitait « déjà vérifié » comme « impossible de
+        // vérifier ». L'app se bridait elle-même.
+        //
+        // On rend désormais le DERNIER résultat connu, en 200, marqué comme
+        // non frais. La donnée est réelle, seulement datée — et le garde reste
+        // entier : aucun scan sortant n'est déclenché.
         if (!manga) {
             const left = updatesLib.fullScanCooldown(uid);
             if (left > 0) {
+                const dernier = updatesLib.dernierScan(uid);
+                if (dernier) {
+                    return res.json({
+                        ...dernier,
+                        frais: false,
+                        prochainScanDansMs: left,
+                    });
+                }
+                // Sans résultat en cache (redémarrage, ou éviction), on ne peut
+                // rien affirmer. On le dit, plutôt que de rendre une liste vide
+                // qui se lirait « aucune nouveauté ».
                 return res.status(429).json({
                     error: `Bibliothèque déjà vérifiée récemment — réessaie dans ${Math.ceil(left / 60000)} min`,
                     retryInMs: left,
@@ -1542,8 +1564,8 @@ async function checkUpdates(req, res, next) {
         }
 
         const result = await updatesLib.scanUserUpdates(uid, { scope, mangaId: manga, lang });
-        if (!manga) updatesLib.markFullScan(uid);
-        res.json({ ...result, checkedAt: Date.now() });
+        if (!manga) updatesLib.markFullScan(uid, result);
+        res.json({ ...result, frais: true, checkedAt: Date.now() });
     } catch (e) { next(e); }
 }
 

@@ -36,12 +36,38 @@ async function mapLimit(items, limit, fn) {
 const lastFullScan = new Map();
 const FULL_SCAN_COOLDOWN_MS = 15 * 60 * 1000;
 
+// ── BUG-13 : « déjà vérifié » n'est pas une erreur ──────────
+// Le garde de 15 minutes ne retenait QUE l'horodatage. Pendant la fenêtre, le
+// serveur n'avait donc rien à rendre et répondait 429 — un code d'ERREUR pour
+// un état parfaitement normal. Relevé pendant l'audit sur 12 pages sur 20 :
+// l'app se bridait elle-même, et chaque page affichait un échec en console
+// alors que rien n'allait mal.
+//
+// On garde donc le DERNIER RÉSULTAT à côté de l'horodatage. Pendant la
+// fenêtre, on le rend tel quel en 200, marqué comme non frais. C'est vrai —
+// la donnée est réelle, seulement datée — et le garde reste entier : aucun
+// scan sortant n'est déclenché.
+//
+// Cache borné : le résultat porte une entrée par série suivie (365 chez
+// l'utilisateur de l'audit). Une Map sans limite ferait de ce garde-fou une
+// fuite de mémoire sur un hub à plusieurs comptes.
+const BoundedCache = require('./bounded-cache');
+const derniersScans = new BoundedCache({ max: 50, ttl: FULL_SCAN_COOLDOWN_MS * 2 });
+
 function fullScanCooldown(uid) {
     const last = lastFullScan.get(uid) || 0;
     const left = last + FULL_SCAN_COOLDOWN_MS - Date.now();
     return left > 0 ? left : 0;
 }
-function markFullScan(uid) { lastFullScan.set(uid, Date.now()); }
+function markFullScan(uid, resultat) {
+    lastFullScan.set(uid, Date.now());
+    if (resultat) derniersScans.set(`u:${uid}`, { ...resultat, checkedAt: Date.now() });
+}
+
+/** Dernier résultat connu, ou null si le cache l'a évincé. */
+function dernierScan(uid) {
+    return derniersScans.get(`u:${uid}`) || null;
+}
 
 /**
  * Scanne les séries suivies d'un utilisateur.
@@ -224,4 +250,4 @@ async function backgroundScan() {
     finally { scanRunning = false; }
 }
 
-module.exports = { scanUserUpdates, fullScanCooldown, markFullScan, backgroundScan };
+module.exports = { scanUserUpdates, fullScanCooldown, markFullScan, dernierScan, backgroundScan };

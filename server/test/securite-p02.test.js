@@ -222,3 +222,44 @@ test('source-health : une erreur reste une erreur (aucune régression)', () => {
     const h2 = sante.snapshot().find(x => x.id === id);
     assert.equal(h2.streak, 0, 'un succès remet la série à zéro');
 });
+
+// ── BUG-13 : le limiteur ne doit pas brider l'app elle-même ──
+// Relevé pendant l'audit : `429` sur 12 pages sur 20 en navigation NORMALE.
+// Deux mécanismes distincts s'y cachaient, et il a fallu les séparer :
+//   · le garde de 15 min entre deux scans de bibliothèque, qui répondait 429
+//     — un code d'ERREUR pour un état parfaitement normal ;
+//   · les limiteurs de relais, calibrés pour un client distant hostile et
+//     appliqués tels quels à l'application installée.
+const { plafond } = require('../middleware/security');
+
+function req(ip, socketIp) {
+    return { ip, socket: { remoteAddress: socketIp === undefined ? ip : socketIp }, headers: {} };
+}
+
+test('plafond : la boucle locale obtient un plafond relevé (audit BUG-13)', () => {
+    const p = plafond(180);
+    assert.equal(p(req('127.0.0.1')), 1800, 'l’app installée ne doit pas se brider elle-même');
+    assert.equal(p(req('::1')), 1800);
+});
+
+test('plafond : un client distant garde le plafond de protection', () => {
+    const p = plafond(180);
+    assert.equal(p(req('192.168.1.34')), 180, 'un hub exposé reste protégé');
+    assert.equal(p(req('203.0.113.9')), 180);
+});
+
+test('plafond : X-Forwarded-For ne donne pas droit au plafond haut', () => {
+    // Sans cette exigence, il suffirait d’annoncer 127.0.0.1 pour obtenir dix
+    // fois la limite — et le garde-fou anti-amplification tomberait.
+    const p = plafond(180);
+    assert.equal(p(req('127.0.0.1', '203.0.113.9')), 180, 'la socket trahit l’appelant');
+    assert.equal(p(req('203.0.113.9', '127.0.0.1')), 180, 'reverse proxy local : req.ip fait foi');
+});
+
+test('plafond : le plafond n’est jamais SUPPRIMÉ, seulement relevé', () => {
+    // Une boucle folle du logiciel doit encore rencontrer un mur : sans
+    // plafond du tout, elle martèlerait un site tiers sans rien pour l’arrêter.
+    const p = plafond(30);
+    assert.ok(Number.isFinite(p(req('127.0.0.1'))));
+    assert.ok(p(req('127.0.0.1')) > 0);
+});
