@@ -9,6 +9,10 @@ on:
     - cron: '17 6 * * 1'   # tous les lundis 06:17 UTC
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: write        # BUG-06 : le job ouvre une issue quand une source casse
+
 jobs:
   check-sources:
     runs-on: ubuntu-latest
@@ -25,6 +29,67 @@ jobs:
         run: npm ci --omit=dev
 
       - name: Run source health check on community extensions
+        id: check
+        continue-on-error: true
         env:
           EXT_DIR: extensions-community
-        run: node scripts-ci/check-sources.js
+        run: |
+          set -o pipefail
+          node scripts-ci/check-sources.js 2>&1 | tee rapport.txt
+
+      # BUG-06 : l'alarme sonnait dans le vide. Ce job était ROUGE depuis le
+      # 20 juillet, quatre lundis de suite — il fonctionnait, il disait vrai,
+      # et personne n'agissait. Un point rouge dans un onglet que personne
+      # n'ouvre n'est pas une alerte.
+      #
+      # Il ouvre donc une issue, et la MET À JOUR au lieu d'en créer une par
+      # semaine : quatre issues identiques seraient aussi faciles à ignorer que
+      # quatre runs rouges. Elle se referme d'elle-même quand tout répond, avec
+      # le rapport en commentaire — pour qu'on sache que c'est réparé, et non
+      # abandonné.
+      - name: Ouvrir ou mettre à jour l'issue « sources en panne »
+        if: steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITRE: Sources en panne — vérification hebdomadaire
+        run: |
+          {
+            echo "Le contrôle hebdomadaire a trouvé au moins une source qui ne répond plus,"
+            echo "ou qui répond en rompant son contrat (limite ignorée, entrées sans titre)."
+            echo
+            echo '```'
+            cat rapport.txt
+            echo '```'
+            echo
+            echo "Run : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > corps.md
+          NUM=$(gh issue list --state open --search "$TITRE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$NUM" ]; then
+            gh issue comment "$NUM" --body-file corps.md
+          else
+            gh issue create --title "$TITRE" --body-file corps.md
+          fi
+
+      - name: Refermer l'issue si tout répond
+        if: steps.check.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITRE: Sources en panne — vérification hebdomadaire
+        run: |
+          NUM=$(gh issue list --state open --search "$TITRE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$NUM" ]; then
+            {
+              echo "Toutes les sources répondent à nouveau."
+              echo
+              echo '```'
+              cat rapport.txt
+              echo '```'
+            } > corps.md
+            gh issue close "$NUM" --comment "$(cat corps.md)"
+          fi
+
+      # Le job reste ROUGE quand une source est cassée : l'issue s'ajoute au
+      # signal, elle ne le remplace pas.
+      - name: Refléter l'état du contrôle
+        if: steps.check.outcome == 'failure'
+        run: exit 1

@@ -472,7 +472,19 @@
             if (count) count.innerHTML = texteCompteur(lastResults.length, lastTotal);
 
             if (!lastResults.length) {
-                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2)">Aucune série correspondante. Modifiez les filtres.</div>';
+                // SRC-02 : une source en panne ressemblait à un catalogue vide.
+                // « Modifiez les filtres » accuse le geste de l'utilisateur
+                // d'une panne qui ne lui appartient pas — et le laisse tourner
+                // en rond dans des réglages qui n'y changeront rien.
+                //
+                // Sans aucun filtre ni recherche, il n'y a RIEN à modifier :
+                // une liste vide ne peut alors venir que de la source. On le
+                // dit, et on propose ce qui peut réellement aider.
+                const filtresActifs = !!(lastQuery || activeTags.size || excludedTags.size
+                    || activeStatus.size || activeDemo.size);
+                grid.innerHTML = filtresActifs
+                    ? '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2)">Aucune série correspondante. Modifiez les filtres.</div>'
+                    : MH.blocSourceMuette(API.sources.current);
             } else {
                 grid.innerHTML = lastResults.map(m => mangaCardHTML(m)).join('');
                 MH.markFavorites(grid);

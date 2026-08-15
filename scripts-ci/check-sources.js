@@ -56,12 +56,43 @@ function withTimeout(p, ms, label) {
         catch (e) { console.log(`✖ ${label} chargement impossible : ${e.message}`); failures++; continue; }
         if (typeof src.warmup === 'function') { try { await withTimeout(src.warmup(), TIMEOUT, dir); } catch (e) {} }
         const t0 = Date.now();
+        const DEMANDE = 5;
         try {
-            const r = await withTimeout(src.popular({ limit: 5 }), TIMEOUT, dir);
-            const n = (r && r.results || []).length;
+            const r = await withTimeout(src.popular({ limit: DEMANDE }), TIMEOUT, dir);
+            const resultats = (r && r.results) || [];
+            const n = resultats.length;
             const secs = ((Date.now() - t0) / 1000).toFixed(1);
-            if (n > 0) console.log(`✔ ${label} ${n} résultat(s) en ${secs}s`);
-            else { console.log(`✖ ${label} 0 résultat (${secs}s) — balisage ou URL du site probablement changés`); failures++; }
+
+            if (n === 0) {
+                console.log(`✖ ${label} 0 résultat (${secs}s) — balisage ou URL du site probablement changés`);
+                failures++;
+                continue;
+            }
+
+            // ── BUG-07 : « répond » ne veut pas dire « respecte le contrat » ──
+            // WeebCentral rendait 32 résultats pour `limit=3`, et ce script la
+            // déclarait saine parce qu'il ne comptait que « plus de zéro ».
+            // Toute pagination bâtie dessus était fausse, et rien ne pouvait
+            // l'attraper. Une source qui ment sur sa limite est cassée d'une
+            // façon plus insidieuse qu'une source muette : elle a l'air de
+            // marcher.
+            const ruptures = [];
+            if (n > DEMANDE) ruptures.push(`limit ignoré (${n} rendus pour ${DEMANDE} demandés)`);
+
+            // Le contrat minimal d'une entrée : un identifiant utilisable et un
+            // titre. Sans identifiant, l'entrée ne peut mener nulle part ;
+            // sans titre, elle est illisible dans une grille.
+            const sansId    = resultats.filter(m => !m || !m.id).length;
+            const sansTitre = resultats.filter(m => !m || !String(m.title || '').trim()).length;
+            if (sansId)    ruptures.push(`${sansId} entrée(s) sans identifiant`);
+            if (sansTitre) ruptures.push(`${sansTitre} entrée(s) sans titre`);
+
+            if (ruptures.length) {
+                console.log(`✖ ${label} ${n} résultat(s) en ${secs}s — contrat rompu : ${ruptures.join(' ; ')}`);
+                failures++;
+            } else {
+                console.log(`✔ ${label} ${n} résultat(s) en ${secs}s`);
+            }
         } catch (e) {
             console.log(`✖ ${label} ${e.message}`);
             failures++;

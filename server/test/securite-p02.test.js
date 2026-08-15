@@ -177,3 +177,48 @@ test('SEC-02 : un JWT_SECRET fourni garde la priorité', () => {
     const impose = 'a'.repeat(64);
     assert.equal(secretResolu({ APP_VERSION: 'test-sec02', JWT_SECRET: impose }), impose);
 });
+
+// ── SRC-02 / BUG-06 : la panne qui répond 200 ──
+// Une source dont le site a changé de balisage ne lève AUCUNE erreur : elle
+// analyse une page qu'elle ne comprend plus et rend une liste vide. Pour
+// `health.track`, tout va bien. C'est ainsi que novelbin est restée « saine »
+// côté serveur pendant que le job hebdomadaire la déclarait morte depuis
+// quatre lundis — et que l'écran affichait « Modifiez les filtres ».
+const sante = require('../lib/source-health');
+
+test('source-health : une liste vide se compte à part (audit SRC-02)', () => {
+    const id = 'source-de-test-vide';
+    sante.recordVide(id);
+    sante.recordVide(id);
+    const h = sante.snapshot().find(x => x.id === id);
+    assert.ok(h, 'la source doit apparaître dans l’instantané');
+    assert.equal(h.vides, 2);
+    assert.ok(h.videAt, 'la date du dernier vide doit être posée');
+    // Ni succès ni échec : écraser le vide dans l’une des deux catégories est
+    // exactement ce qui rendait la panne invisible.
+    assert.equal(h.oks, 0, 'un vide n’est pas un succès');
+    assert.equal(h.fails, 0, 'un vide n’est pas une erreur non plus');
+    assert.equal(h.streak, 0, 'et il ne doit pas déclencher l’alarme des erreurs consécutives');
+});
+
+test('source-health : succès et vides coexistent sans se contredire', () => {
+    const id = 'source-de-test-mixte';
+    sante.recordOk(id);
+    sante.recordVide(id);
+    const h = sante.snapshot().find(x => x.id === id);
+    assert.equal(h.oks, 1);
+    assert.equal(h.vides, 1);
+});
+
+test('source-health : une erreur reste une erreur (aucune régression)', () => {
+    const id = 'source-de-test-erreur';
+    sante.recordFail(id, new Error('site injoignable'));
+    sante.recordFail(id, new Error('site injoignable'));
+    const h = sante.snapshot().find(x => x.id === id);
+    assert.equal(h.fails, 2);
+    assert.equal(h.streak, 2, 'les échecs CONSÉCUTIFS restent le signal d’une source cassée');
+    assert.match(h.error, /injoignable/);
+    sante.recordOk(id);
+    const h2 = sante.snapshot().find(x => x.id === id);
+    assert.equal(h2.streak, 0, 'un succès remet la série à zéro');
+});

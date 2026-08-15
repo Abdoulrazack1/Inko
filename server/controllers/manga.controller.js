@@ -82,11 +82,23 @@ async function listSources(_req, res) {
 }
 
 // ── Mangas ──
+// SRC-02 : une liste de catalogue VIDE est un signal, pas un résultat.
+// `popular` et `latest` n'ont aucun critère à ne pas satisfaire — s'ils ne
+// rendent rien, c'est que la source ne répond plus comme avant. Sans cette
+// note, `health.track` enregistre un succès (aucune exception n'a été levée)
+// et la panne reste invisible côté serveur comme côté écran.
+function noterSiVide(id, resultat) {
+    if (resultat && Array.isArray(resultat.results) && resultat.results.length === 0) {
+        health.recordVide(id);
+    }
+    return resultat;
+}
+
 async function popular(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'popular')) return notSupported(res, src, 'popular');
-        res.json(await health.track(src.id, () => src.popular(req.query), 'populaires'));
+        res.json(noterSiVide(src.id, await health.track(src.id, () => src.popular(req.query), 'populaires')));
     } catch (e) { next(e); }
 }
 
@@ -94,7 +106,7 @@ async function latest(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'latest')) return notSupported(res, src, 'latest');
-        res.json(await health.track(src.id, () => src.latest(req.query), 'nouveautes'));
+        res.json(noterSiVide(src.id, await health.track(src.id, () => src.latest(req.query), 'nouveautes')));
     } catch (e) { next(e); }
 }
 

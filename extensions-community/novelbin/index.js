@@ -24,21 +24,26 @@ catch (e) { console.warn('[novelbin] cheerio manquant — `cd server && npm inst
 
 // novelbin.com ne résout plus ; .co est un domaine parqué ; .net exige du JS.
 // novel-bin.com est le miroir fonctionnel avec le même balisage.
-// ⚠ SOURCE EN PANNE — le site a restructuré ses URL et son balisage.
-// Constaté le 4 août 2026 (audit) : `popular()` renvoie 0 résultat, ce que le
-// job hebdomadaire sources-health signale déjà. Ce n'est PAS un bug d'Inko.
-// Relevé sur place pour la prochaine tentative de réparation :
-//   · novelbin.com ne résout plus du tout ; novel-bin.com répond (Cloudflare).
-//   · Les fiches sont désormais sous  /novel-bin/<slug>  (ancien schéma mort).
-//   · FONCTIONNENT :  /search?keyword=<q>       → ~10 résultats
-//                     /genre/<Genre>            → ~50 résultats
-//   · 404 :  /sort/novelbin-popular, /sort/hot-novel, /sort/most-popular,
-//            /sort/latest, /sort/new-novel, /hot, /latest, /completed
-//     → il n'existe plus d'endpoint « populaire » ou « récent » évident.
-//   · Les classes ont changé : plus de `.novel-title`, on trouve `.col-title`,
-//     `.chapter-title`, `.list-novel`.
-// Réparer demande de recâbler popular/latest sur /genre ou /search, et de
-// réécrire les sélecteurs — un travail de scraping à part entière.
+// ── Réparée le 15 août 2026 (audit BUG-06) ──
+// Le site avait restructuré ses URL de liste : `/sort/novelbin-popular` et
+// `/sort/latest` rendaient 404, donc `popular()` et `latest()` rendaient 0
+// résultat. Le job hebdomadaire sources-health le signalait depuis le
+// 20 juillet — quatre lundis de suite, sans que personne n'agisse.
+//
+// Ce que la panne était VRAIMENT : seules les URL de liste avaient bougé. Le
+// balisage, lui, n'avait pas changé — `search()` marchait tout du long, avec
+// le MÊME parseur (`parseList`) sur `/search?keyword=`. La note précédente
+// concluait qu'il fallait « réécrire les sélecteurs, un travail de scraping à
+// part entière » : c'était faux, et cette conclusion a probablement contribué
+// à ce que la réparation soit repoussée quatre semaines.
+//
+// Les vraies listes, relevées dans la navigation du site :
+//   · /monthvisit/  les plus consultées du mois   → popular
+//   · /dayvisit/    les plus consultées du jour   → latest (approximation)
+//   · /allvisit/    les plus consultées, toujours
+//   · /full.html    les romans terminés
+//   · /genre/<G>/   par genre
+// Les fiches restent sous /novel-bin/<slug>.
 const BASE = 'https://novel-bin.com';
 const UA   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -219,7 +224,7 @@ module.exports = {
     lang:         'en',
     baseUrl:      BASE,
     nsfw:         false,
-    version:      '1.2.2',
+    version:      '1.3.0',
     unit:      'chapter',
     type:         'novel',
     description:  'NovelBin — light/web novels chinois, coréens et japonais traduits en anglais (cultivation, système, isekai, romance). Très grand catalogue, lecture en texte.',
@@ -235,12 +240,21 @@ module.exports = {
             .map(t => ({ id: t.toLowerCase().replace(/\s+/g, '-'), name: t, group: 'genre' }));
     },
 
+    // Les listes du site sont classées par FRÉQUENTATION, pas par date :
+    // `/monthvisit/` (le mois), `/dayvisit/` (le jour), `/allvisit/` (toujours).
+    // Aucun classement « mis à jour récemment » n'existe.
+    //
+    // `latest` retombe donc sur les plus consultées DU JOUR. Ce n'est pas la
+    // même chose qu'une sortie récente, et il vaut mieux l'écrire ici que de
+    // laisser croire le contraire : un roman très lu aujourd'hui n'a pas
+    // forcément publié aujourd'hui. C'est l'approximation la plus proche que
+    // le site rende disponible, et elle vaut mieux qu'une page 404.
     async popular(opts = {}) {
-        return browse('/sort/novelbin-popular', opts, 600_000);
+        return browse('/monthvisit/', opts, 600_000);
     },
 
     async latest(opts = {}) {
-        return browse('/sort/latest', opts, 120_000);
+        return browse('/dayvisit/', opts, 120_000);
     },
 
     async search({ q, limit = 20, offset = 0, filters = {} } = {}) {

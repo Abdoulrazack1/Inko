@@ -195,7 +195,7 @@ async function healthStatus(_req, res, next) {
         // Inclut aussi les sources jamais appelées (aucune donnée de santé encore)
         for (const s of extensions.manifest()) {
             if (!rows.find(r => r.id === s.id))
-                rows.push({ id: s.id, name: s.name, okAt: null, failAt: null, error: null, oks: 0, fails: 0, streak: 0 });
+                rows.push({ id: s.id, name: s.name, okAt: null, failAt: null, error: null, oks: 0, fails: 0, streak: 0, videAt: null, vides: 0 });
         }
         res.json(rows);
     } catch (e) { next(e); }

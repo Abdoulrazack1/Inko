@@ -283,15 +283,29 @@
             return window.MH._sourceTypes;
         try {
             const list = await window.API.sources.list();
-            const map = {}, units = {};
-            (list || []).forEach(s => { map[s.id] = s.type || 'manga'; units[s.id] = s.unit || 'chapter'; });
+            const map = {}, units = {}, noms = {};
+            (list || []).forEach(s => {
+                map[s.id] = s.type || 'manga';
+                units[s.id] = s.unit || 'chapter';
+                // SRC-02 : dire « WeebCentral ne répond pas » et non
+                // « weebcentral ». On lit le nom au même endroit et au même
+                // moment que le type — un second cache divergerait.
+                if (s.name) noms[s.id] = s.name;
+            });
             window.MH._sourceTypes = map;
             window.MH._sourceUnits = units;
+            window.MH._sourceNoms = noms;
             _sourceTypesAt = Date.now();
         } catch (e) { window.MH._sourceTypes = window.MH._sourceTypes || {}; }
         return window.MH._sourceTypes;
     };
     window.addEventListener('source:change', () => { _sourceTypesAt = 0; });
+    // Nom lisible d'une source. Retombe sur l'identifiant, qui reste
+    // compréhensible (« sushiscan »), plutôt que sur un vide.
+    window.MH.sourceName = function (id) {
+        return (window.MH._sourceNoms && window.MH._sourceNoms[id]) || id || '';
+    };
+
     window.MH.isNovelSource = function (id) {
         const t = window.MH._sourceTypes && window.MH._sourceTypes[id];
         return t === 'novel' || t === 'book';   // les deux ouvrent le lecteur de texte
@@ -600,6 +614,44 @@
         btn.setAttribute('aria-label', btn.title);
     };
     // Marque dans le DOM les cœurs déjà en favori (état initial)
+    /* ── SRC-02 : une source en panne se DIT en panne ────────
+     * Une source dont le site a changé de balisage ne lève aucune erreur :
+     * elle analyse une page qu'elle ne comprend plus et rend une liste vide.
+     * À l'écran, c'était donc indistinguable d'un catalogue sans contenu — et
+     * le message « Modifiez les filtres » accusait le geste de l'utilisateur
+     * d'une panne qui ne lui appartenait pas.
+     *
+     * Trois règles tenues ici :
+     *   · jamais de code technique à l'écran ;
+     *   · jamais « une erreur est survenue » — on dit QUOI et on propose QUOI FAIRE ;
+     *   · une action réelle, pas seulement un constat.
+     */
+    window.MH.blocSourceMuette = function (sourceId, opts = {}) {
+        const nom = window.MH.sourceName?.(sourceId) || sourceId || 'Cette source';
+        const quoi = opts.quoi || 'série';
+        return `
+        <div class="src-muette" style="grid-column:1/-1;text-align:center;padding:38px 20px;color:var(--text2)">
+            <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">
+                ${window.MH.esc(nom)} n'a renvoyé aucune ${window.MH.esc(quoi)}
+            </div>
+            <div style="font-size:13px;line-height:1.6;max-width:440px;margin:0 auto 16px">
+                Aucun filtre n'est actif : ce n'est donc pas ta recherche. Le site est
+                peut-être momentanément indisponible, ou il a changé et la source doit
+                être mise à jour.
+            </div>
+            <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap">
+                <button class="btn btn-ghost btn-sm" data-src-action="reessayer">Réessayer</button>
+                <a class="btn btn-ghost btn-sm" href="sources.html">Voir l'état des sources</a>
+            </div>
+        </div>`;
+    };
+
+    // Délégué au document : le bloc est réinséré à chaque rendu, et un
+    // gestionnaire posé sur le bouton disparaîtrait avec lui.
+    document.addEventListener('click', (e) => {
+        if (e.target.closest?.('[data-src-action="reessayer"]')) window.location.reload();
+    });
+
     window.MH.markFavorites = async function (root) {
         if (!window.API?.isLoggedIn()) return;
         const set = await window.MH.getFavSet();

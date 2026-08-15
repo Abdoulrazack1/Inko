@@ -346,9 +346,20 @@
         // vieux de plusieurs heures.
         const casse = h.streak >= 3;
         const fragile = !casse && h.streak > 0;
-        const couleur = casse ? 'var(--red-text,#ef4444)' : (fragile ? '#f59e0b' : 'var(--green-text,#22c55e)');
-        const etat = casse ? 'Ne repond plus' : (fragile ? 'Instable' : 'Operationnelle');
-        const detail = casse && h.error ? ` — ${h.error.slice(0, 90)}` : '';
+        // SRC-02 : la panne qui répond 200. Une source dont le site a changé de
+        // balisage ne lève aucune erreur — elle analyse une page qu'elle ne
+        // comprend plus et rend une liste vide. `streak` reste donc à zéro et
+        // la pastille affichait « Operationnelle ». C'est ainsi que novelbin
+        // est restée verte ici pendant que le job hebdomadaire la déclarait
+        // morte depuis quatre semaines.
+        const muette = !casse && !fragile && h.vides > 0 && !h.oks;
+        const couleur = casse ? 'var(--red-text,#ef4444)'
+            : (fragile || muette) ? '#f59e0b' : 'var(--green-text,#22c55e)';
+        const etat = casse ? 'Ne repond plus'
+            : muette ? 'Repond, mais ne renvoie rien'
+                : fragile ? 'Instable' : 'Operationnelle';
+        const detail = casse && h.error ? ` — ${h.error.slice(0, 90)}`
+            : muette ? ' — le site a probablement change' : '';
         const quand = h.okAt ? ` · dernier succes ${ilYA(h.okAt)}` : '';
         return `<div class="src-sante" style="color:${couleur}">
             <span class="src-sante-point" style="background:${couleur}"></span>${MH.esc(etat)}${MH.esc(detail)}

@@ -7,10 +7,10 @@
 // les utilisateurs ne tombent dessus. En mémoire seulement : remis à zéro au
 // redémarrage — suffisant pour un premier diagnostic, pas de migration DB.
 // ============================================================
-const health = new Map(); // id → { okAt, failAt, error, oks, fails, streak }
+const health = new Map(); // id → { okAt, failAt, error, oks, fails, streak, videAt, vides }
 
 function entry(id) {
-    if (!health.has(id)) health.set(id, { okAt: null, failAt: null, error: null, oks: 0, fails: 0, streak: 0 });
+    if (!health.has(id)) health.set(id, { okAt: null, failAt: null, error: null, oks: 0, fails: 0, streak: 0, videAt: null, vides: 0 });
     return health.get(id);
 }
 
@@ -18,6 +18,23 @@ function recordOk(id) {
     if (!id) return;
     const h = entry(id);
     h.okAt = Date.now(); h.oks++; h.streak = 0; h.error = null;
+}
+
+// ── BUG-06 / SRC-02 : la panne qui répond 200 ──────────────
+// Une source dont le site a changé de balisage ne lève AUCUNE erreur : elle
+// analyse une page qu'elle ne comprend plus et rend une liste vide. Pour
+// `recordOk`, tout va bien. C'est ainsi que novelbin est restée « saine » ici
+// pendant que le job hebdomadaire la déclarait morte depuis quatre semaines.
+//
+// Une liste de catalogue vide n'est pas un résultat : `popular` et `latest`
+// n'ont pas de critère à ne pas satisfaire. On la compte donc à part — ni
+// succès, ni erreur, parce que ce n'en est ni l'un ni l'autre, et que
+// l'écraser dans l'une des deux catégories est exactement ce qui a rendu la
+// panne invisible.
+function recordVide(id) {
+    if (!id) return;
+    const h = entry(id);
+    h.videAt = Date.now(); h.vides++;
 }
 
 function recordFail(id, err) {
@@ -112,4 +129,4 @@ function snapshot() {
     return [...health.entries()].map(([id, h]) => ({ id, ...h }));
 }
 
-module.exports = { recordOk, recordFail, track, test, snapshot, journalDe, JOURNAL_MAX };
+module.exports = { recordOk, recordFail, recordVide, track, test, snapshot, journalDe, JOURNAL_MAX };

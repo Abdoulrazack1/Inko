@@ -163,6 +163,17 @@ function searchUrl({ text = '', sort = 'Best Match', order = 'Descending', limit
     return `/search/data?${p.toString()}`;
 }
 
+// Tronque une page brute à ce que l'appelant a demandé, et calcule un `total`
+// qui permette encore de paginer : tant que la page rendue par le site est
+// pleine, il reste vraisemblablement quelque chose derrière.
+function trancher(tous, limit, offset) {
+    const lim = +limit || 24;
+    const off = +offset || 0;
+    const results = tous.slice(0, lim);
+    const total = tous.length < lim ? off + tous.length : off + results.length + lim;
+    return { total, results };
+}
+
 // Statuts UI (normalisés) → valeurs WeebCentral
 const STATUS_MAP = { ongoing: 'Ongoing', completed: 'Complete', hiatus: 'Hiatus', cancelled: 'Canceled' };
 // Tri UI (normalisé) → valeurs WeebCentral.
@@ -200,7 +211,7 @@ module.exports = {
     lang:         'en',
     baseUrl:      BASE,
     nsfw:         false,
-    version: '1.4.0',
+    version: '1.4.1',
     unit:      'chapter',
     description:  'Weeb Central — large catalogue anglais de scans (HTMX). Recherche, chapitres et lecture.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],
@@ -234,18 +245,22 @@ module.exports = {
 
     // Total « page pleine » (audit N-EXT-2) : l'ancien total figé à 5000
     // faisait proposer à l'UI des pages qui n'existent pas.
+    // BUG-07 : le site IGNORE le paramètre `limit` et rend toujours sa page
+    // entière — 32 résultats pour `limit=3`. `search()` tronquait déjà ;
+    // `popular` et `latest` non, et toute pagination bâtie dessus était donc
+    // fausse. La troncature se fait ici, où l'on sait ce que l'appelant a
+    // demandé ; l'offset reste honoré par le site, donc aucune série n'est
+    // sautée.
     async popular({ limit = 24, offset = 0 } = {}) {
         requireCheerio();
         const html = await fetchHtml(searchUrl({ sort: 'Popularity', order: 'Descending', limit, offset }), { ttl: 600_000, hx: true });
-        const results = parseList(cheerio.load(html));
-        return { total: (+offset || 0) + results.length + (results.length >= limit ? limit : 0), results };
+        return trancher(parseList(cheerio.load(html)), limit, offset);
     },
 
     async latest({ limit = 24, offset = 0 } = {}) {
         requireCheerio();
         const html = await fetchHtml(searchUrl({ sort: 'Latest Updates', order: 'Descending', limit, offset }), { ttl: 120_000, hx: true });
-        const results = parseList(cheerio.load(html));
-        return { total: (+offset || 0) + results.length + (results.length >= limit ? limit : 0), results };
+        return trancher(parseList(cheerio.load(html)), limit, offset);
     },
 
     async search({ q, limit = 24, offset = 0, filters = {} } = {}) {
