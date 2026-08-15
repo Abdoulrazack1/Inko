@@ -68,9 +68,17 @@ async function purger() {
 function planifier() {
     if (planifiee || process.env.DISABLE_SESSION_PURGE === '1') return;
     planifiee = true;
-    const tour = () => purger().then(n => {
-        if (n > 0) console.log(`[sessions] ${n} session(s) expirée(s) purgée(s).`);
-    });
+    const tour = () => {
+        purger().then(n => {
+            if (n > 0) console.log(`[sessions] ${n} session(s) expirée(s) purgée(s).`);
+        });
+        // Même passage pour les photographies de migration (audit XIII.1) :
+        // `etat_avant` contient la bibliothèque d'une série entière. Les garder
+        // indéfiniment ferait de cette table le prochain DB-01.
+        require('./migration-sources').purger().then(n => {
+            if (n > 0) console.log(`[migration] ${n} sauvegarde(s) de migration purgée(s).`);
+        });
+    };
     // Décalé de 30 s : le démarrage a déjà les migrations et le chargement des
     // extensions à faire ; une suppression de plusieurs milliers de lignes n'a
     // aucune raison de leur disputer la connexion.

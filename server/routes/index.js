@@ -16,6 +16,7 @@ const Notif   = require('../controllers/notif.controller');
 const Notes   = require('../controllers/notes.controller');
 const Profile = require('../controllers/profile.controller');
 const Local   = require('../controllers/local.controller');
+const Migration = require('../controllers/migration.controller');   // audit XIII.1
 
 // ── Healthcheck ─────────────────────────────────
 // Audit BUG-03 : cette route renvoyait `ok:true` en dur. Elle est la sonde du
@@ -183,6 +184,20 @@ router.put   ('/me/lists/:id/order',                auth.authRequired, User.reor
 router.get   ('/me/bookmarks',            auth.authRequired, User.getBookmarks);
 router.post  ('/me/bookmarks',            auth.authRequired, User.addBookmark);
 router.delete('/me/bookmarks/:mangaId/:chapterId', auth.authRequired, User.removeBookmark);
+
+// ── Migration entre sources (audit XIII.1) ──────────────────
+// Trois sources ne répondent plus et 13 séries en dépendent : leur
+// progression existe mais l'œuvre est inatteignable. Ces routes transforment
+// la perte sèche en déménagement, réversible sept jours.
+//
+// `searchLimiter` sur les candidats : un appel interroge TOUTES les autres
+// sources installées à la fois. `writeLimiter` sur la migration, qui écrit
+// dans six tables. La recherche de candidats est bornée par le limiteur le
+// plus strict des deux parce que c'est elle qui part vers l'extérieur.
+router.get   ('/me/migrate',              auth.authRequired, Migration.liste);
+router.get   ('/me/migrate/candidats',    auth.authRequired, searchLimiter, Migration.candidats);
+router.post  ('/me/migrate',              auth.authRequired, writeLimiter,  Migration.migrer);
+router.post  ('/me/migrate/:id/annuler',  auth.authRequired, writeLimiter,  Migration.annuler);
 
 // Audit SEC-04 : cette route était la SEULE du groupe sans middleware d'auth.
 // Un visiteur anonyme obtenait un flux en direct de « qui lit quoi » — texte du

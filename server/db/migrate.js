@@ -477,6 +477,41 @@ const MIGRATIONS = [
         // Ce qu'aucune des deux ne couvre reste NULL — et sera IGNORÉ à la
         // lecture. Deviner produirait exactement le défaut qu'on referme.
     } },
+
+    { version: 20, name: 'migrations de source réversibles (audit XIII.1)', apply: async () => {
+        // Trois sources ne répondent plus ou plus complètement, et 13 séries en
+        // dépendent : chireads (9), novelfull (3), novelbin (1). Leur
+        // progression, leurs notes et leurs signets existent toujours — mais
+        // l'œuvre est devenue inatteignable. La migration transforme la perte
+        // sèche en déménagement.
+        //
+        // Cette table existe pour UNE raison : pouvoir revenir en arrière.
+        // Reporter 143 chapitres lus sur la mauvaise œuvre est une opération
+        // qu'aucun utilisateur ne saurait défaire à la main, et le score qui
+        // guide le choix n'est qu'une heuristique. `etat_avant` conserve donc
+        // l'intégralité de ce qui a été touché, en JSON, avant de l'écrire.
+        //
+        // Sept jours : au-delà, la progression a repris sur la nouvelle source
+        // et restaurer l'ancienne détruirait ce qui a été lu depuis. Une purge
+        // accompagne la fenêtre — voir `lib/migration-sources.js`.
+        await run(`CREATE TABLE IF NOT EXISTS source_migrations (
+            id            INT AUTO_INCREMENT PRIMARY KEY,
+            user_id       INT          NOT NULL,
+            manga_id      VARCHAR(191) NOT NULL,
+            source_avant  VARCHAR(64)  NOT NULL,
+            id_avant      VARCHAR(191) NOT NULL,
+            source_apres  VARCHAR(64)  NOT NULL,
+            id_apres      VARCHAR(191) NOT NULL,
+            etat_avant    JSON         NOT NULL,
+            reportes      INT          NOT NULL DEFAULT 0,
+            absents       INT          NOT NULL DEFAULT 0,
+            created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            annulee_at    TIMESTAMP    NULL DEFAULT NULL,
+            KEY idx_migr_user (user_id, created_at),
+            CONSTRAINT fk_migr_user FOREIGN KEY (user_id)
+                REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──

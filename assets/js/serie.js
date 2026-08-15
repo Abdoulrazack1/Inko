@@ -52,6 +52,9 @@
                 libStatus   = myFav?.status || null;
                 libCategory = myFav?.category || null;
                 libNotify   = myFav ? myFav.notify !== false : true;
+                // XIII.1 : la source du FAVORI, pas celle de la session — c'est
+                // elle qu'on quitte, et elle peut différer de la source courante.
+                favSource   = myFav?.source || null;
                 readChapsSet = new Set((allRead[manga.id] || []).map(r => r.chapterId));
                 progress    = allProg[manga.id] || null;
             }
@@ -108,6 +111,8 @@
     }
 
     // ── HERO ──
+    let favSource = null;      // source enregistrée du favori (audit XIII.1)
+
     function renderHero() {
         const el = document.getElementById('serieHero');
         if (!el) return;
@@ -175,6 +180,14 @@
                         <option value="dropped"   ${libStatus==='dropped'  ?'selected':''}>Abandonné</option>
                     </select>
                     <button class="btn btn-ghost btn-sm" id="btnCategory">${libCategory ? MH.esc(libCategory) : '+ Catégorie'}</button>
+                    <!-- Audit XIII.1 : quand une source meurt, la série devient
+                         inatteignable alors que la progression, les notes et les
+                         signets existent toujours. Le bouton n'apparaît que si
+                         l'œuvre est suivie — il n'y a rien à déménager avant.
+                         L'attribut data-migrer est capté par migration.js. -->
+                    ${favorited ? `<button class="btn btn-ghost btn-sm" data-migrer="${MH.esc(manga.id)}"
+                        data-migrer-source="${MH.esc(favSource || API.sources.current || '')}" data-migrer-titre="${MH.esc(manga.title || '')}"
+                        title="Suivre cette série depuis une autre source, en gardant ta progression">⇄ Changer de source</button>` : ''}
                     <!-- Audit AMEL-54 : suivre une série et vouloir en être
                          averti sont deux choses. Le bouton n'apparaît que
                          lorsqu'elle est dans la bibliothèque : il n'y a rien à

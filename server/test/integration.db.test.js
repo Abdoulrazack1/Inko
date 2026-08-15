@@ -1085,3 +1085,205 @@ test('getEvents : la source ressort de l’API (audit BUG-01)', async (t) => {
     assert.equal(ligne.source, 'mangadex',
         'sans ce champ, le client retombe sur la source courante — la boucle se rouvre');
 });
+
+// ── XIII.1 : migration entre sources ──
+// Trois sources ne répondent plus et 13 séries en dépendent. La migration
+// touche six tables ; une erreur y déplace la progression d'un lecteur sur la
+// mauvaise œuvre, en silence et sans recours. D'où l'insistance sur
+// l'annulation : c'est elle qui rend l'heuristique acceptable.
+const Migr = require('../lib/migration-sources');
+
+async function poserOeuvre(u, mangaId, source) {
+    await pool.query(
+        'INSERT INTO favorites (user_id, manga_id, source, title, status) VALUES (?,?,?,?,?)',
+        [u.id, mangaId, source, 'Solo Leveling', 'reading']);
+    // La clé primaire de `read_chapters` est (user_id, chapter_id) — SANS le
+    // manga. Deux œuvres du même compte ne peuvent donc pas partager un
+    // identifiant de chapitre : on les préfixe.
+    for (const [cid, num] of [[`${mangaId}-old-1`, 1], [`${mangaId}-old-2`, 2], [`${mangaId}-old-143`, 143]]) {
+        await pool.query(
+            'INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?,?,?,?)',
+            [u.id, mangaId, cid, num]);
+    }
+    await pool.query(
+        'INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, source) VALUES (?,?,?,?,?,?)',
+        [u.id, mangaId, `${mangaId}-old-143`, 143, 7, source]);
+    await pool.query(
+        'INSERT INTO ratings (user_id, manga_id, rating, review) VALUES (?,?,?,?)',
+        [u.id, mangaId, 8, 'excellent']);
+    await pool.query(
+        'INSERT INTO bookmarks (user_id, manga_id, chapter_id, source, title, chapter_num, page) VALUES (?,?,?,?,?,?,?)',
+        [u.id, mangaId, `${mangaId}-old-2`, source, 'Solo Leveling', 2, 3]);
+}
+
+const CIBLES = [{ id: 'new-1', number: '1' }, { id: 'new-2', number: '2' }, { id: 'new-143', number: '143' }];
+const TOUT = ['favori', 'progression', 'chapitres_lus', 'notes', 'notation', 'signets'];
+
+test('migration : tout suit l’œuvre vers la nouvelle source (audit XIII.1)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('MigrTout', 'migrtout@test.local');
+    await poserOeuvre(u, 'novelbin-solo', 'novelbin');
+
+    const r = await Migr.migrer(u.id,
+        { source: 'novelbin', mangaId: 'novelbin-solo' },
+        { source: 'sushiscan', mangaId: 'sushi-solo', titre: 'Solo Leveling' },
+        TOUT, CIBLES);
+
+    assert.equal(r.migre, true);
+    assert.equal(r.chapitresReportes, 3);
+    assert.deepEqual(r.chapitresAbsents, []);
+
+    const [[fav]] = await pool.query('SELECT * FROM favorites WHERE user_id=? AND manga_id=?', [u.id, 'sushi-solo']);
+    assert.ok(fav, 'le favori doit exister sur la nouvelle source');
+    assert.equal(fav.source, 'sushiscan');
+    assert.equal(fav.status, 'reading', 'le statut de lecture suit');
+
+    const [[ancien]] = await pool.query('SELECT * FROM favorites WHERE user_id=? AND manga_id=?', [u.id, 'novelbin-solo']);
+    assert.equal(ancien, undefined, 'l’ancien favori ne doit pas subsister en double');
+
+    const [lus] = await pool.query('SELECT chapter_id FROM read_chapters WHERE user_id=? AND manga_id=? ORDER BY chapter_id', [u.id, 'sushi-solo']);
+    assert.deepEqual(lus.map(x => x.chapter_id), ['new-1', 'new-143', 'new-2']);
+
+    const [[prog]] = await pool.query('SELECT * FROM progress WHERE user_id=? AND manga_id=?', [u.id, 'sushi-solo']);
+    assert.equal(prog.chapter_id, 'new-143', 'la position reprend au chapitre le plus avancé reporté');
+    assert.equal(Number(prog.chapter_number), 143);
+    assert.equal(prog.source, 'sushiscan');
+    assert.equal(prog.page, 1, 'la page n’est PAS transportée : deux sources ne découpent pas pareil');
+
+    const [[note]] = await pool.query('SELECT * FROM ratings WHERE user_id=? AND manga_id=?', [u.id, 'sushi-solo']);
+    assert.equal(note.rating, 8);
+    assert.equal(note.review, 'excellent');
+
+    const [sig] = await pool.query('SELECT * FROM bookmarks WHERE user_id=? AND manga_id=?', [u.id, 'sushi-solo']);
+    assert.equal(sig.length, 1);
+    assert.equal(sig[0].chapter_id, 'new-2', 'le signet suit SON chapitre, pas sa position');
+});
+
+test('migration : un chapitre sans équivalent est signalé, pas rapproché (audit XIII.1)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('MigrTrou', 'migrtrou@test.local');
+    await poserOeuvre(u, 'nb-trou', 'novelbin');
+
+    // La cible ne propose PAS le 143. Le rattacher au 2 « le plus proche »
+    // ferait croire au lecteur qu’il a lu ce qu’il n’a pas lu.
+    const r = await Migr.migrer(u.id,
+        { source: 'novelbin', mangaId: 'nb-trou' },
+        { source: 'mangadex', mangaId: 'md-trou' },
+        TOUT, [{ id: 'n1', number: 1 }, { id: 'n2', number: 2 }]);
+
+    assert.equal(r.chapitresReportes, 2);
+    assert.deepEqual(r.chapitresAbsents, [143]);
+    const [lus] = await pool.query('SELECT chapter_id FROM read_chapters WHERE user_id=? AND manga_id=?', [u.id, 'md-trou']);
+    assert.equal(lus.length, 2, 'exactement les deux chapitres qui existent en face');
+    const [[prog]] = await pool.query('SELECT * FROM progress WHERE user_id=? AND manga_id=?', [u.id, 'md-trou']);
+    assert.equal(prog.chapter_id, 'n2', 'la position retombe sur le plus grand numéro RÉELLEMENT reporté');
+});
+
+test('migration : ce qui n’est pas coché n’est pas touché', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('MigrPartiel', 'migrpart@test.local');
+    await poserOeuvre(u, 'nb-part', 'novelbin');
+
+    await Migr.migrer(u.id,
+        { source: 'novelbin', mangaId: 'nb-part' },
+        { source: 'sushiscan', mangaId: 'ss-part' },
+        ['favori'], CIBLES);
+
+    const [[fav]] = await pool.query('SELECT * FROM favorites WHERE user_id=? AND manga_id=?', [u.id, 'ss-part']);
+    assert.ok(fav, 'le favori demandé a migré');
+    const [[noteRestee]] = await pool.query('SELECT * FROM ratings WHERE user_id=? AND manga_id=?', [u.id, 'nb-part']);
+    assert.ok(noteRestee, 'la notation NON cochée reste où elle était');
+    const [lusRestes] = await pool.query('SELECT * FROM read_chapters WHERE user_id=? AND manga_id=?', [u.id, 'nb-part']);
+    assert.equal(lusRestes.length, 3, 'les chapitres lus non cochés ne bougent pas');
+});
+
+test('migration : annulation dans la fenêtre — tout revient (audit XIII.1)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('MigrAnnul', 'migrannul@test.local');
+    await poserOeuvre(u, 'nb-annul', 'novelbin');
+    const avant = await Migr.etatDe(u.id, 'nb-annul');
+
+    const r = await Migr.migrer(u.id,
+        { source: 'novelbin', mangaId: 'nb-annul' },
+        { source: 'sushiscan', mangaId: 'ss-annul' },
+        TOUT, CIBLES);
+
+    const annul = await Migr.annuler(u.id, r.id);
+    assert.equal(annul.annulee, true);
+    assert.equal(annul.mangaId, 'nb-annul');
+
+    const apres = await Migr.etatDe(u.id, 'nb-annul');
+    assert.equal(apres.favori?.source, avant.favori.source, 'le favori est rendu à sa source d’origine');
+    assert.equal(apres.progression?.chapter_id, 'nb-annul-old-143');
+    assert.equal(apres.progression?.page, 7, 'la page exacte est restaurée — c’est tout l’intérêt de la photographie');
+    assert.equal(apres.chapitresLus.length, 3);
+    assert.equal(apres.notation?.rating, 8);
+    assert.equal(apres.signets.length, 1);
+
+    // Et rien ne doit subsister du côté où l’on était allé.
+    const [[resteFav]] = await pool.query('SELECT * FROM favorites WHERE user_id=? AND manga_id=?', [u.id, 'ss-annul']);
+    assert.equal(resteFav, undefined);
+    const [resteLus] = await pool.query('SELECT * FROM read_chapters WHERE user_id=? AND manga_id=?', [u.id, 'ss-annul']);
+    assert.equal(resteLus.length, 0);
+});
+
+test('migration : on n’annule pas deux fois, ni au-delà de sept jours', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('MigrFenetre', 'migrfen@test.local');
+    await poserOeuvre(u, 'nb-fen', 'novelbin');
+    const r = await Migr.migrer(u.id,
+        { source: 'novelbin', mangaId: 'nb-fen' },
+        { source: 'sushiscan', mangaId: 'ss-fen' }, TOUT, CIBLES);
+
+    await Migr.annuler(u.id, r.id);
+    await assert.rejects(() => Migr.annuler(u.id, r.id), /déjà été annulée/i);
+
+    // Une seconde migration, vieillie de huit jours : la lecture a repris
+    // depuis, restaurer l’ancien état effacerait ce qui a été lu.
+    await poserOeuvre(u, 'nb-vieux', 'novelbin');
+    const r2 = await Migr.migrer(u.id,
+        { source: 'novelbin', mangaId: 'nb-vieux' },
+        { source: 'sushiscan', mangaId: 'ss-vieux' }, TOUT, CIBLES);
+    await pool.query('UPDATE source_migrations SET created_at = NOW() - INTERVAL 8 DAY WHERE id = ?', [r2.id]);
+    await assert.rejects(() => Migr.annuler(u.id, r2.id), /7 jours/i);
+});
+
+test('migration : refus des cas qui n’auraient aucun sens', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('MigrRefus', 'migrrefus@test.local');
+    await poserOeuvre(u, 'nb-refus', 'novelbin');
+
+    await assert.rejects(
+        () => Migr.migrer(u.id, { source: 'novelbin', mangaId: 'nb-refus' },
+            { source: 'sushiscan', mangaId: 'x' }, [], CIBLES),
+        /Rien à conserver/i);
+
+    await assert.rejects(
+        () => Migr.migrer(u.id, { source: 'novelbin', mangaId: 'nb-refus' },
+            { source: 'novelbin', mangaId: 'nb-refus' }, TOUT, CIBLES),
+        /source de départ/i);
+
+    await assert.rejects(
+        () => Migr.migrer(u.id, { source: 'novelbin', mangaId: 'inexistante' },
+            { source: 'sushiscan', mangaId: 'x' }, TOUT, CIBLES),
+        /Rien à migrer/i);
+});
+
+test('migration : une migration ratée ne laisse rien à moitié fait', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('MigrAtomique', 'migratom@test.local');
+    await poserOeuvre(u, 'nb-atom', 'novelbin');
+
+    // `vers.mangaId` dépasse VARCHAR(191) : l’écriture échouera EN COURS de
+    // transaction, après que le favori a été posé. Sans transaction, l’œuvre
+    // resterait coupée en deux — la moitié ici, la moitié là-bas.
+    const trop = 'x'.repeat(300);
+    await assert.rejects(() => Migr.migrer(u.id,
+        { source: 'novelbin', mangaId: 'nb-atom' },
+        { source: 'sushiscan', mangaId: trop }, TOUT, CIBLES));
+
+    const apres = await Migr.etatDe(u.id, 'nb-atom');
+    assert.ok(apres.favori, 'le favori d’origine doit être intact');
+    assert.equal(apres.chapitresLus.length, 3, 'les chapitres lus aussi');
+    assert.equal(apres.progression?.chapter_id, 'nb-atom-old-143');
+});

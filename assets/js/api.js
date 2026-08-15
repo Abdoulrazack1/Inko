@@ -757,6 +757,23 @@
             setConfig(clientId) { return put('/anilist/config', { clientId }); },
         },
 
+        // ── Migration entre sources (audit XIII.1) ──
+        // Trois sources ne répondent plus et 13 séries en dépendent. Ces
+        // appels ne passent PAS par le cache partagé : `candidats` interroge
+        // toutes les autres sources en direct, et servir un résultat de la
+        // minute précédente ferait proposer une source qui vient de revenir —
+        // ou l'inverse.
+        migrate: {
+            candidats(source, mangaId, titre) {
+                const qs = new URLSearchParams({ source: source || '', mangaId: mangaId || '' });
+                if (titre) qs.set('titre', titre);
+                return get('/me/migrate/candidats?' + qs.toString());
+            },
+            lancer(corps)  { return post('/me/migrate', corps); },
+            annuler(id)    { return post(`/me/migrate/${encodeURIComponent(id)}/annuler`, {}); },
+            annulables()   { return get('/me/migrate'); },
+        },
+
     };
 
     window.API = API;
