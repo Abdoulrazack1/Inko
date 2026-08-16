@@ -65,10 +65,38 @@
                 const bar = document.getElementById('dlBar');
                 bar.style.display = '';
                 bar.firstElementChild.style.width = Math.min(100, (st.usage / st.quota) * 100) + '%';
+                // P2.3 : dire si ces téléchargements SURVIVRONT. Le stockage
+                // d'un WebView est effaçable par le système sous pression
+                // mémoire — annoncer « disponibles hors-ligne » sans le
+                // préciser serait une promesse qu'on ne tient pas, et qui se
+                // casse au pire moment : dans le train, sans réseau pour
+                // recommencer.
+                const garantie = st.persistant
+                    ? 'Conservés tant que tu ne les supprimes pas.'
+                    : 'Le système peut les effacer s’il manque de place — retélécharge avant un trajet.';
                 document.getElementById('dlStorage').textContent =
-                    `${total} chapitre(s) · ${fmtSize(st.usage)} utilisés sur ${fmtSize(st.quota)} disponibles sur cet appareil.`;
+                    `${total} chapitre(s) · ${fmtSize(st.usage)} utilisés sur ${fmtSize(st.quota)} disponibles. ${garantie}`;
             } else {
                 document.getElementById('dlStorage').textContent = `${total} chapitre(s) disponibles hors-ligne.`;
+            }
+            // Proposer la persistance quand elle manque ET qu'il y a quelque
+            // chose à protéger. Un bouton qui apparaît sans raison est du bruit.
+            if (total && st && !st.persistant && navigator.storage?.persist) {
+                const z = document.getElementById('dlStorage');
+                const b = document.createElement('button');
+                b.className = 'btn btn-secondary btn-sm';
+                b.style.cssText = 'margin-left:10px;min-height:44px';
+                b.textContent = 'Protéger ces téléchargements';
+                b.addEventListener('click', async () => {
+                    b.disabled = true;
+                    const ok = await window.Downloads.demanderPersistance();
+                    window.MH?.toast?.(ok
+                        ? 'Téléchargements protégés — le système ne les effacera plus.'
+                        : 'Le système a refusé. Installer l’application (ou l’ouvrir plus souvent) rend la demande acceptable.');
+                    if (ok) render();
+                    else b.disabled = false;
+                });
+                z.appendChild(b);
             }
         } catch (e) { window.MH?.err?.('downloads-page.js', e); }
 

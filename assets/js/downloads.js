@@ -84,6 +84,18 @@
                 if (/presque plein/.test(e.message)) throw e;
                 window.MH?.err?.('downloads.js', e);   // estimate() indisponible : on continue
             }
+            // Demandée ICI, au premier téléchargement, et pas au chargement de
+            // la page : une demande de persistance sans contexte est plus
+            // volontiers refusée, et l'utilisateur n'a aucune raison de la voir
+            // avant d'avoir voulu garder quelque chose.
+            const persistant = await this.demanderPersistance();
+            if (!persistant) {
+                // On ne bloque PAS : un téléchargement non persistant reste
+                // utile aujourd'hui. Mais on le dit — promettre du hors-ligne
+                // que le système peut effacer sans prévenir serait mentir.
+                window.MH?.toast?.('Téléchargement lancé — le système pourra l’effacer s’il manque de place.');
+            }
+
             const cache = await caches.open(CACHE);
             const urls = pages.map(p => p.url).filter(Boolean);
             const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -205,10 +217,43 @@
             try {
                 if (navigator.storage?.estimate) {
                     const e = await navigator.storage.estimate();
-                    return { usage: e.usage || 0, quota: e.quota || 0 };
+                    return {
+                        usage: e.usage || 0,
+                        quota: e.quota || 0,
+                        persistant: await this.estPersistant(),
+                    };
                 }
             } catch (e) { window.MH?.err?.('downloads.js', e); }
-            return { usage: 0, quota: 0 };
+            return { usage: 0, quota: 0, persistant: false };
+        },
+
+        // ── P2.3 : sans ça, Android peut TOUT effacer ───────────
+        // Le stockage d'un WebView est « best-effort » par défaut : sous
+        // pression mémoire, le système est libre de le vider — sans prévenir,
+        // et sans que l'application puisse s'y opposer.
+        //
+        // Concrètement : on télécharge dix chapitres pour le train, le
+        // téléphone se remplit d'autre chose entre-temps, et le matin du
+        // départ il ne reste rien. C'est exactement le scénario pour lequel on
+        // télécharge, et le seul où l'échec ne se rattrape pas — il n'y a plus
+        // de réseau pour recommencer.
+        //
+        // `persist()` demande le mode PERSISTANT : les données ne sont alors
+        // effacées que par l'utilisateur lui-même. La demande peut être
+        // refusée (le navigateur décide, souvent selon l'engagement de
+        // l'utilisateur : app installée, visites répétées) — d'où
+        // `estPersistant()`, qui dit l'état RÉEL plutôt que ce qu'on espérait.
+        async demanderPersistance() {
+            try {
+                if (!navigator.storage?.persist) return false;
+                if (await navigator.storage.persisted()) return true;
+                return await navigator.storage.persist();
+            } catch (e) { window.MH?.err?.('downloads.js', e); return false; }
+        },
+
+        async estPersistant() {
+            try { return !!(navigator.storage?.persisted && await navigator.storage.persisted()); }
+            catch (e) { return false; }
         },
 
         async count() { try { return (await allMeta()).length; } catch (e) { return 0; } },
