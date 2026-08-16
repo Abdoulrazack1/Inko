@@ -107,5 +107,22 @@ if adb logcat -d | grep -iE "Capacitor/Console.*(refused|blocked|Failed to load)
     echo "::warning::Des ressources ont été refusées — voir ci-dessus."
 fi
 
+# ── L'écran de configuration s'affiche-t-il ? ───────────────
+# Sans hub configuré, l'app DOIT demander l'adresse du serveur. Un premier
+# passage montrait la page d'accueil normale à la place : impossible de
+# trancher à l'œil sur une capture, et « l'app démarre » ne veut rien dire si
+# l'utilisateur ne peut pas la connecter.
+echo "── l'écran de configuration du hub ? ──"
+if adb logcat -d | grep -q "inko-hub. ecran-configuration-affiche"; then
+    echo "✔ écran de configuration affiché"
+elif adb logcat -d | grep -q "inko-hub. etat=configure"; then
+    echo "✔ hub déjà configuré sur cet appareil — écran non requis"
+else
+    echo "::error::Sans hub configuré, l'écran de connexion ne s'est pas affiché."
+    echo "         L'utilisateur n'aurait aucun moyen de connecter l'application."
+    adb logcat -d | grep -i "inko-hub" | head -10
+    exit 1
+fi
+
 adb exec-out screencap -p > /tmp/demarrage.png
 echo "✔ capture prise ($(stat -c%s /tmp/demarrage.png 2>/dev/null || echo '?') octets)"

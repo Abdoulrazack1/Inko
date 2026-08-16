@@ -120,6 +120,8 @@
     }
 
     function ecran(messageInitial) {
+        if (document.getElementById('inko-hub-config')) return;   // déjà affiché
+        console.log('[inko-hub] ecran-configuration-affiche');
         const veil = document.createElement('div');
         veil.id = 'inko-hub-config';
         veil.innerHTML = `
@@ -269,6 +271,12 @@
         champ.addEventListener('keydown', (e) => { if (e.key === 'Enter') champCode.focus(); });
         (lire() ? champCode : champ).focus();
     }
+
+    // Trace lisible dans logcat (Capacitor y renvoie la console). Elle sert au
+    // contrôle automatique de démarrage : sans elle, « l'écran de configuration
+    // s'affiche-t-il ? » ne se vérifiait qu'à l'œil, sur une capture.
+    console.log('[inko-hub] etat=' + (window.INKO_HUB ? 'configure:' + window.INKO_HUB : 'non-configure')
+        + ' jeton=' + (window.INKO_TOKEN ? 'present' : 'absent'));
 
     // Rien de configuré : on demande, et on n'exécute pas le reste de la page.
     if (!window.INKO_HUB) {
