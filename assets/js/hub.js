@@ -105,6 +105,55 @@
         return { ok: true, user: j.user };
     }
 
+    /**
+     * Y a-t-il des chapitres téléchargés sur cet appareil ?
+     *
+     * C'est la question qui décide si un hub injoignable est un CUL-DE-SAC ou
+     * une simple gêne. `downloads.js` range ses métadonnées dans IndexedDB
+     * ('inko-dl' > 'chapters') ; on les compte sans charger le module, qui
+     * n'est pas présent sur toutes les pages.
+     */
+    function chapitresHorsLigne() {
+        return new Promise((resolve) => {
+            let fini = false;
+            const repondre = (n) => { if (!fini) { fini = true; resolve(n); } };
+            // Une base qui ne s'ouvre pas ne doit pas bloquer le démarrage :
+            // au pire, on se comporte comme s'il n'y avait rien.
+            setTimeout(() => repondre(0), 2500);
+            try {
+                // ⚠ `indexedDB.open(nom)` SANS version CRÉE la base si elle
+                // n'existe pas — vide, en version 1. `downloads.js` l'ouvre
+                // ensuite en version 1, ne déclenche donc aucune mise à
+                // niveau, et son magasin `chapters` n'est JAMAIS créé : plus
+                // aucun téléchargement possible, définitivement, sur une
+                // installation neuve.
+                //
+                // Constaté ici même : `version=1 stores=` (aucun magasin).
+                // On reprend donc la MÊME création que `downloads.js`, pour
+                // que la base soit valide quel que soit celui qui l'ouvre en
+                // premier. Une simple lecture ne doit jamais laisser la
+                // structure dans un état que personne d'autre ne peut réparer.
+                const req = indexedDB.open('inko-dl', 1);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains('chapters')) {
+                        const os = db.createObjectStore('chapters', { keyPath: 'chapterId' });
+                        os.createIndex('mangaId', 'mangaId', { unique: false });
+                    }
+                };
+                req.onerror = () => repondre(0);
+                req.onblocked = () => repondre(0);
+                req.onsuccess = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains('chapters')) { repondre(0); return; }
+                    const c = db.transaction('chapters', 'readonly').objectStore('chapters').count();
+                    c.onsuccess = () => repondre(c.result || 0);
+                    c.onerror = () => repondre(0);
+                };
+            } catch (e) { repondre(0); }
+        });
+    }
+
     /** Le QR encode `{ v, hub, code }`. On accepte aussi un code seul. */
     function lireCharge(texte) {
         const t = String(texte || '').trim();
@@ -289,23 +338,80 @@
     console.log('[inko-hub] etat=' + (window.INKO_HUB ? 'configure:' + window.INKO_HUB : 'non-configure')
         + ' jeton=' + (window.INKO_TOKEN ? 'present' : 'absent'));
 
-    // Rien de configuré : on demande, et on n'exécute pas le reste de la page.
+    // Rien de configuré : on demande. Ici le mur est légitime — sans hub ET
+    // sans rien de téléchargé, il n'y a littéralement rien à montrer, et
+    // laisser l'utilisateur errer dans des pages vides serait pire.
     if (!window.INKO_HUB) {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => ecran(''));
-        } else { ecran(''); }
+        const ouvrir = () => chapitresHorsLigne().then((n) => {
+            if (!n) { ecran(''); return; }
+            // Cas rare mais réel : l'appareil a été appairé, la configuration
+            // effacée (nettoyage du navigateur), et des chapitres sont restés.
+            window.INKO_HORS_LIGNE = true;
+            bandeauHorsLigne(n, 'aucun serveur configuré');
+        });
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ouvrir);
+        else ouvrir();
         return;
     }
 
-    // Un hub est configuré, mais il peut avoir changé d'adresse (DHCP), être
-    // éteint, ou être resté sur un autre réseau. On le vérifie une fois par
-    // lancement, sans bloquer l'affichage : si la vérification échoue, on
-    // propose de corriger l'adresse plutôt que de laisser chaque page échouer
-    // une par une.
+    // ── P2.3 : hub injoignable ≠ application inutile ────────
+    // Première version : un hub qui ne répond plus rouvrait l'écran de
+    // configuration, PAR-DESSUS tout. C'était un mur — et précisément dans le
+    // métro, avec des chapitres téléchargés sur l'appareil, l'app devenait
+    // inutilisable alors qu'elle avait tout ce qu'il fallait pour lire.
+    //
+    // La règle : on ne bloque QUE s'il n'y a rien à lire. Sinon on annonce le
+    // mode hors ligne, on laisse la page ouverte, et on propose les deux
+    // sorties utiles — les téléchargements, et la correction de l'adresse.
     window.addEventListener('load', async () => {
         const r = await tester(window.INKO_HUB);
-        if (!r.ok) ecran('Le serveur configuré (' + window.INKO_HUB + ') ne répond plus : ' + r.raison + '.');
+        if (r.ok) return;
+
+        const n = await chapitresHorsLigne();
+        if (!n) {
+            ecran('Le serveur configuré (' + window.INKO_HUB + ') ne répond plus : ' + r.raison + '.');
+            return;
+        }
+        window.INKO_HORS_LIGNE = true;
+        bandeauHorsLigne(n, r.raison);
     });
+
+    /**
+     * Bandeau de mode hors ligne. Fixe en bas — la barre du haut porte déjà la
+     * navigation, et sur un téléphone le pouce atteint le bas.
+     * Non bloquant, et refermable : il informe, il n'interrompt pas.
+     */
+    function bandeauHorsLigne(nb, raison) {
+        if (document.getElementById('inko-hors-ligne')) return;
+        const el = document.createElement('div');
+        el.id = 'inko-hors-ligne';
+        el.setAttribute('role', 'status');
+        el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(64px + env(safe-area-inset-bottom, 0px) + 12px);'
+            + 'z-index:2147482000;display:flex;gap:10px;align-items:center;flex-wrap:wrap;'
+            + 'padding:12px 14px;border-radius:12px;background:#2a2118;border:1px solid #6b4a22;'
+            + 'color:#f0d9b8;font-size:13px;line-height:1.5;'
+            + 'font-family:system-ui,-apple-system,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.4)';
+        el.innerHTML = '<span style="flex:1 1 200px;min-width:0">'
+            + '<b>Hors ligne</b> — le serveur ne répond pas (' + esc(raison) + ').<br>'
+            + esc(String(nb)) + ' chapitre(s) téléchargé(s) restent lisibles.'
+            + '</span>'
+            + '<a href="downloads.html" style="min-height:44px;display:inline-flex;align-items:center;'
+            + 'padding:0 14px;border-radius:9px;background:#ff8c42;color:#111;font-weight:700;'
+            + 'text-decoration:none">Mes téléchargements</a>'
+            + '<button type="button" data-hl="config" style="min-height:44px;padding:0 12px;border-radius:9px;'
+            + 'background:transparent;border:1px solid #6b4a22;color:#f0d9b8;cursor:pointer">Changer d\'adresse</button>'
+            + '<button type="button" data-hl="fermer" aria-label="Fermer" style="min-height:44px;min-width:44px;'
+            + 'background:transparent;border:none;color:#f0d9b8;font-size:18px;cursor:pointer">×</button>';
+        document.body.appendChild(el);
+        el.querySelector('[data-hl="config"]').addEventListener('click', () => ecran(''));
+        el.querySelector('[data-hl="fermer"]').addEventListener('click', () => el.remove());
+    }
+
+    function esc(t) {
+        return String(t == null ? '' : t)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
 
     // Permet de changer de hub depuis les réglages de l'app.
     window.INKO_changerHub = () => ecran('');

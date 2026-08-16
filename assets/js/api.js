@@ -119,6 +119,22 @@
         // qui suit renverrait l'ancienne. On vide tout plutôt que de raisonner
         // par préfixe : une écriture est rare, une lecture périmée est un bug.
         if (method !== 'GET') sharedCache.clear();
+
+        // ── P2.3 : hors ligne, on échoue VITE ───────────────
+        // `hub.js` pose `INKO_HORS_LIGNE` quand le hub n'a pas répondu au
+        // lancement. Sans ce raccourci, chaque appel attendrait son délai
+        // complet : une page en enchaîne trente, et l'application paraîtrait
+        // gelée alors qu'elle sait déjà qu'il n'y a personne au bout.
+        //
+        // Les ÉCRITURES, elles, partent quand même : la file hors-ligne existe
+        // pour ça (audit AMEL-79), et une progression de lecture doit pouvoir
+        // s'y ranger même quand le hub est éteint.
+        if (window.INKO_HORS_LIGNE && method === 'GET') {
+            const e = new Error('Hors ligne — le serveur n’est pas joignable.');
+            e.network = true; e.horsLigne = true;
+            throw e;
+        }
+
         const ctrl  = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeout);
         const opts = {
