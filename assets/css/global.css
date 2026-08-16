@@ -1277,3 +1277,42 @@ a[data-nsfw] .manga-card-cover::after,
     .mh-etat-vide { padding: 36px 18px; }
     .mh-vide-actions .btn { min-height: 44px; }
 }
+
+/* ══ REPLI aspect-ratio — GÉNÉRÉ par scripts-ci/gen-repli-aspect-ratio.js ══ */
+/* Ne pas modifier à la main : `npm run gen-repli-ar` régénère ce bloc.
+   15 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
+   (WebView Android 8 = Chrome 61). Sur un navigateur récent, ce bloc
+   entier est ignoré. */
+@supports not (aspect-ratio: 1 / 1) {
+    .hero-poster-link { height: 300px; }
+    .trending-cover { height: 0; padding-top: 133.3333%; }
+    .trending-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .lib2-cover { height: 0; padding-top: 133.3333%; }
+    .lib2-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .focus-cover { height: 0; padding-top: 56.25%; }
+    .focus-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .results-grid.list-view .manga-card-cover { padding-top: 0; }
+    .cd-serie-cover { height: 0; padding-top: 133.3333%; }
+    .cd-serie-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .cd-serie-card-cover { height: 0; padding-top: 133.3333%; }
+    .cd-serie-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .list-card-cover { height: 0; padding-top: 62.5%; }
+    .list-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .manga-card-cover { height: 0; padding-top: 133.3333%; }
+    .manga-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .heatmap-cell { height: 0; padding-top: 100%; }
+    .heatmap-cell > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .list-manga-cover { height: 0; padding-top: 133.3333%; }
+    .list-manga-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .se-cover { height: 0; padding-top: 133.3333%; }
+    .se-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .similar-cover { height: 0; padding-top: 133.3333%; }
+    .similar-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .manga-card-cover { height: 0; padding-top: 133.3333%; }
+    .manga-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  @media (max-width: 480px) {
+      .cd-serie-cover { height: 0; padding-top: 133.3333%; }
+      .cd-serie-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  }
+}
+/* ══ fin du repli aspect-ratio ══ */

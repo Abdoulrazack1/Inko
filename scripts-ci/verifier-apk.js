@@ -107,8 +107,36 @@ function verifierAssets() {
             + `le WebView d'Android 8 l'ignore et les surcouches ne couvriront rien : ${cssModerne.slice(0, 5).join(', ')}`);
     }
 
+    // `aspect-ratio` (Chrome 88) est le même piège, en plus grave : une
+    // couverture qui ne tient sa hauteur QUE d'elle tombe à 0 px, et l'image
+    // qu'elle contient avec — mesuré 223 px → 0. Ici on ne l'interdit pas (elle
+    // sert aux navigateurs récents), on exige son REPLI, qui vit dans
+    // global.css et couvre les déclarations de toutes les feuilles.
+    let replisAR = 0;
+    const globalCss = path.join(dirCss, 'global.css');
+    if (fs.existsSync(globalCss)) {
+        const g = fs.readFileSync(globalCss, 'utf8');
+        const bloc = /@supports\s+not\s*\(\s*aspect-ratio[\s\S]*$/.exec(g);
+        replisAR = bloc ? (bloc[0].match(/padding-top|height\s*:/g) || []).length : 0;
+    }
+    let declarationsAR = 0;
+    if (fs.existsSync(dirCss)) {
+        for (const f of fs.readdirSync(dirCss)) {
+            if (!f.endsWith('.css')) continue;
+            const code = fs.readFileSync(path.join(dirCss, f), 'utf8');
+            const avant = f === 'global.css' ? code.split(/@supports\s+not\s*\(\s*aspect-ratio/)[0] : code;
+            declarationsAR += (avant.match(/aspect-ratio\s*:/g) || []).length;
+        }
+    }
+    if (declarationsAR && !replisAR) {
+        echec(`${declarationsAR} déclaration(s) \`aspect-ratio\` embarquée(s) sans aucun repli — `
+            + 'sur le WebView d’Android 8 les couvertures feront 0 px de haut et disparaîtront '
+            + '(→ npm run gen-repli-ar)');
+    }
+
     console.log(`✔ contenu embarqué : ${n} fichier(s), indispensables présents, hub.js avant api.js, `
-        + 'aucune syntaxe ES2020, aucun `inset` non abaissé');
+        + 'aucune syntaxe ES2020, aucun `inset` non abaissé, '
+        + `${declarationsAR} \`aspect-ratio\` repliée(s) pour Android 8`);
 }
 
 function compter(dir) {

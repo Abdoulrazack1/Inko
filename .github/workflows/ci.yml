@@ -106,6 +106,13 @@ jobs:
       - name: Vérifier la référence d'API
         run: node scripts-ci/gen-openapi.js --check
 
+      # `aspect-ratio` est une propriété de Chrome 88, IGNORÉE par le WebView
+      # d'Android 8. Une couverture qui ne tient sa hauteur que d'elle fait
+      # alors 0 px — mesuré : 223 px → 0. Le repli est dérivé du CSS, et ce
+      # contrôle échoue dès qu'une déclaration est ajoutée sans lui.
+      - name: Vérifier le repli aspect-ratio (WebView Android 8)
+        run: node scripts-ci/gen-repli-aspect-ratio.js --check
+
       - name: Regénérer les empreintes
         run: node scripts-ci/gen-ext-hashes.js
       - name: Échouer si hashes.json n'est pas à jour

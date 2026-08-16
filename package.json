@@ -12,6 +12,7 @@
     "gen-ext-hashes": "node scripts-ci/gen-ext-hashes.js",
     "check-sources": "node scripts-ci/check-sources.js",
     "gen-precache": "node scripts-ci/gen-precache.js",
+    "gen-repli-ar": "node scripts-ci/gen-repli-aspect-ratio.js",
     "verifier-installeur": "node scripts-ci/verifier-installeur.js",
     "gen-openapi": "node scripts-ci/gen-openapi.js",
     "setup": "node scripts-ci/setup-env.js",
