@@ -84,7 +84,7 @@ jobs:
         run: node scripts-ci/verifier-apk.js --apk
 
       - name: Publier l'APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: inko-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk

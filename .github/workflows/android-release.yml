@@ -139,7 +139,7 @@ jobs:
           echo "nom=$DST" >> "$GITHUB_OUTPUT"
 
       - name: Publier en pièce jointe du run
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: inko-apk-signe
           path: |
