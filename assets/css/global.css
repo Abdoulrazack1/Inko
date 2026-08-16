@@ -926,6 +926,18 @@ a[data-nsfw] .manga-card-cover::after,
 
 /* ── Navigation mobile (bottom bar) ─────────────────────── */
 .mobile-nav { display: none; }
+
+/* MOB-02 : le bouton flottant « Retour en haut » est posé en `bottom: 22px`
+   par un style EN LIGNE (`global.js`). Là où la barre de navigation mobile
+   s'affiche, il tombe donc PAR-DESSUS elle et intercepte l'onglet « Plus » —
+   mesuré : la cible n'était pas atteignable en son centre.
+   `!important` est nécessaire ici, et seulement ici : un style en ligne ne se
+   surcharge pas autrement. Le décalage suit la hauteur réelle de la barre,
+   encoche comprise. */
+@media (max-width: 1024px) {
+  #btnBackTop { bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 14px) !important; }
+}
+
 @media (max-width: 1024px) {
   .mobile-nav {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 95;
@@ -1185,3 +1197,68 @@ a[data-nsfw] .manga-card-cover::after,
 .undo-bar-action:disabled { opacity: .6; cursor: default; }
 .undo-bar-close { flex: 0 0 auto; color: var(--text3); font-size: 15px; padding: 2px 4px; }
 .undo-bar-close:hover { color: var(--text); }
+
+
+/* ═══════════════════════════════════════════════════════════
+   MOB-02 — cibles tactiles (audit AMEL-84, jamais traité)
+   ───────────────────────────────────────────────────────────
+   Relevé de l'audit à 375 px : 770 cibles sous 32 px sur la bibliothèque,
+   132 sur le catalogue, 61 sur l'accueil, et entre 19 et 39 sur les sept
+   autres pages. Sous 32 px, une cible se rate au doigt — on vise à côté, on
+   revient, on réessaie.
+
+   Deux principes tenus ici :
+
+   1. AGRANDIR LA ZONE, PAS LE DESSIN. Beaucoup de ces cibles sont des icônes
+      de 16 à 24 px dont l'agrandissement casserait la mise en page. Un
+      pseudo-élément « ::after » étend la zone SENSIBLE autour du bouton sans
+      rien déplacer : le dessin garde sa taille, le doigt gagne sa marge.
+
+   2. SEULEMENT SUR POINTEUR GROSSIER. « pointer: coarse » vise le doigt, pas
+      la souris. Une souris n'a pas besoin de 44 px, et étendre les zones sur
+      un écran de bureau ferait se chevaucher des contrôles voisins.
+
+   44 px est le seuil des référentiels d'accessibilité (WCAG 2.5.5 demande
+   44x44 px CSS). On ne l'impose pas en hauteur — ce qui casserait les barres
+   denses — mais en zone atteignable.
+
+   À noter : cette règle ne pouvait PAS fonctionner avant que
+   « html[data-theme=contrast] * { min-height: 0 } » ne soit retiré (P1.3).
+   Sa spécificité (0,1,1) écrasait toute règle de classe, et donc toute
+   hauteur minimale, dans le thème conçu pour l'accessibilité.
+   ═══════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+  /* La zone étendue est CENTRÉE sur le contrôle et ne descend jamais sous
+     44 px. « position: relative » est posé sur le contrôle lui-même pour
+     ancrer le pseudo-élément. */
+  button, a[href], [role='button'], input[type='checkbox'], input[type='radio'], summary {
+    position: relative;
+  }
+  button::after, a[href]::after, [role='button']::after,
+  input[type='checkbox']::after, input[type='radio']::after, summary::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%; height: 100%;
+    min-width: 44px; min-height: 44px;
+    background: transparent;   /* la zone s'atteint, elle ne se voit pas */
+    pointer-events: auto;
+    z-index: 0;
+  }
+  /* Le contenu du bouton reste AU-DESSUS de la zone étendue : sans ça, une
+     icône ou un dégradé passerait derrière et disparaîtrait. */
+  button > *, a[href] > *, [role='button'] > * { position: relative; z-index: 1; }
+
+  /* Exceptions — là où l'extension nuirait plus qu'elle n'aiderait :
+     · un lien DANS un paragraphe : la zone déborderait sur les lignes
+       voisines et leur volerait leurs clics ;
+     · les cartes et vignettes, déjà bien plus grandes que 44 px, dont
+       plusieurs utilisent déjà leur propre « ::after » décoratif. */
+  p a[href]::after, li a[href]::after,
+  .manga-card::after, .lib2-card::after, .source-card::after,
+  .trending-card::after, .fav-item::after, .history-entry::after,
+  .nt-item::after, .migr-cand::after {
+    content: none;
+  }
+}

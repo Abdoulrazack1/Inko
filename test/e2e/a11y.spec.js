@@ -72,7 +72,12 @@ async function analyser(page, opts = {}) {
 // contraste qui n'est pas mesuree derive au premier composant ajoute — c'est
 // exactement ce qui est arrive au theme clair (A11Y-02, 58 echecs).
 test('le theme contraste tient le niveau AAA (AMEL-83)', async ({ page }) => {
-    test.setTimeout(180_000);   // même raison : axe sur `parametres.html`
+    // Même raison que le recensement plus bas : axe analyse les 1 517 contrôles
+    // de `parametres.html`, ce qui prend ~100 s à vide et davantage sur une
+    // machine chargée. À 180 s le test échouait par dépassement, pas par
+    // violation — un faux négatif qui ferait chercher une régression de
+    // contraste là où il n'y en a pas.
+    test.setTimeout(300_000);
     await ouvrir(page, '/parametres.html');
     await page.evaluate(() => window.Theme.apply('contrast'));
     await page.waitForTimeout(600);
