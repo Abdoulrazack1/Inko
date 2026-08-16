@@ -84,7 +84,11 @@ jobs:
           # API 26 : le plancher que l'app déclare. Vérifier là où ça casse en
           # premier a plus de valeur que sur la dernière version d'Android.
           api-level: 26
-          target: default
+          # `google_apis` et non `default` : l'image `default` d'API 26
+          # N'EMBARQUE PAS DE WEBVIEW. L'app s'y lançait sans pouvoir rien
+          # afficher, et le contrôle passait quand même — c'est ce qui a mis
+          # ce défaut au jour.
+          target: google_apis
           arch: x86_64
           profile: pixel_2
           disable-animations: true

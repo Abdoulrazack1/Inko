@@ -51,10 +51,39 @@ if adb logcat -d | grep -E "FATAL EXCEPTION|AndroidRuntime.*${PAQUET}"; then
 fi
 echo "✔ aucune exception fatale"
 
+# ── Le WebView s'est-il seulement construit ? ───────────────
+# Premier passage de ce contrôle : il annonçait « processus vivant, aucune
+# exception fatale » pendant que logcat contenait une pile `WebViewFactory`
+# sur `CapacitorWebView.<init>` — l'image système `default` d'API 26
+# n'embarque PAS de WebView. L'app tournait donc sans rien pouvoir afficher,
+# et le contrôle passait.
+#
+# Un processus vivant ne prouve pas qu'une app affiche quelque chose. C'est
+# précisément le genre de vert qui a laissé sortir deux installeurs desktop
+# vides.
+echo "── le WebView s'est-il construit ? ──"
+if adb logcat -d | grep -qE "WebViewFactory.*(Error|Exception)|Cannot load WebView|No WebView installed"; then
+    echo "::error::Le WebView n'a pas pu être créé — l'application ne peut rien afficher."
+    adb logcat -d | grep -iE "WebViewFactory|WebViewLibraryLoader" | head -20
+    exit 1
+fi
+echo "✔ WebView construit"
+
 # Une CSP qui bloque, un fichier manquant ou un schéma refusé se voient ICI
 # avant de se voir à l'écran — et un écran blanc ne dit jamais pourquoi.
 echo "── ce que le WebView a chargé ──"
-adb logcat -d | grep -iE "Capacitor|chromium|WebView|Console" | tail -30 || true
+adb logcat -d | grep -iE "Capacitor|chromium|Console" | tail -30 || true
+
+# Le contenu embarqué a-t-il vraiment été servi ? Capacitor journalise l'URL
+# chargée ; son absence signale un WebView qui n'a jamais atteint la page.
+echo "── la page a-t-elle été chargée ? ──"
+if adb logcat -d | grep -qiE "Loading app at|WebView loaded|Capacitor.*started"; then
+    echo "✔ page chargée"
+else
+    echo "::error::Aucune trace de chargement de page : l'écran serait vide."
+    adb logcat -d | grep -i capacitor | head -20
+    exit 1
+fi
 
 echo "── erreurs de console de la page ──"
 if adb logcat -d | grep -iE "console.*(error|refused|blocked|CSP)"; then
