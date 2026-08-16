@@ -151,6 +151,33 @@ test.describe('Images', () => {
         await page.waitForTimeout(4000);
         expect([...externes], 'aucune image ne doit être demandée hors du serveur Inko').toEqual([]);
     });
+
+    // Ce test observait les REQUÊTES, et seulement sur la bibliothèque. Deux
+    // angles morts, qui se sont refermés sur un vrai défaut :
+    //
+    //   · une image en `loading="lazy"` hors de l'écran ne déclenche aucune
+    //     requête — son `src` peut donc pointer n'importe où sans être vu ;
+    //   · la page des notifications n'était pas couverte. C'est précisément
+    //     celle où la migration 17 a laissé le rendu écrire `src="${n.image}"`
+    //     tel quel, une fois le proxy retiré des données stockées. Résultat :
+    //     40 couvertures demandées DIRECTEMENT à des hôtes tiers, bloquées par
+    //     la CSP, et 40 cadres vides à l'écran.
+    //
+    // On inspecte donc l'ATTRIBUT, sur les deux pages.
+    for (const chemin of ['/notifications.html', '/bibliotheque.html', '/accueil.html']) {
+        test(`aucun src d'image ne vise un hôte tiers sur ${chemin}`, async ({ page }) => {
+            await ouvrir(page, chemin);
+            await page.waitForTimeout(3500);
+            const fautifs = await page.evaluate(() => [...document.querySelectorAll('img')]
+                .map(i => i.getAttribute('src') || '')
+                .filter(s => /^https?:\/\//i.test(s))
+                .filter(s => {
+                    try { return new URL(s).origin !== location.origin; } catch (e) { return true; }
+                })
+                .slice(0, 5));
+            expect(fautifs, 'le proxy s’applique à l’AFFICHAGE : aucun src ne doit sortir de l’origine').toEqual([]);
+        });
+    }
 });
 
 test.describe('Profil public (BUG-01)', () => {

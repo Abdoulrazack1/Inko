@@ -652,6 +652,24 @@
         if (e.target.closest?.('[data-src-action="reessayer"]')) window.location.reload();
     });
 
+    /* ── Couvertures de notification : proxy à l'AFFICHAGE ───
+     * La migration 17 (audit) a retiré le proxy des couvertures STOCKÉES —
+     * c'était le bon geste : une URL proxifiée figée casse dès que le port du
+     * hub change, et depuis un téléphone `127.0.0.1` désigne le téléphone.
+     * Mais le rendu des notifications, lui, écrivait `src="${n.image}"` tel
+     * quel : les couvertures partaient donc DIRECTEMENT vers les hôtes tiers,
+     * étaient bloquées par la CSP, et 40 cadres vides restaient à l'écran.
+     *
+     * Le `onerror=` qui devait les masquer était un gestionnaire EN LIGNE :
+     * inerte sous la CSP de l'application installée (DESK-01). Il est remplacé
+     * par une écoute en phase de CAPTURE — `error` ne remonte pas dans l'arbre,
+     * et cela couvre aussi les images insérées après coup.
+     */
+    document.addEventListener('error', (e) => {
+        const t = e.target;
+        if (t && t.tagName === 'IMG' && t.classList.contains('nt-cover')) t.style.display = 'none';
+    }, true);
+
     window.MH.markFavorites = async function (root) {
         if (!window.API?.isLoggedIn()) return;
         const set = await window.MH.getFavSet();
@@ -1286,7 +1304,7 @@
             return `
                 <a href="${esc(n.link || '#')}" data-nid="${n.id}" style="display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;background:${n.read ? 'transparent' : 'rgba(255,140,66,.07)'}">
                     ${n.image
-                        ? `<img src="${esc(n.image)}" alt="" loading="lazy" style="flex:0 0 auto;width:34px;height:46px;object-fit:cover;border-radius:6px;background:var(--bg3)" onerror="this.style.display='none'">`
+                        ? `<img class="nt-cover" src="${cover(n.image)}" alt="" loading="lazy" style="flex:0 0 auto;width:34px;height:46px;object-fit:cover;border-radius:6px;background:var(--bg3)">`
                         : `<div style="flex:0 0 auto;color:var(--accent)">${window.MH.icon(iconName, 16)}</div>`}
                     <div style="min-width:0">
                         <div style="font-size:12.5px;font-weight:600;line-height:1.3">${esc(n.title || '')}${pastille}</div>
@@ -1299,7 +1317,7 @@
         return `
             <a class="nt-item ${n.read ? '' : 'unread'}" href="${esc(n.link || '#')}" data-nid="${n.id}">
                 ${n.image
-                    ? `<img class="nt-cover" src="${esc(n.image)}" alt="" loading="lazy" style="width:38px;height:52px;object-fit:cover;border-radius:7px;background:var(--bg3);flex:0 0 auto" onerror="this.style.display='none'">`
+                    ? `<img class="nt-cover" src="${cover(n.image)}" alt="" loading="lazy" style="width:38px;height:52px;object-fit:cover;border-radius:7px;background:var(--bg3);flex:0 0 auto">`
                     : `<div class="nt-ico" style="color:var(--accent)">${window.MH.icon(iconName, 18)}</div>`}
                 <div class="nt-body">
                     <div class="nt-title">${esc(n.title || '')}${pastille}</div>
