@@ -23,7 +23,12 @@ PAQUET="app.inko.mobile"
 echo "── installation ──"
 adb install -r "$APK"
 
-adb logcat -c
+# `logcat -c` échoue sur les émulateurs API 26 (« failed to clear the 'main'
+# log ») sans que rien ne soit cassé pour autant. Avec `set -e`, il faisait
+# tomber tout le contrôle juste après une installation RÉUSSIE — un échec qui
+# ne parlait pas de l'app.
+adb logcat -c || echo "(logcat non vidé — sans conséquence sur ce contrôle)"
+
 echo "── démarrage ──"
 adb shell am start -n "$PAQUET/.MainActivity"
 
