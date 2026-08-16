@@ -111,8 +111,16 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
+      # `--signature-requise` SEULEMENT si une clé a été déposée : sans clé,
+      # un APK non signé est le résultat attendu, pas un défaut. Le contrôle
+      # constate le fait ; c'est ici qu'on connaît l'intention.
       - name: Vérifier l'APK produit
-        run: node scripts-ci/verifier-apk.js --apk
+        run: |
+          if [ "${{ steps.cle.outputs.signe }}" = "oui" ]; then
+            node scripts-ci/verifier-apk.js --apk --signature-requise
+          else
+            node scripts-ci/verifier-apk.js --apk
+          fi
 
       # Le keystore ne doit pas survivre au job, même en cas d'échec plus haut.
       - name: Effacer le keystore

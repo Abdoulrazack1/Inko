@@ -187,11 +187,21 @@ function verifierApk() {
     const signe = noms.some(n => /^META-INF\/.*\.(RSA|DSA|EC)$/i.test(n))
         || noms.some(n => n === 'META-INF/BNDLTOOL.SF')
         || buf_a_signature_v2(chemin);
-    const estRelease = DOSSIER_APK === DOSSIER_RELEASE;
-    if (estRelease && !signe) {
-        echec('APK de publication NON SIGNÉ : il ne s’installera pas, et aucune '
-            + 'installation existante ne pourra être mise à jour.');
+    // Signature EXIGÉE seulement quand l'appelant dit qu'une clé était
+    // disponible (`--signature-requise`). Sans clé, un APK non signé est le
+    // résultat attendu — il permet d'éprouver la chaîne sur un dépôt
+    // fraîchement cloné. Le distinguer d'un oubli est le rôle de l'appelant :
+    // ce script constate, il ne devine pas l'intention.
+    const exigee = process.argv.includes('--signature-requise');
+    if (!signe) {
+        if (exigee) {
+            echec('APK de publication NON SIGNÉ alors qu’une clé était fournie : '
+                + 'il ne s’installera pas, et aucune installation existante ne pourra être mise à jour.');
+        }
+        console.warn('::warning::APK non signé — utilisable pour éprouver la chaîne, '
+            + 'mais il ne s’installera pas sur un téléphone.');
     }
+    const estRelease = DOSSIER_APK === DOSSIER_RELEASE;
 
     console.log(`✔ ${apks[0]} — ${(taille / 1048576).toFixed(1)} Mo, ${nPublic} fichier(s) d'application embarqués`);
     console.log(`  entrées totales : ${noms.length}`);
