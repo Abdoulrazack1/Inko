@@ -68,6 +68,25 @@ function transpiler(src, dst) {
     return true;
 }
 
+// ── Le CSS aussi : `inset` est une propriété de Chrome 87 ───
+// 38 usages dans ces feuilles, dont `position: fixed; inset: 0` sur le lecteur
+// plein écran et sur toutes les modales. Sur le WebView d'Android 8, la
+// déclaration est ignorée SANS ERREUR : l'élément garde des décalages `auto`,
+// se pose n'importe où et ne couvre rien. Repéré sur l'écran de configuration
+// du hub, qui apparaissait dans le DOM sans jamais se voir.
+//
+// esbuild abaisse `inset` en `top/right/bottom/left`, comme il abaisse `?.`.
+function transpilerCss(src, dst) {
+    if (!esbuild) { fs.copyFileSync(src, dst); return false; }
+    const r = esbuild.transformSync(fs.readFileSync(src, 'utf8'), {
+        target: CIBLE,
+        loader: 'css',
+        legalComments: 'inline',
+    });
+    fs.writeFileSync(dst, r.code);
+    return true;
+}
+
 function copierDossier(src, dst) {
     if (!fs.existsSync(src)) return 0;
     fs.mkdirSync(dst, { recursive: true });
@@ -78,6 +97,7 @@ function copierDossier(src, dst) {
         // Les vendors sont déjà distribués en ES5 : les retoucher n'apporte
         // rien et risquerait de casser un minifieur tiers.
         if (e.name.endsWith('.js') && !s.includes('vendor')) { transpiler(s, d); transpiles++; }
+        else if (e.name.endsWith('.css')) { transpilerCss(s, d); transpilesCss++; }
         else fs.copyFileSync(s, d);
         n++;
     }
@@ -85,6 +105,7 @@ function copierDossier(src, dst) {
 }
 
 let transpiles = 0;
+let transpilesCss = 0;
 
 function construire() {
     fs.rmSync(SORTIE, { recursive: true, force: true });
@@ -113,7 +134,7 @@ function construire() {
     injecterHub(SORTIE);
 
     console.log(`✔ mobile/www : ${pages} page(s), ${actifs} fichier(s) d'actifs`);
-    if (esbuild) console.log(`  ${transpiles} script(s) transpilé(s) vers ${CIBLE}`);
+    if (esbuild) console.log(`  ${transpiles} script(s) et ${transpilesCss} feuille(s) transpilé(s) vers ${CIBLE}`);
     else console.warn('  ⚠ esbuild absent : scripts copiés tels quels — l’app échouera sur un WebView ancien.');
 }
 

@@ -87,7 +87,25 @@ function verifierAssets() {
             + `le WebView d'Android 8 ne les lira pas : ${modernes.slice(0, 5).join(', ')}`);
     }
 
-    console.log(`✔ contenu embarqué : ${n} fichier(s), indispensables présents, hub.js avant api.js, aucune syntaxe ES2020`);
+    // Même raison pour le CSS : `inset` est une propriété de Chrome 87, ignorée
+    // SANS ERREUR par le WebView d'Android 8. Toutes les modales et le lecteur
+    // plein écran s'en servent — ignorée, la surcouche ne couvre rien.
+    const cssModerne = [];
+    const dirCss = path.join(PUBLIC_ANDROID, 'assets', 'css');
+    if (fs.existsSync(dirCss)) {
+        for (const f of fs.readdirSync(dirCss)) {
+            if (!f.endsWith('.css')) continue;
+            const code = fs.readFileSync(path.join(dirCss, f), 'utf8');
+            if (/[^-]inset\s*:/.test(code)) cssModerne.push(f);
+        }
+    }
+    if (cssModerne.length) {
+        echec(`Propriété \`inset\` non abaissée dans ${cssModerne.length} feuille(s) — `
+            + `le WebView d'Android 8 l'ignore et les surcouches ne couvriront rien : ${cssModerne.slice(0, 5).join(', ')}`);
+    }
+
+    console.log(`✔ contenu embarqué : ${n} fichier(s), indispensables présents, hub.js avant api.js, `
+        + 'aucune syntaxe ES2020, aucun `inset` non abaissé');
 }
 
 function compter(dir) {

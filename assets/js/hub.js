@@ -124,12 +124,23 @@
         console.log('[inko-hub] ecran-configuration-affiche');
         const veil = document.createElement('div');
         veil.id = 'inko-hub-config';
+        // Les propriétés qui font que ce voile COUVRE l'écran sont posées en
+        // ligne, pas dans la feuille : mesuré, le voile sortait en 48×48 px —
+        // présent, au-dessus de tout, et invisible. La page d'accueil
+        // s'affichait derrière, et l'utilisateur n'avait aucun moyen de
+        // connecter l'app.
+        //
+        // Un écran bloquant ne doit pas dépendre d'une feuille de style que la
+        // page hôte peut contredire. Le reste de l'habillage reste en CSS.
+        veil.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;'
+            + 'z-index:2147483000;display:flex;align-items:center;justify-content:center;'
+            + 'padding:24px;background:#0f0f12;color:#eee;overflow:auto;'
+            + 'box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif';
         veil.innerHTML = `
         <style>
-          #inko-hub-config{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;
-            justify-content:center;padding:24px;background:#0f0f12;color:#eee;
-            font-family:system-ui,-apple-system,'Segoe UI',sans-serif}
-          #inko-hub-config .boite{width:min(420px,100%)}
+          /* La géométrie du voile est posée en ligne (voir hub.js) : elle ne
+             doit pas pouvoir être contredite par la feuille de la page. */
+          #inko-hub-config .boite{width:100%;max-width:420px}
           #inko-hub-config h1{font-size:21px;font-weight:700;margin:0 0 6px}
           #inko-hub-config p{font-size:13.5px;line-height:1.6;color:#aaa;margin:0 0 18px}
           #inko-hub-config label{display:block;font-size:12px;color:#bbb;margin-bottom:6px}
