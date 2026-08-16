@@ -292,10 +292,20 @@
         const filtered = method === 'PUT' ? q.filter(e => !(e.method === 'PUT' && e.path === path)) : q;
         filtered.push({ method, path, body, at: Date.now() });
         writeQueue(filtered);
+        // Dès qu'il y a quelque chose à envoyer, on surveille le retour du hub.
+        surveillerFile();
     }
     let _flushing = false;
     async function flushOfflineQueue() {
+        // `navigator.onLine` MENT : il dit « en ligne » dès qu'une interface
+        // réseau est active. Sur un téléphone connecté au Wi-Fi mais loin de la
+        // maison, il vaut `true` alors que le hub est injoignable — on partait
+        // donc vider la file dans le vide.
+        //
+        // Il reste utile dans un sens : `false` signifie vraiment hors ligne.
+        // On garde donc ce court-circuit, et on ajoute le nôtre.
         if (_flushing || !navigator.onLine || !_token) return;
+        if (window.INKO_HORS_LIGNE) return;
         const q = readQueue().filter(e => Date.now() - e.at < 7 * 86400000);
         if (!q.length) { writeQueue([]); return; }
         _flushing = true;
@@ -315,6 +325,39 @@
     }
     window.addEventListener('online', () => setTimeout(flushOfflineQueue, 1500));
     setTimeout(flushOfflineQueue, 4000);   // rattrapage au chargement de page
+
+    // ── P2.4 : le hub qui REVIENT ───────────────────────────
+    // La file ne se vidait qu'à l'événement `online` et au chargement de page.
+    // Or le cas courant n'est ni l'un ni l'autre : on lit dans le train, on
+    // rentre, le téléphone rejoint le Wi-Fi de la maison — `online` n'est pas
+    // réémis (il n'a jamais été à `false`, le Wi-Fi du train marchait), et
+    // aucune page n'est rechargée puisque l'app est déjà ouverte.
+    //
+    // La progression restait alors en attente jusqu'à la prochaine ouverture,
+    // et l'utilisateur retrouvait sa bibliothèque en retard sans comprendre.
+    //
+    // On repique donc périodiquement, mais SEULEMENT s'il y a quelque chose à
+    // envoyer : une app qui interroge le réseau toutes les minutes sans raison
+    // est une app qui vide la batterie.
+    let _minuteurFile = null;
+    function surveillerFile() {
+        if (_minuteurFile) return;
+        _minuteurFile = setInterval(async () => {
+            if (!readQueue().length) { clearInterval(_minuteurFile); _minuteurFile = null; return; }
+            if (window.INKO_HORS_LIGNE) {
+                // Le hub était injoignable au lancement : on retente une fois
+                // de le joindre avant de renoncer pour ce tour.
+                try {
+                    const r = await fetch(API_BASE + '/health', { cache: 'no-store' });
+                    if (r.ok) window.INKO_HORS_LIGNE = false;
+                } catch (e) { return; }
+            }
+            flushOfflineQueue();
+        }, 60_000);
+    }
+    // Démarré seulement quand une écriture est mise en attente : sans file, pas
+    // de minuteur du tout. (`queueOffline` l'appelle ; voir plus haut.)
+    if (readQueue().length) setTimeout(surveillerFile, 8000);
 
     // ── Proxy de couvertures ──────────────────────────────────
     // Réécrit vers /api/img (cache serveur + bon Referer + compat Cloudflare)
