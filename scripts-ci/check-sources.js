@@ -49,6 +49,7 @@ function withTimeout(p, ms, label) {
     if (!dirs.length) { console.error('Aucune extension trouvée dans', EXT_DIR); process.exit(1); }
 
     let failures = 0;
+    let blocages = 0;   // sites qui refusent le runner : signalés, pas comptés
     for (const dir of dirs) {
         const label = dir.padEnd(14);
         let src;
@@ -94,10 +95,38 @@ function withTimeout(p, ms, label) {
                 console.log(`✔ ${label} ${n} résultat(s) en ${secs}s`);
             }
         } catch (e) {
-            console.log(`✖ ${label} ${e.message}`);
-            failures++;
+            // ── Bloqué n'est pas cassé ──────────────────────
+            // Relevé sur les runs du 3 et du 10 août : HTTP 403,
+            // « Command failed: curl », délais dépassés — sur CINQ sources à la
+            // fois, alors que les mêmes répondent depuis une connexion
+            // domestique. Les sites scrapés bloquent les adresses de centres de
+            // données : c'est le RUNNER qu'ils refusent, pas la source qui a
+            // cassé.
+            //
+            // Compter ça comme une panne fait crier au loup chaque semaine. Et
+            // une alarme à laquelle on ne croit plus ne sert à rien — c'est
+            // exactement ce qui a laissé novelbin morte quatre lundis de suite
+            // pendant que le job était rouge.
+            //
+            // Ces échecs sont donc SIGNALÉS sans faire échouer le contrôle. Une
+            // source réellement cassée, elle, répond 200 et rend une liste vide
+            // ou des entrées incomplètes : ces cas restent des pannes.
+            const m = String((e && e.message) || e || '');
+            const bloque = /HTTP 40[13]|HTTP 429|HTTP 5\d\d|Command failed: curl|délai|timeout|ETIMEDOUT|ECONNRESET|EAI_AGAIN|socket hang up/i.test(m);
+            if (bloque) {
+                console.log(`\u26a0 ${label} injoignable depuis ce runner \u2014 ${m.slice(0, 80)}`);
+                blocages++;
+            } else {
+                console.log(`\u2716 ${label} ${m}`);
+                failures++;
+            }
         }
     }
-    console.log(failures ? `\n${failures} source(s) en panne.` : '\nToutes les sources répondent.');
+    if (blocages) {
+        console.log(`\n${blocages} source(s) ont refusé ce runner (403/429/délai) — non compté comme panne.`);
+        console.log('   Ces sites bloquent les adresses de centres de données ; vérifier depuis'
+            + ' une connexion domestique avant de conclure.');
+    }
+    console.log(failures ? `\n${failures} source(s) cassée(s).` : '\nAucune source cassée.');
     process.exit(failures ? 1 : 0);
 })();

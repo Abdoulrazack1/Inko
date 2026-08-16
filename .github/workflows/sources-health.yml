@@ -54,8 +54,14 @@ jobs:
           TITRE: Sources en panne — vérification hebdomadaire
         run: |
           {
-            echo "Le contrôle hebdomadaire a trouvé au moins une source qui ne répond plus,"
-            echo "ou qui répond en rompant son contrat (limite ignorée, entrées sans titre)."
+            echo "Le contrôle hebdomadaire a trouvé au moins une source CASSÉE :"
+            echo "elle répond, mais ne renvoie rien d'exploitable, ou rompt son contrat"
+            echo "(limite ignorée, entrées sans identifiant ou sans titre)."
+            echo
+            echo "Les sources marquées ⚠ ont simplement refusé le runner GitHub (403, 429,"
+            echo "délai) : ces sites bloquent les adresses de centres de données. Elles ne"
+            echo "sont PAS comptées comme cassées — vérifier depuis une connexion domestique"
+            echo "avant de conclure."
             echo
             echo '```'
             cat rapport.txt
