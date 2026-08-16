@@ -98,6 +98,29 @@ const ORIGINES_WEBVIEW = new Set([
     'https://tauri.localhost',  // Windows (WebView2 recent)
 ]);
 
+// ── P2.1 : les origines de l'application Android ────────────
+// Le commentaire ci-dessus annonçait « compat desktop/PWA/mobile Capacitor,
+// dont les origines varient : capacitor://, http://localhost, file:// » — mais
+// la liste ne contenait QUE Tauri. L'APK aurait été bloqué par le CORS sur
+// chaque appel : c'est exactement le défaut SEC-09, qui avait rendu l'app
+// desktop inutilisable en 2.5.4 pendant que le serveur répondait 200.
+//
+// Ces origines ne sont PAS gardées derrière `IS_DESKTOP`, contrairement à
+// celles de Tauri : le téléphone parle à un hub qui peut être l'app desktop
+// comme un NAS ou un VPS. Les gater sur le desktop casserait le cas NAS, qui
+// est le plus durable des deux.
+//
+// Ce que ça ouvre, précisément : une page servie depuis `localhost` sur la
+// machine de l'utilisateur, ou une app native locale, peut appeler le hub.
+// Pas un site web distant — un serveur tiers ne peut pas se donner l'origine
+// `capacitor://localhost` ni `http://localhost`. L'authentification reste
+// exigée par ailleurs.
+const ORIGINES_MOBILE = new Set([
+    'capacitor://localhost',    // schéma par défaut de Capacitor (iOS, et Android si androidScheme=capacitor)
+    'http://localhost',         // androidScheme: 'http' — celui qu'utilise cet APK
+    'https://localhost',        // androidScheme: 'https' (défaut Capacitor Android)
+]);
+
 function corsOptions() {
     const allow = (process.env.CORS_ORIGINS || '')
         .split(',').map(s => s.trim()).filter(Boolean);
@@ -129,6 +152,7 @@ function corsOptions() {
             // qui ne peut pas se donner une de ces origines. La protection de
             // SEC-09 reste donc entière.
             if (IS_DESKTOP && ORIGINES_WEBVIEW.has(origin)) return cb(null, true);
+            if (ORIGINES_MOBILE.has(origin)) return cb(null, true);   // P2.1 : l'app Android
             if (allow.length) return cb(null, allow.includes(origin));   // liste blanche stricte
             return cb(null, permissiveOk);               // permissif seulement hors prod ou opt-in
         },

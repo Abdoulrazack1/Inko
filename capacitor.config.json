@@ -1,0 +1,12 @@
+{
+  "appId": "app.inko.mobile",
+  "appName": "Inko",
+  "webDir": "mobile/www",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  }
+}

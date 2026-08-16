@@ -263,3 +263,59 @@ test('plafond : le plafond n’est jamais SUPPRIMÉ, seulement relevé', () => {
     assert.ok(Number.isFinite(p(req('127.0.0.1'))));
     assert.ok(p(req('127.0.0.1')) > 0);
 });
+
+// ── P2.1 : l'app Android doit pouvoir parler à son hub ──
+// Le commentaire de `security.js` annonçait la compatibilité Capacitor
+// (« capacitor://, http://localhost, file:// ») alors que la liste ne
+// contenait QUE les origines Tauri. L'APK aurait été bloqué par le CORS sur
+// chaque appel — c'est exactement le défaut SEC-09, qui avait rendu l'app
+// desktop inutilisable en 2.5.4 pendant que le serveur répondait 200.
+//
+// Ce test existe parce que la panne est INVISIBLE côté serveur : la requête
+// arrive, le serveur répond, et c'est le client qui jette la réponse faute
+// d'en-tête. Aucun journal ne la signale.
+const { corsOptions } = require('../middleware/security');
+
+function origineAutorisee(origin) {
+    return new Promise((resolve) => {
+        corsOptions().origin(origin, (err, ok) => resolve(!err && ok === true));
+    });
+}
+
+test('CORS : les trois origines de l’app Android sont acceptées (audit P2.1)', async () => {
+    for (const o of ['capacitor://localhost', 'http://localhost', 'https://localhost']) {
+        assert.equal(await origineAutorisee(o), true, `${o} doit être acceptée`);
+    }
+});
+
+test('CORS en PRODUCTION : l’app passe, un site tiers non', () => {
+    // `NODE_ENV` est lu au CHARGEMENT du module : le changer dans ce processus
+    // n'a aucun effet, le mode permissif de développement resterait actif et
+    // le test passerait pour de mauvaises raisons. On interroge donc un
+    // processus neuf, comme pour SEC-02.
+    const code = `
+        const { corsOptions } = require('./middleware/security');
+        const o = corsOptions().origin;
+        const test = (v) => new Promise(r => o(v, (e, ok) => r(!e && ok === true)));
+        Promise.all([
+            test('capacitor://localhost'), test('http://localhost'), test('https://localhost'),
+            test('https://exemple-malveillant.test'), test('http://192.168.1.99:3000'),
+        ]).then(r => { process.stdout.write(JSON.stringify(r)); process.exit(0); });`;
+    const sortie = require('child_process').execFileSync(process.execPath, ['-e', code], {
+        cwd: require('path').join(__dirname, '..'),
+        env: { ...process.env, NODE_ENV: 'production', CORS_ORIGINS: '', CORS_ALLOW_ANY: '' },
+        encoding: 'utf8', timeout: 30_000,
+    });
+    const [cap, http, https, tiers1, tiers2] = JSON.parse(sortie.slice(sortie.indexOf('[')));
+    assert.equal(cap, true, 'capacitor://localhost doit passer même en production');
+    assert.equal(http, true, 'http://localhost doit passer même en production');
+    assert.equal(https, true, 'https://localhost doit passer même en production');
+    assert.equal(tiers1, false, 'un site tiers ne doit jamais passer');
+    assert.equal(tiers2, false, 'ni un serveur du réseau local');
+});
+
+test('CORS : une requête sans Origin passe (app native, curl)', async () => {
+    // Une app native n'envoie pas d'en-tête Origin. La refuser casserait les
+    // clients qui ne sont pas des navigateurs.
+    assert.equal(await origineAutorisee(undefined), true);
+});

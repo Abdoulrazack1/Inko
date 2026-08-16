@@ -1,0 +1,22 @@
+ext {
+    // Audit P2.1 : API 26 (Android 8.0, août 2017) et non 23.
+    // En dessous, trois choses manquent qui comptent ici : les canaux de
+    // notification (obligatoires pour un usage sérieux des notifications de
+    // nouveaux chapitres), les limites de tâches en arrière-plan sur
+    // lesquelles repose un téléchargement fiable, et un WebView assez récent
+    // pour le CSS de l'application. API 26 couvre plus de 95 % du parc.
+    minSdkVersion = 26
+    compileSdkVersion = 35
+    targetSdkVersion = 35
+    androidxActivityVersion = '1.9.2'
+    androidxAppCompatVersion = '1.7.0'
+    androidxCoordinatorLayoutVersion = '1.2.0'
+    androidxCoreVersion = '1.15.0'
+    androidxFragmentVersion = '1.8.4'
+    coreSplashScreenVersion = '1.0.1'
+    androidxWebkitVersion = '1.12.1'
+    junitVersion = '4.13.2'
+    androidxJunitVersion = '1.2.1'
+    androidxEspressoCoreVersion = '3.6.1'
+    cordovaAndroidVersion = '10.1.1'
+}

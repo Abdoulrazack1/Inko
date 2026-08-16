@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Audit P2.1 — le hub d'Inko est joignable EN CLAIR sur le réseau local.
+
+  Depuis Android 9 (API 28), le trafic HTTP en clair est refusé par défaut.
+  C'est une bonne règle sur Internet, et une règle qui empêcherait cette
+  application de fonctionner : le hub, c'est le PC ou le NAS de
+  l'utilisateur, qui sert Inko sur `http://192.168.x.x:8088` sans certificat.
+  Il n'existe pas d'autorité de certification pour une adresse privée, et en
+  exiger une reviendrait à demander à chacun de monter un reverse proxy avant
+  d'ouvrir l'app.
+
+  ── Pourquoi l'autorisation est GÉNÉRALE et non limitée aux plages privées ──
+
+  Première version de ce fichier : `<domain>192.168.0.0</domain>` avec
+  `includeSubdomains`. Elle paraissait juste et n'autorisait RIEN. La
+  configuration réseau d'Android filtre par NOM D'HÔTE, avec une
+  correspondance par suffixe — elle ne comprend pas les plages CIDR. Or
+  l'adresse du hub est attribuée par DHCP : elle n'est connue ni à la
+  compilation ni à l'installation. Aucune liste de domaines ne peut donc la
+  couvrir.
+
+  Le clair est donc autorisé globalement, et la restriction est portée
+  ailleurs, là où elle peut l'être réellement :
+
+    · l'écran de configuration (`hub.js`) VÉRIFIE que l'adresse répond en
+      `/api/health` avant de l'enregistrer — une adresse au hasard est
+      refusée avec un message, pas acceptée en silence ;
+    · l'application ne contacte QUE le hub. Les couvertures des sites tiers
+      passent par le proxy d'images du serveur, jamais en direct : aucune
+      requête ne part vers un domaine public depuis le téléphone.
+
+  Les certificats système restent la seule ancre de confiance : un hub servi
+  en HTTPS derrière un tunnel est vérifié normalement.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

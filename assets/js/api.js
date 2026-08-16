@@ -16,9 +16,20 @@
     const DEV_STATIC_PORTS = ['5500', '5501', '5173', '4173', '3000'];
     const SAME_ORIGIN_BACKEND = location.protocol !== 'file:'
         && !DEV_STATIC_PORTS.includes(location.port);
-    const API_BASE = SAME_ORIGIN_BACKEND
-        ? '/api'
-        : 'http://localhost:8088/api';
+
+    // ── App mobile : l'API vit sur une AUTRE machine ────────────
+    // Dans l'APK, l'interface est embarquée et servie depuis
+    // `http://localhost` par la WebView, tandis que l'API tourne sur le hub —
+    // le PC ou le NAS de l'utilisateur, à une adresse qu'il configure.
+    // `hub.js` est chargé AVANT ce fichier et pose alors `window.INKO_HUB`.
+    //
+    // Il n'y a pas de valeur par défaut à deviner : une adresse de hub ne se
+    // devine pas, et pointer au hasard produirait des erreurs réseau
+    // incompréhensibles. Sans hub configuré, `hub.js` affiche son écran de
+    // configuration et cette page n'appelle rien.
+    const HUB = (typeof window !== 'undefined' && window.INKO_HUB) || null;
+    const API_BASE = HUB ? (HUB.replace(/\/+$/, '') + '/api')
+        : (SAME_ORIGIN_BACKEND ? '/api' : 'http://localhost:8088/api');
 
     // ── État courant ──────────────────────────────────────────
     // Audit SEC-06 : le JWT était persisté dans localStorage EN PLUS du cookie

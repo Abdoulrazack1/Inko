@@ -42,10 +42,18 @@ npm-debug.log*
 Thumbs.db
 
 # Build / Capacitor
-android/
+# `android/` était ignoré EN ENTIER, vestige d'une tentative antérieure. Or le
+# projet Android doit être versionné : c'est lui qui porte le manifeste, la
+# configuration réseau et le niveau d'API. Sans lui dans le dépôt, la CI n'a
+# rien à compiler. Seul ce que Gradle FABRIQUE est exclu, plus bas.
 ios/
 dist/
 build/
+# Retirer `android/` a dé-ignoré ces icônes, générées par `tauri icon` pour une
+# plateforme que ce dépôt ne construit pas. L'ancienne règle les attrapait par
+# effet de bord — on l'écrit maintenant explicitement.
+desktop-tauri/src-tauri/icons/android/
+desktop-tauri/src-tauri/icons/ios/
 
 # Outils de prod vidéo (ffmpeg, puppeteer, frames) — lourds, hors repo
 tools/
@@ -58,3 +66,21 @@ tools/
 /test-results/
 /playwright-report/
 /blob-report/
+
+# ── Application Android (audit P2.1) ──
+# mobile/www est DÉRIVÉ : reconstruit par scripts-ci/build-mobile-www.js à
+# chaque build. Le versionner ferait diverger deux copies du frontend, et
+# c est exactement ce genre de duplication qui a produit un installeur sans
+# aucune source en 2.5.1.
+mobile/www/
+
+# Le projet Android EST versionné (manifeste, gradle, configuration réseau)
+# mais pas ce que Gradle fabrique.
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/capacitor-cordova-android-plugins/
