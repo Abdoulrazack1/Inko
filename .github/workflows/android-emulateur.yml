@@ -58,59 +58,40 @@ jobs:
       - name: Synchroniser Capacitor
         run: npx cap sync android
 
-      # L'émulateur a besoin de l'accélération matérielle ; sans elle, le
-      # démarrage dépasse largement le temps imparti.
+      # L'APK est construit ICI, pas dans le script de l'émulateur : compiler
+      # pendant qu'un émulateur tourne gaspille sa fenêtre de vie, et un échec
+      # de compilation se lirait alors comme un échec de démarrage.
+      - name: Construire l'APK de debug
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Vérifier le contenu de l'APK
+        run: node scripts-ci/verifier-apk.js --apk
+
+      # Sans accélération matérielle, le démarrage de l'émulateur dépasse
+      # largement le temps imparti.
       - name: Activer KVM
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"'             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
       - name: Démarrer l'app sur un émulateur
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          # API 26 : le minimum que l'app déclare. Vérifier sur le plancher a
-          # plus de valeur que sur la dernière version — c'est là que ça casse.
+          # API 26 : le plancher que l'app déclare. Vérifier là où ça casse en
+          # premier a plus de valeur que sur la dernière version d'Android.
           api-level: 26
           target: default
           arch: x86_64
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            set -e
-            cd android
-            chmod +x gradlew
-            ./gradlew assembleDebug --no-daemon
-
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb logcat -c
-            adb shell am start -n app.inko.mobile/.MainActivity
-            sleep 12
-
-            echo "── le processus tourne-t-il encore ? ──"
-            if ! adb shell pidof app.inko.mobile > /dev/null; then
-              echo "::error::L'application s'est arrêtée après le démarrage."
-              adb logcat -d -t 200 | tail -80
-              exit 1
-            fi
-            echo "✔ processus vivant"
-
-            echo "── exceptions fatales dans logcat ? ──"
-            if adb logcat -d | grep -E "FATAL EXCEPTION|AndroidRuntime.*app\.inko"; then
-              echo "::error::Exception fatale au démarrage."
-              exit 1
-            fi
-            echo "✔ aucune exception fatale"
-
-            echo "── le WebView a-t-il chargé la page ? ──"
-            # Capacitor journalise le chargement ; une CSP qui bloque ou un
-            # fichier manquant se voient ici avant de se voir à l'écran.
-            adb logcat -d | grep -iE "Capacitor|chromium|WebView" | tail -25 || true
-
-            adb exec-out screencap -p > /tmp/demarrage.png
-            echo "✔ capture prise"
+          # UNE seule ligne : l'action exécute le script ligne par ligne, chacune
+          # dans son propre shell — un `cd` n'y survit pas.
+          script: bash scripts-ci/emulateur-demarrage.sh
 
       - name: Publier la capture
         if: always()
