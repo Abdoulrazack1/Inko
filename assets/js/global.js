@@ -401,6 +401,13 @@
     (function loadMotion() {
         if (document.getElementById('inko-motion-js')) return;
         if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        // IX.14 : GSAP et ScrollTrigger — 114 Ko et du temps de calcul — pour
+        // des animations d'apparition au défilement. Sur un téléphone, ce
+        // temps de calcul se prend sur le défilement lui-même, c'est-à-dire
+        // sur le seul geste qui compte. Les TRANSITIONS CSS restent : elles
+        // sont gratuites et portent l'essentiel du retour visuel.
+        if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
         const add = (src, id, onload) => {
             const s = document.createElement('script');
             s.src = src; if (id) s.id = id; s.defer = true; if (onload) s.onload = onload;

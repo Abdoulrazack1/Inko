@@ -28,6 +28,22 @@
         // Mouvement réduit : la scène se limitait à une frame statique — 594 Ko
         // pour une image fixe n'a pas de sens, le dégradé CSS suffit.
         if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+
+        // ── IX.14 : le hero 3D ne part pas sur un téléphone ──
+        // 594 Ko de moteur, une scène WebGL et une boucle d'animation, pour un
+        // ORNEMENT. Sur un téléphone, ça se paie trois fois : au téléchargement,
+        // en mémoire — le budget d'un WebView d'entrée de gamme est déjà tendu
+        // par les planches — et en batterie, sur l'écran où l'on passe le plus
+        // de temps.
+        //
+        // Le critère est le POINTEUR, pas la largeur : une fenêtre de bureau
+        // réduite reste un bureau, avec sa mémoire et son secteur. Un doigt
+        // signale un appareil sur batterie.
+        if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return false;
+
+        // Peu de mémoire : même raisonnement, sans attendre le geste.
+        if (navigator.deviceMemory && navigator.deviceMemory <= 4) return false;
+
         // Économiseur de données / connexion lente
         const c = navigator.connection;
         if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''))) return false;

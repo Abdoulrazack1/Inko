@@ -1066,6 +1066,30 @@
                 else window.navStep(dir);
             }
         }, { passive: true });
+
+        // ── Pinch et chrome auto (audit IX.8) ──
+        // Délégués à `lecteur-gestes.js` : ce fichier fait déjà 1 654 lignes,
+        // et une machine à états tactile de plus le rendrait illisible. Le
+        // module reçoit ce dont il a besoin, pas l'objet entier.
+        window.MH?.lecteurGestes?.({
+            zone: area,
+            getZoom: () => zoom,
+            setZoom: (z, point) => appliquerZoom(z, point),
+            estDefilement: () => readMode === 'scroll',
+        });
+    }
+
+    // Point d'entrée unique du zoom : le pinch, le double-tap et Ctrl+molette
+    // passent tous par ici, pour que l'ancrage et la persistance soient écrits
+    // une seule fois.
+    function appliquerZoom(z, point) {
+        zoom = Math.round(Math.min(400, Math.max(20, z)));
+        const label = document.getElementById('zoomLabel');
+        if (label) label.textContent = zoom + '%';
+        ancrerZoomSur(zoom > 100 ? point : null);
+        document.querySelectorAll('.reader-page-wrapper')
+            .forEach(w => { w.style.transform = `scale(${zoom / 100})`; });
+        window.Storage?.setPref('zoom', zoom);
     }
     // ── Zoom ancré (audit AMEL-18) ───────────────────────────
     // Le zoom partait de `transform-origin: top center` : agrandir éloignait
