@@ -70,7 +70,24 @@ function verifierAssets() {
         echec('hub.js est chargé APRÈS api.js : l’adresse du hub serait lue trop tard, et l’API viserait la mauvaise origine.');
     }
 
-    console.log(`✔ contenu embarqué : ${n} fichier(s), tous les indispensables présents, hub.js chargé avant api.js`);
+    // ── Le JavaScript est-il lisible par un WebView ancien ? ──
+    // Constaté sur émulateur API 26 : chaque script échouait sur « Unexpected
+    // token . » — l'opérateur `?.`, présent 1 035 fois dans ce code. L'app se
+    // lançait sur un écran mort. Le contrôle est ici parce qu'il ne coûte rien
+    // et attrape le défaut AVANT de payer dix minutes d'émulateur.
+    const modernes = [];
+    for (const f of fs.readdirSync(path.join(PUBLIC_ANDROID, 'assets', 'js'))) {
+        if (!f.endsWith('.js')) continue;
+        const code = fs.readFileSync(path.join(PUBLIC_ANDROID, 'assets', 'js', f), 'utf8');
+        // `?.` et `??` sont les deux formes ES2020 réellement utilisées ici.
+        if (/\?\.[a-zA-Z_$([]/.test(code) || /\?\?/.test(code)) modernes.push(f);
+    }
+    if (modernes.length) {
+        echec(`Syntaxe ES2020 non transpilée dans ${modernes.length} script(s) — `
+            + `le WebView d'Android 8 ne les lira pas : ${modernes.slice(0, 5).join(', ')}`);
+    }
+
+    console.log(`✔ contenu embarqué : ${n} fichier(s), indispensables présents, hub.js avant api.js, aucune syntaxe ES2020`);
 }
 
 function compter(dir) {

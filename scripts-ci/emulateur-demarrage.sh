@@ -85,9 +85,26 @@ else
     exit 1
 fi
 
-echo "── erreurs de console de la page ──"
-if adb logcat -d | grep -iE "console.*(error|refused|blocked|CSP)"; then
-    echo "::warning::Le WebView a signalé des erreurs de console — voir ci-dessus."
+# ── Les scripts se sont-ils exécutés ? ──────────────────────
+# Premier passage avec un WebView réel : la page chargeait, et CHAQUE fichier
+# JavaScript échouait sur « Uncaught SyntaxError: Unexpected token . » —
+# l'opérateur `?.`, que le WebView d'Android 8 ne sait pas lire. L'app se
+# serait ouverte sur un écran mort.
+#
+# Un avertissement n'aurait pas suffi : c'est une app inutilisable. Le contrôle
+# ÉCHOUE donc, et le message dit quoi regarder.
+echo "── erreurs de script dans la page ──"
+if adb logcat -d | grep -E "Capacitor/Console.*(SyntaxError|Uncaught|ReferenceError|TypeError)"; then
+    echo "::error::Des scripts de l'application ont échoué — l'écran serait mort."
+    echo "         Une SyntaxError signale du JavaScript trop récent pour ce WebView :"
+    echo "         vérifier la transpilation dans scripts-ci/build-mobile-www.js."
+    exit 1
+fi
+echo "✔ aucun script en échec"
+
+echo "── ressources refusées (CSP, fichier manquant) ? ──"
+if adb logcat -d | grep -iE "Capacitor/Console.*(refused|blocked|Failed to load)"; then
+    echo "::warning::Des ressources ont été refusées — voir ci-dessus."
 fi
 
 adb exec-out screencap -p > /tmp/demarrage.png

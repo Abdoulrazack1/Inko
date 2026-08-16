@@ -36,17 +36,55 @@ const FICHIERS_RACINE = ['manifest.webmanifest', 'service-worker.js', 'favicon.i
 // d'administration qui ne doivent pas voyager.
 const PAGES_EXCLUES = new Set(['offline.html']);
 
+// ── Le WebView d'Android 8 ne lit pas l'ES2020 ──────────────
+// Constaté sur émulateur API 26, après que l'app se soit installée, lancée et
+// que le WebView se soit construit : CHAQUE fichier JavaScript échouait sur
+// « Uncaught SyntaxError: Unexpected token . ». C'est l'opérateur `?.`, utilisé
+// 1 035 fois dans ce code. L'application se serait ouverte sur un écran mort,
+// sans rien pour l'expliquer.
+//
+// Le WebView d'Android est mis à jour par le Play Store indépendamment du
+// système, donc un téléphone entretenu n'aurait sans doute rien vu. Mais faire
+// dépendre le démarrage de l'app d'une mise à jour que l'utilisateur ne
+// contrôle pas, c'est choisir de ne pas savoir qui échoue.
+//
+// On transpile donc le bundle MOBILE, et lui seul : le web et le desktop
+// tournent sur des moteurs récents et n'ont aucune raison de payer ça.
+const CIBLE = 'chrome61';   // le WebView livré avec Android 8.0
+
+let esbuild = null;
+try { esbuild = require('esbuild'); } catch (e) { /* absent : on copiera tel quel */ }
+
+function transpiler(src, dst) {
+    if (!esbuild) { fs.copyFileSync(src, dst); return false; }
+    const code = fs.readFileSync(src, 'utf8');
+    const r = esbuild.transformSync(code, {
+        target: CIBLE,
+        format: 'iife',       // ces fichiers sont déjà des IIFE : on préserve la forme
+        loader: 'js',
+        legalComments: 'inline',
+    });
+    fs.writeFileSync(dst, r.code);
+    return true;
+}
+
 function copierDossier(src, dst) {
     if (!fs.existsSync(src)) return 0;
     fs.mkdirSync(dst, { recursive: true });
     let n = 0;
     for (const e of fs.readdirSync(src, { withFileTypes: true })) {
         const s = path.join(src, e.name), d = path.join(dst, e.name);
-        if (e.isDirectory()) n += copierDossier(s, d);
-        else { fs.copyFileSync(s, d); n++; }
+        if (e.isDirectory()) { n += copierDossier(s, d); continue; }
+        // Les vendors sont déjà distribués en ES5 : les retoucher n'apporte
+        // rien et risquerait de casser un minifieur tiers.
+        if (e.name.endsWith('.js') && !s.includes('vendor')) { transpiler(s, d); transpiles++; }
+        else fs.copyFileSync(s, d);
+        n++;
     }
     return n;
 }
+
+let transpiles = 0;
 
 function construire() {
     fs.rmSync(SORTIE, { recursive: true, force: true });
@@ -75,6 +113,8 @@ function construire() {
     injecterHub(SORTIE);
 
     console.log(`✔ mobile/www : ${pages} page(s), ${actifs} fichier(s) d'actifs`);
+    if (esbuild) console.log(`  ${transpiles} script(s) transpilé(s) vers ${CIBLE}`);
+    else console.warn('  ⚠ esbuild absent : scripts copiés tels quels — l’app échouera sur un WebView ancien.');
 }
 
 // Insère `<script src="assets/js/hub.js">` juste avant `api.js` dans chaque
