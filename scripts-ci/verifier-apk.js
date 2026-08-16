@@ -14,16 +14,19 @@
 //   · l'APK produit contient-il ce contenu, ou est-ce une coque vide ?
 //
 // Un APK est un ZIP : on l'ouvre sans dépendance native, avec le seul module
-// `zlib` de Node — pas d'outil Android requis, donc exécutable partout.
+// Node seul, sans dépendance — pas d'outil Android requis, donc exécutable
+// partout, y compris sur une machine qui n'a pas le SDK.
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
-const zlib = require('zlib');
 
 const RACINE = path.join(__dirname, '..');
 const PUBLIC_ANDROID = path.join(RACINE, 'android', 'app', 'src', 'main', 'assets', 'public');
-const DOSSIER_APK = path.join(RACINE, 'android', 'app', 'build', 'outputs', 'apk', 'debug');
+const DOSSIER_DEBUG   = path.join(RACINE, 'android', 'app', 'build', 'outputs', 'apk', 'debug');
+const DOSSIER_RELEASE = path.join(RACINE, 'android', 'app', 'build', 'outputs', 'apk', 'release');
+const DOSSIER_APK = fs.existsSync(DOSSIER_RELEASE) && fs.readdirSync(DOSSIER_RELEASE).some(f => f.endsWith('.apk'))
+    ? DOSSIER_RELEASE : DOSSIER_DEBUG;
 
 // Ce qui doit ABSOLUMENT s'y trouver. Liste courte et significative : le point
 // d'entrée, le client d'API, le module qui sait à quel hub parler, et une
@@ -165,8 +168,34 @@ function verifierApk() {
         echec('La configuration réseau est absente de l’APK : le hub en clair serait refusé par Android 9+.');
     }
 
+    // ── VIII.19 : un APK de publication doit être SIGNÉ ──────
+    // Android identifie une application par sa signature. Un APK non signé ne
+    // s'installe pas, et un APK signé avec une AUTRE clé est vu comme une
+    // autre application : la mise à jour d'une installation existante devient
+    // impossible. Le vérifier ici, c'est éviter de publier un fichier que
+    // personne ne pourra installer par-dessus le précédent.
+    const signe = noms.some(n => /^META-INF\/.*\.(RSA|DSA|EC)$/i.test(n))
+        || noms.some(n => n === 'META-INF/BNDLTOOL.SF')
+        || buf_a_signature_v2(chemin);
+    const estRelease = DOSSIER_APK === DOSSIER_RELEASE;
+    if (estRelease && !signe) {
+        echec('APK de publication NON SIGNÉ : il ne s’installera pas, et aucune '
+            + 'installation existante ne pourra être mise à jour.');
+    }
+
     console.log(`✔ ${apks[0]} — ${(taille / 1048576).toFixed(1)} Mo, ${nPublic} fichier(s) d'application embarqués`);
     console.log(`  entrées totales : ${noms.length}`);
+    console.log(`  variante : ${estRelease ? 'publication' : 'debug'} · signature : ${signe ? 'présente' : 'absente'}`);
+}
+
+// Signature v2/v3 : elle ne vit pas dans META-INF mais dans un bloc inséré
+// juste avant le répertoire central du ZIP, identifié par ce marqueur.
+// Chercher le marqueur suffit — on vérifie qu'une signature EXISTE, pas
+// qu'elle est valide : c'est `apksigner` qui sait faire ça, et Android le
+// refera à l'installation.
+function buf_a_signature_v2(fichier) {
+    const buf = fs.readFileSync(fichier);
+    return buf.includes(Buffer.from('APK Sig Block 42', 'utf8'));
 }
 
 // ── Entrée ──────────────────────────────────────────────────

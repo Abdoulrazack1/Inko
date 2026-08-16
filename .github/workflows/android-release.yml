@@ -1,0 +1,150 @@
+name: APK — publication signée
+
+# Audit VIII.19. Se déclenche sur un tag `v*`, en même temps que l'installeur
+# Windows, pour que les deux plateformes portent la même version.
+#
+# ── Ce que ce workflow exige, et pourquoi ───────────────────
+#
+# 1. VÉRIFIER L'ARTEFACT PRODUIT, PAS LE DOSSIER QUI A SERVI À LE FAIRE.
+#    L'installeur Windows est parti DEUX FOIS sans aucune source parce que le
+#    contrôle regardait la préparation. `verifier-apk.js` ouvre le `.apk`
+#    (c'est un ZIP) et regarde ce qu'il y a dedans.
+#
+# 2. SHA256SUMS PUBLIÉ À CÔTÉ, comme pour l'installeur — sinon rien ne permet
+#    de vérifier un téléchargement, et la mise à jour intégrée n'a rien à
+#    comparer.
+#
+# 3. LE KEYSTORE VIT DANS LES SECRETS, JAMAIS DANS LE DÉPÔT. Et il doit être
+#    sauvegardé hors du dépôt ET hors de GitHub : Android identifie une
+#    application par sa signature. Perdre la clé, c'est ne plus jamais pouvoir
+#    mettre à jour une installation existante — il faudrait désinstaller.
+#
+# Sans les secrets, le job construit quand même l'APK, ne le signe pas, et le
+# DIT. Mieux vaut un artefact marqué « non signé » qu'un échec opaque sur un
+# dépôt fraîchement cloné.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      publier:
+        description: 'Rattacher l APK à la release du tag courant'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write        # nécessaire pour attacher l'APK à la release
+
+jobs:
+  publication:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Dépendances
+        run: npm ci || npm install
+
+      # La version de l'APK est DÉRIVÉE de package.json (voir build.gradle) :
+      # on vérifie ici qu'elle correspond au tag, sinon on publierait un APK
+      # qui s'annonce sous un autre numéro que la release qui le porte.
+      - name: Vérifier que la version correspond au tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "package.json : $VERSION · tag : $TAG"
+          if [ -n "$TAG" ] && [ "$TAG" != "$GITHUB_REF_NAME" ] && [ "$VERSION" != "$TAG" ]; then
+            echo "::error::La version de package.json ($VERSION) ne correspond pas au tag ($TAG)."
+            exit 1
+          fi
+          node -e "const b=require('./package.json').version.split('.').map(Number);
+            console.log('versionCode :', b[0]*10000+b[1]*100+b[2])"
+
+      - name: Préparer le contenu embarqué
+        run: node scripts-ci/build-mobile-www.js
+
+      - name: Synchroniser Capacitor
+        run: npx cap sync android
+
+      - name: Vérifier le contenu embarqué
+        run: node scripts-ci/verifier-apk.js --assets
+
+      # Le keystore arrive en base64 dans un secret et n'existe que le temps du
+      # job. `INKO_KEYSTORE_B64` absent ⇒ pas de fichier ⇒ build.gradle ne
+      # déclare aucune signature ⇒ APK non signé, et le job le dira.
+      - name: Déposer le keystore
+        id: cle
+        env:
+          B64: ${{ secrets.INKO_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$B64" ]; then
+            echo "::warning::Aucun keystore configuré (secret INKO_KEYSTORE_B64) — l'APK ne sera pas signé."
+            echo "signe=non" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$B64" | base64 -d > "$RUNNER_TEMP/inko.keystore"
+          echo "signe=oui" >> "$GITHUB_OUTPUT"
+
+      - name: Construire l'APK de publication
+        working-directory: android
+        env:
+          INKO_KEYSTORE_PATH: ${{ steps.cle.outputs.signe == 'oui' && format('{0}/inko.keystore', runner.temp) || '' }}
+          INKO_KEYSTORE_PASSWORD: ${{ secrets.INKO_KEYSTORE_PASSWORD }}
+          INKO_KEY_ALIAS: ${{ secrets.INKO_KEY_ALIAS }}
+          INKO_KEY_PASSWORD: ${{ secrets.INKO_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Vérifier l'APK produit
+        run: node scripts-ci/verifier-apk.js --apk
+
+      # Le keystore ne doit pas survivre au job, même en cas d'échec plus haut.
+      - name: Effacer le keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/inko.keystore"
+
+      - name: Renommer et calculer l'empreinte
+        id: fichier
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          SRC=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
+          DST="Inko-$VERSION.apk"
+          cp "$SRC" "$DST"
+          sha256sum "$DST" > SHA256SUMS-android.txt
+          cat SHA256SUMS-android.txt
+          echo "nom=$DST" >> "$GITHUB_OUTPUT"
+
+      - name: Publier en pièce jointe du run
+        uses: actions/upload-artifact@v4
+        with:
+          name: inko-apk-signe
+          path: |
+            ${{ steps.fichier.outputs.nom }}
+            SHA256SUMS-android.txt
+          if-no-files-found: error
+
+      # Rattaché à la release SEULEMENT sur un tag : un `workflow_dispatch` sert
+      # à essayer la chaîne sans rien publier.
+      - name: Rattacher à la release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" \
+            "${{ steps.fichier.outputs.nom }}" SHA256SUMS-android.txt --clobber

@@ -1,5 +1,18 @@
 apply plugin: 'com.android.application'
 
+// ── VIII.19 : la version vient de package.json, pas d'ici ───
+// Deux numéros de version tenus à la main divergent — c'est une question de
+// temps, pas de discipline. Celui-ci est DÉRIVÉ de `package.json`, seule
+// source de vérité du projet.
+//
+// `versionCode` doit être un entier monotone : Android refuse d'installer une
+// mise à jour dont le code est inférieur ou égal. « 2.5.8 » devient 20508, ce
+// qui laisse 100 correctifs et 100 mineures par majeure.
+def paquet = new groovy.json.JsonSlurper().parseText(file('../../package.json').text)
+def versionLue = paquet.version as String
+def bouts = versionLue.tokenize('.')
+def codeCalcule = (bouts[0] as int) * 10000 + (bouts[1] as int) * 100 + (bouts[2] as int)
+
 android {
     namespace "app.inko.mobile"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +20,8 @@ android {
         applicationId "app.inko.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode codeCalcule
+        versionName versionLue
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +29,34 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // ── Signature de publication ────────────────────────────
+    // Le keystore n'est PAS dans le dépôt : il arrive par variables
+    // d'environnement, remplies depuis les secrets GitHub. Sans elles, la
+    // configuration est absente et Gradle construit un APK non signé — ce qui
+    // permet de compiler la variante `release` sans détenir la clé.
+    //
+    // ⚠ Le keystore doit être sauvegardé HORS du dépôt ET hors de la machine
+    // de build. Le perdre signifie qu'aucune installation existante ne pourra
+    // plus être mise à jour. Jamais. Android identifie une app par sa
+    // signature : une nouvelle clé est une nouvelle app.
+    signingConfigs {
+        release {
+            if (System.getenv('INKO_KEYSTORE_PATH')) {
+                storeFile file(System.getenv('INKO_KEYSTORE_PATH'))
+                storePassword System.getenv('INKO_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('INKO_KEY_ALIAS')
+                keyPassword System.getenv('INKO_KEY_PASSWORD')
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (System.getenv('INKO_KEYSTORE_PATH')) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

@@ -282,10 +282,18 @@ pièce jointe du dernier run réussi du workflow
 `inko-debug-apk`, ouvre le `.apk` sur le téléphone, autorise l'installation
 depuis « sources inconnues ».
 
-> L'APK n'est pas signé pour distribution : Android affichera un avertissement
-> à l'installation, comme pour toute app hors Play Store. C'est un choix
-> assumé — signer demande une clé privée, donc une décision qui n'est pas
-> technique.
+> Cet APK de debug est signé avec la clé de debug d'Android : il s'installe,
+> mais le système avertira qu'il vient d'une source inconnue, comme pour toute
+> app hors Play Store.
+>
+> Une chaîne de **publication signée** existe
+> ([`android-release.yml`](.github/workflows/android-release.yml)) : elle se
+> déclenche sur un tag, vérifie que l'APK produit est bien signé et complet,
+> publie `SHA256SUMS-android.txt` à côté, et rattache le tout à la release.
+> Elle attend une clé — voir [docs/android-signature.md](docs/android-signature.md).
+> Générer cette clé est une décision qui engage : Android identifie une app par
+> sa signature, et la perdre interdit toute mise à jour des installations
+> existantes.
 
 ### Connecter le téléphone au hub
 
