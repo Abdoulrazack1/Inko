@@ -354,7 +354,9 @@
 .top-manga-item {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 0; border-bottom: 1px solid var(--border);
+  min-width: 0;    /* MOB-01 : sans ça, un titre long fige la colonne entière */
 }
+.top-manga-item > * { min-width: 0; }
 .top-manga-item:last-child { border-bottom: none; }
 .top-rank {
   width: 20px; flex-shrink: 0;
@@ -411,18 +413,25 @@
 
 /* ── Tablet (≤ 1024px) ──────────────────────────────────── */
 @media (max-width: 1024px) {
+  /* MOB-01 : `1fr` vaut `minmax(auto, 1fr)`, et ce `auto` est le MIN-CONTENT
+     de l'élément — ici 438 px, imposés par la grille de recommandations à deux
+     colonnes qu'elle contient. La piste ne pouvait donc pas se réduire sous
+     438 px alors que l'écran en fait 375, d'où 77 px de débordement : la règle
+     était écrite, elle paraissait juste, et elle ne s'appliquait pas.
+     `minmax(0, 1fr)` autorise enfin la réduction. C'est le même défaut que
+     `.sources-group`, et il vaut pour toute grille dont le contenu est large. */
   .main-split {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 20px;
   }
   .main-sidebar {
     position: static;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
   .trending-card { flex: 0 0 calc(25% - 9px); }
-  .reco-grid { grid-template-columns: repeat(2, 1fr); }
+  .reco-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* ── Mobile landscape (≤ 768px) ─────────────────────────── */
@@ -435,10 +444,13 @@
   .hero-poster { display: none; }
   .resume-list { grid-template-columns: 1fr; }
   .trending-card { flex: 0 0 calc(33.33% - 8px); }
-  .reco-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .reco-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .collection-banners { grid-template-columns: 1fr; }
+  /* Même piège que `.main-split` : `1fr` ne descend pas sous le min-content
+     de son contenu — ici les lignes « Top Manga », dont le titre ne se coupe
+     pas. La colonne restait à 438 px sur un écran de 375. */
   .main-sidebar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .section-resume { padding-top: 20px; }
   .section-trending { padding-top: 24px; }
@@ -454,7 +466,7 @@
   .hero-dots { bottom: 10px; right: 14px; }
   .resume-list { grid-template-columns: 1fr; gap: 8px; }
   .trending-card { flex: 0 0 calc(50% - 6px); }
-  .reco-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .reco-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .main-split { padding-top: 20px; gap: 16px; }
   .section-latest { margin-top: 20px; }
   .latest-filters { flex-wrap: wrap; gap: 4px; }

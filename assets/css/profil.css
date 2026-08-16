@@ -753,8 +753,42 @@
 
 /* ── Tablet (≤ 1024px) ──────────────────────────────────── */
 @media (max-width: 1024px) {
-  .profil-body { grid-template-columns: 1fr; }
-  .profil-sidebar-col { display: none; }
+  /* MOB-01 : ces deux règles visaient `.profil-body` et `.profil-sidebar-col`
+     — deux classes qui N'EXISTENT NULLE PART dans la page. La grille réelle
+     s'appelle `.profil-layout` et gardait donc ses deux colonnes à toutes les
+     largeurs : à 375 px, 190 px pour la barre latérale et 117 px pour le
+     contenu, d'où 145 px de débordement relevés par l'audit.
+     Le fichier PARAISSAIT responsive — trois points de rupture, 45 lignes —
+     et ne l'était pas. C'est le genre de panne qu'une relecture confirme au
+     lieu de la voir. */
+  .profil-layout { grid-template-columns: 1fr; }
+
+  /* La barre latérale ne peut PAS être simplement masquée : elle porte la
+     seule navigation entre les 8 onglets du profil — il n'existe aucun
+     `.profil-tabs` dans la page, malgré ce que suggère la règle plus bas.
+     La masquer aurait corrigé le débordement en supprimant la navigation,
+     c'est-à-dire en échangeant un défaut contre un pire.
+     Elle devient donc une barre d'onglets horizontale, qui défile. */
+  .profil-sidebar {
+    position: static;
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .profil-sidebar::-webkit-scrollbar { display: none; }
+  .sidebar-section { margin-bottom: 0; display: flex; align-items: center; gap: 8px; }
+  .sidebar-section-label { display: none; }   /* « MENU PRINCIPAL » n'aide pas sur une ligne */
+  .sidebar-nav { flex-direction: row; gap: 4px; }
+  .sidebar-nav-item {
+    white-space: nowrap;
+    flex: 0 0 auto;
+    min-height: 44px;          /* MOB-02 : cible tactile */
+    display: flex; align-items: center;
+  }
   .overview-stats-row { grid-template-columns: repeat(2, 1fr); }
   .overview-top-row,
   .overview-bottom-row,

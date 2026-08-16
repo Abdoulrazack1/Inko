@@ -23,6 +23,11 @@
   <style>
     .nt-wrap { max-width: 720px; margin: 0 auto; padding: 26px 20px 80px; }
     .nt-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    /* MOB-01 : cette barre portait un style EN LIGNE (`display:flex` sans
+       classe). Une media query ne peut pas l'atteindre — d'où la classe.
+       Ses trois boutons font 363 px à eux seuls : sur 375 px, avec l'horodatage
+       devant, la page dépassait de 82 px. */
+    .nt-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .nt-head h1 { font-family: var(--font-head); font-size: 26px; font-weight: 700; }
     .nt-filters { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
     .nt-pill { padding: 6px 14px; border-radius: 999px; font-size: 12.5px; background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); cursor: pointer; }
@@ -48,6 +53,13 @@
     .nt-prefs select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
       border-radius: 8px; padding: 5px 9px; font-size: 12.5px; font-family: inherit; cursor: pointer; }
     .nt-prefs-note { color: var(--text3); font-size: 11.5px; }
+
+    /* ── MOB-01 / MOB-02 : les notifications au doigt ────────── */
+    @media (max-width: 640px) {
+      .nt-actions { width: 100%; }
+      .nt-actions .btn { flex: 1 1 auto; min-height: 44px; }
+      .nt-item { gap: 10px; }
+    }
   </style>
 </head>
 <body class="page-body">
@@ -56,7 +68,7 @@
   <div class="nt-wrap">
     <div class="nt-head">
       <h1>Notifications</h1>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div class="nt-actions">
         <span id="ntFreshness" style="font-size:11.5px;color:var(--text3)"></span>
         <button class="btn btn-sm" id="ntRefresh" title="Actualiser" aria-label="Actualiser les notifications">↻ Actualiser</button>
         <button class="btn btn-sm" id="ntEnablePush" title="Recevoir les notifications même Inko fermé">🔔 Activer le push</button>

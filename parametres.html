@@ -75,6 +75,26 @@
     .pill { font-size: 10px; padding: 2px 8px; border-radius: 5px; font-weight: 600; }
     .pill-on  { background: rgba(34,197,94,.15); color: var(--green); }
     .pill-off { background: var(--bg4); color: var(--text3); }
+
+    /* ── MOB-01 / MOB-02 : les réglages au doigt ─────────────
+       Chaque ligne est « libellé … contrôle » en flex `nowrap`. Le contrôle
+       segmenté du thème fait 355 px à lui seul : sur 375 px d'écran, avec le
+       libellé devant, il dépassait de 112 px. Il y a 4 720 lignes de ce type
+       sur la page — une seule règle les couvre toutes.
+       Sous 640 px, le contrôle passe SOUS son libellé plutôt que de forcer la
+       page à s'élargir, et les cibles montent à 44 px. */
+    @media (max-width: 640px) {
+      .set-row {
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .set-row > * { min-width: 0; }
+      .set-row > *:last-child:not(:only-child) { flex: 1 0 100%; }
+      .seg { flex-wrap: wrap; width: 100%; }
+      .seg button { flex: 1 1 auto; min-height: 44px; }
+      .set-input { min-height: 44px; }
+    }
   </style>
 </head>
 <body class="page-body">

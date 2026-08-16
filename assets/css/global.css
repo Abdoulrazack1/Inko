@@ -203,7 +203,17 @@ html[data-theme="contrast"] :focus-visible {
 /* Aucun texte sous 12 px : la taille EST un facteur de lisibilite, au meme
    titre que le contraste. */
 html[data-theme="contrast"] body { font-size: 15px; }
-html[data-theme="contrast"] * { min-height: 0; }
+/* MOB-02 : `html[data-theme="contrast"] * { min-height: 0 }` a été retiré.
+   Son intention supposée — empêcher qu'une hauteur figée ne rogne un texte
+   agrandi — ne pouvait pas être remplie : un `min-height` ne rogne JAMAIS,
+   le contenu peut toujours le dépasser. Seul un `height` fixe ou un
+   `max-height` coupe.
+   En revanche, avec sa spécificité (0,1,1), il écrasait toute règle de classe
+   simple et supprimait donc TOUTES les hauteurs minimales de l'application
+   dès que le thème contrasté était actif — c'est-à-dire précisément les
+   cibles tactiles, dans le thème conçu pour l'accessibilité.
+   Constaté en posant `min-height: 44px` sur les onglets de la bibliothèque :
+   la règle s'écrivait, se parsait, correspondait, et ne s'appliquait pas. */
 html[data-theme="contrast"] [style*="font-size:9"],
 html[data-theme="contrast"] [style*="font-size:10"],
 html[data-theme="contrast"] [style*="font-size:11"] { font-size: 12px !important; }

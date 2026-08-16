@@ -126,7 +126,13 @@ test('recensement des violations modérées et mineures', async ({ page }) => {
     // Ce test visite les 7 pages dans une seule exécution, chacune avec son
     // attente de chargement des données : il dépasse par nature le délai
     // commun, calibré pour un test qui regarde UNE page.
-    test.setTimeout(180_000);
+    //
+    // 300 s et non 180 : `parametres.html` occupe à elle seule ~80 s (1 517
+    // contrôles à analyser), et le recensement en visite sept. À 180 s il
+    // expirait sur une machine chargée — et un recensement qui expire ne
+    // recense RIEN, alors que c'est sa seule raison d'être : il n'a aucune
+    // assertion, il produit un chiffre.
+    test.setTimeout(300_000);
     const total = {};
     for (const p of PAGES) {
         await ouvrir(page, p);

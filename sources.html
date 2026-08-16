@@ -32,7 +32,14 @@
     }
     .sources-warning strong { color: var(--accent-text); }
     .sources-grid { display: flex; flex-direction: column; gap: 28px; }
-    .sources-group { display: grid; gap: 12px; }
+    /* MOB-01 : `display: grid` sans colonnes déclarées crée une piste implicite
+       dimensionnée sur le CONTENU. La carte la plus large imposait donc sa
+       largeur à la grille, la grille au document, et le document à tous les
+       blocs pleine largeur — dont l'en-tête. Mesuré à 375 px : 489 px de
+       débordement, le pire des 10 pages.
+       `minmax(0, 1fr)` autorise la piste à se réduire. C'est correct à TOUTES
+       les largeurs, pas seulement sur mobile. */
+    .sources-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
     .sources-group-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
     .sources-group-title { font-family: var(--font-head); font-size: 18px; font-weight: 700; }
     .sources-group-sub { font-size: 12px; color: var(--text3); flex: 1; }
@@ -50,6 +57,7 @@
       padding: 16px 20px; background: var(--bg2);
       border: 1px solid var(--border); border-radius: 10px;
       transition: border-color .18s ease;
+      min-width: 0;   /* MOB-01 : sans ça, un enfant large fige la carte */
     }
     .source-card.active { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange) inset; }
     /* Etat de la source, visible en permanence (audit AMEL-65). La couleur ne
@@ -71,7 +79,28 @@
     .source-desc { font-size: 12.5px; color: var(--text2); margin-top: 4px; line-height: 1.45; }
     .source-caps { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
     .source-cap { font-size: 10px; padding: 1px 6px; background: var(--bg3); border-radius: 4px; color: var(--text3); }
-    .source-actions { flex-shrink: 0; display: flex; gap: 8px; align-items: center; }
+    .source-actions { flex-shrink: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+    /* ── MOB-01 / MOB-02 : la page au doigt ──────────────────
+       Six boutons en ligne — Activer, Tester, Journal, ▲, Désactiver,
+       Désinstaller — font 442 px de contenu. Ils ne tiendront jamais sur un
+       écran de 375, et `flex-shrink: 0` les empêchait même d'essayer : la
+       carte passait à 789 px et entraînait toute la page.
+       Sous 640 px, la carte devient une colonne et les actions prennent leur
+       propre ligne. Les boutons montent à 44 px de haut : c'est la taille
+       sous laquelle une cible tactile se rate (MOB-02, 34 px auparavant). */
+    @media (max-width: 640px) {
+      .source-card { flex-wrap: wrap; padding: 14px; gap: 12px; }
+      .source-meta { flex: 1 1 auto; }
+      .source-actions {
+        flex: 1 0 100%;          /* ligne à part entière */
+        flex-shrink: 1;
+        justify-content: flex-start;
+      }
+      .source-actions .btn { min-height: 44px; padding-inline: 12px; }
+      .sources-group-head { flex-wrap: wrap; row-gap: 2px; }
+      .sources-group-sub { flex: 1 1 100%; }
+    }
     .source-active-badge { font-size: 11px; color: var(--accent-text); font-weight: 600; }
     .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
   </style>
