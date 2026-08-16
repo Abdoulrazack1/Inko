@@ -1287,3 +1287,132 @@ test('migration : une migration ratée ne laisse rien à moitié fait', async (t
     assert.equal(apres.chapitresLus.length, 3, 'les chapitres lus aussi');
     assert.equal(apres.progression?.chapter_id, 'nb-atom-old-143');
 });
+
+// ── VIII.5.1 : appairage d'un appareil ──
+// Ce parcours donne à un téléphone l'accès à une bibliothèque entière sur la
+// foi d'un code de 8 caractères. Chacune de ses garanties se vérifie ici, et
+// aucune ne se voit à l'écran quand elle casse.
+const Devices = require('../controllers/devices.controller');
+
+async function codePour(u) {
+    const { req, res } = rr({ user: u });
+    req.socket = { localPort: 8088 };
+    await Devices.emettreCode(req, res, nextThrow);
+    assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+    return res.body;
+}
+
+async function appairer(corps) {
+    const { req, res } = rr({ body: corps });
+    await Devices.appairer(req, res, nextThrow);
+    return res;
+}
+
+test('appairage : le code désigne LE COMPTE qui l’a émis (audit XVI.1)', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    // Treize comptes ont une bibliothèque dans cette base. Supposer le
+    // propriétaire ferait lire à l'un celle de l'autre.
+    const a = await createUser('PairA', 'paira@test.local');
+    const b = await createUser('PairB', 'pairb@test.local');
+    const codeA = await codePour(a);
+    const codeB = await codePour(b);
+    assert.notEqual(codeA.code, codeB.code);
+
+    const res = await appairer({ code: codeA.code, nom: 'Tel de A', plateforme: 'android' });
+    assert.equal(res.statusCode, 201, JSON.stringify(res.body));
+    assert.equal(res.body.user.id, a.id, 'l’appareil doit être rattaché au compte émetteur');
+    assert.notEqual(res.body.user.id, b.id);
+});
+
+test('appairage : le code ne sert qu’UNE fois', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('PairUnique', 'pairu@test.local');
+    const c = await codePour(u);
+
+    const un = await appairer({ code: c.code, nom: 'Premier', plateforme: 'android' });
+    assert.equal(un.statusCode, 201);
+
+    const deux = await appairer({ code: c.code, nom: 'Second', plateforme: 'android' });
+    assert.equal(deux.statusCode, 409);
+    assert.equal(deux.body.code, 'CODE_DEJA_UTILISE',
+        'un code rejoué doit être distinguable d’un code inconnu — les deux se corrigent différemment');
+});
+
+test('appairage : un code expiré est refusé, et le dit', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('PairExpire', 'paire@test.local');
+    const c = await codePour(u);
+    await pool.query('UPDATE pair_codes SET expires_at = NOW() - INTERVAL 1 MINUTE WHERE code = ?', [c.code]);
+
+    const res = await appairer({ code: c.code, nom: 'Tardif', plateforme: 'android' });
+    assert.equal(res.statusCode, 410);
+    assert.equal(res.body.code, 'CODE_EXPIRE');
+});
+
+test('appairage : un code inconnu ne dit pas la même chose qu’un code usé', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const res = await appairer({ code: 'ZZZZ-9999', nom: 'X', plateforme: 'android' });
+    assert.equal(res.statusCode, 404);
+    assert.equal(res.body.code, 'CODE_INCONNU');
+});
+
+test('appairage : émettre un code périme le précédent', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    // Sinon un code affiché puis abandonné resterait valable deux minutes de
+    // plus que ce que croit l'utilisateur.
+    const u = await createUser('PairRemplace', 'pairr@test.local');
+    const premier = await codePour(u);
+    const second = await codePour(u);
+    assert.notEqual(premier.code, second.code);
+
+    const res = await appairer({ code: premier.code, nom: 'Avec l’ancien', plateforme: 'android' });
+    assert.equal(res.statusCode, 404, 'l’ancien code ne doit plus exister');
+});
+
+test('appairage : la charge du QR porte une adresse joignable, jamais 127.0.0.1', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    // 127.0.0.1 désignerait le TÉLÉPHONE. Un QR qui l'encode envoie l'app
+    // parler à elle-même — échec réseau incompréhensible côté utilisateur.
+    const u = await createUser('PairQR', 'pairqr@test.local');
+    const c = await codePour(u);
+    const charge = JSON.parse(c.qr);
+    assert.equal(charge.code, c.code);
+    assert.equal(charge.v, 1);
+    if (charge.hub) {
+        assert.ok(!/127\.0\.0\.1|localhost/.test(charge.hub),
+            `le QR ne doit pas encoder une adresse de boucle locale : ${charge.hub}`);
+    }
+});
+
+test('appairage : la révocation ferme les sessions de l’appareil', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('PairRevoque', 'pairrev@test.local');
+    const c = await codePour(u);
+    const app = await appairer({ code: c.code, nom: 'À révoquer', plateforme: 'android' });
+    const deviceId = app.body.deviceId;
+
+    const [avant] = await pool.query(
+        'SELECT id FROM sessions WHERE device_id = ? AND revoked_at IS NULL', [deviceId]);
+    assert.equal(avant.length, 1, 'la session doit porter l’appareil');
+
+    const { req, res } = rr({ user: u, params: { id: deviceId } });
+    await Devices.revoquer(req, res, nextThrow);
+    assert.equal(res.body.revoque, true);
+    assert.equal(res.body.sessionsFermees, 1);
+
+    const [apres] = await pool.query(
+        'SELECT id FROM sessions WHERE device_id = ? AND revoked_at IS NULL', [deviceId]);
+    assert.equal(apres.length, 0, 'plus aucune session vivante — c’est le geste « j’ai perdu mon téléphone »');
+});
+
+test('appairage : on ne révoque pas l’appareil d’un autre compte', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const a = await createUser('PairVictime', 'pairvic@test.local');
+    const b = await createUser('PairIntrus', 'pairint@test.local');
+    const c = await codePour(a);
+    const app = await appairer({ code: c.code, nom: 'Tel de A', plateforme: 'android' });
+
+    const { req, res } = rr({ user: b, params: { id: app.body.deviceId } });
+    await Devices.revoquer(req, res, nextThrow);
+    assert.equal(res.statusCode, 404, 'B ne doit pas pouvoir déconnecter l’appareil de A');
+});

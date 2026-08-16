@@ -17,6 +17,7 @@ const Notes   = require('../controllers/notes.controller');
 const Profile = require('../controllers/profile.controller');
 const Local   = require('../controllers/local.controller');
 const Migration = require('../controllers/migration.controller');   // audit XIII.1
+const Devices   = require('../controllers/devices.controller');     // audit VIII.5.1
 
 // ── Healthcheck ─────────────────────────────────
 // Audit BUG-03 : cette route renvoyait `ok:true` en dur. Elle est la sonde du
@@ -194,6 +195,17 @@ router.delete('/me/bookmarks/:mangaId/:chapterId', auth.authRequired, User.remov
 // sources installées à la fois. `writeLimiter` sur la migration, qui écrit
 // dans six tables. La recherche de candidats est bornée par le limiteur le
 // plus strict des deux parce que c'est elle qui part vers l'extérieur.
+// ── Appairage d'appareils (audit VIII.5.1) ──────────────────
+// `/devices/pair` est la SEULE route sans authentification ici : c'est le
+// code d'appairage qui fait foi, et il est à usage unique, valable 2 minutes,
+// émis par un compte authentifié. `authLimiter` la protège du balayage —
+// 31^8 combinaisons, mais un attaquant sur le réseau ne doit pas pouvoir
+// essayer sans fin.
+router.post  ('/devices/pair-code',       auth.authRequired, writeLimiter, Devices.emettreCode);
+router.post  ('/devices/pair',            authLimiter,       Devices.appairer);
+router.get   ('/devices',                 auth.authRequired, Devices.lister);
+router.delete('/devices/:id',             auth.authRequired, Devices.revoquer);
+
 router.get   ('/me/migrate',              auth.authRequired, Migration.liste);
 router.get   ('/me/migrate/candidats',    auth.authRequired, searchLimiter, Migration.candidats);
 router.post  ('/me/migrate',              auth.authRequired, writeLimiter,  Migration.migrer);

@@ -43,9 +43,14 @@
     // que l'API — c'est déjà ce que détecte SAME_ORIGIN_BACKEND ci-dessus.
     // Dans ce cas seulement, le jeton est gardé EN MÉMOIRE (perdu au
     // rechargement, ce qui est acceptable pour du développement).
-    const PERSIST_TOKEN = !SAME_ORIGIN_BACKEND;
+    // Dans l'APK, le jeton doit être PERSISTÉ : il vient de l'appairage
+    // (audit VIII.5.1), l'app n'a pas de cookie sur cette origine, et le
+    // perdre au rechargement obligerait à réappairer à chaque ouverture.
+    // Le compromis de SEC-06 — cookie httpOnly plutôt que localStorage —
+    // suppose une origine commune ; il ne s'applique pas ici.
+    const PERSIST_TOKEN = !SAME_ORIGIN_BACKEND || !!HUB;
     let _user  = null;
-    let _token = null;
+    let _token = (typeof window !== 'undefined' && window.INKO_TOKEN) || null;
     try {
         const saved = localStorage.getItem('mh_session');
         if (saved) {
@@ -54,7 +59,9 @@
             // Migration silencieuse : on relit l'ancien jeton une dernière fois
             // pour ne pas déconnecter les sessions existantes, puis on cesse de
             // l'écrire (la réécriture ci-dessous ne le remettra pas).
-            _token = o.token || null;
+            // Le jeton d'appareil (APK) prime : il vient de l'appairage et
+            // reste valide tant que l'appareil n'est pas révoqué.
+            _token = _token || o.token || null;
         }
     } catch (e) { window.MH?.err?.('api.js', e); }
 
@@ -766,6 +773,16 @@
         anilist: {
             config()           { return get('/anilist/config'); },
             setConfig(clientId) { return put('/anilist/config', { clientId }); },
+        },
+
+        // ── Appairage d'appareils (audit VIII.5.1) ──
+        // Le téléphone n'utilise PAS `pair` depuis ici : il l'appelle avant
+        // d'avoir la moindre session, depuis son propre écran d'appairage.
+        // Ces trois-là sont les gestes du PC.
+        devices: {
+            emettreCode() { return post('/devices/pair-code', {}); },
+            lister()      { return get('/devices'); },
+            revoquer(id)  { return del('/devices/' + encodeURIComponent(id)); },
         },
 
         // ── Migration entre sources (audit XIII.1) ──

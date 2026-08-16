@@ -49,11 +49,18 @@ async function authRequired(req, res, next) {
             // nécessaire pour révoquer un appareil perdu depuis un autre), et
             // porte une échéance. Ne regarder que l'existence de la ligne
             // laisserait donc passer une session explicitement fermée.
+            // L'appareil est joint : un téléphone révoqué ne doit pas pouvoir
+            // continuer parce qu'une session lui aurait survécu. `revoquer`
+            // ferme bien les deux, mais faire dépendre la sécurité d'un seul
+            // chemin d'écriture, c'est attendre le jour où un autre chemin
+            // apparaît.
             const [[sess]] = await pool.query(
-                `SELECT id FROM sessions
-                  WHERE id = ? AND user_id = ?
-                    AND revoked_at IS NULL
-                    AND (expires_at IS NULL OR expires_at > NOW())`,
+                `SELECT s.id, s.device_id FROM sessions s
+                  LEFT JOIN devices d ON d.id = s.device_id
+                  WHERE s.id = ? AND s.user_id = ?
+                    AND s.revoked_at IS NULL
+                    AND (s.expires_at IS NULL OR s.expires_at > NOW())
+                    AND (s.device_id IS NULL OR d.revoked_at IS NULL)`,
                 [payload.jti, user.id]);
             if (!sess) {
                 return res.status(401).json({ error: 'Session fermee — reconnecte-toi', code: 'SESSION_REVOKED' });
@@ -67,6 +74,21 @@ async function authRequired(req, res, next) {
                 pool.query('UPDATE sessions SET last_seen_at = NOW() WHERE id = ?', [payload.jti]).catch(() => {});
             }
             req.sessionId = payload.jti;
+
+            // ── VIII.5.1 : un appareil appairé n'est JAMAIS admin ──
+            // `localAuth` promeut son propriétaire en admin, et cette
+            // promotion suivait le compte jusque dans le jeton du téléphone :
+            // vérifié de bout en bout, l'appareil appairé recevait `role:
+            // admin`. Passer `role: 'user'` à `sign()` ne changeait rien — le
+            // rôle est lu ICI, dans la base, pas dans le jeton.
+            //
+            // Un téléphone perdu dans la rue ne doit pas donner les écrans
+            // d'administration du hub. Il lit et écrit SA bibliothèque, rien
+            // de plus.
+            if (sess.device_id) {
+                req.deviceId = sess.device_id;
+                user.role = 'user';
+            }
         }
         req.user = user;
         next();
@@ -91,12 +113,18 @@ const dernierTouch = new Map();
 // `req` optionnel : fourni, la session est enregistree et devient revocable
 // individuellement. Omis, on retombe sur l'ancien comportement (jeton sans
 // `jti`) — utile pour les jetons de service et la retro-compatibilite.
-async function sign(user, req) {
+// `opts.deviceId` : appairage mobile (audit VIII.5.1). Le jeton porte alors
+// l'appareil, et la session le référence — révoquer l'appareil ferme la
+// session IMMÉDIATEMENT, ce qui est tout l'objet du geste « j'ai perdu mon
+// téléphone ». Sans ce lien, la révocation attendrait l'expiration du jeton,
+// soit 30 jours.
+async function sign(user, req, opts = {}) {
     const payload = {
         // `tv` = token_version : comparée à la valeur en base par authRequired
         // pour permettre la révocation en masse (audit SEC-05).
         uid: user.id, email: user.email, tv: user.token_version || 0,
     };
+    if (opts.deviceId) payload.dev = opts.deviceId;
     if (req) {
         payload.jti = crypto.randomUUID();
         // ATTENDU, pas fire-and-forget : une session qui n'est pas encore
@@ -110,11 +138,12 @@ async function sign(user, req) {
             // Sans elle, la session survivait à son propre jeton et rien ne
             // pouvait la purger — la table ne faisait que croître.
             await pool.query(
-                'INSERT INTO sessions (id, user_id, user_agent, ip, expires_at) VALUES (?, ?, ?, ?, ?)',
+                'INSERT INTO sessions (id, user_id, user_agent, ip, expires_at, device_id) VALUES (?, ?, ?, ?, ?, ?)',
                 [payload.jti, user.id,
                     String(req.headers?.['user-agent'] || '').slice(0, 255) || null,
                     String(req.ip || req.socket?.remoteAddress || '').slice(0, 45) || null,
-                    sessions.echeance()]
+                    sessions.echeance(),
+                    opts.deviceId || null]
             );
         } catch (e) { delete payload.jti; }
     }

@@ -18,6 +18,7 @@ fichiers EPUB/CBZ/PDF.
 [![Node](https://img.shields.io/badge/Node-%E2%89%A518-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express-4-000000?logo=express&logoColor=white)](https://expressjs.com/)
 [![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Android](https://img.shields.io/badge/Android-APK-3DDC84?logo=android&logoColor=white)](../../actions/workflows/android.yml)
 [![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-D22128?logo=apache&logoColor=white)](LICENSE)
 
@@ -29,13 +30,17 @@ fichiers EPUB/CBZ/PDF.
 
 *Un téléchargement, un double-clic, c'est installé — aucune dépendance, aucune configuration.*
 
+<sub>Pour le téléphone : l'APK Android se récupère dans les
+<a href="../../actions/workflows/android.yml">builds automatiques</a> — voir
+<a href="#application-android">Application Android</a>.</sub>
+
 <sub>Windows peut afficher « éditeur inconnu » au premier lancement (l'installeur n'est pas
 signé — c'est le cas de la plupart des apps open source) : clique
 « Informations complémentaires » puis « Exécuter quand même ».</sub>
 
 <br>
 
-[App Windows](#application-windows-tauri) · [Démarrer en dev](#démarrer-en-développement) · [Fonctionnalités](#fonctionnalités) · [Design](#design--lédition-washi) · [Extensions](#extensions) · [API](#api-rest) · [Journal des versions](CHANGELOG.md)
+[App Windows](#application-windows-tauri) · [App Android](#application-android) · [Démarrer en dev](#démarrer-en-développement) · [Fonctionnalités](#fonctionnalités) · [Extensions](#extensions) · [API](#api-rest) · [Journal des versions](CHANGELOG.md)
 
 </div>
 
@@ -187,6 +192,46 @@ instance multi-comptes classique si tu veux héberger pour plusieurs personnes.
 
 ---
 
+## Quand une source meurt
+
+Un site change de structure, ferme, ou passe derrière un anti-bot : la source
+cesse de répondre et les séries qui en dépendent deviennent inatteignables.
+Leur progression, leurs notes et leurs signets sont toujours là — mais l'œuvre
+ne s'ouvre plus.
+
+**Changer de source ne perd rien.** Sur une série suivie : « ⇄ Changer de
+source ». Inko la cherche sur toutes les autres sources installées, classe les
+candidats, et affiche un score — jamais appliqué automatiquement :
+
+```
+Migrer « Solo Leveling »
+Depuis : novelbin  (ne répond plus)
+
+Trouvé sur :
+  SushiScan     Solo Leveling            200 ch.   79
+  MangaDex      Solo Leveling            179 ch.   62
+  WeebCentral   Na Honjaman Level-Up     201 ch.   19
+
+À conserver :  ☑ Progression  ☑ Favori  ☑ Notes  ☑ Notation  ☑ Chapitres lus
+```
+
+Deux règles gouvernent le report :
+
+- **Rien n'est deviné.** Les chapitres lus sont reportés par **numéro**, pas
+  par identifiant — deux sources n'ont aucun identifiant en commun. Un numéro
+  sans équivalent en face est **signalé**, jamais rapproché du chapitre le plus
+  proche : faire croire qu'on a lu un chapitre qu'on n'a pas lu est une erreur
+  qu'on ne peut ni voir ni corriger.
+- **Tout est réversible 7 jours.** L'état complet est photographié avant la
+  moindre écriture, et l'annulation est proposée dans le message de succès —
+  c'est dans les secondes qui suivent qu'on s'aperçoit d'une erreur.
+
+L'état de chaque source est visible en permanence dans **Sources**, y compris
+la panne silencieuse : une source qui répond mais ne renvoie plus rien affiche
+« Répond, mais ne renvoie rien » plutôt que de passer pour opérationnelle.
+
+---
+
 ## Extensions
 
 Les sources de contenu sont des **modules indépendants**
@@ -229,32 +274,81 @@ NovelBin, Chireads, Project Gutenberg (EN) et Livres en français (Gutenberg FR)
 
 ---
 
-## Mobile & multi-appareils
+## Application Android
 
-Il n'y a pas (encore) d'app mobile native. Sur téléphone, Inko s'utilise en
-**PWA** : ouvre l'instance dans le navigateur (ton hub à la maison — voir plus
-bas) et « Ajouter à l'écran d'accueil ». La PWA parle au hub comme n'importe quel
-client : même bibliothèque, même progression, notifications incluses.
+L'app Android existe, et elle se construit à chaque changement : l'APK est en
+pièce jointe du dernier run réussi du workflow
+[**APK Android**](../../actions/workflows/android.yml) — télécharge
+`inko-debug-apk`, ouvre le `.apk` sur le téléphone, autorise l'installation
+depuis « sources inconnues ».
 
-### Ce qui synchronise entre appareils (mode hub)
+> L'APK n'est pas signé pour distribution : Android affichera un avertissement
+> à l'installation, comme pour toute app hors Play Store. C'est un choix
+> assumé — signer demande une clé privée, donc une décision qui n'est pas
+> technique.
 
-Tout ce qui transite par le compte suit d'un appareil à l'autre :
+### Connecter le téléphone au hub
 
-- ✅ favoris, bibliothèque, progression de lecture (mangas ET romans en ligne) ;
-- ✅ notes de journal, avis, réglages du compte, historique ;
-- ✅ état activé/désactivé de chaque source ;
-- ✅ position de lecture des **fichiers importés** (EPUB/CBZ/PDF) — le fichier
+L'app **ne télécharge rien elle-même** : elle lit ta bibliothèque depuis l'Inko
+qui tourne sur ton ordinateur (voir [Pourquoi un hub](#pourquoi-le-téléphone-ne-scrape-pas)).
+Deux gestes :
+
+1. **Sur le PC** — Paramètres → Appareils → « Afficher le code ». Un QR
+   apparaît, valable 2 minutes, à usage unique.
+2. **Sur le téléphone** — « Scanner le QR code », ou saisis le code à la main
+   si la caméra ne coopère pas. Le code fonctionne aussi bien.
+
+Le téléphone et l'ordinateur doivent être sur le même réseau Wi-Fi.
+
+Chaque appareil appairé apparaît dans Paramètres → Appareils, et se déconnecte
+d'un geste — **immédiatement**, sans attendre l'expiration d'un jeton. C'est le
+geste « j'ai perdu mon téléphone ».
+
+<sub>Un appareil appairé n'est jamais administrateur, même si le compte l'est
+sur le PC : il lit et écrit sa bibliothèque, rien de plus.</sub>
+
+### Pourquoi le téléphone ne scrape pas
+
+Les extensions d'Inko utilisent `cheerio` pour analyser du HTML, un repli
+`curl` parce que l'empreinte TLS de Node est bloquée par Cloudflare, et des
+en-têtes `Referer` / `User-Agent` qu'un navigateur **interdit** de définir. Un
+WebView ne peut structurellement pas les exécuter — ce n'est pas une question
+d'effort, c'est la politique d'origine croisée et l'anti-bot des sites sources.
+
+Le téléphone est donc un **client du hub** : ton PC, ton NAS ou ton VPS fait le
+travail, le téléphone affiche. En contrepartie, l'app a besoin que le hub soit
+joignable ; le mode hors-ligne réel (lire ce qui est déjà téléchargé, hub
+éteint) est en cours.
+
+---
+
+## Multi-appareils
+
+### Ce qui suit d'un appareil à l'autre
+
+Tout ce qui transite par le compte :
+
+- favoris, bibliothèque, progression de lecture (mangas **et** romans) ;
+- notes de journal, avis, réglages du compte, historique ;
+- état activé/désactivé de chaque source ;
+- position de lecture des **fichiers importés** (EPUB/CBZ/PDF) — le fichier
   vit sur le hub, la reprise « page où j'en étais » suit le compte ;
-- ✅ les actions faites **hors-ligne** (marquer lu, progression) sont mises en
-  file et rejouées automatiquement au retour du réseau.
+- les actions faites **hors-ligne** (marquer lu, progression) sont mises en
+  file et rejouées au retour du réseau.
 
-Ce qui reste volontairement **par appareil** :
+### Ce qui reste par appareil, volontairement
 
-- 📱 les téléchargements hors-ligne (cache local pour l'avion/le métro) —
-  « téléchargé » sur un appareil ne veut pas dire « disponible hors-ligne »
-  sur les autres ;
-- 🖥️ en mode desktop pur (sans hub), chaque installation a sa propre base :
-  la continuité entre deux PC passe par Exporter/Importer (Paramètres).
+- les téléchargements hors-ligne : « téléchargé » sur un appareil ne veut pas
+  dire « disponible hors-ligne » sur les autres ;
+- en mode desktop pur (sans hub), chaque installation a sa propre base — la
+  continuité entre deux PC passe par Exporter/Importer.
+
+### Sur navigateur, sans installer l'app
+
+Inko reste une **PWA installable** : ouvre l'instance dans le navigateur du
+téléphone et « Ajouter à l'écran d'accueil ». Même bibliothèque, mêmes
+notifications. L'app Android ajoute l'appairage par QR, le stockage natif et,
+à terme, le téléchargement en arrière-plan.
 
 ## Comptes liés (optionnels)
 

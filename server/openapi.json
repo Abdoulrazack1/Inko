@@ -2147,9 +2147,118 @@
         }
       }
     },
+    "/devices/pair-code": {
+      "post": {
+        "summary": "── Migration entre sources (audit XIII.1) ────────────────── Trois sources ne répondent plus et 13 séries en dépendent : leur progression existe mais l'œuvre est inatteignable. Ces routes transforment la perte sèche en déménagement, réversible sept jours. `searchLimiter` sur les candidats : un appel interroge TOUTES les autres sources installées à la fois. `writeLimiter` sur la migration, qui écrit dans six tables. La recherche de candidats est bornée par le limiteur le plus strict des deux parce que c'est elle qui part vers l'extérieur. ── Appairage d'appareils (audit VIII.5.1) ────────────────── `/devices/pair` est la SEULE route sans authentification ici : c'est le code d'appairage qui fait foi, et il est à usage unique, valable 2 minutes, émis par un compte authentifié. `authLimiter` la protège du balayage — 31^8 combinaisons, mais un attaquant sur le réseau ne doit pas pouvoir essayer sans fin.",
+        "operationId": "Devices_emettreCode",
+        "tags": [
+          "devices"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "x-rate-limit": "writeLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/devices/pair": {
+      "post": {
+        "summary": "Devices.appairer",
+        "operationId": "Devices_appairer",
+        "tags": [
+          "devices"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "authLimiter",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
+    "/devices": {
+      "get": {
+        "summary": "Devices.lister",
+        "operationId": "Devices_lister",
+        "tags": [
+          "devices"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/devices/{id}": {
+      "delete": {
+        "summary": "Devices.revoquer",
+        "operationId": "Devices_revoquer",
+        "tags": [
+          "devices"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
     "/me/migrate": {
       "get": {
-        "summary": "── Migration entre sources (audit XIII.1) ────────────────── Trois sources ne répondent plus et 13 séries en dépendent : leur progression existe mais l'œuvre est inatteignable. Ces routes transforment la perte sèche en déménagement, réversible sept jours. `searchLimiter` sur les candidats : un appel interroge TOUTES les autres sources installées à la fois. `writeLimiter` sur la migration, qui écrit dans six tables. La recherche de candidats est bornée par le limiteur le plus strict des deux parce que c'est elle qui part vers l'extérieur.",
+        "summary": "Migration.liste",
         "operationId": "Migration_liste",
         "tags": [
           "me"
