@@ -1119,4 +1119,114 @@
             if (input) input.value = lastQuery;
         }
     }
+
+    // ── IX.6 : les filtres passent dans une feuille montante ──
+    // Sur téléphone, la barre latérale devient `position: static` : elle
+    // s'empile AU-DESSUS des résultats et repousse le catalogue hors de
+    // l'écran. On ouvre donc les mêmes filtres dans une feuille.
+    //
+    // Le nœud est DÉPLACÉ, pas recopié. Recopier le balisage aurait dupliqué
+    // dix-huit contrôles et tous leurs gestionnaires — deux jeux de filtres à
+    // tenir synchronisés, et le premier écart passe inaperçu. Déplacer garde
+    // un seul état, celui qui marche déjà.
+    function initFeuilleFiltres() {
+        const barre = document.getElementById('filtersSidebar');
+        if (!barre || !window.MH?.feuille) return;
+
+        // `matchMedia` plutôt qu'un écouteur `resize` : `resize` se déclenche à
+        // chaque pixel (et pas du tout quand la fenêtre change autrement —
+        // rotation, mode fenêtré, outils de développement). La requête média,
+        // elle, prévient exactement quand on FRANCHIT la frontière, une seule
+        // fois. Vérifié : avec `resize`, passer de 375 à 1274 px laissait la
+        // barre latérale masquée et le bouton affiché.
+        const mq = window.matchMedia('(max-width: 900px)');
+        const surTelephone = () => mq.matches;
+        let bouton = document.getElementById('btnFiltresFeuille');
+        if (!bouton) {
+            bouton = document.createElement('button');
+            bouton.id = 'btnFiltresFeuille';
+            bouton.className = 'btn btn-secondary btn-sm';
+            bouton.style.cssText = 'min-height:44px;display:none';
+            bouton.textContent = 'Filtres';
+            const ancre = document.querySelector('.catalogue-toolbar, .catalogue-header') || barre.parentElement;
+            ancre.insertBefore(bouton, ancre.firstChild);
+        }
+
+        // Le compteur sur le bouton dit ce qui est actif SANS ouvrir la
+        // feuille : sans lui, il faut ouvrir pour savoir si on filtre.
+        const compter = () => activeTags.size + excludedTags.size + activeStatus.size
+            + activeDemo.size + (lastQuery ? 1 : 0);
+        const majBouton = () => {
+            const n = compter();
+            bouton.textContent = n ? `Filtres (${n})` : 'Filtres';
+        };
+
+        let ouverte = null;
+        const placer = () => {
+            if (surTelephone()) {
+                bouton.style.display = '';
+                barre.style.display = ouverte ? '' : 'none';
+            } else {
+                bouton.style.display = 'none';
+                barre.style.display = '';
+                if (ouverte) { ouverte.fermer(); ouverte = null; }
+            }
+            majBouton();
+        };
+
+        bouton.addEventListener('click', () => {
+            if (ouverte) return;
+            const parent = barre.parentElement;
+            const suivant = barre.nextSibling;
+            barre.style.display = '';
+            ouverte = window.MH.feuille({
+                titre: 'Filtres',
+                hauteur: 'filtres',
+                contenu: barre,
+                actionTete: { libelle: 'Effacer', onClick: () => {
+                    // On réutilise le bouton d'effacement DÉJÀ câblé plutôt que
+                    // de réécrire la remise à zéro : deux implémentations de la
+                    // même chose finissent toujours par diverger.
+                    document.getElementById('btnClearFilters')?.click();
+                    majBouton();
+                } },
+                actions: [{ libelle: 'Voir les résultats', principal: true, onClick: ({ fermer }) => fermer() }],
+                onFermeture: () => {
+                    // Le nœud RETOURNE à sa place : la feuille ne le possède
+                    // pas, elle l'emprunte. Sans ça, revenir en mode bureau
+                    // laisserait la page sans ses filtres.
+                    if (suivant) parent.insertBefore(barre, suivant); else parent.appendChild(barre);
+                    ouverte = null;
+                    placer();
+                },
+            });
+        });
+
+        // Deux déclencheurs, pour la même raison que le repli de `feuille.js` :
+        // ce qui décide de CE QUE VOIT l'utilisateur ne doit pas dépendre d'un
+        // seul mécanisme.
+        //   · `matchMedia change` — l'API juste, qui prévient exactement au
+        //     franchissement de la frontière ;
+        //   · `resize` — filet, pour les environnements qui redimensionnent
+        //     sans émettre l'événement de média. Constaté : un changement de
+        //     fenêtre piloté par l'outil de test fait bien basculer
+        //     `mq.matches`, sans jamais déclencher `change` — la barre restait
+        //     alors dans l'état de la largeur précédente.
+        if (mq.addEventListener) mq.addEventListener('change', placer);
+        else if (mq.addListener) mq.addListener(placer);   // WebView ancien
+        let _tempoPlacer = null;
+        window.addEventListener('resize', () => {
+            // Groupé : `resize` se déclenche à chaque pixel, et replacer la
+            // barre cinquante fois pendant un glissé de fenêtre ne sert à rien.
+            clearTimeout(_tempoPlacer);
+            _tempoPlacer = setTimeout(placer, 120);
+        });
+        placer();
+        // Le compteur suit les changements de filtre, quelle qu'en soit
+        // l'origine (clic, URL, contexte restauré).
+        document.addEventListener('change', majBouton, true);
+        document.addEventListener('click', () => setTimeout(majBouton, 0), true);
+    }
+    initFeuilleFiltres();
+
 })();
