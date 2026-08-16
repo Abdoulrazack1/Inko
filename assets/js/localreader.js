@@ -106,7 +106,22 @@
             fail('Connexion requise — recharge la page pour rétablir la session.');
             return;
         }
-        if (!id) { fail('Aucun fichier indiqué.'); return; }
+        if (!id) {
+            // Arriver ici sans identifiant n'est pas une erreur : c'est
+            // l'écran ouvert directement, sans fichier. On explique à quoi il
+            // sert plutôt que d'afficher un constat sec.
+            fail('Cette page lit un fichier que tu as importé — un EPUB, un CBZ ou un PDF. '
+                + 'Ouvre-le depuis tes fichiers importés, ou dépose-en un nouveau.',
+            {
+                titre: 'Aucun fichier ouvert',
+                icone: '📖',
+                actions: [
+                    { libelle: 'Importer un fichier', href: 'import.html' },
+                    { libelle: 'Mes fichiers importés', href: 'bibliotheque.html#downloads' },
+                ],
+            });
+            return;
+        }
         try {
             await progPull();   // audit MD2 : reprend la position la plus récente du compte
             const res = await fetch(API.local.fileUrl(id), { headers: { Authorization: 'Bearer ' + API.token } });
@@ -182,9 +197,28 @@
         trackPages(cont, 'canvas');
     }
 
-    function fail(msg) {
-        titleEl.textContent = 'Erreur';
-        body.innerHTML = `<div class="lr-msg">${escapeHtml(msg)}</div>`;
+    // DESK-03 : cette page rendait 44 caractères — « Aucun fichier indiqué. »
+    // et rien d'autre. Elle n'était pas cassée, mais elle en avait l'air, et
+    // n'offrait aucune issue. Un message d'erreur doit dire quoi faire.
+    function fail(msg, options) {
+        titleEl.textContent = (options && options.titre) || 'Erreur';
+        const actions = (options && options.actions) || [
+            { libelle: 'Mes fichiers importés', href: 'import.html' },
+            { libelle: 'Ma bibliothèque', href: 'bibliotheque.html' },
+        ];
+        // `global.js` n'est PAS chargé ici : cette page de lecture est
+        // volontairement allégée, et l'y tirer pour un état vide serait un
+        // mauvais échange. `global.css` l'est, en revanche — on écrit donc le
+        // même balisage, qui hérite du même style.
+        body.innerHTML = `
+            <div class="mh-etat-vide">
+                <div class="mh-vide-ico" aria-hidden="true">${escapeHtml((options && options.icone) || '⚠')}</div>
+                <div class="mh-vide-titre">${escapeHtml((options && options.titre) || 'Lecture impossible')}</div>
+                <div class="mh-vide-texte">${escapeHtml(msg)}</div>
+                <div class="mh-vide-actions">${actions.map((a, i) =>
+        `<a class="btn ${i === 0 ? 'btn-primary' : 'btn-ghost'} btn-sm" href="${escapeHtml(a.href)}">${escapeHtml(a.libelle)}</a>`
+    ).join('')}</div>
+            </div>`;
     }
 
     // ── CBZ / CBR : images empilées ──

@@ -66,6 +66,16 @@
           if (back && back.indexOf('/anilist') === 0) back = null;   // jamais de boucle
           location.href = (back || '/parametres.html') + (back && back.indexOf('?') > -1 ? '&' : '?') + 'anilist=linked';
         }, 900);
+      } else if (!hash && !location.search) {
+        // DESK-03 : ouverte SANS aucun paramètre, cette page annonçait
+        // « Connexion échouée — Autorisation annulée ». C'est faux : personne
+        // n'a rien annulé, l'écran a simplement été ouvert directement (un
+        // signet, un retour arrière). Annoncer un échec qui n'a pas eu lieu
+        // envoie chercher un problème inexistant.
+        t.textContent = 'Lier un compte AniList';
+        m.textContent = "Cette page reçoit la réponse d'AniList après une autorisation. "
+          + "La liaison se lance depuis les paramètres d'Inko.";
+        document.getElementById('actions').hidden = false;
       } else {
         var err = params.get('error_description') || new URLSearchParams(location.search).get('error') || 'Autorisation annulée';
         t.textContent = 'Connexion échouée';

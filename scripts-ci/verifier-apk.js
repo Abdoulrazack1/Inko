@@ -164,7 +164,17 @@ function verifierApk() {
     if (nPublic < MIN_FICHIERS) {
         echec(`L'APK ne contient que ${nPublic} fichier(s) d'application (minimum ${MIN_FICHIERS}).`);
     }
-    if (!noms.includes('res/xml/network_security_config.xml') && !noms.some(n => n.startsWith('res/xml'))) {
+    // ── La configuration réseau est-elle dans l'APK ? ───────
+    // Premier essai : chercher l'entrée `res/xml/network_security_config.xml`.
+    // Elle existe en DEBUG et disparaît en RELEASE — AAPT2 compile les
+    // ressources dans `resources.arsc` et renomme les fichiers. Le contrôle
+    // aurait donc bloqué toutes les publications, en annonçant un défaut qui
+    // n'existait pas.
+    //
+    // Le NOM de la ressource, lui, survit dans la table compilée : on le
+    // cherche dans les octets. Vrai pour les deux variantes.
+    const octets = fs.readFileSync(chemin);
+    if (!octets.includes(Buffer.from('network_security_config', 'utf8'))) {
         echec('La configuration réseau est absente de l’APK : le hub en clair serait refusé par Android 9+.');
     }
 

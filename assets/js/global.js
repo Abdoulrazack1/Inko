@@ -677,6 +677,54 @@
         if (t && t.tagName === 'IMG' && t.classList.contains('nt-cover')) t.style.display = 'none';
     }, true);
 
+    /* ── P1.6 : un état vide dit QUOI FAIRE ──────────────────
+     * Trois pages de l'app rendaient moins de 300 caractères sans rien dire
+     * (DESK-03) : `localreader.html` 44, `anilist.html` 158. Elles n'étaient
+     * pas cassées — elles affichaient une phrase nue, sans consigne ni bouton.
+     * Une page qui rend 44 caractères ressemble à une page cassée, et
+     * l'utilisateur ferme.
+     *
+     * Trois règles, tenues ici pour ne pas les réécrire dix fois :
+     *   · dire ce qui manque, pas « aucune donnée » ;
+     *   · dire POURQUOI, quand la raison n'est pas évidente ;
+     *   · offrir au moins une SORTIE — un état vide sans action est un
+     *     cul-de-sac.
+     *
+     * `actions` : [{ libelle, href }] ou [{ libelle, onClick }].
+     */
+    window.MH.etatVide = function ({ icone, titre, texte, actions = [] } = {}) {
+        const boutons = actions.map((a, i) => a.href
+            ? `<a class="btn ${i === 0 ? 'btn-primary' : 'btn-ghost'} btn-sm" href="${esc(a.href)}">${esc(a.libelle)}</a>`
+            : `<button class="btn ${i === 0 ? 'btn-primary' : 'btn-ghost'} btn-sm" data-vide-act="${i}">${esc(a.libelle)}</button>`
+        ).join('');
+
+        const el = document.createElement('div');
+        el.className = 'mh-etat-vide';
+        el.innerHTML = `
+            ${icone ? `<div class="mh-vide-ico" aria-hidden="true">${esc(icone)}</div>` : ''}
+            <div class="mh-vide-titre">${esc(titre || '')}</div>
+            ${texte ? `<div class="mh-vide-texte">${esc(texte)}</div>` : ''}
+            ${boutons ? `<div class="mh-vide-actions">${boutons}</div>` : ''}`;
+
+        // Les gestionnaires sont posés APRÈS l'insertion du balisage, jamais en
+        // attribut : la CSP de l'app installée les bloque (DESK-01).
+        el.querySelectorAll('[data-vide-act]').forEach(b => {
+            const a = actions[Number(b.dataset.videAct)];
+            if (a && a.onClick) b.addEventListener('click', a.onClick);
+        });
+        return el;
+    };
+
+    // Variante pratique : remplace le contenu d'un conteneur.
+    window.MH.poserEtatVide = function (cible, options) {
+        const el = typeof cible === 'string' ? document.getElementById(cible) : cible;
+        if (!el) return null;
+        el.innerHTML = '';
+        const v = window.MH.etatVide(options);
+        el.appendChild(v);
+        return v;
+    };
+
     window.MH.markFavorites = async function (root) {
         if (!window.API?.isLoggedIn()) return;
         const set = await window.MH.getFavSet();
