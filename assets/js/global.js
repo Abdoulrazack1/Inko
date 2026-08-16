@@ -440,6 +440,113 @@
         setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, duration);
     };
 
+    /* ── Bandeau (snackbar) ──────────────────────────────────
+       Audit IX.6. Le `toast` ci-dessus ne peut RIEN proposer : il est
+       `pointer-events: none`, ancré en bas à droite, et s'en va tout seul.
+       C'est exactement ce qu'il faut pour une confirmation — et exactement ce
+       qu'il ne faut pas pour un geste annulable.
+
+       Or un balayage qui marque toute une série lue DOIT pouvoir être défait.
+       C'est la seule chose qui rend un geste destructif acceptable au doigt,
+       puisqu'on le déclenche par accident en faisant défiler. Sans
+       « Annuler », la frontière entre lu et non lu — la donnée la plus longue
+       à reconstituer — se perd sur un faux mouvement.
+
+       Ancré AU-DESSUS de la barre d'onglets, jamais au centre : au centre il
+       masque ce qu'on vient de faire, et c'est précisément ce qu'on regarde
+       pour décider si on annule. La hauteur de la barre est lue dans
+       `--mh-barre-onglets`, que la barre pose elle-même — le bandeau n'a pas
+       à savoir si elle existe.
+
+       Une seule à la fois : deux bandeaux empilés, on ne sait plus lequel
+       « Annuler » annule. */
+    if (!document.getElementById('mh-bandeau-css')) {
+        const sb = document.createElement('style');
+        sb.id = 'mh-bandeau-css';
+        sb.textContent = `
+        .mh-bandeau{position:fixed;left:12px;right:12px;z-index:2147482000;
+            display:flex;align-items:center;gap:10px;
+            background:var(--bg4,#26262b);color:var(--text,#eee);
+            border:1px solid var(--border,#333);border-radius:10px;
+            padding:10px 6px 10px 14px;font-size:13.5px;line-height:1.35;
+            box-shadow:0 8px 28px rgba(0,0,0,.45);
+            opacity:0;transform:translateY(14px);
+            transition:opacity .2s ease,transform .2s ease;
+            /* Deux déclarations, et c'est voulu : env() est du Chrome 69. Le
+               WebView d'Android 8 ne sait pas la lire, jette la seconde, et
+               garde la première — sans ce doublon il jetterait bottom tout
+               entier et le bandeau irait se coller EN HAUT de l'écran. */
+            bottom:12px;
+            bottom:calc(12px + var(--mh-barre-onglets, 0px) + env(safe-area-inset-bottom, 0px))}
+        .mh-bandeau.visible{opacity:1;transform:none}
+        .mh-bandeau-txt{flex:1 1 auto;min-width:0}
+        .mh-bandeau-action{flex:0 0 auto;
+            min-height:44px;min-width:64px;padding:0 14px;
+            background:transparent;border:0;border-radius:8px;
+            color:var(--accent,#c1531b);font-weight:700;font-size:13.5px;
+            font-family:inherit;cursor:pointer}
+        .mh-bandeau-action:active{background:rgba(255,255,255,.08)}
+        @media (min-width: 901px){
+            .mh-bandeau{left:24px;right:auto;max-width:min(460px,60vw)}
+        }`;
+        document.head.appendChild(sb);
+    }
+
+    /**
+     * @param {string} message
+     * @param {object} o  { action, onAction, duree }
+     * @returns {{ fermer: Function }}
+     */
+    window.MH.bandeau = function (message, o = {}) {
+        document.getElementById('mh-bandeau')?.remove();
+        clearTimeout(window.MH._bandeauT);
+
+        const el = document.createElement('div');
+        el.id = 'mh-bandeau';
+        el.className = 'mh-bandeau';
+        // `status`/`polite` et non `alert`/`assertive` : le bandeau accompagne
+        // une action que l'utilisateur vient de faire, il ne l'interrompt pas.
+        el.setAttribute('role', 'status');
+        el.setAttribute('aria-live', 'polite');
+
+        const txt = document.createElement('span');
+        txt.className = 'mh-bandeau-txt';
+        txt.textContent = message;
+        el.appendChild(txt);
+
+        let fini = false;
+        const fermer = () => {
+            if (fini) return;
+            fini = true;
+            el.classList.remove('visible');
+            setTimeout(() => el.remove(), 220);
+        };
+
+        if (o.action) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'mh-bandeau-action';
+            b.textContent = o.action;
+            b.addEventListener('click', () => {
+                clearTimeout(window.MH._bandeauT);
+                fermer();
+                try { if (o.onAction) o.onAction(); } catch (e) { window.MH?.err?.('global.js', e); }
+            });
+            el.appendChild(b);
+        }
+
+        document.body.appendChild(el);
+        // Même repli que la feuille montante : `requestAnimationFrame` ne
+        // s'exécute pas quand rien n'est composé, et un bandeau qui ne devient
+        // jamais visible retire silencieusement le droit d'annuler.
+        const montrer = () => el.classList.add('visible');
+        requestAnimationFrame(montrer);
+        setTimeout(montrer, 120);
+
+        window.MH._bandeauT = setTimeout(fermer, o.duree || 4000);
+        return { fermer };
+    };
+
     /* ── Modales premium (remplacent alert/confirm/prompt natifs) ────
        Aucune fenêtre système : overlay glass, animé, clavier (Entrée/Échap),
        promesses. MH.confirm → bool, MH.prompt → string|null, MH.alert → void. */

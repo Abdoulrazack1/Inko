@@ -137,3 +137,22 @@
   }
   .lib2-head { flex-wrap: wrap; gap: 10px; }
 }
+
+/* ══ Échelle de colonnes TACTILE (audit IX.5) ═══════════
+   `auto-fill minmax(140px, 1fr)` donne DEUX colonnes sur un écran de 375 px.
+   La bibliothèque est justement l'écran où l'on cherche une série qu'on
+   possède déjà : plus il en tient à l'œil, plus vite on la trouve. */
+@media (hover: none) and (max-width: 420px) {
+  .lib2-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .lib2-grid.lib2-grid--compact { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .lib2-list, .lib2-grid.lib2-list { grid-template-columns: minmax(0, 1fr); }
+}
+@media (hover: none) and (min-width: 421px) and (max-width: 767px) {
+  .lib2-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .lib2-grid.lib2-grid--compact { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  .lib2-list, .lib2-grid.lib2-list { grid-template-columns: minmax(0, 1fr); }
+}
+@media (hover: none) and (min-width: 768px) and (max-width: 1024px) {
+  .lib2-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .lib2-list, .lib2-grid.lib2-list { grid-template-columns: minmax(0, 1fr); }
+}

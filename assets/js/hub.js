@@ -386,7 +386,13 @@
         const el = document.createElement('div');
         el.id = 'inko-hors-ligne';
         el.setAttribute('role', 'status');
-        el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(64px + env(safe-area-inset-bottom, 0px) + 12px);'
+        // `bottom` deux fois, et c'est indispensable : `env()` est du Chrome 69.
+        // Le WebView d'Android 8 — la cible même de cette application — ne sait
+        // pas lire la seconde et la jette. Sans la première, il n'aurait AUCUN
+        // `bottom` et le bandeau « Hors ligne » irait se coller en haut de
+        // l'écran, par-dessus l'en-tête.
+        el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:76px;'
+            + 'bottom:calc(64px + env(safe-area-inset-bottom, 0px) + 12px);'
             + 'z-index:2147482000;display:flex;gap:10px;align-items:center;flex-wrap:wrap;'
             + 'padding:12px 14px;border-radius:12px;background:#2a2118;border:1px solid #6b4a22;'
             + 'color:#f0d9b8;font-size:13px;line-height:1.5;'

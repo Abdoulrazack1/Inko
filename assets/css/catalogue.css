@@ -364,3 +364,36 @@
   .filter-tags { gap: 4px; }
   .filter-tag { font-size: 10.5px; padding: 2px 7px; }
 }
+
+/* ══ Échelle de colonnes TACTILE (audit IX.5) ═══════════
+   Les seuils ci-dessus visent une fenêtre de navigateur qu'on redimensionne ;
+   ceux-ci visent un ÉCRAN qu'on tient. La différence n'est pas une nuance : à
+   375 px, deux colonnes donnent des couvertures de 167 px — la taille d'une
+   affiche là où l'œil en attend une vignette, et deux titres par écran au lieu
+   de six. La spécification en demande TROIS, soit 109 px de large.
+
+   Les requêtes sont dissociées par `hover: none` plutôt que par la seule
+   largeur : une fenêtre de bureau étroite n'est pas un téléphone, et lui
+   servir six colonnes de 100 px serait absurde à la souris.
+
+   Chrome 41 connaît `hover` — le WebView d'Android 8 (Chrome 61) aussi. */
+@media (hover: none) and (max-width: 420px) {
+  .results-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .results-grid.list-view { grid-template-columns: minmax(0, 1fr); }
+}
+@media (hover: none) and (min-width: 421px) and (max-width: 767px) {
+  .results-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .results-grid.list-view { grid-template-columns: minmax(0, 1fr); }
+}
+/* Tablette. Plus de colonnes qu'un bureau de même largeur, et c'est voulu :
+   une tablette se tient à 40 cm, un écran de bureau à 70. */
+@media (hover: none) and (min-width: 768px) and (max-width: 1024px) {
+  .results-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .results-grid.list-view { grid-template-columns: minmax(0, 1fr); }
+}
+/* Téléphone en paysage : large mais BAS. Garder quatre colonnes y gaspillerait
+   la largeur en n'affichant qu'une rangée et demie. */
+@media (hover: none) and (orientation: landscape) and (max-height: 520px) {
+  .results-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+  .results-grid.list-view { grid-template-columns: minmax(0, 1fr); }
+}

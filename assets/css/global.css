@@ -935,7 +935,15 @@ a[data-nsfw] .manga-card-cover::after,
    surcharge pas autrement. Le décalage suit la hauteur réelle de la barre,
    encoche comprise. */
 @media (max-width: 1024px) {
-  #btnBackTop { bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 14px) !important; }
+  /* Deux déclarations : `env()` est du Chrome 69. Le WebView d'Android 8 jette
+     la seconde, et sans la première il retomberait sur le `bottom: 22px` en
+     ligne — c'est-à-dire exactement la régression MOB-02, rendue invisible aux
+     contrôles parce que la règle EXISTE. */
+  #btnBackTop { bottom: 78px !important; bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 14px) !important; }
+
+  /* La barre d'onglets annonce sa hauteur : le bandeau (IX.6) s'ancre
+     au-dessus d'elle sans avoir à savoir si elle existe sur cette page. */
+  :root { --mh-barre-onglets: 64px; }
 }
 
 @media (max-width: 1024px) {
@@ -947,6 +955,9 @@ a[data-nsfw] .manga-card-cover::after,
     backdrop-filter: var(--glass-blur);
     border-top: 1px solid var(--glass-border);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
+    /* Doublée : env() est du Chrome 69, et le WebView d'Android 8 jette la
+       déclaration entière plutôt que de retomber sur la valeur par défaut. */
+    padding-bottom: 0;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .mnav-item {
@@ -1278,9 +1289,86 @@ a[data-nsfw] .manga-card-cover::after,
     .mh-vide-actions .btn { min-height: 44px; }
 }
 
+/* ════════════════════════════════════════════════════════
+   P1.4 — la carte au doigt (audit IX.5, IX.6)
+
+   Tout ce bloc est sous `hover: none` : il ne s'applique qu'à un appareil
+   sans survol. La carte de bureau n'est pas touchée.
+
+   La carte de bibliothèque (`.lib2-card`) respectait déjà la spécification —
+   pastille `--hanko` en haut à gauche, titre sur deux lignes. C'est la carte
+   PARTAGÉE (catalogue, accueil, séries similaires) qui ne la respectait pas.
+   ════════════════════════════════════════════════════════ */
+@media (hover: none) {
+  /* « Aucun bouton dans la carte » (IX.6). Sur bureau, le cœur et le « + »
+     n'apparaissent qu'AU SURVOL — un geste qui n'existe pas au doigt. Ils
+     étaient donc, sur téléphone, affichés en permanence : deux cibles de 28 px
+     posées sur une couverture de 109 px, qu'on touche en voulant ouvrir la
+     série. Les actions passent par l'appui long, où elles ont de la place et
+     un libellé. */
+  .manga-card .card-fav-btn,
+  .manga-card .card-list-btn,
+  .manga-card .manga-card-overlay { display: none; }
+
+  /* Le rapport d'une couverture est 2:3, pas 3:4 (IX.5). En 3:4 la
+     couverture est rognée en haut et en bas par `object-fit: cover` — or
+     c'est précisément là que se trouvent le titre et le numéro de tome. */
+  .manga-card-cover { aspect-ratio: 2/3; }
+
+  /* Statut en haut à DROITE (IX.6) : le coin gauche est réservé au signal
+     « non lu », qui doit rester au même endroit sur toutes les cartes de
+     l'application pour être lisible d'un balayage du regard. */
+  .manga-card-badges {
+    left: auto; right: 5px; top: 5px;
+    align-items: flex-end;
+  }
+  .manga-card-badges .badge { font-size: 8.5px; padding: 2px 5px; }
+
+  /* Titre sur DEUX lignes. Sur 109 px de large, une seule ligne coupée à
+     l'ellipse ne montre souvent que le premier mot : deux tomes d'une même
+     collection deviennent indiscernables.
+     `min-height` fige la hauteur à deux lignes — sans elle, un titre court
+     remonte le numéro de chapitre et les bas de cartes cessent de s'aligner,
+     ce qui hache visuellement la grille. */
+  .manga-card-title {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: 12px; line-height: 1.25;
+    min-height: 2.5em;
+    margin-bottom: 2px;
+  }
+  /* L'auteur ne tient pas sur 109 px et repousse le numéro de chapitre hors
+     de la carte. Il reste sur la fiche série, où on va le chercher. */
+  .manga-card-author { display: none; }
+  .manga-card-info { padding: 6px 7px 8px; }
+  .manga-card-meta { font-size: 10.5px; gap: 4px; }
+
+  /* `:hover` est COLLANT au doigt : sur plusieurs WebView, un appui laisse la
+     carte soulevée jusqu'au prochain appui ailleurs. Une carte qui reste en
+     l'air après qu'on l'a quittée paraît sélectionnée. */
+  .manga-card:hover { transform: none; box-shadow: none; }
+  .manga-card:hover .manga-card-cover img { transform: none; }
+}
+
+/* Signal « non lu » (IX.6), sur TOUS les écrans — c'est une information, pas
+   une commande dépendant du survol. La carte le porte quand la page connaît
+   le compte ; le catalogue, lui, ne peut pas le savoir (on n'a rien lu d'une
+   série qu'on découvre) et n'en met donc jamais. */
+.manga-card[data-non-lu] .manga-card-cover::before {
+  content: '';
+  position: absolute; top: 6px; left: 6px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--hanko);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.35);
+  z-index: 2;
+}
+
 /* ══ REPLI aspect-ratio — GÉNÉRÉ par scripts-ci/gen-repli-aspect-ratio.js ══ */
 /* Ne pas modifier à la main : `npm run gen-repli-ar` régénère ce bloc.
-   15 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
+   16 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
    (WebView Android 8 = Chrome 61). Sur un navigateur récent, ce bloc
    entier est ignoré. */
 @supports not (aspect-ratio: 1 / 1) {
@@ -1313,6 +1401,10 @@ a[data-nsfw] .manga-card-cover::after,
   @media (max-width: 480px) {
       .cd-serie-cover { height: 0; padding-top: 133.3333%; }
       .cd-serie-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  }
+  @media (hover: none) {
+      .manga-card-cover { height: 0; padding-top: 150%; }
+      .manga-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
   }
 }
 /* ══ fin du repli aspect-ratio ══ */

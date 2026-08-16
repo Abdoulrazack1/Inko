@@ -43,6 +43,7 @@
             border-top:1px solid var(--border,#333);box-shadow:0 -12px 40px rgba(0,0,0,.5);
             display:flex;flex-direction:column;max-height:100vh;
             transform:translateY(100%);transition:transform .26s cubic-bezier(.22,.7,.28,1);
+            padding-bottom:0;
             padding-bottom:env(safe-area-inset-bottom, 0)}
         .mh-feuille.ouverte{transform:translateY(0)}
         .mh-feuille.glisse{transition:none}
@@ -56,7 +57,11 @@
             color:var(--text,#eee)}
         .mh-feuille-corps{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;
             -webkit-overflow-scrolling:touch;padding:14px 18px}
-        .mh-feuille-pied{flex:0 0 auto;padding:12px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+        /* Deux déclarations : env() est du Chrome 69, et le WebView d'Android 8
+           jetterait le raccourci padding TOUT ENTIER — l'action ancrée en bas
+           se retrouverait collée aux bords de l'écran. */
+        .mh-feuille-pied{flex:0 0 auto;padding:12px 18px;
+            padding:12px 18px calc(12px + env(safe-area-inset-bottom, 0px));
             border-top:1px solid var(--border,#333);display:flex;gap:10px}
         .mh-feuille-pied .btn{flex:1 1 auto;min-height:48px}
         /* 901 et non 900 : à exactement 900 px, la requête max-width utilisée

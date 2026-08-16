@@ -40,4 +40,12 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- `navigator.vibrate()` est SANS EFFET dans un WebView tant que
+         l'application ne déclare pas cette permission — sans erreur, sans
+         exception : l'appel réussit et rien ne se passe. L'appui long sur une
+         carte perdrait alors son seul retour immédiat, puisque rien à l'écran
+         ne change avant que la feuille monte. Permission normale : elle ne
+         provoque aucune demande à l'utilisateur. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>
