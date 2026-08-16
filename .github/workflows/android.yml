@@ -69,9 +69,16 @@ jobs:
       - name: Vérifier que le contenu est bien embarqué
         run: node scripts-ci/verifier-apk.js --assets
 
+      # Le dépôt est tenu depuis Windows, où le bit d'exécution n'existe pas :
+      # git a enregistré `gradlew` en 100644 et le runner Linux refuse de le
+      # lancer (code 126). Le mode est corrigé dans l'index par ailleurs ;
+      # ce `chmod` reste pour que le job survive à un checkout qui l'aurait
+      # perdu — il ne coûte rien et évite un échec opaque.
       - name: Construire l'APK de debug
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Vérifier l'APK produit
         run: node scripts-ci/verifier-apk.js --apk
