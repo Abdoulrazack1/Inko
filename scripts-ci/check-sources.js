@@ -50,6 +50,59 @@ function withTimeout(p, ms, label) {
 
     let failures = 0;
     let blocages = 0;   // sites qui refusent le runner : signalés, pas comptés
+
+    // Marqueurs qu'une page de défi anti-bot laisse dans son corps. Ils sont
+    // volontairement SPÉCIFIQUES : un simple « captcha » quelque part dans un
+    // catalogue de mangas ne doit pas faire passer une vraie panne pour un
+    // blocage — l'erreur coûteuse est dans ce sens-là.
+    const MARQUEURS = [
+        [/just a moment\s*(\.\.\.|…)/i,          'Cloudflare « Just a moment »'],
+        [/cf[-_]browser[-_]verification/i,        'Cloudflare browser-verification'],
+        [/attention required!?\s*\|\s*cloudflare/i, 'Cloudflare « Attention Required »'],
+        [/challenge-platform|__cf_chl_/i,         'Cloudflare challenge-platform'],
+        [/ddos-?guard/i,                          'DDoS-Guard'],
+        [/enable javascript and cookies to continue/i, 'défi « active JavaScript »'],
+        [/checking your browser before accessing/i,    'défi « checking your browser »'],
+        [/<title>\s*(access denied|forbidden)\s*<\/title>/i, 'accès refusé'],
+    ];
+
+    /**
+     * Le site a-t-il servi une page de défi plutôt que son contenu ?
+     *
+     * On redemande son adresse de base — sans passer par l'extension, dont le
+     * travail est justement d'analyser, et qui rendrait donc encore une liste
+     * vide. Ce qu'on veut ici, c'est le TEXTE BRUT.
+     *
+     * En cas de doute, on ne conclut pas au blocage : ne pas alerter sur une
+     * vraie panne est plus grave que d'alerter à tort une fois.
+     */
+    async function pageDeDefi(src) {
+        const base = src && (src.baseUrl || (src.manifest && src.manifest.baseUrl));
+        if (!base) return null;
+        try {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), 12000);
+            let corps;
+            try {
+                const r = await fetch(base, {
+                    signal: ctrl.signal,
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+                });
+                // 403/503 sur la page d'accueil : le site refuse cette adresse.
+                // Pas besoin d'en lire le corps pour le savoir.
+                if (r.status === 403 || r.status === 429 || r.status === 503) {
+                    return `HTTP ${r.status} sur la page d'accueil`;
+                }
+                corps = await r.text();
+            } finally { clearTimeout(t); }
+            for (const [re, nom] of MARQUEURS) if (re.test(corps)) return nom;
+            return null;
+        } catch (e) {
+            // Injoignable en direct alors que l'extension a rendu 0 sans
+            // erreur : le réseau du runner est en cause, pas le balisage.
+            return 'page d’accueil injoignable depuis ce runner';
+        }
+    }
     for (const dir of dirs) {
         const label = dir.padEnd(14);
         let src;
@@ -65,6 +118,27 @@ function withTimeout(p, ms, label) {
             const secs = ((Date.now() - t0) / 1000).toFixed(1);
 
             if (n === 0) {
+                // ── 0 résultat n'est pas toujours 0 contenu ──────
+                //
+                // Une page de défi anti-bot répond HTTP 200 avec un contenu
+                // qu'aucun parseur ne comprend : pas d'exception, pas de code
+                // d'erreur, juste une liste vide. Depuis un runner, c'est
+                // exactement ce que rend une source dont le balisage a changé.
+                //
+                // Constaté le 17 août : novelbin et novelfull déclarées
+                // cassées par la CI, toutes deux parfaitement fonctionnelles
+                // depuis une connexion domestique quelques heures plus tard.
+                // Un courriel d'échec par exécution, pour rien — et une alarme
+                // à laquelle on ne croit plus ne sert plus à rien.
+                //
+                // On va donc REGARDER ce que le site a réellement renvoyé.
+                const defi = await pageDeDefi(src);
+                if (defi) {
+                    console.log(`⚠ ${label} 0 résultat (${secs}s) — page de défi anti-bot `
+                        + `(${defi}) : c'est le runner qui est refusé, pas la source qui a cassé`);
+                    blocages++;
+                    continue;
+                }
                 console.log(`✖ ${label} 0 résultat (${secs}s) — balisage ou URL du site probablement changés`);
                 failures++;
                 continue;

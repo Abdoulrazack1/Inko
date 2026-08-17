@@ -37,50 +37,95 @@ jobs:
           set -o pipefail
           node scripts-ci/check-sources.js 2>&1 | tee rapport.txt
 
-      # BUG-06 : l'alarme sonnait dans le vide. Ce job était ROUGE depuis le
-      # 20 juillet, quatre lundis de suite — il fonctionnait, il disait vrai,
-      # et personne n'agissait. Un point rouge dans un onglet que personne
-      # n'ouvre n'est pas une alerte.
+      # ── L'alarme sonne sur un CHANGEMENT, pas sur un état ──
       #
-      # Il ouvre donc une issue, et la MET À JOUR au lieu d'en créer une par
-      # semaine : quatre issues identiques seraient aussi faciles à ignorer que
-      # quatre runs rouges. Elle se referme d'elle-même quand tout répond, avec
-      # le rapport en commentaire — pour qu'on sache que c'est réparé, et non
-      # abandonné.
-      - name: Ouvrir ou mettre à jour l'issue « sources en panne »
+      # BUG-06 avait fait ouvrir une issue parce qu'un job rouge ne réveille
+      # personne. Le pendule est allé trop loin : le job échouait ET commentait
+      # l'issue à CHAQUE exécution tant qu'une source restait cassée. Deux
+      # courriels par semaine, identiques, sans information nouvelle — et on
+      # apprend à les supprimer sans les lire. Le jour où une vraie nouvelle
+      # panne arrive, son courriel part dans le même geste.
+      #
+      # La règle : l'ISSUE porte l'état, elle reste ouverte tant que ce n'est
+      # pas réparé et se trouve quand on la cherche. Le COURRIEL ne signale
+      # qu'une transition — quelque chose de neuf est cassé, ou tout est réparé.
+      #
+      # L'état précédent vit dans le corps de l'issue, en commentaire HTML :
+      # aucun cache à gérer, aucun artefact à faire expirer, et il se lit à
+      # l'œil nu en cas de doute.
+      - name: Comparer avec l'état précédent
+        id: etat
         if: steps.check.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TITRE: Sources en panne — vérification hebdomadaire
         run: |
+          # Les lignes ✖ portent le nom de la source en deuxième champ.
+          ACTUEL=$(grep '^✖' rapport.txt | awk '{print $2}' | sort -u | paste -sd, -)
+          NUM=$(gh issue list --state open --search "$TITRE in:title" --json number --jq '.[0].number // empty')
+          PRECEDENT=""
+          if [ -n "$NUM" ]; then
+            PRECEDENT=$(gh issue view "$NUM" --json body --jq '.body' | sed -n 's/.*<!-- etat: \(.*\) -->.*/\1/p' | head -1)
+          fi
+          echo "sources cassées : ${ACTUEL:-aucune}"
+          echo "état précédent  : ${PRECEDENT:-aucun}"
+          echo "actuel=$ACTUEL" >> "$GITHUB_OUTPUT"
+          echo "numero=$NUM"    >> "$GITHUB_OUTPUT"
+          if [ "$ACTUEL" = "$PRECEDENT" ]; then
+            echo "change=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "change=true"  >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ouvrir ou mettre à jour l'issue « sources en panne »
+        if: steps.check.outcome == 'failure' && steps.etat.outputs.change == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITRE: Sources en panne — vérification hebdomadaire
+          ACTUEL: ${{ steps.etat.outputs.actuel }}
+          NUM: ${{ steps.etat.outputs.numero }}
+        run: |
           {
-            echo "Le contrôle hebdomadaire a trouvé au moins une source CASSÉE :"
-            echo "elle répond, mais ne renvoie rien d'exploitable, ou rompt son contrat"
-            echo "(limite ignorée, entrées sans identifiant ou sans titre)."
+            echo "Le contrôle a trouvé au moins une source CASSÉE : elle répond, mais ne"
+            echo "renvoie rien d'exploitable, ou rompt son contrat (limite ignorée, entrées"
+            echo "sans identifiant ou sans titre)."
             echo
-            echo "Les sources marquées ⚠ ont simplement refusé le runner GitHub (403, 429,"
-            echo "délai) : ces sites bloquent les adresses de centres de données. Elles ne"
-            echo "sont PAS comptées comme cassées — vérifier depuis une connexion domestique"
-            echo "avant de conclure."
+            echo "Les sources marquées ⚠ ont refusé le runner GitHub (403, 429, délai) ou lui"
+            echo "ont servi une page de défi anti-bot. Ces sites bloquent les adresses de"
+            echo "centres de données : elles ne sont PAS comptées comme cassées."
             echo
-            echo "⚠ Limite connue : une page de défi anti-bot répond HTTP 200 avec un contenu"
-            echo "qu'aucun parseur ne comprend. Depuis un runner, elle est donc indiscernable"
-            echo "d'un balisage cassé et apparaît en ✖. Avant d'ouvrir une extension, relancer"
-            echo "« node scripts-ci/check-sources.js » depuis une connexion domestique : si la"
-            echo "source y répond, il n'y a rien à réparer."
+            echo "Si une source apparaît en ✖ alors qu'elle marche chez toi, c'est un défi"
+            echo "d'un type non reconnu : relancer « node scripts-ci/check-sources.js » depuis"
+            echo "une connexion domestique, et ajouter le marqueur manquant à MARQUEURS dans"
+            echo "ce script."
             echo
             echo '```'
             cat rapport.txt
             echo '```'
             echo
             echo "Run : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "<!-- etat: $ACTUEL -->"
           } > corps.md
-          NUM=$(gh issue list --state open --search "$TITRE in:title" --json number --jq '.[0].number // empty')
           if [ -n "$NUM" ]; then
+            # Le corps porte l'état ; le commentaire porte le rapport. Éditer le
+            # corps sans commenter passerait inaperçu — c'est le commentaire qui
+            # notifie, et on ne le fait que sur transition.
+            gh issue edit "$NUM" --body-file corps.md
             gh issue comment "$NUM" --body-file corps.md
           else
             gh issue create --title "$TITRE" --body-file corps.md
           fi
+
+      # État inchangé : on rafraîchit l'état stocké sans notifier. Sans cette
+      # étape, une panne qui s'aggrave puis revient à son état antérieur
+      # passerait pour une nouveauté.
+      - name: Rafraîchir l'état sans notifier
+        if: steps.check.outcome == 'failure' && steps.etat.outputs.change == 'false'
+        env:
+          NUM: ${{ steps.etat.outputs.numero }}
+        run: |
+          echo "::notice::Même panne qu'à l'exécution précédente — issue #$NUM déjà ouverte, pas de nouvelle alerte."
 
       - name: Refermer l'issue si tout répond
         if: steps.check.outcome == 'success'
@@ -100,8 +145,9 @@ jobs:
             gh issue close "$NUM" --comment "$(cat corps.md)"
           fi
 
-      # Le job reste ROUGE quand une source est cassée : l'issue s'ajoute au
-      # signal, elle ne le remplace pas.
-      - name: Refléter l'état du contrôle
-        if: steps.check.outcome == 'failure'
-        run: exit 1
+      # Le job n'est ROUGE — donc ne notifie — que sur une transition.
+      - name: Échouer sur une nouvelle panne
+        if: steps.check.outcome == 'failure' && steps.etat.outputs.change == 'true'
+        run: |
+          echo "::error::L'ensemble des sources cassées a changé : « ${{ steps.etat.outputs.actuel }} »"
+          exit 1
