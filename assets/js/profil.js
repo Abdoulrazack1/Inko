@@ -333,7 +333,7 @@
     function openEditProfile() {
         const u = API.user || {};
         const ov = document.createElement('div');
-        ov.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center';
+        ov.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:200;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center';
         ov.innerHTML = `
             <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:24px;width:min(380px,calc(100% - 40px))">
                 <div style="font-weight:700;font-size:15px;margin-bottom:16px">Éditer le profil</div>

@@ -78,7 +78,7 @@
 
         const canvas = document.createElement('canvas');
         canvas.id = 'hero3d';
-        canvas.style.cssText = 'position:absolute;inset:0;z-index:3;pointer-events:none;width:100%;height:100%';
+        canvas.style.cssText = 'position:absolute;top:0;right:0;bottom:0;left:0;z-index:3;pointer-events:none;width:100%;height:100%';
         const content = document.getElementById('heroContent');
         hero.insertBefore(canvas, content);
 

@@ -62,7 +62,7 @@
         .mh-carte-glisse > *:not(.mh-carte-fond){transform:translateX(var(--mh-dx,0))}
         .mh-carte-glisse.mh-carte-retour > *:not(.mh-carte-fond){transition:transform .22s cubic-bezier(.22,.7,.28,1)}
 
-        .mh-carte-fond{position:absolute;top:0;left:0;width:100%;height:100%;
+        .mh-carte-fond{position:absolute;top:0;right:0;bottom:0;left:0;
             z-index:0;display:flex;align-items:center;padding:0 16px;
             border-radius:inherit;color:#fff;font-size:22px;font-weight:700;
             opacity:.55;transition:opacity .12s linear}
@@ -133,6 +133,16 @@
         if (window.API?.isLoggedIn?.()) return true;
         MH.bandeau('Connecte-toi pour utiliser ce geste.');
         return false;
+    }
+
+    // Un seul point pour le retour physique. `navigator.vibrate` rend la MÊME
+    // secousse pour un appui long et pour une action qui part : les motifs
+    // d'Android, eux, se distinguent sans regarder l'écran. L'adaptateur natif
+    // retombe de lui-même sur `vibrate` hors de l'app — ce repli est ici pour
+    // les pages du SITE, où `natif.js` n'existe pas du tout.
+    function vibrer(genre) {
+        if (window.INKO_NATIF) { window.INKO_NATIF.vibrer(genre); return; }
+        try { navigator.vibrate?.(genre === 'succes' ? 25 : 15); } catch (e) { /* refusée */ }
     }
 
     // ── Balayage à droite : marquer la série lue ────────────
@@ -317,7 +327,13 @@
                 // change avant que la feuille monte. Sans retour physique,
                 // l'utilisateur relâche avant les 500 ms parce qu'il croit
                 // que rien ne se passe.
-                try { navigator.vibrate?.(15); } catch (err) { /* refusée : sans importance */ }
+                //
+                // Le greffon Haptics plutôt que `navigator.vibrate` : celui-ci
+                // rend la MÊME secousse pour un appui long et pour une erreur,
+                // là où les motifs d'Android sont calibrés et se reconnaissent
+                // sans regarder l'écran. L'adaptateur retombe sur `vibrate`
+                // hors de l'app.
+                vibrer('leger');
                 menu(contexte(carte));
             }, APPUI_LONG),
         };
@@ -370,7 +386,11 @@
             setTimeout(() => nettoyer(carte), 260);
 
             if (arme) {
-                try { navigator.vibrate?.(10); } catch (err) { /* refusée : sans importance */ }
+                // « succès » et non « léger » : ce n'est plus l'accusé de
+                // réception d'un appui, c'est la confirmation qu'une action est
+                // PARTIE. Les deux se ressemblaient, et on ne savait pas au
+                // doigt si le balayage avait pris.
+                vibrer('succes');
                 (dx > 0 ? marquerSerieLue : telechargerProchain)(contexte(carte));
             }
         }

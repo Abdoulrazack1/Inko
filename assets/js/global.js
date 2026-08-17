@@ -630,7 +630,7 @@
         @keyframes mhModalIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
         /* Affichage instantané et garanti (aucune animation d'entrée dont
            dépend la visibilité). Fondu de sortie via .closing uniquement. */
-        .mh-modal-veil{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;
+        .mh-modal-veil{position:fixed;top:0;right:0;bottom:0;left:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;
           background:color-mix(in srgb, var(--bg,#111) 55%, transparent);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
           opacity:1}
         .mh-modal-veil.closing{opacity:0;transition:opacity .15s ease}
@@ -2244,7 +2244,7 @@
         ];
         const ov = document.createElement('div');
         ov.id = 'cmdPalette';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding-top:12vh';
+        ov.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:10000;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding-top:12vh';
         ov.innerHTML = `<div style="width:560px;max-width:92vw;background:var(--bg2);border:1px solid var(--border);border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.55);overflow:hidden">
             <input id="cmdInput" type="text" placeholder="Rechercher un manga, aller à une page…" autocomplete="off"
                 style="width:100%;box-sizing:border-box;background:var(--bg3);border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:15px;padding:16px 18px;outline:none">
@@ -2404,7 +2404,7 @@
             .concat([['Ctrl+K', 'Palette de commandes'], ['Echap', 'Fermer']]);
         const ov = document.createElement('div');
         ov.id = 'mhShortcuts';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)';
+        ov.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)';
         ov.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:22px 24px;min-width:300px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.5)">
             <div style="font-family:var(--font-head);font-size:17px;font-weight:700;margin-bottom:14px">Raccourcis clavier</div>
             ${rows.map(([k, l]) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:24px;padding:6px 0;font-size:13.5px;color:var(--text2)"><span>${l}</span><kbd style="background:var(--bg4);border:1px solid var(--border2);border-radius:6px;padding:2px 9px;font-family:monospace;color:var(--text)">${k}</kbd></div>`).join('')}

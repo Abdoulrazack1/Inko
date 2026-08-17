@@ -142,7 +142,14 @@ function construire() {
 // page. On le fait ICI, sur la copie, plutôt que dans les 24 pages du dépôt :
 // le hub n'existe que dans l'app, et le site web n'a rien à en savoir.
 function injecterHub(dir) {
-    const balise = '<script src="assets/js/hub.js"></script>';
+    // `natif.js` AVANT `hub.js` : l'écran d'appairage nomme l'appareil, et ce
+    // nom vient du greffon Device. « Inko sur Linux armv8l » — ce que rend le
+    // navigateur — ne désigne rien quand trois téléphones de la maison sont
+    // appairés au même hub.
+    const balises = [
+        '<script src="assets/js/natif.js"></script>',
+        '<script src="assets/js/hub.js"></script>',
+    ];
     let touchees = 0;
     for (const f of fs.readdirSync(dir)) {
         if (!f.endsWith('.html')) continue;
@@ -151,11 +158,11 @@ function injecterHub(dir) {
         if (html.includes('assets/js/hub.js')) continue;
         const m = html.match(/\s*<script src="assets\/js\/api\.js"[^>]*><\/script>/);
         if (!m) continue;
-        html = html.replace(m[0], `\n  ${balise}${m[0]}`);
+        html = html.replace(m[0], `\n  ${balises.join('\n  ')}${m[0]}`);
         fs.writeFileSync(p, html);
         touchees++;
     }
-    console.log(`  hub.js injecté dans ${touchees} page(s)`);
+    console.log(`  natif.js + hub.js injectés dans ${touchees} page(s)`);
 }
 
 construire();

@@ -35,6 +35,14 @@
   },
   "dependencies": {
     "@capacitor/android": "^7.6.8",
-    "@capacitor/core": "^7.6.8"
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.8",
+    "@capacitor/device": "^7.0.5",
+    "@capacitor/filesystem": "^7.1.8",
+    "@capacitor/haptics": "^7.0.5",
+    "@capacitor/network": "^7.0.4",
+    "@capacitor/push-notifications": "^7.0.7",
+    "@capacitor/screen-orientation": "^7.0.4",
+    "@capacitor/status-bar": "^7.0.6"
   }
 }

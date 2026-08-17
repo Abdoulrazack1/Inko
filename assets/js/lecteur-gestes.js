@@ -113,8 +113,19 @@
         // bouger pour la retrouver — c'est du bruit, pas du confort.
         if (!window.matchMedia || !window.matchMedia('(pointer: coarse)').matches) return;
 
+        // IX.8 : « Au repos : rien. » La barre d'état d'Android fait partie de
+        // ce rien. Une planche qui s'arrête 24 px sous le haut de l'écran n'est
+        // pas immersive, et l'heure posée au-dessus d'une case est du bruit
+        // exactement là où le regard travaille.
+        //
+        // Elle suit le même état que la barre de l'application : les faire
+        // disparaître séparément donnerait un demi plein-écran, qui a l'air
+        // d'un défaut d'affichage plutôt que d'une intention.
+        const immersion = (actif) => { window.INKO_NATIF?.immersion?.(actif); };
+
         let minuteur = null;
         const montrer = () => {
+            immersion(false);
             barre.classList.remove('chrome-cache');
             clearTimeout(minuteur);
             minuteur = setTimeout(() => {
@@ -122,12 +133,19 @@
                 // avec la barre elle-même.
                 if (barre.matches(':hover') || barre.contains(document.activeElement)) { montrer(); return; }
                 barre.classList.add('chrome-cache');
+                immersion(true);
             }, CHROME_MS);
         };
         const basculer = () => {
             if (barre.classList.contains('chrome-cache')) montrer();
-            else { clearTimeout(minuteur); barre.classList.add('chrome-cache'); }
+            else { clearTimeout(minuteur); barre.classList.add('chrome-cache'); immersion(true); }
         };
+
+        // En quittant le lecteur, la barre d'état doit revenir. Sans ça, on
+        // sort sur une bibliothèque sans heure ni batterie — et l'utilisateur
+        // croit que c'est l'application qui est cassée, pas qu'elle a oublié de
+        // rendre ce qu'elle avait emprunté.
+        window.addEventListener('pagehide', () => immersion(false));
 
         // Le tap CENTRAL bascule. Les tiers gauche et droit appartiennent déjà
         // à la navigation de page (`data-act`), et les leur voler ferait

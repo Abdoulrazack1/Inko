@@ -811,7 +811,15 @@
         <button class="reader-nav-btn" data-act="page" data-arg="${currentPage + 1}" ${currentPage >= totalPages ? 'disabled' : ''}>Suivant →</button>
         <button class="reader-nav-btn reader-nav-edge" data-act="page" data-arg="${totalPages}" ${currentPage >= totalPages ? 'disabled' : ''} title="Dernière page (Fin)">⤓</button>`;
         const scrub = el.querySelector('#pageScrub');
-        if (scrub) scrub.addEventListener('input', () => window.goToPage(+scrub.value));
+        if (scrub) {
+            scrub.addEventListener('input', () => window.goToPage(+scrub.value));
+            // IX.8 : le curseur déplaçait bien, mais À L'AVEUGLE. Sur un
+            // chapitre de 40 planches, chercher la page où la scène change
+            // revenait à balayer au hasard, lâcher, regarder, recommencer —
+            // chaque essai déclenchant un vrai chargement. La vignette remplace
+            // cette boucle par un seul geste continu.
+            window.MH?.lecteurCurseur?.equiper(scrub, () => pages);
+        }
     }
 
     // ── Next chapter ──
@@ -1358,7 +1366,7 @@
         if (document.getElementById('sleepOverlay')) return;
         const ov = document.createElement('div');
         ov.id = 'sleepOverlay';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center';
+        ov.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:130;background:rgba(0,0,0,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center';
         ov.innerHTML = `<div style="text-align:center;max-width:340px;padding:30px">
             <div style="margin-bottom:12px;color:var(--accent)">${MH.icon('moon', 40)}</div>
             <div style="font-family:var(--font-head);font-size:20px;font-weight:800;margin-bottom:8px;color:#fff">Pause lecture</div>
@@ -1384,7 +1392,7 @@
         if (!dim) {
             dim = document.createElement('div');
             dim.id = 'readerDim';
-            dim.style.cssText = 'position:fixed;inset:0;background:#000;pointer-events:none;z-index:75;transition:opacity .2s';
+            dim.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:#000;pointer-events:none;z-index:75;transition:opacity .2s';
             document.body.appendChild(dim);
         }
         dim.style.opacity = String(Math.max(0, (100 - rs.brightness) / 100 * 0.72));
@@ -1394,7 +1402,7 @@
         if (!warm) {
             warm = document.createElement('div');
             warm.id = 'readerWarm';
-            warm.style.cssText = 'position:fixed;inset:0;background:#ff8a1e;pointer-events:none;z-index:76;mix-blend-mode:multiply;transition:opacity .2s';
+            warm.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:#ff8a1e;pointer-events:none;z-index:76;mix-blend-mode:multiply;transition:opacity .2s';
             document.body.appendChild(warm);
         }
         warm.style.opacity = String(Math.max(0, Math.min(0.6, (+rs.warm || 0) / 100 * 0.6)));

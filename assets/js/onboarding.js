@@ -84,7 +84,7 @@
     ];
 
     const CSS = `
-    .itr-veil{position:fixed;inset:0;z-index:99990;background:color-mix(in srgb, var(--bg, #111) 55%, transparent);
+    .itr-veil{position:fixed;top:0;right:0;bottom:0;left:0;z-index:99990;background:color-mix(in srgb, var(--bg, #111) 55%, transparent);
       -webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);
       display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .35s ease}
     .itr-veil.on{opacity:1}

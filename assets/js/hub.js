@@ -116,7 +116,13 @@
      * bibliothèque dans cette base, en supposer un ferait lire la mauvaise.
      */
     async function appairer(origine, code, idAttendu) {
-        const nom = (navigator.userAgentData?.platform || navigator.platform || 'Téléphone');
+        // Le nom sert cote PC, dans « Appareils connectes », a decider lequel
+        // revoquer quand on en perd un. `navigator.platform` rend « Linux
+        // armv8l » : trois telephones de la maison porteraient le meme nom, et
+        // revoquer reviendrait a tirer au sort. Le greffon Device rend le
+        // constructeur et le modele.
+        const nom = (window.INKO_NATIF && await window.INKO_NATIF.nomAppareil())
+            || navigator.userAgentData?.platform || navigator.platform || 'Téléphone';
         const r = await fetch(origine + '/api/devices/pair', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -344,7 +350,7 @@
                 const video = document.createElement('video');
                 video.setAttribute('playsinline', '');
                 video.srcObject = flux;
-                video.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:2147483001';
+                video.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100%;object-fit:cover;z-index:2147483001';
                 document.documentElement.appendChild(video);
                 await video.play();
 
@@ -479,6 +485,47 @@
         return String(t == null ? '' : t)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // ── VIII.44 : le telephone change de Wi-Fi ──────────────
+    // « Detection, bascule hors ligne, reprise au retour — sans
+    // intervention. » Sans ca, on quitte la maison et l'app continue d'appeler
+    // une adresse locale qui ne designe plus rien : trente secondes d'attente
+    // par page, puis une erreur reseau qui n'explique pas qu'on a simplement
+    // change de reseau.
+    //
+    // On ne bascule PAS a la moindre variation : un changement de reseau ne
+    // dit pas que le hub est parti — il peut etre joignable depuis le nouveau.
+    // On reteste, et c'est le resultat qui decide.
+    if (window.INKO_NATIF) {
+        let derniere = null;
+        window.INKO_NATIF.surReseau(async (etat) => {
+            const cle = etat.connecte ? etat.type : 'aucun';
+            if (cle === derniere) return;           // meme etat : rien de neuf
+            derniere = cle;
+
+            if (!etat.connecte) {
+                // Plus de reseau du tout : inutile de tester quoi que ce soit.
+                if (!window.INKO_HORS_LIGNE) {
+                    const n = await chapitresHorsLigne();
+                    if (n) { window.INKO_HORS_LIGNE = true; bandeauHorsLigne(n, 'aucun réseau'); }
+                }
+                return;
+            }
+
+            const r = await tester(window.INKO_HUB);
+            if (r.ok) {
+                // Le hub est revenu. On recharge plutot que de lever le
+                // drapeau en place : les pages ont deja rendu leurs etats
+                // hors-ligne, et les remettre a jour une par une serait dix
+                // fois le meme travail, fait dix fois a moitie.
+                if (window.INKO_HORS_LIGNE) window.location.reload();
+                return;
+            }
+            if (window.INKO_HORS_LIGNE) return;     // deja signale
+            const n = await chapitresHorsLigne();
+            if (n) { window.INKO_HORS_LIGNE = true; bandeauHorsLigne(n, r.raison); }
+        });
     }
 
     // Permet de changer de hub depuis les réglages de l'app.

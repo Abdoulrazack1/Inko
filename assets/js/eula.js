@@ -29,7 +29,7 @@
     function ecranRefus() {
         const o = document.createElement('div');
         o.id = 'mh-eula-refus';
-        o.style.cssText = `position:fixed;inset:0;background:#0d0d0f;z-index:99999;display:flex;
+        o.style.cssText = `position:fixed;top:0;right:0;bottom:0;left:0;background:#0d0d0f;z-index:99999;display:flex;
             align-items:center;justify-content:center;padding:20px;font-family:-apple-system,sans-serif`;
         o.innerHTML = `
         <div style="max-width:520px;width:100%;background:#141417;border:1px solid rgba(255,255,255,.1);
@@ -67,7 +67,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'mh-eula';
         overlay.style.cssText = `
-            position: fixed; inset: 0; background: rgba(0,0,0,.78);
+            position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,.78);
             z-index: 99999; display: flex; align-items: center; justify-content: center;
             padding: 20px; backdrop-filter: blur(6px);
         `;

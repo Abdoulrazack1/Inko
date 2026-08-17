@@ -35,6 +35,7 @@ const INDISPENSABLES = [
     'index.html',
     'assets/js/api.js',
     'assets/js/hub.js',
+    'assets/js/natif.js',
     'assets/js/global.js',
     'assets/css/global.css',
 ];
@@ -72,6 +73,18 @@ function verifierAssets() {
     if (iApi !== -1 && iHub > iApi) {
         echec('hub.js est chargé APRÈS api.js : l’adresse du hub serait lue trop tard, et l’API viserait la mauvaise origine.');
     }
+    // `natif.js` avant `hub.js` : l'écran d'appairage nomme l'appareil, et ce
+    // nom vient du greffon Device. Chargé après, il arriverait une fois
+    // l'appairage déjà fait, et trois téléphones de la maison porteraient le
+    // même nom dans « Appareils connectés » — donc plus moyen de savoir
+    // lequel révoquer.
+    const iNatif = accueil.indexOf('assets/js/natif.js');
+    if (iNatif === -1) {
+        echec('natif.js est présent mais n’est référencé par aucune page : le bouton retour d’Android quitterait l’app depuis n’importe quel écran.');
+    }
+    if (iNatif > iHub) {
+        echec('natif.js est chargé APRÈS hub.js : le nom de l’appareil ne serait pas disponible au moment de l’appairage.');
+    }
 
     // ── Le JavaScript est-il lisible par un WebView ancien ? ──
     // Constaté sur émulateur API 26 : chaque script échouait sur « Unexpected
@@ -107,6 +120,28 @@ function verifierAssets() {
             + `le WebView d'Android 8 l'ignore et les surcouches ne couvriront rien : ${cssModerne.slice(0, 5).join(', ')}`);
     }
 
+    // Le même `inset`, mais ÉCRIT DANS DU JAVASCRIPT — styles en ligne et blocs
+    // <style> injectés. esbuild transpile la SYNTAXE du JS ; il ne regarde pas
+    // le CSS contenu dans une chaîne. Ce contrôle a longtemps annoncé « aucun
+    // inset non abaissé » alors que douze survivaient dans les scripts, dont le
+    // voile de TOUTES les modales et la vue caméra du scan de QR.
+    // Mesuré : un voile `position: fixed` sans `inset` passe de 375×812 à 0×0.
+    const jsModerne = [];
+    const dirJs = path.join(PUBLIC_ANDROID, 'assets', 'js');
+    if (fs.existsSync(dirJs)) {
+        for (const f of fs.readdirSync(dirJs)) {
+            if (!f.endsWith('.js')) continue;
+            const code = fs.readFileSync(path.join(dirJs, f), 'utf8');
+            // `inset:` seul — jamais `box-shadow: ... inset`, jamais `inset-inline`.
+            if (/[^-\w]inset\s*:/.test(code)) jsModerne.push(f);
+        }
+    }
+    if (jsModerne.length) {
+        echec(`Propriété \`inset\` dans le CSS écrit en JavaScript, ${jsModerne.length} fichier(s) — `
+            + `esbuild ne l'abaisse PAS là : les surcouches feront 0×0 sur Android 8 `
+            + `(${jsModerne.slice(0, 5).join(', ')}). Utiliser top/right/bottom/left.`);
+    }
+
     // `aspect-ratio` (Chrome 88) est le même piège, en plus grave : une
     // couverture qui ne tient sa hauteur QUE d'elle tombe à 0 px, et l'image
     // qu'elle contient avec — mesuré 223 px → 0. Ici on ne l'interdit pas (elle
@@ -134,8 +169,8 @@ function verifierAssets() {
             + '(→ npm run gen-repli-ar)');
     }
 
-    console.log(`✔ contenu embarqué : ${n} fichier(s), indispensables présents, hub.js avant api.js, `
-        + 'aucune syntaxe ES2020, aucun `inset` non abaissé, '
+    console.log(`✔ contenu embarqué : ${n} fichier(s), indispensables présents, natif.js avant hub.js avant api.js, `
+        + 'aucune syntaxe ES2020, aucun `inset` non abaissé (CSS et JS), '
         + `${declarationsAR} \`aspect-ratio\` repliée(s) pour Android 8`);
 }
 

@@ -95,6 +95,14 @@ test('aucun env() sans repli : sur Android 8 la déclaration entière est jetée
 //
 // Interdire `inset` à la source aurait été un test plus sévère que la réalité,
 // donc un test qu'on finit par contourner.
+//
+// MAIS il y a un troisième endroit, et il était le plus mal couvert : le CSS
+// ÉCRIT DANS DU JAVASCRIPT — styles en ligne, blocs <style> injectés. esbuild
+// transpile la SYNTAXE du JavaScript ; il ne regarde pas le CSS contenu dans
+// une chaîne. Le vérificateur d'APK annonçait donc « aucun inset non abaissé »
+// pendant que douze survivaient dans les scripts embarqués, dont le voile de
+// TOUTES les modales et la vue caméra du scan de QR. Un contrôle vert sur un
+// produit cassé. Celui-ci ferme cette porte-là.
 
 test('chaque aspect-ratio a son repli généré dans global.css', () => {
     const global = fs.readFileSync(path.join(ROOT, 'assets', 'css', 'global.css'), 'utf8');
@@ -144,4 +152,20 @@ test('un balayage destructif propose toujours son annulation', () => {
         'L’annulation doit démarquer exactement les chapitres que ce geste a marqués.');
     assert.match(code, /action: 'Annuler'[\s\S]{0,120}duree: 5000/,
         'IX.6 : les balayages sont annulables pendant cinq secondes.');
+});
+
+test('aucun inset: dans le CSS écrit en JavaScript', () => {
+    // Mesuré dans un navigateur : un voile `position: fixed` auquel on retire
+    // `inset` passe de 375×812 à 0×0. Il ne couvre alors plus rien — la page
+    // reste cliquable derrière la modale, et la boîte de dialogue se place où
+    // le flux l'aurait mise.
+    const fautifs = [];
+    for (const f of fichiers('assets/js', '.js')) {
+        // `inset:` seul — jamais `box-shadow: … inset`, jamais `inset-inline`.
+        if (/[^-\w]inset\s*:/.test(f.code)) fautifs.push(f.nom);
+    }
+    assert.deepStrictEqual(fautifs, [],
+        'Utiliser top/right/bottom/left : c’est la traduction EXACTE de `inset: 0`, '
+        + 'y compris quand l’élément porte un rembourrage — ce que `width/height: 100%` '
+        + 'n’est pas.');
 });
