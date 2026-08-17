@@ -1,7 +1,17 @@
 name: APK — publication signée
 
-# Audit VIII.19. Se déclenche sur un tag `v*`, en même temps que l'installeur
-# Windows, pour que les deux plateformes portent la même version.
+# Audit VIII.19. Se déclenche sur un tag `mobile-v*`, et PAS sur `v*`.
+#
+# ── Pourquoi deux lignes de tags ────────────────────────────
+#
+# Les deux plateformes partageaient un tag, donc une release et un numéro. Ça
+# tenait tant que l'APK n'était pas publié. Ça ne tient plus : l'app Android en
+# est à sa PREMIÈRE version quand le bureau en est à sa 2.6.0, et les deux ne
+# sortent pas au même rythme — un correctif de scraping ne justifie pas un
+# nouvel APK, une correction de geste tactile ne justifie pas un installeur.
+#
+# Chaque produit a donc son tag (`v2.6.0`, `mobile-v1.0.0`), sa release et ses
+# notes. La version de l'APK vient de `versionMobile` dans package.json.
 #
 # ── Ce que ce workflow exige, et pourquoi ───────────────────
 #
@@ -25,7 +35,7 @@ name: APK — publication signée
 
 on:
   push:
-    tags: ['v*']
+    tags: ['mobile-v*']
   workflow_dispatch:
     inputs:
       publier:
@@ -65,14 +75,15 @@ jobs:
       # qui s'annonce sous un autre numéro que la release qui le porte.
       - name: Vérifier que la version correspond au tag
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          TAG="${GITHUB_REF_NAME#v}"
-          echo "package.json : $VERSION · tag : $TAG"
+          VERSION=$(node -p "const p=require('./package.json'); p.versionMobile || p.version")
+          TAG="${GITHUB_REF_NAME#mobile-v}"
+          echo "versionMobile : $VERSION · tag : $TAG"
           if [ -n "$TAG" ] && [ "$TAG" != "$GITHUB_REF_NAME" ] && [ "$VERSION" != "$TAG" ]; then
-            echo "::error::La version de package.json ($VERSION) ne correspond pas au tag ($TAG)."
+            echo "::error::versionMobile ($VERSION) ne correspond pas au tag ($TAG)."
             exit 1
           fi
-          node -e "const b=require('./package.json').version.split('.').map(Number);
+          node -e "const p=require('./package.json');
+            const b=(p.versionMobile||p.version).split('.').map(Number);
             console.log('versionCode :', b[0]*10000+b[1]*100+b[2])"
 
       - name: Préparer le contenu embarqué
@@ -130,7 +141,7 @@ jobs:
       - name: Renommer et calculer l'empreinte
         id: fichier
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=$(node -p "const p=require('./package.json'); p.versionMobile || p.version")
           SRC=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
           DST="Inko-$VERSION.apk"
           cp "$SRC" "$DST"
@@ -147,12 +158,38 @@ jobs:
             SHA256SUMS-android.txt
           if-no-files-found: error
 
-      # Rattaché à la release SEULEMENT sur un tag : un `workflow_dispatch` sert
-      # à essayer la chaîne sans rien publier.
-      - name: Rattacher à la release
+      # Un APK non signé est REFUSÉ par Android : il ne s'installe pas, du
+      # tout. Le job a le droit de le PRODUIRE — c'est ce qui permet de
+      # compiler la variante `release` sans détenir la clé — mais le publier
+      # sous un numéro de version serait pire que ne rien publier : quelqu'un
+      # télécharge un fichier qui ne peut pas fonctionner, et rien ne le dit.
+      #
+      # On s'arrête donc AVANT la publication, pas après.
+      - name: Refuser de publier un APK non signé
+        if: startsWith(github.ref, 'refs/tags/') && steps.cle.outputs.signe != 'oui'
+        run: |
+          echo "::error::Aucun keystore configuré — l'APK produit n'est pas signé, et Android refuse d'installer un APK non signé."
+          echo "L'artefact du run reste téléchargeable pour inspection, mais RIEN n'a été publié."
+          echo "Pour publier : crée le keystore et les 4 secrets (voir docs/android-signature.md), puis repousse le tag."
+          exit 1
+
+      # La release mobile n'existe pas encore : `release.yml` ne fabrique que
+      # celle du bureau, sur un AUTRE tag. On la crée si besoin, puis on y
+      # attache l'APK et son empreinte.
+      #
+      # Un `workflow_dispatch` ne publie rien : il sert à éprouver la chaîne.
+      - name: Publier la release mobile
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIGNE: ${{ steps.cle.outputs.signe }}
         run: |
+          VERSION="${GITHUB_REF_NAME#mobile-v}"
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" \
+              --title "Inko Mobile $VERSION" \
+              --notes-file .github/notes-mobile.md
+          fi
           gh release upload "$GITHUB_REF_NAME" \
             "${{ steps.fichier.outputs.nom }}" SHA256SUMS-android.txt --clobber
+

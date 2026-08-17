@@ -38,7 +38,30 @@ couverture non plus, pour la meme raison.
 d'Android affichaient l'indigo generique livre par defaut avec
 Capacitor. Ils portent desormais le kakishibu d'Inko.
 
-Ces deux fonctions terminent la phase 3 de l'audit du 12 aout.
+**Accessibilite.** Cinq pages n'avaient aucun titre de niveau 1, quatre
+aucun repere principal, six champs aucune etiquette. Rien de tout ca ne
+se voit a l'ecran : la page est parfaitement utilisable a la souris, et
+parfaitement opaque au clavier et a la voix. Les titres invisibles
+portent le contenu reel — la serie et le chapitre dans le lecteur, le
+pseudo sur un profil public — parce qu'un titre fige a « Lecture »
+annoncerait la meme chose sur les 268 series.
+
+Le dernier gestionnaire ecrit en attribut a disparu : le bouton
+« Reessayer » de la page hors-ligne, inerte sous la politique de
+securite de l'app installee. C'etait le seul bouton d'une page qui ne
+sert qu'a ca.
+
+Et 1069 lignes de feuille de style morte supprimees — elle habillait
+les pages de connexion, disparues avec le mode local.
+
+Ces travaux terminent la phase 3 ET les 37 constats de l'audit du
+12 aout.
+
+**L'app Android suit desormais sa propre ligne de versions.** Les deux
+plateformes partageaient un tag, donc un numero : ca tenait tant que
+l'APK n'etait pas publie. L'application mobile sort en 1.0.0 — c'est sa
+premiere version — quand le bureau en est a sa 2.6.0. Chaque produit a
+son tag, sa release et ses notes.
 
 ## 2.5.7 — SushiScan trouve enfin ses titres, et la recherche classe par pertinence
 

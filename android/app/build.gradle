@@ -5,11 +5,17 @@ apply plugin: 'com.android.application'
 // temps, pas de discipline. Celui-ci est DÉRIVÉ de `package.json`, seule
 // source de vérité du projet.
 //
+// L'app Android a sa PROPRE ligne (`versionMobile`) : c'est sa première
+// publication, alors que le bureau en est à sa 2.6.0. Deux produits, deux
+// numéros — mais toujours UN seul fichier qui les porte, jamais deux endroits
+// à synchroniser à la main. Sans `versionMobile`, on retombe sur la version du
+// bureau : un dépôt plus ancien construit toujours.
+//
 // `versionCode` doit être un entier monotone : Android refuse d'installer une
-// mise à jour dont le code est inférieur ou égal. « 2.5.8 » devient 20508, ce
+// mise à jour dont le code est inférieur ou égal. « 1.0.1 » devient 10001, ce
 // qui laisse 100 correctifs et 100 mineures par majeure.
 def paquet = new groovy.json.JsonSlurper().parseText(file('../../package.json').text)
-def versionLue = paquet.version as String
+def versionLue = (paquet.versionMobile ?: paquet.version) as String
 def bouts = versionLue.tokenize('.')
 def codeCalcule = (bouts[0] as int) * 10000 + (bouts[1] as int) * 100 + (bouts[2] as int)
 
