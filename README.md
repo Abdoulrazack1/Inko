@@ -9,7 +9,8 @@
 Un lecteur de **mangas, romans et livres** personnel et local, dans l'esprit de
 Mihon / Tachiyomi : tu installes l'app, tu lis. Pas d'inscription, pas de mot de
 passe — ta bibliothèque, ta progression et ton journal de lecture vivent chez
-toi. Construit sur un système d'extensions ouvert (mangas en images, light/web
+toi. Sur **Windows**, sur **Android**, et dans le navigateur — la même
+bibliothèque, le PC servant de hub au téléphone. Construit sur un système d'extensions ouvert (mangas en images, light/web
 novels traduits, classiques du domaine public via Project Gutenberg) avec
 notifications de nouveaux chapitres, journal privé et import de tes propres
 fichiers EPUB/CBZ/PDF.
@@ -40,7 +41,7 @@ signé — c'est le cas de la plupart des apps open source) : clique
 
 <br>
 
-[App Windows](#application-windows-tauri) · [App Android](#application-android) · [Démarrer en dev](#démarrer-en-développement) · [Fonctionnalités](#fonctionnalités) · [Extensions](#extensions) · [API](#api-rest) · [Journal des versions](CHANGELOG.md)
+[App Windows](#application-windows-tauri) · [App Android](#application-android) · [Démarrer en dev](#démarrer-en-développement) · [Fonctionnalités](#fonctionnalités) · [Extensions](#extensions) · [Architecture](#architecture) · [API](#api-rest) · [Journal des versions](CHANGELOG.md)
 
 </div>
 
@@ -175,6 +176,16 @@ instance multi-comptes classique si tu veux héberger pour plusieurs personnes.
   commandes `Ctrl+K`, lecteur de musique ambiant, icônes 100 % SVG
 - Export/import complet de tes données, suppression totale, **aucune télémétrie**
 
+### Sur téléphone
+- **Gestes** : appui long, balayages annulables, tirer pour actualiser, mode une
+  main, touches de volume dans le lecteur — voir [Pensée pour le pouce](#pensée-pour-le-pouce)
+- **Hors-ligne réel** : hub éteint, les chapitres téléchargés se lisent, et la
+  progression remonte seule au retour
+- **Le hub se retrouve tout seul** quand la box lui change son adresse
+- **Notifications sans compte Google** (repli `WorkManager`)
+- Curseur de page avec **vignette de prévisualisation**, verrouillage
+  d'orientation, double page automatique en paysage
+
 ---
 
 ## Design — l'édition « Washi »
@@ -276,57 +287,125 @@ NovelBin, Chireads, Project Gutenberg (EN) et Livres en français (Gutenberg FR)
 
 ## Application Android
 
-L'app Android existe, et elle se construit à chaque changement : l'APK est en
-pièce jointe du dernier run réussi du workflow
-[**APK Android**](../../actions/workflows/android.yml) — télécharge
-`inko-debug-apk`, ouvre le `.apk` sur le téléphone, autorise l'installation
-depuis « sources inconnues ».
+L'APK se construit à chaque changement : il est en pièce jointe du dernier run
+réussi du workflow [**APK Android**](../../actions/workflows/android.yml) —
+télécharge `inko-debug-apk`, ouvre le `.apk` sur le téléphone, autorise
+l'installation depuis « sources inconnues ».
 
-> Cet APK de debug est signé avec la clé de debug d'Android : il s'installe,
-> mais le système avertira qu'il vient d'une source inconnue, comme pour toute
-> app hors Play Store.
->
-> Une chaîne de **publication signée** existe
-> ([`android-release.yml`](.github/workflows/android-release.yml)) : elle se
-> déclenche sur un tag, vérifie que l'APK produit est bien signé et complet,
-> publie `SHA256SUMS-android.txt` à côté, et rattache le tout à la release.
-> Elle attend une clé — voir [docs/android-signature.md](docs/android-signature.md).
-> Générer cette clé est une décision qui engage : Android identifie une app par
-> sa signature, et la perdre interdit toute mise à jour des installations
-> existantes.
+Chaque build est vérifié avant d'être publié : contenu embarqué complet, ordre
+de chargement des scripts, aucune syntaxe que le WebView d'Android 8 ne sache
+lire, et **démarrage réel sur un émulateur Android 8** — pas seulement une
+compilation qui réussit.
+
+> L'APK de debug est signé avec la clé de debug d'Android. Une chaîne de
+> **publication signée** existe ([`android-release.yml`](.github/workflows/android-release.yml)) :
+> déclenchée sur un tag, elle vérifie que l'APK est signé et complet, publie
+> `SHA256SUMS-android.txt`, et rattache le tout à la release. Elle attend une
+> clé — voir [docs/android-signature.md](docs/android-signature.md). Générer
+> cette clé engage : Android identifie une app par sa signature, et la perdre
+> interdit toute mise à jour des installations existantes.
 
 ### Connecter le téléphone au hub
 
-L'app **ne télécharge rien elle-même** : elle lit ta bibliothèque depuis l'Inko
-qui tourne sur ton ordinateur (voir [Pourquoi un hub](#pourquoi-le-téléphone-ne-scrape-pas)).
-Deux gestes :
+L'app **ne scrape rien elle-même** : elle lit ta bibliothèque depuis l'Inko qui
+tourne sur ton ordinateur (voir [Pourquoi un hub](#pourquoi-le-téléphone-ne-scrape-pas)).
 
 1. **Sur le PC** — Paramètres → Appareils → « Afficher le code ». Un QR
    apparaît, valable 2 minutes, à usage unique.
-2. **Sur le téléphone** — « Scanner le QR code », ou saisis le code à la main
-   si la caméra ne coopère pas. Le code fonctionne aussi bien.
+2. **Sur le téléphone** — « Scanner le QR code », ou saisis le code à la main.
+   Ou encore : **« Rechercher mon hub sur le réseau »**, qui le trouve tout seul.
 
 Le téléphone et l'ordinateur doivent être sur le même réseau Wi-Fi.
 
-Chaque appareil appairé apparaît dans Paramètres → Appareils, et se déconnecte
+Chaque appareil appairé apparaît dans Paramètres → Appareils et se déconnecte
 d'un geste — **immédiatement**, sans attendre l'expiration d'un jeton. C'est le
-geste « j'ai perdu mon téléphone ».
+geste « j'ai perdu mon téléphone » : la session tombe, les notifications
+s'arrêtent, tout dans la même seconde.
 
 <sub>Un appareil appairé n'est jamais administrateur, même si le compte l'est
 sur le PC : il lit et écrit sa bibliothèque, rien de plus.</sub>
 
+### Le hub a une identité, pas seulement une adresse
+
+Ton PC reçoit son adresse en DHCP. Au redémarrage de la box, `192.168.1.34`
+devient `192.168.1.52` — et un téléphone qui a mémorisé une adresse a mémorisé
+une place de parking, pas une personne.
+
+Le hub tire donc une **identité** au premier démarrage, que le téléphone retient
+lors de l'appairage. Deux conséquences :
+
+- **Il retrouve son hub tout seul.** Au démarrage ou en changeant de Wi-Fi, si
+  l'adresse ne répond plus, l'app cherche le service `_inko._tcp` sur le réseau
+  et corrige l'adresse **sans rien demander**.
+- **Il refuse un inconnu.** Un hub dont l'identité ne correspond pas n'est jamais
+  adopté, même s'il est seul sur le réseau — sur un Wi-Fi partagé, se connecter
+  au premier venu reviendrait à lui confier sa bibliothèque.
+
+<sub>mDNS est filtré sur beaucoup de réseaux (Wi-Fi invité, entreprise). La
+recherche échoue alors proprement et le dit ; la saisie manuelle de l'adresse
+reste le chemin garanti. `INKO_MDNS=0` coupe l'annonce côté hub.</sub>
+
+### Lire sans réseau
+
+Le hors-ligne est **réel**, pas annoncé : l'interface est embarquée dans l'APK,
+seules les données viennent du hub. Hub éteint, avec des chapitres téléchargés,
+la lecture continue — planches affichées, pages qui tournent.
+
+Et la progression lue hors ligne **remonte toute seule** quand le hub revient.
+
+Deux détails qui font la différence entre « ça marche » et « ça marche
+vraiment » :
+
+- Le stockage d'un WebView est effaçable par Android sous pression mémoire.
+  L'app demande le mode **persistant**, et le dit honnêtement quand il est
+  refusé. Dans ce cas seulement, elle double les planches dans le stockage privé
+  de l'application — que le système n'évince jamais.
+- Hub injoignable **avec** des chapitres en réserve : bandeau et lecture
+  possible. Hub injoignable **sans** rien à lire : écran de configuration. On ne
+  bloque que s'il n'y a rien à faire.
+
+### Pensée pour le pouce
+
+| | |
+|---|---|
+| **Appui long** sur une carte | menu : favori, liste, télécharger, marquer lu |
+| **Balayage droite / gauche** | marquer la série lue · télécharger le prochain chapitre — **annulables 5 s** |
+| **Tirer vers le bas** | actualiser la liste |
+| **Balayage depuis le bord bas** | mode une main : la page descend à portée du pouce |
+| **Touches de volume** | tourner les pages, sans regarder l'écran |
+| **Appui long sur l'icône** | Bibliothèque · Rechercher · Téléchargements |
+| **Partager un titre** | depuis n'importe quelle app → la recherche s'ouvre dessus |
+
+Grille à trois colonnes, couvertures au rapport 2:3, titres sur deux lignes,
+feuilles montantes à la place des barres latérales, et le **bouton retour
+d'Android** qui ferme les panneaux au lieu de quitter l'écran.
+
+### Notifications — sans compte Google
+
+Deux transports, essayés dans cet ordre :
+
+| | Délai | Ce qu'il faut |
+|---|---|---|
+| **Firebase (FCM)** | quelques secondes | un projet Google, deux fichiers de clés |
+| **Veille locale** | 15 minutes au plus | **rien** |
+
+La veille est le repli automatique : le téléphone interroge lui-même ton hub via
+`WorkManager`, l'ordonnanceur d'Android. Aucun service tiers, aucune clé — et
+pour un lecteur auto-hébergé dont le hub est le PC du salon, passer par les
+serveurs de Google pour apprendre qu'un chapitre est arrivé à trois mètres est
+une dépendance qu'on peut refuser. Voir
+[docs/notifications-push.md](docs/notifications-push.md).
+
 ### Pourquoi le téléphone ne scrape pas
 
-Les extensions d'Inko utilisent `cheerio` pour analyser du HTML, un repli
-`curl` parce que l'empreinte TLS de Node est bloquée par Cloudflare, et des
-en-têtes `Referer` / `User-Agent` qu'un navigateur **interdit** de définir. Un
-WebView ne peut structurellement pas les exécuter — ce n'est pas une question
-d'effort, c'est la politique d'origine croisée et l'anti-bot des sites sources.
+Les extensions d'Inko utilisent `cheerio` pour analyser du HTML, un repli `curl`
+parce que l'empreinte TLS de Node est bloquée par Cloudflare, et des en-têtes
+`Referer` / `User-Agent` qu'un navigateur **interdit** de définir. Un WebView ne
+peut structurellement pas les exécuter — ce n'est pas une question d'effort,
+c'est la politique d'origine croisée et l'anti-bot des sites sources.
 
 Le téléphone est donc un **client du hub** : ton PC, ton NAS ou ton VPS fait le
-travail, le téléphone affiche. En contrepartie, l'app a besoin que le hub soit
-joignable ; le mode hors-ligne réel (lire ce qui est déjà téléchargé, hub
-éteint) est en cours.
+travail, le téléphone affiche.
 
 ---
 
@@ -369,26 +448,75 @@ notifications. L'app Android ajoute l'appairage par QR, le stockage natif et,
 
 ## Architecture
 
+### Une base de code, trois coques
+
+C'est la question qu'on se pose en ouvrant le dépôt : pourquoi l'app Windows,
+l'app Android et le site vivent-ils au même endroit ? Parce que ce n'est **pas**
+trois applications.
+
+```
+84 fichiers de frontend PARTAGÉS   45 scripts · 15 feuilles · 24 pages
+ 2 fichiers propres au mobile      hub.js (à quel serveur parler) · natif.js (la couche Android)
+   + la coque android/  (Capacitor)  et  desktop-tauri/  (Tauri)
+```
+
+L'APK ne contient pas une autre application : il contient **ces mêmes fichiers**,
+transpilés pour le WebView d'Android 8, avec deux scripts injectés à la
+construction. Séparer les dépôts obligerait à dupliquer 84 fichiers — et on
+perdrait ce qui fait la valeur du montage : une correction profite aux trois
+d'un coup.
+
+Le risque de ce choix — un ajout mobile qui abîme le bureau — est réel. Il est
+tenu par des tests : les modules tactiles doivent s'effacer avant de poser le
+moindre écouteur, `hub.js` et `natif.js` ne doivent être référencés par aucune
+page du dépôt, et les règles pensées pour le doigt doivent rester enfermées dans
+`hover: none`.
+
 ```
 Inko/
 ├── *.html                  # Pages (vanilla JS, zéro framework, zéro build)
 ├── assets/
 │   ├── css/                # global.css (design system Washi/Sumi) + 1 CSS/page
-│   ├── js/                 # api.js, global.js, 1 module/page, notes-ui, hero3d…
+│   ├── js/                 # api.js, global.js, 1 module/page, gestes tactiles…
 │   └── vendor/             # jszip, pdf.js, three.js (tout en local, CSP stricte)
 ├── server/                 # Express + MySQL (backend embarqué dans l'app desktop)
-│   ├── controllers/        # auth (mode local), manga, user, notes, extensions…
+│   ├── controllers/        # auth (mode local), manga, user, notes, devices…
 │   ├── extensions/         # sources chargées à chaud (contrat Mihon-like)
-│   ├── lib/                # mailer, push, notify, updates, source-health…
+│   ├── lib/                # push, notify, updates, identite-hub, annonce-mdns…
 │   ├── middleware/         # sécurité (CSP/HSTS prod, rate limit)
-│   └── db/                 # schema.sql + migrations idempotentes
+│   └── db/                 # schema.sql + migrations versionnées
 ├── extensions-community/   # catalogue de sources versionné (versions.json)
-└── desktop-tauri/          # app Windows (Tauri 2, WebView2, sidecar Node)
+├── android/                # coque Capacitor + 5 greffons maison (Java)
+├── desktop-tauri/          # app Windows (Tauri 2, WebView2, sidecar Node)
+└── scripts-ci/             # build mobile, vérificateurs, générateurs
 ```
 
 > L'administration (modération, rôles, statut des sources multi-utilisateurs)
 > vivra dans une application dédiée **Inko Admin** — l'app de lecture reste
 > centrée sur la lecture.
+
+### Ce que la CI vérifie
+
+Les défauts les plus coûteux de ce projet ont tous eu le même profil : du code
+valide, des tests verts, et un résultat faux à l'écran. Les contrôles visent
+donc l'ARTEFACT, pas le dossier qui a servi à le produire.
+
+| Contrôle | Ce qu'il empêche |
+|---|---|
+| `gen-precache --check` | une page qui s'ouvre hors-ligne en coquille vide |
+| `check-i18n --check` | un libellé reformulé qui casse sa traduction en silence |
+| `gen-openapi --check` | une référence d'API qui diverge du routeur |
+| `gen-repli-aspect-ratio --check` | des couvertures à 0 px de haut sur Android 8 |
+| `verifier-java-android` | une erreur de signature Java, sans installer le SDK |
+| `verifier-apk` | un APK sans `inset` abaissé, ni syntaxe illisible par Chrome 61 |
+| démarrage sur émulateur | un APK qui compile mais ne s'ouvre pas |
+| e2e Playwright + axe-core | un parcours cassé, une régression d'accessibilité |
+
+<sub>Le WebView d'Android 8 ignore silencieusement `inset` (Chrome 87),
+`aspect-ratio` (88), `env()` (69) et `color-mix()` (111). Chacune a produit un
+contrôle vert sur un produit cassé — un voile de modale à 0 × 0, des couvertures
+à 0 px, un bandeau collé en haut de l'écran, des surfaces sans fond. Les quatre
+sont désormais tenues par des tests.</sub>
 
 ### Déploiement en ligne (Docker)
 
