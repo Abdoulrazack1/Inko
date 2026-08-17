@@ -227,4 +227,48 @@
         if (e.target.closest?.('[data-appairer]')) { e.preventDefault(); ouvrirAppairage(); }
         else if (e.target.closest?.('[data-appareils]')) { e.preventDefault(); ouvrirAppareils(); }
     });
+
+    // ── P2.5 : activer les notifications, depuis les réglages ──
+    //
+    // La ligne reste CACHÉE hors de l'application mobile. Sur le PC, les
+    // notifications de nouveaux chapitres passent déjà par le navigateur : en
+    // proposer une seconde ici donnerait deux interrupteurs pour la même
+    // chose, dont un sans le moindre effet.
+    //
+    // Et l'autorisation est demandée ICI, sur un geste explicite. Une demande
+    // au premier lancement se refuse d'un réflexe — et Android ne la repose
+    // JAMAIS. On aurait perdu la fonction pour toujours, en échange de rien.
+    (function notificationsMobiles() {
+        const ligne = document.getElementById('rowNotifsMobiles');
+        const bouton = document.getElementById('btnNotifsMobiles');
+        const etat = document.getElementById('notifsMobilesEtat');
+        if (!ligne || !bouton || !window.INKO_NATIF?.demanderNotifications) return;
+        ligne.hidden = false;
+
+        bouton.addEventListener('click', async () => {
+            bouton.disabled = true;
+            const libelle = bouton.textContent;
+            bouton.textContent = 'Activation…';
+            try {
+                const r = await window.INKO_NATIF.demanderNotifications();
+                if (r.ok) {
+                    bouton.textContent = 'Activées ✓';
+                    etat.textContent = 'Ce téléphone sera prévenu des nouveaux chapitres des séries suivies.';
+                    return;
+                }
+                bouton.disabled = false;
+                bouton.textContent = libelle;
+                // VIII.47 : dire la CONSÉQUENCE, pas le code. « Permission
+                // denied » n'apprend rien ; savoir que la vérification manuelle
+                // continue de marcher évite de croire la fonction perdue.
+                etat.textContent = r.consequence
+                    || ('Activation impossible : ' + (r.raison || 'raison inconnue')
+                        + '. La vérification manuelle depuis la bibliothèque continue de marcher.');
+            } catch (e) {
+                bouton.disabled = false;
+                bouton.textContent = libelle;
+                etat.textContent = 'Activation impossible : ' + e.message;
+            }
+        });
+    })();
 })();

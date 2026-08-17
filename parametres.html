@@ -134,6 +134,17 @@
         </div>
         <button class="btn btn-secondary btn-sm" data-appareils>Gérer</button>
       </div>
+      <!-- P2.5 : cette ligne n'apparaît QUE dans l'application mobile.
+           Sur le PC, les notifications de nouveaux chapitres passent déjà par
+           le navigateur (Web Push) : proposer les deux ici donnerait deux
+           interrupteurs pour la même chose, dont un sans effet. -->
+      <div class="set-row" id="rowNotifsMobiles" hidden>
+        <div>
+          <div class="set-row-label">Notifications de nouveaux chapitres</div>
+          <div class="set-row-desc" id="notifsMobilesEtat">Être prévenu sur ce téléphone dès qu'une série suivie publie un chapitre.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btnNotifsMobiles">Activer</button>
+      </div>
     </div>
 
     <!-- LECTEUR -->
