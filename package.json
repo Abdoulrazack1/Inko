@@ -1,6 +1,9 @@
 {
   "name": "inko",
   "version": "2.5.7",
+  "engines": {
+    "node": ">=22"
+  },
   "private": true,
   "description": "Inko — lecteur de mangas et romans (frontend vanilla + backend Express dans server/)",
   "scripts": {

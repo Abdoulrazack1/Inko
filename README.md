@@ -111,7 +111,12 @@ bascule sur l'app. Seul prérequis externe : **MySQL** sur `127.0.0.1:3306`
 
 ## Démarrer en développement
 
-Prérequis : Node.js 18+, MySQL 8.
+> **Node 22 ou plus** est requis depuis le passage à Capacitor 8 et jsdom 30.
+> `npm install` s'arrête net en le disant si la version est trop ancienne —
+> sans ce garde-fou, l'échec arrivait bien plus tard sous la forme
+> `webidl.util.markAsUncloneable is not a function`, où rien n'indique que la
+> cause est la version de Node.
+> Avec nvm : `nvm use 22` (ou plus récent).
 
 ```bash
 git clone https://github.com/Abdoulrazack1/Inko.git
