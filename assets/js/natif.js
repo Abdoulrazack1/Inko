@@ -158,6 +158,22 @@
                      : { connecte: navigator.onLine !== false, type: 'inconnu' };
         },
 
+        // ── Touches de volume (IX.8) ────────────────────────
+        // Le seul moyen de tourner une page SANS regarder l'écran ni changer
+        // de prise : dans les transports, une main sur la barre, ou couché
+        // dans le noir.
+        //
+        // La page DÉCLARE son intention plutôt que d'être interrogée à chaque
+        // appui : `dispatchKeyEvent` doit répondre tout de suite si
+        // l'événement est consommé, et attendre une réponse asynchrone
+        // reviendrait à laisser passer la touche — donc à afficher le curseur
+        // de volume du système par-dessus la planche à chaque page.
+        toucherVolume(actif) {
+            const V = P().InkoVolume;
+            if (!V) return Promise.resolve(false);
+            return sûr(async () => { await V.setActif({ actif: !!actif }); return true; }, false);
+        },
+
         // ── Identité de l'appareil ──────────────────────────
         // Le nom sert dans « Appareils connectés », côté PC, pour décider
         // lequel révoquer quand on en perd un. « Inko sur Linux armv8l » — ce

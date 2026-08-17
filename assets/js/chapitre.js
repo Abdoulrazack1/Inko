@@ -13,7 +13,16 @@
     let doubleBase   = 1;       // 1re page de la planche affichée en mode double
 
     // ── Réglages lecteur (persistés) ──
-    const rs = { bg: 'dark', brightness: 100, gap: 8, fit: 'original', direction: 'rtl', autospeed: 1.4, warm: 0 };
+    const rs = { bg: 'dark', brightness: 100, gap: 8, fit: 'original', direction: 'rtl', autospeed: 1.4, warm: 0,
+        // IX.8 : « libre » par defaut, et c'est deliberе. Verrouiller
+        // d'autorite priverait de la double page en paysage ceux qui la
+        // preferent — le verrou repond a une gene reelle (se retourner dans
+        // son lit recompose la planche et fait perdre sa place), mais c'est
+        // une gene que tout le monde n'a pas.
+        orientation: 'libre',
+        // Passer en double page quand l'ecran devient large : c'est le seul
+        // moment ou deux planches tiennent sans devenir illisibles.
+        autoDouble: '0' };
     function loadReaderSettings() {
         ['bg', 'brightness', 'gap', 'fit', 'direction', 'autospeed', 'warm'].forEach(k => {
             const v = window.Storage?.getPref('reader_' + k);
@@ -57,6 +66,38 @@
         if (prefs.zoom)     zoom     = prefs.zoom;
         loadReaderSettings();
         if (prefs.readingDir) rs.direction = prefs.readingDir;
+
+        // IX.8 : orientation et double page automatique. Le verrou est posé
+        // ICI, à l'entrée du lecteur, et relâché en le quittant — verrouiller
+        // toute l'application pour un confort de lecture serait un effet de
+        // bord que personne ne relierait à ce réglage.
+        appliquerOrientation();
+
+        // IX.8 : les touches de volume tournent les pages. On ne les réclame
+        // QUE dans le lecteur — les confisquer ailleurs ferait passer
+        // l'application pour cassée, sans que rien ne le rattache à un réglage.
+        window.INKO_NATIF?.toucherVolume?.(true);
+        window.INKO_toucheVolume = (sens) => {
+            // Le sens de lecture ne s'applique PAS ici : « suivant » veut dire
+            // la suite du récit, quel que soit le côté vers lequel on tourne.
+            // Inverser les touches en RTL ferait reculer ceux qui lisent des
+            // mangas, c'est-à-dire la majorité des lecteurs de cette app.
+            if (sens === 'suivant') window.goToPage?.(currentPage + 1);
+            else window.goToPage?.(currentPage - 1);
+        };
+
+        window.addEventListener('pagehide', () => {
+            window.INKO_NATIF?.orientation?.(null);
+            window.INKO_NATIF?.toucherVolume?.(false);
+        });
+        // `orientationchange` n'existe pas partout et `resize` seul confond une
+        // rotation avec l'ouverture du clavier virtuel. Les deux, débruités
+        // ensemble : la bascule ne coûte rien quand le mode est déjà le bon.
+        let _tempoRot = null;
+        const rotation = () => { clearTimeout(_tempoRot); _tempoRot = setTimeout(surRotation, 150); };
+        window.addEventListener('orientationchange', rotation);
+        window.addEventListener('resize', rotation);
+        surRotation();
 
         showLoader('Chargement…');
 
@@ -243,6 +284,11 @@
             const btn = e.target.closest('[data-mode]');
             if (!btn) return;
             readMode = btn.dataset.mode;
+            // Choix EXPLICITE de l'utilisateur : la bascule automatique
+            // paysage/portrait se tait pour cette session. Sans ce desarmement,
+            // remettre « page » en paysage serait annule dans la seconde, et on
+            // perdrait la main sur son propre lecteur.
+            autoDoubleDesarme = true;
             window.Storage?.setPref('readMode', readMode);                  // défaut global
             window.Storage?.setPref('readMode_' + manga.id, readMode);     // mémorisé pour cette série
             el.querySelectorAll('.modebar-btn').forEach(b => b.classList.toggle('active', b === btn));
@@ -1412,7 +1458,45 @@
         rs[key] = val;
         window.Storage?.setPref('reader_' + key, val);
         applyReaderSettings();
+        if (key === 'orientation') appliquerOrientation();
         if (doRerender) rerender();
+    }
+
+    // ── IX.8 : verrouillage d'orientation ───────────────────
+    // Une rotation involontaire — on se retourne dans son lit — recompose la
+    // planche et fait perdre sa place. Le verrou n'est appliqué QUE dans le
+    // lecteur, et relâché en le quittant : verrouiller toute l'application
+    // pour un confort de lecture serait un effet de bord que personne ne
+    // relierait à ce réglage.
+    function appliquerOrientation() {
+        if (!window.INKO_NATIF) return;
+        window.INKO_NATIF.orientation(rs.orientation === 'libre' ? null : rs.orientation);
+    }
+
+    // ── IX.8 : double page automatique en paysage ───────────
+    // Deux planches côte à côte ne tiennent qu'en paysage ; en portrait elles
+    // deviennent deux timbres. Basculer à la main à chaque rotation est
+    // précisément le genre de geste qu'on cesse de faire au bout de deux
+    // jours, et le réglage reste alors sur la mauvaise valeur.
+    //
+    // Deux garde-fous :
+    //   · le mode DÉFILEMENT n'est jamais touché — c'est celui des webtoons,
+    //     où la double page n'a aucun sens ;
+    //   · un changement de mode FAIT À LA MAIN désarme la bascule pour la
+    //     session. Sans ça, on remettrait « page » en paysage et l'automatisme
+    //     le rebasculerait aussitôt : l'utilisateur perdrait la main sur son
+    //     propre lecteur.
+    let autoDoubleDesarme = false;
+    function surRotation() {
+        if (rs.autoDouble !== '1' || autoDoubleDesarme) return;
+        if (readMode === 'scroll') return;
+        const paysage = window.innerWidth > window.innerHeight;
+        const voulu = paysage ? 'double' : 'page';
+        if (readMode === voulu) return;
+        readMode = voulu;
+        if (voulu === 'double') doubleBase = currentPage;
+        renderModebar();
+        rerender();
     }
 
     function toggleReaderSettings() {
@@ -1445,6 +1529,12 @@
             <input type="range" id="rsGap" min="0" max="40" value="${rs.gap}" class="rs-range">
             <label class="rs-label">Vitesse défilement auto <span id="rsAutoVal">${(+rs.autospeed || 1.4).toFixed(1)}×</span></label>
             <input type="range" id="rsAuto" min="0.4" max="6" step="0.2" value="${rs.autospeed}" class="rs-range">
+            <label class="rs-label">Orientation de l'écran</label>
+            ${seg('orientation', [{v:'libre',l:'Libre'},{v:'portrait',l:'Portrait'},{v:'landscape',l:'Paysage'}], rs.orientation)}
+            <label class="rs-check">
+                <input type="checkbox" id="rsAutoDouble" ${rs.autoDouble === '1' ? 'checked' : ''}>
+                <span>Double page automatique en paysage</span>
+            </label>
             <label class="rs-label">Qualité des images</label>
             ${seg('quality', [{v:'high',l:'Haute'},{v:'saver',l:'Éco'}], q)}
             <label class="rs-label">Minuteur de lecture</label>
@@ -1471,6 +1561,13 @@
         // Audit AMEL-17 : bascule du recadrage. Le cache de mesures est vidé
         // à chaque changement, sinon désactiver puis réactiver resservirait des
         // marges calculées pour d'autres pages.
+        panel.querySelector('#rsAutoDouble')?.addEventListener('change', e => {
+            saveReaderSetting('autoDouble', e.target.checked ? '1' : '0');
+            // Reprise immediate : cocher la case en paysage doit basculer tout
+            // de suite, sinon le reglage a l'air sans effet et on le decoche.
+            autoDoubleDesarme = false;
+            surRotation();
+        });
         panel.querySelector('#rsAutoCrop')?.addEventListener('change', e => {
             window.Storage?.setPref(CROP_KEY, e.target.checked ? '1' : '0');
             cropCache.clear();
