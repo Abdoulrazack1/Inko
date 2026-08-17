@@ -19,6 +19,7 @@ const browser = {
     window: 'readonly', document: 'readonly', navigator: 'readonly', location: 'readonly',
     localStorage: 'readonly', sessionStorage: 'readonly', console: 'readonly',
     fetch: 'readonly', Request: 'readonly', Response: 'readonly', Headers: 'readonly',
+    EventSource: 'readonly',   // flux SSE de la telecommande (P3.1)
     URL: 'readonly', URLSearchParams: 'readonly', Blob: 'readonly', File: 'readonly',
     FileReader: 'readonly', FormData: 'readonly', AbortController: 'readonly',
     setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',
