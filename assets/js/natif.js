@@ -235,6 +235,61 @@
             }, { ok: false, raison: 'erreur' });
         },
 
+        /**
+         * Notifications SANS Firebase — le repli qui marche partout.
+         *
+         * FCM impose de créer un projet Google et de confier au serveur de
+         * Google le fait de réveiller le téléphone. Pour un lecteur
+         * AUTO-HÉBERGÉ dont le hub est le PC du salon, c'est une dépendance
+         * étrange : passer par Mountain View pour apprendre qu'un chapitre est
+         * arrivé sur une machine à trois mètres. Et sans les clés de
+         * quelqu'un, la fonction n'existe pas du tout.
+         *
+         * Ici, le téléphone demande lui-même : `WorkManager` le réveille au
+         * plus toutes les quinze minutes, il interroge le hub, et affiche ce
+         * qui est nouveau. Aucun service Google, aucune clé, aucun compte.
+         *
+         * Les deux chemins coexistent : si FCM est configuré, il arrive plus
+         * vite ; sinon celui-ci prend le relais. Ils lisent la MÊME source —
+         * les notifications que le hub a déjà décidé de créer — donc jamais de
+         * doublon de décision, seulement deux façons de l'apprendre.
+         */
+        async activerVeille() {
+            const V = P().InkoVeille;
+            if (!V) return { ok: false, raison: 'veille indisponible' };
+            const url = window.INKO_HUB;
+            const jeton = window.INKO_TOKEN;
+            if (!url || !jeton) {
+                return { ok: false, raison: 'appareil pas encore appairé',
+                    consequence: 'Appaire ce téléphone au hub, puis reviens activer les notifications.' };
+            }
+            return sûr(async () => {
+                // On part de la notification la plus récente DÉJÀ existante :
+                // au premier branchement, personne ne veut recevoir d'un coup
+                // les trente notifications déjà lues sur le PC.
+                let depuisId = 0;
+                try {
+                    const r = await window.API.notifications.list(1);
+                    depuisId = (r && r.items && r.items[0] && r.items[0].id) || 0;
+                } catch (e) { /* hub muet : on part de zéro, au pire un rappel */ }
+
+                const r = await V.configurer({ url, jeton, depuisId });
+                return { ok: true, intervalleMinutes: r.intervalleMinutes || 15, transport: 'veille' };
+            }, { ok: false, raison: 'erreur' });
+        },
+
+        async arreterVeille() {
+            const V = P().InkoVeille;
+            if (!V) return false;
+            return sûr(async () => { await V.arreter(); return true; }, false);
+        },
+
+        async etatVeille() {
+            const V = P().InkoVeille;
+            if (!V) return { configure: false };
+            return sûr(() => V.etat(), { configure: false });
+        },
+
         // ── Fichiers durables (P2.3) ────────────────────────
         // Le Cache API est « best-effort » : sous pression mémoire, Android le
         // vide sans prévenir. `navigator.storage.persist()` demande le mode

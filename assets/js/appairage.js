@@ -250,10 +250,28 @@
             const libelle = bouton.textContent;
             bouton.textContent = 'Activation…';
             try {
-                const r = await window.INKO_NATIF.demanderNotifications();
+                // Deux transports, essayés dans cet ordre.
+                //
+                // FCM d'abord parce qu'il est plus RAPIDE : la notification
+                // part du hub et arrive dans la seconde. Mais il exige un
+                // projet Firebase, donc un compte Google — et sans ces clés il
+                // n'existe tout simplement pas.
+                //
+                // La veille ensuite : le téléphone interroge lui-même le hub,
+                // au plus toutes les quinze minutes. Plus lent, mais il marche
+                // sans rien demander à personne — ce qui convient mieux à un
+                // lecteur auto-hébergé.
+                let r = await window.INKO_NATIF.demanderNotifications();
+                if (!r.ok && window.INKO_NATIF.activerVeille) {
+                    const v = await window.INKO_NATIF.activerVeille();
+                    if (v.ok) r = v;
+                }
                 if (r.ok) {
                     bouton.textContent = 'Activées ✓';
-                    etat.textContent = 'Ce téléphone sera prévenu des nouveaux chapitres des séries suivies.';
+                    etat.textContent = r.transport === 'veille'
+                        ? 'Ce téléphone vérifie lui-même auprès du hub, au plus toutes les '
+                          + (r.intervalleMinutes || 15) + ' minutes. Aucun service tiers n’est utilisé.'
+                        : 'Ce téléphone sera prévenu des nouveaux chapitres des séries suivies.';
                     return;
                 }
                 bouton.disabled = false;

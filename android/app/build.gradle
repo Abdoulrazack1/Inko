@@ -68,6 +68,11 @@ repositories {
 }
 
 dependencies {
+    // P2.5 sans Firebase : `WorkManager` reveille l'app au plus toutes les
+    // quinze minutes pour demander au hub s'il y a du neuf. C'est la seule
+    // facon sanctionnee par Android de faire du travail periodique qui survive
+    // au mode Doze et au redemarrage — et elle ne depend d'aucun service Google.
+    implementation "androidx.work:work-runtime:2.9.1"
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"

@@ -44,6 +44,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(VolumePlugin.class);
         registerPlugin(DecouvertePlugin.class);
         registerPlugin(RaccourcisPlugin.class);
+        registerPlugin(VeillePlugin.class);
         super.onCreate(savedInstanceState);
         // L'intention de lancement est DÉPOSÉE ici ; c'est la page qui viendra
         // la chercher quand elle sera prête. Naviguer depuis `onCreate`

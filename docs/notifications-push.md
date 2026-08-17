@@ -1,13 +1,41 @@
 # Notifications de nouveaux chapitres (P2.5)
 
-L'application est prête à recevoir des notifications. Il manque **deux fichiers
-de clés**, qui vous appartiennent et que je ne peux pas créer à votre place :
-ils sont liés à votre compte Google.
+**Les notifications marchent sans rien configurer.** Firebase est une option
+qui les rend plus rapides, pas une condition pour qu'elles existent.
+
+## Deux transports, essayés dans cet ordre
+
+| | Délai | Ce qu'il faut |
+|---|---|---|
+| **Firebase (FCM)** | quelques secondes | un projet Google, deux fichiers de clés |
+| **Veille locale** | 15 minutes au plus | **rien** |
+
+La veille est le repli automatique : le téléphone interroge lui-même votre hub
+via `WorkManager`, l'ordonnanceur d'Android. Aucun service tiers, aucun compte,
+aucune clé — et pour un lecteur auto-hébergé dont le hub est le PC du salon,
+passer par les serveurs de Google pour apprendre qu'un chapitre est arrivé à
+trois mètres est une dépendance qu'on peut légitimement refuser.
+
+Les deux lisent la **même** source : les notifications que le hub a déjà
+décidé de créer. Il n'y a donc jamais deux logiques de détection qui pourraient
+diverger — seulement deux façons de l'apprendre.
+
+Quinze minutes est le minimum imposé par Android, pas un choix de confort : le
+demander plus court ne le rend pas plus court, le système l'aligne en silence.
+
+**Rien à faire pour l'activer** : Paramètres → Notifications de nouveaux
+chapitres → Activer. Si Firebase n'est pas configuré, la veille prend le relais
+et le message le dit.
+
+---
+
+## Si vous voulez la rapidité de Firebase
+
+Il manque alors **deux fichiers de clés**, qui vous appartiennent et que je ne
+peux pas créer à votre place : ils sont liés à votre compte Google.
 
 Tant qu'ils sont absents, **rien ne casse**. Le hub le dit une fois au
-démarrage, les notifications ne partent pas, et le reste d'Inko fonctionne
-normalement — la vérification manuelle des nouveaux chapitres depuis la
-bibliothèque continue de marcher comme avant.
+démarrage, et la veille locale assure le service.
 
 ---
 

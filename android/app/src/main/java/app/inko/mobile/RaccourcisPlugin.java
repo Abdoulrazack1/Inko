@@ -35,12 +35,29 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class RaccourcisPlugin extends Plugin {
 
     static final String EXTRA = "inko_page";
+    /** Chemin complet déposé par une notification (VeilleWorker). */
+    static final String EXTRA_LIEN = "inko_lien";
 
     /** Déposée par l'intention de lancement, retirée à la première lecture. */
     private static volatile String enAttente = null;
 
     static void deposer(Intent intent) {
         if (intent == null) return;
+
+        // Deux sources, deux formes. Le raccourci d'icône désigne une PAGE
+        // (« bibliotheque.html ») ; une notification désigne un CHEMIN complet
+        // avec ses paramètres (« /chapitre.html?manga=...&chapter=... »).
+        // Les valider pareil rejetterait l'un ou laisserait passer l'autre.
+        String lien = intent.getStringExtra(EXTRA_LIEN);
+        if (lien != null && lien.startsWith("/") && !lien.startsWith("//")
+                // Le tiret est placé EN DERNIER dans la classe : il n'y a alors
+                // rien à échapper, et `"\-"` est justement un échappement
+                // illégal en Java (contrairement aux regex écrites en JS).
+                && lien.matches("/[A-Za-z0-9_./?=&%-]*")) {
+            enAttente = lien.substring(1);
+            return;
+        }
+
         String page = intent.getStringExtra(EXTRA);
         if (page == null || page.isEmpty()) return;
         // Le raccourci vient de NOTRE manifeste, mais une application tierce
