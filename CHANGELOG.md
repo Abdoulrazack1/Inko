@@ -3,6 +3,43 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.6.0 — Le telephone pilote le PC, et l'ecran d'accueil sait ou tu en es
+
+**Telecommande.** On lit sur l'ecran du salon, et on se levait pour
+tourner la page. Menu « Plus » -> Telecommande sur le telephone (ou
+Ctrl+K sur le PC) : deux grandes fleches, le saut de chapitre, le plein
+ecran, le defilement automatique. Le lecteur ouvert sur l'ordinateur
+s'abonne tout seul, il n'y a rien a activer.
+
+Le panneau annonce d'abord QUEL ecran il pilote, avant le premier
+appui : une telecommande qui ne repond pas parce que rien n'ecoute est
+indiscernable d'une telecommande cassee. L'ecran est nomme d'apres la
+serie en cours, ce qui permet de savoir lequel on pilote quand deux
+ecrans lisent.
+
+Rien n'est memorise. Une commande qui ne trouve aucun ecran est perdue,
+pas mise en file : « page suivante » rejoue trois minutes plus tard,
+quand l'ecran affiche autre chose, ferait sauter des pages sans qu'on
+comprenne pourquoi. Et jamais entre comptes — sur un hub familial,
+personne ne tourne les pages de quelqu'un d'autre.
+
+**Widget « Reprendre » (Android).** Reprendre demandait quatre gestes :
+ouvrir Inko, attendre, retrouver la serie, retrouver le chapitre. Appui
+long sur l'ecran d'accueil -> Widgets -> Inko - Reprendre. Un appui
+suffit, et le widget AFFICHE ou on en est — souvent, ca dispense
+d'ouvrir l'application.
+
+La lecture privee n'y apparait pas, et le widget se vide a la
+deconnexion : sinon l'ecran d'accueil continuerait d'annoncer la serie
+d'un compte quitte, a la vue de quiconque regarde le telephone. Pas de
+couverture non plus, pour la meme raison.
+
+**Les couleurs de l'app.** La barre d'etat et l'ecran de lancement
+d'Android affichaient l'indigo generique livre par defaut avec
+Capacitor. Ils portent desormais le kakishibu d'Inko.
+
+Ces deux fonctions terminent la phase 3 de l'audit du 12 aout.
+
 ## 2.5.7 — SushiScan trouve enfin ses titres, et la recherche classe par pertinence
 
 **SushiScan ne trouvait pas « Solo Leveling ».** Le titre le plus lu de
