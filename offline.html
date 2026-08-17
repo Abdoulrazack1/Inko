@@ -34,7 +34,7 @@
   </style>
 </head>
 <body>
-  <div class="box">
+  <main class="box" id="main">
     <img src="/assets/img/icon.svg" alt="Inko" class="logo">
     <h1>Tu es hors ligne</h1>
     <!-- Audit BUG-10 : cette page annonçait que « la bibliothèque et les
@@ -49,11 +49,15 @@
       <a href="/notes.html">Mon journal</a>
     </div>
     <p style="margin-top:22px"></p>
-    <button onclick="location.reload()">Réessayer</button>
+    <button id="offRetry">Réessayer</button>
     <div class="hint">Cette page s'affiche quand le réseau est indisponible. La connexion revenue, Inko se recharge tout seul.</div>
-  </div>
+  </main>
   <script src="assets/js/i18n.js"></script>
   <script>
+    // DESK-02 : gestionnaire POSE, pas ecrit en attribut — la CSP de l'app
+    // installee bloque `onclick=""`, et ce bouton est le seul de la page.
+    document.getElementById('offRetry')?.addEventListener('click', () => location.reload());
+
     // Recharge automatiquement dès que la connexion revient
     window.addEventListener('online', () => location.reload());
   </script>

@@ -45,6 +45,9 @@
 <body class="page-body">
   <div id="header-slot"></div>
   <main id="main" tabindex="-1">
+    <!-- A11Y-01 : le pseudo s'affiche dans l'en-tete du profil, qui n'est pas
+         un titre de niveau 1. u.js remplace ce texte par le pseudo charge. -->
+    <h1 class="a11y-invisible" id="profilTitreA11y">Profil public</h1>
   <div class="up-wrap">
     <div id="upBody"><div class="up-msg"><div class="spinner-inline"></div></div></div>
   </div>

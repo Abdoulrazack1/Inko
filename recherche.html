@@ -25,9 +25,11 @@
 <body class="page-body">
   <div id="header-slot"></div>
   <main id="main" tabindex="-1">
+  <h1 class="a11y-invisible">Recherche sur toutes les sources</h1>
   <div class="se-wrap">
     <div class="se-bar">
-      <input type="text" class="se-input" id="seInput" placeholder="Rechercher un manga sur toutes les sources…" autocomplete="off">
+      <input type="text" class="se-input" id="seInput" placeholder="Rechercher un manga sur toutes les sources…" autocomplete="off"
+             aria-label="Rechercher un manga sur toutes les sources">
       <button class="se-go" id="seGo">Rechercher</button>
     </div>
     <div class="se-sub" id="seSub">Tape un titre : Inko cherche sur toutes tes sources installées en même temps.</div>

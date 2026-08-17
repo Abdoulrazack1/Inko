@@ -16,6 +16,11 @@
             body.innerHTML = msg('Profil introuvable', `Aucun utilisateur nommé « ${MH.esc(username)} ».`);
             return;
         }
+        // A11Y-01 : le titre lu porte le pseudo. Sans ca, tous les profils
+        // publics s'annoncent « Profil public ».
+        const hA11y = document.getElementById('profilTitreA11y');
+        if (hA11y) hA11y.textContent = `Profil de ${p.username || username}`;
+
         render(body, p);
     });
 

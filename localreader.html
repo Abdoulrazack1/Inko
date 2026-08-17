@@ -41,9 +41,12 @@
   <div class="lr-bar">
     <a href="import.html" class="back">← Bibliothèque</a>
     <span class="lr-title" id="lrTitle">Chargement…</span>
-    <select id="lrChapters" style="display:none"></select>
+    <select id="lrChapters" style="display:none" aria-label="Aller à un chapitre"></select>
   </div>
-  <div id="lrBody"><div class="lr-msg"><div class="spinner-inline"></div></div></div>
+  <!-- A11Y-01/02 : le titre du fichier ouvert est dans la barre, qui n'est
+       pas un titre de niveau 1 ; localreader.js recopie le nom ici. -->
+  <h1 class="a11y-invisible" id="lrTitreA11y">Lecture d'un fichier importé</h1>
+  <main id="lrBody"><div class="lr-msg"><div class="spinner-inline"></div></div></main>
   <script src="assets/vendor/jszip.min.js"></script>
   <!-- Audit PERF-06 : pdf.min.js (313 Ko) était chargé ici pour TOUT fichier
        ouvert, y compris les CBZ et les EPUB qui n'en ont pas besoin.

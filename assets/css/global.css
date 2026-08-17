@@ -276,6 +276,28 @@ ul, ol { list-style: none; }
 /* ── Finitions globales (grade produit) ────────────────────────
    Rendu de police lissé, focus clavier élégant, sélection à l'accent,
    respect de prefers-reduced-motion. */
+/* ── A11Y-01 : un titre lu, pas vu ─────────────────────────────
+   Cinq pages n'avaient AUCUN `h1`. Sur un lecteur d'ecran, la commande
+   « aller au titre principal » ne menait nulle part, et l'annonce de la page
+   se reduisait a l'onglet du navigateur.
+
+   Certaines de ces pages n'ont pas la place d'un titre visible — le lecteur
+   affiche la planche plein cadre, la recherche commence par son champ. D'ou
+   cette classe : hors de l'ecran, mais DANS l'arbre d'accessibilite.
+
+   `clip-path` seul suffirait sur les navigateurs recents ; `clip` reste pour
+   le WebView d'Android 8. Ni `display:none` ni `visibility:hidden` : tous
+   deux retirent l'element de l'arbre, donc du lecteur d'ecran aussi. */
+.a11y-invisible {
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0; border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
 body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
 :focus { outline: none; }

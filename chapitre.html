@@ -17,6 +17,10 @@
   <main id="main" tabindex="-1">
 
   <!-- Reader toolbar -->
+  <!-- A11Y-01 : le lecteur affiche la planche plein cadre, il n'y a pas la
+       place d'un titre visible. Celui-ci est lu, pas vu, et chapitre.js y met
+       la serie et le chapitre en cours. -->
+  <h1 class="a11y-invisible" id="readerTitreA11y">Lecture</h1>
   <div class="reader-toolbar" id="readerToolbar"></div>
 
   <!-- Display mode bar -->

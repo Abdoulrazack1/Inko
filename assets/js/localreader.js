@@ -9,6 +9,14 @@
     const body = document.getElementById('lrBody');
     const titleEl = document.getElementById('lrTitle');
 
+    // A11Y-01 : le nom du fichier ouvert vit dans la barre, qui n'est pas un
+    // titre. On le recopie dans le `h1` lu — sinon toute lecture d'un fichier
+    // importe s'annonce pareil.
+    function titrerPourLecteurs(texte) {
+        const h = document.getElementById('lrTitreA11y');
+        if (h && texte) h.textContent = texte;
+    }
+
     const IMG_RE = /\.(jpe?g|png|webp|gif|avif|bmp)$/i;
     const blobUrls = [];
     const mkUrl = (blob) => { const u = URL.createObjectURL(blob); blobUrls.push(u); return u; };
@@ -122,6 +130,9 @@
             });
             return;
         }
+        const FORMATS = { pdf: 'PDF', epub: 'EPUB', cbz: 'CBZ', cbr: 'CBR' };
+        titrerPourLecteurs(`Lecture d'un fichier ${FORMATS[type] || 'importé'}`);
+
         try {
             await progPull();   // audit MD2 : reprend la position la plus récente du compte
             const res = await fetch(API.local.fileUrl(id), { headers: { Authorization: 'Bearer ' + API.token } });
@@ -352,6 +363,7 @@
             .map(ir => manifest[ir.getAttribute('idref')]).filter(m => m && m.href);
         const titleMeta = (opf.match(/<dc:title[^>]*>([^<]+)</) || [])[1];
         titleEl.textContent = titleMeta || 'EPUB';
+        if (titleMeta) titrerPourLecteurs(titleMeta);
 
         if (!spine.length) throw new Error('EPUB sans contenu lisible (spine vide).');
 

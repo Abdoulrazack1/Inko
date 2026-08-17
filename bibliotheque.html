@@ -43,7 +43,8 @@
     <!-- TAB BIBLIOTHÈQUE -->
     <div id="tabLibrary">
       <div class="lib2-toolbar">
-        <input type="text" class="lib2-search" id="libSearch" placeholder="Filtrer ma bibliothèque…">
+        <input type="text" class="lib2-search" id="libSearch" placeholder="Filtrer ma bibliothèque…"
+               aria-label="Filtrer ma bibliothèque">
         <!-- Audit QUAL-05 : sans nom accessible, un lecteur d'écran annonce
              « liste déroulante » sans dire de quoi il s'agit. Le libellé
              visible manque par choix de mise en page ; aria-label le fournit. -->
@@ -70,7 +71,8 @@
         <button class="btn btn-secondary btn-sm ic-btn" id="btnLibExportCsv" title="Exporter la bibliothèque en CSV (tableur, Goodreads…)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>CSV</button>
         <button class="btn btn-secondary btn-sm ic-btn" id="btnLibImport" title="Restaurer une sauvegarde (JSON)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/></svg>Importer</button>
         <!-- Audit AMEL-34 : accepte desormais aussi le CSV que l export produit. -->
-        <input type="file" id="libImportFile" accept="application/json,.json,text/csv,.csv" style="display:none">
+        <input type="file" id="libImportFile" accept="application/json,.json,text/csv,.csv" style="display:none"
+               aria-label="Fichier à importer (JSON ou CSV)">
         <button class="btn btn-primary btn-sm" id="btnLibRefresh" title="Vérifier les nouveaux chapitres de toute la bibliothèque">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-2px;margin-right:5px"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>Mettre à jour
         </button>

@@ -76,6 +76,14 @@
         // bord que personne ne relierait à ce réglage.
         appliquerOrientation();
 
+        // A11Y-01 : le titre lu (invisible) porte la serie et le chapitre.
+        // Sans ca il annoncerait « Lecture » sur les 268 series.
+        const hA11y = document.getElementById('readerTitreA11y');
+        if (hA11y) {
+            hA11y.textContent = (manga?.title || 'Lecture')
+                + (currentChap?.chapter ? ` — chapitre ${currentChap.chapter}` : '');
+        }
+
         // ── P3.1 : cet écran devient pilotable ──────────────
         // On branche les commandes sur les fonctions QUI EXISTENT DÉJÀ. Le
         // relais ne sait rien de l'état du lecteur : c'est ici, et seulement

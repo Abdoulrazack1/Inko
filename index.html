@@ -25,7 +25,13 @@
   </style>
 </head>
 <body>
-  <p>Ouverture d'Inko… <a href="./accueil.html">Continuer</a></p>
+  <!-- A11Y-01/02 : cette page redirige aussitot. Mais SANS JavaScript, c'est
+       elle qu'on voit — et elle etait alors la seule page du site sans titre
+       ni repere principal. -->
+  <main>
+    <h1>Inko</h1>
+    <p>Ouverture d'Inko… <a href="./accueil.html">Continuer</a></p>
+  </main>
   <script>location.replace('./accueil.html');</script>
 </body>
 </html>
