@@ -547,6 +547,78 @@
         return { fermer };
     };
 
+    /* ── P2.7 / IX.7 : le bouton retour d'Android ────────────
+     *
+     * C'est LA différence structurelle avec le bureau, et l'audit la désigne
+     * comme la plus souvent bâclée. Le comportement attendu :
+     *
+     *   feuille ouverte      la fermer, et NE PAS quitter l'écran
+     *   modale ouverte       idem
+     *   écran empilé         revenir à l'écran précédent
+     *   accueil              quitter l'application
+     *
+     * Le web d'Inko n'a aucune notion de pile : chaque page est un document,
+     * chaque navigation un rechargement. `history.back()` couvre donc déjà les
+     * écrans. Ce qu'il ne couvre PAS, ce sont les surcouches — une feuille de
+     * filtres, un menu d'appui long, une confirmation : elles n'existent que
+     * dans le DOM, l'historique les ignore, et le bouton retour QUITTE la page
+     * en les laissant ouvertes. On perd son écran pour avoir voulu fermer un
+     * panneau.
+     *
+     * La parade est celle que l'audit indique : chaque surcouche POUSSE une
+     * entrée d'historique. Le bouton retour la consomme, `popstate` se
+     * déclenche, on ferme — et rien ne quitte l'écran.
+     *
+     * Conséquence utile : aucun greffon n'est nécessaire. Le bouton matériel
+     * d'Android déclenche `goBack()` du WebView dès qu'il y a un historique,
+     * donc notre `popstate`. Le même mécanisme sert au bouton retour du
+     * navigateur, et au geste de retour par le bord.
+     *
+     * Un seul chemin de fermeture, et c'est essentiel : une fermeture demandée
+     * par l'interface (voile, bouton, Échap) rend son entrée d'historique, au
+     * lieu de la laisser derrière elle. Sans ça, après trois ouvertures et
+     * trois fermetures, il faudrait appuyer trois fois sur « retour » pour
+     * quitter une page où rien n'est ouvert.
+     */
+    (function () {
+        const pile = [];
+        let ignorerPop = false;
+
+        function retirer(entree) {
+            const i = pile.indexOf(entree);
+            if (i === -1) return;            // déjà fermée : idempotent
+            pile.splice(i, 1);
+            try { entree.fermerReel(); } catch (e) { window.MH?.err?.('global.js', e); }
+            // On rend l'entrée poussée à l'ouverture, sans que ce retour ne
+            // referme quoi que ce soit une seconde fois.
+            ignorerPop = true;
+            try { history.back(); } catch (e) { ignorerPop = false; }
+        }
+
+        window.MH.retour = {
+            /**
+             * Déclare une surcouche ouverte.
+             * @param {Function} fermerReel  ferme réellement (DOM, écouteurs)
+             * @returns {Function} à appeler pour une fermeture demandée par l'UI
+             */
+            pousser(fermerReel) {
+                const entree = { fermerReel };
+                pile.push(entree);
+                try { history.pushState({ mhSurcouche: pile.length }, ''); }
+                catch (e) { window.MH?.err?.('global.js', e); }
+                return () => retirer(entree);
+            },
+            taille() { return pile.length; },
+        };
+
+        window.addEventListener('popstate', () => {
+            if (ignorerPop) { ignorerPop = false; return; }
+            if (!pile.length) return;        // rien à nous : navigation normale
+            const e = pile.pop();
+            try { e.fermerReel(); } catch (err) { window.MH?.err?.('global.js', err); }
+        });
+    })();
+
     /* ── Modales premium (remplacent alert/confirm/prompt natifs) ────
        Aucune fenêtre système : overlay glass, animé, clavier (Entrée/Échap),
        promesses. MH.confirm → bool, MH.prompt → string|null, MH.alert → void. */
@@ -601,11 +673,26 @@
             // L'animation CSS (mhVeilIn / mhModalIn) joue seule à l'insertion :
             // pas de toggle de classe ni de rAF → affichage garanti.
             if (inp) { inp.focus(); inp.select(); }
-            const close = (result) => {
+            // P2.7 : la modale pousse une entrée d'historique, pour que le
+            // bouton retour d'Android l'annule au lieu de quitter la page.
+            // Un retour matériel vaut ANNULATION — jamais confirmation : on ne
+            // valide pas une suppression parce que quelqu'un a voulu revenir.
+            let fini = false;
+            const fermerReel = (result) => {
+                if (fini) return;
+                fini = true;
                 veil.classList.add('closing');
                 setTimeout(() => veil.remove(), 160);
                 document.removeEventListener('keydown', onKey);
                 resolve(result);
+            };
+            const rendre = window.MH.retour
+                ? window.MH.retour.pousser(() => fermerReel(input ? null : false))
+                : null;
+            const close = (result) => {
+                if (fini) return;
+                if (rendre) { fermerReel(result); rendre(); }
+                else fermerReel(result);
             };
             const onOk = () => close(input ? (inp ? inp.value : '') : true);
             const onCancel = () => close(input ? null : false);
@@ -1066,6 +1153,22 @@
             </button>`;
         document.body.appendChild(nav);
         nav.querySelector('#mnavMore')?.addEventListener('click', () => window.MH.openCommandPalette());
+
+        // IX.7 : un appui sur l'onglet DÉJÀ actif remonte en haut de liste,
+        // puis recharge au second appui. C'est le comportement attendu sur
+        // Android, et son absence est sensible : le seul moyen de remonter une
+        // liste de 268 cartes était de la faire défiler à l'envers.
+        //
+        // Sans cette interception, le lien recharge la page — donc un aller
+        // simple vers le haut, mais au prix de tout retélécharger, et en
+        // perdant filtres et position. Remonter d'abord, recharger seulement si
+        // on insiste, c'est distinguer les deux intentions.
+        nav.querySelector('.mnav-item.active')?.addEventListener('click', (e) => {
+            const dejaEnHaut = (window.scrollY || document.documentElement.scrollTop || 0) < 4;
+            if (dejaEnHaut) return;                 // second appui : on laisse recharger
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
     }
 
     // ── Vérification des nouveaux chapitres ──

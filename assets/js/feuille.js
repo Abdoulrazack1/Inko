@@ -142,7 +142,7 @@
         setTimeout(ouvrir, 120);
 
         let ferme = false;
-        const fermer = () => {
+        const fermerReel = () => {
             if (ferme) return;
             ferme = true;
             f.classList.remove('ouverte');
@@ -151,6 +151,13 @@
             setTimeout(() => { f.remove(); fond.remove(); }, 280);
             if (o.onFermeture) o.onFermeture();
         };
+        // P2.7 / IX.7 : le bouton retour d'Android doit fermer la FEUILLE, pas
+        // quitter l'écran. Une feuille n'existe que dans le DOM — l'historique
+        // l'ignore, et le retour emportait la page en la laissant ouverte : on
+        // perdait son écran pour avoir voulu fermer un panneau.
+        // L'entrée poussée ici est celle que le retour consomme.
+        const rendre = window.MH?.retour ? window.MH.retour.pousser(fermerReel) : null;
+        const fermer = () => { if (rendre) rendre(); else fermerReel(); };
         function surTouche(e) { if (e.key === 'Escape') { e.preventDefault(); fermer(); } }
         document.addEventListener('keydown', surTouche);
         fond.addEventListener('click', fermer);
