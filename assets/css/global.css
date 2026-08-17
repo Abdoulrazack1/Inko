@@ -85,13 +85,41 @@
   --shadow-2: 0 4px 14px rgba(28,27,25,.08), 0 2px 6px rgba(28,27,25,.05);
   --shadow-3: 0 16px 40px rgba(28,27,25,.12), 0 6px 16px rgba(28,27,25,.07);
   /* Anneau de focus accessible et élégant */
-  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+  --ring: 0 0 0 3px rgba(193, 83, 27, .28);
 
-  /* ── Liquid glass (surfaces flottantes translucides) — prononcé ── */
-  --glass-bg:     color-mix(in srgb, var(--bg2) 46%, transparent);
-  --glass-border: color-mix(in srgb, #ffffff 30%, transparent);
+  /* ── Liquid glass — valeurs de REPLI, opaques ────────────────
+     Ces trois-là sont écrites SANS `color-mix`, et ce n'est pas un
+     appauvrissement : c'est ce que verront les navigateurs qui ne savent pas
+     la lire — au premier rang desquels le WebView d'Android 8 (Chrome 61),
+     cible de l'APK. `color-mix` est du Chrome 111.
+
+     Le piège mérite d'être expliqué, parce qu'il ne se contourne pas comme les
+     autres. Doubler la déclaration ne marche PAS à travers une variable :
+     `background: var(--glass-bg)` est une syntaxe VALIDE, elle est donc
+     acceptée puis devient invalide au moment du CALCUL — et une valeur
+     invalide à ce stade ne retombe pas sur la déclaration précédente, elle
+     prend la valeur initiale. Pour un fond, c'est `transparent`.
+
+     Mesuré : une valeur non comprise laisse `rgba(0, 0, 0, 0)`. Les 53
+     surfaces en verre du projet n'auraient donc AUCUN fond sur Android 8 — du
+     texte flottant au-dessus du contenu.
+
+     D'où `@supports`, juste en dessous : compris depuis Chrome 28, il répond
+     honnêtement non sur les anciens moteurs. Un seul endroit à corriger, et
+     toutes les surfaces suivent. */
+  --glass-bg:     var(--bg2);
+  --glass-border: var(--border2);
   --glass-inner:  inset 0 1px 0 rgba(255,255,255,.32), inset 0 -1px 0 rgba(0,0,0,.07);
   --glass-blur:   blur(24px) saturate(1.9);
+}
+
+/* Le vrai verre, là où le navigateur sait le rendre. */
+@supports (background: color-mix(in srgb, red 50%, transparent)) {
+  :root {
+    --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+    --glass-bg:     color-mix(in srgb, var(--bg2) 46%, transparent);
+    --glass-border: color-mix(in srgb, #ffffff 30%, transparent);
+  }
 }
 
 /* En édition sombre, les ombres repassent sur du noir profond. */

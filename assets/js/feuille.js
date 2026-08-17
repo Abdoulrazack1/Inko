@@ -39,8 +39,14 @@
             background:rgba(0,0,0,.4);opacity:0;transition:opacity .2s ease}
         .mh-feuille-fond.ouverte{opacity:1}
         .mh-feuille{position:fixed;left:0;right:0;bottom:0;z-index:2147481001;
-            background:var(--bg2,#1a1a1e);border-top-left-radius:18px;border-top-right-radius:18px;
-            border-top:1px solid var(--border,#333);box-shadow:0 -12px 40px rgba(0,0,0,.5);
+            /* Verre. Les jetons --glass-* portent DÉJÀ leur repli opaque
+               (global.css) : sur un moteur sans color-mix, cette surface est
+               simplement pleine, et reste lisible. */
+            background:var(--glass-bg,#1a1a1e);
+            -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+            border-top-left-radius:18px;border-top-right-radius:18px;
+            border-top:1px solid var(--glass-border,#333);
+            box-shadow:var(--glass-inner),0 -12px 40px rgba(0,0,0,.5);
             display:flex;flex-direction:column;max-height:100vh;
             transform:translateY(100%);transition:transform .26s cubic-bezier(.22,.7,.28,1);
             padding-bottom:0;

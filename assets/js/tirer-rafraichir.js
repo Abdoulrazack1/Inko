@@ -52,8 +52,10 @@
             width:36px;height:36px;margin-left:-18px;
             display:flex;align-items:center;justify-content:center;
             border-radius:50%;
-            background:var(--bg2,#1a1a1e);border:1px solid var(--border,#333);
-            box-shadow:0 4px 14px rgba(0,0,0,.4);
+            background:var(--glass-bg,#1a1a1e);
+            -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+            border:1px solid var(--glass-border,#333);
+            box-shadow:var(--glass-inner),0 4px 14px rgba(0,0,0,.4);
             color:var(--accent,#c1531b);font-size:17px;
             transform:translateY(-60px);opacity:0;
             transition:opacity .12s linear}

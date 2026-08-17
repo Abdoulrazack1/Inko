@@ -466,10 +466,11 @@
         sb.textContent = `
         .mh-bandeau{position:fixed;left:12px;right:12px;z-index:2147482000;
             display:flex;align-items:center;gap:10px;
-            background:var(--bg4,#26262b);color:var(--text,#eee);
-            border:1px solid var(--border,#333);border-radius:10px;
+            background:var(--glass-bg,#26262b);color:var(--text,#eee);
+            -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+            border:1px solid var(--glass-border,#333);border-radius:12px;
             padding:10px 6px 10px 14px;font-size:13.5px;line-height:1.35;
-            box-shadow:0 8px 28px rgba(0,0,0,.45);
+            box-shadow:var(--glass-inner),0 8px 28px rgba(0,0,0,.45);
             opacity:0;transform:translateY(14px);
             transition:opacity .2s ease,transform .2s ease;
             /* Deux déclarations, et c'est voulu : env() est du Chrome 69. Le

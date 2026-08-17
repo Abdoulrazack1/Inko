@@ -169,3 +169,36 @@ test('aucun inset: dans le CSS écrit en JavaScript', () => {
         + 'y compris quand l’élément porte un rembourrage — ce que `width/height: 100%` '
         + 'n’est pas.');
 });
+
+test('les jetons de verre ont une valeur de repli OPAQUE', () => {
+    // `color-mix()` est du Chrome 111 — la quatrième propriété de cette famille.
+    //
+    // Et elle ne se contourne PAS comme les autres. Doubler la déclaration
+    // marche pour `bottom` ou `padding`, parce que la valeur de repli est
+    // écrite littéralement. Ici la valeur passe par une VARIABLE :
+    // `background: var(--glass-bg)` est une syntaxe valide, acceptée, qui
+    // devient invalide au moment du calcul — et une valeur invalide à ce
+    // stade ne retombe pas sur la déclaration précédente. Elle prend la valeur
+    // initiale, c'est-à-dire `transparent` pour un fond.
+    //
+    // Mesuré : une valeur non comprise laisse `rgba(0, 0, 0, 0)`. Les 53
+    // surfaces en verre du projet — barres collantes, panneaux, feuille
+    // montante, bandeau — n'auraient donc AUCUN fond sur Android 8 : du texte
+    // flottant au-dessus du contenu.
+    //
+    // La parade est `@supports`, compris depuis Chrome 28. Le jeton est donc
+    // défini DEUX fois : opaque à la racine, en verre à l'intérieur du
+    // `@supports`. Ce test vérifie que la première définition existe encore.
+    const css = fs.readFileSync(path.join(ROOT, 'assets', 'css', 'global.css'), 'utf8');
+
+    // Ce qui précède le premier `@supports (background: color-mix…)`.
+    const avant = css.split(/@supports\s*\(\s*background:\s*color-mix/)[0];
+    for (const jeton of ['--glass-bg', '--glass-border']) {
+        const m = new RegExp(`${jeton}\s*:\s*([^;]+);`).exec(avant);
+        assert.ok(m, `${jeton} n’a plus de définition hors de tout @supports : `
+            + 'sur un moteur sans color-mix, les surfaces en verre perdraient tout fond.');
+        assert.ok(!/color-mix/.test(m[1]),
+            `La valeur de repli de ${jeton} utilise color-mix (« ${m[1].trim()} ») — `
+            + 'ce n’est donc pas un repli. Elle doit être compréhensible par Chrome 61.');
+    }
+});
