@@ -27,6 +27,27 @@ module.exports = defineConfig({
     // même compte local).
     workers: 1,
     fullyParallel: false,
+
+    // ── Un essai de rattrapage, en CI seulement ─────────────
+    //
+    // Deux exécutions distinctes (16 et 17 août) ont échoué sur le MÊME test,
+    // avec la même cause — et ce n'est pas une assertion :
+    //
+    //   Error: browser.newContext: Target page, context or browser has been closed
+    //
+    // Le navigateur meurt au lancement. Rien dans le produit n'est en cause :
+    // c'est le runner qui n'a plus de quoi démarrer un Chromium de plus, après
+    // treize contextes et un serveur qui martèle des sources bloquées.
+    //
+    // Une reprise distingue proprement les deux situations : un test qui passe
+    // au second essai est signalé FLAKY, un test qui échoue deux fois reste un
+    // échec. Sans elle, une panne d'infrastructure et une vraie régression
+    // rendent le même rouge — et on finit par ne plus lire ni l'un ni l'autre.
+    //
+    // Une seule reprise, et seulement en CI : en local on veut voir l'échec
+    // tout de suite, et masquer une instabilité derrière trois essais reviendrait
+    // à la laisser grandir.
+    retries: process.env.CI ? 1 : 0,
     timeout: 45_000,
     expect: { timeout: 10_000 },
     reporter: process.env.CI ? [['list'], ['github']] : [['list']],
