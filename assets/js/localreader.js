@@ -162,7 +162,22 @@
     async function renderPdf(buf) {
         if (!window.pdfjsLib) await loadPdfJs();
         const pdfjs = window.pdfjsLib;
-        if (!pdfjs) return fail('Lecteur PDF (pdf.js) non chargé.');
+        if (!pdfjs) {
+            // PERF-03 : pdf.js (313 Ko) et son ouvrier (1 Mo) ne sont PAS
+            // précachés — 1,4 Mo à l'installation pour une page que la plupart
+            // n'ouvrent jamais. Le service worker les garde après le premier
+            // usage, mais avant celui-ci, hors ligne, le chargement échoue.
+            //
+            // « Lecteur PDF non chargé » était exact et inutile : ça n'explique
+            // ni pourquoi le CBZ d'à côté s'ouvre, ni ce qu'il faut faire.
+            // C'est précisément l'échec silencieux que relève l'audit.
+            return navigator.onLine === false
+                ? fail('Il n’a pas encore été téléchargé, et tu es hors ligne. Ouvre un PDF '
+                     + 'une fois connecté : le lecteur (1,4 Mo) sera alors conservé et '
+                     + 'fonctionnera hors ligne. Les CBZ et les EPUB, eux, s’ouvrent sans lui.',
+                { icone: '📄', titre: 'Lecteur PDF indisponible hors ligne' })
+                : fail('Le lecteur PDF n’a pas pu être chargé — réessaie dans un instant.');
+        }
         pdfjs.GlobalWorkerOptions.workerSrc = 'assets/vendor/pdf.worker.min.js';
         let doc;
         try { doc = await pdfjs.getDocument({ data: buf }).promise; }

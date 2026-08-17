@@ -38,6 +38,10 @@ const ALWAYS = [
     '/assets/img/icon-192.png',
     '/assets/img/icon-512.png',
     '/assets/js/onboarding.js',   // chargé dynamiquement par global.js
+    // PERF-03 : la feuille était précachée et son script non — une asymétrie
+    // qui ne produit pas « pas de musique » mais un état INTERMÉDIAIRE : les
+    // styles du lecteur audio présents, le lecteur absent.
+    '/assets/js/music.js',
     '/assets/css/music.css',      // injecté par music.js (injectCSS)
     // Importé par @import DANS global.css : invisible pour un scan du HTML.
     // Les .woff2 eux-mêmes ne sont pas précachés (634 Ko pour 27 coupes
@@ -46,10 +50,39 @@ const ALWAYS = [
     '/assets/css/fonts.css',
 ];
 
-// Libs vendor lourdes chargées à la demande : on ne les précache pas toutes.
-// pdf.worker (1 Mo) et three (607 Ko) restent hors précache — ils ne servent
-// qu'à une page et gonfleraient l'installation du service worker.
-const VENDOR_SKIP = new Set(['/assets/vendor/pdf.worker.min.js', '/assets/vendor/three.min.js']);
+// ── PERF-03 : ce qui reste HORS précache, et pourquoi ───────
+//
+// Le précache est payé à l'INSTALLATION, par tout le monde — y compris par un
+// téléphone qui n'ouvrira jamais un PDF et ne verra jamais le hero 3D. Tout
+// précacher n'est donc pas la bonne réponse ; le service worker met déjà ces
+// fichiers en cache au premier usage (`network-first` sur les `.js`), ce qui
+// couvre le cas courant : on s'en sert une fois connecté, ils restent ensuite
+// disponibles hors ligne.
+//
+// Ce qui reste dehors, fichier par fichier :
+//
+//   pdf.worker.min.js  1 062 Ko   pdf.js ne fonctionne pas sans lui, mais
+//   pdf.min.js           313 Ko   précacher l'un sans l'autre garantit
+//                                 l'échec : c'est les deux ou aucun, et
+//                                 1,4 Mo à l'installation pour une page que
+//                                 la plupart n'ouvrent jamais est trop cher.
+//                                 → l'échec doit être EXPLICITE (localreader).
+//   three.min.js         594 Ko   ornement, et jamais chargé au doigt (IX.14).
+//   gsap + ScrollTrigger 114 Ko   animations d'apparition, jamais chargées au
+//                                 doigt non plus (IX.14). Leur absence hors
+//                                 ligne ne casse rien : les transitions CSS,
+//                                 elles, sont là.
+//
+// La règle qui en sort : on précache ce dont l'ABSENCE casse une fonction ; on
+// laisse dehors ce dont l'absence enlève un ornement — à condition que le
+// premier cas le DISE au lieu d'échouer en silence.
+const VENDOR_SKIP = new Set([
+    '/assets/vendor/pdf.worker.min.js',
+    '/assets/vendor/pdf.min.js',
+    '/assets/vendor/three.min.js',
+    '/assets/vendor/gsap.min.js',
+    '/assets/vendor/ScrollTrigger.min.js',
+]);
 
 const pages = fs.readdirSync(ROOT).filter(f => f.endsWith('.html')).sort();
 
