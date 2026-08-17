@@ -26,7 +26,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # `write` parce que ce workflow publie desormais l'APK dans une pre-release
+  # roulante — voir l'etape « Publier le dernier APK » en bas.
+  contents: write
 
 jobs:
   apk:
@@ -90,3 +92,53 @@ jobs:
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      # ── Une URL stable, pour un vrai bouton de telechargement ──
+      #
+      # Un artefact de run ne se telecharge PAS d'un lien : il faut un compte
+      # GitHub, ouvrir le bon run, descendre jusqu'aux pieces jointes. Pour
+      # « installe l'app sur ton telephone », c'est un mur — alors que le
+      # bouton Windows du README pointe, lui, sur un fichier.
+      #
+      # L'APK est donc aussi publie dans une PRE-RELEASE roulante `apk-latest`,
+      # qui suit toujours `main`. L'adresse ne change jamais :
+      #
+      #   .../releases/download/apk-latest/inko.apk
+      #
+      # Pourquoi une pre-release et pas la release de version : celle-ci porte
+      # une version figee et un APK SIGNE (android-release.yml, sur un tag).
+      # Melanger un build de debug qui change a chaque commit avec une version
+      # publiee tromperait sur ce qu'on telecharge. Marquee `prerelease`, elle
+      # n'apparait jamais comme « derniere version » et ne remplace donc pas
+      # l'installeur Windows dans les liens `releases/latest`.
+      - name: Publier le dernier APK (pre-release roulante)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Nom FIXE : c'est ce qui rend l'URL stable. Le nom produit par
+          # Gradle porte la variante, et changerait donc le lien.
+          cp android/app/build/outputs/apk/debug/*.apk inko.apk
+          sha256sum inko.apk > SHA256SUMS-apk.txt
+
+          cat > notes.md <<NOTES
+          APK de **debug**, reconstruit a chaque changement sur \`main\`.
+
+          - Commit : \`${GITHUB_SHA:0:7}\`
+          - Construit le : $(date -u '+%Y-%m-%d %H:%M UTC')
+
+          Il s'installe en autorisant les « sources inconnues » : il est signe
+          avec la cle de debug d'Android, comme toute application distribuee
+          hors magasin.
+
+          Pour une version figee et signee, voir les releases \`v*\`.
+          NOTES
+
+          if gh release view apk-latest >/dev/null 2>&1; then
+            gh release edit apk-latest --notes-file notes.md --prerelease
+          else
+            gh release create apk-latest --prerelease               --title "Dernier APK (build de main)" --notes-file notes.md
+          fi
+          # `--clobber` remplace le fichier a chaque build : l'adresse ne
+          # change pas, le contenu suit main.
+          gh release upload apk-latest inko.apk SHA256SUMS-apk.txt --clobber

@@ -26,14 +26,20 @@ fichiers EPUB/CBZ/PDF.
 <br>
 
 <a href="https://github.com/Abdoulrazack1/Inko/releases/latest/download/Inko-Setup.exe">
-  <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F_T%C3%A9l%C3%A9charger_pour_Windows-Inko--Setup.exe-c1531b?style=for-the-badge" alt="Télécharger Inko pour Windows">
+  <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F_Windows-Inko--Setup.exe-c1531b?style=for-the-badge" alt="Télécharger Inko pour Windows">
+</a>
+&nbsp;
+<a href="https://github.com/Abdoulrazack1/Inko/releases/download/apk-latest/inko.apk">
+  <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F_Android-inko.apk-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Télécharger l'APK Android">
 </a>
 
-*Un téléchargement, un double-clic, c'est installé — aucune dépendance, aucune configuration.*
+*Windows : un téléchargement, un double-clic, c'est installé.*
+*Android : ouvre le `.apk` sur le téléphone et autorise les « sources inconnues ».*
 
-<sub>Pour le téléphone : l'APK Android se récupère dans les
-<a href="../../actions/workflows/android.yml">builds automatiques</a> — voir
-<a href="#application-android">Application Android</a>.</sub>
+<sub>L'APK est reconstruit à chaque changement — le lien pointe toujours sur le
+dernier build de <code>main</code>. Il faut ensuite
+<a href="#connecter-le-téléphone-au-hub">le connecter à ton hub</a> : le
+téléphone lit la bibliothèque servie par l'ordinateur.</sub>
 
 <sub>Windows peut afficher « éditeur inconnu » au premier lancement (l'installeur n'est pas
 signé — c'est le cas de la plupart des apps open source) : clique
@@ -292,10 +298,16 @@ NovelBin, Chireads, Project Gutenberg (EN) et Livres en français (Gutenberg FR)
 
 ## Application Android
 
-L'APK se construit à chaque changement : il est en pièce jointe du dernier run
-réussi du workflow [**APK Android**](../../actions/workflows/android.yml) —
-télécharge `inko-debug-apk`, ouvre le `.apk` sur le téléphone, autorise
-l'installation depuis « sources inconnues ».
+**[⬇ Télécharger inko.apk](https://github.com/Abdoulrazack1/Inko/releases/download/apk-latest/inko.apk)**
+— l'adresse ne change jamais, le fichier suit toujours `main`. Ouvre le `.apk`
+sur le téléphone et autorise l'installation depuis « sources inconnues ».
+
+<sub>L'empreinte est publiée à côté
+([SHA256SUMS-apk.txt](https://github.com/Abdoulrazack1/Inko/releases/download/apk-latest/SHA256SUMS-apk.txt))
+— sans elle, rien ne permet de vérifier ce qu'on vient de télécharger.
+L'APK reste aussi en pièce jointe de chaque run du workflow
+[**APK Android**](../../actions/workflows/android.yml), si tu en veux un
+précis.</sub>
 
 Chaque build est vérifié avant d'être publié : contenu embarqué complet, ordre
 de chargement des scripts, aucune syntaxe que le WebView d'Android 8 ne sache
