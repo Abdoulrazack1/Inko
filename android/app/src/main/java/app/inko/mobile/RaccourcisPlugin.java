@@ -44,6 +44,26 @@ public class RaccourcisPlugin extends Plugin {
     static void deposer(Intent intent) {
         if (intent == null) return;
 
+        // P3.5 — texte partagé depuis une autre application. On lit une
+        // recommandation dans une discussion, on partage le titre, et la
+        // recherche s'ouvre dessus : c'est tout l'intérêt, comparé à le
+        // recopier à la main sur un clavier de téléphone.
+        if (Intent.ACTION_SEND.equals(intent.getAction())) {
+            String texte = intent.getStringExtra(Intent.EXTRA_TEXT);
+            if (texte != null) {
+                // Borné : un partage peut contenir un article entier, et une
+                // recherche sur trois mille caractères ne rendra jamais rien.
+                // La première ligne porte le titre dans presque tous les cas.
+                String premiere = texte.split("\r?\n", 2)[0].trim();
+                if (premiere.length() > 120) premiere = premiere.substring(0, 120);
+                if (!premiere.isEmpty()) {
+                    enAttente = "recherche.html?q=" + java.net.URLEncoder.encode(premiere,
+                            java.nio.charset.StandardCharsets.UTF_8);
+                    return;
+                }
+            }
+        }
+
         // Deux sources, deux formes. Le raccourci d'icône désigne une PAGE
         // (« bibliotheque.html ») ; une notification désigne un CHEMIN complet
         // avec ses paramètres (« /chapitre.html?manga=...&chapter=... »).

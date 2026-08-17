@@ -24,6 +24,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- P3.5 : cible de partage. Inko apparait dans le menu « Partager »
+                 d'Android quand on partage du texte. L'usage reel : on lit une
+                 recommandation dans une discussion, on partage le titre, et la
+                 recherche s'ouvre dessus — au lieu de le recopier a la main
+                 dans une barre de recherche, sur un clavier de telephone. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
         
             <!-- Sans cette meta-data, le fichier shortcuts.xml est ignore : un
                  appui long sur l'icone ne montre rien, et rien ne le signale.
