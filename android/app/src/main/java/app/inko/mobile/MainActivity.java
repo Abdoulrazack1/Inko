@@ -1,5 +1,6 @@
 package app.inko.mobile;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import com.getcapacitor.BridgeActivity;
@@ -42,7 +43,22 @@ public class MainActivity extends BridgeActivity {
         // erreur pour le signaler.
         registerPlugin(VolumePlugin.class);
         registerPlugin(DecouvertePlugin.class);
+        registerPlugin(RaccourcisPlugin.class);
         super.onCreate(savedInstanceState);
+        // L'intention de lancement est DÉPOSÉE ici ; c'est la page qui viendra
+        // la chercher quand elle sera prête. Naviguer depuis `onCreate`
+        // partirait dans le vide : le WebView n'a encore rien chargé.
+        RaccourcisPlugin.deposer(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // Le raccourci touché alors que l'application tourne déjà : Android ne
+        // relance pas l'activité, il livre une nouvelle intention. Sans ce
+        // second point d'entrée, le raccourci ne marcherait qu'au tout premier
+        // lancement — et paraîtrait cassé ensuite.
+        RaccourcisPlugin.deposer(intent);
     }
 
     @Override

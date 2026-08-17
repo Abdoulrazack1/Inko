@@ -378,10 +378,35 @@
         } catch (e) { return 0; }
     }
 
+    // ── Raccourcis de l'icône (P3.5) ────────────────────────
+    // Android a déposé la page demandée ; on vient la chercher maintenant que
+    // le document existe. Le sens est inversé exprès : faire naviguer le
+    // WebView depuis `onCreate` partirait dans le vide — la page n'est pas
+    // encore chargée — et un délai « qui marche la plupart du temps » échoue
+    // précisément sur un téléphone lent, celui où le raccourci sert le plus.
+    async function suivreRaccourci() {
+        const R = P().InkoRaccourcis;
+        if (!R) return;
+        const r = await sûr(() => R.pageDemandee(), null);
+        const page = r && r.page;
+        if (!page) return;
+        // On ne se déroute pas si on y est déjà : toucher « Bibliothèque »
+        // depuis la bibliothèque provoquerait un rechargement complet pour
+        // rien, et ferait perdre le défilement.
+        if (location.pathname.endsWith('/' + page)) return;
+        window.location.href = page;
+    }
+
     window.INKO_NATIF = N;
 
     // Le retour physique s'installe tout de suite : c'est le seul greffon dont
     // l'absence se voit immédiatement, et l'installer plus tard laisserait une
     // fenêtre où le bouton retour quitte l'app depuis n'importe quel écran.
-    if (dansApp) N.installerRetour();
+    if (dansApp) {
+        N.installerRetour();
+        // Après le chargement : avant, `location.href` serait écrasé par la
+        // navigation en cours.
+        if (document.readyState === 'complete') suivreRaccourci();
+        else window.addEventListener('load', suivreRaccourci);
+    }
 })();

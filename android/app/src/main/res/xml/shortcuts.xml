@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Raccourcis de l'icône de lancement (appui long sur l'icône d'Inko).
+
+  Ils reprennent ceux du manifeste PWA — c'est délibéré : le même geste doit
+  donner la même chose que l'application soit installée depuis le navigateur ou
+  depuis l'APK. Deux jeux différents feraient douter l'utilisateur d'avoir la
+  bonne application.
+
+  `android:enabled="true"` et non des raccourcis dynamiques : ceux-ci
+  demanderaient d'être republiés à chaque lancement, et disparaîtraient donc
+  après une mise à jour du système tant que l'app n'a pas été rouverte —
+  exactement quand on cherche un raccourci.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="bibliotheque"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/raccourci_bibliotheque_court"
+        android:shortcutLongLabel="@string/raccourci_bibliotheque_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="app.inko.mobile"
+            android:targetClass="app.inko.mobile.MainActivity">
+            <extra android:name="inko_page" android:value="bibliotheque.html" />
+        </intent>
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="recherche"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/raccourci_recherche_court"
+        android:shortcutLongLabel="@string/raccourci_recherche_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="app.inko.mobile"
+            android:targetClass="app.inko.mobile.MainActivity">
+            <extra android:name="inko_page" android:value="recherche.html" />
+        </intent>
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="telechargements"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/raccourci_telechargements_court"
+        android:shortcutLongLabel="@string/raccourci_telechargements_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="app.inko.mobile"
+            android:targetClass="app.inko.mobile.MainActivity">
+            <extra android:name="inko_page" android:value="downloads.html" />
+        </intent>
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+
+</shortcuts>

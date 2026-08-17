@@ -4,4 +4,15 @@
     <string name="title_activity_main">Inko</string>
     <string name="package_name">app.inko.mobile</string>
     <string name="custom_url_scheme">app.inko.mobile</string>
+
+    <!-- Raccourcis de l'icone de lancement.
+         Le libelle COURT tient sur l'icone (Android le tronque a ~10
+         caracteres) ; le LONG s'affiche dans le menu d'appui long. Les
+         confondre donne « Bibliot... » dans le menu, ou un menu illisible. -->
+    <string name="raccourci_bibliotheque_court">Biblio</string>
+    <string name="raccourci_bibliotheque_long">Ma bibliotheque</string>
+    <string name="raccourci_recherche_court">Chercher</string>
+    <string name="raccourci_recherche_long">Rechercher une serie</string>
+    <string name="raccourci_telechargements_court">Hors ligne</string>
+    <string name="raccourci_telechargements_long">Mes telechargements</string>
 </resources>

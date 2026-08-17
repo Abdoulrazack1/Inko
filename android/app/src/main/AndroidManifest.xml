@@ -24,6 +24,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+        
+            <!-- Sans cette meta-data, le fichier shortcuts.xml est ignore : un
+                 appui long sur l'icone ne montre rien, et rien ne le signale.
+                 Elle doit etre dans l'activite qui porte LAUNCHER. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <provider
