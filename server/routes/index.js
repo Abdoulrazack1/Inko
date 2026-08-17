@@ -212,6 +212,10 @@ router.post  ('/devices/pair-code',       auth.authRequired, writeLimiter, Devic
 router.post  ('/devices/pair',            authLimiter,       Devices.appairer);
 router.get   ('/devices',                 auth.authRequired, Devices.lister);
 router.delete('/devices/:id',             auth.authRequired, Devices.revoquer);
+// P2.5 : le jeton de notification d'un appareil. Place AVANT `/devices/:id`
+// serait inutile ici (les methodes different), mais l'ordre reste explicite.
+router.post  ('/devices/push-token',      auth.authRequired, writeLimiter, Devices.enregistrerJetonPush);
+router.delete('/devices/push-token',      auth.authRequired, Devices.retirerJetonPush);
 
 router.get   ('/me/migrate',              auth.authRequired, Migration.liste);
 router.get   ('/me/migrate/candidats',    auth.authRequired, searchLimiter, Migration.candidats);

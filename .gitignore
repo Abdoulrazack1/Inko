@@ -84,3 +84,8 @@ android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json
 android/app/src/main/assets/capacitor.plugins.json
 android/capacitor-cordova-android-plugins/
+
+# Firebase : identifie le projet de CELUI qui construit l'APK, pas ce dépôt.
+# Absent, `android/app/build.gradle` ignore simplement le greffon Google et la
+# compilation aboutit — les notifications sont alors inactives, et le disent.
+android/app/google-services.json

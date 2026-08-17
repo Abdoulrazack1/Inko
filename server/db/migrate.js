@@ -25,11 +25,44 @@ const IGNORABLE = new Set([
 // dans un état inattendu.
 const TOLERANT = process.env.MIGRATE_TOLERANT === '1';
 
+// Le nom de table d'un `CREATE TABLE IF NOT EXISTS` — pour vérifier ensuite
+// qu'elle existe VRAIMENT.
+function tableCreee(sql) {
+    const m = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([A-Za-z0-9_]+)`?/i.exec(String(sql));
+    return m ? m[1] : null;
+}
+
 async function run(sql) {
-    try { await pool.query(sql); }
+    const table = tableCreee(sql);
+    try {
+        await pool.query(sql);
+        // Ceinture et bretelles : on VÉRIFIE que la table demandée existe.
+        // Une erreur avalée par un chemin qu'on n'a pas prévu laisserait sinon
+        // un schéma amputé et une migration marquée appliquée — la panne la
+        // plus coûteuse, parce qu'elle ne se rejoue jamais.
+        if (table && !(await tableExists(table))) {
+            throw new Error(`la table \`${table}\` n'existe pas après son CREATE TABLE`);
+        }
+    }
     catch (e) {
-        if (IGNORABLE.has(e.code)) return;
-        if (/duplicate (column|key|foreign key|entry)/i.test(e.message || '')) return;
+        // Sur un CREATE TABLE, la seule erreur réellement anodine est « elle
+        // existe déjà ». Les autres codes de cette liste — nom de clé ou de
+        // contrainte en double — signifient que la table n'a PAS été créée.
+        //
+        // C'est arrivé : `fk_push_user` était déjà pris par une autre table
+        // (les noms de contraintes sont globaux à la base dans MySQL). La
+        // création a échoué, l'erreur a été ignorée, et la migration s'est
+        // enregistrée comme appliquée. Schéma incohérent, définitivement, et
+        // sans une ligne dans le journal — exactement le défaut DB-05, revenu
+        // par la porte de la liste des ignorables.
+        const anodine = table
+            ? e.code === 'ER_TABLE_EXISTS_ERROR'
+            : IGNORABLE.has(e.code);
+        if (anodine) return;
+        // Même filet, même raison : ce test sur le MESSAGE rattrapait « Duplicate
+        // foreign key constraint name » quel que soit le code, et refermait donc
+        // la porte qu'on vient d'ouvrir. Il ne vaut que hors CREATE TABLE.
+        if (!table && /duplicate (column|key|foreign key|entry)/i.test(e.message || '')) return;
         const detail = `${e.code || 'ERREUR'} — ${e.sqlMessage || e.message}`;
         if (TOLERANT) {
             console.warn(`[migrate] ⚠ ignorée (MIGRATE_TOLERANT=1) : ${detail}`);
@@ -509,6 +542,45 @@ const MIGRATIONS = [
             annulee_at    TIMESTAMP    NULL DEFAULT NULL,
             KEY idx_migr_user (user_id, created_at),
             CONSTRAINT fk_migr_user FOREIGN KEY (user_id)
+                REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    } },
+
+    { version: 21, name: 'jetons de notification par appareil (audit P2.5)', apply: async () => {
+        // Un jeton FCM appartient à un APPAREIL, pas à un compte : le même
+        // utilisateur sur deux téléphones a deux jetons, et révoquer un
+        // téléphone perdu doit faire taire celui-là seulement.
+        //
+        // La clé étrangère vers `devices` avec ON DELETE CASCADE fait ce
+        // travail toute seule. Sans elle, un appareil retiré continuerait de
+        // recevoir les nouveaux chapitres de la bibliothèque de son ancien
+        // propriétaire — ce qui n'est pas un défaut de confort.
+        //
+        // Le jeton est UNIQUE : Google le réattribue quand un appareil est
+        // réinstallé, et deux lignes pour un même jeton enverraient chaque
+        // notification en double.
+        await run(`CREATE TABLE IF NOT EXISTS device_push_tokens (
+            id          INT AUTO_INCREMENT PRIMARY KEY,
+            device_id   CHAR(36)     NOT NULL,
+            user_id     INT          NOT NULL,
+            token       VARCHAR(512) NOT NULL,
+            plateforme  VARCHAR(16)  NOT NULL DEFAULT 'android',
+            created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at TIMESTAMP   NULL DEFAULT NULL,
+            -- 512 caractères dépassent la limite d'index de MySQL en utf8mb4
+            -- (767 octets) : on indexe un préfixe, largement discriminant pour
+            -- un jeton opaque, et l'unicité est portée par ce préfixe.
+            UNIQUE KEY uniq_token (token(190)),
+            KEY idx_push_device (device_id),
+            KEY idx_push_user (user_id),
+            CONSTRAINT fk_dpt_device FOREIGN KEY (device_id)
+                REFERENCES devices(id) ON DELETE CASCADE,
+            -- fk_dpt_* et non fk_push_* : dans MySQL, un nom de contrainte est
+            -- unique dans TOUTE la base, pas dans la table. fk_push_user
+            -- appartient deja a push_subscriptions — la collision a fait
+            -- echouer cette creation, et l'erreur figurait dans la liste des
+            -- ignorables (voir run() ci-dessus, corrige du meme coup).
+            CONSTRAINT fk_dpt_user FOREIGN KEY (user_id)
                 REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
     } },

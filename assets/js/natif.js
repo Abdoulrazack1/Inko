@@ -158,6 +158,45 @@
                      : { connecte: navigator.onLine !== false, type: 'inconnu' };
         },
 
+        // ── Notifications (P2.5) ────────────────────────────
+        // Le jeton FCM appartient à l'APPAREIL, pas au compte : le même
+        // utilisateur sur deux téléphones en a deux, et révoquer un téléphone
+        // perdu doit faire taire celui-là seulement.
+        //
+        // Rien n'est demandé au démarrage. Une demande d'autorisation sans
+        // contexte se refuse d'un réflexe, et Android ne la repose plus : on
+        // aurait perdu la fonction pour toujours, en échange de rien. Elle part
+        // donc d'un geste explicite, depuis les réglages.
+        async demanderNotifications() {
+            const PN = P().PushNotifications;
+            if (!PN) return { ok: false, raison: 'greffon absent' };
+            return sûr(async () => {
+                let p = await PN.checkPermissions();
+                if (p.receive === 'prompt' || p.receive === 'prompt-with-rationale') {
+                    p = await PN.requestPermissions();
+                }
+                if (p.receive !== 'granted') {
+                    // VIII.47 : « Sans cette autorisation, {conséquence}. »
+                    return { ok: false, raison: 'refusée',
+                        consequence: 'tu ne seras pas prévenu des nouveaux chapitres ; '
+                            + 'la vérification manuelle depuis la bibliothèque continue de marcher.' };
+                }
+                const jeton = await new Promise((resolve) => {
+                    // Un seul des deux arrive. Sans le minuteur, une erreur
+                    // silencieuse de FCM laisserait l'écran de réglages figé
+                    // sur « activation… » indéfiniment.
+                    const fini = setTimeout(() => resolve(null), 15000);
+                    PN.addListener('registration', (t) => { clearTimeout(fini); resolve(t.value || null); });
+                    PN.addListener('registrationError', () => { clearTimeout(fini); resolve(null); });
+                    PN.register();
+                });
+                if (!jeton) return { ok: false, raison: 'Google n’a pas délivré de jeton' };
+
+                await window.API.devices.enregistrerJetonPush(jeton);
+                return { ok: true };
+            }, { ok: false, raison: 'erreur' });
+        },
+
         // ── Fichiers durables (P2.3) ────────────────────────
         // Le Cache API est « best-effort » : sous pression mémoire, Android le
         // vide sans prévenir. `navigator.storage.persist()` demande le mode

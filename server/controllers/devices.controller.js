@@ -219,4 +219,52 @@ async function revoquer(req, res, next) {
     } catch (e) { next(e); }
 }
 
-module.exports = { emettreCode, appairer, lister, revoquer };
+/**
+ * POST /api/devices/push-token — l'appareil annonce son jeton de notification.
+ *
+ * Reserve aux sessions D'APPAREIL : un navigateur de bureau n'a pas de jeton
+ * FCM, et accepter n'importe quelle session ici laisserait entrer des lignes
+ * qu'aucune revocation d'appareil ne nettoierait.
+ */
+async function enregistrerJetonPush(req, res, next) {
+    try {
+        if (!req.deviceId) {
+            return res.status(400).json({ error: 'Cette session n’est pas celle d’un appareil appairé',
+                code: 'PAS_UN_APPAREIL' });
+        }
+        const token = String(req.body?.token || '').trim();
+        if (!token || token.length > 512) {
+            return res.status(400).json({ error: 'Jeton de notification invalide' });
+        }
+        const plateforme = String(req.body?.plateforme || 'android').slice(0, 16);
+
+        // Google REATTRIBUE un jeton d'un appareil a un autre apres une
+        // reinstallation. Sans cette reprise, la ligne resterait rattachee a
+        // l'ancien appareil : les notifications du nouveau proprietaire du
+        // telephone partiraient vers la bibliotheque du precedent.
+        await pool.query(
+            `INSERT INTO device_push_tokens (device_id, user_id, token, plateforme, last_seen_at)
+             VALUES (?, ?, ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE
+                device_id = VALUES(device_id),
+                user_id = VALUES(user_id),
+                plateforme = VALUES(plateforme),
+                last_seen_at = NOW()`,
+            [req.deviceId, req.user.id, token, plateforme]);
+
+        res.status(201).json({ enregistre: true });
+    } catch (e) { next(e); }
+}
+
+/** DELETE /api/devices/push-token — l'appareil se retire des notifications. */
+async function retirerJetonPush(req, res, next) {
+    try {
+        if (!req.deviceId) return res.json({ retire: 0 });
+        const [r] = await pool.query(
+            'DELETE FROM device_push_tokens WHERE device_id = ? AND user_id = ?',
+            [req.deviceId, req.user.id]);
+        res.json({ retire: r.affectedRows || 0 });
+    } catch (e) { next(e); }
+}
+
+module.exports = { emettreCode, appairer, lister, revoquer, enregistrerJetonPush, retirerJetonPush };

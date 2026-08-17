@@ -842,6 +842,11 @@
             emettreCode() { return post('/devices/pair-code', {}); },
             lister()      { return get('/devices'); },
             revoquer(id)  { return del('/devices/' + encodeURIComponent(id)); },
+            // P2.5 : le jeton de notification de CET appareil.
+            enregistrerJetonPush(token, plateforme = 'android') {
+                return post('/devices/push-token', { token, plateforme });
+            },
+            retirerJetonPush() { return del('/devices/push-token'); },
         },
 
         // ── Migration entre sources (audit XIII.1) ──
