@@ -26,7 +26,7 @@ const lire = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 // ── 1. Les modules tactiles s'effacent AVANT de s'installer ──
 // Un module qui pose ses écouteurs puis teste le pointeur a déjà changé le
 // comportement de la page. Le test doit précéder l'installation.
-for (const module of ['assets/js/cartes-gestes.js', 'assets/js/une-main.js']) {
+for (const module of ['assets/js/cartes-gestes.js', 'assets/js/une-main.js', 'assets/js/tirer-rafraichir.js']) {
     test(`${path.basename(module)} sort avant tout écouteur au pointeur fin`, () => {
         const code = lire(module);
         const sortie = code.indexOf("matchMedia('(hover: none)').matches");
@@ -36,7 +36,8 @@ for (const module of ['assets/js/cartes-gestes.js', 'assets/js/une-main.js']) {
             'Le test de `hover: none` doit précéder tout addEventListener : sinon le module '
             + 's’installe aussi à la souris. Pour les gestes de carte, un simple glissé '
             + 'marquerait une série entière comme lue ; pour le mode une main, la page '
-            + 'descendrait d’un tiers d’écran sur un ordinateur.');
+            + 'descendrait d’un tiers d’écran sur un ordinateur ; et le tirer-pour-'
+            + 'actualiser neutraliserait `overscroll-behavior` sur le site de bureau.');
     });
 }
 
