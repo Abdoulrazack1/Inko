@@ -12,7 +12,7 @@
 // un acte qui engage la personne qui l'accepte — il n'a pas à être automatisé.
 //
 // D'où cette vérification intermédiaire : un `javac` contre des stubs (voir
-// `tools/java-stubs/`). Elle attrape la syntaxe, les types, les signatures
+// `scripts-ci/java-stubs/`). Elle attrape la syntaxe, les types, les signatures
 // d'`@Override`, les cibles d'annotation et les exceptions vérifiées — la
 // catégorie exacte d'erreurs qu'on commet en écrivant du Java sans le
 // compiler. Elle ne remplace pas la compilation réelle, faite en CI.
@@ -24,7 +24,11 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const RACINE = path.join(__dirname, '..');
-const STUBS = path.join(RACINE, 'tools', 'java-stubs');
+// Dans `scripts-ci/` et NON `tools/` : ce dernier est ignoré par git en
+// ENTIER (.gitignore). Les stubs y avaient d'abord été posés sans que je le
+// vérifie — 38 fichiers jamais poussés, et la vérification échouait en
+// intégration continue contre un dossier vide.
+const STUBS = path.join(RACINE, 'scripts-ci', 'java-stubs');
 const SOURCES = path.join(RACINE, 'android', 'app', 'src', 'main', 'java');
 
 function echec(msg) {
@@ -104,7 +108,7 @@ function main() {
             execFileSync(javac, ['-nowarn', '-d', outStubs, ...javaSous(STUBS)],
                 { stdio: 'pipe', encoding: 'utf8' });
         } catch (e) {
-            echec(`les stubs de tools/java-stubs ne compilent pas :\n${e.stdout || ''}${e.stderr || ''}`);
+            echec(`les stubs de scripts-ci/java-stubs ne compilent pas :\n${e.stdout || ''}${e.stderr || ''}`);
         }
 
         // 2. Le code de l'application, contre ces stubs.
@@ -120,7 +124,7 @@ function main() {
             const manquant = /cannot find symbol[\s\S]*?symbol:\s+class (\w+)/.exec(sortie);
             if (manquant) {
                 console.error(`::error::\`${manquant[1]}\` est absent des stubs. `
-                    + 'Relever sa signature réelle et l’ajouter à tools/java-stubs/ '
+                    + 'Relever sa signature réelle et l’ajouter à scripts-ci/java-stubs/ '
                     + '(voir le README qui s’y trouve).');
             }
             echec(`compilation du code Android en échec :\n${sortie}`);
