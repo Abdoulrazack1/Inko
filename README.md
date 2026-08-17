@@ -392,6 +392,7 @@ vraiment » :
 | **Touches de volume** | tourner les pages, sans regarder l'écran |
 | **Appui long sur l'icône** | Bibliothèque · Rechercher · Téléchargements |
 | **Partager un titre** | depuis n'importe quelle app → la recherche s'ouvre dessus |
+| **Menu « Plus » → Télécommande** | tourner les pages du PC depuis le téléphone |
 
 Grille à trois colonnes, couvertures au rapport 2:3, titres sur deux lignes,
 feuilles montantes à la place des barres latérales, et le **bouton retour
@@ -439,6 +440,32 @@ Tout ce qui transite par le compte :
   vit sur le hub, la reprise « page où j'en étais » suit le compte ;
 - les actions faites **hors-ligne** (marquer lu, progression) sont mises en
   file et rejouées au retour du réseau.
+
+### Télécommande — piloter le grand écran depuis le téléphone
+
+On lit sur l'ordinateur, et on tourne les pages avec le téléphone qu'on a déjà
+en main. **Menu « Plus » → Télécommande** sur le téléphone (ou `Ctrl+K` sur le
+PC) : le panneau annonce d'abord **quel écran il pilote**, puis deux grandes
+flèches, le saut de chapitre, le plein écran et le défilement automatique.
+
+Le lecteur ouvert sur le PC s'abonne tout seul — il n'y a rien à activer. Le
+panneau nomme l'écran d'après la **série en cours**, ce qui permet de savoir
+lequel on pilote quand deux écrans lisent.
+
+Trois choix qui se remarquent à l'usage :
+
+- **rien n'est mémorisé.** Une commande qui ne trouve aucun écran est perdue,
+  pas mise en file. Un « page suivante » rejoué trois minutes plus tard, quand
+  l'écran affiche autre chose, ferait sauter des pages sans qu'on comprenne
+  pourquoi ;
+- **le hub ne fait que relayer.** Il ignore ce qu'affiche l'écran piloté, donc
+  il ne peut pas le désynchroniser ; toute la logique est dans le lecteur ;
+- **jamais entre comptes.** Sur un hub familial, personne ne tourne les pages
+  de quelqu'un d'autre.
+
+Techniquement : un flux **SSE** (`text/event-stream`) plutôt qu'un WebSocket —
+le trafic est minuscule et à sens unique, ça passe sur du HTTP ordinaire, ça se
+reconnecte tout seul, et ça n'ajoute aucune dépendance.
 
 ### Ce qui reste par appareil, volontairement
 

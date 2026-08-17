@@ -2256,9 +2256,90 @@
         }
       }
     },
+    "/me/remote/stream": {
+      "get": {
+        "summary": "P2.5 : le jeton de notification d'un appareil. Place AVANT `/devices/:id` serait inutile ici (les methodes different), mais l'ordre reste explicite. ── P3.1 : la télécommande ─────────────────────────────── L'écran qui LIT s'abonne au flux ; l'appareil qui PILOTE y poste des commandes. Les deux exigent une session, et le flux n'est indexé que par utilisateur : une commande ne sort jamais du compte qui l'a émise. Pas de `writeLimiter` sur les commandes : tourner les pages vite est l'usage normal d'une télécommande, et un plafond de formulaire ferait ignorer un appui sur deux. Le garde-fou est ailleurs — une commande ne va qu'aux appareils du même compte, et rien n'est stocké.",
+        "operationId": "Remote_flux",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/remote": {
+      "post": {
+        "summary": "Remote.commander",
+        "operationId": "Remote_commander",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/remote/ecrans": {
+      "get": {
+        "summary": "Remote.ecrans",
+        "operationId": "Remote_ecrans",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
     "/devices/push-token": {
       "post": {
-        "summary": "P2.5 : le jeton de notification d'un appareil. Place AVANT `/devices/:id` serait inutile ici (les methodes different), mais l'ordre reste explicite.",
+        "summary": "Devices.enregistrerJetonPush",
         "operationId": "Devices_enregistrerJetonPush",
         "tags": [
           "devices"

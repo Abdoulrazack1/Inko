@@ -849,6 +849,15 @@
             retirerJetonPush() { return del('/devices/push-token'); },
         },
 
+        // ── P3.1 : la télécommande ──
+        // Le FLUX ne passe pas par ici : `EventSource` ne sait pas porter
+        // d'en-tête, il s'authentifie par cookie (voir telecommande.js).
+        // Seules les commandes, qui sont des POST, ont besoin du client.
+        remote: {
+            commander(action, valeur) { return post('/me/remote', { action, valeur }); },
+            ecrans()                  { return get('/me/remote/ecrans'); },
+        },
+
         // ── Migration entre sources (audit XIII.1) ──
         // Trois sources ne répondent plus et 13 séries en dépendent. Ces
         // appels ne passent PAS par le cache partagé : `candidats` interroge

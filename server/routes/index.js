@@ -18,6 +18,7 @@ const Profile = require('../controllers/profile.controller');
 const Local   = require('../controllers/local.controller');
 const Migration = require('../controllers/migration.controller');   // audit XIII.1
 const Devices   = require('../controllers/devices.controller');     // audit VIII.5.1
+const Remote    = require('../controllers/remote.controller');      // audit P3.1
 
 // ── Healthcheck ─────────────────────────────────
 // Audit BUG-03 : cette route renvoyait `ok:true` en dur. Elle est la sonde du
@@ -214,6 +215,19 @@ router.get   ('/devices',                 auth.authRequired, Devices.lister);
 router.delete('/devices/:id',             auth.authRequired, Devices.revoquer);
 // P2.5 : le jeton de notification d'un appareil. Place AVANT `/devices/:id`
 // serait inutile ici (les methodes different), mais l'ordre reste explicite.
+// ── P3.1 : la télécommande ───────────────────────────────
+// L'écran qui LIT s'abonne au flux ; l'appareil qui PILOTE y poste des
+// commandes. Les deux exigent une session, et le flux n'est indexé que par
+// utilisateur : une commande ne sort jamais du compte qui l'a émise.
+//
+// Pas de `writeLimiter` sur les commandes : tourner les pages vite est
+// l'usage normal d'une télécommande, et un plafond de formulaire ferait
+// ignorer un appui sur deux. Le garde-fou est ailleurs — une commande ne va
+// qu'aux appareils du même compte, et rien n'est stocké.
+router.get   ('/me/remote/stream',        auth.authRequired, Remote.flux);
+router.post  ('/me/remote',               auth.authRequired, Remote.commander);
+router.get   ('/me/remote/ecrans',        auth.authRequired, Remote.ecrans);
+
 router.post  ('/devices/push-token',      auth.authRequired, writeLimiter, Devices.enregistrerJetonPush);
 router.delete('/devices/push-token',      auth.authRequired, Devices.retirerJetonPush);
 

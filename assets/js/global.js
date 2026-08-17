@@ -2226,6 +2226,26 @@
         onScroll();
     }
 
+    /* ── Télécommande : chargement à la demande ─────────── */
+    // Le module n'est embarqué nulle part ailleurs que dans le lecteur. Les
+    // trente autres pages ne le téléchargent que si on ouvre vraiment la
+    // télécommande — c'est-à-dire quasiment jamais sur l'ordinateur, qui n'a
+    // aucune raison de se piloter lui-même.
+    window.MH.ouvrirTelecommande = async function () {
+        if (!window.API?.isLoggedIn()) { MH.toast('Connecte-toi pour piloter un écran'); return; }
+        if (!window.MH.telecommande) {
+            try {
+                await new Promise((ok, ko) => {
+                    const sc = document.createElement('script');
+                    sc.src = 'assets/js/telecommande.js';
+                    sc.onload = ok; sc.onerror = ko;
+                    document.head.appendChild(sc);
+                });
+            } catch (e) { MH.toast('Télécommande indisponible hors ligne'); return; }
+        }
+        return window.MH.telecommande?.ouvrir();
+    };
+
     /* ── Palette de commandes (Ctrl/Cmd+K) ──────────────── */
     window.MH.openCommandPalette = function () {
         if (document.getElementById('cmdPalette')) return;
@@ -2242,6 +2262,7 @@
             { label: 'Paramètres', icon: I('gear'), go: 'parametres.html' },
             { label: 'Lecture aléatoire', icon: I('dice'), act: () => document.getElementById('navRandom')?.click() },
             { label: 'Reprendre ma lecture', icon: I('play'), act: async () => { const t = await window.MH.lastReadTarget?.(); if (t) location.href = t.href; else MH.toast('Aucune lecture en cours'); } },
+            { label: 'Télécommande', icon: I('play'), act: () => window.MH.ouvrirTelecommande() },
         ];
         const ov = document.createElement('div');
         ov.id = 'cmdPalette';

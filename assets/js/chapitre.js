@@ -76,6 +76,22 @@
         // bord que personne ne relierait à ce réglage.
         appliquerOrientation();
 
+        // ── P3.1 : cet écran devient pilotable ──────────────
+        // On branche les commandes sur les fonctions QUI EXISTENT DÉJÀ. Le
+        // relais ne sait rien de l'état du lecteur : c'est ici, et seulement
+        // ici, qu'une commande devient une action — donc impossible de
+        // désynchroniser quoi que ce soit à distance.
+        window.MH?.telecommande?.ecouter({
+            'page-suivante':     () => window.navStep(1),
+            'page-precedente':   () => window.navStep(-1),
+            'chapitre-suivant':  () => goChapter(1),
+            'chapitre-precedent':() => goChapter(-1),
+            'aller-a-la-page':   (n) => { if (n) window.goToPage(n); },
+            'plein-ecran':       () => window.toggleFullscreen(),
+            'defilement-auto':   () => toggleAutoScroll(),
+            'reglages':          () => toggleReaderSettings(),
+        });
+
         // IX.8 : les touches de volume tournent les pages. On ne les réclame
         // QUE dans le lecteur — les confisquer ailleurs ferait passer
         // l'application pour cassée, sans que rien ne le rattache à un réglage.
