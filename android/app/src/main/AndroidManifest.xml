@@ -48,4 +48,15 @@
          ne change avant que la feuille monte. Permission normale : elle ne
          provoque aucune demande à l'utilisateur. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- P2.8 — découverte du hub par mDNS (`NsdManager`).
+         Sans CHANGE_WIFI_MULTICAST_STATE, le Wi-Fi filtre les paquets
+         multicast avant même qu'ils atteignent l'application : la découverte
+         ne trouve RIEN, sans aucune erreur, et l'échec ressemble à un hub
+         absent du réseau. C'est une permission « normale » : elle n'entraîne
+         aucune demande à l'utilisateur.
+         ACCESS_NETWORK_STATE sert au greffon Network, qui détecte le
+         changement de Wi-Fi (maison → travail). -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 </manifest>

@@ -164,9 +164,39 @@ app.use(errorHandler);
     // créer une par page, et ce passage quotidien emporte ce qui a expiré.
     require('./lib/sessions').planifier();
 
-    app.listen(PORT, () => {
+    const serveur = app.listen(PORT, async () => {
         console.log(`Inko backend → http://localhost:${PORT}`);
         console.log(`   API base  → http://localhost:${PORT}/api`);
         console.log(`   Frontend  → http://localhost:${PORT}/accueil.html`);
+
+        // P2.8 : le hub se fait trouver sur le réseau local. Annoncé APRÈS
+        // l'ouverture du port, jamais avant : un service annoncé qui ne répond
+        // pas encore envoie les téléphones sur une porte fermée, et l'échec
+        // ressemble à un hub cassé plutôt qu'à un hub qui démarre.
+        //
+        // Le port ANNONCÉ est celui qui écoute réellement — pas la constante :
+        // derrière Docker ou un reverse proxy, ils diffèrent.
+        try {
+            const { hubId } = require('./lib/identite-hub');
+            await require('./lib/annonce-mdns').demarrer(PORT, await hubId());
+        } catch (e) {
+            console.warn(`[mdns] annonce ignorée : ${e.message}`);
+        }
     });
+
+    // Retirer l'annonce à l'arrêt. Un service qui reste publié après la
+    // fermeture envoie les téléphones sur une adresse morte, et l'expiration
+    // mDNS se compte en minutes — pendant lesquelles l'app paraît en panne.
+    let enFermeture = false;
+    const fermer = async (signal) => {
+        if (enFermeture) return;
+        enFermeture = true;
+        try { await require('./lib/annonce-mdns').arreter(); } catch (e) { /* déjà arrêté */ }
+        serveur.close(() => process.exit(0));
+        // Filet : une connexion longue (SSE) empêcherait `close` d'aboutir.
+        setTimeout(() => process.exit(0), 2500).unref();
+        void signal;
+    };
+    process.on('SIGINT', () => fermer('SIGINT'));
+    process.on('SIGTERM', () => fermer('SIGTERM'));
 })();

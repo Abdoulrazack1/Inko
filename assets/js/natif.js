@@ -158,6 +158,24 @@
                      : { connecte: navigator.onLine !== false, type: 'inconnu' };
         },
 
+        // ── Découverte du hub (P2.8) ────────────────────────
+        // Un WebView ne peut faire ni multicast ni socket brute : la découverte
+        // passe par `NsdManager`, qui est DANS le framework Android.
+        //
+        // Elle ne CHOISIT pas. Elle rapporte ce qu'elle a vu, avec l'identité
+        // que chaque hub annonce — et c'est `hub.js` qui décide, en comparant à
+        // celle mémorisée lors de l'appairage. Se connecter au premier service
+        // trouvé reviendrait à faire confiance à n'importe quelle machine du
+        // réseau, ce que l'audit signale explicitement comme dangereux.
+        decouvrirHubs(dureeMs) {
+            const D = P().InkoDecouverte;
+            if (!D) return Promise.resolve({ hubs: [], raison: 'découverte indisponible' });
+            return sûr(async () => {
+                const r = await D.chercher({ dureeMs: dureeMs || 4000 });
+                return { hubs: r.hubs || [], raison: r.raison || null };
+            }, { hubs: [], raison: 'erreur de découverte' });
+        },
+
         // ── Notifications (P2.5) ────────────────────────────
         // Le jeton FCM appartient à l'APPAREIL, pas au compte : le même
         // utilisateur sur deux téléphones en a deux, et révoquer un téléphone

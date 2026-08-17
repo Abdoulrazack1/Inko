@@ -77,3 +77,31 @@ test('l’onglet actif remonte avant de recharger', () => {
     assert.match(global, /if \(dejaEnHaut\) return;/,
         'le second appui, déjà en haut, doit laisser le rechargement se faire');
 });
+
+// ── P2.8 : la découverte ne doit JAMAIS adopter un hub inconnu ──
+// C'est la condition posée par l'audit : « Sans le point 1, le point 2 est
+// dangereux. » Un appareil qui bascule vers le premier service `_inko._tcp`
+// trouvé remet sa bibliothèque et son jeton à n'importe quelle machine du
+// réseau. Le filtre sur l'identité est donc le cœur de la sûreté de cette
+// fonction — et il tient en une ligne, qu'une simplification ferait sauter
+// sans que rien ne casse à l'écran.
+test('la reprise par découverte ne retient QUE le hub mémorisé', () => {
+    const hub = lire('assets/js/hub.js');
+    assert.match(hub, /const connu = lireId\(\);\s*\n\s*if \(!connu/,
+        'sans identité mémorisée, aucune découverte ne doit rien changer');
+    assert.match(hub, /\.find\(h => h\.hubId === connu\)/,
+        'seul un hub dont l’identité annoncée est celle mémorisée peut être adopté');
+    assert.match(hub, /const essai = await tester\(cible\.url\);\s*\n\s*if \(!essai\.ok\) return false;/,
+        'une annonce mDNS peut être périmée : on vérifie que l’adresse répond AVANT '
+        + 'de remplacer celle qui est enregistrée, sinon on échange une panne contre une autre.');
+});
+
+test('le bouton de recherche reste visible hors de l’application', () => {
+    // Un bouton qui disparaît laisse croire que la fonction n'existe pas.
+    // Présent, il explique pourquoi il ne peut rien faire ici — et rappelle
+    // que la saisie manuelle marche.
+    const hub = lire('assets/js/hub.js');
+    assert.match(hub, /id="hubChercher"/);
+    assert.match(hub, /La recherche automatique n\u2019existe que dans l\u2019application/,
+        'le cas « pas dans l’app » doit être expliqué, pas masqué');
+});

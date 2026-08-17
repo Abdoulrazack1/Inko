@@ -95,8 +95,8 @@
             const attendu = verifierIdentite === false ? null : lireId();
             if (attendu && j.hubId && j.hubId !== attendu) {
                 return { ok: false, autreHub: true, raison:
-                    'ce serveur n\u2019est pas celui auquel ce t\u00e9l\u00e9phone est appair\u00e9 '
-                    + '\u2014 l\u2019adresse a chang\u00e9 de main' };
+                    'ce serveur n’est pas celui auquel ce téléphone est appairé '
+                    + '— l’adresse a changé de main' };
             }
             // Un hub plus ancien ne renvoie pas d'identite : on ne bloque pas
             // pour autant. Refuser de fonctionner avec un serveur qui n'a pas
@@ -274,6 +274,7 @@
           <input id="hubCode" type="text" inputmode="text" autocapitalize="characters" autocorrect="off"
                  spellcheck="false" placeholder="7F3A-92B1" maxlength="9">
 
+          <button id="hubChercher" style="background:#2a2a33;color:#eee">Rechercher mon hub sur le r&eacute;seau</button>
           <button id="hubScan" style="background:#2a2a33;color:#eee">Scanner le QR code</button>
           <button id="hubGo">Connecter</button>
           <div class="etat" id="hubEtat">${messageInitial || ''}</div>
@@ -290,6 +291,64 @@
 
         const champCode = veil.querySelector('#hubCode');
         const boutonScan = veil.querySelector('#hubScan');
+        const boutonChercher = veil.querySelector('#hubChercher');
+
+        // ── P2.8 : « Rechercher mon hub sur le réseau » ──────
+        //
+        // Taper « 192.168.1.34:8088 » au doigt est l'endroit où l'on fait le
+        // plus de fautes de frappe — et l'adresse change toute seule au
+        // renouvellement du bail DHCP. La découverte évite les deux.
+        //
+        // Le bouton reste VISIBLE même hors de l'application : il explique
+        // alors pourquoi il ne peut rien faire. Un bouton qui disparaît laisse
+        // croire que la fonction n'existe pas.
+        if (boutonChercher) {
+            boutonChercher.addEventListener('click', async () => {
+                if (!window.INKO_NATIF || !window.INKO_NATIF.decouvrirHubs) {
+                    etat.className = 'etat ko';
+                    etat.textContent = 'La recherche automatique n’existe que dans l’application '
+                        + 'Android. Saisis l’adresse à la main — elle marche aussi bien.';
+                    return;
+                }
+                boutonChercher.disabled = true;
+                const libelle = boutonChercher.textContent;
+                boutonChercher.textContent = 'Recherche…';
+                etat.className = 'etat';
+                etat.textContent = 'Recherche des hubs sur le réseau local…';
+                try {
+                    const r = await window.INKO_NATIF.decouvrirHubs(4000);
+                    const hubs = (r && r.hubs) || [];
+                    if (!hubs.length) {
+                        etat.className = 'etat ko';
+                        // Le multicast est filtré sur beaucoup de réseaux — Wi-Fi
+                        // invité, isolation de points d'accès, réseaux
+                        // d'entreprise. Dire « aucun hub » sans dire pourquoi
+                        // ferait conclure que le PC est éteint.
+                        etat.textContent = 'Aucun hub trouvé. Vérifie que le PC est allumé et sur le '
+                            + 'même Wi-Fi. Certains réseaux (Wi-Fi invité, entreprise) bloquent la '
+                            + 'recherche automatique : l’adresse saisie à la main fonctionne quand même.';
+                        return;
+                    }
+                    // Un hub déjà connu passe devant : c'est presque toujours
+                    // celui qu'on cherche, et son identité le prouve.
+                    const connu = lireId();
+                    const prefere = hubs.find(h => connu && h.hubId === connu) || hubs[0];
+                    champ.value = prefere.url || ('http://' + prefere.hote + ':' + prefere.port);
+                    etat.className = 'etat ok';
+                    etat.textContent = hubs.length === 1
+                        ? 'Trouvé : ' + (prefere.nom || champ.value)
+                            + (connu && prefere.hubId === connu ? ' — c’est bien ton hub.' : '.')
+                        : hubs.length + ' hubs trouvés. Le plus probable est ' + (prefere.nom || champ.value)
+                            + ' — corrige l’adresse si ce n’est pas le bon.';
+                } catch (e) {
+                    etat.className = 'etat ko';
+                    etat.textContent = 'Recherche impossible : ' + e.message;
+                } finally {
+                    boutonChercher.disabled = false;
+                    boutonChercher.textContent = libelle;
+                }
+            });
+        }
 
         const valider = async () => {
             const origine = normaliser(champ.value);
@@ -421,16 +480,61 @@
     // La règle : on ne bloque QUE s'il n'y a rien à lire. Sinon on annonce le
     // mode hors ligne, on laisse la page ouverte, et on propose les deux
     // sorties utiles — les téléchargements, et la correction de l'adresse.
+    /**
+     * P2.8 / VIII.44, point 2 : « Re-découverte mDNS au démarrage : chercher
+     * `_inko._tcp.local`, comparer le `hub_id` annoncé, mettre à jour
+     * l'adresse EN SILENCE. »
+     *
+     * C'est le point qui rend le reste utile. Le bail DHCP change, le hub
+     * déménage — et l'utilisateur n'a rien fait, ne comprend pas, et devrait
+     * aller rescanner un QR devant le PC pour un événement dont il n'est pas
+     * responsable.
+     *
+     * Le silence n'est possible QUE parce que l'identité existe : on ne
+     * bascule que vers un hub dont le `hubId` annoncé est celui mémorisé à
+     * l'appairage. Un hub inconnu, même seul sur le réseau, n'est jamais
+     * adopté tout seul — c'est exactement le danger que l'audit signale.
+     *
+     * @returns {Promise<boolean>} true si l'adresse a été corrigée
+     */
+    async function retrouverParDecouverte() {
+        const connu = lireId();
+        if (!connu || !window.INKO_NATIF || !window.INKO_NATIF.decouvrirHubs) return false;
+        const r = await window.INKO_NATIF.decouvrirHubs(4000);
+        const cible = ((r && r.hubs) || []).find(h => h.hubId === connu);
+        if (!cible || !cible.url || cible.url === window.INKO_HUB) return false;
+
+        // On VERIFIE avant d'écrire : une annonce mDNS peut être périmée (le
+        // hub vient de s'éteindre, l'annonce met des minutes à expirer).
+        // Écrire une adresse morte remplacerait une panne par une autre.
+        const essai = await tester(cible.url);
+        if (!essai.ok) return false;
+
+        ecrire(cible.url);
+        window.INKO_HUB = cible.url;
+        console.log('[inko-hub] adresse corrigée par découverte : ' + cible.url);
+        return true;
+    }
+
     window.addEventListener('load', async () => {
         const r = await tester(window.INKO_HUB);
         if (r.ok) return;
+
+        // Avant de conclure à une panne : le hub a peut-être simplement changé
+        // d'adresse. On recharge alors la page, parce que les appels partis
+        // avant la correction ont déjà échoué — et remettre chaque état à jour
+        // un par un serait dix fois le même travail, fait dix fois à moitié.
+        if (!r.autreHub && await retrouverParDecouverte()) {
+            window.location.reload();
+            return;
+        }
 
         // Un AUTRE hub a repris l'adresse : ce n'est pas une panne reseau, et
         // le mode hors ligne serait un mensonge. On le dit, et on renvoie vers
         // le seul geste qui repare — refaire l'appairage devant le PC.
         if (r.autreHub) {
-            ecran('L\u2019adresse ' + window.INKO_HUB + ' r\u00e9pond, mais ce n\u2019est pas '
-                + 'ton hub : une autre machine l\u2019occupe d\u00e9sormais. Scanne un nouveau '
+            ecran('L’adresse ' + window.INKO_HUB + ' répond, mais ce n’est pas '
+                + 'ton hub : une autre machine l’occupe désormais. Scanne un nouveau '
                 + 'code depuis ton PC.');
             return;
         }
@@ -520,6 +624,14 @@
                 // hors-ligne, et les remettre a jour une par une serait dix
                 // fois le meme travail, fait dix fois a moitie.
                 if (window.INKO_HORS_LIGNE) window.location.reload();
+                return;
+            }
+            // Changer de réseau, c'est justement le moment où l'adresse du hub
+            // n'est plus la bonne : on rentre chez soi, le PC a redémarré, la
+            // box lui a donné un autre bail. La découverte le retrouve sans
+            // rien demander.
+            if (!r.autreHub && await retrouverParDecouverte()) {
+                window.location.reload();
                 return;
             }
             if (window.INKO_HORS_LIGNE) return;     // deja signale

@@ -41,6 +41,7 @@ public class MainActivity extends BridgeActivity {
         // déjà consommé — il n'existerait jamais côté page, sans la moindre
         // erreur pour le signaler.
         registerPlugin(VolumePlugin.class);
+        registerPlugin(DecouvertePlugin.class);
         super.onCreate(savedInstanceState);
     }
 
