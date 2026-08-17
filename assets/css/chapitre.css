@@ -1070,3 +1070,28 @@ body.reader-immersive .reader-pages-area.paged {
   font-size: 12.5px; color: var(--text2); cursor: pointer; margin-bottom: 10px;
 }
 .rs-check input { cursor: pointer; }
+
+/* ── P3.3 : planche double découpée en deux pages ────────────
+   Une planche double est UNE image contenant DEUX pages. Sur un écran de
+   375 px, chacune ferait 187 px de large — le texte des bulles devient
+   illisible, et il faut zoomer puis se déplacer pour chaque page.
+
+   L'image est portée au double de la largeur de son enveloppe : chaque moitié
+   remplit alors exactement l'écran. L'enveloppe rogne le reste.
+
+   `max-width: none` est indispensable : une règle globale `img { max-width:
+   100% }` annulerait la largeur doublée, et la découpe n'afficherait qu'un
+   quart de planche sans que rien ne le signale. */
+.reader-page-wrapper.mh-demi { overflow: hidden; }
+.reader-page-wrapper.mh-demi > .reader-page-img {
+  width: 200%;
+  max-width: none;
+  display: block;
+  transition: margin-left .18s cubic-bezier(.22,.7,.28,1);
+}
+.reader-page-wrapper.mh-demi[data-demi="0"] > .reader-page-img { margin-left: 0; }
+.reader-page-wrapper.mh-demi[data-demi="1"] > .reader-page-img { margin-left: -100%; }
+/* Mouvement réduit : la moitié change sans glisser. */
+@media (prefers-reduced-motion: reduce) {
+  .reader-page-wrapper.mh-demi > .reader-page-img { transition: none; }
+}

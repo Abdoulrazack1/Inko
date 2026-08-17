@@ -20,6 +20,9 @@
         // son lit recompose la planche et fait perdre sa place), mais c'est
         // une gene que tout le monde n'a pas.
         orientation: 'libre',
+        // P3.3 : une planche double affichee en entier sur un ecran de 375 px
+        // donne deux pages de 187 px de large. On les lit l'une apres l'autre.
+        decouper: '0',
         // Passer en double page quand l'ecran devient large : c'est le seul
         // moment ou deux planches tiennent sans devenir illisibles.
         autoDouble: '0' };
@@ -576,6 +579,63 @@
         img.after(div);
     };
 
+    // ── P3.3 : la moitie affichee, ou null pour la planche entiere ──
+    //
+    // Une planche double est UNE image qui contient DEUX pages. Affichee telle
+    // quelle sur un ecran de 375 px, chaque page fait 187 px de large : le
+    // texte des bulles devient illisible, et il faut zoomer puis se deplacer
+    // pour chacune. La decouper rend la lecture normale.
+    //
+    // On ne peut pas savoir a l'avance qu'une planche est double : c'est
+    // l'image chargee qui le dit (largeur > hauteur). La decoupe s'applique
+    // donc APRES le chargement, ce qui evite aussi de couper une planche
+    // simple un peu large.
+    let demi = null;
+
+    // Le sens de lecture compte ICI, et seulement ici. En lecture japonaise on
+    // commence par la moitie DROITE : commencer a gauche ferait lire la
+    // planche a l'envers, ce qu'un lecteur de manga voit immediatement.
+    function premiereMoitie() { return rs.direction === 'rtl' ? 1 : 0; }
+    function secondeMoitie()  { return rs.direction === 'rtl' ? 0 : 1; }
+
+    function estDouble(img) {
+        return !!(img && img.naturalWidth && img.naturalHeight
+            && img.naturalWidth > img.naturalHeight * 1.2);
+    }
+
+    /** La planche affichee est-elle decoupable, et l'est-elle en ce moment ? */
+    function planhceDecoupable() {
+        if (rs.decouper !== '1' || readMode !== 'page') return false;
+        const img = document.querySelector('#readerPagesArea .reader-page-img');
+        return estDouble(img);
+    }
+
+    // Applique (ou retire) la decoupe sur l'image affichee.
+    function appliquerDecoupe() {
+        const enveloppe = document.querySelector('#readerPagesArea .reader-page-wrapper');
+        const img = enveloppe && enveloppe.querySelector('.reader-page-img');
+        if (!enveloppe || !img) return;
+
+        if (rs.decouper !== '1' || readMode !== 'page' || !estDouble(img)) {
+            enveloppe.classList.remove('mh-demi');
+            enveloppe.removeAttribute('data-demi');
+            demi = null;
+            return;
+        }
+        if (demi === 'fin') demi = secondeMoitie();      // planche atteinte en reculant
+        if (demi === null) demi = premiereMoitie();
+        enveloppe.classList.add('mh-demi');
+        enveloppe.setAttribute('data-demi', String(demi));
+        // Le compteur doit dire ou l'on est DANS la planche : sans ca, deux
+        // ecrans successifs affichent « Page 12 / 40 » et l'on croit que le
+        // geste n'a pas pris.
+        const badge = document.querySelector('#readerPagesArea .page-counter-badge');
+        if (badge) {
+            badge.innerHTML = `Page <strong>${currentPage}</strong> / ${totalPages}`
+                + ` <span style="opacity:.7">(${demi === premiereMoitie() ? '1' : '2'}/2)</span>`;
+        }
+    }
+
     function renderPage(num) {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
@@ -598,6 +658,13 @@
 
         armImages(el);
         updateUIPage(num);
+
+        // Apres chargement : c'est l'image qui dit si la planche est double.
+        const img = el.querySelector('.reader-page-img');
+        if (img) {
+            if (img.complete) appliquerDecoupe();
+            else img.addEventListener('load', appliquerDecoupe, { once: true });
+        }
     }
 
     function renderScroll() {
@@ -1026,6 +1093,19 @@
             renderDouble(target);
             resetPagedScroll(dir);
             return;
+        }
+        // P3.3 : sur une planche decoupee, un pas change de MOITIE avant de
+        // changer de page. Sans ca, la seconde moitie ne serait jamais
+        // atteignable autrement qu'en zoomant.
+        if (planhceDecoupable()) {
+            const versLaSuite = dir > 0;
+            const surLaPremiere = demi === premiereMoitie();
+            if (versLaSuite && surLaPremiere) { demi = secondeMoitie(); appliquerDecoupe(); return; }
+            if (!versLaSuite && !surLaPremiere) { demi = premiereMoitie(); appliquerDecoupe(); return; }
+            // On sort de la planche : la suivante s'ouvre sur SA premiere
+            // moitie, la precedente sur sa SECONDE — c'est le sens de lecture,
+            // pas une preference.
+            demi = versLaSuite ? null : 'fin';
         }
         window.goToPage(currentPage + dir);
     };
@@ -1543,6 +1623,10 @@
                 <input type="checkbox" id="rsAutoDouble" ${rs.autoDouble === '1' ? 'checked' : ''}>
                 <span>Double page automatique en paysage</span>
             </label>
+            <label class="rs-check">
+                <input type="checkbox" id="rsDecouper" ${rs.decouper === '1' ? 'checked' : ''}>
+                <span>Découper les planches doubles en deux pages</span>
+            </label>
             <label class="rs-label">Qualité des images</label>
             ${seg('quality', [{v:'high',l:'Haute'},{v:'saver',l:'Éco'}], q)}
             <label class="rs-label">Minuteur de lecture</label>
@@ -1569,6 +1653,11 @@
         // Audit AMEL-17 : bascule du recadrage. Le cache de mesures est vidé
         // à chaque changement, sinon désactiver puis réactiver resservirait des
         // marges calculées pour d'autres pages.
+        panel.querySelector('#rsDecouper')?.addEventListener('change', e => {
+            saveReaderSetting('decouper', e.target.checked ? '1' : '0');
+            demi = null;              // on repart de la planche entiere
+            rerender();
+        });
         panel.querySelector('#rsAutoDouble')?.addEventListener('change', e => {
             saveReaderSetting('autoDouble', e.target.checked ? '1' : '0');
             // Reprise immediate : cocher la case en paysage doit basculer tout
