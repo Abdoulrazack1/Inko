@@ -239,6 +239,40 @@
         else carte.removeAttribute('data-non-lu');
     }
 
+    // ── Ranger UNE série ────────────────────────────────────
+    // Les catégories existaient déjà — colonne, API, filtres, action groupée —
+    // mais on ne pouvait en assigner une qu'en passant en mode sélection, puis
+    // en cochant, puis en ouvrant la barre d'actions. Trois gestes pour ranger
+    // une série qu'on a sous le doigt.
+    async function ranger(ctx) {
+        if (!connecte()) return;
+        try {
+            // On propose les catégories DÉJÀ utilisées : c'est le cas courant,
+            // et les retaper à l'identique en créerait des doublons à une faute
+            // près — « Shonen » et « shonen » seraient deux rangements.
+            let existantes = [];
+            try {
+                const favs = await API.me.favorites();
+                existantes = [...new Set((favs || []).map(f => f.category).filter(Boolean))].sort();
+            } catch (e) { window.MH?.err?.('cartes-gestes.js', e); }
+
+            const aide = existantes.length
+                ? `Catégories existantes : ${existantes.join(', ')}.
+Laisse vide pour retirer la catégorie.`
+                : 'Laisse vide pour retirer la catégorie.';
+            const cat = await MH.prompt(`Ranger « ${ctx.titre || 'cette série'} »`,
+                { message: aide, placeholder: 'ex. À lire, Terminé 2026…', okText: 'Ranger' });
+            if (cat === null) return;      // annulé — différent d'une chaîne vide
+
+            const valeur = String(cat).trim();
+            await API.me.setCategory(ctx.id, { category: valeur || null });
+            MH.bandeau(valeur ? `Rangée dans « ${valeur} »` : 'Catégorie retirée');
+        } catch (e) {
+            window.MH?.err?.('cartes-gestes.js', e);
+            MH.bandeau('Rangement impossible : ' + e.message);
+        }
+    }
+
     // ── Appui long : le menu ────────────────────────────────
     function menu(ctx) {
         if (!window.MH?.feuille) return;     // page sans feuille.js : les balayages restent
@@ -253,8 +287,13 @@
         const estFav = coeur?.classList.contains('is-fav');
         const listes = ctx.carte.querySelector('.card-list-btn[data-addlist]');
 
+        // La catégorie n'a de sens que pour une série DÉJÀ dans la bibliothèque :
+        // une œuvre du catalogue qu'on n'a pas encore ajoutée n'a rien à ranger.
+        const dansLaBiblio = ctx.carte.matches('.lib2-card');
+
         const entrees = [
             ctx.href && { ico: '📖', libelle: 'Ouvrir la série', act: () => { window.location.href = ctx.href; } },
+            dansLaBiblio && { ico: '🗂', libelle: 'Ranger dans une catégorie', act: () => ranger(ctx) },
             coeur && {
                 ico: estFav ? '💔' : '❤️',
                 libelle: estFav ? 'Retirer des favoris' : 'Ajouter aux favoris',
@@ -398,7 +437,20 @@
         // Le `click` de fin de geste ouvrirait la série : sur un appui long
         // comme sur un balayage, c'est exactement ce qu'on ne veut pas.
         if (gestePris) {
-            const bloquer = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+            const bloquer = (ev) => {
+                // Sauf DANS la surcouche que ce geste vient d'ouvrir.
+                //
+                // Sans cette exception, le garde avalait aussi les touchers du
+                // menu : appui long, la feuille monte, on lève le doigt, on
+                // tape « Marquer lu » — et rien ne se passe, parce qu'on est
+                // encore dans les 400 ms. Mesuré : clic à 50 ms bloqué et
+                // action jamais partie ; à 1200 ms, tout marche. Une fenêtre
+                // morte que l'utilisateur ne peut ni voir ni comprendre, et
+                // qu'il attribue à l'application qui « rate » ses touchers.
+                if (ev.target.closest && ev.target.closest('.mh-feuille, .mh-feuille-fond, .mh-bandeau')) return;
+                ev.preventDefault();
+                ev.stopPropagation();
+            };
             document.addEventListener('click', bloquer, true);
             setTimeout(() => document.removeEventListener('click', bloquer, true), 400);
         }
