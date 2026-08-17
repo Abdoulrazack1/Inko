@@ -175,7 +175,13 @@ function main() {
         process.exit(1);
     }
     if (check) {
-        if (actuel !== neuf) {
+        // Comparaison INSENSIBLE aux fins de ligne. Sur Windows, git restaure
+        // les fichiers en CRLF (`core.autocrlf`) alors que ce script écrit en
+        // LF : sans cette normalisation, `--check` échoue sur une copie
+        // fraîche du dépôt, en annonçant un repli périmé qui ne l'est pas.
+        // Un contrôle qui crie au loup sur un arbre propre finit désactivé.
+        const nl = (t) => t.split('\r\n').join('\n');
+        if (nl(actuel) !== nl(neuf)) {
             console.error('✖ le repli aspect-ratio de global.css n’est plus à jour.');
             console.error('  Une déclaration `aspect-ratio` a été ajoutée ou modifiée sans régénérer le repli.');
             console.error('  Sans lui, la boîte concernée fait 0 px de haut sur le WebView d’Android 8.');
