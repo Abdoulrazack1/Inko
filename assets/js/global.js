@@ -832,6 +832,184 @@
         return v;
     };
 
+    /* ── P1.6 / VIII.47 : une erreur dit quoi faire ──────────
+     * Le motif employé partout aujourd'hui est `Erreur : ${e.message}` en
+     * rouge, au milieu d'une grille vide. Il viole les trois règles de la
+     * taxonomie d'un coup :
+     *
+     *   · il affiche du technique quand le serveur n'a rien de lisible à
+     *     dire (« HTTP 504 » n'apprend rien à personne) ;
+     *   · il ne propose AUCUNE action, alors que « réessayer » ou « changer
+     *     de source » résout le cas neuf fois sur dix ;
+     *   · surtout, il ne distingue pas VIDE de CASSÉ — c'est le défaut
+     *     SRC-02 : une source en panne ressemble à un catalogue vide, et
+     *     l'utilisateur conclut que le titre n'existe pas.
+     *
+     * Cette fonction traduit une erreur d'API en état affichable. Elle
+     * n'invente jamais de texte à la place du serveur : quand celui-ci rend
+     * un message propre (« Source momentanement limitee »), c'est LUI qu'on
+     * montre. Elle ne remplace que ce qui n'est pas lisible.
+     */
+    const CODE_TECHNIQUE = /^(HTTP\s*\d{3}|\d{3}|[A-Z_]{4,})$/;
+
+    window.MH.messageErreur = function (err, ctx = {}) {
+        const e = err || {};
+        const st = e.status;
+        const src = ctx.source || '';
+        const nomSource = src ? src.charAt(0).toUpperCase() + src.slice(1) : 'La source';
+        const brut = String(e.message || '').trim();
+        // Règle 1 : jamais de code technique à l'écran. Il va au diagnostic.
+        const duServeur = brut && !CODE_TECHNIQUE.test(brut) ? brut : '';
+
+        const reessayer = ctx.onRetry ? [{ libelle: 'Réessayer', onClick: ctx.onRetry }] : [];
+
+        // HUB_INJOIGNABLE — le réseau, pas le serveur
+        if (e.horsLigne || e.network || st === 0) {
+            return {
+                icone: '📡', code: 'HUB_INJOIGNABLE',
+                titre: 'Impossible de joindre le serveur',
+                texte: duServeur || 'Vérifie que le PC est allumé et sur le même réseau.',
+                actions: [...reessayer, { libelle: 'Mes téléchargements', href: 'downloads.html' }],
+            };
+        }
+        // APPAREIL_REVOQUE — le compte est bon, c'est l'appareil qui est sorti
+        if (st === 401 && e.data?.code === 'APPAREIL_REVOQUE') {
+            return {
+                icone: '🔌', code: 'APPAREIL_REVOQUE',
+                titre: 'Cet appareil a été déconnecté',
+                texte: 'Il a été retiré depuis le PC. Ré-appaire-le pour retrouver ta bibliothèque.',
+                actions: [{ libelle: 'Ré-appairer', href: 'parametres.html#appareils' }],
+            };
+        }
+        if (st === 401) {
+            return {
+                icone: '🔑', code: e.data?.code || 'SESSION',
+                titre: 'Session terminée',
+                texte: duServeur || 'Reconnecte-toi pour continuer.',
+                actions: [{ libelle: 'Se connecter', href: 'login.html' }],
+            };
+        }
+        // SOURCE_LIMITEE — attendre suffit, ne pas proposer de réessayer tout de suite
+        if (st === 429) {
+            return {
+                icone: '⏳', code: 'SOURCE_LIMITEE',
+                titre: `${nomSource} limite les requêtes`,
+                texte: duServeur || 'Réessaie dans un instant — la source refuse temporairement les appels.',
+                actions: [...reessayer, { libelle: 'Changer de source', href: 'sources.html' }],
+            };
+        }
+        // SOURCE_INDISPONIBLE — la panne est EN AMONT, pas chez nous
+        if (st === 502 || st === 503 || st === 504) {
+            return {
+                icone: '🌐', code: 'SOURCE_INDISPONIBLE',
+                titre: `${nomSource} ne répond pas`,
+                texte: duServeur || 'Le site consulté est injoignable pour l’instant. Ce n’est pas ta connexion.',
+                actions: [...reessayer, { libelle: 'Changer de source', href: 'sources.html' }],
+            };
+        }
+        if (st >= 500) {
+            return {
+                icone: '⚠', code: 'SERVEUR',
+                titre: 'Le serveur a rencontré un problème',
+                texte: duServeur || 'Réessaie dans un instant. Si cela persiste, redémarre Inko sur le PC.',
+                actions: reessayer,
+            };
+        }
+        // Règle 2 : jamais « une erreur est survenue ». Si le serveur a écrit
+        // une phrase, elle est meilleure que tout ce qu'on inventerait.
+        return {
+            icone: '⚠', code: 'ERREUR',
+            titre: duServeur ? 'Chargement impossible' : 'Chargement impossible',
+            texte: duServeur || 'La requête n’a pas abouti.',
+            actions: reessayer,
+        };
+    };
+
+    /**
+     * Pose l'état d'erreur dans un conteneur. Même langage visuel que l'état
+     * vide : c'est volontaire — l'utilisateur n'a pas à apprendre deux mises
+     * en page pour deux mauvaises nouvelles.
+     */
+    window.MH.poserEtatErreur = function (cible, err, ctx = {}) {
+        const m = window.MH.messageErreur(err, ctx);
+        const el = window.MH.poserEtatVide(cible, m);
+        if (el) {
+            el.setAttribute('role', 'alert');
+            el.dataset.codeErreur = m.code;   // diagnostic, jamais affiché
+        }
+        return el;
+    };
+
+    /* ── P1.6 : squelettes AUX DIMENSIONS FINALES ────────────
+     * Un tourniquet centré occupe une hauteur qui n'est pas celle du contenu :
+     * à l'arrivée des données, tout saute. Le squelette occupe la place exacte
+     * de ce qui va s'afficher, donc rien ne bouge — et il annonce en même
+     * temps la FORME du résultat, ce qu'un tourniquet ne fait pas.
+     *
+     * Le squelette de carte reprend les CLASSES de la vraie carte plutôt que
+     * de recopier ses dimensions. Un premier essai les recopiait : il rendait
+     * 197 px là où la carte en fait 252 — un décalage de 55 px par rangée,
+     * c'est-à-dire précisément le saut qu'il devait supprimer. Et le chiffre
+     * aurait dérivé au premier changement de la carte, en silence.
+     *
+     * En héritant de `.manga-card`, il suit tout ce qui la définit : le
+     * rapport 2:3 au doigt et 3:4 à la souris, le rembourrage du bloc
+     * d'information, la hauteur figée de deux lignes de titre. Modifier la
+     * carte modifie le squelette.
+     *
+     * Reste un écart irréductible : la ligne de métadonnées passe sur une ou
+     * deux lignes selon le titre. Les VRAIES cartes diffèrent déjà entre elles
+     * sur ce point — aucun squelette fixe ne peut coller aux deux.
+     */
+    window.MH.squelette = function (cible, { n = 12, type = 'carte' } = {}) {
+        const el = typeof cible === 'string' ? document.getElementById(cible) : cible;
+        if (!el) return null;
+        const unite = type === 'ligne'
+            ? '<div class="mh-sq mh-sq-ligne" aria-hidden="true"><div class="skeleton mh-sq-vignette"></div>'
+              + '<div class="mh-sq-lignes"><div class="skeleton mh-sq-t1"></div>'
+              + '<div class="skeleton mh-sq-t2"></div></div></div>'
+            : '<div class="manga-card mh-sq" aria-hidden="true">'
+              + '<div class="manga-card-cover skeleton"></div>'
+              + '<div class="manga-card-info">'
+              + '<div class="manga-card-title"><span class="skeleton"></span><span class="skeleton"></span></div>'
+              + '<div class="manga-card-meta"><span class="skeleton"></span><span class="skeleton"></span></div>'
+              + '</div></div>';
+        el.innerHTML = new Array(Math.max(1, n)).fill(unite).join('');
+        // `aria-busy` plutôt qu'un texte « Chargement… » : un lecteur d'écran
+        // annonce l'attente sans énumérer douze blocs vides.
+        el.setAttribute('aria-busy', 'true');
+
+        // Il faut le LEVER, sinon la grille reste annoncée « en cours de
+        // chargement » pour toujours — un défaut qu'on ne voit pas à l'écran et
+        // qui ne gêne que ceux qui ne le voient pas non plus.
+        //
+        // Le levée est automatique, et pas confiée aux appelants : chaque
+        // rendu remplace le contenu du conteneur, et il suffit d'en oublier un
+        // pour réintroduire le défaut. On observe donc le conteneur, et on
+        // s'efface dès que ce qu'il contient n'est plus le squelette.
+        if (el._mhObs) el._mhObs.disconnect();
+        if (window.MutationObserver) {
+            el._mhObs = new MutationObserver(() => {
+                if (el.querySelector('.mh-sq')) return;      // encore le squelette
+                el.removeAttribute('aria-busy');
+                el._mhObs.disconnect();
+                el._mhObs = null;
+            });
+            el._mhObs.observe(el, { childList: true });
+        }
+        return el;
+    };
+
+    // Sortie explicite, pour le cas où le conteneur n'est pas rempli mais
+    // simplement abandonné (recherche annulée, navigation).
+    window.MH.finSquelette = function (cible) {
+        const el = typeof cible === 'string' ? document.getElementById(cible) : cible;
+        if (!el) return null;
+        el.removeAttribute('aria-busy');
+        if (el._mhObs) { el._mhObs.disconnect(); el._mhObs = null; }
+        return el;
+    };
+
     window.MH.markFavorites = async function (root) {
         if (!window.API?.isLoggedIn()) return;
         const set = await window.MH.getFavSet();

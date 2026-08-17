@@ -489,6 +489,11 @@
     // ── BIBLIOTHÈQUE ──
     async function loadLibrary() {
         const grid = document.getElementById('libGrid');
+        // P1.6 : trois appels réseau se succèdent avant le premier rendu, et la
+        // grille restait VIDE pendant tout ce temps — indistinguable d'une
+        // bibliothèque sans rien dedans. Le squelette dit « ça arrive », et
+        // occupe déjà la place que le contenu prendra.
+        MH.squelette?.(grid, { n: 12 });
         await MH.loadSourceTypes();   // pour séparer mangas/romans
         await window.UserData?.ready?.();   // épingles + données perso
         try {
@@ -501,7 +506,8 @@
             readByManga = allRead;
             progressByManga = allProg;
         } catch (e) {
-            grid.innerHTML = `<div class="lib2-empty" style="grid-column:1/-1;color:#ef4444">Erreur : ${MH.esc(e.message)}</div>`;
+            MH.poserEtatErreur(grid, e, { onRetry: () => render() });
+            if (grid.firstChild) grid.firstChild.style.gridColumn = '1/-1';
             return;
         }
 
@@ -700,7 +706,19 @@
         list.sort((a, b) => pinned(a) - pinned(b));
 
         if (!list.length) {
-            grid.innerHTML = `<div class="lib2-empty" style="grid-column:1/-1">${unreadOnly ? 'Aucune série avec des chapitres non lus.' : 'Aucun résultat.'}</div>`;
+            // Une bibliothèque vide et un filtre trop étroit ne se soignent
+            // pas pareil : le premier s'emplit depuis le catalogue, le second
+            // en relâchant le filtre. Les confondre laisse sans issue.
+            MH.poserEtatVide(grid, unreadOnly
+                ? { icone: '\u2713', titre: 'Tout est à jour',
+                    texte: 'Aucune série suivie n\'a de chapitre non lu.',
+                    actions: [{ libelle: 'Voir toute la bibliothèque', onClick: () => {
+                        unreadOnly = false; render();
+                    } }] }
+                : { icone: '\u{1F4DA}', titre: 'Aucune série ici',
+                    texte: 'Ajoute une série depuis le catalogue pour la retrouver dans ta bibliothèque.',
+                    actions: [{ libelle: 'Découvrir le catalogue', href: 'catalogue.html' }] });
+            if (grid.firstChild) grid.firstChild.style.gridColumn = '1/-1';
             return;
         }
 
@@ -1042,7 +1060,12 @@
                 render(); // rafraîchit aussi les badges de l'onglet Bibliothèque
 
                 if (!ups.length && !fails.length) {
-                    listEl.innerHTML = `<div class="lib2-empty"><div class="ico"></div>Aucune série suivie. Ajoute des favoris pour suivre leurs mises à jour.</div>`;
+                    MH.poserEtatVide(listEl, {
+                        icone: '\u2b50',
+                        titre: 'Aucune série suivie',
+                        texte: 'Les mises à jour se calculent à partir de tes favoris — ajoutes-en un pour voir apparaître ses nouveaux chapitres ici.',
+                        actions: [{ libelle: 'Découvrir le catalogue', href: 'catalogue.html' }],
+                    });
                     return;
                 }
                 // §15.4-2 : les échecs de vérification sont visibles, plus jamais muets
@@ -1100,7 +1123,7 @@
                 }));
             } catch (e) {
                 status.textContent = '';
-                listEl.innerHTML = `<div class="lib2-empty" style="color:#ef4444">Erreur : ${MH.esc(e.message)}</div>`;
+                MH.poserEtatErreur(listEl, e, { onRetry: () => btn.click() });
             } finally {
                 btn.disabled = false;
             }

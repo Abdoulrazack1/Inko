@@ -1289,6 +1289,43 @@ a[data-nsfw] .manga-card-cover::after,
     .mh-vide-actions .btn { min-height: 44px; }
 }
 
+/* ── P1.6 : squelettes AUX DIMENSIONS FINALES ────────
+   La carte de squelette reprend la geometrie de la vraie carte — couverture
+   2:3 et deux lignes de titre — sinon le saut de mise en page qu'elle est
+   censee eviter revient a l'arrivee des donnees. */
+/* Le squelette de carte EST une `.manga-card` : il herite du rapport de
+   couverture, du rembourrage et de la hauteur figee du titre. Recopier ces
+   valeurs les aurait laissees deriver au premier changement de la carte. */
+.mh-sq {
+  /* Inerte : sans cela, `closest('.manga-card')` du module de gestes
+     l'attraperait, et un appui long ouvrirait un menu sur une carte sans
+     identifiant. */
+  pointer-events: none;
+}
+.mh-sq:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.mh-sq .manga-card-title span { display: block; height: 11px; border-radius: 4px; }
+.mh-sq .manga-card-title span + span { margin-top: 8px; width: 58%; }
+/* Deux pastilles qui DEBORDENT la ligne (62 % + 45 %) : elles passent donc
+   sur deux rangs, comme les badges reels d'annee, de demographie et de statut.
+   Ajuste au millimetre sur la carte tactile — c'est elle que P1.6 vise. */
+.mh-sq .manga-card-meta span { display: block; height: 16px; border-radius: 4px; }
+.mh-sq .manga-card-meta span:first-child { width: 62%; }
+.mh-sq .manga-card-meta span:last-child { width: 45%; }
+.mh-sq-t1 { height: 11px; width: 92%; border-radius: 4px; }
+.mh-sq-t2 { height: 11px; width: 58%; border-radius: 4px; }
+.mh-sq-ligne { display: flex; gap: 12px; align-items: center; padding: 10px 0; }
+.mh-sq-vignette { width: 52px; height: 70px; border-radius: 6px; flex: 0 0 auto; }
+.mh-sq-lignes { flex: 1 1 auto; display: flex; flex-direction: column; gap: 7px; }
+@media (hover: none) {
+  .mh-sq-t1, .mh-sq-t2 { height: 10px; }
+}
+/* Le scintillement est une ANIMATION : sous « mouvement reduit », il devient
+   un aplat. Le squelette garde alors son role — tenir la place — sans
+   agiter douze blocs a l'ecran. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; background: var(--bg3); }
+}
+
 /* ════════════════════════════════════════════════════════
    P1.4 — la carte au doigt (audit IX.5, IX.6)
 

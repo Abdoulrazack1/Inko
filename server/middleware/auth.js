@@ -63,7 +63,46 @@ async function authRequired(req, res, next) {
                     AND (s.device_id IS NULL OR d.revoked_at IS NULL)`,
                 [payload.jti, user.id]);
             if (!sess) {
-                return res.status(401).json({ error: 'Session fermee — reconnecte-toi', code: 'SESSION_REVOKED' });
+                // VIII.47 : trois causes distinctes se cachaient derrière un
+                // seul message, alors qu'elles appellent des gestes DIFFÉRENTS.
+                //   · appareil révoqué depuis le PC  → ré-appairer le téléphone
+                //   · session fermée                 → se reconnecter
+                //   · session expirée                → se reconnecter, mais rien
+                //                                      n'a été fermé : le dire
+                //                                      évite de chercher qui
+                //                                      aurait coupé l'accès.
+                // Envoyer un téléphone révoqué vers l'écran de connexion est un
+                // cul-de-sac : le compte est bon, c'est l'APPAREIL qui a été
+                // retiré, et aucun mot de passe n'y changera rien.
+                //
+                // Cette seconde lecture n'a lieu que sur le chemin d'ÉCHEC —
+                // le cas nominal reste à une requête.
+                let code = 'SESSION_REVOKED';
+                let message = 'Session fermée — reconnecte-toi';
+                try {
+                    const [[detail]] = await pool.query(
+                        `SELECT s.device_id, s.revoked_at AS s_rev, s.expires_at,
+                                d.revoked_at AS d_rev, d.nom AS d_nom
+                           FROM sessions s
+                           LEFT JOIN devices d ON d.id = s.device_id
+                          WHERE s.id = ? AND s.user_id = ?`,
+                        [payload.jti, user.id]);
+                    if (detail && detail.device_id && detail.d_rev) {
+                        // La révocation d'un appareil ferme aussi sa session ;
+                        // c'est donc bien l'appareil qui est la CAUSE, et le
+                        // geste utile est de le ré-appairer.
+                        code = 'APPAREIL_REVOQUE';
+                        message = 'Cet appareil a été déconnecté depuis le PC.';
+                    } else if (detail && !detail.s_rev && detail.expires_at
+                               && new Date(detail.expires_at) <= new Date()) {
+                        code = 'SESSION_EXPIREE';
+                        message = 'Ta session a expiré — reconnecte-toi';
+                    }
+                } catch (e) {
+                    // Le refus prime sur la précision du motif : on ne laisse
+                    // jamais passer une requête parce que le diagnostic a raté.
+                }
+                return res.status(401).json({ error: message, code });
             }
             // « Vu la derniere fois » : ecrit au plus une fois par minute.
             // A chaque requete, ce serait une ecriture par appel d'API pour une

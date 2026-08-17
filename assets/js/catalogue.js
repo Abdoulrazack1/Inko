@@ -240,7 +240,21 @@
             ? `${lastResults.length} séries trouvées sur ${okCount} source(s)`
             : 'Aucun résultat sur tes sources actives');
         if (!lastResults.length) {
-            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2)">Aucun résultat sur tes sources actives.</div>';
+            // Aucune source n'a rien rendu : la cause la plus probable n'est pas
+            // la recherche mais l'état des sources. On propose donc les deux
+            // sorties réelles — rejouer, ou aller voir qui répond.
+            MH.poserEtatVide(grid, {
+                icone: '\u{1F50D}',
+                titre: 'Aucun résultat sur tes sources actives',
+                texte: okCount < srcs.length
+                    ? `${srcs.length - okCount} source(s) sur ${srcs.length} n'ont pas répondu — le résultat est peut-être incomplet.`
+                    : 'Essaie un autre terme, ou active une source supplémentaire.',
+                actions: [
+                    { libelle: 'Relancer la recherche', onClick: () => runSearch() },
+                    { libelle: 'Voir l\'état des sources', href: 'sources.html' },
+                ],
+            });
+            grid.firstChild.style.gridColumn = '1/-1';
         } else {
             grid.innerHTML = lastResults.map(m => mangaCardHTML(m)).join('');
             MH.markFavorites(grid);
@@ -438,13 +452,18 @@
             <div class="spinner-inline"></div>
             <div style="margin-top:8px;font-size:12.5px">Recherche…</div>
         </div>`;
+        // P1.6 : un tourniquet centré n'occupe pas la hauteur du résultat —
+        // tout saute à l'arrivée des données. Le squelette tient la place
+        // exacte des cartes et annonce leur forme.
+        MH.squelette?.(grid, { n: 12 });
 
         // Mode agrégé « Toutes les sources » : chemin dédié
         if (allSources) {
             try { await runSearchAggregate(myReq); }
             catch (err) {
                 if (myReq !== inFlight) return;
-                grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#ef4444">Erreur : ${MH.esc(err.message)}</div>`;
+                MH.poserEtatErreur(grid, err, { onRetry: () => runSearch() });
+                grid.firstChild.style.gridColumn = '1/-1';
             }
             return;
         }
@@ -493,7 +512,14 @@
             renderPagination();
         } catch(err) {
             if (myReq !== inFlight) return;
-            grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#ef4444">Erreur : ${MH.esc(err.message)}</div>`;
+            // `source` sert à nommer le coupable : « WeebCentral ne répond
+            // pas » situe la panne EN AMONT, là où « Erreur : HTTP 504 »
+            // laissait croire à un défaut d'Inko ou de la connexion.
+            MH.poserEtatErreur(grid, err, {
+                source: API.sources.current,
+                onRetry: () => runSearch(),
+            });
+            grid.firstChild.style.gridColumn = '1/-1';
         }
     }
 
