@@ -138,6 +138,15 @@
            Sur le PC, les notifications de nouveaux chapitres passent déjà par
            le navigateur (Web Push) : proposer les deux ici donnerait deux
            interrupteurs pour la même chose, dont un sans effet. -->
+      <!-- P3.4 : n'apparaît qu'au doigt. À la souris, tout l'écran est déjà
+           à portée — proposer le réglage y serait du bruit. -->
+      <div class="set-row" id="rowUneMain" hidden>
+        <div>
+          <div class="set-row-label">Mode une main</div>
+          <div class="set-row-desc">Un balayage vers le bas depuis le bord inférieur fait descendre la page, pour atteindre le haut de l'écran avec le pouce. Se retire tout seul.</div>
+        </div>
+        <label class="rs-check"><input type="checkbox" id="chkUneMain"><span>Activer</span></label>
+      </div>
       <div class="set-row" id="rowNotifsMobiles" hidden>
         <div>
           <div class="set-row-label">Notifications de nouveaux chapitres</div>
@@ -453,6 +462,7 @@
   <script src="assets/js/theme.js"></script>
   <script src="assets/js/i18n.js"></script>
   <script src="assets/js/global.js"></script>
+  <script src="assets/js/une-main.js"></script>
   <script src="assets/js/anilist.js"></script>
   <script src="assets/js/parametres.js"></script>
   <script src="assets/js/appairage.js"></script>

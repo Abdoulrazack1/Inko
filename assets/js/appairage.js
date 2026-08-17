@@ -290,3 +290,22 @@
         });
     })();
 })();
+
+// ── P3.4 : réglage du mode une main ─────────────────────────
+// Il n'apparaît qu'au doigt : à la souris, tout l'écran est déjà à portée du
+// curseur, et proposer le réglage y serait du bruit.
+//
+// La case ARME le geste, elle n'active pas le mode en permanence — lire avec un
+// tiers d'écran en moins serait absurde.
+(function reglageUneMain() {
+    const ligne = document.getElementById('rowUneMain');
+    const cases = document.getElementById('chkUneMain');
+    if (!ligne || !cases || !window.MH?.uneMain) return;
+    ligne.hidden = false;
+    cases.checked = window.MH.uneMain.arme();
+    cases.addEventListener('change', () => {
+        window.MH.uneMain.armer(cases.checked);
+        if (cases.checked) window.MH.bandeau?.(
+            'Balaie vers le bas depuis le bord inférieur de l’écran pour faire descendre la page.');
+    });
+})();
