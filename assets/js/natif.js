@@ -452,6 +452,24 @@
         window.location.href = page;
     }
 
+    // ── Widget d'ecran d'accueil (P3.5) ─────────────────
+    // La page POUSSE ce qu'elle lit ; le widget peint ce qu'il trouve. Le sens
+    // ne peut pas etre inverse : le widget est reveille par le lanceur, parfois
+    // alors qu'aucune page n'existe pour lui repondre.
+    //
+    // Titre vide = remise a zero. C'est ce qui doit arriver a la deconnexion,
+    // sinon l'ecran d'accueil continuerait d'afficher la serie d'un compte
+    // quitte — visible par quiconque regarde le telephone.
+    N.majWidget = function (titre, sousTitre, lien) {
+        const W = P().InkoWidget;
+        if (!W) return Promise.resolve(false);
+        return sûr(() => W.majReprise({
+            titre: titre || '',
+            sousTitre: sousTitre || '',
+            lien: lien || '',
+        }), false);
+    };
+
     window.INKO_NATIF = N;
 
     // Le retour physique s'installe tout de suite : c'est le seul greffon dont

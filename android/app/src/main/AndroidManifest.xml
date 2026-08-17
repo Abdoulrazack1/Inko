@@ -44,6 +44,20 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
+        <!-- Widget « Reprendre » (P3.5). `exported="false"` : seul le
+             lanceur du systeme doit pouvoir le mettre a jour. -->
+        <receiver
+            android:name=".WidgetReprise"
+            android:label="@string/widget_nom"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_reprise_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

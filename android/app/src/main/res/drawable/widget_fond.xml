@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Le fond du widget.
+
+  Android 12 arrondit et découpe les widgets lui-même, mais pas avant : sur le
+  plancher du projet (API 26), un widget sans fond dessiné se pose en rectangle
+  net sur le fond d'écran, et le texte clair devient illisible sur une photo
+  claire. Ce fond opaque règle les deux à la fois.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/inko_fond" />
+    <corners android:radius="18dp" />
+</shape>

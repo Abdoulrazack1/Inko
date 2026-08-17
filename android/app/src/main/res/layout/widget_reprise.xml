@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Le widget « Reprendre ».
+
+  Contrainte de fond : une `RemoteViews` n'accepte qu'une poignée de vues —
+  LinearLayout, RelativeLayout, FrameLayout, TextView, ImageView, Button… Ni
+  ConstraintLayout, ni vue personnalisée. Le gabarit est donc volontairement
+  primitif ; ce n'est pas de la négligence, c'est la seule chose qui se peigne.
+
+  La zone cliquable est la RACINE, pas la pastille : sur un widget de 2×1
+  cases, viser un bouton de 32 dp au pouce rate une fois sur trois.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_racine"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_fond"
+    android:padding="14dp"
+    android:gravity="center_vertical">
+
+    <TextView
+        android:id="@+id/widget_surtitre"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/widget_reprendre"
+        android:textColor="#ffffff"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.08"
+        android:background="@drawable/widget_pastille"
+        android:paddingLeft="9dp"
+        android:paddingRight="9dp"
+        android:paddingTop="3dp"
+        android:paddingBottom="3dp" />
+
+    <!-- Deux lignes au maximum : au-delà, le widget grandit et se fait
+         recadrer par le lanceur, ce qui coupe le sous-titre au milieu. -->
+    <TextView
+        android:id="@+id/widget_titre"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/inko_texte"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:text="@string/widget_vide_titre" />
+
+    <TextView
+        android:id="@+id/widget_sous_titre"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="@color/inko_texte_doux"
+        android:textSize="12sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="@string/widget_vide_sous_titre" />
+
+</LinearLayout>

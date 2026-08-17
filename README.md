@@ -393,10 +393,34 @@ vraiment » :
 | **Appui long sur l'icône** | Bibliothèque · Rechercher · Téléchargements |
 | **Partager un titre** | depuis n'importe quelle app → la recherche s'ouvre dessus |
 | **Menu « Plus » → Télécommande** | tourner les pages du PC depuis le téléphone |
+| **Widget d'écran d'accueil** | la lecture en cours, à un appui — sans ouvrir l'app |
 
 Grille à trois colonnes, couvertures au rapport 2:3, titres sur deux lignes,
 feuilles montantes à la place des barres latérales, et le **bouton retour
 d'Android** qui ferme les panneaux au lieu de quitter l'écran.
+
+### Widget « Reprendre »
+
+Reprendre demandait quatre gestes : ouvrir Inko, attendre, retrouver la série,
+retrouver le chapitre. Le widget les remplace par un seul appui — et il
+**affiche** où on en est, ce qui suffit souvent sans même ouvrir l'application.
+
+Appui long sur l'écran d'accueil → *Widgets* → **Inko — Reprendre**.
+
+- **il ne va rien chercher lui-même.** Un widget n'a ni session ni adresse de
+  hub, et il peut être réveillé alors que l'application n'a jamais démarré.
+  C'est donc la page qui pousse son état quand on lit, et le widget peint ce
+  qu'il trouve. Aucune logique dedans, donc rien qui puisse diverger ;
+- **la lecture privée n'y apparaît pas.** La mise à jour est accrochée
+  *après* le contrôle d'incognito, donc elle en hérite plutôt que de le
+  réimplémenter — et de l'oublier un jour ;
+- **il se vide à la déconnexion.** Sinon l'écran d'accueil continuerait
+  d'annoncer la série d'un compte quitté, à la vue de quiconque regarde le
+  téléphone ;
+- **pas de couverture**, volontairement : une image à télécharger, stocker,
+  purger — et visible par-dessus l'épaule. Le titre suffit ;
+- **aucun réveil périodique** (`updatePeriodMillis="0"`). Le contenu ne change
+  que lorsqu'on lit.
 
 ### Notifications — sans compte Google
 

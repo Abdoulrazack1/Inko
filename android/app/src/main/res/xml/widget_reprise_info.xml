@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Déclaration du widget.
+
+  `minWidth`/`minHeight` sont donnés dans l'unité des LANCEURS, pas en cases :
+  la formule officielle est 70 × n − 30. Deux cases de large et une de haut
+  donnent donc 110 dp × 40 dp. Se tromper ici ne produit pas d'erreur — le
+  widget se pose simplement plus grand que prévu et le lanceur le recadre.
+
+  `updatePeriodMillis="0"` : aucun réveil périodique. Le contenu ne change que
+  lorsque l'utilisateur lit, et c'est la page qui le pousse à ce moment-là. Un
+  réveil toutes les trente minutes ne trouverait rien de neuf et coûterait de
+  la batterie — Android impose de toute façon un plancher de 30 min.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_reprise"
+    android:previewLayout="@layout/widget_reprise"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />

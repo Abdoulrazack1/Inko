@@ -890,6 +890,39 @@
                 totalPages: totalPages || null,   // audit HIST2 : % exact sur le profil
             });
         } catch(e) { /* silencieux */ }
+
+        // P3.5 : l'ecran d'accueil suit la lecture.
+        //
+        // C'est volontairement place APRES les gardes ci-dessus : une lecture
+        // privee ne doit pas s'afficher sur le fond d'ecran, la ou n'importe
+        // qui la voit. Accrocher le widget ici le fait heriter de la regle
+        // plutot que de la reimplementer — et donc de l'oublier un jour.
+        majWidget();
+    }
+
+    // `encodeURIComponent` laisse passer !'()*~ — legal dans une URL, mais
+    // REFUSE par la validation de RaccourcisPlugin (`/[A-Za-z0-9_./?=&%-]*`).
+    // Mesure : sur six identifiants realistes, cinq etaient rejetes, dont
+    // « one-piece_(2024) » et « k-on! ». L'appui sur le widget ouvrait alors
+    // l'application sans naviguer, sans le moindre message.
+    //
+    // On encode donc plus strictement du cote qui FABRIQUE le lien, plutot que
+    // d'elargir le garde-fou du cote qui l'execute.
+    function encoderStrict(v) {
+        return encodeURIComponent(String(v)).replace(/[!'()*~]/g,
+            (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+    }
+
+    // Ce que le widget affichera. Le lien est celui que RaccourcisPlugin sait
+    // deja valider et ouvrir : un seul chemin d'entree, pas deux.
+    function majWidget() {
+        if (!window.INKO_NATIF?.dansApp) return;
+        const chap = currentChap.chapter ? `Chapitre ${currentChap.chapter}` : 'Chapitre';
+        const page = totalPages ? ` · page ${currentPage}/${totalPages}` : '';
+        const lien = `/chapitre.html?manga=${encoderStrict(manga.id)}`
+            + `&chapter=${encoderStrict(currentChap.id)}`
+            + `&source=${encoderStrict(API.sources.current)}`;
+        window.INKO_NATIF.majWidget(manga.title || 'Lecture', chap + page, lien);
     }
 
     async function markChapterRead() {

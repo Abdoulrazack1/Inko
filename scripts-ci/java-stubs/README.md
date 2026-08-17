@@ -19,9 +19,19 @@ secondes.
 d'annotation, génériques, exceptions vérifiées. C'est exactement la catégorie
 d'erreurs qu'on commet en écrivant du Java sans le compiler.
 
-**N'attrape pas** : le comportement réel des API d'Android, les ressources
-(`R.*`), le manifeste, ProGuard. Ceux-là relèvent de la compilation réelle,
-faite en CI et par le démarrage sur émulateur.
+**Attrape aussi les ressources** depuis le widget (P3.5). Un `R.java` est
+**dérivé de `android/app/src/main/res/`** à chaque exécution : noms de gabarits,
+identifiants `@+id/…`, chaînes, couleurs, drawables. Ce n'est pas le `R` d'aapt
+— les valeurs sont arbitraires — mais ce sont les **noms** qu'on se trompe à
+écrire, et c'est là que la faute est invisible : `R.id.widget_titre` écrit pour
+un identifiant qui n'existe pas ne lève rien à l'exécution, le widget se pose
+simplement vide ou inerte. Vérifié en cassant volontairement un identifiant :
+la compilation échoue.
+
+**N'attrape pas** : le comportement réel des API d'Android, le manifeste,
+ProGuard, et la correspondance entre le `R` dérivé et celui qu'aapt produira.
+Ceux-là relèvent de la compilation réelle, faite en CI et par le démarrage sur
+émulateur.
 
 ## D'où viennent les signatures
 

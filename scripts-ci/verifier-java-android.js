@@ -84,6 +84,71 @@ function javaSous(dossier) {
     return out;
 }
 
+const RES = path.join(RACINE, 'android', 'app', 'src', 'main', 'res');
+
+/**
+ * Fabrique un `R.java` a partir des ressources REELLES.
+ *
+ * Le README de `java-stubs/` disait que `R.*` echappait a cette verification —
+ * c'etait vrai tant qu'aucune classe n'en avait besoin. Une `RemoteViews`, elle,
+ * ne peut PAS s'en passer : elle designe son gabarit et ses vues par
+ * identifiant numerique.
+ *
+ * Or c'est exactement la ou une faute ne se voit pas. `R.id.widget_titre` ecrit
+ * pour un `@+id/widget_titre` qui n'existe pas ne produit aucune erreur a
+ * l'execution : le widget se pose, et reste vide ou inerte. En derivant `R` du
+ * contenu de `res/`, la faute redevient une erreur de compilation.
+ *
+ * Ce n'est pas le vrai `R` d'aapt — les valeurs sont arbitraires. Seuls les
+ * NOMS comptent ici, et ce sont eux qu'on se trompe a ecrire.
+ */
+function genererR(dossier) {
+    const noms = { id: new Set(), layout: new Set(), drawable: new Set(), string: new Set(), xml: new Set(), mipmap: new Set(), color: new Set() };
+    if (!fs.existsSync(RES)) return null;
+
+    for (const sousDossier of fs.readdirSync(RES)) {
+        const type = sousDossier.split('-')[0];         // « values-night » → « values »
+        const chemin = path.join(RES, sousDossier);
+        if (!fs.statSync(chemin).isDirectory()) continue;
+
+        for (const f of fs.readdirSync(chemin)) {
+            const base = f.replace(/\.[^.]+$/, '');
+            if (noms[type]) noms[type].add(base);
+
+            if (!f.endsWith('.xml')) continue;
+            const contenu = fs.readFileSync(path.join(chemin, f), 'utf8');
+            // Les identifiants de vues sont DECLARES par `@+id/...`.
+            for (const m of contenu.matchAll(/@\+id\/([A-Za-z0-9_]+)/g)) noms.id.add(m[1]);
+            // Dans `values/`, chaque ressource est nommee par son element.
+            if (type === 'values') {
+                for (const m of contenu.matchAll(/<(string|color|dimen|style)\s+name="([A-Za-z0-9_.]+)"/g)) {
+                    if (noms[m[1]]) noms[m[1]].add(m[2]);
+                }
+            }
+        }
+    }
+
+    let n = 0;
+    const classe = Object.entries(noms).map(([type, set]) => {
+        const champs = [...set].sort().map((nom) => {
+            n++;
+            return `        public static final int ${nom.replace(/\./g, '_')} = 0x7f${String(n).padStart(6, '0')};`;
+        }).join('\n');
+        return `    public static final class ${type} {\n${champs}\n    }`;
+    }).join('\n');
+
+    const paquet = path.join(dossier, 'app', 'inko', 'mobile');
+    fs.mkdirSync(paquet, { recursive: true });
+    fs.writeFileSync(path.join(paquet, 'R.java'),
+        `package app.inko.mobile;
+// Genere depuis res/ par verifier-java-android.js — ne pas versionner.
+public final class R {
+${classe}
+}
+`);
+    return n;
+}
+
 function main() {
     const javac = trouverJavac();
     if (!javac) {
@@ -111,7 +176,20 @@ function main() {
             echec(`les stubs de scripts-ci/java-stubs ne compilent pas :\n${e.stdout || ''}${e.stderr || ''}`);
         }
 
-        // 2. Le code de l'application, contre ces stubs.
+        // 2. Le `R` derive des ressources, compile avec les stubs.
+        const genere = path.join(tmp, 'genere');
+        const nbRes = genererR(genere);
+        if (nbRes) {
+            try {
+                execFileSync(javac, ['-nowarn', '-cp', outStubs, '-d', outStubs, ...javaSous(genere)],
+                    { stdio: 'pipe', encoding: 'utf8' });
+            } catch (e) {
+                echec(`le R genere depuis res/ ne compile pas :
+${e.stdout || ''}${e.stderr || ''}`);
+            }
+        }
+
+        // 3. Le code de l'application, contre ces stubs.
         const fichiers = javaSous(SOURCES);
         try {
             execFileSync(javac, ['-cp', outStubs, '-d', outApp, '-Xlint:all', ...fichiers],
@@ -132,7 +210,8 @@ function main() {
 
         const n = javaSous(SOURCES).length;
         console.log(`✔ ${n} fichier(s) Java compilé(s) sans erreur ni avertissement `
-            + `(stubs, hors SDK Android — la compilation réelle reste faite en CI)`);
+            + `(stubs${nbRes ? ` + ${nbRes} ressources dérivées de res/` : ''}, hors SDK Android `
+            + `— la compilation réelle reste faite en CI)`);
     } finally {
         try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) { /* laissé au système */ }
     }

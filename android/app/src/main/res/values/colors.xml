@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  La palette de la marque, côté Android.
+
+  Capacitor livre un `colors.xml` par défaut dont `colorPrimary` vaut l'indigo
+  générique #3F51B5 — visible sur la barre d'état et l'écran de lancement. Les
+  ressources de l'application priment sur celles d'une bibliothèque : redéfinir
+  ces deux noms ici suffit à remplacer l'indigo par le kakishibu d'Inko.
+
+  Les valeurs viennent des jetons de `assets/css/global.css`. Un widget ne peut
+  pas lire de variables CSS, donc elles sont écrites en dur ici — c'est le seul
+  endroit du projet où la palette est dupliquée, et c'est pour cette raison.
+-->
+<resources>
+    <!-- kakishibu — l'accent de la marque -->
+    <color name="colorPrimary">#c1531b</color>
+    <color name="colorPrimaryDark">#8a3a11</color>
+    <color name="colorAccent">#c1531b</color>
+
+    <!-- sumi — l'encre, fond des surfaces sombres -->
+    <color name="inko_fond">#17171b</color>
+    <color name="inko_texte">#e9e7e0</color>
+    <color name="inko_texte_doux">#a5a29a</color>
+</resources>

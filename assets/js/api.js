@@ -460,6 +460,11 @@
                 _user = null; _token = null;
                 clearLocalUserData();   // vie privée : purge les données locales du compte
                 persist();
+                // P3.5 : le widget d'écran d'accueil fait partie des données
+                // du compte. Sans cette remise à zéro, l'écran d'accueil
+                // continuerait d'annoncer la série d'un compte quitté — à la
+                // vue de quiconque regarde le téléphone.
+                window.INKO_NATIF?.majWidget?.('');
             },
             async me() {
                 try {
