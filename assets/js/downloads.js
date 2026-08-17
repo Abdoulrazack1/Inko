@@ -48,6 +48,23 @@
         return reqP(tx(db, 'readonly').getAll());
     }
 
+    // Un dossier par chapitre : supprimer un téléchargement redevient une
+    // seule opération, au lieu d'énumérer des centaines de fichiers dont les
+    // noms devraient être devinés à partir d'URL qu'on n'a plus.
+    // L'identifiant est assaini : il vient d'une source distante, et il finit
+    // dans un CHEMIN DE FICHIER — un `../` y serait une écriture hors du bac
+    // à sable de l'application.
+    function dossierChapitre(chapterId) {
+        return 'chapitres/' + String(chapterId).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 120);
+    }
+
+    // L'extension ne sert qu'au diagnostic (ouvrir le dossier et reconnaître
+    // les fichiers) : le WebView décide du type au contenu, pas au nom.
+    function extensionDe(url) {
+        const m = /\.(jpe?g|png|webp|gif|avif)(?:$|[?#])/i.exec(String(url || ''));
+        return m ? '.' + m[1].toLowerCase() : '.img';
+    }
+
     const Downloads = {
         async has(chapterId) {
             try { return !!(await getMeta(chapterId)); } catch (e) { return false; }
@@ -136,6 +153,20 @@
 
             let done = 0, failed = 0;
             const cached = [];
+            // La copie de sûreté n'existe QUE quand elle sert.
+            //
+            // Doubler le stockage d'un lecteur de manga n'est pas anodin : on
+            // parle de gigaoctets. Or si la persistance a été ACCORDÉE, le
+            // Cache API n'est plus évinçable — il n'y a rien contre quoi se
+            // prémunir, et la copie ne ferait que remplir l'appareil deux fois
+            // plus vite, ce qui provoquerait exactement le manque de place
+            // qu'elle prétend couvrir.
+            //
+            // Elle se déclenche donc sur le cas RÉEL : dans l'APK, et seulement
+            // quand la persistance a été refusée.
+            const fichiersActifs = !persistant
+                && !!(window.INKO_NATIF && window.INKO_NATIF.fichiersDisponibles());
+            const fichiers = [];
             try {
                 for (const url of urls) {
                     // Pause : on attend ici sans consommer de réseau ; annulation possible pendant la pause.
@@ -148,7 +179,38 @@
                         resp = await fetchPage(url);
                         if (!resp && attempt === 0) await sleep(300);
                     }
-                    if (resp) { try { await cache.put(url, resp); cached.push(url); } catch (e) { failed++; } }
+                    if (resp) {
+                        try {
+                            // P2.3 : DEUX destinations, et ce n'est pas de la
+                            // redondance gratuite.
+                            //
+                            // Le Cache API sert la lecture : le service worker
+                            // l'interroge de façon transparente, la planche
+                            // garde son URL d'origine, et rien d'autre dans
+                            // l'application n'a besoin de savoir qu'elle est
+                            // hors ligne.
+                            //
+                            // Mais il est « best-effort » : Android le vide sous
+                            // pression mémoire, sans prévenir. La persistance
+                            // demandée en P2.3 peut être REFUSÉE — elle l'a été
+                            // à l'essai. Le stockage privé de l'application,
+                            // lui, n'est jamais évincé par le système.
+                            //
+                            // Le fichier est donc la copie de SÛRETÉ, celle qui
+                            // permet de réparer un cache évincé sans réseau —
+                            // c'est-à-dire dans la seule situation où
+                            // l'utilisateur ne peut rien faire d'autre.
+                            const clone = fichiersActifs ? resp.clone() : null;
+                            await cache.put(url, resp);
+                            cached.push(url);
+                            if (clone) {
+                                const uri = await window.INKO_NATIF.ecrireFichier(
+                                    dossierChapitre(info.chapterId) + '/' + fichiers.length + extensionDe(url),
+                                    await clone.blob());
+                                fichiers.push(uri || null);
+                            }
+                        } catch (e) { failed++; }
+                    }
                     else failed++;
                     done++;
                     if (onProgress) onProgress(done, urls.length);
@@ -165,6 +227,10 @@
                     cover: info.cover || '', source: info.source || '',
                     pages: urls, count: urls.length, savedAt: Date.now(),
                     incomplete: failed > 0, failed,
+                    // Parallèle à `pages`, index par index. Absent hors de
+                    // l'APK, et c'est ce qui rend la lecture sûre : un `null`
+                    // ou un tableau vide fait simplement retomber sur l'URL.
+                    fichiers: fichiersActifs ? fichiers : undefined,
                 });
                 return { count: urls.length, failed };
             } finally {
@@ -185,11 +251,39 @@
             return { ok: true };
         },
 
+        /**
+         * L'adresse à donner à une balise <img> pour une planche hors ligne.
+         *
+         * Le fichier PASSE AVANT le cache, et pas l'inverse : il est le seul
+         * dont on soit certain qu'il existe encore. Le Cache API, s'il est
+         * intact, aurait servi la même image — mais s'il a été évincé, la
+         * requête part sur le réseau, qui est justement absent.
+         *
+         * @param {object} meta  métadonnées du chapitre (Downloads.get)
+         * @param {number} i     index de la planche
+         */
+        srcPage(meta, i) {
+            const url = meta && meta.pages && meta.pages[i];
+            const uri = meta && meta.fichiers && meta.fichiers[i];
+            if (uri && window.INKO_NATIF) {
+                const src = window.INKO_NATIF.srcFichier(uri);
+                if (src) return src;
+            }
+            return url || null;
+        },
+
         async remove(chapterId) {
             const meta = await getMeta(chapterId);
             if (meta && 'caches' in window) {
                 const cache = await caches.open(CACHE);
                 await Promise.all((meta.pages || []).map(u => cache.delete(u).catch(() => {})));
+            }
+            // Et la copie de sûreté. L'oublier serait le pire des deux mondes :
+            // « supprimé » à l'écran, l'espace toujours occupé sur l'appareil,
+            // et rien pour le retrouver — les métadonnées qui portaient les
+            // chemins viennent de disparaître.
+            if (meta && meta.fichiers && window.INKO_NATIF) {
+                await window.INKO_NATIF.supprimerDossier(dossierChapitre(chapterId));
             }
             await delMeta(chapterId);
         },

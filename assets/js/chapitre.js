@@ -115,7 +115,15 @@
                 if (!dl) throw netErr;
                 m = { id: mangaId, title: dl.mangaTitle || 'Chapitre', cover: dl.cover, coverThumb: dl.cover, tags: [], description: '', status: null, langs: [] };
                 chapsData = { results: [{ id: chapterId, chapter: dl.chapterNum }] };
-                pagesData = { pages: (dl.pages || []).map(u => ({ url: u })) };
+                // P2.3 : la copie de sûreté PASSE AVANT l'URL d'origine.
+                // `srcPage` rend le fichier privé de l'application quand il
+                // existe, et l'URL sinon. Sans ça, un Cache API évincé par
+                // Android renverrait la planche sur le réseau — c'est-à-dire
+                // sur rien, dans la seule situation où l'on ne peut plus rien
+                // faire pour la récupérer.
+                pagesData = { pages: (dl.pages || []).map((u, i) => ({
+                    url: (window.Downloads?.srcPage ? window.Downloads.srcPage(dl, i) : null) || u,
+                })) };
                 MH.toast?.('Lecture hors-ligne');
             }
             manga    = m;

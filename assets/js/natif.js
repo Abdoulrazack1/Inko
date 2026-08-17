@@ -158,6 +158,56 @@
                      : { connecte: navigator.onLine !== false, type: 'inconnu' };
         },
 
+        // ── Fichiers durables (P2.3) ────────────────────────
+        // Le Cache API est « best-effort » : sous pression mémoire, Android le
+        // vide sans prévenir. `navigator.storage.persist()` demande le mode
+        // persistant, mais il peut être REFUSÉ — et il l'a été à l'essai.
+        //
+        // Le stockage privé de l'application, lui, n'est jamais évincé par le
+        // système. C'est la seule promesse tenable pour « je télécharge dix
+        // chapitres pour le train » : le seul cas où l'échec ne se rattrape
+        // pas, puisqu'il n'y a plus de réseau pour recommencer.
+        fichiersDisponibles() { return !!P().Filesystem; },
+
+        /**
+         * Écrit une réponse HTTP dans le stockage privé.
+         * @returns {Promise<string|null>} l'URI du fichier, ou null
+         */
+        async ecrireFichier(chemin, blob) {
+            const F = P().Filesystem;
+            if (!F) return null;
+            return sûr(async () => {
+                // Base64 : le pont Capacitor ne transporte pas de binaire. Le
+                // surcoût est de 33 %, payé une fois à l'écriture — la lecture,
+                // elle, passe par `convertFileSrc` et ne traverse pas le pont.
+                const b64 = await enBase64(blob);
+                await F.writeFile({
+                    path: chemin, data: b64, directory: 'DATA', recursive: true,
+                });
+                const { uri } = await F.getUri({ path: chemin, directory: 'DATA' });
+                return uri || null;
+            }, null);
+        },
+
+        /**
+         * Transforme un URI de fichier en URL que le WebView sait charger.
+         * Sans cette conversion, `file://` est bloqué par l'origine du WebView.
+         */
+        srcFichier(uri) {
+            if (!uri) return null;
+            try { return window.Capacitor?.convertFileSrc?.(uri) || null; }
+            catch (e) { return null; }
+        },
+
+        async supprimerDossier(chemin) {
+            const F = P().Filesystem;
+            if (!F) return false;
+            return sûr(async () => {
+                await F.rmdir({ path: chemin, directory: 'DATA', recursive: true });
+                return true;
+            }, false);
+        },
+
         // ── Touches de volume (IX.8) ────────────────────────
         // Le seul moyen de tourner une page SANS regarder l'écran ni changer
         // de prise : dans les transports, une main sur la barre, ou couché
@@ -188,6 +238,24 @@
             return nom || null;
         },
     };
+
+    // Le pont Capacitor ne transporte que du texte : un binaire doit passer en
+    // base64. `FileReader` plutôt que `btoa(String.fromCharCode(...))`, qui
+    // dépasse la pile d'appels sur une planche de plusieurs centaines de
+    // kilo-octets — un défaut qui n'apparaît QUE sur les grosses images, donc
+    // jamais pendant les essais.
+    function enBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => {
+                const s = String(fr.result || '');
+                const i = s.indexOf(',');
+                resolve(i === -1 ? s : s.slice(i + 1));
+            };
+            fr.onerror = () => reject(fr.error || new Error('lecture impossible'));
+            fr.readAsDataURL(blob);
+        });
+    }
 
     function estAccueil() {
         const p = location.pathname.replace(/^.*\//, '');
