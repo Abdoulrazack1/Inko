@@ -149,6 +149,56 @@ ${classe}
     return n;
 }
 
+/**
+ * Les pieges d'aapt que `javac` ne peut PAS voir.
+ *
+ * Le compilateur Java ignore tout de `res/` : une chaine mal echappee passe
+ * ici et fait echouer la construction REELLE, plusieurs minutes plus tard, en
+ * integration continue. C'est arrive : une apostrophe nue dans
+ * `widget_description` a fait tomber tout le `mergeDebugResources` avec un
+ * message qui ne parle meme pas d'apostrophe (« Invalid unicode escape
+ * sequence in string »).
+ *
+ * Trois secondes ici valent mieux que six minutes la-bas.
+ */
+function verifierRessources() {
+    if (!fs.existsSync(RES)) return 0;
+    const soucis = [];
+    let n = 0;
+
+    for (const sousDossier of fs.readdirSync(RES)) {
+        if (!sousDossier.startsWith('values')) continue;
+        const dir = path.join(RES, sousDossier);
+        if (!fs.statSync(dir).isDirectory()) continue;
+
+        for (const f of fs.readdirSync(dir)) {
+            if (!f.endsWith('.xml')) continue;
+            const contenu = fs.readFileSync(path.join(dir, f), 'utf8');
+            for (const m of contenu.matchAll(/<string\s+name="([^"]+)"[^>]*>([\s\S]*?)<\/string>/g)) {
+                n++;
+                const [, nom, valeur] = m;
+                const ligne = contenu.slice(0, m.index).split('\n').length;
+                // Apostrophe et guillemet doivent etre echappes dans une
+                // ressource `string` : aapt refuse la chaine, et son message
+                // ne parle meme pas d'apostrophe.
+                if (/(^|[^\\])'/.test(valeur)) {
+                    soucis.push(`${sousDossier}/${f}:${ligne} — « ${nom} » contient une apostrophe `
+                        + `non echappee (ecrire \\' ou reformuler)`);
+                }
+                if (/(^|[^\\])"/.test(valeur)) {
+                    soucis.push(`${sousDossier}/${f}:${ligne} — « ${nom} » contient un guillemet non echappe`);
+                }
+            }
+        }
+    }
+
+    if (soucis.length) {
+        echec('ressources refusees par aapt (la construction de l’APK echouerait) :\n  '
+            + soucis.join('\n  '));
+    }
+    return n;
+}
+
 function main() {
     const javac = trouverJavac();
     if (!javac) {
@@ -208,10 +258,13 @@ ${e.stdout || ''}${e.stderr || ''}`);
             echec(`compilation du code Android en échec :\n${sortie}`);
         }
 
+        const nbChaines = verifierRessources();
+
         const n = javaSous(SOURCES).length;
         console.log(`✔ ${n} fichier(s) Java compilé(s) sans erreur ni avertissement `
             + `(stubs${nbRes ? ` + ${nbRes} ressources dérivées de res/` : ''}, hors SDK Android `
             + `— la compilation réelle reste faite en CI)`);
+        if (nbChaines) console.log(`✔ ${nbChaines} chaîne(s) de res/values acceptables par aapt`);
     } finally {
         try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) { /* laissé au système */ }
     }

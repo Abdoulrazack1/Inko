@@ -15,9 +15,14 @@
     <string name="raccourci_recherche_long">Rechercher une serie</string>
     <string name="raccourci_telechargements_court">Hors ligne</string>
     <string name="raccourci_telechargements_long">Mes telechargements</string>
-    <!-- Widget d'ecran d'accueil (P3.5) -->
-    <string name="widget_nom">Inko — Reprendre</string>
-    <string name="widget_description">La lecture en cours, a un appui de l'ecran d'accueil.</string>
+    <!-- Widget d ecran d accueil (P3.5).
+         aapt REFUSE une apostrophe nue dans une chaine : « Invalid unicode
+         escape sequence », et la construction entiere echoue. Il faudrait
+         ecrire \' — mais le reste du fichier est deja en ASCII sans
+         apostrophes, alors autant tourner les phrases pareil : une regle de
+         moins a retenir, et une source d erreur de moins. -->
+    <string name="widget_nom">Inko - Reprendre</string>
+    <string name="widget_description">La lecture en cours, a un appui depuis l accueil.</string>
     <string name="widget_reprendre">REPRENDRE</string>
     <string name="widget_vide_titre">Rien en cours</string>
     <string name="widget_vide_sous_titre">Ouvrir Inko pour commencer</string>
