@@ -42,10 +42,17 @@ async function dbHealthy() {
 }
 router.get('/health', async (_req, res) => {
     const dbOk = await dbHealthy();
+    // VIII.44 / P2.8 : l'identité du hub voyage avec sa santé, parce que c'est
+    // le seul appel qu'un appareil fait AVANT de faire confiance à une adresse.
+    // Sans elle, un téléphone qui retrouve « son » hub à l'adresse mémorisée ne
+    // peut pas savoir que le bail DHCP a changé de main et qu'il parle
+    // maintenant à la machine du voisin.
+    const id = await require('../lib/identite-hub').hubId();
     res.status(dbOk ? 200 : 503).json({
         ok: dbOk,
         db: dbOk ? 'up' : 'down',
         time: Date.now(),
+        ...(id ? { hubId: id } : {}),
         ...(dbOk ? {} : { error: 'Base de données injoignable' }),
         ...(process.env.APP_VERSION ? { version: process.env.APP_VERSION } : {}),
         ...(process.env.INKO_DB_FALLBACK === '1' ? { dbFallback: true } : {}),

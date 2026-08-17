@@ -51,6 +51,17 @@
     }
 
     const CLE_JETON = 'inko_device_token';
+    // VIII.44 : l'identite du hub auquel CET appareil s'est appaire. Le PC
+    // recoit son adresse en DHCP ; au redemarrage de la box, `192.168.1.34`
+    // devient `192.168.1.52`. Retenir une adresse, c'est retenir une place de
+    // parking, pas une personne.
+    const CLE_ID = 'inko_hub_id';
+    function lireId() {
+        try { return localStorage.getItem(CLE_ID) || null; } catch (e) { return null; }
+    }
+    function ecrireId(id) {
+        try { if (id) localStorage.setItem(CLE_ID, id); } catch (e) { /* stockage refuse */ }
+    }
 
     window.INKO_HUB = lire();
     // Le jeton d'appareil est posé sur `window` avant `api.js`, qui s'en sert
@@ -63,14 +74,34 @@
      * contrôle, une adresse mal tapée serait acceptée en silence et toutes les
      * pages échoueraient ensuite, sans que rien ne désigne la cause.
      */
-    async function tester(origine) {
+    async function tester(origine, verifierIdentite) {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 6000);
         try {
             const r = await fetch(origine + '/api/health', { signal: ctrl.signal, cache: 'no-store' });
             if (!r.ok) return { ok: false, raison: `le serveur a répondu ${r.status}` };
             const j = await r.json().catch(() => ({}));
-            return { ok: true, version: j.version || null };
+
+            // ── VIII.44 : est-ce bien LE hub de cet appareil ? ──
+            // Une adresse locale n'appartient a personne. Le bail DHCP qui
+            // designait le PC hier peut designer la console de quelqu'un
+            // d'autre aujourd'hui, et un serveur qui repond `/api/health` a
+            // l'adresse memorisee est, sans cette verification, indistinguable
+            // du bon.
+            //
+            // Le refus est EXPLICITE : se rabattre en silence sur le mode hors
+            // ligne cacherait un demenagement du hub derriere une panne
+            // reseau, et l'utilisateur chercherait des heures du mauvais cote.
+            const attendu = verifierIdentite === false ? null : lireId();
+            if (attendu && j.hubId && j.hubId !== attendu) {
+                return { ok: false, autreHub: true, raison:
+                    'ce serveur n\u2019est pas celui auquel ce t\u00e9l\u00e9phone est appair\u00e9 '
+                    + '\u2014 l\u2019adresse a chang\u00e9 de main' };
+            }
+            // Un hub plus ancien ne renvoie pas d'identite : on ne bloque pas
+            // pour autant. Refuser de fonctionner avec un serveur qui n'a pas
+            // encore ete mis a jour transformerait une amelioration en panne.
+            return { ok: true, version: j.version || null, hubId: j.hubId || null };
         } catch (e) {
             return { ok: false, raison: e.name === 'AbortError'
                 ? 'pas de réponse en 6 secondes'
@@ -84,7 +115,7 @@
      * et c'est LUI qui désigne le compte — treize comptes ont une
      * bibliothèque dans cette base, en supposer un ferait lire la mauvaise.
      */
-    async function appairer(origine, code) {
+    async function appairer(origine, code, idAttendu) {
         const nom = (navigator.userAgentData?.platform || navigator.platform || 'Téléphone');
         const r = await fetch(origine + '/api/devices/pair', {
             method: 'POST',
@@ -98,9 +129,24 @@
         });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) return { ok: false, raison: j.error || `le serveur a répondu ${r.status}` };
+
+        // Le QR a ete lu devant le PC ; cette reponse est arrivee par le
+        // reseau. Si les deux identites different, quelque chose s'est
+        // interpose entre le telephone et le hub. On n'enregistre RIEN : un
+        // appairage est un lien durable, et le nouer sur un doute reviendrait a
+        // remettre la bibliotheque a l'intermediaire.
+        if (idAttendu && j.hubId && j.hubId !== idAttendu) {
+            return { ok: false, raison: 'le serveur qui a répondu n’est pas celui du QR '
+                + '— appairage annulé par précaution' };
+        }
+
         try {
             localStorage.setItem(CLE_JETON, j.token);
             ecrire(origine);
+            // C'est ICI, et seulement ici, que le lien se noue : le QR ne
+            // s'obtient que devant le PC. Tout controle ulterieur se compare a
+            // cette valeur.
+            ecrireId(j.hubId || null);
         } catch (e) { return { ok: false, raison: 'stockage local refusé' }; }
         return { ok: true, user: j.user };
     }
@@ -155,13 +201,18 @@
     }
 
     /** Le QR encode `{ v, hub, code }`. On accepte aussi un code seul. */
+    // Identite annoncee par le QR qui vient d'etre scanne. Elle sert de
+    // TEMOIN : elle a ete obtenue physiquement devant le PC, la reponse
+    // d'appairage vient du reseau. Les deux doivent coincider.
+    let _idDuQR = null;
+
     function lireCharge(texte) {
         const t = String(texte || '').trim();
         if (!t) return null;
         if (t.startsWith('{')) {
             try {
                 const o = JSON.parse(t);
-                if (o && o.code) return { hub: o.hub || null, code: String(o.code).toUpperCase() };
+                if (o && o.code) return { hub: o.hub || null, code: String(o.code).toUpperCase(), hubId: o.hubId || null };
             } catch (e) { /* pas du JSON : on tente le code seul */ }
         }
         if (/^[A-Z0-9]{4}-?[A-Z0-9]{4}$/i.test(t)) return { hub: null, code: t.toUpperCase() };
@@ -264,7 +315,7 @@
                 return;
             }
             etat.textContent = 'Appairage…';
-            const a = await appairer(origine, code);
+            const a = await appairer(origine, code, _idDuQR);
             if (!a.ok) {
                 bouton.disabled = false;
                 etat.className = 'etat ko';
@@ -307,6 +358,7 @@
                             const charge = lireCharge(codes[0].rawValue);
                             if (charge) {
                                 arreter();
+                                _idDuQR = charge.hubId || null;
                                 if (charge.hub) champ.value = charge.hub;
                                 champCode.value = charge.code;
                                 valider();
@@ -366,6 +418,16 @@
     window.addEventListener('load', async () => {
         const r = await tester(window.INKO_HUB);
         if (r.ok) return;
+
+        // Un AUTRE hub a repris l'adresse : ce n'est pas une panne reseau, et
+        // le mode hors ligne serait un mensonge. On le dit, et on renvoie vers
+        // le seul geste qui repare — refaire l'appairage devant le PC.
+        if (r.autreHub) {
+            ecran('L\u2019adresse ' + window.INKO_HUB + ' r\u00e9pond, mais ce n\u2019est pas '
+                + 'ton hub : une autre machine l\u2019occupe d\u00e9sormais. Scanne un nouveau '
+                + 'code depuis ton PC.');
+            return;
+        }
 
         const n = await chapitresHorsLigne();
         if (!n) {

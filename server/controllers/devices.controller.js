@@ -93,7 +93,17 @@ async function emettreCode(req, res, next) {
                 v: 1,
                 hub: adresses.length ? `http://${adresses[0]}:${port}` : null,
                 code,
+                // VIII.44 : l'appairage retient l'IDENTITÉ du hub, pas son
+                // adresse. Celle-ci change au premier renouvellement de bail
+                // DHCP, et le téléphone n'a alors aucun moyen de distinguer
+                // « mon hub a déménagé » de « une autre machine occupe son
+                // ancienne adresse ». C'est ici, et seulement ici, que le lien
+                // se noue : ce QR ne s'obtient que devant le PC.
+                hubId: await require('../lib/identite-hub').hubId(),
             }),
+            // Toutes les adresses connues du hub, et pas seulement la première :
+            // le téléphone peut les essayer tour à tour, l'identité vérifiée à
+            // l'arrivée disant si c'est bien le bon.
             adresses: adresses.map(a => `http://${a}:${port}`),
         });
     } catch (e) { next(e); }
@@ -161,6 +171,12 @@ async function appairer(req, res, next) {
             appaire: true,
             token,
             deviceId,
+            // VIII.44 : l'appareil retient l'IDENTITÉ du hub. Elle est rendue
+            // ici plutôt que lue du QR, parce que cette réponse ne peut venir
+            // que du vrai hub — lui seul connaissait le code. Le QR la porte
+            // aussi : le téléphone recoupe les deux, et un écart signale un
+            // relais entre lui et le PC.
+            hubId: await require('../lib/identite-hub').hubId(),
             user: { id: user.id, username: user.username, avatar: user.avatar },
         });
     } catch (e) { next(e); }
