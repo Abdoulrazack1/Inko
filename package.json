@@ -27,23 +27,23 @@
     "verif-java": "node scripts-ci/verifier-java-android.js"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.6.8",
+    "@capacitor/cli": "^8.5.0",
     "@playwright/test": "^1.62.1",
-    "axe-core": "^4.12.1",
+    "axe-core": "^4.13.0",
     "esbuild": "^0.28.2",
-    "eslint": "^10.7.0",
-    "jsdom": "^29.1.1"
+    "eslint": "^10.8.1",
+    "jsdom": "^30.0.1"
   },
   "dependencies": {
-    "@capacitor/android": "^7.6.8",
-    "@capacitor/app": "^7.1.2",
-    "@capacitor/core": "^7.6.8",
-    "@capacitor/device": "^7.0.5",
-    "@capacitor/filesystem": "^7.1.8",
-    "@capacitor/haptics": "^7.0.5",
-    "@capacitor/network": "^7.0.4",
-    "@capacitor/push-notifications": "^7.0.7",
-    "@capacitor/screen-orientation": "^7.0.4",
-    "@capacitor/status-bar": "^7.0.6"
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/device": "^8.0.3",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/network": "^8.0.1",
+    "@capacitor/push-notifications": "^8.1.2",
+    "@capacitor/screen-orientation": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.3"
   }
 }
