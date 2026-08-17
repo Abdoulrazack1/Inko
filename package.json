@@ -23,7 +23,8 @@
     "clean:all": "node scripts-ci/clean.js --all",
     "mobile:www": "node scripts-ci/build-mobile-www.js",
     "mobile:sync": "node scripts-ci/build-mobile-www.js && cap sync android",
-    "verifier-apk": "node scripts-ci/verifier-apk.js"
+    "verifier-apk": "node scripts-ci/verifier-apk.js",
+    "verif-java": "node scripts-ci/verifier-java-android.js"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.6.8",

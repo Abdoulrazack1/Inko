@@ -113,6 +113,13 @@ jobs:
       - name: Vérifier le repli aspect-ratio (WebView Android 8)
         run: node scripts-ci/gen-repli-aspect-ratio.js --check
 
+      # Le code Java des greffons maison n'était compilé que par le job Android,
+      # qui a besoin du SDK. Ce contrôle-ci compile contre des stubs et attrape
+      # en quelques secondes les erreurs de signature — celles qu'on commet en
+      # écrivant du Java sans le compiler. Le runner GitHub fournit une JDK.
+      - name: Vérifier le code Android (compilation sur stubs)
+        run: node scripts-ci/verifier-java-android.js
+
       - name: Regénérer les empreintes
         run: node scripts-ci/gen-ext-hashes.js
       - name: Échouer si hashes.json n'est pas à jour
