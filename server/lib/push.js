@@ -32,9 +32,18 @@ function loadKeys() {
 
 function publicKey() { return loadKeys().publicKey; }
 
-// Envoie une notification push à tous les appareils d'un utilisateur
+// Envoie une notification push à tous les appareils d'un utilisateur.
+//
+// DEUX transports, un seul point d'appel. Le navigateur (Web Push/VAPID) et
+// les téléphones appairés (FCM) sont deux canaux techniques différents pour la
+// même notification. Les brancher séparément dans `createNotification`
+// signifierait deux endroits à tenir à jour — et le jour où l'un des deux est
+// oublié, c'est un canal entier qui se tait sans que rien ne le signale.
 async function sendPush(userId, payload) {
     if (!userId) return;
+    // Fire-and-forget, comme le web push : une notification qui n'arrive pas
+    // ne doit jamais faire échouer l'action qui l'a déclenchée.
+    envoyerAuxTelephones(userId, payload).catch(() => {});
     loadKeys();
     let subs;
     try { [subs] = await pool.query('SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?', [userId]); }
@@ -52,4 +61,44 @@ async function sendPush(userId, payload) {
     }));
 }
 
-module.exports = { publicKey, sendPush, loadKeys };
+/**
+ * P2.5 — la même notification, vers les téléphones appairés.
+ *
+ * Sans configuration Firebase, `envoyer()` rend `{ok:false}` et se tait : le
+ * hub domestique qui n'a pas de projet Firebase n'a rien à savoir de tout ça.
+ */
+async function envoyerAuxTelephones(userId, payload) {
+    const fcm = require('./push-fcm');
+    if (!fcm.configure()) return;
+
+    let jetons;
+    try {
+        [jetons] = await pool.query(
+            'SELECT id, token FROM device_push_tokens WHERE user_id = ?', [userId]);
+    } catch (e) { return; }   // migration 21 pas encore passée
+    if (!jetons || !jetons.length) return;
+
+    await Promise.all(jetons.map(async (j) => {
+        const r = await fcm.envoyer(j.token, {
+            titre: (payload && payload.title) || 'Inko',
+            corps: (payload && payload.body) || '',
+            // Le lien voyage en donnée : c'est lui qui permet d'ouvrir le
+            // chapitre concerné plutôt que la page d'accueil, quand on touche
+            // la notification.
+            donnees: {
+                link: (payload && payload.link) || '/',
+                type: (payload && payload.type) || 'info',
+                groupKey: (payload && payload.groupKey) || '',
+            },
+        });
+        // Un jeton que Google ne reconnaît plus doit être SUPPRIMÉ. Sans ce
+        // ménage, la table grossit d'un jeton mort à chaque réinstallation, et
+        // chaque notification part vers des adresses qui n'existent plus —
+        // exactement ce que fait déjà le web push sur un 404/410.
+        if (r && r.invalide) {
+            pool.query('DELETE FROM device_push_tokens WHERE id = ?', [j.id]).catch(() => {});
+        }
+    }));
+}
+
+module.exports = { publicKey, sendPush, loadKeys, envoyerAuxTelephones };

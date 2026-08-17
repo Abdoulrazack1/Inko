@@ -210,6 +210,26 @@
                 });
                 if (!jeton) return { ok: false, raison: 'Google n’a pas délivré de jeton' };
 
+                // ── Le canal doit EXISTER, sinon rien ne s'affiche ──
+                // Depuis Android 8, une notification dont le `channel_id` est
+                // inconnu est REJETÉE par le système — silencieusement. Le hub
+                // envoie sur `chapitres` ; si ce canal n'a pas été créé ici,
+                // tout part et rien n'arrive, et le diagnostic est
+                // désespérant : le serveur dit « envoyé », Firebase dit
+                // « délivré », et l'écran ne montre rien.
+                //
+                // Un canal DÉDIÉ, et pas celui par défaut : l'utilisateur peut
+                // ainsi couper les alertes de chapitres depuis les paramètres
+                // d'Android sans faire taire Inko en entier.
+                await PN.createChannel({
+                    id: 'chapitres',
+                    name: 'Nouveaux chapitres',
+                    description: 'Quand une série que tu suis publie un chapitre.',
+                    importance: 3,        // par défaut : visible, sans son intrusif
+                    visibility: 1,        // titre visible sur l'écran verrouillé
+                }).catch(() => { /* canal déjà présent, ou Android < 8 */ });
+
+                installerOuvertureNotification();
                 await window.API.devices.enregistrerJetonPush(jeton);
                 return { ok: true };
             }, { ok: false, raison: 'erreur' });
@@ -311,6 +331,33 @@
             };
             fr.onerror = () => reject(fr.error || new Error('lecture impossible'));
             fr.readAsDataURL(blob);
+        });
+    }
+
+    // Toucher une notification doit ouvrir CE chapitre, pas la page d'accueil.
+    // Sans ça, on est prévenu qu'un chapitre est sorti, on touche, et on
+    // atterrit sur l'accueil — d'où il faut retrouver la série à la main. La
+    // notification perd alors la moitié de son intérêt.
+    let _ouvertureInstallee = false;
+    function installerOuvertureNotification() {
+        if (_ouvertureInstallee) return;
+        const PN = P().PushNotifications;
+        if (!PN || !PN.addListener) return;
+        _ouvertureInstallee = true;
+        PN.addListener('pushNotificationActionPerformed', (action) => {
+            const lien = action?.notification?.data?.link;
+            if (!lien) return;
+            // Le lien vient du hub, mais il transite par Google : on ne le
+            // suit que s'il reste DANS l'application. Une URL absolue
+            // ouvrirait un navigateur sur un site quelconque, avec la
+            // notification d'Inko comme caution.
+            // `//exemple.test/piege` passerait le motif ci-dessous — la barre
+            // oblique fait partie de la classe. Ce n'est pas théorique : c'est
+            // la forme d'URL protocole-relative, et elle est écrite exprès pour
+            // ressembler à un chemin. Elle est écartée d'abord.
+            if (/^\/\//.test(lien)) return;
+            if (!/^\/[A-Za-z0-9_\-./?=&%]*$/.test(lien)) return;
+            window.location.href = lien.replace(/^\//, '');
         });
     }
 
