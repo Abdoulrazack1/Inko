@@ -89,3 +89,7 @@ android/capacitor-cordova-android-plugins/
 # Absent, `android/app/build.gradle` ignore simplement le greffon Google et la
 # compilation aboutit — les notifications sont alors inactives, et le disent.
 android/app/google-services.json
+
+# Produits par scripts-ci/notes-release.js pendant une publication
+RELEASE_NOTES.md
+RELEASE_TITLE.txt

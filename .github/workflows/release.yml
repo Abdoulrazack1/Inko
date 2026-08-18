@@ -79,9 +79,22 @@ jobs:
           $lines | Set-Content -Path "SHA256SUMS" -Encoding ascii
           Get-Content "SHA256SUMS"
 
+      # Le titre et les notes etaient poses A LA MAIN apres chaque publication —
+      # donc oubliables, et oublies : la v2.6.0 est sortie intitulee « v2.6.0 »
+      # avec un corps vide, alors que le CHANGELOG contenait deja les 57 lignes
+      # qu'il fallait. Ils en sont desormais DERIVES.
+      - name: Titre et notes depuis le CHANGELOG
+        id: notes
+        shell: bash
+        run: |
+          node scripts-ci/notes-release.js "${GITHUB_REF_NAME#v}"
+          echo "titre=$(cat RELEASE_TITLE.txt)" >> "$GITHUB_OUTPUT"
+
       - name: Upload installers to the release
         uses: softprops/action-gh-release@v3
         with:
+          name: ${{ steps.notes.outputs.titre }}
+          body_path: RELEASE_NOTES.md
           files: |
             desktop-tauri/src-tauri/target/release/bundle/nsis/*-setup.exe
             Inko-Setup.exe
