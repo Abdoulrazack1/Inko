@@ -177,14 +177,23 @@ function injecterHub(dir) {
     // consulte `window.INKO_SOURCES_EMBARQUEES` pour savoir s'il peut
     // repondre sans hub. Charge apres, le moteur existerait — mais trop tard
     // pour le premier appel de la page, celui qui remplit l'accueil.
+    //
+    // ⚠ L'ORDRE COMPTE, et une erreur ici ne se voit nulle part ailleurs.
+    // `sources-embarquees.js` teste `window.INKO_EXTENSIONS` en fin de fichier
+    // pour charger les neuf extensions. Injecte AVANT l'adaptateur, ce test
+    // etait toujours faux : AUCUNE extension n'a jamais ete chargee sur
+    // l'appareil, et la page des sources restait vide.
+    //
+    // L'adaptateur (cheerio puis extensions) vient donc AVANT ceux qui s'en
+    // servent, et `api.js` reste bon dernier.
     const balises = [
         '<script src="assets/js/natif.js"></script>',
         '<script src="assets/js/hub.js"></script>',
+        '<script src="assets/js/cheerio-navigateur.js"></script>',
+        '<script src="assets/js/extensions-navigateur.js"></script>',
         '<script src="assets/js/sources-embarquees.js"></script>',
         '<script src="assets/js/moi-local.js"></script>',
         '<script src="assets/js/fichiers-locaux.js"></script>',
-        '<script src="assets/js/cheerio-navigateur.js"></script>',
-        '<script src="assets/js/extensions-navigateur.js"></script>',
     ];
     let touchees = 0;
     for (const f of fs.readdirSync(dir)) {

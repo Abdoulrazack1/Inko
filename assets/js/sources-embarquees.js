@@ -348,9 +348,29 @@
         _cache: cache,
     };
 
-    // Au chargement de la page : on ne bloque rien, les extensions arrivent
-    // quand elles arrivent. MangaDex repond deja pendant ce temps.
-    if (window.INKO_EXTENSIONS) {
-        chargerExtensions().catch((e) => window.MH?.err?.('sources-embarquees.js', e));
+    // ── Le declenchement ne doit PAS dependre de l'ordre des balises ──
+    //
+    // Premiere version : `if (window.INKO_EXTENSIONS) chargerExtensions()`.
+    // Ce fichier etait injecte AVANT l'adaptateur : le test etait donc
+    // toujours faux, aucune extension n'a jamais ete chargee sur l'appareil,
+    // et la page des sources restait vide. Rien ne le signalait — ni erreur,
+    // ni trace : le `if` echouait, simplement.
+    //
+    // On attend donc que le document soit pret, moment ou TOUS les scripts de
+    // la page sont evalues, quel que soit leur ordre.
+    function demarrer() {
+        if (!window.INKO_EXTENSIONS) {
+            // L'adaptateur est absent du paquet : MangaDex fonctionne seule,
+            // mais il faut le DIRE plutot que de laisser croire a huit sources
+            // silencieusement disparues.
+            console.warn('[inko-sources] adaptateur d’extensions absent — seule MangaDex est disponible');
+            return;
+        }
+        chargerExtensions()
+            .then((r) => console.log('[inko-sources] extensions chargees : ' + r.chargees
+                + (r.refusees.length ? ' · ecartees : ' + r.refusees.join(', ') : '')))
+            .catch((e) => window.MH?.err?.('sources-embarquees.js', e));
     }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer);
+    else demarrer();
 })();

@@ -133,5 +133,43 @@ else
     exit 1
 fi
 
+# ── AUDIT VISUEL : au-dela de l'ecran d'accueil ─────────────
+#
+# Le controle precedent s'arretait au premier ecran. Il a donc valide une
+# application dont le catalogue etait VIDE : zero couverture, zero chapitre,
+# la page des sources sans rien dedans. Tout passait parce que rien ne
+# regardait ce qui vient APRES.
+#
+# On traverse donc l'application comme un utilisateur : on ecarte l'accueil,
+# on visite les pages qui doivent afficher du contenu, et on capture chacune.
+echo "── traversee de l'application ──"
+
+# `input tap` sur le bouton « Commencer sans ordinateur ». Sa position est
+# connue : ~85 % de la hauteur, centre horizontalement (mesure sur la capture
+# 1080x1920 du meme ecran).
+adb shell input tap 540 1128
+sleep 3
+adb exec-out screencap -p > /tmp/01-accueil.png
+echo "  capture : accueil"
+
+# Ce que la page a REELLEMENT charge, et ce qui a echoue.
+adb logcat -c
+for page in accueil catalogue sources; do
+    adb shell am start -a android.intent.action.VIEW         -d "http://localhost/$page.html" -n app.inko.mobile/.MainActivity >/dev/null 2>&1 || true
+    sleep 6
+    adb exec-out screencap -p > "/tmp/page-$page.png"
+    echo "  capture : $page"
+done
+
+echo "── ce que la console a dit ──"
+adb logcat -d | grep -iE "Capacitor/Console" | tail -40 | sed 's/.*Console: //' || true
+
+echo "── les sources embarquees se sont-elles chargees ? ──"
+if adb logcat -d | grep -q "inko-sources. extensions chargees"; then
+    adb logcat -d | grep -o "\[inko-sources\].*" | tail -3
+else
+    echo "::warning::aucune trace de chargement d'extensions — la page des sources sera vide."
+fi
+
 adb exec-out screencap -p > /tmp/demarrage.png
 echo "✔ capture prise ($(stat -c%s /tmp/demarrage.png 2>/dev/null || echo '?') octets)"

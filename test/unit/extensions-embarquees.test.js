@@ -117,8 +117,44 @@ test('MangaDex reste servie nativement, sans passer par l’adaptateur', () => {
     assert.match(bloc[1], /if \(parId\.has\(id\)\) continue/);
 });
 
+test('le chargement ne dépend pas de l’ordre des balises', () => {
+    // Le défaut qui a rendu tout ce travail INERTE sur l'appareil : le module
+    // testait `window.INKO_EXTENSIONS` à l'évaluation, alors qu'il était
+    // injecté AVANT l'adaptateur. Le test était donc toujours faux, aucune
+    // extension n'était chargée, et la page des sources restait vide — sans
+    // erreur ni trace.
+    assert.match(SRC, /document\.addEventListener\('DOMContentLoaded', demarrer\)/,
+        'le déclenchement doit attendre que tous les scripts soient évalués');
+    // Et l'absence de l'adaptateur doit être DITE, pas subie.
+    assert.match(SRC, /adaptateur d.extensions absent/);
+});
+
+test('l’adaptateur est injecté AVANT ceux qui s’en servent', () => {
+    const build = fs.readFileSync(path.join(ROOT, 'scripts-ci', 'build-mobile-www.js'), 'utf8');
+    const b = /const balises = \[([\s\S]*?)\];/.exec(build)[1];
+    assert.ok(b.indexOf('cheerio-navigateur') < b.indexOf('extensions-navigateur'),
+        'cheerio avant l’adaptateur qui l’utilise');
+    assert.ok(b.indexOf('extensions-navigateur') < b.indexOf('sources-embarquees'),
+        'l’adaptateur avant le moteur de sources');
+});
+
+test('CapacitorHttp est ACTIVÉ dans la configuration Capacitor', () => {
+    // Depuis Capacitor 6, ce greffon est opt-in. Sans cette déclaration,
+    // `window.Capacitor.Plugins.CapacitorHttp` est `undefined`, le code
+    // retombe sur `fetch`, et CORS bloque TOUT appel vers les sources : zéro
+    // couverture, zéro chapitre. Le mode autonome entier était inerte.
+    const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'capacitor.config.json'), 'utf8'));
+    assert.ok(cfg.plugins, 'aucun greffon déclaré');
+    assert.equal(cfg.plugins.CapacitorHttp?.enabled, true,
+        'CapacitorHttp doit être activé, sinon CORS bloque toutes les sources');
+});
+
 test('le chargement des extensions ne bloque pas l’ouverture de l’app', () => {
     // Neuf `fetch` + neuf SHA-256 avant le premier affichage donneraient une
     // page blanche au lancement. MangaDex répond pendant ce temps.
-    assert.match(SRC, /chargerExtensions\(\)\.catch\(/);
+    // (La chaîne passe désormais par `.then(...)` pour tracer le résultat,
+    // puis `.catch` : c'est le `.catch` final qui garantit qu'un échec ne
+    // remonte pas en promesse non gérée.)
+    assert.match(SRC, /chargerExtensions\(\)[\s\S]{0,20}\.then\(/);
+    assert.match(SRC, /\.catch\(\(e\) => window\.MH\?\.err\?\.\('sources-embarquees\.js', e\)\)/);
 });
