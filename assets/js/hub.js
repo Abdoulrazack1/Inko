@@ -463,6 +463,10 @@
      * ferait de l'option un mur deguise — exactement ce qu'on retire.
      */
     function accueilAutonome() {
+        // Trace lue par `scripts-ci/emulateur-demarrage.sh` : c'est elle qui
+        // prouve, sur un vrai Android, que l'app ne laisse pas l'utilisateur
+        // devant une page vide sans issue.
+        console.log('[inko-hub] accueil-autonome-affiche');
         const v = document.createElement('div');
         v.id = 'inko-accueil-autonome';
         // Comme pour l'ecran d'appairage : les proprietes qui font que ce

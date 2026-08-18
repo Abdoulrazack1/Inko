@@ -107,19 +107,28 @@ if adb logcat -d | grep -iE "Capacitor/Console.*(refused|blocked|Failed to load)
     echo "::warning::Des ressources ont été refusées — voir ci-dessus."
 fi
 
-# ── L'écran de configuration s'affiche-t-il ? ───────────────
-# Sans hub configuré, l'app DOIT demander l'adresse du serveur. Un premier
-# passage montrait la page d'accueil normale à la place : impossible de
-# trancher à l'œil sur une capture, et « l'app démarre » ne veut rien dire si
-# l'utilisateur ne peut pas la connecter.
-echo "── l'écran de configuration du hub ? ──"
-if adb logcat -d | grep -q "inko-hub. ecran-configuration-affiche"; then
+# ── Sans hub, l'app propose-t-elle une issue ? ──────────────
+#
+# Ce contrôle exigeait jusqu'ici l'écran de CONFIGURATION : sans hub, l'app
+# devait réclamer une adresse de serveur. C'était le mur qu'on a retiré —
+# installer une application et tomber sur « configure un serveur » avant
+# d'avoir rien vu, c'est demander à l'utilisateur de mériter son accès.
+#
+# L'inquiétude derrière le contrôle, elle, reste juste : « l'app démarre » ne
+# veut rien dire si l'utilisateur se retrouve devant des pages vides sans
+# comprendre ni savoir quoi faire. Ce qui est exigé, c'est donc une ISSUE —
+# l'écran de bienvenue qui explique et propose de connecter un ordinateur, ou
+# l'écran de configuration si on le demande.
+echo "── sans hub, une issue est-elle proposée ? ──"
+if adb logcat -d | grep -q "inko-hub. accueil-autonome-affiche"; then
+    echo "✔ écran de bienvenue affiché (mode autonome, connexion proposée)"
+elif adb logcat -d | grep -q "inko-hub. ecran-configuration-affiche"; then
     echo "✔ écran de configuration affiché"
 elif adb logcat -d | grep -q "inko-hub. etat=configure"; then
-    echo "✔ hub déjà configuré sur cet appareil — écran non requis"
+    echo "✔ hub déjà configuré sur cet appareil — aucun écran requis"
 else
-    echo "::error::Sans hub configuré, l'écran de connexion ne s'est pas affiché."
-    echo "         L'utilisateur n'aurait aucun moyen de connecter l'application."
+    echo "::error::Sans hub, l'app n'a proposé NI bienvenue NI configuration."
+    echo "         L'utilisateur tomberait sur des pages vides, sans savoir quoi faire."
     adb logcat -d | grep -i "inko-hub" | head -10
     exit 1
 fi
