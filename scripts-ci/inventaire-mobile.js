@@ -61,7 +61,31 @@ function servi(famille, methode) {
         const cle = table[methode];
         return cle && cas.includes(cle) ? 'oui' : 'non';
     }
-    return 'non';         // auth, devices, local, anilist, migrate, admin…
+    // Fichiers importes : IndexedDB (fichiers-locaux.js) + routage dans api.js.
+    if (famille === 'local') {
+        const fl = fs.existsSync(path.join(R, 'assets/js/fichiers-locaux.js'));
+        const table = { list: 'lister', remove: 'supprimer', upload: 'ajouter', fileUrl: 'contenu' };
+        if (!fl || !table[methode]) return 'non';
+        const src = fs.readFileSync(path.join(R, 'assets/js/fichiers-locaux.js'), 'utf8');
+        return src.includes('function ' + table[methode]) || src.includes(table[methode] + '(') ? 'oui' : 'non';
+    }
+
+    // Notifications : servies par le magasin local, comme le reste de /me/*.
+    if (famille === 'notifications') {
+        const moi = fs.readFileSync(path.join(R, 'assets/js/moi-local.js'), 'utf8');
+        const cas = [...moi.matchAll(/case '([a-z-]+)':/g)].map((m) => m[1]);
+        const table = {
+            list: 'notifications', unread: 'notifications', markRead: 'notifications',
+            markAll: 'notifications', prefs: 'notif-prefs', setPrefs: 'notif-prefs',
+            watch: 'notif-watch',
+            // `subscribe` et `vapid` supposent un serveur de push : hors sujet
+            // sans hub, et c'est le VeilleWorker qui joue ce role sur Android.
+        };
+        const cle = table[methode];
+        return cle && cas.includes(cle) ? 'oui' : 'non';
+    }
+
+    return 'non';         // auth, devices, anilist, migrate, admin…
 }
 
 const pages = fs.readdirSync(R).filter((f) => f.endsWith('.html')).sort();

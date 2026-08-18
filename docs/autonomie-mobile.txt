@@ -9,18 +9,18 @@ collection-detail.html     5       5   FONCTIONNE seule
 collections.html           4       4   FONCTIONNE seule
 confidentialite.html       0       0   autonome (aucun appel)
 downloads.html             0       0   autonome (aucun appel)
-import.html                3       0   INUTILISABLE sans PC
+import.html                3       3   FONCTIONNE seule
 index.html                 0       0   autonome (aucun appel)
 lecture.html              11      10   partielle (1 appel(s) en echec)
 liste.html                 0       0   autonome (aucun appel)
-localreader.html           3       2   partielle (1 appel(s) en echec)
+localreader.html           3       3   FONCTIONNE seule
 notes.html                 4       4   FONCTIONNE seule
-notifications.html         5       0   INUTILISABLE sans PC
+notifications.html         5       5   FONCTIONNE seule
 offline.html               0       0   autonome (aucun appel)
 parametres.html           19       7   partielle (12 appel(s) en echec)
 profil.html               17      13   partielle (4 appel(s) en echec)
 recherche.html             5       5   FONCTIONNE seule
-serie.html                34      21   partielle (13 appel(s) en echec)
+serie.html                34      22   partielle (12 appel(s) en echec)
 sources.html              10      10   FONCTIONNE seule
 stats.html                 7       7   FONCTIONNE seule
 u.html                     1       0   INUTILISABLE sans PC
@@ -34,16 +34,7 @@ APPELS NON SERVIS SANS PC (par frequence)
   migrate.lancer                2 page(s) : bibliotheque.html, serie.html
   auth.updateProfile            2 page(s) : parametres.html, profil.html
   art.get                       1 page(s) : accueil.html
-  local.list                    1 page(s) : import.html
-  local.remove                  1 page(s) : import.html
-  local.upload                  1 page(s) : import.html
   mangas.text                   1 page(s) : lecture.html
-  local.fileUrl                 1 page(s) : localreader.html
-  notifications.list            1 page(s) : notifications.html
-  notifications.markAll         1 page(s) : notifications.html
-  notifications.markRead        1 page(s) : notifications.html
-  notifications.prefs           1 page(s) : notifications.html
-  notifications.setPrefs        1 page(s) : notifications.html
   auth.deleteAccount            1 page(s) : parametres.html
   auth.revokeOthers             1 page(s) : parametres.html
   auth.revokeSession            1 page(s) : parametres.html
@@ -63,9 +54,8 @@ APPELS NON SERVIS SANS PC (par frequence)
   comments.remove               1 page(s) : serie.html
   comments.reply                1 page(s) : serie.html
   comments.report               1 page(s) : serie.html
-  notifications.watch           1 page(s) : serie.html
   ratings.get                   1 page(s) : serie.html
   ratings.set                   1 page(s) : serie.html
   users.profile                 1 page(s) : u.html
 
-39 methodes d API a couvrir pour une app vraiment autonome.
+29 methodes d API a couvrir pour une app vraiment autonome.

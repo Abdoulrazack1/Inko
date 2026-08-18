@@ -160,6 +160,20 @@
             return ABSENT;
         }
 
+        // ── Fichiers importés, gardés sur l'appareil ──
+        //
+        // Asynchrone, contrairement au magasin `me.*` : IndexedDB l'est par
+        // nature. C'est pour ça que ce routeur-ci est `async` et que le
+        // magasin personnel, lui, répond de façon synchrone.
+        const fl = window.INKO_FICHIERS_LOCAUX;
+        if (fl && chemin === '/library/local' && method === 'GET') {
+            return { files: await fl.lister() };
+        }
+        if (fl && method === 'DELETE') {
+            const supp = /^\/library\/local\/([^/]+)$/.exec(chemin);
+            if (supp) return fl.supprimer(decodeURIComponent(supp[1]));
+        }
+
         // La liste des sources : seules celles que le téléphone sait
         // interroger. Annoncer les autres donnerait un catalogue qui échoue
         // au premier appui.
@@ -906,6 +920,19 @@
             // objet { title, cover }. Audit AMEL-25 : la vignette est extraite
             // du fichier par le client et voyage avec le téléversement.
             async upload(file, meta, onProgress) {
+                // Mode autonome : le fichier reste ICI. Le téléversement
+                // XHR ci-dessous vise le hub, qui n'existe pas — et son
+                // `onProgress` ferait défiler une barre vers un échec.
+                if (window.INKO_AUTONOME && window.INKO_FICHIERS_LOCAUX) {
+                    const m = typeof meta === 'string' ? { title: meta } : (meta || {});
+                    const r = await window.INKO_FICHIERS_LOCAUX.ajouter(file, m);
+                    // La barre passe d'un coup à 100 % : l'écriture est
+                    // locale et quasi instantanée, feindre une progression
+                    // serait un mensonge d'interface.
+                    try { onProgress?.(100); } catch (e) { /* rappel fautif */ }
+                    return r;
+                }
+
                 const { title, cover } = typeof meta === 'string' ? { title: meta } : (meta || {});
                 const fd = new FormData();
                 fd.append('file', file);

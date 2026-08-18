@@ -135,9 +135,18 @@
 
         try {
             await progPull();   // audit MD2 : reprend la position la plus récente du compte
-            const res = await fetch(API.local.fileUrl(id), { headers: { Authorization: 'Bearer ' + API.token } });
-            if (!res.ok) throw new Error('Fichier introuvable (' + res.status + ')');
-            const buf = await res.arrayBuffer();
+            // Mode autonome : le fichier vit dans IndexedDB, pas derrière une
+            // URL. `API.local.fileUrl()` désignerait le hub — une adresse qui
+            // n'existe pas ici, et l'ouverture échouerait sur un « Fichier
+            // introuvable » alors que le fichier est bien là.
+            let buf;
+            if (window.INKO_AUTONOME && window.INKO_FICHIERS_LOCAUX) {
+                buf = await window.INKO_FICHIERS_LOCAUX.contenu(id);
+            } else {
+                const res = await fetch(API.local.fileUrl(id), { headers: { Authorization: 'Bearer ' + API.token } });
+                if (!res.ok) throw new Error('Fichier introuvable (' + res.status + ')');
+                buf = await res.arrayBuffer();
+            }
 
             if (type === 'pdf') { await renderPdf(buf); return; }
 

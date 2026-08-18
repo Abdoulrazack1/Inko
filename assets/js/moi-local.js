@@ -48,6 +48,9 @@
             settings: {},
             events: [],           // journal local, borné
             anilistLinks: {},
+            notifications: [],    // [{ id, title, body, lien, mangaId, at, lu }]
+            notifPrefs: { everyHours: 6 },
+            notifWatch: {},       // mangaId → true (séries surveillées)
         };
     }
 
@@ -368,6 +371,65 @@
                 ? { updates: [], frais: false, local: true, raison: 'sans-hub' }
                 : ABSENT;
 
+        // ── Notifications ──────────────────────────────────
+        //
+        // Sur le telephone, elles ne viennent pas d'un serveur : c'est le
+        // `VeilleWorker` Android qui interroge les sources toutes les quinze
+        // minutes et depose ici ce qu'il trouve. Le magasin n'est donc pas un
+        // cache d'un etat distant, c'est l'etat lui-meme.
+        case 'notifications': {
+            if (method === 'GET' && arg === 'unread') {
+                return { count: s.notifications.filter((n) => !n.lu).length };
+            }
+            if (method === 'GET' && !arg) {
+                const limite = +q.get('limit') || 30;
+                const debut = +q.get('offset') || 0;
+                return {
+                    notifications: s.notifications.slice(debut, debut + limite),
+                    total: s.notifications.length,
+                    unread: s.notifications.filter((n) => !n.lu).length,
+                };
+            }
+            if (method === 'POST' && arg === 'read-all') {
+                s.notifications.forEach((n) => { n.lu = true; });
+                ecrire();
+                return { ok: true };
+            }
+            if (method === 'POST' && sous === 'read') {
+                const n = s.notifications.find((x) => String(x.id) === String(arg));
+                if (n) { n.lu = true; ecrire(); }
+                return { ok: true };
+            }
+            return ABSENT;
+        }
+
+        case 'notif-prefs': {
+            if (method === 'GET') return { ...s.notifPrefs };
+            if (method === 'PUT') {
+                // Borne : Android n'accepte pas de travail periodique en
+                // dessous de quinze minutes, et au-dela d'une semaine la
+                // fonction ne sert plus a rien.
+                // ⚠ `+x || 6` avale le ZERO : `+0 || 6` vaut 6, pas 0. Une
+                // saisie a 0 devenait donc « toutes les 6 heures » au lieu
+                // d'etre ramenee au minimum — l'utilisateur demandait le plus
+                // frequent et obtenait le defaut, en silence.
+                const brut = Number((corps || {}).everyHours);
+                const h = Number.isFinite(brut) ? Math.max(1, Math.min(168, brut)) : 6;
+                s.notifPrefs = { everyHours: h };
+                ecrire();
+                return { ok: true, everyHours: h };
+            }
+            return ABSENT;
+        }
+
+        case 'notif-watch': {
+            if (method !== 'PUT' || !arg) return ABSENT;
+            if ((corps || {}).notify) s.notifWatch[arg] = true;
+            else delete s.notifWatch[arg];
+            ecrire();
+            return { ok: true };
+        }
+
         // ── Historique ─────────────────────────────────────
         case 'clear-history': {
             if (method !== 'POST') return ABSENT;
@@ -410,8 +472,29 @@
         }
     }
 
+    /**
+     * Depose une notification locale. Appelee par la couche native quand le
+     * `VeilleWorker` trouve un nouveau chapitre — c'est la SEULE facon d'en
+     * creer sans serveur.
+     *
+     * Bornee a 200 : une serie tres suivie en produirait des centaines par an,
+     * et une liste sans plafond finit par saturer le stockage.
+     */
+    function deposerNotification(n) {
+        const s = lire();
+        const cle = String(n.mangaId || '') + '|' + String(n.chapter || n.title || '');
+        // Le greffon peut redeposer la meme chose apres un redemarrage : un
+        // doublon ferait croire a deux chapitres.
+        if (s.notifications.some((x) => x._cle === cle)) return false;
+        s.notifications.unshift({ id: id(), at: maintenant(), lu: false, _cle: cle, ...n });
+        if (s.notifications.length > 200) s.notifications.length = 200;
+        ecrire();
+        return true;
+    }
+
     window.INKO_MOI_LOCAL = {
         disponible: true,
+        deposerNotification,
         repondre,
         ABSENT,
         place,
