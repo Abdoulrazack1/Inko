@@ -29,7 +29,7 @@ fichiers EPUB/CBZ/PDF.
   <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F_Windows-Inko--Setup.exe-c1531b?style=for-the-badge" alt="Télécharger Inko pour Windows">
 </a>
 &nbsp;
-<a href="https://github.com/Abdoulrazack1/Inko/releases/download/mobile-v1.2.0/Inko-1.2.0.apk">
+<a href="https://github.com/Abdoulrazack1/Inko/releases/download/mobile-v1.3.0/Inko-1.3.0.apk">
   <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F_Android-inko.apk-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Télécharger l'APK Android">
 </a>
 
@@ -298,12 +298,12 @@ NovelBin, Chireads, Project Gutenberg (EN) et Livres en français (Gutenberg FR)
 
 ## Application Android
 
-**[⬇ Télécharger inko.apk](https://github.com/Abdoulrazack1/Inko/releases/download/mobile-v1.2.0/Inko-1.2.0.apk)**
+**[⬇ Télécharger inko.apk](https://github.com/Abdoulrazack1/Inko/releases/download/mobile-v1.3.0/Inko-1.3.0.apk)**
 — l'adresse ne change jamais, le fichier suit toujours `main`. Ouvre le `.apk`
 sur le téléphone et autorise l'installation depuis « sources inconnues ».
 
 <sub>L'empreinte est publiée à côté
-([SHA256SUMS-apk.txt](https://github.com/Abdoulrazack1/Inko/releases/download/mobile-v1.2.0/SHA256SUMS-android.txt))
+([SHA256SUMS-apk.txt](https://github.com/Abdoulrazack1/Inko/releases/download/mobile-v1.3.0/SHA256SUMS-android.txt))
 — sans elle, rien ne permet de vérifier ce qu'on vient de télécharger.
 L'APK reste aussi en pièce jointe de chaque run du workflow
 [**APK Android**](../../actions/workflows/android.yml), si tu en veux un

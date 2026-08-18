@@ -2,6 +2,13 @@
 <!--
   Fond de l'icone adaptative.
 
+  ⚠ Le nom compte. Ce fichier s'appelait `ic_launcher_background.xml`, alors
+  qu'un `<color name="ic_launcher_background">` heritee de Capacitor vivait
+  aussi dans values/. Deux ressources, le meme nom, deux types : `@drawable/`
+  et `@color/` sont bien distincts pour Android, mais l'ambiguite ne sert a
+  rien et rend indechiffrable ce que la chaine de construction a reellement
+  retenu. Le doute est leve par le nom.
+
   VECTORIEL, pas une image : une icone adaptative est redimensionnee par le
   lanceur (et animee au survol sur certains), donc net a toute densite compte.
   Le degrade vient de assets/img/icon.svg, la source du logo.

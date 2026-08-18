@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
-  Repli plat, si un lanceur tres ancien ignore le VectorDrawable de fond.
-  C'etait #FFFFFF (le gabarit Capacitor) : sur un logo blanc, invisible.
--->
-<resources>
-    <color name="ic_launcher_background">#E5354F</color>
-</resources>

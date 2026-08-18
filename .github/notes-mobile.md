@@ -1,6 +1,6 @@
 **Inko sur Android.** L'application s'ouvre **sans ordinateur**. Connecter un PC où tourne Inko ajoute le catalogue, la recherche sur toutes les sources et la synchronisation — mais ce n'est pas obligatoire, et ça se fait quand on veut, depuis Paramètres → Connexion au hub (ou en scannant le QR affiché par l'app de bureau).
 
-## 1.2.0 — l'app n'a plus besoin du PC pour démarrer
+## 1.3.0 — l’icône, pour de bon
 
 Elle exigeait un hub **avant** de montrer quoi que ce soit : on installait, et on tombait sur « configure un serveur ». C'est retiré. L'app s'ouvre, explique ce qu'elle sait faire seule, et propose de connecter un ordinateur — une fois, sans y revenir.
 
@@ -10,7 +10,7 @@ L'écran de démarrage porte enfin le logo : il affichait encore le gabarit de C
 
 ## Installer
 
-1. Télécharge `Inko-1.2.0.apk` ci-dessous.
+1. Télécharge `Inko-1.3.0.apk` ci-dessous.
 2. Android demandera d'autoriser l'installation depuis cette source — c'est normal, l'app n'est pas sur le Play Store.
 3. Au premier lancement, l'app cherche le hub **toute seule sur le réseau local** (mDNS). Sinon, scanne le QR code affiché par l'app de bureau : Paramètres → Connecter un appareil.
 

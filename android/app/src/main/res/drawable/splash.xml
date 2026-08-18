@@ -16,7 +16,7 @@
   et `drawable-port-xxhdpi/splash.png` est plus specifique que `drawable/`.
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/ic_launcher_background"/>
+    <item android:drawable="@drawable/ic_launcher_fond"/>
     <!-- Le kanji est un VectorDrawable : il se pose en `android:drawable`
          directement, jamais via `<bitmap>` — cette balise n'accepte qu'une
          image matricielle et echouerait a l'inflation, laissant un ecran de
