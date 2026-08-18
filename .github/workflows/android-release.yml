@@ -186,8 +186,19 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#mobile-v}"
           if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            # `--latest=false` : sans ça, GitHub désigne comme « dernière
+            # release du dépôt » celle publiée le plus récemment. La 1.0.0
+            # mobile, sortie quatre minutes après la 2.6.0 du bureau, a donc
+            # pris sa place — l'app PC comparait alors sa version à
+            # « mobile-v1.0.0 », n'y trouvait aucun numéro supérieur et se
+            # taisait, pendant que
+            # `/releases/latest/download/Inko-Setup.exe` rendait un 404.
+            #
+            # « Dernière release » n'a de sens que pour UN produit. C'est le
+            # bureau qui la porte, parce que ce sont ses liens qui en dépendent.
             gh release create "$GITHUB_REF_NAME" \
               --title "Inko Mobile $VERSION" \
+              --latest=false \
               --notes-file .github/notes-mobile.md
           fi
           gh release upload "$GITHUB_REF_NAME" \

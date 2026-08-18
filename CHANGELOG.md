@@ -3,6 +3,62 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.6.1 — La mise a jour s'installe enfin, et l'app Android a son logo
+
+**L'installeur bloquait « au desinstallement ».** Passer de la 2.5.7 a la
+2.6.0 revenait indefiniment a la page de desinstallation, sans message.
+
+La cause est dans mon propre correctif de la 2.5.4. Tauri lance l'ancien
+desinstalleur avec `_?=$INSTDIR` : `uninstall.exe` tourne donc DEPUIS le
+dossier d'installation. Or le hook arrete « tout ce qui s'execute sous
+$INSTDIR » — il se visait donc lui-meme, et se tuait avant d'avoir rien
+fait, avant meme d'ecrire sa trace. C'est ce silence qui a mis sur la
+piste : l'installeur du 18 aout n'avait laisse AUCUN journal, la ou celui
+du 11 aout en avait laisse un.
+
+Reproduit sur un faux dossier d'installation, avant correction :
+
+    ACTUEL  : sidecar.exe/8560, uninstall.exe/15608   <- il se vise lui-meme
+    CORRIGE : sidecar.exe/8560
+
+La parade n'ajoute pas de liste de noms, qui serait fragile : on remonte la
+chaine des ancetres du processus qui applique le filtre, et on les epargne.
+Le desinstalleur en fait partie par construction.
+
+⚠ Cette correction protege les mises a jour **a partir de** la 2.6.1. Pour
+passer une version anterieure, c'est l'ANCIEN desinstalleur qui tourne, avec
+son defaut. Si l'installation bloque : fermer Inko, supprimer la cle
+`HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inko`, puis
+relancer l'installeur — il posera la nouvelle version par-dessus. Aucune
+donnee n'est touchee : la base et les reglages vivent dans `%APPDATA%\Inko`,
+jamais dans le dossier programme.
+
+**Le telechargement de la 2.6.0 n'etait pas propose.** GitHub designe comme
+« derniere » la release publiee le plus recemment — c'etait donc « Inko
+Mobile 1.0.0 », sortie quatre minutes apres. L'app comparait sa version a
+« mobile-v1.0.0 », n'y trouvait aucun numero superieur, et se taisait. Le
+lien de telechargement direct, lui, renvoyait un 404. Les deux sont
+retablis, et les prochaines releases mobiles ne prendront plus la place de
+la derniere version du bureau.
+
+**L'app Android portait encore l'icone de Capacitor** — le X bleu du
+gabarit, sur les cinq densites. Le vrai logo (le kanji 愛 sur degrade)
+vivait dans `assets/img/icon.svg` et n'avait jamais ete porte cote Android.
+
+Les deux couches de l'icone adaptative sont desormais des VectorDrawable :
+une icone est redimensionnee et parfois animee par le lanceur, et le
+vectoriel reste net partout. Mesure prise dans un navigateur plutot
+qu'estimee : le kanji occupe 65,9 % x 70,3 % du carre, quand la zone sure
+d'une icone adaptative vaut 66,7 % — la hauteur depassait. D'ou une
+reduction a 0,90, qui met le caractere hors d'atteinte de tout masque de
+lanceur.
+
+Une couche `monochrome` est fournie pour les icones thematiques
+d'Android 13+ : sans elle, le systeme se rabat sur un aplat de l'icone
+complete, souvent illisible.
+
+---
+
 ## 2.6.0 — Le telephone pilote le PC, et l'ecran d'accueil sait ou tu en es
 
 **Telecommande.** On lit sur l'ecran du salon, et on se levait pour

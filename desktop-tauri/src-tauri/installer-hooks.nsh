@@ -23,6 +23,26 @@
 ; On filtre par CHEMIN : seuls les processus lances depuis le dossier
 ; d'installation sont arretes. Jamais le Node ni le MariaDB personnels de
 ; l'utilisateur — meme precaution que dans main.rs (audit DESK-04).
+;
+; ---- 2.6.1 : le hook se TUAIT LUI-MEME a la desinstallation ----
+;
+; Tauri lance l'ancien desinstalleur avec `_?=$INSTDIR` : uninstall.exe tourne
+; donc DEPUIS le dossier d'installation. Le filtre « tout ce qui s'execute sous
+; $INSTDIR » le visait donc lui aussi, et Stop-Process le tuait avant qu'il
+; n'ait rien fait — avant meme d'ecrire sa trace.
+;
+; Vu de l'utilisateur : la mise a jour 2.5.7 -> 2.6.0 « bloque au
+; desinstallement ». L'installeur parent attend un processus mort, retrouve
+; inko.exe toujours present, et revient a la page de desinstallation. En
+; boucle, sans message.
+;
+; Reproduit sur un faux dossier d'installation avant correction :
+;   ACTUEL  : sidecar.exe/8560, uninstall.exe/15608   <- il se vise lui-meme
+;   CORRIGE : sidecar.exe/8560
+;
+; La parade n'ajoute PAS de liste de noms (ce serait fragile) : on remonte la
+; chaine des ancetres du PowerShell qui execute le filtre, et on les epargne.
+; Le desinstalleur est l'un d'eux, par construction.
 ; ============================================================
 
 ; LogicLib se protege lui-meme contre la double inclusion : on ne depend pas
@@ -53,9 +73,18 @@
     ; son nom. Et rien d'autre — c'est ce qui protege le Node et le MariaDB
     ; personnels de l'utilisateur.
     ;
+    ; `$$anc` : la chaine des ancetres de CE PowerShell. Le desinstalleur en
+    ; fait partie par construction — c'est lui qui nous lance — et l'epargner
+    ; est ce qui empeche le hook de se suicider. On remonte par
+    ; ParentProcessId, avec une garde anti-boucle : un PID recycle peut se
+    ; designer lui-meme comme parent, et la boucle ne s'arreterait jamais.
+    ;
     ; Le code de retour est rendu SIGNIFIANT : 1 si — et seulement si — un
-    ; processus tient encore le dossier apres la tentative d'arret.
-    nsExec::ExecToStack `powershell -NoProfile -NonInteractive -Command "$$sel = { Get-CimInstance Win32_Process | Where-Object ExecutablePath -Like '$INSTDIR\*' }; $$avant = @(& $$sel); Write-Output ('avant: ' + (($$avant | ForEach-Object { $$_.Name + '/' + $$_.ProcessId }) -join ',')); $$avant | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 700; $$apres = @(& $$sel); Write-Output ('apres: ' + (($$apres | ForEach-Object { $$_.Name + '/' + $$_.ProcessId }) -join ',')); if ($$apres.Count -gt 0) { exit 1 } else { exit 0 }"`
+    ; processus tient encore le dossier apres la tentative d'arret. Les
+    ; ancetres sont exclus du constat aussi : uninstall.exe tiendra toujours
+    ; $INSTDIR pendant qu'il s'execute, et le compter rendrait le hook
+    ; perpetuellement en echec.
+    nsExec::ExecToStack `powershell -NoProfile -NonInteractive -Command "$$tous = Get-CimInstance Win32_Process; $$par = @{}; $$tous | ForEach-Object { $$par[[int]$$_.ProcessId] = [int]$$_.ParentProcessId }; $$anc = @(); $$p = $$PID; while ($$p -and $$par.ContainsKey($$p)) { $$anc += $$p; $$p = $$par[$$p]; if ($$anc -contains $$p) { break } }; $$anc += $$p; $$sel = { @(Get-CimInstance Win32_Process | Where-Object { $$_.ExecutablePath -like '$INSTDIR\*' -and $$anc -notcontains [int]$$_.ProcessId }) }; $$avant = @(& $$sel); Write-Output ('ancetres: ' + ($$anc -join ',')); Write-Output ('avant: ' + (($$avant | ForEach-Object { $$_.Name + '/' + $$_.ProcessId }) -join ',')); $$avant | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 700; $$apres = @(& $$sel); Write-Output ('apres: ' + (($$apres | ForEach-Object { $$_.Name + '/' + $$_.ProcessId }) -join ',')); if ($$apres.Count -gt 0) { exit 1 } else { exit 0 }"`
     Pop $0
     Pop $2
 

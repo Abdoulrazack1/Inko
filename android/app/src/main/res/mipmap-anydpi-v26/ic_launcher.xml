@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  L'icone de lancement.
+
+  Elle etait restee celle de CAPACITOR — le X bleu sur fond blanc du gabarit —
+  sur toutes les densites. Le vrai logo d'Inko (le kanji 愛 sur degrade) vit
+  dans assets/img/icon.svg et n'avait jamais ete porte cote Android.
+
+  Les deux couches sont des VectorDrawable (voir drawable/) : une icone
+  adaptative est redimensionnee et parfois animee par le lanceur, et le
+  vectoriel reste net partout, sans generer cinq PNG par variante.
+
+  `monochrome` alimente les icones thematiques d'Android 13+ : sans elle, le
+  systeme se rabat sur un aplat de l'icone complete, souvent illisible.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background"/>
-    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+    <monochrome android:drawable="@drawable/ic_launcher_foreground"/>
 </adaptive-icon>
