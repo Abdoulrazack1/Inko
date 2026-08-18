@@ -20,6 +20,10 @@ const browser = {
     localStorage: 'readonly', sessionStorage: 'readonly', console: 'readonly',
     fetch: 'readonly', Request: 'readonly', Response: 'readonly', Headers: 'readonly',
     EventSource: 'readonly',   // flux SSE de la telecommande (P3.1)
+    // Verification d'empreinte des extensions embarquees : le telephone
+    // controle le SHA-256 avant d'executer, comme le fait le hub (audit S-2).
+    TextEncoder: 'readonly', TextDecoder: 'readonly', crypto: 'readonly',
+    DOMParser: 'readonly', XMLSerializer: 'readonly', indexedDB: 'readonly',
     URL: 'readonly', URLSearchParams: 'readonly', Blob: 'readonly', File: 'readonly',
     FileReader: 'readonly', FormData: 'readonly', AbortController: 'readonly',
     setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',

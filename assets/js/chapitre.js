@@ -76,6 +76,48 @@
         // bord que personne ne relierait à ce réglage.
         appliquerOrientation();
 
+        // ── Temps passé à lire ──────────────────────────────
+        //
+        // Compté par TRANCHES envoyées régulièrement, pas au départ de la
+        // page : fermer l'application, verrouiller le téléphone ou perdre la
+        // batterie n'enverrait alors jamais rien, et la statistique la plus
+        // parlante serait celle qui manque le plus souvent.
+        //
+        // Le compteur s'arrête quand l'onglet passe en arrière-plan : un
+        // téléphone posé écran allumé sur une planche n'est pas de la lecture,
+        // et gonfler le chiffre le rendrait inutile.
+        (function compterLeTemps() {
+            const TRANCHE = 30000;
+            let credit = 0;
+            let derniere = Date.now();
+            let visible = !document.hidden;
+
+            const verser = () => {
+                if (credit < 5) return;             // sous 5 s, ce n'est pas de la lecture
+                const sec = Math.round(credit);
+                credit = 0;
+                window.API?.me?.ajouterTempsLecture?.(sec);
+            };
+
+            document.addEventListener('visibilitychange', () => {
+                const t = Date.now();
+                if (visible) credit += (t - derniere) / 1000;
+                visible = !document.hidden;
+                derniere = t;
+                if (!visible) verser();             // on verse EN PARTANT
+            });
+
+            setInterval(() => {
+                const t = Date.now();
+                if (visible) credit += (t - derniere) / 1000;
+                derniere = t;
+                verser();
+            }, TRANCHE);
+
+            // Dernière chance : la page se ferme.
+            window.addEventListener('pagehide', verser);
+        })();
+
         // A11Y-01 : le titre lu (invisible) porte la serie et le chapitre.
         // Sans ca il annoncerait « Lecture » sur les 268 series.
         const hA11y = document.getElementById('readerTitreA11y');

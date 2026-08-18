@@ -249,11 +249,108 @@
         },
     };
 
+    // ── Les extensions du hub, executees ici ────────────────
+    //
+    // `mangadex` ci-dessus est ecrite pour ce module : c'est une API JSON, et
+    // la reimplementer coutait moins que de charger un fichier pour ca. Les
+    // AUTRES sources scrapent du HTML — leurs fichiers sont ceux du hub, joues
+    // par `extensions-navigateur.js`. Une reecriture en donnerait deux
+    // versions, qui divergeraient au premier changement de mise en page.
+    const parId = new Map([['mangadex', mangadex]]);
+    const liste = [mangadex];
+
+    /**
+     * Adapte le contrat d'une extension a celui qu'attend `api.js`.
+     *
+     * Les extensions exposent `getManga` / `getChapters` / `getPages` ; le
+     * routeur appelle `get` / `chapters` / `pages`. Traduire ICI evite de
+     * toucher aux extensions — c'est tout l'interet de les partager.
+     */
+    function adapter(ext) {
+        return {
+            id: ext.id, name: ext.name, lang: ext.lang, unit: ext.unit || 'chapter',
+            embarquee: true,
+            description: ext.description || '',
+            capabilities: ext.capabilities || [],
+            popular: (p) => ext.popular(p),
+            latest: (p) => (ext.latest ? ext.latest(p) : ext.popular(p)),
+            search: (p) => ext.search({ ...p, q: p.q || p.title || '' }),
+            get: (id) => ext.getManga(id),
+            chapters: (id, p) => ext.getChapters(id, p).then(
+                (r) => (Array.isArray(r) ? { total: r.length, chapters: r } : r)),
+            pages: (id) => ext.getPages(id),
+            tags: () => (ext.getTags ? ext.getTags() : Promise.resolve({ tags: [] })),
+        };
+    }
+
+    /** SHA-256 d'un texte, avec l'API du navigateur. */
+    async function empreinte(texte) {
+        const octets = new TextEncoder().encode(texte);
+        const buf = await crypto.subtle.digest('SHA-256', octets);
+        return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    /**
+     * Charge les extensions embarquees dans le paquet.
+     *
+     * ⚠ L'empreinte est verifiee AVANT execution, comme le fait le serveur
+     * (audit S-2). C'est du code qui parle au reseau : l'executer sans
+     * controle reviendrait a faire confiance a tout ce qui a pu atterrir dans
+     * le paquet. Une empreinte qui ne correspond pas = extension ignoree, et
+     * on le DIT plutot que de la charger « au cas ou ».
+     */
+    async function chargerExtensions() {
+        const moteur = window.INKO_EXTENSIONS;
+        if (!moteur) return { chargees: 0, refusees: [] };
+
+        let empreintes = {};
+        try {
+            const r = await fetch('extensions/hashes.json');
+            if (r.ok) empreintes = await r.json();
+        } catch (e) {
+            // Sans le fichier d'empreintes, on ne charge RIEN : mieux vaut le
+            // seul MangaDex que du code non verifie.
+            window.MH?.err?.('sources-embarquees.js', e);
+            return { chargees: 0, refusees: ['(empreintes introuvables)'] };
+        }
+
+        const refusees = [];
+        let n = 0;
+        for (const id of Object.keys(empreintes)) {
+            if (parId.has(id)) continue;                 // deja servie nativement
+            try {
+                const r = await fetch(`extensions/${id}/index.js`);
+                if (!r.ok) { refusees.push(id + ' (absente)'); continue; }
+                const source = await r.text();
+                const vue = await empreinte(source);
+                if (vue !== empreintes[id]) { refusees.push(id + ' (empreinte)'); continue; }
+
+                const ext = adapter(moteur.charger(id, source));
+                parId.set(id, ext);
+                liste.push(ext);
+                n++;
+            } catch (e) {
+                refusees.push(id + ' (' + (e.message || 'erreur') + ')');
+            }
+        }
+        if (refusees.length) console.warn('[inko-sources] extensions ecartees :', refusees.join(', '));
+        return { chargees: n, refusees };
+    }
+
     window.INKO_SOURCES_EMBARQUEES = {
         disponible: true,
-        liste: [mangadex],
-        parId: (id) => (id === 'mangadex' ? mangadex : null),
+        get liste() { return liste.slice(); },
+        parId: (id) => parId.get(id) || null,
         defaut: mangadex,
-        _cache: cache,          // exposé pour les tests
+        chargerExtensions,
+        adapter,                // exposé pour les tests
+        _empreinte: empreinte,
+        _cache: cache,
     };
+
+    // Au chargement de la page : on ne bloque rien, les extensions arrivent
+    // quand elles arrivent. MangaDex repond deja pendant ce temps.
+    if (window.INKO_EXTENSIONS) {
+        chargerExtensions().catch((e) => window.MH?.err?.('sources-embarquees.js', e));
+    }
 })();

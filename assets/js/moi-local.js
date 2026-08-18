@@ -51,6 +51,7 @@
             notifications: [],    // [{ id, title, body, lien, mangaId, at, lu }]
             notifPrefs: { everyHours: 6 },
             notifWatch: {},       // mangaId → true (séries surveillées)
+            tempsLecture: {},     // 'AAAA-MM-JJ' → secondes lues ce jour-là
         };
     }
 
@@ -343,6 +344,38 @@
             return { events: s.events.slice(0, limite) };
         }
 
+        // ── Temps de lecture ───────────────────────────────
+        //
+        // Compte par JOUR plutot que par session : c'est ce que la page de
+        // statistiques affiche, et une session qui traverse minuit serait
+        // sinon impossible a repartir.
+        case 'temps-lecture': {
+            if (method === 'GET') {
+                const jours = +q.get('jours') || 30;
+                const limite = Date.now() - jours * 86400000;
+                const retenus = Object.entries(s.tempsLecture)
+                    .filter(([j]) => new Date(j).getTime() > limite)
+                    .sort((a, b) => a[0].localeCompare(b[0]));
+                return {
+                    jours: retenus.map(([jour, secondes]) => ({ jour, secondes })),
+                    total: retenus.reduce((n, [, sec]) => n + sec, 0),
+                };
+            }
+            if (method === 'POST') {
+                // Borne haute : un onglet laisse ouvert toute la nuit
+                // enverrait des heures de « lecture » qui n'ont pas eu lieu.
+                // Au-dela de dix minutes d'un coup, on ne croit plus le
+                // compteur — c'est l'appelant qui doit envoyer souvent.
+                const sec = Math.max(0, Math.min(600, Number((corps || {}).secondes) || 0));
+                if (!sec) return { ok: true, ignore: true };
+                const jour = new Date().toISOString().slice(0, 10);
+                s.tempsLecture[jour] = (s.tempsLecture[jour] || 0) + sec;
+                ecrire();
+                return { ok: true };
+            }
+            return ABSENT;
+        }
+
         case 'stats': {
             if (method !== 'GET') return ABSENT;
             if (arg === 'distribution') return { distribution: [] };
@@ -353,6 +386,7 @@
                 favorites: s.favorites.length,
                 notes: s.notes.length,
                 lists: s.lists.length,
+                secondesLues: Object.values(s.tempsLecture).reduce((n, x) => n + x, 0),
                 // Le hub calcule bien plus (temps de lecture, séries terminées,
                 // séries par mois). Rendre zéro serait FAUX ; on rend ce qu'on
                 // sait, et l'interface doit dire d'où ça vient.

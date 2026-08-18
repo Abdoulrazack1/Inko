@@ -32,6 +32,15 @@ const SORTIE = path.join(RACINE, 'mobile', 'www');
 const DOSSIERS = ['assets/css', 'assets/js', 'assets/font', 'assets/img', 'assets/i18n', 'assets/vendor'];
 const FICHIERS_RACINE = ['manifest.webmanifest', 'service-worker.js', 'favicon.ico', 'robots.txt'];
 
+// Les extensions embarquees. Les MEMES fichiers que le hub execute : c'est le
+// point de tout l'adaptateur (`extensions-navigateur.js`). En copier une
+// version modifiee pour le mobile reintroduirait la divergence qu'on evite.
+//
+// `hashes.json` part avec elles : le telephone verifie l'empreinte avant
+// d'executer, comme le fait le serveur (audit S-2). Sans ca, on executerait
+// du code non verifie — et c'est du code qui parle au reseau.
+const EXTENSIONS_SRC = path.join(RACINE, 'extensions-community');
+
 // Pages exclues : elles n'ont pas de sens dans l'app, ou exposent des écrans
 // d'administration qui ne doivent pas voyager.
 const PAGES_EXCLUES = new Set(['offline.html']);
@@ -124,6 +133,23 @@ function construire() {
 
     let actifs = 0;
     for (const d of DOSSIERS) actifs += copierDossier(path.join(RACINE, d), path.join(SORTIE, d));
+    // ── Extensions ──────────────────────────────────────────
+    let nbExt = 0;
+    if (fs.existsSync(EXTENSIONS_SRC)) {
+        const dest = path.join(SORTIE, 'extensions');
+        fs.mkdirSync(dest, { recursive: true });
+        for (const nom of fs.readdirSync(EXTENSIONS_SRC)) {
+            const idx = path.join(EXTENSIONS_SRC, nom, 'index.js');
+            if (!fs.existsSync(idx)) continue;
+            fs.mkdirSync(path.join(dest, nom), { recursive: true });
+            fs.copyFileSync(idx, path.join(dest, nom, 'index.js'));
+            nbExt++;
+        }
+        const h = path.join(EXTENSIONS_SRC, 'hashes.json');
+        if (fs.existsSync(h)) fs.copyFileSync(h, path.join(dest, 'hashes.json'));
+        console.log(`  ${nbExt} extension(s) embarquee(s) + leurs empreintes`);
+    }
+
     for (const f of FICHIERS_RACINE) {
         const s = path.join(RACINE, f);
         if (fs.existsSync(s)) { fs.copyFileSync(s, path.join(SORTIE, f)); actifs++; }
@@ -157,6 +183,8 @@ function injecterHub(dir) {
         '<script src="assets/js/sources-embarquees.js"></script>',
         '<script src="assets/js/moi-local.js"></script>',
         '<script src="assets/js/fichiers-locaux.js"></script>',
+        '<script src="assets/js/cheerio-navigateur.js"></script>',
+        '<script src="assets/js/extensions-navigateur.js"></script>',
     ];
     let touchees = 0;
     for (const f of fs.readdirSync(dir)) {

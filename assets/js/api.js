@@ -847,6 +847,12 @@
 
             events:           (limit=200)  => get('/me/events?limit=' + limit),
             stats:            ()           => get('/me/stats'),
+            // Temps de lecture : envoyé par tranches depuis le lecteur.
+            // `keepalive` pour que la dernière tranche survive à la fermeture
+            // de la page — c'est justement celle qu'on perdait.
+            ajouterTempsLecture: (secondes) =>
+                request('POST', '/me/temps-lecture', { secondes }, { keepalive: true }).catch(() => {}),
+            tempsLecture:     (jours = 30) => get('/me/temps-lecture?jours=' + jours),
             // Répartition des lectures par source et par mois (audit AMEL-57)
             distribution:     (months = 12) => get('/me/stats/distribution?months=' + months),
 
