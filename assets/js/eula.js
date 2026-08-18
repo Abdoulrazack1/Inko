@@ -85,21 +85,38 @@
             padding-bottom: 20px;
             padding-bottom: calc(20px + env(safe-area-inset-bottom));
         `;
+        // ⚠ Hauteur bornee en `vh`, pas en pourcentage.
+        //
+        // `max-height:100%` ne bornait RIEN : le parent est un conteneur flex
+        // dont la hauteur depend de son contenu, et le pourcentage se
+        // resolvait donc sur une hauteur libre. Mesure sur emulateur : le
+        // panneau depassait le bas de l'ecran, la case a cocher et le bouton
+        // d'acceptation etaient hors d'atteinte, et TOUTE l'application
+        // restait bloquee derriere ce voile — sur chaque page.
+        //
+        // `vh` est une unite absolue : elle borne pour de bon.
+        //
+        // (Et ce commentaire vit ICI, pas dans le gabarit : des backticks a
+        // l'interieur d'un litteral de gabarit le referment. Piege rencontre
+        // quatre fois maintenant.)
         overlay.innerHTML = `
-        <div style="max-width:560px;width:100%;max-height:100%;overflow-y:auto;
+        <div style="max-width:560px;width:100%;
+                    max-height: calc(100vh - 40px);
+                    overflow-y:auto;
                     -webkit-overflow-scrolling:touch;
                     background:#141417;border:1px solid rgba(255,255,255,.1);
                     border-radius:14px;padding:28px 30px;color:#f0f0f2;font-family:-apple-system,sans-serif;
                     box-shadow:0 24px 80px rgba(0,0,0,.6)">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
                 <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#ff8c42,#ff6b1a);
-                            display:flex;align-items:center;justify-content:center;font-size:18px"></div>
+                            display:flex;align-items:center;justify-content:center;
+                            font-size:20px;line-height:1;color:#fff;font-weight:700;flex:0 0 auto">愛</div>
                 <h2 style="font-size:18px;font-weight:700;margin:0">Bienvenue dans Inko</h2>
             </div>
 
             <p style="font-size:13.5px;line-height:1.55;color:#a8a8b3;margin-bottom:14px">
                 <strong style="color:#ff6b1a">Inko est un framework de lecture neutre.</strong>
-                Le projet ne distribue <strong>aucune source de contenu</strong>. Les extensions
+                Le projet n’héberge <strong>aucune œuvre</strong> : ni planche, ni chapitre. Les extensions
                 que tu choisis d'installer accèdent à des sites tiers et sont
                 <em>entièrement sous ta responsabilité</em>.
             </p>
