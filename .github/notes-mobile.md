@@ -2,7 +2,11 @@
 
 ## 1.3.0 — l’icône, pour de bon
 
-Elle exigeait un hub **avant** de montrer quoi que ce soit : on installait, et on tombait sur « configure un serveur ». C'est retiré. L'app s'ouvre, explique ce qu'elle sait faire seule, et propose de connecter un ordinateur — une fois, sans y revenir.
+⚠ **Si une version anterieure est deja installee, desinstalle-la d'abord.**
+Android refuse une installation dont le numero interne est inferieur, et le
+lanceur garde l'ancienne icone en cache lors d'une simple mise a jour.
+
+L'application exigeait un hub **avant** de montrer quoi que ce soit : on installait, et on tombait sur « configure un serveur ». C'est retiré. L'app s'ouvre, explique ce qu'elle sait faire seule, et propose de connecter un ordinateur — une fois, sans y revenir.
 
 Ce qu'elle fait **sans PC** : lire les chapitres téléchargés, les fichiers importés, le journal de lecture, les réglages. Ce qui demande encore un PC : le catalogue et la recherche sur les sources — le téléphone ne les interroge pas lui-même. C'est la suite.
 
