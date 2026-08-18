@@ -455,16 +455,94 @@
     console.log('[inko-hub] etat=' + (window.INKO_HUB ? 'configure:' + window.INKO_HUB : 'non-configure')
         + ' jeton=' + (window.INKO_TOKEN ? 'present' : 'absent'));
 
-    // Rien de configuré : on demande. Ici le mur est légitime — sans hub ET
-    // sans rien de téléchargé, il n'y a littéralement rien à montrer, et
-    // laisser l'utilisateur errer dans des pages vides serait pire.
+    /**
+     * Le premier ecran, en mode autonome. Il PRESENTE, il ne barre pas :
+     * un bouton pour continuer sans PC, un autre pour en connecter un.
+     *
+     * Il n'est montre qu'une fois. Reposer la question a chaque lancement
+     * ferait de l'option un mur deguise — exactement ce qu'on retire.
+     */
+    function accueilAutonome() {
+        const v = document.createElement('div');
+        v.id = 'inko-accueil-autonome';
+        // Comme pour l'ecran d'appairage : les proprietes qui font que ce
+        // panneau COUVRE l'ecran sont posees en ligne. Mesure par le passe,
+        // le voile sortait en 48x48 px quand il dependait d'une feuille que
+        // la page hote pouvait contredire.
+        v.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;'
+            + 'z-index:2147483000;display:flex;align-items:center;justify-content:center;'
+            + 'padding:24px;background:#0f0f12;color:#eee;overflow:auto;'
+            + 'box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif';
+        v.innerHTML = '<div style="max-width:420px;text-align:center">'
+            + '<div style="font-size:56px;line-height:1;margin-bottom:14px">愛</div>'
+            + '<h1 style="font-size:22px;margin:0 0 10px">Bienvenue dans Inko</h1>'
+            + '<p style="color:#aaa;line-height:1.55;margin:0 0 22px">'
+            + 'L’application fonctionne seule : tes lectures téléchargées, '
+            + 'tes fichiers importés et tes notes vivent sur ce téléphone.<br><br>'
+            + 'Connecter un ordinateur où tourne Inko ajoute le catalogue, la '
+            + 'recherche sur toutes les sources et la synchronisation — mais '
+            + 'ce n’est pas obligatoire, et ça se fait plus tard.'
+            + '</p>'
+            + '<button id="iaSeul" style="width:100%;padding:14px;border-radius:12px;border:0;'
+            + 'background:#c1531b;color:#fff;font-size:16px;font-weight:600;cursor:pointer">'
+            + 'Commencer sans ordinateur</button>'
+            + '<button id="iaLier" style="width:100%;margin-top:10px;padding:13px;border-radius:12px;'
+            + 'border:1px solid #444;background:transparent;color:#ddd;font-size:15px;cursor:pointer">'
+            + 'Connecter un ordinateur</button>'
+            + '<p style="color:#666;font-size:12px;margin-top:16px">'
+            + 'Tu pourras le faire à tout moment dans Paramètres → Connexion au hub.</p>'
+            + '</div>';
+        document.body.appendChild(v);
+
+        const retenir = () => { try { localStorage.setItem('inko_autonome_vu', '1'); } catch (e) { /* stockage refuse */ } };
+        v.querySelector('#iaSeul').addEventListener('click', () => { retenir(); v.remove(); });
+        v.querySelector('#iaLier').addEventListener('click', () => { retenir(); v.remove(); ecran(''); });
+    }
+
+    // ── Rien de configuré : l'app s'ouvre QUAND MEME ────────
+    //
+    // Le mur d'appairage a longtemps ete presente comme legitime : « sans hub
+    // et sans rien de telecharge, il n'y a rien a montrer ». C'etait vrai de
+    // l'implementation, pas de l'utilisateur. Installer une application et
+    // tomber sur « configure un serveur » avant d'avoir rien vu, c'est lui
+    // demander de meriter son acces — et la plupart des gens desinstallent.
+    //
+    // Le rapport est inverse : l'application s'ouvre, et connecter un PC
+    // devient une OPTION, dans les parametres, quand on en veut plus. C'est
+    // ce que fait Discord avec son QR code : l'app marche, et le scan ajoute
+    // quelque chose.
+    //
+    // `INKO_AUTONOME` dit aux pages qu'elles ne doivent RIEN attendre du
+    // reseau. Sans ce drapeau, `api.js` se rabat sur `localhost:8088` — une
+    // adresse qui n'existe pas sur un telephone : chaque appel partirait
+    // attendre un delai d'expiration, et l'app aurait l'air cassee plutot que
+    // simplement non connectee.
     if (!window.INKO_HUB) {
+        window.INKO_AUTONOME = true;
         const ouvrir = () => chapitresHorsLigne().then((n) => {
-            if (!n) { ecran(''); return; }
-            // Cas rare mais réel : l'appareil a été appairé, la configuration
-            // effacée (nettoyage du navigateur), et des chapitres sont restés.
-            window.INKO_HORS_LIGNE = true;
-            bandeauHorsLigne(n, 'aucun serveur configuré');
+            if (n) {
+                // Appareil deja appaire, configuration effacee (nettoyage du
+                // navigateur), chapitres restes : on le dit, sans bloquer.
+                window.INKO_HORS_LIGNE = true;
+                bandeauHorsLigne(n, 'aucun serveur configuré');
+                return;
+            }
+            // Premiere ouverture : on presente le choix UNE fois, et on le
+            // retient. Reposer la question a chaque lancement transformerait
+            // l'option en mur deguise.
+            // `localStorage` peut LEVER, pas seulement rendre null : navigation
+            // privee, cookies bloques, certains WebView d'entreprise. Sans
+            // cette garde, l'exception remontait dans la chaine de promesses
+            // et l'ecran d'accueil ne s'affichait jamais — mesure faite dans
+            // un navigateur qui refuse le stockage, ou l'appel a bien leve
+            // « Access is denied for this document ».
+            //
+            // En cas de doute on MONTRE l'ecran : le revoir une fois de trop
+            // est benin, ne jamais le voir laisse l'utilisateur devant une app
+            // qui a l'air vide sans expliquer pourquoi.
+            let dejaVu = false;
+            try { dejaVu = !!localStorage.getItem('inko_autonome_vu'); } catch (e) { dejaVu = false; }
+            if (!dejaVu) accueilAutonome();
         });
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ouvrir);
         else ouvrir();

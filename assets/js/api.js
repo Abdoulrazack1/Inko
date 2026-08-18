@@ -135,6 +135,28 @@
             throw e;
         }
 
+        // ── Mode autonome : aucun hub n'a jamais été connecté ──
+        //
+        // Distinct de « hors ligne », qui veut dire « un hub existe mais ne
+        // répond pas ». Ici il n'y en a pas, et il n'y en aura pas tant que
+        // l'utilisateur n'en connecte pas un — ce qui est un choix légitime,
+        // pas une panne.
+        //
+        // Sans ce raccourci, `API_BASE` vaut `http://localhost:8088/api` :
+        // une adresse qui n'existe pas sur un téléphone. Chaque appel
+        // attendrait son délai complet, et une page qui en enchaîne trente
+        // paraîtrait gelée. L'application aurait l'air CASSÉE là où elle est
+        // simplement non connectée.
+        //
+        // Les écritures échouent aussi : sans hub, il n'y a pas de compte
+        // distant où ranger quoi que ce soit, et la file hors-ligne rejouerait
+        // vers un serveur qui n'a jamais existé.
+        if (window.INKO_AUTONOME) {
+            const e = new Error('Aucun ordinateur connecté — Paramètres → Connexion au hub.');
+            e.network = true; e.autonome = true;
+            throw e;
+        }
+
         const ctrl  = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeout);
         const opts = {

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  L'ecran de demarrage.
+
+  C'etait encore celui de CAPACITOR : le X bleu sur fond blanc, en 11 copies
+  PNG (une par densite et par orientation). C'est le premier ecran que voit
+  quiconque ouvre l'application — corriger l'icone du lanceur sans corriger
+  celui-ci laissait donc le gabarit bien visible.
+
+  Un layer-list VECTORIEL remplace les 11 fichiers : le degrade de la marque,
+  et le kanji centre par-dessus. Aucune densite a regenerer, aucune version
+  paysage a maintenir, et net sur tous les ecrans.
+
+  Les 11 `splash.png` ont ete SUPPRIMES : les garder ferait gagner le PNG sur
+  les appareils dont la densite correspond — Android choisit par qualificatif,
+  et `drawable-port-xxhdpi/splash.png` est plus specifique que `drawable/`.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_launcher_background"/>
+    <!-- Le kanji est un VectorDrawable : il se pose en `android:drawable`
+         directement, jamais via `<bitmap>` — cette balise n'accepte qu'une
+         image matricielle et echouerait a l'inflation, laissant un ecran de
+         demarrage vide.
+
+         Il garde sa taille intrinseque (160dp) : lisible sur un petit ecran,
+         sans devenir envahissant sur une tablette ou le fond occupe le reste. -->
+    <item android:drawable="@drawable/splash_kanji" android:gravity="center"/>
+</layer-list>
