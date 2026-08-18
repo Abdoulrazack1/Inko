@@ -1,0 +1,70 @@
+PAGE                    APPELS  SANS PC  ETAT
+----------------------------------------------------------------------
+accueil.html              13      12   partielle (1 appel(s) en echec)
+anilist.html               0       0   autonome (aucun appel)
+bibliotheque.html         16      13   partielle (3 appel(s) en echec)
+catalogue.html             9       9   FONCTIONNE seule
+chapitre.html             12      12   FONCTIONNE seule
+collection-detail.html     5       5   FONCTIONNE seule
+collections.html           4       4   FONCTIONNE seule
+confidentialite.html       0       0   autonome (aucun appel)
+downloads.html             0       0   autonome (aucun appel)
+import.html                3       0   INUTILISABLE sans PC
+index.html                 0       0   autonome (aucun appel)
+lecture.html              11      10   partielle (1 appel(s) en echec)
+liste.html                 0       0   autonome (aucun appel)
+localreader.html           3       2   partielle (1 appel(s) en echec)
+notes.html                 4       4   FONCTIONNE seule
+notifications.html         5       0   INUTILISABLE sans PC
+offline.html               0       0   autonome (aucun appel)
+parametres.html           18       7   partielle (11 appel(s) en echec)
+profil.html               17      13   partielle (4 appel(s) en echec)
+recherche.html             5       5   FONCTIONNE seule
+serie.html                33      21   partielle (12 appel(s) en echec)
+sources.html              10      10   FONCTIONNE seule
+stats.html                 7       7   FONCTIONNE seule
+u.html                     1       0   INUTILISABLE sans PC
+
+
+APPELS NON SERVIS SANS PC (par frequence)
+----------------------------------------------------------------------
+  migrate.annuler               2 page(s) : bibliotheque.html, serie.html
+  migrate.candidats             2 page(s) : bibliotheque.html, serie.html
+  migrate.lancer                2 page(s) : bibliotheque.html, serie.html
+  auth.updateProfile            2 page(s) : parametres.html, profil.html
+  art.get                       1 page(s) : accueil.html
+  local.list                    1 page(s) : import.html
+  local.remove                  1 page(s) : import.html
+  local.upload                  1 page(s) : import.html
+  mangas.text                   1 page(s) : lecture.html
+  local.fileUrl                 1 page(s) : localreader.html
+  notifications.list            1 page(s) : notifications.html
+  notifications.markAll         1 page(s) : notifications.html
+  notifications.markRead        1 page(s) : notifications.html
+  notifications.prefs           1 page(s) : notifications.html
+  notifications.setPrefs        1 page(s) : notifications.html
+  auth.deleteAccount            1 page(s) : parametres.html
+  auth.revokeOthers             1 page(s) : parametres.html
+  auth.revokeSession            1 page(s) : parametres.html
+  auth.sessions                 1 page(s) : parametres.html
+  devices.emettreCode           1 page(s) : parametres.html
+  devices.lister                1 page(s) : parametres.html
+  devices.revoquer              1 page(s) : parametres.html
+  me.backupPreview              1 page(s) : parametres.html
+  me.backupRestore              1 page(s) : parametres.html
+  me.backups                    1 page(s) : parametres.html
+  auth.logout                   1 page(s) : profil.html
+  me.deleteHistoryEntry         1 page(s) : profil.html
+  me.historyExportUrl           1 page(s) : profil.html
+  art.similar                   1 page(s) : serie.html
+  comments.add                  1 page(s) : serie.html
+  comments.list                 1 page(s) : serie.html
+  comments.remove               1 page(s) : serie.html
+  comments.reply                1 page(s) : serie.html
+  comments.report               1 page(s) : serie.html
+  notifications.watch           1 page(s) : serie.html
+  ratings.get                   1 page(s) : serie.html
+  ratings.set                   1 page(s) : serie.html
+  users.profile                 1 page(s) : u.html
+
+38 methodes d API a couvrir pour une app vraiment autonome.

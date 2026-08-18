@@ -155,6 +155,7 @@ function injecterHub(dir) {
         '<script src="assets/js/natif.js"></script>',
         '<script src="assets/js/hub.js"></script>',
         '<script src="assets/js/sources-embarquees.js"></script>',
+        '<script src="assets/js/moi-local.js"></script>',
     ];
     let touchees = 0;
     for (const f of fs.readdirSync(dir)) {
@@ -168,7 +169,7 @@ function injecterHub(dir) {
         fs.writeFileSync(p, html);
         touchees++;
     }
-    console.log(`  natif.js + hub.js + sources-embarquees.js injectés dans ${touchees} page(s)`);
+    console.log(`  natif.js + hub.js + sources + moi-local injectés dans ${touchees} page(s)`);
 }
 
 construire();

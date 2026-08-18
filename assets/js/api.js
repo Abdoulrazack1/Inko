@@ -216,11 +216,21 @@
         // vers un serveur qui n'a jamais existé.
         if (window.INKO_AUTONOME) {
             // Ce que le téléphone sait faire SEUL passe par le moteur
-            // embarqué. Le reste (compte, synchronisation, sources qui
-            // scrapent du HTML) n'a pas de sens sans hub et échoue vite,
-            // avec un message qui dit quoi faire.
+            // embarqué. Le reste (synchronisation, sources qui scrapent du
+            // HTML) n'a pas de sens sans hub et échoue vite, avec un message
+            // qui dit quoi faire.
             const local = await viaSourcesEmbarquees(method, path);
             if (local !== ABSENT) return local;
+
+            // Les données PERSONNELLES vivent sur l'appareil : favoris,
+            // progression, notes, listes, réglages. Contrairement au reste,
+            // les ÉCRITURES comptent ici — mettre en favori sans hub doit
+            // marcher, sinon l'application ne garde rien de ce qu'on fait.
+            const moi = window.INKO_MOI_LOCAL;
+            if (moi) {
+                const r = moi.repondre(method, path, body);
+                if (r !== moi.ABSENT) return r;
+            }
 
             const e = new Error('Aucun ordinateur connecté — Paramètres → Connexion au hub.');
             e.network = true; e.autonome = true;
