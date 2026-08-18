@@ -67,6 +67,54 @@
       <li><strong>Google / services externes / AniList</strong> : seulement si tu les relies, selon leurs propres politiques.</li>
     </ul>
 
+    <h2>4 bis. Mode autonome (application Android)</h2>
+    <p>
+      Sans ordinateur connecté, l'application mobile fonctionne seule — et cela
+      change <strong>qui voit quoi</strong>. C'est le point le plus important de
+      cette page si tu utilises l'app Android sans hub.
+    </p>
+    <ul>
+      <li>
+        <strong>Ton adresse IP devient visible des sources.</strong> Avec un hub,
+        c'est l'ordinateur qui interroge les sites : eux ne voient que
+        <em>son</em> adresse, une seule, pour tous tes appareils. Sans hub, c'est
+        le téléphone qui appelle directement — chaque site consulté voit donc
+        l'adresse de ta connexion mobile ou de ton Wi-Fi, et peut associer un
+        historique de lecture à cette adresse.
+      </li>
+      <li>
+        <strong>Domaines contactés directement</strong>, uniquement quand tu
+        utilises la source correspondante :
+        <code>api.mangadex.org</code>, <code>uploads.mangadex.org</code>,
+        <code>graphql.anilist.co</code> (si tu relies AniList),
+        <code>weebcentral.com</code>, <code>temp.compsci88.com</code>,
+        <code>sushiscan.fr</code>, <code>chireads.com</code>,
+        <code>novelfull.com</code>, <code>novel-bin.com</code>,
+        <code>www.royalroad.com</code>, <code>www.gutenberg.org</code>,
+        <code>gutendex.com</code>.
+      </li>
+      <li>
+        <strong>Ces échanges sont chiffrés</strong> : la configuration réseau
+        d'Android interdit nommément le trafic en clair vers ces domaines, donc
+        un Wi-Fi public ou un portail captif ne peut pas lire ce que tu
+        consultes.
+      </li>
+      <li>
+        <strong>Tes données restent sur l'appareil</strong> : favoris,
+        progression, notes, listes, réglages et fichiers importés vivent dans le
+        stockage de l'application, jamais sur un serveur. Il n'y a ni compte ni
+        synchronisation dans ce mode — désinstaller l'application les efface.
+      </li>
+      <li>
+        <strong>Aucune télémétrie</strong>, dans ce mode comme dans l'autre.
+        Aucune mesure d'audience, aucun rapport d'erreur envoyé.
+      </li>
+    </ul>
+    <p>
+      Si cette exposition d'adresse IP ne te convient pas, connecte un hub
+      (Paramètres → Connexion au hub) : les requêtes repartent alors par lui.
+    </p>
+
     <h2>5. Conservation</h2>
     <p>Tes données sont conservées tant que ton compte existe. Les jetons de réinitialisation de
     mot de passe expirent après 1 heure.</p>

@@ -3,14 +3,40 @@
 ## Nature du projet
 
 Inko est un **framework de lecture** — un cadre logiciel qui charge des
-extensions de sources. Le code distribué (le « core ») ne contient
-**aucune source de contenu** par défaut : la liste des sources installées
-est entièrement déterminée par l'utilisateur final.
+extensions de sources. Le code distribué **n'héberge, ne reproduit et ne
+met à disposition aucune œuvre** : ni image de planche, ni texte de
+chapitre, ni fichier de contenu.
 
-Inko ne télécharge ni n'héberge aucune image, aucun texte de chapitre,
-aucun fichier de contenu protégé. Lorsqu'une extension est utilisée, les
-requêtes vers les serveurs tiers sont effectuées au nom de l'utilisateur,
-et les réponses (images, métadonnées) transitent sans copie persistante.
+### Ce que la distribution contient réellement
+
+Une version antérieure de ce document affirmait que « le core ne contient
+aucune source par défaut ». C'était inexact, et le dire importe : une
+notice légale approximative est pire qu'une notice absente, parce qu'elle
+ressemble à une déclaration trompeuse.
+
+Les distributions (installeur Windows, APK Android) **embarquent le code
+des extensions** — des fichiers d'une trentaine de kilo-octets qui
+décrivent *comment interroger* un site : quelles URL appeler, comment lire
+la réponse. Ce sont des instructions d'accès, pas du contenu. Aucune œuvre
+n'y figure, et aucune n'est téléchargée avant qu'un utilisateur ne demande
+explicitement une lecture.
+
+Chaque extension est vérifiée par empreinte SHA-256 avant exécution, sur
+le poste comme sur le téléphone : ce qui s'exécute est exactement ce qui a
+été publié, et rien d'autre.
+
+### Qui effectue les requêtes
+
+Lorsqu'une source est utilisée, la requête part **au nom de
+l'utilisateur**, depuis son matériel, vers un serveur tiers qu'il a choisi
+d'interroger — exactement comme le ferait un navigateur ouvert sur le même
+site. Les réponses transitent sans copie persistante, sauf téléchargement
+hors-ligne demandé explicitement, qui reste sur l'appareil.
+
+⚠ **Depuis l'application Android en mode autonome**, ces requêtes partent
+directement du téléphone : l'adresse IP visible des sites est donc celle
+de l'utilisateur, et non celle d'un serveur intermédiaire. Voir la page de
+confidentialité.
 
 ## Responsabilité de l'utilisateur
 
