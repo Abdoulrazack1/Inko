@@ -113,6 +113,69 @@
         } catch (e) { return false; }
     }
 
+    // Sentinelle : `undefined` et `null` sont des réponses LÉGITIMES d'une
+    // API. Sans valeur distincte, « le moteur embarqué ne sait pas répondre »
+    // serait confondu avec « il a répondu, et c'est vide ».
+    const ABSENT = Symbol('absent');
+
+    /**
+     * Route un appel vers le moteur de sources embarqué, quand il sait
+     * répondre. Rend `ABSENT` sinon.
+     *
+     * L'aiguillage se fait sur le CHEMIN plutôt que sur chaque méthode de
+     * `API.mangas` : ces méthodes construisent déjà l'URL, et les dupliquer
+     * ferait deux définitions à maintenir — celle du hub et celle du
+     * téléphone, qui divergeraient.
+     */
+    async function viaSourcesEmbarquees(method, path) {
+        const moteur = window.INKO_SOURCES_EMBARQUEES;
+        if (!moteur || method !== 'GET') return ABSENT;
+
+        const [chemin, requete] = String(path).split('?');
+        const p = new URLSearchParams(requete || '');
+        const nombre = (k, d) => (p.get(k) ? +p.get(k) : d);
+
+        // `/sources/<id>/mangas/...` ou `/mangas/...` (source courante).
+        const m = /^\/(?:sources\/([^/]+)\/)?mangas(?:\/(.*))?$/.exec(chemin);
+        if (m) {
+            const src = moteur.parId(decodeURIComponent(m[1] || 'mangadex')) || null;
+            if (!src) return ABSENT;          // source qui exige le hub
+            const reste = m[2] || '';
+            if (reste === 'popular') return src.popular({ limit: nombre('limit', 20), offset: nombre('offset', 0) });
+            if (reste === 'latest')  return src.latest({ limit: nombre('limit', 20), offset: nombre('offset', 0) });
+            if (reste === 'search')  return src.search({ q: p.get('q') || p.get('title') || '', limit: nombre('limit', 20), offset: nombre('offset', 0) });
+            if (reste === 'tags')    return src.tags();
+            const fiche = /^([^/]+)$/.exec(reste);
+            if (fiche) return src.get(decodeURIComponent(fiche[1]));
+            const chaps = /^([^/]+)\/chapters$/.exec(reste);
+            if (chaps) return src.chapters(decodeURIComponent(chaps[1]), { lang: p.get('lang') || 'fr,en' });
+            return ABSENT;
+        }
+
+        // Les pages d'un chapitre.
+        const pg = /^\/(?:sources\/([^/]+)\/)?chapters\/([^/]+)\/pages$/.exec(chemin);
+        if (pg) {
+            const src = moteur.parId(decodeURIComponent(pg[1] || 'mangadex'));
+            if (src) return src.pages(decodeURIComponent(pg[2]));
+            return ABSENT;
+        }
+
+        // La liste des sources : seules celles que le téléphone sait
+        // interroger. Annoncer les autres donnerait un catalogue qui échoue
+        // au premier appui.
+        if (chemin === '/sources') return { sources: moteur.liste, current: moteur.defaut.id };
+
+        // « Rechercher partout » : sans hub, « partout » se limite aux
+        // sources embarquées — et c'est ce qu'on répond, plutôt que rien.
+        if (chemin === '/search-all') {
+            const q = p.get('q') || '';
+            const r = await moteur.defaut.search({ q, limit: nombre('limit', 12) });
+            return { results: r.results, groups: [{ source: moteur.defaut.id, name: moteur.defaut.name, items: r.results }] };
+        }
+
+        return ABSENT;
+    }
+
     async function request(method, path, body, { timeout = DEFAULT_TIMEOUT, keepalive = false } = {}) {
         // Audit PERF-02 : toute écriture périme le cache de lectures partagées.
         // Sans ça, « ajouter aux favoris » puis relire la liste dans la seconde
@@ -152,6 +215,13 @@
         // distant où ranger quoi que ce soit, et la file hors-ligne rejouerait
         // vers un serveur qui n'a jamais existé.
         if (window.INKO_AUTONOME) {
+            // Ce que le téléphone sait faire SEUL passe par le moteur
+            // embarqué. Le reste (compte, synchronisation, sources qui
+            // scrapent du HTML) n'a pas de sens sans hub et échoue vite,
+            // avec un message qui dit quoi faire.
+            const local = await viaSourcesEmbarquees(method, path);
+            if (local !== ABSENT) return local;
+
             const e = new Error('Aucun ordinateur connecté — Paramètres → Connexion au hub.');
             e.network = true; e.autonome = true;
             throw e;
@@ -395,6 +465,13 @@
     }
     function proxyCover(u) {
         if (!u || typeof u !== 'string') return u;
+        // Mode autonome : `API_BASE` désigne un hub qui n'existe pas. Une
+        // couverture réécrite vers lui ne chargerait jamais — la grille
+        // s'afficherait entièrement grise, ce qui ressemble à un catalogue
+        // vide plutôt qu'à une image manquante. On sert donc l'URL d'origine :
+        // le proxy existe pour le Referer et le cache du hub, deux choses qui
+        // n'ont pas de sens sans hub.
+        if (window.INKO_AUTONOME) return u;
         if (u.startsWith('data:') || u.startsWith('/')) return u;
         if (!/^https?:\/\//i.test(u)) return u;
         if (u.indexOf('/api/img?') !== -1) return u; // déjà proxifié

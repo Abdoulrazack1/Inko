@@ -146,9 +146,15 @@ function injecterHub(dir) {
     // nom vient du greffon Device. « Inko sur Linux armv8l » — ce que rend le
     // navigateur — ne désigne rien quand trois téléphones de la maison sont
     // appairés au même hub.
+    //
+    // `sources-embarquees.js` AVANT `api.js` aussi : c'est `api.js` qui
+    // consulte `window.INKO_SOURCES_EMBARQUEES` pour savoir s'il peut
+    // repondre sans hub. Charge apres, le moteur existerait — mais trop tard
+    // pour le premier appel de la page, celui qui remplit l'accueil.
     const balises = [
         '<script src="assets/js/natif.js"></script>',
         '<script src="assets/js/hub.js"></script>',
+        '<script src="assets/js/sources-embarquees.js"></script>',
     ];
     let touchees = 0;
     for (const f of fs.readdirSync(dir)) {
@@ -162,7 +168,7 @@ function injecterHub(dir) {
         fs.writeFileSync(p, html);
         touchees++;
     }
-    console.log(`  natif.js + hub.js injectés dans ${touchees} page(s)`);
+    console.log(`  natif.js + hub.js + sources-embarquees.js injectés dans ${touchees} page(s)`);
 }
 
 construire();
