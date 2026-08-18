@@ -20,18 +20,31 @@
   compilation ni à l'installation. Aucune liste de domaines ne peut donc la
   couvrir.
 
-  Le clair est donc autorisé globalement, et la restriction est portée
-  ailleurs, là où elle peut l'être réellement :
+  Le clair reste donc autorisé par défaut, et la restriction est portée là où
+  elle peut l'être : l'écran de configuration (`hub.js`) VÉRIFIE que l'adresse
+  répond en `/api/health` avant de l'enregistrer — une adresse au hasard est
+  refusée avec un message, pas acceptée en silence.
 
-    · l'écran de configuration (`hub.js`) VÉRIFIE que l'adresse répond en
-      `/api/health` avant de l'enregistrer — une adresse au hasard est
-      refusée avec un message, pas acceptée en silence ;
-    · l'application ne contacte QUE le hub. Les couvertures des sites tiers
-      passent par le proxy d'images du serveur, jamais en direct : aucune
-      requête ne part vers un domaine public depuis le téléphone.
+  ── Ce qui a CHANGÉ avec le mode autonome ───────────────────
 
-  Les certificats système restent la seule ancre de confiance : un hub servi
-  en HTTPS derrière un tunnel est vérifié normalement.
+  ⚠ Ce fichier affirmait : « l'application ne contacte QUE le hub. Les
+  couvertures des sites tiers passent par le proxy d'images du serveur, jamais
+  en direct : aucune requête ne part vers un domaine public depuis le
+  téléphone. »
+
+  Cette phrase est devenue FAUSSE. Le mode autonome fait dialoguer le
+  téléphone directement avec MangaDex (catalogue, couvertures, planches) et
+  AniList (suivi de lecture) — c'est ce qui lui permet de fonctionner sans
+  ordinateur allumé. Laisser l'ancienne justification en place aurait fait
+  reposer une décision de sécurité sur un fait périmé : exactement le genre de
+  commentaire qui rassure et ne protège plus rien.
+
+  D'où les blocs ci-dessous. Ces domaines-là sont publics, joignables en
+  HTTPS, et n'ont AUCUNE raison de retomber en clair : on le leur interdit
+  nommément. Un réseau hostile — Wi-Fi public, portail captif, DNS détourné —
+  ne peut donc pas rétrograder ces échanges pour lire ce que l'utilisateur
+  consulte. Le clair général subsiste pour le hub, qui en a besoin ; il ne
+  s'étend pas aux sources.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true">
@@ -39,4 +52,16 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+
+    <!-- Les sources interrogées directement par le téléphone (mode autonome).
+         `includeSubdomains` couvre les serveurs de planches de MangaDex, dont
+         le nom change à chaque chapitre (`*.mangadex.network`). -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">mangadex.org</domain>
+        <domain includeSubdomains="true">mangadex.network</domain>
+        <domain includeSubdomains="true">anilist.co</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
 </network-security-config>

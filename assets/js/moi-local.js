@@ -109,11 +109,46 @@
     // maintenir — celle du hub et celle du téléphone.
     const ABSENT = Symbol('absent');
 
+    // L'identifiant d'application AniList par défaut, le même que celui du
+    // serveur. Le declarer ici permet a AniList de fonctionner sans hub —
+    // c'etait sa SEULE dependance : `anilist.js` parle deja directement a
+    // graphql.anilist.co, ou CORS est autorise.
+    const ANILIST_CLIENT_ID_DEFAUT = '43908';
+
     function repondre(method, chemin, corps) {
         const s = lire();
         const [p, requete] = String(chemin).split('?');
         const q = new URLSearchParams(requete || '');
         const seg = p.split('/').filter(Boolean);      // ['me', 'favorites', …]
+
+        // ── AniList : la configuration vit sur l'appareil ──
+        //
+        // ⚠ La redirection OAuth est le point delicat. Dans l'app installee,
+        // l'origine est `http://localhost` — pas l'adresse du hub. AniList
+        // renvoie le jeton vers l'URI enregistree dans SON application, qui
+        // doit donc inclure celle-ci. D'ou `redirectUri` calcule a partir de
+        // l'origine reelle, et non recopie du serveur.
+        if (seg[0] === 'anilist' && seg[1] === 'config') {
+            if (method === 'GET') {
+                const cid = (s.settings.anilistClientId || '').trim() || ANILIST_CLIENT_ID_DEFAUT;
+                return {
+                    configured: !!cid,
+                    clientId: cid,
+                    redirectUri: location.origin + '/anilist.html',
+                    viaEnv: false,
+                    builtin: cid === ANILIST_CLIENT_ID_DEFAUT,
+                    authorizeBase: 'https://anilist.co/api/v2/oauth/authorize',
+                    local: true,
+                };
+            }
+            if (method === 'PUT') {
+                s.settings.anilistClientId = ((corps || {}).clientId || '').trim();
+                ecrire();
+                return { ok: true };
+            }
+            return ABSENT;
+        }
+
         if (seg[0] !== 'me') return ABSENT;
         const quoi = seg[1];
         const arg = seg[2] ? decodeURIComponent(seg[2]) : null;

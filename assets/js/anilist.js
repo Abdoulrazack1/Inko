@@ -23,6 +23,19 @@
 
     async function getConfig() {
         if (_config) return _config;
+
+        // Mode autonome : la configuration vit sur l'appareil. Cet appel-ci
+        // court-circuitait `api.js` (fetch direct), donc son routage vers le
+        // magasin local ne s'appliquait pas — il partait vers
+        // `localhost:8088`, échouait, et AniList se déclarait « indisponible
+        // dans cette version ». C'était la SEULE chose qui empêchait AniList
+        // de marcher sans ordinateur : le reste du module parle déjà
+        // directement à graphql.anilist.co, où CORS est autorisé.
+        if (window.INKO_AUTONOME && window.INKO_MOI_LOCAL) {
+            const r = window.INKO_MOI_LOCAL.repondre('GET', '/anilist/config');
+            if (r !== window.INKO_MOI_LOCAL.ABSENT) { _config = r; return _config; }
+        }
+
         try { _config = await fetch(API.base + '/anilist/config').then(r => r.json()); }
         catch (e) { _config = { configured: false }; }
         return _config;
@@ -243,6 +256,15 @@
         } catch (e) { return false; }
     }
 
-    window.AniList = { getConfig, clearConfigCache, isLinked, user, token, me, connect, disconnect, syncEntry, syncByTitle, mediaId, publicScore, STATUS_MAP,
+    /** Enregistre un Client ID, sur l'appareil quand il n'y a pas de hub. */
+    async function setConfig(clientId) {
+        clearConfigCache();
+        if (window.INKO_AUTONOME && window.INKO_MOI_LOCAL) {
+            return window.INKO_MOI_LOCAL.repondre('PUT', '/anilist/config', { clientId });
+        }
+        return window.API.anilist.setConfig(clientId);
+    }
+
+    window.AniList = { getConfig, setConfig, clearConfigCache, isLinked, user, token, me, connect, disconnect, syncEntry, syncByTitle, mediaId, publicScore, STATUS_MAP,
         getLink, setLink, mediaInfo, searchMedia };   // rattachement corrigeable (audit N56)
 })();
