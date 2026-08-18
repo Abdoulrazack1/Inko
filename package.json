@@ -4,6 +4,8 @@
   "license": "Apache-2.0",
   "//versionMobile": "L'app Android a sa PROPRE ligne de version : c'est sa premiere publication, alors que le bureau en est a sa 2.6.0. Elle reste DERIVEE d'ici — un numero tenu a la main dans build.gradle divergerait, c'est une question de temps, pas de discipline.",
   "versionMobile": "1.0.0",
+  "//versionCodeMobile": "Entier MONOTONE exige par Android, independant du nom affiche. Doit rester superieur a tout code deja installe : 1.2.0 valait 10200.",
+  "versionCodeMobile": 10300,
   "engines": {
     "node": ">=22"
   },

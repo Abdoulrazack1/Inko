@@ -98,6 +98,33 @@ test('l’écran de démarrage ne porte plus le gabarit Capacitor', () => {
     assert.ok(fs.existsSync(path.join(RES, 'drawable', 'splash.xml')));
 });
 
+test('le code de version interne ne peut pas redescendre', () => {
+    // `versionName` est ce que l'utilisateur lit ; `versionCode` est un entier
+    // qu'Android exige MONOTONE. Renuméroter le nom vers le bas — « 1.2.0 »
+    // devient « 1.0.0 » pour une première publication propre — fait chuter le
+    // code de 10200 à 10000, et l'installation ÉCHOUE sur tout appareil qui a
+    // la version précédente.
+    //
+    // Le message affiché est « le package semble non valide » : il n'évoque ni
+    // version ni retour en arrière, et laisse croire à un fichier corrompu.
+    // C'est arrivé sur la 1.0.0.
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+    const b = String(pkg.versionMobile).split('.').map(Number);
+    const calcule = b[0] * 10000 + b[1] * 100 + b[2];
+    const plancher = pkg.versionCodeMobile || 0;
+    const retenu = Math.max(calcule, plancher);
+
+    // 10200 = la 1.2.0, publiée puis retirée mais installée sur des appareils.
+    assert.ok(retenu > 10200,
+        `versionCode ${retenu} : une installation existante en 10200 refuserait la mise à jour`);
+
+    const gradle = fs.readFileSync(
+        path.join(ROOT, 'android', 'app', 'build.gradle'), 'utf8');
+    assert.match(gradle, /Math\.max\(codeCalcule, codePlancher\)/,
+        'le build doit prendre le maximum, pour qu’un oubli ne fasse pas redescendre le code');
+    assert.match(gradle, /versionCode codeFinal/);
+});
+
 test('le manifeste pointe bien sur ces icônes', () => {
     const man = fs.readFileSync(
         path.join(ROOT, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'), 'utf8');

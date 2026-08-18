@@ -19,6 +19,24 @@ def versionLue = (paquet.versionMobile ?: paquet.version) as String
 def bouts = versionLue.tokenize('.')
 def codeCalcule = (bouts[0] as int) * 10000 + (bouts[1] as int) * 100 + (bouts[2] as int)
 
+// ── Le code interne ne redescend JAMAIS ─────────────────────
+//
+// `versionName` est ce que l'utilisateur lit ; `versionCode` est un entier
+// qu'Android exige MONOTONE. Renumeroter le nom vers le bas — passer de
+// « 1.2.0 » a « 1.0.0 » pour une premiere publication propre — fait chuter le
+// code de 10200 a 10000, et l'installation echoue sur les appareils qui ont
+// deja la version precedente.
+//
+// Le message affiche est « le package semble non valide » : il n'evoque ni
+// version ni downgrade, et laisse croire a un fichier corrompu. C'est
+// exactement ce qui est arrive.
+//
+// `versionCodeMobile` permet donc de decouple les deux : le nom affiche reste
+// libre, le code continue de monter. On garde le maximum des deux, pour que
+// l'oubli du champ ne fasse jamais redescendre le code.
+def codePlancher = (paquet.versionCodeMobile ?: 0) as int
+def codeFinal = Math.max(codeCalcule, codePlancher)
+
 android {
     namespace "app.inko.mobile"
     compileSdk rootProject.ext.compileSdkVersion
@@ -26,7 +44,7 @@ android {
         applicationId "app.inko.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode codeCalcule
+        versionCode codeFinal
         versionName versionLue
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
