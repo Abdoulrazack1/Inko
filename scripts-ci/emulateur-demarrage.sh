@@ -153,7 +153,7 @@ adb exec-out screencap -p > /tmp/01-accueil.png
 echo "  capture : accueil"
 
 # Ce que la page a REELLEMENT charge, et ce qui a echoue.
-adb logcat -c
+adb logcat -c 2>/dev/null || true
 for page in accueil catalogue sources; do
     adb shell am start -a android.intent.action.VIEW         -d "http://localhost/$page.html" -n app.inko.mobile/.MainActivity >/dev/null 2>&1 || true
     sleep 6

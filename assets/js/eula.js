@@ -47,7 +47,7 @@
                    style="background:transparent;border:1px solid rgba(255,255,255,.15);color:#a8a8b3;
                           padding:9px 16px;border-radius:8px;font-size:13px;text-decoration:none">Lire les conditions</a>
                 <button id="mh-eula-revenir"
-                        style="background:#ff6b1a;border:none;color:#fff;padding:9px 18px;border-radius:8px;
+                        style="background:#ff6b1a;border:none;color:#fff;padding:12px 18px;border-radius:8px;min-height:44px;
                                font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
                     Revenir sur ma decision
                 </button>
@@ -66,13 +66,29 @@
     function open() {
         const overlay = document.createElement('div');
         overlay.id = 'mh-eula';
+        // ⚠ Sur telephone, ce contenu est PLUS HAUT que l'ecran. La premiere
+        // version centrait une carte sans hauteur maximale ni defilement : le
+        // titre passait sous la barre d'etat, et les boutons « Refuser /
+        // Continuer » tombaient hors de l'ecran. On ne pouvait donc pas
+        // accepter les conditions — et sans les accepter, pas d'application.
+        // Constate sur emulateur, capture a l'appui.
+        //
+        // `padding-top`/`bottom` sont DOUBLES : le WebView d'Android 8 jette
+        // la declaration ENTIERE des qu'elle contient `env()`, et l'element se
+        // retrouverait colle aux bords.
         overlay.style.cssText = `
             position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,.78);
             z-index: 99999; display: flex; align-items: center; justify-content: center;
             padding: 20px; backdrop-filter: blur(6px);
+            padding-top: 20px;
+            padding-top: calc(20px + env(safe-area-inset-top));
+            padding-bottom: 20px;
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
         `;
         overlay.innerHTML = `
-        <div style="max-width:560px;width:100%;background:#141417;border:1px solid rgba(255,255,255,.1);
+        <div style="max-width:560px;width:100%;max-height:100%;overflow-y:auto;
+                    -webkit-overflow-scrolling:touch;
+                    background:#141417;border:1px solid rgba(255,255,255,.1);
                     border-radius:14px;padding:28px 30px;color:#f0f0f2;font-family:-apple-system,sans-serif;
                     box-shadow:0 24px 80px rgba(0,0,0,.6)">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
@@ -122,7 +138,7 @@
                     Refuser
                 </button>
                 <button id="mh-eula-yes" disabled
-                        style="background:#ff6b1a;border:none;color:#fff;padding:9px 18px;border-radius:8px;
+                        style="background:#ff6b1a;border:none;color:#fff;padding:12px 18px;border-radius:8px;min-height:44px;
                                font-size:13px;font-weight:600;cursor:pointer;opacity:.4;font-family:inherit;
                                transition:opacity .2s">
                     Continuer
