@@ -615,7 +615,31 @@
             // (pages des titres populaires lisibles, contrairement à MangaDex
             //  qui en licencie beaucoup en externalUrl). Modifiable via /sources.
             get current() {
-                try { return localStorage.getItem('mh_source') || 'weebcentral'; } catch(e) { return 'weebcentral'; }
+                let choisie;
+                try { choisie = localStorage.getItem('mh_source') || 'weebcentral'; }
+                catch (e) { choisie = 'weebcentral'; }
+
+                // ── Mode autonome : la source doit être interrogeable ──
+                //
+                // Sans hub, seules les sources EMBARQUÉES répondent. Le défaut
+                // historique (`weebcentral`) scrape du HTML : il exige le hub.
+                // Rendu tel quel, chaque appel partait vers
+                // `/sources/weebcentral/…`, que le téléphone ne sait pas
+                // servir — et TOUTE l'application échouait avec « Aucun
+                // ordinateur connecté », y compris le catalogue.
+                //
+                // Mesuré : `API.mangas.popular()` rejetait alors qu'un moteur
+                // MangaDex fonctionnel était chargé juste à côté.
+                //
+                // On corrige ICI plutôt que dans le routeur : là-bas, servir
+                // MangaDex pour une demande WeebCentral rendrait les données
+                // d'un AUTRE catalogue sous l'identifiant demandé — le défaut
+                // exact que l'audit a relevé sous BUG-01.
+                const moteur = window.INKO_SOURCES_EMBARQUEES;
+                if (window.INKO_AUTONOME && moteur && !moteur.parId(choisie)) {
+                    return moteur.defaut.id;
+                }
+                return choisie;
             },
             set current(id) {
                 try {
