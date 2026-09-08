@@ -210,6 +210,30 @@ jobs:
       - name: Accessibilité (axe-core, WCAG 2.1 AA)
         run: npx playwright test test/e2e/a11y.spec.js
 
+      # Ces deux suites existaient, passaient — et rien ne les lançait.
+      #
+      # Elles sont pourtant nées des deux pannes les plus coûteuses du projet,
+      # et leurs en-têtes le racontent :
+      #
+      #   · csp.spec.js — la CSP n'est active qu'en desktop et en production.
+      #     Toute la suite e2e tourne sur le serveur de développement, où elle
+      #     est INACTIVE : une violation y est structurellement invisible. Sur
+      #     l'app installée 2.5.7, `script-src-attr 'none'` bloquait le
+      #     `onload=` qui posait la classe `loaded` — chapitre entièrement
+      #     blanc, changement de page mort, et pas un test rouge.
+      #   · serveur-sous-test.spec.js — `reuseExistingServer` reprend TOUT
+      #     serveur qui répond sur le port, y compris l'app desktop installée
+      #     qui sert son frontend figé. Une modification vérifiée « verte »
+      #     alors que le fichier servi ne la contenait pas.
+      #
+      # Un test qu'on n'exécute pas ne protège de rien ; celui-ci donnait en
+      # plus l'impression contraire.
+      - name: CSP active (mode desktop/production)
+        run: npx playwright test test/e2e/csp.spec.js
+
+      - name: On teste bien l'arbre de travail, pas un serveur déjà en place
+        run: npx playwright test test/e2e/serveur-sous-test.spec.js
+
       - name: Conserver les traces des échecs
         if: failure()
         uses: actions/upload-artifact@v7

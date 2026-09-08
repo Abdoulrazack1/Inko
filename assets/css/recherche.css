@@ -28,7 +28,11 @@
 .se-chip:hover, .se-chip.kbd { color:var(--text); border-color:var(--accent); }
 .se-chip.on { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
 .se-src-chip { transition:border-color var(--transition), color var(--transition), background var(--transition); }
-.se-src-chip:hover { border-color:var(--accent); color:var(--text); background:color-mix(in srgb, var(--accent) 8%, transparent); }
+/* Le survol de la pastille de source est defini plus bas, avec le reste de
+   `.se-src-chip`. Il l'etait ici AUSSI, avec `--accent` au lieu de `--orange` :
+   deux regles de meme specificite, la seconde gagnante, et un fond qui restait
+   de la premiere. Les deux variables valent la meme couleur aujourd'hui — d'ou
+   l'absence de symptome — mais en changer une seule aurait suffi. */
 .se-chip .x { opacity:.5; font-size:14px; line-height:1; }
 .se-chip .x:hover { opacity:1; color:#ef4444; }
 .se-hist-clear { font-size:11.5px; color:var(--text3); cursor:pointer; background:none; border:none; text-decoration:underline; }
@@ -40,7 +44,7 @@
 .se-meta { font-size:10.5px; color:var(--text3); margin-top:2px; }
 .se-sources { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
 .se-src-chip { font-size:10px; padding:2px 7px; border-radius:6px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; text-decoration:none; }
-.se-src-chip:hover { border-color:var(--orange); color:var(--text); }
+.se-src-chip:hover { border-color:var(--orange); color:var(--text); background:color-mix(in srgb, var(--orange) 8%, transparent); }
 .se-src-chip.novel { border-color:var(--ai); }
 .se-types { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
 /* Suggestions personnalisées (§11) */
@@ -57,7 +61,9 @@
 .se-local-item { flex: 0 0 auto; width: 96px; }
 .se-local-item img { width: 96px; height: 132px; object-fit: cover;
   border-radius: 8px; background: var(--bg3); }
-.se-local-item span { display: block; margin-top: 5px; font-size: 11.5px;
+/* `display` une seule fois : `block` etait ecrase deux lignes plus bas par le
+   `-webkit-box` du clamp, dans la MEME regle. */
+.se-local-item span { margin-top: 5px; font-size: 11.5px;
   color: var(--text2); line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 

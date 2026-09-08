@@ -19,3 +19,9 @@ android
 promo
 tools
 *.log
+
+# Captures d'écran du README : 5,7 Mo qu'aucune page ne charge.
+# `COPY assets/ /app/frontend/assets/` prend le dossier entier, et ces images
+# ne servent qu'à la page GitHub du dépôt — elles doivent rester versionnées,
+# mais n'ont rien à faire dans l'image ni sur le serveur.
+assets/screenshots

@@ -188,15 +188,50 @@ app.use(errorHandler);
     // fermeture envoie les téléphones sur une adresse morte, et l'expiration
     // mDNS se compte en minutes — pendant lesquelles l'app paraît en panne.
     let enFermeture = false;
-    const fermer = async (signal) => {
+    const fermer = async (signal, code = 0) => {
         if (enFermeture) return;
         enFermeture = true;
         try { await require('./lib/annonce-mdns').arreter(); } catch (e) { /* déjà arrêté */ }
-        serveur.close(() => process.exit(0));
+        serveur.close(() => process.exit(code));
         // Filet : une connexion longue (SSE) empêcherait `close` d'aboutir.
-        setTimeout(() => process.exit(0), 2500).unref();
+        setTimeout(() => process.exit(code), 2500).unref();
         void signal;
     };
     process.on('SIGINT', () => fermer('SIGINT'));
     process.on('SIGTERM', () => fermer('SIGTERM'));
+
+    // ── Ce qui n'a pas ete rattrape ailleurs ─────────────────
+    //
+    // Le hub tournait sans aucun filet de dernier recours. Constate : sept
+    // heures de service, puis une sortie en code 1 — et RIEN dans la sortie
+    // pour dire pourquoi. Deux consequences, dont la seconde est la pire :
+    //
+    //   · l'exploitant ne sait pas ce qui est arrive, donc ne peut pas le
+    //     corriger. C'est la panne la plus couteuse : celle qu'on ne peut
+    //     que constater ;
+    //   · `fermer()` n'etait branche que sur SIGINT/SIGTERM. Un plantage ne
+    //     retirait donc PAS l'annonce mDNS, et les telephones continuaient
+    //     d'etre envoyes vers une adresse morte pendant les minutes que dure
+    //     l'expiration — exactement ce que le commentaire ci-dessus dit
+    //     vouloir eviter.
+    //
+    // Une promesse rejetee et non traitee ne tue plus le hub : depuis Node 15
+    // c'est pourtant le defaut, et une seule requete mal gardee suffisait
+    // alors a couper le service pour tout le monde. On la journalise et on
+    // continue de servir.
+    process.on('unhandledRejection', (raison) => {
+        const d = raison instanceof Error ? (raison.stack || raison.message) : String(raison);
+        console.error('[fatal] promesse rejetée sans traitement — le hub CONTINUE de servir :');
+        console.error(d);
+    });
+
+    // Une exception non rattrapee laisse, elle, le processus dans un etat dont
+    // on ne peut rien dire. On sort — mais proprement, et en DISANT pourquoi.
+    // En Docker (`restart: unless-stopped`) le conteneur repart ; en bureau et
+    // en developpement, l'exploitant a enfin de quoi comprendre.
+    process.on('uncaughtException', (e) => {
+        console.error('[fatal] exception non rattrapée — arrêt du hub :');
+        console.error(e && e.stack ? e.stack : e);
+        fermer('uncaughtException', 1);
+    });
 })();

@@ -12,21 +12,47 @@
 //
 // ── Comment on décide qu'un contrôle est INERTE ─────────────
 //
-// On photographie l'état avant (URL, nombre de nœuds, texte visible, boîtes
-// de dialogue ouvertes), on actionne, on attend, on recompare. Trois issues :
+// On photographie l'état avant, on actionne, on attend, on recompare. La
+// signature couvre l'URL, le nombre de nœuds, une EMPREINTE du texte, une
+// empreinte de toutes les classes du document, les boîtes de dialogue
+// ouvertes, l'élément qui a le focus et la position de défilement. Chacun de
+// ces sept points a été ajouté parce que son absence produisait de faux
+// « INERTE » sur des contrôles qui marchaient — le détail est en commentaire
+// au-dessus de chacun.
 //
-//   · NAVIGUE   — l'URL a changé : le contrôle marche, on revient en arrière ;
-//   · AGIT      — le DOM a changé : panneau ouvert, liste filtrée, bascule ;
-//   · INERTE    — rien n'a bougé. C'est un constat, PAS une condamnation :
-//                 un bouton peut légitimement ne rien faire dans cet état
-//                 (« Marquer lu » sans chapitre chargé). Le rapport le
-//                 signale, un humain tranche.
+//   · NAVIGUE          — l'URL a changé : on revient en arrière ;
+//   · AGIT             — le DOM, les classes, le focus ou le défilement ont
+//                        changé : panneau ouvert, liste filtrée, bascule ;
+//   · OUVRE UN ONGLET  — `target="_blank"` : la page courante ne bouge pas,
+//                        et c'est normal. Non actionné, verdict certain ;
+//   · INERTE           — rien n'a bougé. C'est un constat, PAS une
+//                        condamnation : un bouton peut légitimement ne rien
+//                        faire dans cet état (« Marquer lu » sans chapitre
+//                        chargé). Le rapport le signale, un humain tranche.
+//
+// Un contrôle qui semble inerte est mesuré UNE SECONDE FOIS, 1,1 s plus tard,
+// avant de conclure : sans cela le même lien de pied de page ressortait
+// NAVIGUE sur une page et INERTE sur la suivante, au gré du réseau.
+//
+// ── Deux passes, et c'est là tout l'intérêt ─────────────────
+//
+// Le paquet est audité sans hub ni compte, puis via le hub, connecté. Inerte
+// dans le seul mode autonome = dépendance au serveur. Inerte dans les DEUX =
+// défaut. Sans cette comparaison, « inerte » ne voulait rien dire de
+// décidable, et il fallait rouvrir chaque page à la main pour trancher.
 //
 // ── Ce qu'on n'actionne PAS ─────────────────────────────────
 //
 // Tout ce dont le libellé annonce une perte : supprimer, effacer, vider,
 // réinitialiser, déconnexion, révoquer. Un audit ne doit pas détruire l'état
 // qu'il mesure — et sur un vrai appareil, il détruirait celui de l'utilisateur.
+//
+// ── Ce que cet audit COÛTE, et à qui ────────────────────────
+//
+// La passe « hub » fait scraper de vraies sources : vingt-trois pages, près de
+// mille contrôles actionnés. WeebCentral a fini par répondre 504 « source
+// momentanément limitée ». Ce n'est pas gratuit pour les sites en face — à
+// lancer quand on en a besoin, pas en boucle.
 'use strict';
 
 const { test, expect } = require('@playwright/test');
@@ -37,7 +63,13 @@ const http = require('http');
 const RACINE = path.join(__dirname, '..', '..');
 const PAQUET = path.join(RACINE, 'mobile', 'www');
 const PORT = 8612;
-const BASE = 'http://127.0.0.1:' + PORT;
+let BASE_STATIQUE = 'http://127.0.0.1:' + PORT;   // reaffectee si le port est pris
+// L'adresse du hub de developpement. `.claude/launch.json` et le serveur
+// s'accordent sur 8088.
+const BASE_HUB = process.env.INKO_HUB_AUDIT || 'http://127.0.0.1:8088';
+// `BASE` designe le mode en cours d'audit. Les deux passes partagent tout le
+// reste du code : c'est la seule chose qui les distingue.
+let BASE = BASE_STATIQUE;
 
 const TYPES = {
     '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -45,8 +77,16 @@ const TYPES = {
     '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
     '.webp': 'image/webp', '.woff2': 'font/woff2', '.ico': 'image/x-icon',
 };
-function servir() {
-    return new Promise((ok) => {
+/**
+ * Sert le paquet mobile.
+ *
+ * Le port est CHERCHE, pas impose : un audit interrompu laisse son serveur en
+ * vie quelques secondes, et le suivant echouait alors sur EADDRINUSE — sans
+ * rien auditer, pour une raison qui n'a rien a voir avec l'application. On
+ * essaie les ports suivants plutot que d'abandonner.
+ */
+function servir(port = PORT, restants = 12) {
+    return new Promise((ok, ko) => {
         const s = http.createServer((q, r) => {
             let rel = decodeURIComponent(q.url.split('?')[0]);
             if (rel === '/') rel = '/accueil.html';
@@ -58,7 +98,14 @@ function servir() {
                 r.end(c);
             } catch (e) { r.writeHead(404); r.end('absent'); }
         });
-        s.listen(PORT, () => ok(s));
+        s.on('error', (e) => {
+            if (e.code === 'EADDRINUSE' && restants > 0) {
+
+                console.log(`  port ${port} occupé — essai sur ${port + 1}`);
+                servir(port + 1, restants - 1).then(ok, ko);
+            } else ko(e);
+        });
+        s.listen(port, () => { BASE_STATIQUE = 'http://127.0.0.1:' + port; ok(s); });
     });
 }
 
@@ -108,10 +155,52 @@ const LARGEUR = 375, HAUTEUR = 812;
 const SIGNATURE = () => ({
     url: location.href,
     noeuds: document.querySelectorAll('*').length,
-    texte: (document.body.innerText || '').replace(/\s+/g, ' ').slice(0, 4000).length,
+    // Une EMPREINTE du texte, pas sa longueur.
+    //
+    // On comparait `…​.length`. Filtrer le catalogue sur « Shonen » remplace
+    // vingt-quatre titres par vingt-quatre autres : le nombre de noeuds ne
+    // bouge pas, et la longueur totale varie de quelques caracteres — sous le
+    // seuil. Sept filtres qui MARCHENT (verifie a la main dans le navigateur :
+    // la liste change bien) etaient donc declares INERTE, en tete de la liste
+    // « a corriger ». Un faux negatif d'outil coute plus cher qu'un faux
+    // positif : il envoie reparer ce qui n'est pas casse.
+    texte: (() => {
+        const t = (document.body.innerText || '').replace(/\s+/g, ' ').slice(0, 8000);
+        let h = 0;
+        for (let i = 0; i < t.length; i++) { h = (h * 31 + t.charCodeAt(i)) | 0; }
+        return h;
+    })(),
     dialogues: document.querySelectorAll('dialog[open],.mh-feuille,.mh-modal,[role=dialog]').length,
-    classes: document.body.className,
-    focus: document.activeElement ? document.activeElement.tagName : '',
+    // L'empreinte de TOUTES les classes du document, pas seulement celles du
+    // `body`. La bascule grille/liste du catalogue pose `list-view` sur la
+    // GRILLE : le body ne bouge pas, le nombre de noeuds non plus, le texte non
+    // plus — et un controle qui change toute la mise en page passait pour
+    // inerte. Verifie a la main : `results-grid` devient
+    // `results-grid list-view`. Tout etat rendu par une classe (onglet actif,
+    // panneau ouvert, element selectionne) entre desormais dans la mesure.
+    classes: (() => {
+        let h = 0;
+        const els = document.querySelectorAll('[class]');
+        for (let i = 0; i < els.length; i++) {
+            const c = els[i].getAttribute('class') || '';
+            for (let j = 0; j < c.length; j++) { h = (h * 31 + c.charCodeAt(j)) | 0; }
+        }
+        return h;
+    })(),
+    // Deux effets que la comparaison OUBLIAIT, alors qu'ils etaient releves ici.
+    //
+    // `focus` etait deja dans la signature, et la comparaison ne le lisait pas.
+    // Le lien d'evitement « Aller au contenu » deplace le focus vers <main> —
+    // c'est TOUT ce qu'il doit faire — sans toucher a l'URL, aux noeuds ni au
+    // texte. Il ressortait donc INERTE sur les vingt-trois pages : le premier
+    // controle de chaque page, celui que rencontre un lecteur d'ecran, accuse
+    // a tort. Verifie dans le navigateur : le focus passe bien de BODY a MAIN.
+    focus: document.activeElement
+        ? document.activeElement.tagName + '#' + (document.activeElement.id || '')
+        : '',
+    // Meme famille : « remonter en haut », les ancres, le defilement vers un
+    // chapitre. Rien ne bouge dans le DOM, et la page a pourtant reagi.
+    defilement: Math.round(window.scrollY),
 });
 
 /** Les contrôles actionnables, avec de quoi les retrouver. */
@@ -151,23 +240,60 @@ const LISTER = ({ DESTRUCTIF_SRC }) => {
             vus.add(cle);
             const ref = cleStable(e, libelle);
             e.setAttribute('data-audit', ref);
+            // Un nom accessible qui ne contient AUCUNE lettre ni chiffre n'en
+            // est pas un : un lecteur d'ecran annonce alors « guillemet simple
+            // gauche » pour ‹ , « croix de multiplication » pour ✕. Le
+            // controle existe, il est atteignable au clavier, et personne ne
+            // peut savoir ce qu'il fait sans le voir. Le releve statique du
+            // HTML ne suffisait pas : la moitie de ces boutons est fabriquee
+            // en JavaScript.
+            const nomUtile = /[\p{L}\p{N}]{2,}/u.test(libelle);
             out.push({
                 ref,
                 libelle,
+                sansNom: !nomUtile,
                 tag: e.tagName.toLowerCase() + (e.id ? '#' + e.id : ''),
                 href: e.getAttribute('href') || null,
+                // Un lien `target="_blank"` ouvre un ONGLET : la page courante
+                // ne bouge pas d'un pixel, et l'audit le declarait donc INERTE.
+                // « Code source », « Signaler un bug », « Versions » et
+                // « Licence » remontaient ainsi sur presque chaque page —
+                // une trentaine de faux inertes pour quatre liens qui
+                // marchent parfaitement.
+                nouvelOnglet: e.getAttribute('target') === '_blank',
                 destructif: DESTRUCTIF.test(libelle),
             });
         });
     return out;
 };
 
-test.describe('Audit fonctionnel de l’application mobile', () => {
-    test('actionner chaque contrôle et voir s’il produit un effet', async ({ browser }) => {
-        test.setTimeout(25 * 60 * 1000);
-        if (!fs.existsSync(PAQUET)) test.skip(true, 'paquet mobile absent');
-        const serveur = await servir();
+/** Le hub de developpement repond-il ? Sinon la seconde passe est sautee. */
+async function hubJoignable() {
+    return new Promise((ok) => {
+        const q = http.get(BASE_HUB + '/api/health', (r) => { r.resume(); ok(r.statusCode < 500); });
+        q.on('error', () => ok(false));
+        q.setTimeout(2500, () => { q.destroy(); ok(false); });
+    });
+}
 
+// ── Deux passes, et c'est tout l'interet ────────────────────
+//
+// Une seule passe ne pouvait pas conclure. Sur le paquet autonome, sans hub et
+// sans compte, « Actualiser les notifications » ne fait rien — et c'est
+// NORMAL. Rien ne distinguait ce cas d'un bouton reellement debranche, alors
+// le rapport listait les deux cote a cote et il fallait ouvrir chaque page a
+// la main pour trancher.
+//
+// On audite donc le meme paquet deux fois :
+//   · `autonome` — serveur statique, aucun hub, aucun compte ;
+//   · `hub`      — le vrai serveur, qui connecte tout seul en boucle locale
+//                  (`POST /auth/local`), donc AVEC compte et AVEC sources.
+//
+// Un controle inerte dans les DEUX modes n'a plus d'excuse : c'est un defaut.
+// Inerte dans le seul mode autonome, c'est une dependance au hub — a rendre
+// visible a l'utilisateur, pas a corriger dans le bouton.
+async function auditerMode(browser, MODE) {
+        BASE = MODE.base;
         const ctx = await browser.newContext({
             viewport: { width: LARGEUR, height: HAUTEUR },
             isMobile: true, hasTouch: true,
@@ -220,7 +346,7 @@ test.describe('Audit fonctionnel de l’application mobile', () => {
                 return out;
             });
         } catch (e) { reel.erreur = String(e.message).slice(0, 90); }
-        // eslint-disable-next-line no-console
+
         console.log('  donnees reelles : manga=' + (reel.manga || '-')
             + ' chapitre=' + (reel.chapitre || '-') + (reel.erreur ? ' (' + reel.erreur + ')' : ''));
 
@@ -244,9 +370,15 @@ test.describe('Audit fonctionnel de l’application mobile', () => {
          * panne, et le rapport doit le dire au lieu de laisser conclure.
          */
         const CONTEXTE = () => {
-            const g = document.querySelector('.empty-state,.cd-guard,.guard,[data-guard]');
+            let connecte = null;
+            try { connecte = !!(window.API && window.API.isLoggedIn && window.API.isLoggedIn()); } catch (e) { connecte = null; }
+            const g = document.querySelector('.empty-state,.lib2-empty,.lists-empty,.cd-guard,.guard,[data-guard]');
             const t = g && (g.innerText || '').replace(/[\s ]+/g, ' ').trim();
-            return t ? t.slice(0, 120) : null;
+            return {
+                connecte,
+                autonome: !!window.INKO_AUTONOME,
+                garde: t ? t.slice(0, 140) : null,
+            };
         };
 
         const resultats = [];
@@ -266,32 +398,62 @@ test.describe('Audit fonctionnel de l’application mobile', () => {
             // jusqu'a ce que le site reponde 404, c'est ainsi qu'elle sait
             // qu'elle a fini. Melanges, ces dizaines de 404 attendus
             // noieraient la seule icone reellement absente.
+            //
+            // Troisieme cas, decouvert en lisant le rapport : un 404 de
+            // l'API n'est pas une ressource manquante, c'est une REPONSE.
+            // `/api/users/profile/demo` rend 404 parce qu'aucun compte ne
+            // s'appelle « demo », et la page affiche proprement « Profil
+            // introuvable ». Le compter comme un actif absent envoyait
+            // chercher un fichier qui n'a jamais existe.
             const absentsInternes = [];
+            const absentsApi = [];
             const absentsExternes = [];
             const onRep = (r) => {
                 if (r.status() !== 404) return;
                 const u = r.url();
-                if (u.startsWith(BASE)) absentsInternes.push(u.replace(BASE, ''));
-                else absentsExternes.push(u.replace(/^https?:\/\//, '').slice(0, 90));
+                if (!u.startsWith(BASE)) {
+                    absentsExternes.push(u.replace(/^https?:\/\//, '').slice(0, 90));
+                    return;
+                }
+                const chemin = u.replace(BASE, '');
+                if (/^\/api\//.test(chemin)) absentsApi.push(chemin.slice(0, 90));
+                else absentsInternes.push(chemin);
             };
             page.on('response', onRep);
 
             let controles = [];
             let contexte = null;
             try {
-                await page.goto(urlDe(P), { waitUntil: 'domcontentloaded', timeout: 20000 });
+                // 45 s, et non 20. Via le hub, `serie.html?id=…` fait scraper
+                // la source AVANT de rendre la page. Quand le site en face
+                // ralentit — et il ralentit d'autant plus que c'est justement
+                // cet audit qui le sollicite page après page — vingt secondes
+                // ne suffisent plus. Dix pages sur vingt-trois ont ainsi été
+                // sautées d'un seul coup, dont les trois du lecteur.
+                await page.goto(urlDe(P), { waitUntil: 'domcontentloaded', timeout: 45000 });
                 await page.waitForTimeout(2200);
                 contexte = await page.evaluate(CONTEXTE);
                 controles = await page.evaluate(LISTER, { DESTRUCTIF_SRC: DESTRUCTIF.source });
             } catch (e) {
-                resultats.push({ slug, erreurNav: e.message.split('\n')[0].slice(0, 120), controles: [] });
+                const raison = e.message.split('\n')[0].slice(0, 120);
+                resultats.push({ slug, erreurNav: raison, controles: [] });
                 page.off('pageerror', onErr); page.off('response', onRep);
+                // Une page sautée doit se VOIR pendant l'exécution. Elle ne
+                // remontait que dans le rapport : le journal passait de
+                // `bibliotheque` à `parametres` sans un mot, et on croyait
+                // l'audit complet.
+
+                console.log(`  ${slug.padEnd(18)} ⚠ page non auditée — ${raison}`);
                 continue;
             }
 
             const verdicts = [];
             for (const c of controles) {
                 if (c.destructif) { verdicts.push({ ...c, verdict: 'ÉVITÉ (destructif)' }); continue; }
+                // On ne l'actionne pas : ouvrir vingt onglets vers GitHub
+                // ralentirait l'audit sans rien apprendre. Le verdict se lit
+                // dans le balisage, et il est certain.
+                if (c.nouvelOnglet) { verdicts.push({ ...c, verdict: 'OUVRE UN ONGLET' }); continue; }
                 let verdict = 'INERTE';
                 try {
                     const avant = await page.evaluate(SIGNATURE);
@@ -299,7 +461,31 @@ test.describe('Audit fonctionnel de l’application mobile', () => {
                     if (!(await cible.count())) { verdicts.push({ ...c, verdict: 'DISPARU' }); continue; }
                     await cible.click({ timeout: 2500, force: true, noWaitAfter: true });
                     await page.waitForTimeout(700);
-                    const apres = await page.evaluate(SIGNATURE);
+                    let apres = await page.evaluate(SIGNATURE);
+
+                    // Un SECOND regard avant de conclure a l'inertie.
+                    //
+                    // `noWaitAfter` n'attend aucune navigation : 700 ms
+                    // suffisaient d'habitude, pas toujours. Le meme lien de
+                    // pied de page — « Catalogue », « Nouveautes », « Top » —
+                    // ressortait NAVIGUE sur une page et INERTE sur la
+                    // suivante, sans rien qui les distingue. Ce n'etait pas un
+                    // defaut, c'etait la mesure qui arrivait trop tot, et elle
+                    // salissait le rapport de constats non reproductibles.
+                    //
+                    // On ne paie ce delai que sur les candidats a l'inertie :
+                    // tout ce qui a deja bouge est conclu du premier coup.
+                    const inchange = apres.url === avant.url
+                        && apres.dialogues === avant.dialogues
+                        && apres.classes === avant.classes
+                        && apres.focus === avant.focus
+                        && Math.abs(apres.noeuds - avant.noeuds) <= 2
+                        && apres.texte === avant.texte
+                        && Math.abs(apres.defilement - avant.defilement) <= 24;
+                    if (inchange) {
+                        await page.waitForTimeout(1100);
+                        apres = await page.evaluate(SIGNATURE);
+                    }
 
                     if (apres.url !== avant.url) {
                         verdict = 'NAVIGUE → ' + apres.url.replace(BASE + '/', '');
@@ -311,9 +497,13 @@ test.describe('Audit fonctionnel de l’application mobile', () => {
                         await page.keyboard.press('Escape').catch(() => {});
                         await page.waitForTimeout(300);
                     } else if (Math.abs(apres.noeuds - avant.noeuds) > 2
-                        || Math.abs(apres.texte - avant.texte) > 12
+                        || apres.texte !== avant.texte
                         || apres.classes !== avant.classes) {
                         verdict = 'AGIT (page modifiée)';
+                    } else if (apres.focus !== avant.focus) {
+                        verdict = 'AGIT (focus déplacé)';
+                    } else if (Math.abs(apres.defilement - avant.defilement) > 24) {
+                        verdict = 'AGIT (défilement)';
                     }
                 } catch (e) {
                     verdict = 'ERREUR : ' + String(e.message).split('\n')[0].slice(0, 60);
@@ -324,113 +514,276 @@ test.describe('Audit fonctionnel de l’application mobile', () => {
             page.off('pageerror', onErr); page.off('response', onRep);
             const inertes = verdicts.filter((v) => v.verdict === 'INERTE').length;
             const manquants = [...new Set(absentsInternes)].slice(0, 10);
+            const api404 = [...new Set(absentsApi)];
             const tiers = [...new Set(absentsExternes)];
             resultats.push({
                 slug, contexte, controles: verdicts,
                 erreurs: [...new Set(erreurs)].slice(0, 4),
                 absents: manquants,
+                api404: api404.slice(0, 6),
+                api404Total: api404.length,
                 tiers: tiers.slice(0, 6),
                 tiersTotal: tiers.length,
                 url: urlDe(P).replace(BASE, ''),
             });
-            // eslint-disable-next-line no-console
+
             console.log(`  ${slug.padEnd(18)} ${verdicts.length} contrôles · ${inertes} inertes`
                 + (erreurs.length ? ` · ${erreurs.length} erreur(s) JS` : '')
-                + (manquants.length ? ` · ${manquants.length} ressource(s) 404 INTERNE` : '')
+                + (manquants.length ? ` · ${manquants.length} ACTIF 404` : '')
+                + (api404.length ? ` · ${api404.length} api 404` : '')
                 + (tiers.length ? ` · ${tiers.length} 404 tiers` : ''));
         }
 
         await ctx.close();
-        await new Promise((ok) => serveur.close(ok));
-        ecrire(resultats);
-        expect(resultats.length).toBe(PAGES.length);
+        return resultats;
+}
+
+// Pas de trace, pas de vidéo pour cet audit.
+//
+// `retain-on-failure` convient à un test de quelques secondes. Ici on actionne
+// près de mille cinq cents contrôles sur vingt et une minutes : Playwright a
+// fini par rendre `file data stream has unexpected number of bytes`, puis une
+// archive tronquée (« End of central directory record signature not found »).
+// L'échec est survenu APRÈS la dernière page — toutes les mesures étaient
+// faites, et vingt et une minutes de travail sont parties avec, parce que le
+// rapport s'écrivait à la toute fin. (Il s'écrit désormais dans un `finally`.)
+//
+// Cet audit produit son PROPRE rapport ; la trace ne servait à personne.
+// `test.use` doit rester au niveau du FICHIER : dans un `describe`, Playwright
+// refuse `video`, qui l'obligerait à changer de worker.
+test.use({ trace: 'off', video: 'off' });
+
+test.describe('Audit fonctionnel — chaque contrôle, en autonome et via le hub', () => {
+    test('actionner chaque contrôle et voir s’il produit un effet', async ({ browser }) => {
+        test.setTimeout(50 * 60 * 1000);
+        if (!fs.existsSync(PAQUET)) test.skip(true, 'paquet mobile absent');
+        const serveur = await servir();
+
+        // Apres `servir()` : BASE_STATIQUE porte le port reellement obtenu.
+        const modes = [{ nom: 'autonome', base: BASE_STATIQUE }];
+        if (await hubJoignable()) modes.push({ nom: 'hub', base: BASE_HUB });
+        else {
+
+            console.log(`  ⚠ hub injoignable sur ${BASE_HUB} — passe « hub » sautée.`);
+
+            console.log('    Sans elle, « inerte » ne veut dire que « inerte SANS hub ni compte ».');
+        }
+
+        // Le rapport s'écrit dans un `finally` : ce qui a été mesuré est écrit,
+        // même si la suite échoue. Une panne d'outillage survenue après la
+        // dernière page a déjà emporté vingt et une minutes de relevés.
+        const parMode = [];
+        try {
+            for (const MODE of modes) {
+                console.log(`\n── mode ${MODE.nom} (${MODE.base}) ──`);
+                parMode.push({ mode: MODE.nom, base: MODE.base, resultats: await auditerMode(browser, MODE) });
+            }
+        } finally {
+            await new Promise((ok) => serveur.close(ok));
+            if (parMode.length) ecrire(parMode);
+        }
+        expect(parMode[0].resultats.length).toBe(PAGES.length);
     });
 });
 
-function ecrire(resultats) {
+function ecrire(parMode) {
     const L = [];
-    L.push('# Audit fonctionnel — chaque contrôle de chaque page');
+    const jour = new Date().toISOString().slice(0, 10);
+    L.push('# Audit fonctionnel — chaque contrôle, dans les deux modes');
     L.push('');
-    L.push(`Relevé du ${new Date().toISOString().slice(0, 10)}. Chaque bouton, lien et bascule`);
-    L.push('a été **actionné**, et l’état de la page comparé avant/après.');
+    L.push(`Relevé du ${jour}. Chaque bouton, lien et bascule a été **actionné**,`);
+    L.push('et l’état de la page comparé avant/après.');
     L.push('');
     L.push('| Verdict | Sens |');
     L.push('|---|---|');
     L.push('| `NAVIGUE` | l’URL a changé — le contrôle fonctionne |');
     L.push('| `AGIT` | le DOM a changé — panneau ouvert, liste filtrée, bascule |');
+    L.push('| `OUVRE UN ONGLET` | `target="_blank"` : la page courante ne bouge pas, c’est normal |');
+    L.push('| `AGIT (focus déplacé)` | le focus a changé de cible — un lien d’évitement, une ancre |');
+    L.push('| `AGIT (défilement)` | la page a défilé |');
     L.push('| `INERTE` | **rien n’a bougé** — à examiner |');
     L.push('| `ÉVITÉ` | libellé destructif : non actionné, par précaution |');
     L.push('');
-    L.push('> ⚠ `INERTE` est un constat, pas une condamnation : un bouton peut');
-    L.push('> légitimement ne rien faire dans cet état (« Marquer lu » sans chapitre');
-    L.push('> chargé). Sans hub ni réseau, tout ce qui dépend d’une source l’est aussi.');
+    for (const m of parMode) L.push(`- **${m.mode}** — \`${m.base}\``);
     L.push('');
 
-    const tousInertes = [];
-    L.push('## Vue d’ensemble');
+    // ── Ce qui ne s'explique par aucun contexte ──────────────
+    //
+    // La seule liste sur laquelle agir sans rien reverifier : un controle
+    // inerte AVEC hub et AVEC compte comme sans.
+    const cle = (page, c) => page + '|' + c.tag + '|' + c.libelle;
+    const inertesDe = (m) => {
+        const set = new Map();
+        for (const r of m.resultats) {
+            for (const c of r.controles || []) {
+                if (c.verdict === 'INERTE') set.set(cle(r.slug, c), { page: r.slug, ...c });
+            }
+        }
+        return set;
+    };
+    const parModeInertes = parMode.map(inertesDe);
+    let communs = [];
+    if (parModeInertes.length > 1) {
+        const [a, ...reste] = parModeInertes;
+        communs = [...a.entries()].filter(([k]) => reste.every((m) => m.has(k))).map(([, v]) => v);
+    } else if (parModeInertes.length === 1) {
+        communs = [...parModeInertes[0].values()];
+    }
+
+    // ── Les controles qu'on ne peut pas nommer ──────────────
+    const anonymes = new Map();
+    for (const m of parMode) {
+        for (const r of m.resultats) {
+            for (const c of r.controles || []) {
+                if (c.sansNom) anonymes.set(r.slug + '|' + c.tag + '|' + c.libelle, { page: r.slug, ...c });
+            }
+        }
+    }
+    L.push('## Sans nom accessible — un lecteur d’écran annonce le pictogramme');
     L.push('');
-    L.push('| Page | Contrôles | Naviguent | Agissent | **Inertes** | Erreurs JS | 404 interne | 404 tiers |');
-    L.push('|---|---|---|---|---|---|---|---|');
-    for (const r of resultats) {
-        if (r.erreurNav) { L.push(`| ${r.slug} | — | — | — | — | **${r.erreurNav}** | — | — |`); continue; }
-        const n = (f) => r.controles.filter((c) => c.verdict.startsWith(f)).length;
-        L.push(`| ${r.slug} | ${r.controles.length} | ${n('NAVIGUE')} | ${n('AGIT')} | **${n('INERTE')}** | ${(r.erreurs || []).length} | ${(r.absents || []).length} | ${r.tiersTotal || 0} |`);
-        for (const c of r.controles) if (c.verdict === 'INERTE') tousInertes.push({ page: r.slug, ...c });
+    L.push('Ni texte, ni `aria-label`, ni `title` : le contrôle est atteignable au');
+    L.push('clavier et reste indéchiffrable sans le voir.');
+    L.push('');
+    if (!anonymes.size) L.push('_Aucun._');
+    else {
+        L.push('| Page | Ce qui est annoncé | Élément |');
+        L.push('|---|---|---|');
+        for (const c of anonymes.values()) {
+            L.push(`| \`${c.page}\` | \`${c.libelle.replace(/\|/g, '\|')}\` | \`${c.tag}\` |`);
+        }
     }
     L.push('');
-    L.push(`**${tousInertes.length} contrôles inertes** au total.`);
-    L.push('');
-    L.push('---');
-    L.push('');
-    L.push('## Le détail, page par page');
 
-    for (const r of resultats) {
+    L.push('## À corriger — inerte dans TOUS les modes audités');
+    L.push('');
+    if (parModeInertes.length < 2) {
+        L.push('> ⚠ Un seul mode audité : cette liste vaut « inerte SANS hub ni compte ».');
+        L.push('> Démarre le hub et relance pour distinguer un vrai défaut d’une dépendance au serveur.');
         L.push('');
-        L.push(`### \`${r.slug}.html\``);
+    }
+    if (!communs.length) { L.push('_Aucun._'); }
+    else {
+        L.push(`**${communs.length} contrôle(s)** ne réagissent ni en autonome, ni via le hub.`);
         L.push('');
-        if (r.url) { L.push(`URL auditée : \`${r.url}\``); L.push(''); }
-        if (r.erreurNav) { L.push(`**Page non chargée** : ${r.erreurNav}`); continue; }
-        // Le message de garde vaut explication : sans lui, on lit une colonne
-        // d'INERTE et on conclut a une panne la ou la page dit simplement
-        // qu'elle attend une connexion ou un contenu.
-        if (r.contexte) {
-            L.push(`> **Etat de la page** : « ${r.contexte} »`);
-            L.push('> Les controles qui suivent sont a lire dans CET etat.');
-            L.push('');
-        }
-        if (r.absents && r.absents.length) {
-            L.push('**Ressources du paquet absentes (404) — toujours un défaut :**');
-            L.push('');
-            for (const a of r.absents) L.push(`- \`${a}\``);
-            L.push('');
-        }
-        if (r.tiersTotal) {
-            L.push(`**${r.tiersTotal} réponse(s) 404 de sites tiers** — souvent normal `
-                + '(une extension pagine jusqu’au 404 pour savoir qu’elle a fini) :');
-            L.push('');
-            for (const a of r.tiers) L.push(`- \`${a}\``);
-            if (r.tiersTotal > r.tiers.length) L.push(`- … et ${r.tiersTotal - r.tiers.length} autre(s)`);
-            L.push('');
-        }
-        if (r.erreurs && r.erreurs.length) {
-            L.push('**Exceptions JavaScript pendant le parcours :**');
-            L.push('');
-            for (const e of r.erreurs) L.push(`- \`${e}\``);
-            L.push('');
-        }
-        if (!r.controles.length) { L.push('Aucun contrôle visible.'); continue; }
-        L.push('| Contrôle | Élément | Verdict |');
+        L.push('| Page | Contrôle | Élément |');
         L.push('|---|---|---|');
-        for (const c of r.controles) {
-            const v = c.verdict === 'INERTE' ? '**INERTE**' : c.verdict;
-            L.push(`| ${c.libelle.replace(/\|/g, '\\|')} | \`${c.tag}\` | ${v} |`);
+        for (const c of communs) L.push(`| \`${c.page}\` | ${c.libelle.replace(/\|/g, '\\|')} | \`${c.tag}\` |`);
+    }
+    L.push('');
+
+    // ── Ce qui depend du hub ou du compte ────────────────────
+    if (parModeInertes.length > 1) {
+        const seulAutonome = [...parModeInertes[0].entries()]
+            .filter(([k]) => !parModeInertes[1].has(k)).map(([, v]) => v);
+        L.push('## Dépend du hub ou d’un compte — inerte en autonome seulement');
+        L.push('');
+        L.push('Ces contrôles fonctionnent une fois le serveur joignable. Le défaut, s’il y');
+        L.push('en a un, n’est pas dans le bouton : c’est que **rien ne dit à l’utilisateur**');
+        L.push('pourquoi il ne se passe rien.');
+        L.push('');
+        if (!seulAutonome.length) { L.push('_Aucun._'); }
+        else {
+            L.push('| Page | Contrôle | Élément |');
+            L.push('|---|---|---|');
+            for (const c of seulAutonome) L.push(`| \`${c.page}\` | ${c.libelle.replace(/\|/g, '\\|')} | \`${c.tag}\` |`);
         }
         L.push('');
+    }
+
+    for (const m of parMode) {
+        L.push('---');
+        L.push('');
+        L.push(`# Mode « ${m.mode} » — \`${m.base}\``);
+        L.push('');
+        L.push('| Page | Contrôles | Naviguent | Agissent | Onglet | **Inertes** | Erreurs JS | Actif 404 | API 404 | 404 tiers |');
+        L.push('|---|---|---|---|---|---|---|---|---|---|');
+        let totalInertes = 0;
+        let totalSautees = 0;
+        for (const r of m.resultats) {
+            if (r.erreurNav) {
+                totalSautees++;
+                L.push(`| ${r.slug} | — | — | — | — | — | **non auditée : ${r.erreurNav}** | — | — | — |`);
+                continue;
+            }
+            const n = (f) => r.controles.filter((c) => c.verdict.startsWith(f)).length;
+            totalInertes += n('INERTE');
+            L.push(`| ${r.slug} | ${r.controles.length} | ${n('NAVIGUE')} | ${n('AGIT')} | ${n('OUVRE')} `
+                + `| **${n('INERTE')}** | ${(r.erreurs || []).length} | ${(r.absents || []).length} `
+                + `| ${r.api404Total || 0} | ${r.tiersTotal || 0} |`);
+        }
+        if (totalSautees) {
+            L.push('');
+            L.push(`> ⚠ **${totalSautees} page(s) n’ont pas été auditées** dans ce mode : leurs`);
+            L.push('> contrôles ne sont ni confirmés ni infirmés. Les compter comme « rien à');
+            L.push('> signaler » serait la pire lecture possible de ce tableau.');
+        }
+        L.push('');
+        L.push(`**${totalInertes} contrôles inertes** dans ce mode.`);
+        L.push('');
+
+        for (const r of m.resultats) {
+            L.push('');
+            L.push(`## \`${r.slug}.html\``);
+            L.push('');
+            if (r.url) { L.push(`URL auditée : \`${r.url}\``); L.push(''); }
+            if (r.erreurNav) { L.push(`**Page non chargée** : ${r.erreurNav}`); continue; }
+            const cx = r.contexte;
+            if (cx) {
+                const etat = [];
+                if (cx.connecte === true) etat.push('**connecté**');
+                else if (cx.connecte === false) etat.push('**non connecté**');
+                if (cx.autonome) etat.push('mode autonome (aucun hub)');
+                if (etat.length) L.push(`> État : ${etat.join(' · ')}`);
+                if (cx.garde) L.push(`> La page affiche : « ${cx.garde} »`);
+                if (etat.length || cx.garde) {
+                    L.push('> Les verdicts qui suivent se lisent dans CET état.');
+                    L.push('');
+                }
+            }
+            if (r.absents && r.absents.length) {
+                L.push('**Ressources du paquet absentes (404) — toujours un défaut :**');
+                L.push('');
+                for (const a of r.absents) L.push(`- \`${a}\``);
+                L.push('');
+            }
+            if (r.api404Total) {
+                L.push(`**${r.api404Total} réponse(s) 404 de l’API** — souvent la bonne réponse `
+                    + '(« ce compte n’existe pas ») ; à lire avec ce que la page affiche alors :');
+                L.push('');
+                for (const a of r.api404) L.push(`- \`${a}\``);
+                if (r.api404Total > r.api404.length) L.push(`- … et ${r.api404Total - r.api404.length} autre(s)`);
+                L.push('');
+            }
+            if (r.tiersTotal) {
+                L.push(`**${r.tiersTotal} réponse(s) 404 de sites tiers** — souvent normal `
+                    + '(une extension pagine jusqu’au 404 pour savoir qu’elle a fini) :');
+                L.push('');
+                for (const a of r.tiers) L.push(`- \`${a}\``);
+                if (r.tiersTotal > r.tiers.length) L.push(`- … et ${r.tiersTotal - r.tiers.length} autre(s)`);
+                L.push('');
+            }
+            if (r.erreurs && r.erreurs.length) {
+                L.push('**Exceptions JavaScript pendant le parcours :**');
+                L.push('');
+                for (const e of r.erreurs) L.push(`- \`${e}\``);
+                L.push('');
+            }
+            if (!r.controles.length) { L.push('Aucun contrôle visible.'); continue; }
+            L.push('| Contrôle | Élément | Verdict |');
+            L.push('|---|---|---|');
+            for (const c of r.controles) {
+                const v = c.verdict === 'INERTE' ? '**INERTE**' : c.verdict;
+                L.push(`| ${c.libelle.replace(/\|/g, '\\|')} | \`${c.tag}\` | ${v} |`);
+            }
+            L.push('');
+        }
     }
 
     const dest = path.join(RACINE, 'docs', 'audit-controles.md');
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, L.join('\n') + '\n');
-    // eslint-disable-next-line no-console
+
     console.log('\n→ rapport écrit : docs/audit-controles.md');
+
+    console.log(`  ${communs.length} contrôle(s) inerte(s) dans TOUS les modes — c'est la liste à traiter.`);
 }

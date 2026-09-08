@@ -83,3 +83,57 @@ test('aucun gestionnaire en ligne dans hub.js (DESK-01)', () => {
     assert.doesNotMatch(HUB, /\son[a-z]+\s*=\s*["'][^"']*["']/i,
         'les gestionnaires doivent passer par addEventListener');
 });
+
+// ── Le repli hors ligne doit VOYAGER avec le worker ─────────
+//
+// Le service worker part dans l'APK. Sa liste `STATIC_ASSETS` est generee
+// depuis la RACINE du depot, ou toutes les pages existent — mais le paquet
+// mobile, lui, est une COPIE choisie fichier par fichier. Rien ne reliait les
+// deux listes.
+//
+// `offline.html` etait ainsi precache par le worker et absent du paquet. Hors
+// ligne, une navigation vers une page non mise en cache tombait sur le dernier
+// recours de `networkFirst` et l'utilisateur recevait `{"error":"Hors ligne"}`
+// en texte brut — a l'endroit precis ou une page avait ete ecrite pour lui.
+// Aucune exception, aucun test rouge : juste un 404 dans la console du
+// telephone, releve par l'audit des controles.
+const SW = fs.readFileSync(path.join(__dirname, '..', '..', 'service-worker.js'), 'utf8');
+const BUILD = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'scripts-ci', 'build-mobile-www.js'), 'utf8');
+
+/** Les pages HTML que le service worker declare precacher. */
+function pagesPrecachees() {
+    const bloc = /const STATIC_ASSETS = \[([\s\S]*?)\];/.exec(SW);
+    assert.ok(bloc, 'STATIC_ASSETS doit rester lisible dans service-worker.js');
+    return [...bloc[1].matchAll(/'\/([^']+\.html)'/g)].map((m) => m[1]);
+}
+
+/** Les pages que le build retire explicitement du paquet. */
+function pagesExclues() {
+    const bloc = /const PAGES_EXCLUES = new Set\(\[([\s\S]*?)\]\)/.exec(BUILD);
+    assert.ok(bloc, 'PAGES_EXCLUES doit rester lisible dans build-mobile-www.js');
+    return [...bloc[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+}
+
+test('le repli hors ligne du worker est bien dans sa liste de pré-cache', () => {
+    const repli = /const OFFLINE_FALLBACK = '\/([^']+)'/.exec(SW);
+    assert.ok(repli, 'OFFLINE_FALLBACK doit rester lisible');
+    assert.ok(pagesPrecachees().includes(repli[1]),
+        `${repli[1]} est le repli de navigation : il doit être pré-caché`);
+});
+
+test('aucune page pré-cachée par le worker n’est retirée du paquet mobile', () => {
+    const precachees = pagesPrecachees();
+    const exclues = pagesExclues();
+    const orphelines = exclues.filter((f) => precachees.includes(f));
+    assert.deepEqual(orphelines, [],
+        'ces pages sont pré-cachées par le service worker mais exclues du paquet mobile — '
+        + 'dans l’APK elles répondront 404 : ' + orphelines.join(', '));
+});
+
+test('chaque page pré-cachée existe réellement à la racine', () => {
+    const racine = path.join(__dirname, '..', '..');
+    const absentes = pagesPrecachees().filter((f) => !fs.existsSync(path.join(racine, f)));
+    assert.deepEqual(absentes, [],
+        'le worker pré-cache des pages qui n’existent pas : ' + absentes.join(', '));
+});

@@ -301,12 +301,24 @@ ul, ol { list-style: none; }
 body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
 :focus { outline: none; }
+/* Le focus clavier : UNE seule règle, ici.
+   Il y en avait deux dans ce fichier — celle-ci (anneau `box-shadow`, sans
+   contour) et une autre 890 lignes plus bas (contour orange), de même
+   spécificité. La seconde l'emportait ; l'anneau, lui, s'ajoutait quand même,
+   puisque `box-shadow` n'était surchargé nulle part. On voyait donc les deux,
+   sans que personne l'ait décidé.
+
+   Et toutes deux posaient un `border-radius` : mettre un rayon dans une règle
+   de focus change la FORME de l'élément au moment où on le focalise — une
+   pastille ronde voyait ses coins passer à 4 px. Le contour suit tout seul le
+   rayon réel de l'élément ; on n'a rien à lui imposer. */
 :focus-visible {
-  outline: none;
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
   box-shadow: var(--ring);
-  border-radius: var(--radius2);
 }
-a:focus-visible, button:focus-visible { border-radius: var(--radius2); }
+/* Même raison qu'au-dessus : un lien ou un bouton ne doit pas changer de forme
+   parce qu'on l'atteint au clavier. Le contour épouse déjà le rayon réel. */
 /* Les titres Display (grotesque condensée) gagnent une chasse resserrée. */
 h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); letter-spacing: -0.01em; }
 @media (prefers-reduced-motion: reduce) {
@@ -1192,12 +1204,10 @@ a[data-nsfw] .manga-card-cover::after,
 }
 
 /* -- Accessibilité (audit A1/A3) ------------------------------ */
-/* Focus clavier visible partout (sans polluer le clic souris) */
-:focus-visible {
-  outline: 2px solid var(--orange);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
+/* Le focus clavier est défini une seule fois, avec le reset, en haut de ce
+   fichier. Cette seconde règle le redéfinissait à l'identique — d'où deux
+   déclarations concurrentes pour un même sélecteur, relevées par
+   `scripts-ci/audit-css.js`. */
 /* Lien d'évitement « Aller au contenu » : invisible jusqu'au focus clavier */
 .skip-link {
   position: fixed; top: -48px; left: 12px; z-index: 10000;

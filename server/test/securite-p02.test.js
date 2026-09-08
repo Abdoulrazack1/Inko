@@ -319,3 +319,83 @@ test('CORS : une requête sans Origin passe (app native, curl)', async () => {
     // clients qui ne sont pas des navigateurs.
     assert.equal(await origineAutorisee(undefined), true);
 });
+
+// ── Tout point d'entrée d'authentification est limité en débit ──
+//
+// `POST /auth/google` était le seul à ne pas l'être. Il vérifie pourtant une
+// preuve d'identité, CRÉE un compte quand l'email est inconnu, et part
+// interroger `oauth2.googleapis.com/tokeninfo` avec un timeout de dix
+// secondes à chaque appel. Sans limite, la même IP pouvait donc à la fois
+// pilonner l'authentification et retenir les sockets du serveur avec des
+// jetons bidons — pendant que `login`, `register`, `forgot` et `reset`, eux,
+// étaient protégés depuis l'audit S3.
+//
+// Le test lit le ROUTEUR, comme `gen-openapi.js` : charger Express ici
+// exigerait une base de données, et ce qu'on veut tenir est une propriété du
+// câblage, pas du comportement à l'exécution.
+const ROUTEUR = fs.readFileSync(path.join(__dirname, '..', 'routes', 'index.js'), 'utf8');
+
+/** Les routes POST/PUT/DELETE qui vérifient une identité ou en délivrent une. */
+const ENTREES_AUTH = [
+    '/auth/google', '/auth/local', '/auth/register', '/auth/login',
+    '/auth/forgot', '/auth/reset', '/auth/password-strength', '/devices/pair',
+];
+
+// Une ligne du routeur = une route. On la retrouve par sa chaîne littérale
+// plutôt qu'avec une expression régulière à échappements : la version
+// précédente en avait tant qu'elle ne matchait plus rien, et les huit tests
+// « échouaient » alors sur l'expression, pas sur le code audité.
+const ligneRoute = (methode, chemin) => ROUTEUR.split('\n').find(
+    (l) => l.includes(`router.${methode}`) && l.includes(`'${chemin}'`));
+
+for (const chemin of ENTREES_AUTH) {
+    test(`authLimiter protège ${chemin}`, () => {
+        const ligne = ligneRoute('post', chemin);
+        assert.ok(ligne, `la route POST ${chemin} doit rester lisible dans le routeur`);
+        assert.match(ligne, /authLimiter/,
+            `POST ${chemin} délivre ou vérifie une identité : il lui faut authLimiter`);
+    });
+}
+
+// ── Le hub ne meurt plus en silence ─────────────────────────
+//
+// Constaté : sept heures de service, puis une sortie en code 1, et rien dans
+// la sortie pour dire pourquoi. Deux manques, dont le second est le pire :
+// l'exploitant ne peut rien corriger, et `fermer()` — qui retire l'annonce
+// mDNS — n'était branché que sur SIGINT/SIGTERM. Après un plantage, les
+// téléphones étaient donc encore envoyés vers une adresse morte pendant les
+// minutes que dure l'expiration mDNS, ce que le commentaire de `fermer()` dit
+// lui-même vouloir éviter.
+//
+// Ces tests lisent la SOURCE : brancher un `uncaughtException` dans un test
+// qui tourne sous le runner de Node détournerait le runner lui-même.
+const APP = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+test('une promesse rejetée sans traitement ne coupe plus le hub', () => {
+    assert.match(APP, /process\.on\('unhandledRejection'/,
+        'depuis Node 15 le défaut est de PLANTER : une requête mal gardée coupait le service');
+    const bloc = /process\.on\('unhandledRejection',([\s\S]*?)\n    \}\);/.exec(APP);
+    assert.ok(bloc, 'le gestionnaire doit rester lisible');
+    assert.match(bloc[1], /console\.error/, 'il doit journaliser la raison');
+    assert.ok(!/process\.exit|fermer\(/.test(bloc[1]),
+        'il ne doit PAS arrêter le hub : une promesse rejetée ne concerne qu’une requête');
+});
+
+test('une exception non rattrapée dit pourquoi, et retire l’annonce mDNS', () => {
+    const bloc = /process\.on\('uncaughtException',([\s\S]*?)\n    \}\);/.exec(APP);
+    assert.ok(bloc, 'un gestionnaire d’exception non rattrapée doit exister');
+    assert.match(bloc[1], /console\.error/, 'il doit journaliser la pile');
+    assert.match(bloc[1], /fermer\(/,
+        'il doit passer par `fermer()` — sinon l’annonce mDNS survit au plantage '
+        + 'et les téléphones visent une adresse morte');
+});
+
+test('`fermer()` sait rendre un code de sortie non nul', () => {
+    // Sans ce paramètre, un plantage se serait annoncé comme un arrêt normal :
+    // Docker (`restart: unless-stopped`) redémarre quand même, mais un
+    // superviseur qui regarde le code de sortie n'aurait rien vu d'anormal.
+    assert.match(APP, /const fermer = async \(signal, code = 0\)/,
+        '`fermer` doit accepter un code de sortie');
+    assert.match(APP, /process\.exit\(code\)/,
+        'le code reçu doit être celui rendu au système');
+});

@@ -43,7 +43,18 @@ const EXTENSIONS_SRC = path.join(RACINE, 'extensions-community');
 
 // Pages exclues : elles n'ont pas de sens dans l'app, ou exposent des écrans
 // d'administration qui ne doivent pas voyager.
-const PAGES_EXCLUES = new Set(['offline.html']);
+//
+// `offline.html` en faisait partie, et c'etait une erreur. Le service worker
+// part AVEC le paquet, il precache `/offline.html` (liste generee depuis la
+// RACINE, ou la page existe) et s'en sert comme repli de navigation. Dans
+// l'APK, ce repli manquait : hors ligne, une page non mise en cache tombait
+// sur le dernier recours du worker et l'utilisateur voyait
+// `{"error":"Hors ligne"}` en clair, a la place de la page prevue pour
+// exactement ce moment. Releve par l'audit des controles, en 404 interne.
+//
+// Une page reste exclue si aucune liste du service worker ne la reclame :
+// `verifier-repli-hors-ligne` (test/unit/hors-ligne.test.js) tient ce lien.
+const PAGES_EXCLUES = new Set([]);
 
 // ── Le WebView d'Android 8 ne lit pas l'ES2020 ──────────────
 // Constaté sur émulateur API 26, après que l'app se soit installée, lancée et

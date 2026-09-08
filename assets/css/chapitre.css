@@ -337,7 +337,9 @@
     max-height: 88vh;
     object-fit: contain;
     border-radius: 4px;
-    transition: opacity 0.3s ease;
+    /* La transition d'opacite est posee avec le fondu, plus bas (« Fade-in des
+       pages au chargement ») : la declarer ici aussi ne servait qu'a la voir
+       ecrasee. */
     animation: pageIn 0.25s ease;
 }
 @keyframes pageIn {

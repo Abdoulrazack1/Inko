@@ -20,6 +20,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const hub = fs.readFileSync(path.join(ROOT, 'assets', 'js', 'hub.js'), 'utf8');
 const api = fs.readFileSync(path.join(ROOT, 'assets', 'js', 'api.js'), 'utf8');
+const globalJs = fs.readFileSync(path.join(ROOT, 'assets', 'js', 'global.js'), 'utf8');
 
 test('sans hub, l’app ne pose plus d’écran bloquant d’office', () => {
     // La branche « aucun hub configuré » ne doit plus appeler `ecran('')`
@@ -97,4 +98,39 @@ test('l’écran de démarrage Android ne porte plus le gabarit Capacitor', () =
     const splash = fs.readFileSync(path.join(res, 'drawable', 'splash.xml'), 'utf8');
     assert.ok(!/<bitmap[^>]*splash_kanji/.test(splash),
         'le kanji vectoriel doit être posé en android:drawable, pas en <bitmap>');
+});
+
+// ── Sans hub, on ne parle pas de « session expirée » ─────────
+//
+// Neuf pages passent par `MH.guestNotice()` quand elles n'ont rien à
+// afficher. Il ne connaissait que deux situations : serveur en panne, ou
+// session perdue. En mode autonome il n'y a AUCUNE session — par conception —
+// et ces pages annonçaient pourtant « Ta session a expiré ou tu n'es pas
+// connecté », avec un bouton « Se reconnecter » qui recharge la page. On
+// appuie, la page revient identique, on recommence : c'est un cul-de-sac,
+// et il est présenté comme une panne dont on serait responsable.
+//
+// Relevé par l'audit des contrôles : « Se reconnecter » ressortait inerte sur
+// `import`, `profil` et `stats` en mode autonome UNIQUEMENT.
+test('guestNotice reconnaît le mode autonome, et ne parle plus de session', () => {
+    const bloc = /window\.MH\.guestNotice = function[\s\S]*?\n    \};/.exec(globalJs);
+    assert.ok(bloc, 'guestNotice doit rester lisible');
+    assert.match(bloc[0], /INKO_AUTONOME/,
+        'le mode autonome doit être une situation à part entière');
+    assert.match(bloc[0], /Aucun ordinateur connecté/,
+        'le titre doit nommer la vraie cause : il manque un hub, pas une session');
+    assert.match(bloc[0], /INKO_changerHub/,
+        'le bouton doit ouvrir le réglage du hub — recharger ne changerait jamais rien');
+});
+
+test('guestNotice ne propose pas « recharger » là où ça ne peut rien donner', () => {
+    const bloc = /window\.MH\.guestNotice = function[\s\S]*?\n    \};/.exec(globalJs);
+    // L'action est choisie AVANT d'être posée dans le gabarit : les deux
+    // rendus (compact et complet) doivent la partager, sinon l'un des deux
+    // garde l'ancien comportement sans que personne le voie.
+    assert.match(bloc[0], /const action = autonome/,
+        'l’action doit être décidée une fois, pour les deux rendus');
+    const rendus = bloc[0].match(/onclick="\$\{action\}/g) || [];
+    assert.equal(rendus.length, 2,
+        'le rendu compact ET le rendu complet doivent utiliser la même action');
 });

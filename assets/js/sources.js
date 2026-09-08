@@ -339,7 +339,7 @@
     // collectait deja ces compteurs ; seul l'admin pouvait les voir.
     function pastilleSante(h) {
         if (!h || (!h.oks && !h.fails)) {
-            return `<div class="src-sante" style="color:var(--text3)">Pas encore interrogee depuis le demarrage</div>`;
+            return `<div class="src-sante" style="color:var(--text3)">Pas encore interrogée depuis le démarrage</div>`;
         }
         // `streak` = echecs CONSECUTIFS : c'est lui qui dit si la source est
         // cassee MAINTENANT, la ou un total d'echecs melerait des incidents

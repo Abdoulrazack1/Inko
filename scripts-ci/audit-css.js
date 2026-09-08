@@ -28,6 +28,29 @@ const CSS = path.join(RACINE, 'mobile', 'www', 'assets', 'css');
 /** Retire les commentaires : ils citent souvent des valeurs qu'on chercherait. */
 const sansCommentaires = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
 
+/**
+ * Le bloc `@` qui englobe la position donnée, ou '' à la racine.
+ *
+ * Une règle écrite dans `@media (max-width: 768px)` n'entre en concurrence
+ * qu'avec les règles du MÊME contexte. Comparer sans en tenir compte fait
+ * passer tout le responsive du projet pour une pile de conflits.
+ *
+ * On compte les accolades depuis le début : celle qui reste ouverte au-dessus
+ * de nous et qui commence par `@` est notre contexte.
+ */
+function blocEnglobant(s, position) {
+    const pile = [];
+    for (let i = 0; i < position; i++) {
+        if (s[i] === '{') {
+            const debut = s.lastIndexOf('}', i - 1) + 1;
+            const tete = s.slice(Math.max(debut, s.lastIndexOf('{', i - 1) + 1), i).trim();
+            pile.push(tete);
+        } else if (s[i] === '}') pile.pop();
+    }
+    const at = pile.filter((t) => t.startsWith('@'));
+    return at.length ? at.join(' » ').replace(/\s+/g, ' ') + ' » ' : '';
+}
+
 function analyser() {
     const fichiers = fs.existsSync(CSS)
         ? fs.readdirSync(CSS).filter((f) => f.endsWith('.css'))
@@ -52,15 +75,68 @@ function analyser() {
         }
 
         // Un bloc `position: fixed` sans z-index : l'ordre du document décide.
+        //
+        // Sauf que la CASCADE existe, et l'ignorer donnait deux faux positifs
+        // sur deux — les seuls que ce script trouvait :
+        //
+        //   · `.reader-pages-area.paged .page-counter-badge` ne redéfinit que
+        //     `position` et `bottom` ; la règle de base `.page-counter-badge`
+        //     déclare `z-index: 5` quelques lignes plus haut ;
+        //   · `#inko-music .im-pill` vit dans `#inko-music`, qui est
+        //     `position: fixed; z-index: 9000` — donc un contexte
+        //     d'empilement. Son enfant s'empile DEDANS : lui donner un z-index
+        //     ne changerait rien à son rang vis-à-vis du reste de la page.
+        //
+        // Un rapport dont chaque entrée est un faux positif cesse d'être lu.
+        // On vérifie donc ces deux échappatoires avant de signaler.
+        const echapper = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const declareZ = (partie) => partie.length > 1
+            && new RegExp(echapper(partie) + '[^{}]*\\{[^{}]*z-index').test(s);
         for (const bloc of s.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
             const [, sel, corps] = bloc;
             if (/position\s*:\s*fixed/.test(corps) && !/z-index/.test(corps)) {
-                fixesSansZ.push({ f, selecteur: sel.trim().split('\n').pop().slice(0, 60) });
+                const propre = sel.trim().split('\n').pop().trim();
+                const parties = propre.split(/[\s>+~]+/).filter(Boolean);
+                const dernier = parties[parties.length - 1] || '';
+                const ancetres = parties.slice(0, -1);
+                // Le même composant final porte-t-il un z-index ailleurs ?
+                const heriteDeLaBase = declareZ(dernier);
+                // Un ancêtre crée-t-il déjà un contexte d'empilement ?
+                const dansUnContexte = ancetres.some(declareZ);
+                if (!heriteDeLaBase && !dansUnContexte) {
+                    fixesSansZ.push({ f, selecteur: propre.slice(0, 60) });
+                }
             }
-            for (const d of corps.matchAll(/([a-z-]+)\s*:\s*([^;]+);/g)) {
-                const cle = sel.trim().replace(/\s+/g, ' ') + '|' + d[1];
-                if (!declarations.has(cle)) declarations.set(cle, new Set());
-                declarations.get(cle).add(d[2].trim());
+            // Le CONTEXTE compte, et l'ignorer rendait ce relevé inutilisable.
+            //
+            // Les 291 « conflits » qu'il annonçait étaient presque tous du CSS
+            // parfaitement correct :
+            //
+            //   · `.hero → height : 520px vs 460px vs 380px` — trois valeurs
+            //     dans trois `@media` différentes. C'est du responsive, pas un
+            //     conflit ;
+            //   · `from → transform : scale(1.06) vs scale(0.985)` — deux
+            //     `@keyframes` sans rapport, dont les sélecteurs s'appellent
+            //     tous les deux `from`.
+            //
+            // On qualifie donc la clé par le bloc `@` englobant, et on écarte
+            // les sélecteurs d'images-clés. Ce qui reste est une vraie
+            // redéclaration : deux valeurs, même sélecteur, même contexte —
+            // l'une gagne, et laquelle dépend de l'ordre du fichier.
+            const contexte = blocEnglobant(s, bloc.index);
+            const estImageCle = /^\s*(from|to|\d+%)\s*$/.test(sel);
+            if (!estImageCle && !/^\s*@/.test(sel)) {
+                for (const d of corps.matchAll(/([a-z-]+)\s*:\s*([^;]+);/g)) {
+                    // La clé porte le FICHIER : `global.css` pose la base et
+                    // `accueil.css` la surcharge, c'est la cascade, telle
+                    // qu'on l'a voulue. Ce qui mérite un regard, c'est le même
+                    // sélecteur redéclaré DEUX FOIS dans le même fichier et le
+                    // même contexte — là, l'une des deux valeurs ne sert à
+                    // rien, et personne ne sait laquelle.
+                    const cle = f + ' » ' + contexte + sel.trim().replace(/\s+/g, ' ') + '|' + d[1];
+                    if (!declarations.has(cle)) declarations.set(cle, new Set());
+                    declarations.get(cle).add(d[2].trim());
+                }
             }
         }
 

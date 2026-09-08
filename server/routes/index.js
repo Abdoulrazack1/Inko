@@ -78,7 +78,14 @@ router.get('/openapi.json', (_req, res) => {
 
 // ── Auth ─────────────────────────────────────────
 router.get ('/auth/providers',      Auth.providers);
-router.post('/auth/google',         Auth.googleAuth);
+// `authLimiter` ici comme sur login/register/reset : c'est le seul point
+// d'entree d'authentification qui n'en avait pas, et il est le plus couteux.
+// Chaque appel part interroger `oauth2.googleapis.com/tokeninfo` avec un
+// timeout de 10 s, et cree un compte si l'email est inconnu. Sans limite, on
+// peut donc a la fois pilonner l'authentification et retenir les sockets du
+// serveur avec des jetons bidons. `skipSuccessfulRequests` ne compte que les
+// echecs : une connexion Google valide n'est jamais penalisee.
+router.post('/auth/google',         authLimiter, Auth.googleAuth);
 router.get ('/auth/google-config',  auth.authRequired, Auth.getGoogleConfig);
 router.put ('/auth/google-config',  auth.authRequired, Auth.setGoogleConfig);
 router.post('/auth/local',          auth.localOnly, authLimiter, Auth.localAuth);   // SEC-01 : boucle locale uniquement

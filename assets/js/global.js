@@ -81,21 +81,41 @@
         const e = window.MH.lastApiError;
         return !!e && (e.network || (e.status >= 500 && e.status <= 599));
     };
+    // Audit 2026-09-08 : une TROISIÈME situation manquait, et c'est celle du
+    // téléphone. En mode autonome il n'y a AUCUN hub, donc aucune session —
+    // par conception, pas par accident. Ces neuf pages annonçaient pourtant
+    // « Ta session a expiré ou tu n'es pas connecté » et offraient un bouton
+    // « Se reconnecter » qui recharge la page. On appuie, la page revient
+    // identique, on recommence. Rien, nulle part, ne disait qu'il fallait un
+    // ordinateur — ni comment en connecter un, alors que le réglage existe.
+    //
+    // Relevé par l'audit des contrôles : « Se reconnecter » ressortait inerte
+    // sur `import`, `profil` et `stats` en mode autonome uniquement.
     window.MH.guestNotice = function ({ compact = false } = {}) {
-        const down  = window.MH.serverIsDown();
-        const title = down ? 'Serveur indisponible' : 'Connexion requise';
-        const body  = down
-            ? 'Le serveur ne répond pas (base de données injoignable ou service arrêté). Tes données sont intactes — réessaie dans un instant.'
-            : 'Ta session a expiré ou tu n\'es pas connecté. Recharge la page pour rétablir la session.';
-        const cta   = down ? 'Réessayer' : 'Se reconnecter';
+        const autonome = !!window.INKO_AUTONOME;
+        const down  = !autonome && window.MH.serverIsDown();
+        const title = autonome ? 'Aucun ordinateur connecté'
+            : (down ? 'Serveur indisponible' : 'Connexion requise');
+        const body  = autonome
+            ? 'Cette page lit des données que ton ordinateur synchronise. Sans hub connecté, elle reste vide — le catalogue, la recherche et tes chapitres téléchargés fonctionnent, eux, sans rien de plus.'
+            : (down
+                ? 'Le serveur ne répond pas (base de données injoignable ou service arrêté). Tes données sont intactes — réessaie dans un instant.'
+                : 'Ta session a expiré ou tu n\'es pas connecté. Recharge la page pour rétablir la session.');
+        const cta   = autonome ? 'Connecter un ordinateur' : (down ? 'Réessayer' : 'Se reconnecter');
+        // En autonome, recharger ne changera jamais rien : on ouvre le réglage
+        // du hub. `INKO_changerHub` vient de `hub.js` ; s'il manque, on retombe
+        // sur les paramètres, qui portent la même entrée.
+        const action = autonome
+            ? "window.INKO_changerHub ? window.INKO_changerHub() : (location.href='parametres.html')"
+            : 'location.reload()';
         if (compact) {
             return `<div style="font-size:12.5px;color:var(--text3);padding:4px 0 2px">
-                ${title} — <a href="#" class="link-orange" onclick="location.reload();return false">${cta.toLowerCase()}</a>.</div>`;
+                ${title} — <a href="#" class="link-orange" onclick="${action};return false">${cta.toLowerCase()}</a>.</div>`;
         }
         return `<div style="text-align:center;padding:34px 16px">
             <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">${title}</div>
             <div style="color:var(--text3);margin-bottom:18px">${body}</div>
-            <button class="btn btn-primary" onclick="location.reload()">${cta}</button>
+            <button class="btn btn-primary" onclick="${action}">${cta}</button>
         </div>`;
     };
 
