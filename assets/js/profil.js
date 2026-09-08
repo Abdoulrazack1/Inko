@@ -423,9 +423,8 @@
             const byId = await loadMangasMap(sample.map(f => f.id || f.mangaId), { full: true });
             const mangas = [...byId.values()];
             const counts = {};
-            let total = 0;
             mangas.filter(Boolean).forEach(m => (m.tags || []).slice(0, 6).forEach(t => {
-                counts[t] = (counts[t] || 0) + 1; total++;
+                counts[t] = (counts[t] || 0) + 1;
             }));
             const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4);
             if (!top.length) return;

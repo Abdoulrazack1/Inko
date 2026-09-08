@@ -601,6 +601,25 @@ body.incognito-on::before {
 .footer-col ul { display: flex; flex-direction: column; gap: 8px; }
 .footer-col a { font-size: 13px; color: var(--text2); transition: color var(--transition); }
 .footer-col a:hover { color: var(--orange); }
+
+/* ── Les liens de pied de page, au doigt ─────────────────────
+   Ils font 17 px de haut : la hauteur d'une ligne de texte de 13 px, sans
+   rembourrage. Au doigt, viser « Top » (21x17) ou « Licence » (44x17) rate
+   plus souvent qu'il ne touche, et le lien voisin est a 8 px.
+
+   L'audit mobile le comptait 197 fois — dix liens sur vingt-trois pages. Ce
+   n'est pas 197 defauts, c'est CELUI-CI, et il se corrige une fois.
+
+   Seulement au pointeur grossier : sur un ecran a la souris, la cible de 17 px
+   se vise tres bien, et etirer chaque lien a 44 px etirerait le pied de page
+   sans rien apporter. La zone cliquable grandit, pas le texte. */
+@media (pointer: coarse) {
+  .footer-col ul { gap: 0; }
+  .footer-col a {
+    display: flex; align-items: center;
+    min-height: 44px;   /* recommandation tactile iOS/Material */
+  }
+}
 .footer-bottom {
   max-width: 1200px; margin: 32px auto 0;
   padding: 20px 24px 0; border-top: 1px solid var(--border);

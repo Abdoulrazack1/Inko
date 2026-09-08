@@ -55,7 +55,7 @@
     S.expanded = false; // toujours replié au chargement
     function save() { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) { window.MH?.err?.('music.js', e); } }
 
-    let root, bar, panel, mediaHost, ytPlayer, ytReadyCb = [], localAudio, localQueue = [], localIdx = -1, playing = false;
+    let root, ytPlayer, ytReadyCb = [], localAudio, localQueue = [], localIdx = -1, playing = false;
 
     // ══════════════════════ STYLES ══════════════════════
 
@@ -93,9 +93,9 @@
             </div>
             <button class="im-pill" id="im-pill" title="Rouvrir le lecteur" aria-label="Rouvrir le lecteur musique">${ICON.note}<span class="peq" style="display:none"><i></i><i></i><i></i></span></button>`;
         document.body.appendChild(root);
-        bar = root.querySelector('.im-bar');
-        panel = root.querySelector('.im-panel');
-        mediaHost = null; // créé à la volée dans le contenu
+        // `.im-bar`, `.im-panel` et l'hote media etaient captures ici dans
+        // trois variables que personne ne relisait ensuite : le lecteur
+        // retrouve ses noeuds par selecteur au moment ou il en a besoin.
 
         root.querySelector('#im-exp').onclick = () => setExpanded(!root.classList.contains('open'));
         root.querySelector('#im-min').onclick = minimize;

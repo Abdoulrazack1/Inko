@@ -64,11 +64,9 @@
     }
 
     // ── Couleur d'accent personnalisable ──
-    function hexToRgba(hex, a) {
-        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
-        if (!m) return `rgba(255,107,26,${a})`;
-        return `rgba(${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)},${a})`;
-    }
+    // `hexToRgba` vivait ici pour fabriquer le halo de l'accent. Le §13 a
+    // supprime le halo (`--orange-glow: transparent`) : la fonction n'avait
+    // plus d'appelant, seulement l'air d'en avoir un.
     function lighten(hex, amt) {
         const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
         if (!m) return '#ff8c42';

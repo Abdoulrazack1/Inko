@@ -177,7 +177,16 @@
         // La liste des sources : seules celles que le téléphone sait
         // interroger. Annoncer les autres donnerait un catalogue qui échoue
         // au premier appui.
-        if (chemin === '/sources') return { sources: moteur.liste, current: moteur.defaut.id };
+        // Le hub repond un TABLEAU sur /sources. Ce moteur repondait
+        // `{ sources, current }` : une forme que PERSONNE ne lit. Les six
+        // appelants de `API.sources.list()` font tous `.filter`/`.find`/
+        // `.length` directement dessus, et le mode autonome cassait donc
+        // `sourcesList.filter is not a function` (catalogue, recherche),
+        // une liste de sources vide (page Sources), une carte des types
+        // vide (global.js) et — le plus sournois — un roman ouvert dans le
+        // lecteur d'IMAGES, parce que `chapitre.js` ne trouvait plus
+        // `type === 'novel'`. On rend la meme forme que le hub.
+        if (chemin === '/sources') return moteur.liste;
 
         // « Rechercher partout » : sans hub, « partout » se limite aux
         // sources embarquées — et c'est ce qu'on répond, plutôt que rien.
@@ -621,7 +630,13 @@
 
         // ── Sources (extensions installées) ──
         sources: {
-            list:    ()             => get('/sources'),
+            // Normalise la reponse : le hub rend un tableau, mais une
+            // version anterieure du moteur embarque rendait
+            // `{ sources, current }`. Un appelant qui recoit l'objet plante
+            // sur `.filter`. Le contrat est fixe ICI, une fois, plutot que
+            // reverifie dans chacune des six pages qui appellent.
+            list: () => get('/sources').then(r =>
+                Array.isArray(r) ? r : (Array.isArray(r?.sources) ? r.sources : [])),
             uninstall:  (id) => post('/extensions/' + encodeURIComponent(id) + '/uninstall'),
             reinstall:  (id) => post('/extensions/' + encodeURIComponent(id) + '/reinstall'),
             uninstalled:()   => get('/extensions/uninstalled'),

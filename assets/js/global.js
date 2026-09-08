@@ -1883,7 +1883,23 @@
         if (document.getElementById('inkoConsent')) return;
         const bar = document.createElement('div');
         bar.id = 'inkoConsent';
-        bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;max-width:760px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45);padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap';
+        // Ancre AU-DESSUS de la barre d'onglets, comme `.mh-bandeau` plus haut.
+        //
+        // Il valait `bottom:12px` : sur telephone, avec son z-index de 9999
+        // contre 95 pour la barre, il se posait PAR-DESSUS elle et rendait les
+        // onglets « Profil » et « Plus » inatteignables — mesure faite avec
+        // `elementFromPoint` au centre de chaque onglet. Un bandeau qu'on doit
+        // fermer pour atteindre la navigation, alors que le voisin `.mh-bandeau`
+        // reglait deja exactement ce probleme avec `--mh-barre-onglets`.
+        //
+        // Doublon volontaire sur `bottom` : env() est du Chrome 69, et le
+        // WebView d'Android 8 jette la declaration entiere au lieu de retomber
+        // sur une valeur par defaut — meme raison qu'a la ligne ~478.
+        bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;'
+            + 'bottom:calc(12px + var(--mh-barre-onglets, 0px) + env(safe-area-inset-bottom, 0px));'
+            + 'z-index:9999;max-width:760px;margin:0 auto;background:var(--bg2);'
+            + 'border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45);'
+            + 'padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap';
         bar.innerHTML = `
             <div style="flex:1;min-width:220px;font-size:13px;color:var(--text2);line-height:1.5">
                 Inko stocke des données locales (session, préférences) pour fonctionner et synchroniser ta bibliothèque.

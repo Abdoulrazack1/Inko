@@ -25,14 +25,19 @@
         const qInitial = new URLSearchParams(location.search).get('q') || '';
         if (qInitial) rechercheLocale(qInitial, reqSeq);
 
-        await window.UserData?.ready?.();
-        try { favSet = await MH.getFavSet(); } catch (e) { window.MH?.err?.('recherche.js', e); }
-
         const input = document.getElementById('seInput');
-        const q = qInitial;
-        if (q) { input.value = q; submit(q); } else { renderHistory(); renderSuggestions(); }
-        input.focus();
 
+        // Les ECOUTEURS D'ABORD, les donnees ensuite.
+        //
+        // Ils etaient poses APRES `UserData.ready()` et `getFavSet()` — deux
+        // allers-retours reseau. Entre l'affichage de la page et leur retour,
+        // le champ, la touche Entree et le bouton « Rechercher » ne
+        // repondaient a RIEN : le controle principal de la page etait mort,
+        // sans le moindre signal, aussi longtemps que durait le reseau. Sur un
+        // lien lent, on tape, on appuie sur Entree, il ne se passe rien.
+        //
+        // Rien ici n'a besoin de `favSet` : il ne sert qu'au rendu des
+        // resultats, et il est relu a ce moment-la.
         document.getElementById('seGo').addEventListener('click', () => submit(input.value));
         // Recherche live : débounce 300 ms dès 2 caractères (audit §11)
         input.addEventListener('input', () => {
@@ -45,6 +50,18 @@
             if (e.key === 'Enter') { clearTimeout(liveTimer); submit(input.value); }
             else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { moveHistoryHighlight(e.key === 'ArrowDown' ? 1 : -1, e); }
         });
+        input.focus();
+
+        await window.UserData?.ready?.();
+        try { favSet = await MH.getFavSet(); } catch (e) { window.MH?.err?.('recherche.js', e); }
+
+        // Consequence directe d'avoir avance les ecouteurs : on PEUT desormais
+        // taper pendant que les donnees arrivent. Reposer `?q=` par-dessus
+        // effacerait cette saisie — on ne le fait donc que si le champ est
+        // reste intact.
+        const q = qInitial;
+        if (q && (input.value === '' || input.value === q)) { input.value = q; submit(q); }
+        else if (!input.value.trim()) { renderHistory(); renderSuggestions(); }
     });
 
     // ── Historique (UserData) — navigable au clavier (audit §11) ──

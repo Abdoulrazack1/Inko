@@ -92,6 +92,57 @@ test('les couvertures ne sont pas réécrites vers un hub inexistant', async () 
     assert.match(r.results[0].coverThumb, /^https:\/\/uploads\.mangadex\.org\//);
 });
 
+test('API.sources.list() rend un TABLEAU — la forme que les six pages lisent', async () => {
+    // Le moteur embarque repondait `{ sources, current }` alors que le hub
+    // rend un tableau. Aucun appelant ne lit `.sources` : catalogue.js et
+    // recherche.js font `.filter` directement dessus, sources.js lit
+    // `.length`, global.js fait `.forEach`. Le mode autonome cassait donc sur
+    // « sourcesList.filter is not a function » — et chapitre.js, ne trouvant
+    // plus `type === 'novel'`, ouvrait les romans dans le lecteur d'IMAGES.
+    const { API } = monter();
+    const liste = await API.sources.list();
+
+    assert.ok(Array.isArray(liste), 'la liste des sources doit etre un tableau');
+    assert.ok(liste.length > 0, 'le moteur embarque doit annoncer au moins une source');
+    // Les operations que les pages appliquent reellement, exercees ici.
+    assert.doesNotThrow(() => liste.filter(s => s.id));
+    assert.doesNotThrow(() => liste.find(s => s.id === 'mangadex'));
+
+    // Les champs dont dependent les pages : `type` pilote le choix du lecteur.
+    for (const s of liste) {
+        assert.equal(typeof s.id, 'string', 'chaque source porte un id');
+        assert.ok(s.type === undefined || typeof s.type === 'string');
+    }
+
+    // `list()` normalise — donc ce qui precede passerait MEME si le moteur
+    // rendait de nouveau un objet. On epingle donc aussi le contrat du moteur
+    // lui-meme : sans ca, la garde de `list()` masquerait la regression et ce
+    // test ne protegerait plus rien.
+    const src = fs.readFileSync(path.join(ROOT, 'assets', 'js', 'api.js'), 'utf8');
+    const route = /if \(chemin === '\/sources'\) return ([^;]+);/.exec(src);
+    assert.ok(route, 'la route /sources du moteur embarque doit rester lisible');
+    assert.equal(route[1].trim(), 'moteur.liste',
+        'le moteur embarque doit rendre le TABLEAU, comme le hub — pas { sources, current }');
+});
+
+test('list() encaisse l’ancienne forme { sources } sans casser les pages', () => {
+    // Le hub d'une version anterieure — ou une reponse en cache posee avant la
+    // correction — peut encore rendre l'objet. La normalisation vit dans
+    // `list()` pour que ce cas ne redevienne jamais une panne de six pages.
+    const normalise = (r) => Array.isArray(r) ? r : (Array.isArray(r?.sources) ? r.sources : []);
+    assert.deepEqual(normalise({ sources: [{ id: 'a' }], current: 'a' }), [{ id: 'a' }]);
+    assert.deepEqual(normalise([{ id: 'b' }]), [{ id: 'b' }]);
+    assert.deepEqual(normalise(null), []);
+    assert.deepEqual(normalise({ erreur: 'x' }), []);
+
+    // Et la garde est bien PRESENTE dans api.js, pas seulement dans ce test.
+    const src = fs.readFileSync(path.join(ROOT, 'assets', 'js', 'api.js'), 'utf8');
+    const decl = /list:\s*\(\)\s*=>\s*get\('\/sources'\)([\s\S]{0,220})/.exec(src);
+    assert.ok(decl, 'API.sources.list doit rester lisible');
+    assert.match(decl[1], /Array\.isArray/,
+        'list() doit normaliser la reponse, quelle que soit sa forme');
+});
+
 // ── Les données personnelles ────────────────────────────────
 
 test('API.me.favorites() : écrire puis relire, sans réseau du tout', async () => {

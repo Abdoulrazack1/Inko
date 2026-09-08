@@ -54,7 +54,6 @@
     // pour que les séries ne « disparaissent » jamais. La synchro revient au login.
     function showLoggedOutLibrary() {
         const cache = window.Storage?.getCachedLibrary?.();
-        const grid = document.getElementById('libGrid');
         // Onglets MAJ (nécessite le compte) masqués hors connexion ; Téléchargements reste local.
         document.querySelector('.lib2-tab[data-tab="updates"]')?.style.setProperty('display', 'none');
         document.getElementById('btnLibRefresh')?.style.setProperty('display', 'none');

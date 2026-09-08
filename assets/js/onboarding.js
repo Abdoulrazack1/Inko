@@ -172,7 +172,9 @@
 
     function render() {
         const s = SLIDES[idx];
-        const last = idx === SLIDES.length - 1;
+        // Pas de variable « derniere diapo » : c'est la diapo elle-meme qui
+        // porte son libelle d'action (`cta`), et la derniere dit deja
+        // « Commencer a lire » au lieu de « Suivant ».
         veil.querySelector('.itr-card').innerHTML = `
             <button class="itr-skip">Passer la visite</button>
             <button class="itr-later" title="La visite reprendra ici au prochain lancement">Plus tard</button>
