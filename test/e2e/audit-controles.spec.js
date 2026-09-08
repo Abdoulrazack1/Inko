@@ -25,6 +25,12 @@
 //                        changé : panneau ouvert, liste filtrée, bascule ;
 //   · OUVRE UN ONGLET  — `target="_blank"` : la page courante ne bouge pas,
 //                        et c'est normal. Non actionné, verdict certain ;
+//   · MÊME PAGE        — un lien vers la page où l'on est déjà. Le pied de
+//                        page en porte un partout, et il marchait ;
+//   · RECHARGE LA PAGE — `location.reload()` rend un document identique à
+//                        toutes les mesures. Une sentinelle posée avant le
+//                        clic le trahit : si elle a disparu, la page est
+//                        repartie du serveur ;
 //   · INERTE           — rien n'a bougé. C'est un constat, PAS une
 //                        condamnation : un bouton peut légitimement ne rien
 //                        faire dans cet état (« Marquer lu » sans chapitre
@@ -261,6 +267,13 @@ const LISTER = ({ DESTRUCTIF_SRC }) => {
                 // une trentaine de faux inertes pour quatre liens qui
                 // marchent parfaitement.
                 nouvelOnglet: e.getAttribute('target') === '_blank',
+                // Un lien vers la page ou l'on EST DEJA ne peut rien changer.
+                // Le pied de page en porte un sur chaque page (« Importer un
+                // fichier » depuis import.html) : il marche parfaitement, et il
+                // etait compte comme inerte.
+                memePage: e.tagName === 'A'
+                    && !!e.href
+                    && e.href.split('#')[0] === location.href.split('#')[0],
                 destructif: DESTRUCTIF.test(libelle),
             });
         });
@@ -454,13 +467,22 @@ async function auditerMode(browser, MODE) {
                 // ralentirait l'audit sans rien apprendre. Le verdict se lit
                 // dans le balisage, et il est certain.
                 if (c.nouvelOnglet) { verdicts.push({ ...c, verdict: 'OUVRE UN ONGLET' }); continue; }
+                if (c.memePage) { verdicts.push({ ...c, verdict: 'MÊME PAGE' }); continue; }
                 let verdict = 'INERTE';
                 try {
                     const avant = await page.evaluate(SIGNATURE);
                     const cible = page.locator(`[data-audit="${c.ref}"]`).first();
                     if (!(await cible.count())) { verdicts.push({ ...c, verdict: 'DISPARU' }); continue; }
+                    // Sentinelle : un `location.reload()` rend une page IDENTIQUE,
+                    // donc invisible a toutes les mesures — le bouton
+                    // « Reessayer » de la page hors-ligne, dont c'est la seule
+                    // action, ressortait inerte. Si la sentinelle a disparu,
+                    // c'est que le document a ete remplace.
+                    await page.evaluate(() => { window.__auditSentinelle = 1; });
                     await cible.click({ timeout: 2500, force: true, noWaitAfter: true });
                     await page.waitForTimeout(700);
+                    const rechargee = await page.evaluate(
+                        () => typeof window.__auditSentinelle === 'undefined').catch(() => false);
                     let apres = await page.evaluate(SIGNATURE);
 
                     // Un SECOND regard avant de conclure a l'inertie.
@@ -487,7 +509,9 @@ async function auditerMode(browser, MODE) {
                         apres = await page.evaluate(SIGNATURE);
                     }
 
-                    if (apres.url !== avant.url) {
+                    if (rechargee && apres.url === avant.url) {
+                        verdict = 'RECHARGE LA PAGE';
+                    } else if (apres.url !== avant.url) {
                         verdict = 'NAVIGUE → ' + apres.url.replace(BASE + '/', '');
                         await page.goto(BASE + '/' + slug + '.html', { waitUntil: 'domcontentloaded' });
                         await page.waitForTimeout(1600);
@@ -601,6 +625,8 @@ function ecrire(parMode) {
     L.push('| `OUVRE UN ONGLET` | `target="_blank"` : la page courante ne bouge pas, c’est normal |');
     L.push('| `AGIT (focus déplacé)` | le focus a changé de cible — un lien d’évitement, une ancre |');
     L.push('| `AGIT (défilement)` | la page a défilé |');
+    L.push('| `MÊME PAGE` | lien vers la page courante : il ne peut rien changer, et c’est normal |');
+    L.push('| `RECHARGE LA PAGE` | la page est repartie du serveur — identique à l’œil, mais le contrôle a agi |');
     L.push('| `INERTE` | **rien n’a bougé** — à examiner |');
     L.push('| `ÉVITÉ` | libellé destructif : non actionné, par précaution |');
     L.push('');

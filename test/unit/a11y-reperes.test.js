@@ -102,3 +102,49 @@ test('la classe qui cache aux yeux sans cacher aux lecteurs est correcte', () =>
     assert.ok(!/visibility\s*:\s*hidden/.test(bloc[1]), 'visibility:hidden aussi');
     assert.match(bloc[1], /position\s*:\s*absolute/);
 });
+
+// ── Les contrôles qui n'existent qu'une fois la page rendue ──
+//
+// Ce fichier lit le HTML. Or la moitié des contrôles d'Inko est fabriquée en
+// JavaScript, et c'est là que se cachaient les pires : l'audit des contrôles,
+// qui actionne une VRAIE page, en a relevé huit qui n'annonçaient qu'un
+// pictogramme — « guillemet simple gauche » pour les flèches de chapitre,
+// « 1 », « 2 » pour la pagination, « ▶ » pour le lien de reprise.
+//
+// Le cas des flèches de chapitre dit tout : `lecture.js` (romans) portait
+// `title="Chapitre précédent (←)"` sur ces boutons, `chapitre.js` (images) ne
+// portait rien. Mêmes ids, même gabarit d'origine, deux fichiers — un seul
+// avait reçu le correctif. C'est cette dérive-là qu'on tient ici.
+const lireJs = (f) => fs.readFileSync(path.join(ROOT, 'assets', 'js', f), 'utf8');
+
+/** Un pictogramme entre `>` et `</…>` sans le moindre caractère lisible. */
+const SANS_NOM = /<(button|a)\b([^>]*)>\s*([\u2039\u203a\u25b6\u25c0\u2715\u2716\u00d7\u2190\u2192\u2026]|&[a-z]+;)\s*<\/\1>/gi;
+
+for (const f of ['chapitre.js', 'lecture.js', 'catalogue.js', 'collections.js', 'profil.js']) {
+    test(`${f} : aucun contrôle réduit à un pictogramme`, () => {
+        const src = lireJs(f);
+        const nus = [];
+        for (const m of src.matchAll(SANS_NOM)) {
+            const attrs = m[2] || '';
+            if (/aria-label=|aria-labelledby=|title=/.test(attrs)) continue;
+            nus.push(m[0].replace(/\s+/g, ' ').slice(0, 90));
+        }
+        assert.deepEqual(nus, [],
+            `ces contrôles n'annoncent qu'un caractère : ${nus.join(' | ')}`);
+    });
+}
+
+test('les deux lecteurs nomment leurs flèches de chapitre de la même façon', () => {
+    // La symétrie EST le test : dès que les deux vues divergent, l'une des
+    // deux a été oubliée — c'est exactement ce qui était arrivé.
+    for (const f of ['chapitre.js', 'lecture.js']) {
+        const src = lireJs(f);
+        for (const id of ['btnPrevChap', 'btnNextChap']) {
+            const bouton = new RegExp(`<button[^>]*id="${id}"[^>]*>`).exec(src)
+                || new RegExp(`<button[^>]*${id}[^>]*>`).exec(src);
+            assert.ok(bouton, `${f} : le bouton ${id} doit rester lisible`);
+            assert.match(bouton[0], /aria-label=|title=/,
+                `${f} : ${id} n'annonce qu'un chevron — il lui faut un nom`);
+        }
+    }
+});

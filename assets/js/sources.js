@@ -84,7 +84,10 @@
         let sources, sante = [];
         try { sources = await API.sources.list(); }
         catch (e) {
-            el.innerHTML = `<div class="empty-state" style="color:#ef4444">Erreur : ${MH.esc(e.message)}</div>`;
+            // Taxonomie P1.6. Cette page est celle qu'on ouvre JUSTEMENT quand
+            // quelque chose ne répond plus : y afficher un code technique sans
+            // action était le pire endroit pour le faire.
+            MH.poserEtatErreur(el, e, { onRetry: () => render() });
             return;
         }
 

@@ -91,6 +91,19 @@
             document.getElementById('pageTitle').textContent =
                 `${manga.title} — ${currentChap.title || 'Chapitre ' + currentChap.chapter}`;
 
+            // Un chapitre VIDE n'est pas un chapitre chargé.
+            //
+            // Même piège que dans le lecteur d'images : la source rend un objet
+            // bien formé dont le contenu est vide, aucune exception n'est
+            // levée, et le lecteur affichait alors un titre suivi de rien —
+            // sans dire si le chapitre est vide, si la source a échoué, ou s'il
+            // faut attendre.
+            if (!String(textData?.content || '').trim()) {
+                renderToolbar();
+                showError('Ce chapitre est vide');
+                return;
+            }
+
             renderToolbar();
             renderContent(textData);
             renderEnd();
@@ -98,14 +111,40 @@
             bindKeyboard();
             await restoreScroll();
         } catch (e) {
-            showError('Impossible de charger le chapitre : ' + e.message);
+            showError(e);
         }
     });
 
-    function showError(msg) {
+    /**
+     * L'écran d'échec du lecteur de romans.
+     *
+     * Mesuré par l'audit des états, API coupée : vingt-trois caractères à
+     * l'écran, en rouge, dont « Failed to fetch ». Une sortie unique —
+     * « Retour » — donc rien pour la panne la plus courante : le réseau qui
+     * cligne. « Réessayer » suffit neuf fois sur dix, et n'était pas là.
+     *
+     * `history.back()` passe en écouteur : un `href="javascript:"` ne s'ouvre
+     * pas dans un onglet et va contre le retrait annoncé de
+     * `script-src-attr 'unsafe-inline'`.
+     */
+    function showError(err) {
         const el = document.getElementById('novelContent');
-        if (el) el.innerHTML = `<div class="novel-loading" style="color:#ef4444">${MH.esc(msg)}
-            <a href="javascript:history.back()" class="btn btn-ghost btn-sm">↩ Retour</a></div>`;
+        if (!el) return;
+        const retour = { libelle: '↩ Retour', onClick: () => history.back() };
+        if (err instanceof Error) {
+            const src = new URLSearchParams(location.search).get('source') || undefined;
+            const m = MH.messageErreur(err, { onRetry: () => location.reload(), source: src });
+            m.actions = [...(m.actions || []), retour];
+            MH.poserEtatVide(el, m);
+            el.firstChild?.setAttribute('role', 'alert');
+            return;
+        }
+        MH.poserEtatVide(el, {
+            icone: '\u{1F517}',
+            titre: String(err || 'Chapitre indisponible'),
+            texte: 'Le lien est peut-être incomplet.',
+            actions: [retour, { libelle: 'Accueil', href: 'accueil.html' }],
+        });
     }
 
     function neighborChapter(delta) {
@@ -418,7 +457,7 @@
         pop.id = 'novelToc';
         pop.className = 'novel-toc-pop';
         pop.innerHTML = `<div class="ns-head"><span>Sommaire · ${sections.length} sections</span>
-            <button class="ns-close" id="tocClose">✕</button></div>
+            <button class="ns-close" id="tocClose" aria-label="Fermer le sommaire">✕</button></div>
             <div class="novel-toc-list">${sections.map(s =>
         `<button class="novel-toc-item lvl${s.niveau}" data-sec="${MH.esc(s.id)}">${MH.esc(s.texte)}</button>`).join('')}</div>`;
         document.body.appendChild(pop);
@@ -680,7 +719,7 @@
         const seg = (key, opts, cur) => `<div class="ns-seg" data-key="${key}">` +
             opts.map(o => `<button data-val="${o.v}" class="${cur == o.v ? 'on' : ''}">${o.l}</button>`).join('') + `</div>`;
         panel.innerHTML = `
-            <div class="ns-head"><span>Réglages de lecture</span><button class="ns-close" id="nsClose">✕</button></div>
+            <div class="ns-head"><span>Réglages de lecture</span><button class="ns-close" id="nsClose" aria-label="Fermer les réglages de lecture">✕</button></div>
             <div class="ns-label"><span>Taille du texte</span><span id="nsSizeVal">${ns.size}px</span></div>
             <input type="range" id="nsSize" class="ns-range" min="13" max="26" step="1" value="${ns.size}">
             <div class="ns-label"><span>Interligne</span><span id="nsLhVal">${ns.lh}</span></div>

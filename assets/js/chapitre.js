@@ -205,6 +205,20 @@
             pages = pagesData.pages || [];
             totalPages = pages.length;
 
+            // Zéro page n'est PAS un succès.
+            //
+            // La source rend un objet parfaitement formé, avec une liste de
+            // pages vide — aucune exception n'est levée. Le lecteur poursuivait
+            // donc son montage, ne dessinait rien, et laissait « Chargement… »
+            // à l'écran pour toujours. Constaté à la main sur un identifiant de
+            // chapitre inventé : zéro image, zéro erreur, un spinner éternel.
+            // C'est le pire des états — l'utilisateur attend quelque chose qui
+            // n'arrivera jamais, et rien ne lui dit d'abandonner.
+            if (!totalPages) {
+                showError('Ce chapitre ne contient aucune page');
+                return;
+            }
+
             document.getElementById('pageTitle').textContent =
                 `${manga.title} — ${MH.unitLabel(API.sources.current, { short: true })} ${currentChap.chapter}`;
 
@@ -242,7 +256,7 @@
             preloadNextChapter();
             requestWakeLock();
         } catch (e) {
-            showError('Impossible de charger le chapitre : ' + e.message);
+            showError(e);
         }
     });
 
@@ -255,17 +269,43 @@
             <div class="reader-loading-info">${MH.esc(msg)}</div>
         </div>`;
     }
-    function showError(msg) {
+    /**
+     * L'écran d'échec du lecteur.
+     *
+     * Deux défauts, mesurés par l'audit des états (toutes les requêtes `/api`
+     * coupées) : la page rendait trente-neuf caractères, et le message était
+     * « Impossible de charger le chapitre : Failed to fetch » — un code
+     * technique. Surtout, il n'y avait **aucun « Réessayer »** : la panne la
+     * plus fréquente d'un lecteur (le réseau qui cligne) n'offrait que
+     * « Retour » et « Accueil », c'est-à-dire abandonner.
+     *
+     * `history.back()` est branché en écouteur, plus en `href="javascript:"` :
+     * un lien pareil ne s'ouvre pas dans un onglet, ne se copie pas, et va
+     * contre le retrait annoncé de `script-src-attr 'unsafe-inline'`.
+     */
+    function showError(err) {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
-        el.innerHTML = `<div class="reader-unavailable">
-            <div class="reader-unavail-icon"></div>
-            <div class="reader-unavail-msg">${MH.esc(msg)}</div>
-            <div class="reader-unavail-actions">
-                <a href="javascript:history.back()" class="btn btn-ghost btn-sm">↩ Retour</a>
-                <a href="accueil.html" class="btn btn-primary btn-sm">Accueil</a>
-            </div>
-        </div>`;
+        const retour = { libelle: '↩ Retour', onClick: () => history.back() };
+        const accueil = { libelle: 'Accueil', href: 'accueil.html' };
+
+        if (err instanceof Error) {
+            // La source vient de l'URL : elle n'est pas une variable de ce
+            // module, et `source` tout court aurait silencieusement designé
+            // `window.source`.
+            const src = new URLSearchParams(location.search).get('source') || undefined;
+            const m = MH.messageErreur(err, { onRetry: () => location.reload(), source: src });
+            m.actions = [...(m.actions || []), retour, accueil];
+            MH.poserEtatVide(el, m);
+            el.firstChild?.setAttribute('role', 'alert');
+            return;
+        }
+        MH.poserEtatVide(el, {
+            icone: '\u{1F517}',
+            titre: String(err || 'Chapitre indisponible'),
+            texte: 'Le lien est peut-être incomplet.',
+            actions: [retour, accueil],
+        });
     }
 
     // ── Toolbar ──
@@ -284,13 +324,13 @@
             <span class="toolbar-chap">${MH.unitLabel(API.sources.current, { short: true })} ${currentChap.chapter}</span>
         </div>
         <div class="toolbar-center">
-            <button class="reader-icon-btn" ${!prevChap ? 'disabled' : ''} id="btnPrevChap">‹</button>
+            <button class="reader-icon-btn" ${!prevChap ? 'disabled' : ''} id="btnPrevChap" title="Chapitre précédent (←)" aria-label="Chapitre précédent">‹</button>
             <select class="reader-chap-select" id="chapSelect">
                 ${asc.slice().reverse().map(c =>
                     `<option value="${c.id}" ${c.id === currentChap.id ? 'selected' : ''}>${MH.unitLabel(API.sources.current, { short: true })} ${c.chapter}${c.title ? ' — ' + c.title : ''}</option>`
                 ).join('')}
             </select>
-            <button class="reader-icon-btn" ${!nextChap ? 'disabled' : ''} id="btnNextChap">›</button>
+            <button class="reader-icon-btn" ${!nextChap ? 'disabled' : ''} id="btnNextChap" title="Chapitre suivant (→)" aria-label="Chapitre suivant">›</button>
         </div>
         <div class="toolbar-right">
             <button class="reader-icon-btn" id="btnBookmark" title="Ajouter un signet sur cette page (B)">
@@ -1696,7 +1736,7 @@
             opts.map(o => `<button data-val="${o.v}" class="${cur == o.v ? 'on' : ''}">${o.l}</button>`).join('') + `</div>`;
         const q = window.Storage?.getPref('quality') || 'high';
         panel.innerHTML = `
-            <div class="rs-head"><span>Réglages du lecteur</span><button class="rs-close" id="rsClose">✕</button></div>
+            <div class="rs-head"><span>Réglages du lecteur</span><button class="rs-close" id="rsClose" aria-label="Fermer les réglages de lecture">✕</button></div>
             <label class="rs-label">Fond</label>
             ${seg('bg', [{v:'dark',l:'Sombre'},{v:'black',l:'Noir'},{v:'gray',l:'Gris'},{v:'sepia',l:'Sépia'},{v:'light',l:'Clair'}], rs.bg)}
             <label class="rs-label">Ajustement</label>

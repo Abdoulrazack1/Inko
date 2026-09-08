@@ -2,15 +2,21 @@
 (function () {
     'use strict';
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        MH.initPage('stats');
+    // Le chargement est une fonction NOMMÉE, et pas seulement pour la forme :
+    // sans elle, l'état d'erreur ne pouvait offrir aucun « Réessayer » — il n'y
+    // avait rien à rejouer. C'est ce qui manquait pour appliquer ici la
+    // taxonomie P1.6, et c'est pour ça que la page en était restée à
+    // « Erreur : <message> » en rouge, sans le moindre geste possible.
+    async function charger() {
         const body = document.getElementById('stBody');
+        if (!body) return;
         await (window.API?.ready || Promise.resolve());
         if (!API.isLoggedIn()) {
             // Audit N1 : message honnête (non connecté ≠ serveur en panne)
             body.innerHTML = `<div class="st-empty">${MH.guestNotice()}</div>`;
             return;
         }
+        body.innerHTML = '<div class="st-empty"><span class="spinner-inline"></span> Chargement…</div>';
         try {
             await window.UserData?.ready?.();
             // `events` est plafonne a 120 : suffisant pour l'activite recente,
@@ -24,8 +30,13 @@
             ]);
             render(body, stats, events, favs, lus, prog);
         } catch (e) {
-            body.innerHTML = `<div class="st-empty" style="color:#ef4444">Erreur : ${MH.esc(e.message)}</div>`;
+            MH.poserEtatErreur(body, e, { onRetry: () => charger() });
         }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        MH.initPage('stats');
+        charger();
     });
 
     function render(body, stats, events, favs, lus, prog) {

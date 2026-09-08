@@ -104,3 +104,69 @@ test('« Réessayer » n’est proposé que si l’appelant sait rejouer', () =>
     const avec = MH.messageErreur(err({ status: 502 }), { onRetry() {} });
     assert.ok(avec.actions.some(a => /réessayer/i.test(a.libelle)));
 });
+
+// ── La taxonomie ne sert que si les pages l'appellent ────────
+//
+// Tout ce qui précède teste la DÉCISION de `MH.messageErreur`. Rien ne
+// vérifiait qu'une page s'en serve — et de fait, un an après P1.6, elle
+// n'était câblée que sur DEUX pages. Six autres endroits affichaient encore
+// `Erreur : ${e.message}` en rouge : le journal, les notes du lecteur, les
+// avis du profil, la recherche, la page des sources, les statistiques.
+//
+// Le pire des six est la page « Sources » : c'est celle qu'on ouvre JUSTEMENT
+// quand quelque chose ne répond plus, et elle rendait un code technique sans
+// le moindre geste possible.
+const fs = require('fs');
+const path = require('path');
+const JS = path.join(__dirname, '..', '..', 'assets', 'js');
+
+/** `Erreur : ${…}` — le motif que P1.6 a remplacé. */
+const ANCIEN_MOTIF = /Erreur\s*:\s*\$\{/;
+
+test('aucune page ne réaffiche « Erreur : <message> » à la main', () => {
+    const coupables = [];
+    for (const f of fs.readdirSync(JS).filter((x) => x.endsWith('.js'))) {
+        const src = fs.readFileSync(path.join(JS, f), 'utf8');
+        src.split('\n').forEach((ligne, i) => {
+            // Les commentaires CITENT le motif pour expliquer pourquoi il a été
+            // retiré : les exclure, sinon la documentation ferait échouer le test.
+            const nu = ligne.replace(/^\s*(\/\/|\*|\/\*).*/, '');
+            if (ANCIEN_MOTIF.test(nu)) coupables.push(`${f}:${i + 1}`);
+        });
+    }
+    assert.deepEqual(coupables, [],
+        'ces lignes affichent un code technique sans action — passe par '
+        + '`MH.poserEtatVide(cible, MH.messageErreur(e, { onRetry }))` : '
+        + coupables.join(', '));
+});
+
+test('chaque état d’erreur de page propose de rejouer', () => {
+    // `messageErreur` n'ajoute « Réessayer » que si l'appelant sait rejouer
+    // (testé plus haut). Un appel sans `onRetry` redonne donc un cul-de-sac —
+    // exactement ce qu'on vient de retirer.
+    const sansRetry = [];
+    for (const f of fs.readdirSync(JS).filter((x) => x.endsWith('.js'))) {
+        const src = fs.readFileSync(path.join(JS, f), 'utf8');
+        // On lit le fichier ENTIER, pas ligne à ligne : le contexte s'écrit
+        // souvent sur trois lignes (`{`, `source:`, `onRetry:`), et un scan
+        // ligne à ligne accusait alors des appels parfaitement corrects.
+        for (const m of src.matchAll(/MH\.(?:messageErreur|poserEtatErreur)\(/g)) {
+            const avant = src.slice(Math.max(0, m.index - 40), m.index);
+            // La DÉFINITION du helper vit dans global.js — ce n'est pas un appel.
+            if (/=\s*function\s*$/.test(avant)) continue;
+            // Fenêtre : de l'appel jusqu'à la fin de l'instruction.
+            const suite = src.slice(m.index, m.index + 260);
+            const arret = suite.indexOf(');');
+            const args = arret > 0 ? suite.slice(0, arret) : suite;
+            // On ne juge que les appels qui posent un contexte EN DUR :
+            // `poserEtatErreur(cible, err, ctx)` transmet celui de son
+            // appelant — un passe-plat, pas un site de décision.
+            if (!args.includes('{')) continue;
+            if (!/onRetry/.test(args)) {
+                sansRetry.push(`${f} → ${args.replace(/\s+/g, ' ').slice(0, 70)}`);
+            }
+        }
+    }
+    assert.deepEqual(sansRetry, [],
+        'ces appels n’offrent aucune sortie : ' + sansRetry.join(' | '));
+});

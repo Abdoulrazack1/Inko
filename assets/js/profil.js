@@ -398,7 +398,9 @@
                 </div>`;
             }).join('');
         } catch (e) {
-            el.innerHTML = `<div style="color:#ef4444;font-size:13px">Erreur : ${MH.esc(e.message)}</div>`;
+            // Taxonomie P1.6 : un avis qu'on n'arrive pas à charger n'est pas
+            // un avis absent. On le dit, et on offre de rejouer.
+            MH.poserEtatErreur(el, e, { onRetry: () => renderMyReviews() });
         }
     }
 
@@ -611,7 +613,7 @@
                         <div class="history-entry-chap">Chapitre ${MH.chapNum(p.chapter)}</div>
                         <div class="history-entry-time">${relativeTime(p.updatedAt)}</div>
                     </div>
-                    <a href="${MH.readerHref(m.id, p.chapterId, p.source)}" class="history-entry-status link-orange" style="text-decoration:none">▶</a>
+                    <a href="${MH.readerHref(m.id, p.chapterId, p.source)}" class="history-entry-status link-orange" style="text-decoration:none" aria-label="Reprendre ${MH.esc(m.title)} au chapitre ${MH.chapNum(p.chapter)}">▶</a>
                 </div>`;
             }).join('');
 

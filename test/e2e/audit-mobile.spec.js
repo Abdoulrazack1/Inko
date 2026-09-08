@@ -226,7 +226,7 @@ test.describe('Audit de l’application mobile', () => {
                 erreurNav = e.message.split('\n')[0].slice(0, 120);
             }
             resultats.push({ slug, nom, mesure, erreurNav, console: [...new Set(journal)].slice(0, 5) });
-            // eslint-disable-next-line no-console
+
             console.log(`  ${nom.padEnd(28)} ${mesure
                 ? `${mesure.debordements.length} déb · ${mesure.cibles.length} cibles · ${mesure.vides.length} vides`
                 : 'ÉCHEC : ' + erreurNav}`);
@@ -343,6 +343,6 @@ function ecrireRapport(resultats) {
     const dest = path.join(RACINE, 'docs', 'audit-mobile.md');
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, L.join('\n') + '\n');
-    // eslint-disable-next-line no-console
+
     console.log('\n→ rapport écrit : docs/audit-mobile.md');
 }

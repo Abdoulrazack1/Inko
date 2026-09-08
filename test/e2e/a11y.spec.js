@@ -147,7 +147,7 @@ test('recensement des violations modérées et mineures', async ({ page }) => {
         }
     }
     const lignes = Object.entries(total).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} : ${n}`);
-    // eslint-disable-next-line no-console
+
     console.log('Violations a11y par règle (toutes pages) :\n  ' + (lignes.join('\n  ') || 'aucune'));
 });
 

@@ -64,7 +64,7 @@
                 : `<div class="list-cover-empty">Liste vide</div>`;
             return `
             <div class="list-card">
-                <a href="collection-detail.html?id=${l.id}" class="list-card-cover ${covers.length ? 'has-' + covers.length : 'is-empty'}">
+                <a href="collection-detail.html?id=${l.id}" class="list-card-cover ${covers.length ? 'has-' + covers.length : 'is-empty'}" aria-label="Ouvrir la collection ${MH.esc(l.name)} — ${items.length} œuvre(s)">
                     ${mosaic}
                     <span class="list-card-count">${items.length}</span>
                 </a>

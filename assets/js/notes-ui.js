@@ -95,7 +95,21 @@
         el.innerHTML = `<div class="notes-empty"><span class="spinner-inline"></span></div>`;
         let notes = [];
         try { notes = (await API.me.notes({ manga: ctx.mangaId })).notes || []; }
-        catch (e) { el.innerHTML = `<div class="notes-empty" style="color:#a83232">Erreur : ${esc(e.message)}</div>`; return; }
+        catch (e) {
+            // Taxonomie P1.6 : dire ce qui se passe, et proposer une sortie.
+            // Le motif remplacé (« Erreur : <message> » en rouge) donnait un
+            // code technique et aucun geste possible.
+            if (window.MH?.poserEtatVide && window.MH?.messageErreur) {
+                MH.poserEtatErreur(el, e, { onRetry: () => loadList() });
+            } else {
+                // Sans global.js, on n'a pas la taxonomie — mais on peut au
+                // moins ne pas laisser l'utilisateur sans rien à faire.
+                el.innerHTML = '<div class="notes-empty">Impossible de charger tes notes. '
+                    + '<button type="button" class="btn btn-sm" data-notes-retry>Réessayer</button></div>';
+                el.querySelector('[data-notes-retry]')?.addEventListener('click', () => loadList());
+            }
+            return;
+        }
         // Notes de CE chapitre en tête, puis le reste de la série
         const here = notes.filter(n => ctx.chapterId && n.chapterId === ctx.chapterId);
         const rest = notes.filter(n => !ctx.chapterId || n.chapterId !== ctx.chapterId);

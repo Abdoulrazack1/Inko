@@ -612,13 +612,13 @@
         if (!el) return;
         const pages = Math.ceil(lastTotal / PER_PAGE);
         if (pages <= 1) { el.innerHTML = ''; return; }
-        let html = `<button class="page-btn" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`;
+        let html = `<button class="page-btn" data-page="${currentPage - 1}" aria-label="Page précédente" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`;
         const visible = [];
         for (let i = Math.max(1, currentPage - 2); i <= Math.min(pages, currentPage + 2); i++) visible.push(i);
-        if (visible[0] > 1) { html += `<button class="page-btn" data-page="1">1</button>`; if (visible[0] > 2) html += `<span class="page-sep">…</span>`; }
-        visible.forEach(i => { html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`; });
-        if (visible[visible.length-1] < pages) { if (visible[visible.length-1] < pages - 1) html += `<span class="page-sep">…</span>`; html += `<button class="page-btn" data-page="${pages}">${pages}</button>`; }
-        html += `<button class="page-btn" data-page="${currentPage + 1}" ${currentPage === pages ? 'disabled' : ''}>›</button>`;
+        if (visible[0] > 1) { html += `<button class="page-btn" data-page="1" aria-label="Page 1">1</button>`; if (visible[0] > 2) html += `<span class="page-sep">…</span>`; }
+        visible.forEach(i => { html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" data-page="${i}" aria-label="Page ${i}"${i === currentPage ? ' aria-current="page"' : ''}>${i}</button>`; });
+        if (visible[visible.length-1] < pages) { if (visible[visible.length-1] < pages - 1) html += `<span class="page-sep">…</span>`; html += `<button class="page-btn" data-page="${pages}" aria-label="Page ${pages}">${pages}</button>`; }
+        html += `<button class="page-btn" data-page="${currentPage + 1}" aria-label="Page suivante" ${currentPage === pages ? 'disabled' : ''}>›</button>`;
         el.innerHTML = html;
         renderLoadMore(pages);
     }

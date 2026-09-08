@@ -191,7 +191,11 @@
             } catch (e) {
                 if (my !== reqSeq) return;
                 sub.textContent = '';
-                out.innerHTML = `<div class="se-err">Erreur : ${MH.esc(e.message)}</div>`;
+                // Taxonomie P1.6. Ici la distinction compte double : une
+                // recherche qui ÉCHOUE et une recherche sans résultat se
+                // ressemblaient trait pour trait, et on en concluait que
+                // l'œuvre n'existait pas (SRC-02).
+                MH.poserEtatErreur(out, e, { onRetry: () => run(q) });
             }
             return;
         }

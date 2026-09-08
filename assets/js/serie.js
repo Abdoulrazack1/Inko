@@ -38,6 +38,18 @@
 
         try {
             manga = await API.mangas.get(id);
+
+            // Une série inconnue ne LÈVE PAS d'erreur : la source rend un objet
+            // parfaitement formé, avec tous ses champs vides. Sans ce garde-fou,
+            // la page dressait une fiche fantôme — titre « — », « 0 chapitres »,
+            // et le mot « null » en guise de statut — au lieu de dire que la
+            // série est introuvable. Constaté à la main sur un identifiant
+            // inventé : aucune exception, aucun message, une page qui a l'air
+            // cassée sans qu'on sache pourquoi.
+            if (!manga || !String(manga.title || '').trim()) {
+                showError('Série introuvable');
+                return;
+            }
             document.getElementById('pageTitle').textContent = 'Inko — ' + manga.title;
 
             // Données user (si connecté)
@@ -67,7 +79,7 @@
             // Chargement des chapitres async (pour ne pas bloquer l'affichage du hero)
             loadChapters();
         } catch (e) {
-            showError("Manga introuvable : " + e.message);
+            showError(e);
         }
     });
 
@@ -78,9 +90,36 @@
             <div style="margin-top:12px;font-size:13px">Chargement de la fiche…</div>
         </div>`;
     }
-    function showError(msg) {
+    /**
+     * L'écran d'échec de la fiche.
+     *
+     * Il affichait `Manga introuvable : <message>` en rouge, et RIEN d'autre :
+     * ni « Réessayer », ni retour, ni explication. Mesuré par l'audit des états
+     * (API coupée) : la page rendait douze caractères. Un lecteur qui ouvre une
+     * série sans réseau voyait donc une page blanche avec une ligne rouge dont
+     * la moitié était un code technique (« Failed to fetch »).
+     *
+     * On passe par la taxonomie P1.6 : elle distingue le hub injoignable de la
+     * série absente, ne montre jamais de code technique, et pose la sortie.
+     */
+    function showError(err) {
         const el = document.getElementById('serieHero');
-        if (el) el.innerHTML = `<div style="padding:40px;text-align:center;color:#ef4444">${MH.esc(msg)}</div>`;
+        if (!el) return;
+        // `params` est local au gestionnaire DOMContentLoaded : on relit la
+        // source depuis l'URL plutot que de la capturer.
+        const src = new URLSearchParams(location.search).get('source') || undefined;
+        const ctx = { onRetry: () => location.reload(), source: src };
+        if (err instanceof Error) { MH.poserEtatErreur(el, err, ctx); return; }
+        // Cas sans erreur technique : un lien incomplet, par exemple.
+        MH.poserEtatVide(el, {
+            icone: '\u{1F50E}',
+            titre: String(err || 'Série introuvable'),
+            texte: 'Le lien est peut-être incomplet, ou la série a changé de source.',
+            actions: [
+                { libelle: 'Rechercher', href: 'recherche.html' },
+                { libelle: 'Ma bibliothèque', href: 'bibliotheque.html' },
+            ],
+        });
     }
 
     async function loadChapters() {
@@ -116,7 +155,13 @@
     function renderHero() {
         const el = document.getElementById('serieHero');
         if (!el) return;
-        const statusLabel = { ongoing:'En cours', completed:'Terminé', hiatus:'En pause', cancelled:'Annulé' }[manga.status] || manga.status;
+        // Le repli etait `|| manga.status`, c'est-a-dire la valeur BRUTE. Quand
+        // la source ne renseigne pas le statut, elle vaut `null`, et le gabarit
+        // ecrivait litteralement « null » a l'ecran — constate sur une fiche
+        // dont l'identifiant n'existe pas. Un tiret cadratin dit la meme chose
+        // sans avoir l'air d'une panne.
+        const STATUTS = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };
+        const statusLabel = STATUTS[manga.status] || (manga.status ? String(manga.status) : '—');
         const resumeChap = progress?.chapterId;
         // Libellé du bouton Reprendre : numéro de chapitre si connu, sinon générique
         const resumeLabel = (progress?.chapter != null && progress.chapter !== '')

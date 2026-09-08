@@ -145,7 +145,12 @@
             allNotes = r.notes || [];
             notesTotal = r.total ?? allNotes.length;
         }
-        catch (e) { document.getElementById('jrBody').innerHTML = `<div class="jr-empty" style="color:#a83232">Erreur : ${MH.esc(e.message)}</div>`; return; }
+        catch (e) {
+            // Taxonomie P1.6 : « Erreur : <message> » ne disait rien d'utile et
+            // ne proposait rien. Le journal se recharge d'un bouton.
+            MH.poserEtatErreur('jrBody', e, { onRetry: () => loadNotes() });
+            return;
+        }
         render('');
     }
 
