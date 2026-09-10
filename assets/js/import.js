@@ -305,7 +305,21 @@
         renderQuota();
 
         if (!items.length) {
-            list.innerHTML = `<div class="im-empty">Aucun fichier importé pour l'instant.</div>`;
+            // « Aucun fichier importé pour l'instant » était une phrase nue :
+            // aucune explication, aucun geste, sur la page dont c'est toute la
+            // raison d'être. On dit ce que l'application sait lire — la
+            // première question devant un import — et le bouton ramène à la
+            // zone de dépôt plutôt que de demander de la chercher.
+            MH.poserEtatVide(list, {
+                icone: '\u{1F4E5}',
+                titre: 'Aucun fichier importé',
+                texte: 'Inko lit les EPUB (romans), les CBZ (mangas) et les PDF. '
+                    + 'Les fichiers restent sur cet appareil : rien n\'est envoyé.',
+                actions: [{ libelle: 'Choisir un fichier', onClick: () => {
+                    document.getElementById('imDrop')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    document.getElementById('imFile')?.click();
+                } }],
+            });
             return;
         }
 

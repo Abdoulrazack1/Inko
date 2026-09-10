@@ -170,3 +170,65 @@ test('chaque état d’erreur de page propose de rejouer', () => {
     assert.deepEqual(sansRetry, [],
         'ces appels n’offrent aucune sortie : ' + sansRetry.join(' | '));
 });
+
+test('aucun toast ne montre un message technique brut', () => {
+    // La taxonomie couvrait les ÉTATS de page ; les toasts, eux, étaient
+    // restés à `'Erreur : ' + e.message` — trente-neuf fois dans le dépôt.
+    // Même défaut, en plus court et en plus fréquent : « Erreur : HTTP 504 »
+    // passe une seconde et demie à l'écran et n'apprend rien à personne.
+    const coupables = [];
+    for (const f of fs.readdirSync(JS).filter((x) => x.endsWith('.js'))) {
+        const src = fs.readFileSync(path.join(JS, f), 'utf8');
+        src.split('\n').forEach((ligne, i) => {
+            const nu = ligne.replace(/^\s*(\/\/|\*|\/\*).*/, '');
+            if (/toast\(\s*['"`](Erreur|Échec)\s*:/.test(nu)) coupables.push(`${f}:${i + 1}`);
+        });
+    }
+    assert.deepEqual(coupables, [],
+        'passe par `MH.toastErreur(e)` : il réutilise la taxonomie et écarte '
+        + 'les codes techniques — ' + coupables.join(', '));
+});
+
+test('MH.toastErreur s’appuie sur la taxonomie, pas sur le message brut', () => {
+    const src = fs.readFileSync(path.join(JS, 'global.js'), 'utf8');
+    const bloc = /window\.MH\.toastErreur = function[\s\S]*?\n    \};/.exec(src);
+    assert.ok(bloc, 'MH.toastErreur doit rester lisible');
+    assert.match(bloc[0], /messageErreur/,
+        'sans elle, le helper ne saurait pas écarter « HTTP 504 »');
+    // `.message` suivi d'une lettre, c'est `.messageErreur` — l'appel qu'on
+    // veut justement voir. Seul `.message` NU est le message brut.
+    assert.ok(!/\.message\b(?!Erreur)/.test(bloc[0]),
+        'le message brut ne doit jamais être affiché tel quel');
+});
+
+test('un afficheur d’erreur doit RÉELLEMENT afficher', () => {
+    // `showError` de l'accueil ne peignait rien. Elle cherchait l'élément et,
+    // s'il existait, ne faisait rien du tout ; sinon elle écrivait dans la
+    // console. Quand le hero ou les nouveautés échouaient, l'utilisateur voyait
+    // une section vide, sans un mot — sur le PREMIER écran de l'application.
+    //
+    // Le pire de ce défaut est qu'il se lit comme un correctif : la fonction
+    // porte le bon nom, elle est appelée aux bons endroits, et elle ne fait
+    // rien. Aucun test ne pouvait le voir, et l'œil non plus.
+    const src = fs.readFileSync(path.join(JS, 'accueil.js'), 'utf8');
+    const bloc = /function showError\(([\s\S]*?)\n    \}/.exec(src);
+    assert.ok(bloc, 'showError doit rester lisible');
+    assert.match(bloc[1], /poserEtatVide|poserEtatErreur/,
+        'un afficheur d’erreur qui n’affiche rien est pire qu’absent : il rassure');
+    assert.match(bloc[1], /actions:/, 'et il doit proposer une sortie');
+});
+
+test('aucun message d’erreur ne parle de « backend » à l’utilisateur', () => {
+    // « Impossible de charger l'accueil. Le backend est-il lancé ? » est une
+    // question de développeur, posée à quelqu'un qui voulait lire un manga.
+    const coupables = [];
+    for (const f of fs.readdirSync(JS).filter((x) => x.endsWith('.js'))) {
+        const src = fs.readFileSync(path.join(JS, f), 'utf8');
+        src.split('\n').forEach((ligne, i) => {
+            const nu = ligne.replace(/^\s*(\/\/|\*|\/\*).*/, '');
+            // Dans une CHAÎNE affichée, pas dans un commentaire ni un nom.
+            if (/['"`][^'"`]*\bbackend\b[^'"`]*['"`]/i.test(nu)) coupables.push(`${f}:${i + 1}`);
+        });
+    }
+    assert.deepEqual(coupables, [], 'jargon technique à l’écran : ' + coupables.join(', '));
+});

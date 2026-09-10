@@ -52,6 +52,22 @@
             .forEach(el => corps.appendChild(el));
     }
 
+    /**
+     * « il y a 3 jours », en petit, avec la date exacte en infobulle.
+     *
+     * Rien si la date manque : un chapitre téléchargé par une version
+     * antérieure n'a pas de `savedAt`, et inventer une date serait pire que
+     * n'en montrer aucune.
+     */
+    function dateTelechargement(c) {
+        if (!c || !c.savedAt) return '';
+        const d = new Date(c.savedAt);
+        if (Number.isNaN(d.getTime())) return '';
+        const iso = d.toISOString();
+        return `<span class="dl-date" style="font-size:11px;color:var(--text3);white-space:nowrap"`
+            + ` title="Téléchargé le ${MH.fullDate(iso)}">${MH.relTime(iso)}</span>`;
+    }
+
     async function render() {
         const body = document.getElementById('dlBody');
         const groups = await window.Downloads.byManga();
@@ -127,8 +143,15 @@
                             ${MH.esc(c.chapterTitle || ('Chapitre ' + c.chapterNum))}
                             ${incomplete ? `<span style="color:#f59e0b;font-size:11px;margin-left:6px" data-dlprog="${MH.esc(c.chapterId)}">⚠ ${c.failed} page(s) manquante(s)</span>` : ''}
                         </a>
+                        <!-- Depuis quand cette copie dort ici.
+                             « savedAt » était enregistré à chaque téléchargement
+                             et n'était affiché nulle part. C'est pourtant ce
+                             qui permet de choisir quoi supprimer quand la place
+                             manque — et cette page prévient justement que le
+                             système peut tout effacer. -->
+                        ${dateTelechargement(c)}
                         ${incomplete ? `<button class="btn btn-sm" data-retry="${MH.esc(c.chapterId)}" style="color:var(--accent)">Relancer</button>` : ''}
-                        <button class="btn btn-sm" data-delchap="${MH.esc(c.chapterId)}">✕</button>
+                        <button class="btn btn-sm" data-delchap="${MH.esc(c.chapterId)}" aria-label="Supprimer le téléchargement de ${MH.esc(c.chapterTitle || ('Chapitre ' + c.chapterNum))}" title="Supprimer ce téléchargement">✕</button>
                     </div>`; }).join('')}
             </div>`;
         }).join('');

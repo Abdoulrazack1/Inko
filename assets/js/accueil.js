@@ -15,6 +15,7 @@
         MH.initPage('accueil');
         // Charger hero d'abord (la sidebar dépend de popularCache)
         await loadHeroAndTrending();
+        loadFile();   // local, immediat : ne doit pas attendre le reseau
         await Promise.all([loadLatest(), loadResume(), loadSidebar()]);
         bindLatestControls();
     });
@@ -57,7 +58,9 @@
             // Désormais : celle qui s'affiche, plus celle d'après en avance.
             ensureBanner(0);
         } catch (e) {
-            showError('hero', "Impossible de charger l'accueil. Le backend est-il lancé ?");
+            // « Le backend est-il lancé ? » est une question de développeur,
+            // posée à quelqu'un qui voulait lire un manga.
+            showError('hero', 'Impossible de charger la mise en avant', () => loadHeroAndTrending());
         }
     }
 
@@ -118,7 +121,7 @@
                     </a>
                     <div class="hero-text">
                         <div class="hero-eyebrow"><span class="hero-eyebrow-dot"></span> ${isNovel ? 'Nouveau chapitre · Roman' : 'Dernière sortie'}</div>
-                        <a class="hero-title-link" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}"><h1 class="hero-title">${MH.esc(m.title)}</h1></a>
+                        <a class="hero-title-link" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}"><h2 class="hero-title">${MH.esc(m.title)}</h2></a>
                         ${genres.length ? `<div class="hero-genres">${genres.map(g => `<a class="hero-genre" href="catalogue.html?tag=${encodeURIComponent(g)}">${MH.esc(g)}</a>`).join('')}</div>` : ''}
                         ${metaBits.length ? `<div class="hero-meta">${metaBits.join('<span class="hero-dot-sep">·</span>')}</div>` : ''}
                         ${desc ? `<p class="hero-desc">${MH.esc(desc.slice(0, 230))}${desc.length > 230 ? '…' : ''}</p>` : ''}
@@ -224,8 +227,25 @@
         // à côté — l'auto-rotation ne démarre pas pour un utilisateur
         // sensible au mouvement (navigation manuelle toujours possible).
         const REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // ── Un arrêt EXPLICITE, et qui se souvient ──────────
+        //
+        // La rotation se met bien en pause au survol et au focus clavier. Mais
+        // `mouseenter` ne se déclenche jamais au doigt : sur téléphone, rien
+        // n'arrêtait le carrousel. On lit une description, elle disparaît au
+        // bout de sept secondes, et le seul recours est de garder le doigt
+        // posé. WCAG 2.2.2 demande un moyen de mettre en pause ; il existait
+        // pour la souris et le clavier, pas pour le tactile — c'est-à-dire pas
+        // là où l'application est le plus utilisée.
+        //
+        // Le choix est MÉMORISÉ : quelqu'un qui arrête un carrousel ne veut pas
+        // le réarrêter à chaque visite.
+        const CLE_PAUSE = 'inko_hero_pause';
+        let heroArrete = false;
+        try { heroArrete = localStorage.getItem(CLE_PAUSE) === '1'; } catch (e) { heroArrete = false; }
+
         function start() {
-            if (REDUCED_MOTION) return;
+            if (REDUCED_MOTION || heroArrete) return;
             heroTimer = setInterval(() => show((heroIdx + 1) % heroMangas.length), HERO_MS); restartProgress();
         }
         function restart() { clearInterval(heroTimer); start(); }
@@ -258,6 +278,39 @@
             prev.addEventListener('click', () => go(heroIdx - 1));
             next.addEventListener('click', () => go(heroIdx + 1));
             hero.append(prev, next);
+
+            // Le bouton pause/lecture. Masqué si le système demande déjà moins
+            // de mouvement : la rotation ne démarre pas, il n'y a rien à
+            // arrêter, et un bouton sans effet est pire que pas de bouton.
+            if (!REDUCED_MOTION) {
+                const pp = document.createElement('button');
+                pp.id = 'heroPause';
+                pp.className = 'hero-arrow hero-pause';
+                const peindre = () => {
+                    const t = heroArrete ? 'Reprendre le défilement' : 'Mettre le défilement en pause';
+                    pp.title = t;
+                    pp.setAttribute('aria-label', t);
+                    pp.setAttribute('aria-pressed', String(heroArrete));
+                    pp.innerHTML = heroArrete
+                        ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'
+                        : '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+                };
+                peindre();
+                pp.addEventListener('click', () => {
+                    heroArrete = !heroArrete;
+                    try { localStorage.setItem(CLE_PAUSE, heroArrete ? '1' : '0'); } catch (e) { /* stockage refusé */ }
+                    peindre();
+                    if (heroArrete) {
+                        clearInterval(heroTimer);
+                        if (prog) { prog.style.transition = 'none'; prog.style.width = '0%'; }
+                        MH.announce?.('Défilement du carrousel en pause');
+                    } else {
+                        start();
+                        MH.announce?.('Défilement du carrousel repris');
+                    }
+                });
+                hero.append(pp);
+            }
         }
 
         heroShow = show;
@@ -271,6 +324,8 @@
             // contenu changer sous lui pendant qu'il le lit).
             const pause = () => { clearInterval(heroTimer); if (prog) { prog.style.transition = 'none'; } };
             hero.addEventListener('mouseenter', pause);
+            // `restart` respecte `heroArrete` : quitter le survol ne doit pas
+            // relancer un carrousel que l'utilisateur a explicitement arrêté.
             hero.addEventListener('mouseleave', restart);
             hero.addEventListener('focusin', pause);
             hero.addEventListener('focusout', e => { if (!hero.contains(e.relatedTarget)) restart(); });
@@ -392,7 +447,7 @@
             if (!latestCache) latestCache = (await API.mangas.latest({ limit: LATEST_LIMIT })).results || [];
             renderLatest();
         } catch(e) {
-            showError('latest', 'Impossible de charger les nouveautés');
+            showError('latest', 'Impossible de charger les nouveautés', () => { latestCache = null; loadLatest(); });
         }
     }
 
@@ -457,6 +512,58 @@
         if (hero && hero.previousElementSibling === section) {
             hero.parentNode.insertBefore(section, hero.nextElementSibling);
         }
+    }
+
+    // ── À lire ensuite ────────────────────────────────────
+    //
+    // « Reprendre » répond à « où en étais-je ». Cette section répond à « que
+    // voulais-je lire ensuite » — une question différente, et qui n'avait
+    // aucune réponse dans l'application : une collection « à lire » demandait
+    // d'aller la chercher, et rien, ici, ne la rappelait.
+    //
+    // Elle se rend depuis `UserData` SEUL : aucun appel réseau. La file garde
+    // titre et couverture avec chaque entrée, précisément pour s'afficher quand
+    // il n'y a ni hub ni connexion — c'est-à-dire au moment où l'on cherche
+    // quoi lire.
+    function loadFile() {
+        const section = document.getElementById('sectionFile');
+        const el = document.getElementById('fileList');
+        if (!section || !el) return;
+
+        const entrees = window.UserData?.file?.() || [];
+        // Une section vide sur l'accueil est du bruit, pas une invitation :
+        // tant que rien n'a été mis de côté, elle n'existe pas.
+        section.hidden = entrees.length === 0;
+        if (!entrees.length) { el.innerHTML = ''; return; }
+
+        el.innerHTML = entrees.slice(0, 6).map((e) => `
+            <div class="resume-item" data-file="${MH.esc(e.k)}" style="position:relative">
+                <a href="serie.html?id=${encodeURIComponent(e.id)}&source=${encodeURIComponent(e.source || '')}"
+                   style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
+                    <div class="resume-cover">
+                        <img src="${MH.cover(e.cover, e.cover)}" alt="" loading="lazy">
+                    </div>
+                    <div class="resume-info">
+                        <div class="resume-title">${MH.esc(e.title || e.id)}</div>
+                        <div class="resume-chap">${MH.esc(e.source || '')}</div>
+                    </div>
+                </a>
+                <button class="resume-remove" data-defile="${MH.esc(e.id)}" data-src="${MH.esc(e.source || '')}"
+                    aria-label="Retirer « ${MH.esc(e.title || e.id)} » de la file"
+                    title="Retirer de « À lire ensuite »"
+                    style="background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;flex-shrink:0">✕</button>
+            </div>`).join('');
+
+        // Délégation : les gestionnaires ne sont pas écrits en attribut, la CSP
+        // de l'app installée les bloque (DESK-01/DESK-02).
+        el.querySelectorAll('[data-defile]').forEach((b) => {
+            b.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                window.UserData?.retirerDeLaFile?.(b.dataset.defile, b.dataset.src);
+                loadFile();
+                MH.toast?.('Retiré de « À lire ensuite »');
+            });
+        });
     }
 
     // ── Reprendre la lecture ──────────────────────────────
@@ -535,7 +642,7 @@
                         if (!el.querySelector('[data-resume]')) {
                             el.innerHTML = `<div style="color:var(--text3);padding:14px;font-size:13px">Aucune lecture en cours. <a href="catalogue.html" class="link-orange">Découvrir →</a></div>`;
                         }
-                    } catch (e2) { MH.toast('Erreur : ' + e2.message); }
+                    } catch (e2) { MH.toastErreur(e2); }
                 });
             });
 
@@ -697,8 +804,36 @@
     // Le toggle des favoris (cœurs de cartes) est géré globalement dans global.js.
 
     // ── Helpers ──
-    function showError(zone, msg) {
-        const el = document.querySelector('#' + zone) || document.querySelector('.' + zone);
-        if (!el) console.warn('[accueil]', msg);
+    /**
+     * L'échec d'une section de l'accueil.
+     *
+     * Cette fonction n'AFFICHAIT RIEN. Elle cherchait l'élément et, s'il
+     * existait, ne faisait rien du tout ; sinon elle écrivait dans la console.
+     * Quand le hero ou les nouveautés échouaient, l'utilisateur voyait donc une
+     * section vide, sans un mot — sur le PREMIER écran de l'application. Elle
+     * avait la forme d'un afficheur d'erreur sans en être un.
+     *
+     * Deux conséquences en cascade : les sélecteurs passés étaient faux sans
+     * que personne le voie (`.latest` ne désigne rien, la section s'appelle
+     * `.section-latest`), et le message du hero demandait « Le backend est-il
+     * lancé ? » — une question de développeur, posée à un lecteur.
+     */
+    function showError(zone, msg, onRetry) {
+        // Chaque zone dit où écrire : le hero peint dans son CONTENU, pas sur
+        // son fond, et les nouveautés dans leur grille.
+        const CIBLES = { hero: 'heroContent', latest: 'latestGrid' };
+        const el = document.getElementById(CIBLES[zone] || zone)
+            || document.querySelector('#' + zone) || document.querySelector('.' + zone);
+        if (!el) { console.warn('[accueil]', msg); return; }
+        window.MH?.poserEtatVide?.(el, {
+            icone: '⚠',
+            titre: msg,
+            texte: "La source ou le serveur n'a pas répondu. Le reste de l'application "
+                + 'reste utilisable : ta bibliothèque et tes téléchargements sont locaux.',
+            actions: [
+                ...(onRetry ? [{ libelle: 'Réessayer', onClick: onRetry }] : []),
+                { libelle: 'Ma bibliothèque', href: 'bibliotheque.html' },
+            ],
+        });
     }
 })();

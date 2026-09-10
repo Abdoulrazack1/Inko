@@ -246,6 +246,9 @@
 }
 .synopsis-block-title {
   font-family: var(--font-head);
+  /* Promu de <div>/<span> a <h2> pour exister dans la navigation
+     par titres : on neutralise la marge par defaut du h2. */
+  margin: 0;
   font-size: 14px;
   font-weight: 700;
 }
@@ -281,6 +284,9 @@
 }
 .chapters-block-title {
   font-family: var(--font-head);
+  /* Promu de <div>/<span> a <h2> pour exister dans la navigation
+     par titres : on neutralise la marge par defaut du h2. */
+  margin: 0;
   font-size: 14px;
   font-weight: 700;
 }
@@ -688,6 +694,9 @@
 }
 .sidebar-block-title {
   font-family: var(--font-head);
+  /* Promu de <div>/<span> a <h2> pour exister dans la navigation
+     par titres : on neutralise la marge par defaut du h2. */
+  margin: 0;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -784,7 +793,10 @@
   .serie-title { font-size: 22px; }
   .similar-grid,
   .manga-grid-3 { grid-template-columns: repeat(2, 1fr); }
-  .chap-search-input { width: 110px; }
+  /* `.chap-search-input` etait fixe ici a 110px, puis a 140px dans le SECOND
+     bloc `@media (max-width: 768px)` de ce fichier (ligne ~812). Le second
+     gagnait : cette declaration n'a jamais rien fait. Le 110px voulu sous
+     480px, lui, est declare dans son propre bloc plus bas. */
 }
 
 @media (max-width: 500px) {

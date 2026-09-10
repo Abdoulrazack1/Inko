@@ -212,3 +212,67 @@
   white-space: nowrap;
 }
 .novel-quote-btn:hover { filter: brightness(1.08); }
+
+/* ── Chercher dans le chapitre (barre flottante) ─────────────
+   Ancrée en haut à droite du lecteur, sous la barre d'outils : elle ne doit
+   masquer ni le texte qu'on lit, ni la commande qui l'a ouverte. En dessous de
+   520 px elle s'étale sur toute la largeur — à 375 px, un champ de recherche
+   collé à droite laisse deux centimètres utiles. */
+.novel-find {
+  position: fixed;
+  top: calc(var(--header-h, 56px) + 52px);
+  right: 16px;
+  z-index: 9400;
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 6px 6px 10px;
+  background: var(--glass-bg, #26262b);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border, #333);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .45);
+}
+.novel-find .nf-champ {
+  width: 210px; min-width: 0;
+  background: transparent; border: none; outline: none;
+  color: var(--text, #eee); font: inherit; font-size: 13.5px;
+}
+.novel-find .nf-champ::placeholder { color: var(--text3, #8a8a90); }
+.novel-find .nf-compteur {
+  flex: 0 0 auto; min-width: 62px; text-align: right;
+  font-size: 12px; color: var(--text3, #8a8a90);
+  font-variant-numeric: tabular-nums;
+}
+.novel-find .nf-btn {
+  flex: 0 0 auto;
+  /* 34 px et non 44 : la barre est posée au-dessus du texte, et trois cibles
+     de 44 px la rendraient plus haute que la ligne qu'on cherche. Le pointeur
+     grossier les élargit plus bas. */
+  min-width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: 8px;
+  color: var(--text2, #cfccc2); font: inherit; font-size: 15px; cursor: pointer;
+}
+.novel-find .nf-btn:hover { background: var(--bg3, #2a2a30); color: var(--text, #eee); }
+
+/* Les correspondances. `currentColor` est évité : le lecteur a ses propres
+   couleurs de thème (sépia, clair, noir), et un surlignage qui en hérite
+   devient illisible sur au moins l'un des quatre. */
+.novel-content mark.nf-hit {
+  background: rgba(255, 214, 0, .34);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+.novel-content mark.nf-hit.on {
+  background: var(--orange, #c1531b);
+  color: #fff;
+}
+
+@media (max-width: 520px) {
+  .novel-find { left: 12px; right: 12px; top: calc(var(--header-h, 56px) + 46px); }
+  .novel-find .nf-champ { width: auto; flex: 1 1 auto; }
+}
+@media (pointer: coarse) {
+  .novel-find .nf-btn { min-width: 44px; height: 44px; }
+}

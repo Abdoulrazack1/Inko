@@ -385,7 +385,7 @@
                 MH.toast(totalNew ? `${totalNew} série(s) avec de nouveaux chapitres` : (totalUnread ? `${totalUnread} chapitre(s) non lu(s)` : 'Bibliothèque à jour'));
             } catch (e) {
                 if (status) status.textContent = '';
-                MH.toast('Erreur : ' + e.message);
+                MH.toastErreur(e);
             } finally { btn.disabled = false; }
         });
     }
@@ -559,7 +559,74 @@
         return Math.max(0, Math.round(last) - read);
     }
 
+    // ── Ce qui filtre, et comment tout relâcher ─────────────
+    //
+    // La bibliothèque peut porter CINQ filtres en même temps — type
+    // (manga/roman), statut ou catégorie, source, « non lus », et la recherche.
+    // Rien ne disait lesquels étaient actifs, et rien ne permettait de tout
+    // relâcher d'un geste : il fallait retrouver chaque puce allumée dans une
+    // barre qui en compte parfois vingt.
+    //
+    // Le catalogue résout exactement ce problème depuis l'audit — un bloc
+    // « Filtres actifs » avec des puces qu'on retire une à une. On reprend le
+    // même geste ici : deux pages qui filtrent doivent se filtrer de la même
+    // façon, sinon on réapprend à chaque écran.
+    function filtresActifs() {
+        const out = [];
+        if (kindFilter && kindFilter !== 'all') {
+            out.push({ l: kindFilter === 'novel' ? 'Romans' : 'Mangas', off: () => { kindFilter = 'all'; } });
+        }
+        if (filter.type === 'status') {
+            out.push({ l: (STATUS[filter.value] || [filter.value])[0], off: () => { filter = { type: 'all', value: null }; } });
+        } else if (filter.type === 'category') {
+            out.push({ l: filter.value, off: () => { filter = { type: 'all', value: null }; } });
+        }
+        if (sourceFilter) out.push({ l: sourceFilter, off: () => { sourceFilter = null; } });
+        if (unreadOnly) out.push({ l: 'Non lus', off: () => { unreadOnly = false; } });
+        const q = (document.getElementById('libSearch')?.value || '').trim();
+        if (q) {
+            out.push({ l: `« ${q} »`, off: () => {
+                const champ = document.getElementById('libSearch');
+                if (champ) champ.value = '';
+            } });
+        }
+        return out;
+    }
+
+    /** Relâche tout, d'un seul geste. */
+    function effacerFiltres() {
+        filtresActifs().forEach((f) => f.off());
+        render();
+    }
+
+    function renderResumeFiltres() {
+        const zone = document.getElementById('libFilterSummary');
+        if (!zone) return;
+        const actifs = filtresActifs();
+        if (!actifs.length) { zone.hidden = true; zone.innerHTML = ''; return; }
+        zone.hidden = false;
+        zone.innerHTML = `<span class="lib2-resume-label">Filtres actifs</span>`
+            + actifs.map((f, i) => `
+                <button type="button" class="lib2-resume-chip" data-off="${i}"
+                        aria-label="Retirer le filtre ${MH.esc(f.l)}">
+                    ${MH.esc(f.l)}<span aria-hidden="true">✕</span>
+                </button>`).join('')
+            + `<button type="button" class="lib2-resume-tout" id="libFiltersClear">Tout effacer</button>`;
+
+        zone.querySelectorAll('[data-off]').forEach((b) => {
+            b.addEventListener('click', () => {
+                // On relit la liste au clic : l'index vaut pour l'état AFFICHÉ,
+                // et cet état a pu changer entre le rendu et le clic.
+                const liste = filtresActifs();
+                liste[Number(b.dataset.off)]?.off();
+                render();
+            });
+        });
+        zone.querySelector('#libFiltersClear')?.addEventListener('click', effacerFiltres);
+    }
+
     function renderFilters() {
+        renderResumeFiltres();
         const el = document.getElementById('libFilters');
         if (!el) return;
         const sc = {}, cc = {};
@@ -662,6 +729,11 @@
         const grid = document.getElementById('libGrid');
         grid.classList.toggle('lib2-grid', viewMode !== 'list');
         grid.classList.toggle('lib2-list', viewMode === 'list');
+        // Le résumé des filtres se rafraîchit ICI, et non dans `renderFilters`
+        // seul : celui-ci n'est appelé que par les puces, alors que la
+        // RECHERCHE — qui est aussi un filtre — n'appelle que `render()`. Taper
+        // un mot rétrécissait donc la liste sans que le résumé le dise.
+        renderResumeFiltres();
         renderResume();
         const q = (document.getElementById('libSearch').value || '').toLowerCase();
         const sort = document.getElementById('libSort').value;
@@ -708,15 +780,26 @@
             // Une bibliothèque vide et un filtre trop étroit ne se soignent
             // pas pareil : le premier s'emplit depuis le catalogue, le second
             // en relâchant le filtre. Les confondre laisse sans issue.
-            MH.poserEtatVide(grid, unreadOnly
+            //
+            // TROIS vides, et non deux. « Aucune série ici — ajoute une série
+            // depuis le catalogue » s'affichait AUSSI quand la bibliothèque
+            // était pleine et le filtre trop étroit : le message envoyait
+            // chercher au catalogue une série qu'on possède déjà. C'est la
+            // confusion SRC-02 appliquée aux filtres.
+            const actifs = filtresActifs();
+            MH.poserEtatVide(grid, unreadOnly && actifs.length === 1
                 ? { icone: '\u2713', titre: 'Tout est à jour',
                     texte: 'Aucune série suivie n\'a de chapitre non lu.',
                     actions: [{ libelle: 'Voir toute la bibliothèque', onClick: () => {
                         unreadOnly = false; render();
                     } }] }
-                : { icone: '\u{1F4DA}', titre: 'Aucune série ici',
-                    texte: 'Ajoute une série depuis le catalogue pour la retrouver dans ta bibliothèque.',
-                    actions: [{ libelle: 'Découvrir le catalogue', href: 'catalogue.html' }] });
+                : actifs.length
+                    ? { icone: '\u{1F50E}', titre: 'Aucune série ne correspond',
+                        texte: `Ta bibliothèque n'est pas vide : ${actifs.length} filtre(s) la réduisent à rien — ${actifs.map(f => f.l).join(', ')}.`,
+                        actions: [{ libelle: 'Effacer les filtres', onClick: effacerFiltres }] }
+                    : { icone: '\u{1F4DA}', titre: 'Aucune série ici',
+                        texte: 'Ajoute une série depuis le catalogue pour la retrouver dans ta bibliothèque.',
+                        actions: [{ libelle: 'Découvrir le catalogue', href: 'catalogue.html' }] });
             if (grid.firstChild) grid.firstChild.style.gridColumn = '1/-1';
             return;
         }
@@ -1118,7 +1201,7 @@
                             row.querySelector('.upd-new')?.remove();
                             b.remove();
                         }
-                    } catch (e) { MH.toast('Erreur : ' + e.message); b.disabled = false; b.textContent = 'Tout lu'; }
+                    } catch (e) { MH.toastErreur(e); b.disabled = false; b.textContent = 'Tout lu'; }
                 }));
             } catch (e) {
                 status.textContent = '';

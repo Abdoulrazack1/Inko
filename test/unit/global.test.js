@@ -204,3 +204,44 @@ test('statusBadge produit un badge pour chaque statut connu', () => {
         assert.match(b, /<span class="badge/, `statut « ${s} » sans badge`);
     }
 });
+
+// ── UserData : la fusion, et pourquoi ce n'est pas un remplacement ──
+//
+// `ready()` réécrivait `data` avec la copie serveur, en préservant `bookmarks`
+// par une exception écrite à la main. Le problème que cette exception règle
+// n'a pourtant rien de propre à `bookmarks` : il se pose pour TOUTE clé que le
+// serveur ne connaît pas encore.
+//
+// Constaté en ajoutant la file « à lire ensuite » : on met une série de côté,
+// l'écriture locale part tout de suite, la synchronisation 700 ms plus tard —
+// et si on change de page entre les deux, `ready()` réécrit tout avec une
+// copie serveur où `file` n'existe pas. La série disparaît sans un mot.
+test('UserData.ready fusionne au lieu de remplacer', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const src = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'assets', 'js', 'userdata.js'), 'utf8');
+
+    const bloc = /const \{ bookmarks: _ignore, \.\.\.reste \} = s\.userdata;([\s\S]*?)persistLocal\(\);/.exec(src);
+    assert.ok(bloc, 'la reprise des réglages doit rester lisible');
+    assert.match(bloc[1], /for \(const \[k, v\] of Object\.entries\(local\)\)/,
+        'les clés absentes du serveur doivent garder leur valeur locale');
+    assert.match(bloc[1], /reste\[k\] === undefined/,
+        'on ne réécrit que ce que le serveur ignore');
+});
+
+test('UserData déclare la file « à lire ensuite » dans ses valeurs par défaut', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const src = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'assets', 'js', 'userdata.js'), 'utf8');
+    // Sans entrée dans DEFAULTS, `file()` rendrait `undefined` sur un profil
+    // neuf, et l'accueil planterait avant d'avoir affiché quoi que ce soit.
+    // `[^}]*` ne franchirait pas l'accolade de `notes: {}` — on lit la ligne.
+    const ligne = src.split('\n').find((l) => l.includes('const DEFAULTS ='));
+    assert.ok(ligne, 'DEFAULTS doit rester lisible');
+    assert.match(ligne, /file: \[\]/, '`file` doit figurer dans DEFAULTS');
+    for (const m of ['file()', 'dansLaFile', 'basculerFile', 'retirerDeLaFile']) {
+        assert.ok(src.includes(m), `UserData doit exposer ${m}`);
+    }
+});

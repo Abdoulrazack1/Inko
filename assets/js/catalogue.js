@@ -27,6 +27,9 @@
     let inFlight      = 0;
     let sourceInfo    = null;         // { id, name, lang } de la source active
     let allSources    = false;        // mode « Toutes les sources » (agrégé)
+    // Posee par bindEvents : l'etat vide en a besoin, et elle est definie
+    // dans la portee du gestionnaire du bouton « Reinitialiser ».
+    let _reinitialiserFiltres = null;
     let sourcesList   = [];           // manifest des sources installées
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -439,6 +442,12 @@
     async function runSearch() {
         const grid = document.getElementById('resultsGrid');
         if (!grid) return;
+        // Le resume des filtres actifs se refait ICI, et non dans chaque
+        // gestionnaire. Cocher un genre appelait cycleTag, peindreTag,
+        // updateFiltersCount et runSearch — mais PAS renderResumeFiltres :
+        // le bloc « Filtres actifs » restait vide et masque avec sept filtres
+        // en place. Le bloc dont c'est toute la raison d'etre.
+        renderResumeFiltres();
         const count = document.getElementById('resultsCount');
         // Nouvelle recherche ou filtre modifie : la grille repart de zero, donc
         // le quota de defilement automatique aussi. Apres un saut de page, en
@@ -499,11 +508,41 @@
                 // Sans aucun filtre ni recherche, il n'y a RIEN à modifier :
                 // une liste vide ne peut alors venir que de la source. On le
                 // dit, et on propose ce qui peut réellement aider.
-                const filtresActifs = !!(lastQuery || activeTags.size || excludedTags.size
-                    || activeStatus.size || activeDemo.size);
-                grid.innerHTML = filtresActifs
-                    ? '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2)">Aucune série correspondante. Modifiez les filtres.</div>'
-                    : MH.blocSourceMuette(API.sources.current);
+                // Le compte des filtres ÉTENDUS entrait déjà dans le résumé de
+                // la barre latérale mais pas ici : on cherchait pourquoi le
+                // catalogue restait vide alors qu'une langue ou une année
+                // filtrait encore, sans que ce message le mentionne.
+                const noms = [];
+                const nomDuTag = (id) => (allTags.find(t => t.id === id) || {}).name || id;
+                activeTags.forEach(t => noms.push(nomDuTag(t)));
+                excludedTags.forEach(t => noms.push('sans ' + nomDuTag(t)));
+                activeStatus.forEach(v => noms.push(v));
+                activeDemo.forEach(v => noms.push(v));
+                activeLangs.forEach(v => noms.push(v));
+                activeRatings.forEach(v => noms.push(v));
+                if (activeYear) noms.push(String(activeYear));
+                if (lastQuery) noms.push('« ' + lastQuery + ' »');
+
+                if (noms.length) {
+                    // « Modifiez les filtres » n'était qu'une phrase : aucun
+                    // geste, et pas un mot sur CE QUI filtre. Le bouton
+                    // « Réinitialiser » existait pourtant, dans la barre
+                    // latérale — c'est-à-dire pas là où l'on est quand on
+                    // constate le vide.
+                    MH.poserEtatVide(grid, {
+                        icone: '\u{1F50E}',
+                        titre: 'Aucune série ne correspond',
+                        texte: `${noms.length} filtre(s) actif(s) : ${noms.slice(0, 6).join(', ')}`
+                            + (noms.length > 6 ? '…' : '') + '.',
+                        actions: [
+                            { libelle: 'Effacer les filtres', onClick: () => _reinitialiserFiltres?.() },
+                            { libelle: 'Voir l\'état des sources', href: 'sources.html' },
+                        ],
+                    });
+                    if (grid.firstChild) grid.firstChild.style.gridColumn = '1/-1';
+                } else {
+                    grid.innerHTML = MH.blocSourceMuette(API.sources.current);
+                }
             } else {
                 grid.innerHTML = lastResults.map(m => mangaCardHTML(m)).join('');
                 MH.markFavorites(grid);
@@ -749,11 +788,15 @@
         const zone = document.getElementById('filterActiveChips');
         const cpt  = document.getElementById('filterCount');
         if (!bloc || !zone) return;
+        // MangaDex identifie ses genres par UUID : le resume affichait
+        // « ea2bc92d-1c26-4930-9b7c-d5c0dc1b6869 » la ou l'utilisateur avait
+        // coche « Historical ». Illisible, et impossible a retirer sciemment.
+        const nomTag = (id) => (allTags.find(t => t.id === id) || {}).name || id;
         const nomLangue = (v) => (LANGUES.find(x => x[0] === v) || [null, v])[1];
         const nomClasse = (v) => (CLASSIFICATIONS.find(x => x[0] === v) || [null, v])[1];
         const actifs = [];
-        activeTags.forEach(t    => actifs.push({ k: 'tag', v: t, l: t }));
-        excludedTags.forEach(t  => actifs.push({ k: 'sans', v: t, l: 'sans ' + t }));
+        activeTags.forEach(t    => actifs.push({ k: 'tag', v: t, l: nomTag(t) }));
+        excludedTags.forEach(t  => actifs.push({ k: 'sans', v: t, l: 'sans ' + nomTag(t) }));
         activeStatus.forEach(v  => actifs.push({ k: 'statut', v, l: v }));
         activeDemo.forEach(v    => actifs.push({ k: 'demo', v, l: v }));
         activeLangs.forEach(v   => actifs.push({ k: 'langue', v, l: nomLangue(v) }));
@@ -1066,7 +1109,8 @@
         });
 
         // Reset
-        document.getElementById('filtersReset')?.addEventListener('click', async () => {
+        document.getElementById('filtersReset')?.addEventListener('click', reinitialiserFiltres);
+        async function reinitialiserFiltres() {
             activeTags.clear(); excludedTags.clear(); activeStatus.clear(); activeDemo.clear();
             // Les filtres étendus doivent partir aussi : une réinitialisation
             // qui en laisse trois en place n'en est pas une, et l'utilisateur
@@ -1081,7 +1125,10 @@
             renderResumeFiltres();
             syncQuickFilters();
             await runSearch();
-        });
+        }
+        // Exposee au module : l'etat "aucun resultat" doit pouvoir la
+        // proposer, et non se contenter de dire « Modifiez les filtres ».
+        _reinitialiserFiltres = reinitialiserFiltres;
 
         // Pagination (délégation — bindé une seule fois)
         document.getElementById('pagination')?.addEventListener('click', async e => {

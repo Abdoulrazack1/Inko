@@ -308,6 +308,20 @@
         });
     }
 
+
+    /**
+     * Date courte d'un chapitre, pour le sélecteur.
+     *
+     * Vide si la source ne date pas ses chapitres : mieux vaut rien qu'une
+     * date inventée, et toutes ne datent pas (Gutenberg rend un livre entier).
+     */
+    function dateCourte(c) {
+        if (!c || !c.publishedAt) return '';
+        const d = new Date(c.publishedAt);
+        if (Number.isNaN(d.getTime())) return '';
+        return ' · ' + d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
     // ── Toolbar ──
     function renderToolbar() {
         const el = document.getElementById('readerToolbar');
@@ -327,7 +341,7 @@
             <button class="reader-icon-btn" ${!prevChap ? 'disabled' : ''} id="btnPrevChap" title="Chapitre précédent (←)" aria-label="Chapitre précédent">‹</button>
             <select class="reader-chap-select" id="chapSelect">
                 ${asc.slice().reverse().map(c =>
-                    `<option value="${c.id}" ${c.id === currentChap.id ? 'selected' : ''}>${MH.unitLabel(API.sources.current, { short: true })} ${c.chapter}${c.title ? ' — ' + c.title : ''}</option>`
+                    `<option value="${c.id}" ${c.id === currentChap.id ? 'selected' : ''}>${MH.unitLabel(API.sources.current, { short: true })} ${c.chapter}${c.title ? ' — ' + c.title : ''}${dateCourte(c)}</option>`
                 ).join('')}
             </select>
             <button class="reader-icon-btn" ${!nextChap ? 'disabled' : ''} id="btnNextChap" title="Chapitre suivant (→)" aria-label="Chapitre suivant">›</button>
@@ -1190,7 +1204,7 @@
         if (!el) return;
         el.innerHTML = `
         <div class="reader-details-block">
-            <div class="reader-block-title">Détails</div>
+            <h2 class="reader-block-title">Détails</h2>
             <div class="detail-tags">
                 ${(manga.tags || []).slice(0, 8).map(g => `<span class="tag" style="font-size:10.5px;padding:2px 8px">${MH.esc(g)}</span>`).join('')}
             </div>

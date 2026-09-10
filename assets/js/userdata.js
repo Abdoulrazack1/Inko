@@ -12,7 +12,7 @@
     'use strict';
 
     const LKEY = 'inko_userdata_v1';
-    const DEFAULTS = { notes: {}, pins: [], goal: {}, searchHistory: [], bookmarks: [] };
+    const DEFAULTS = { notes: {}, pins: [], goal: {}, searchHistory: [], bookmarks: [], file: [] };
 
     let data = load();
     let pulled = false;
@@ -51,7 +51,31 @@
                     // on garde ceux déjà en mémoire pour ne pas les écraser
                     // avec un blob qui, après migration, ne les contient plus.
                     const { bookmarks: _ignore, ...reste } = s.userdata;
+                    const local = data;
                     data = Object.assign({}, DEFAULTS, reste, { bookmarks: data.bookmarks || [] });
+
+                    // FUSION, et non remplacement.
+                    //
+                    // `bookmarks` avait droit à une exception écrite à la main.
+                    // Le problème qu'elle règle n'a pourtant rien de particulier
+                    // à `bookmarks` : il se pose pour TOUTE clé que le serveur
+                    // ne connaît pas encore.
+                    //
+                    // Constaté en ajoutant la file « à lire ensuite » : on met
+                    // une série de côté, `scheduleSync` écrit en local puis
+                    // pousse au serveur 700 ms plus tard, on change de page
+                    // avant — et `ready()` réécrit tout avec une copie serveur
+                    // où `file` n'existe pas. La série disparaît sans un mot.
+                    // Le même sort attendait la clé suivante, et celle d'après.
+                    //
+                    // Une clé absente du serveur garde donc sa valeur locale.
+                    // Le revers est assumé : une clé RETIRÉE côté serveur
+                    // ressuscite. Perdre ce que l'utilisateur vient de faire
+                    // coûte plus cher que garder ce qu'il avait déjà.
+                    for (const [k, v] of Object.entries(local)) {
+                        if (k === 'bookmarks') continue;
+                        if (reste[k] === undefined && v !== undefined) data[k] = v;
+                    }
                     persistLocal();
                 }
             } catch (e) { /* hors-ligne : on garde le miroir local */ }
@@ -93,6 +117,54 @@
         // ── Objectif de lecture ──
         getGoal() { return data.goal || {}; },
         setGoal(g) { data.goal = Object.assign({}, data.goal, g); scheduleSync(); },
+
+        // ── File d'attente : « à lire ensuite » ──────────────
+        //
+        // Une collection sert à RANGER ce qu'on a déjà ; la file sert à décider
+        // quoi ouvrir maintenant. Les deux se confondaient : on créait une liste
+        // « à lire » qu'il fallait ouvrir, parcourir, puis nettoyer à la main —
+        // et rien, sur l'accueil, ne rappelait ce qu'on s'était promis de lire.
+        //
+        // Elle vit dans `UserData` et non côté serveur : comme les épingles,
+        // c'est une préférence, elle doit exister sans compte et suivre
+        // l'appareil hors ligne. La synchronisation vient en plus.
+        //
+        // On stocke le titre et la couverture AVEC l'entrée. Une file qui ne
+        // garderait que des identifiants exigerait un appel réseau par ligne
+        // pour s'afficher — donc une file invisible hors ligne, c'est-à-dire
+        // précisément quand on cherche quoi lire.
+        file() { return (data.file || []).slice(); },
+        dansLaFile(mangaId, source) {
+            const k = keyOf(mangaId, source);
+            return (data.file || []).some((e) => e.k === k);
+        },
+        /** Ajoute en tête, ou retire. Rend `true` si l'œuvre y est désormais. */
+        basculerFile(entree) {
+            const k = keyOf(entree.id, entree.source);
+            data.file = data.file || [];
+            const i = data.file.findIndex((e) => e.k === k);
+            if (i >= 0) { data.file.splice(i, 1); scheduleSync(); return false; }
+            data.file.unshift({
+                k,
+                id: entree.id,
+                source: entree.source || '',
+                title: String(entree.title || '').slice(0, 200),
+                cover: entree.cover || '',
+                at: new Date().toISOString(),
+            });
+            // Un garde-fou, pas une limite de confort : `userdata` part entier
+            // dans les réglages à chaque synchronisation, et une file sans
+            // borne finirait par peser sur chaque écriture.
+            if (data.file.length > 100) data.file.length = 100;
+            scheduleSync();
+            return true;
+        },
+        retirerDeLaFile(mangaId, source) {
+            const k = keyOf(mangaId, source);
+            const avant = (data.file || []).length;
+            data.file = (data.file || []).filter((e) => e.k !== k);
+            if (data.file.length !== avant) scheduleSync();
+        },
 
         // ── Historique de recherche ──
         getSearchHistory() { return data.searchHistory || []; },

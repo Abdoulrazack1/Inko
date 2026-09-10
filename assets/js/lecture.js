@@ -161,6 +161,20 @@
         if (c) location.href = chapURL(c.id);
     }
 
+
+    /**
+     * Date courte d'un chapitre, pour le sélecteur.
+     *
+     * Vide si la source ne date pas ses chapitres : mieux vaut rien qu'une
+     * date inventée, et toutes ne datent pas (Gutenberg rend un livre entier).
+     */
+    function dateCourte(c) {
+        if (!c || !c.publishedAt) return '';
+        const d = new Date(c.publishedAt);
+        if (Number.isNaN(d.getTime())) return '';
+        return ' · ' + d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
     // ── Toolbar ──
     function renderToolbar() {
         const el = document.getElementById('novelToolbar');
@@ -178,7 +192,7 @@
             <button class="reader-icon-btn" id="btnPrevChap" ${!prev ? 'disabled' : ''} title="Chapitre précédent (←)">‹</button>
             <select class="reader-chap-select" id="chapSelect">
                 ${asc.slice().reverse().map(c =>
-                    `<option value="${MH.esc(c.id)}" ${c.id === currentChap.id ? 'selected' : ''}>${MH.esc(c.title || ('Chapitre ' + c.chapter))}</option>`
+                    `<option value="${MH.esc(c.id)}" ${c.id === currentChap.id ? 'selected' : ''}>${MH.esc(c.title || ('Chapitre ' + c.chapter))}${dateCourte(c)}</option>`
                 ).join('')}
             </select>
             <button class="reader-icon-btn" id="btnNextChap" ${!next ? 'disabled' : ''} title="Chapitre suivant (→)">›</button>
@@ -191,6 +205,14 @@
             <!-- Audit AMEL-20 : sommaire des sections détectées dans le texte -->
             <button class="reader-icon-btn" id="btnNovelToc" title="Sommaire du chapitre" hidden>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
+            <!-- Chercher DANS le chapitre. Un chapitre de web novel fait
+                 couramment dix mille mots : retrouver le nom qu'on a oublié,
+                 ou l'endroit où on s'est arrêté, n'avait aucune réponse dans
+                 l'application. Le Ctrl+F du navigateur ne voit d'ailleurs
+                 rien en mode pages, le texte étant en colonnes hors écran. -->
+            <button class="reader-icon-btn" id="btnNovelFind" title="Rechercher dans le chapitre (F)" aria-label="Rechercher dans le chapitre">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             </button>
             <button class="reader-icon-btn" id="btnNotes" title="Mes notes de lecture (J)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -210,9 +232,189 @@
         el.querySelector('#btnNovelSettings').addEventListener('click', toggleSettings);
         el.querySelector('#btnMarkRead').addEventListener('click', markUpToHere);
         el.querySelector('#btnNovelTTS').addEventListener('click', TTS.toggle);
+        el.querySelector('#btnNovelFind')?.addEventListener('click', basculerRecherche);
         el.querySelector('#btnNotes')?.addEventListener('click', openNotes);
         window.NotesUI?.updateBadge?.(notesContext());
         wireDownload();
+    }
+
+    // ── Chercher DANS le chapitre (F) ───────────────────────
+    //
+    // Un chapitre de web novel fait couramment dix mille mots, et l'application
+    // n'offrait aucun moyen d'y retrouver quoi que ce soit : ni le nom d'un
+    // personnage croisé trois pages plus tôt, ni l'endroit où on s'était
+    // arrêté. Le `Ctrl+F` du navigateur ne comble pas ce trou — en mode pages,
+    // le texte est disposé en colonnes dont la plupart sont hors de l'écran, et
+    // le navigateur les « trouve » sans jamais pouvoir les amener sous les yeux.
+    //
+    // ── Comment le surlignage est posé ──────────────────────
+    //
+    // On parcourt les NŒUDS DE TEXTE et on enveloppe les correspondances, au
+    // lieu de réécrire `innerHTML`. Réécrire le HTML détruirait la sélection en
+    // cours, les ancres du sommaire et les repères de la synthèse vocale — trois
+    // choses que ce lecteur pose sur le texte et qui n'ont aucune raison de
+    // tomber parce qu'on cherche un mot.
+    //
+    // La comparaison ignore la casse ET les accents, sans quoi « evenement » ne
+    // trouverait pas « événement » — ce qui est le cas le plus fréquent sur des
+    // traductions de fans. Le pliage est fait CARACTÈRE PAR CARACTÈRE, à
+    // longueur constante : une normalisation NFD décalerait les positions et
+    // surlignerait à côté.
+    const ACCENTS_PLIES = {
+        'à': 'a', 'á': 'a', 'â': 'a', 'ä': 'a', 'ã': 'a', 'å': 'a',
+        'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+        'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+        'ò': 'o', 'ó': 'o', 'ô': 'o', 'ö': 'o', 'õ': 'o',
+        'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u',
+        'ç': 'c', 'ñ': 'n', 'ý': 'y', 'ÿ': 'y',
+        '’': "'", '‘': "'", '“': '"', '”': '"',
+    };
+    function plier(s) {
+        let out = '';
+        for (const c of String(s).toLowerCase()) out += ACCENTS_PLIES[c] || c;
+        return out;
+    }
+
+    let rechercheOuverte = false;
+    let rechercheHits = [];
+    let rechercheIdx = -1;
+
+    function retirerSurlignage() {
+        const zone = document.getElementById('novelContent');
+        if (!zone) return;
+        zone.querySelectorAll('mark.nf-hit').forEach((m) => {
+            const t = document.createTextNode(m.textContent);
+            m.parentNode.replaceChild(t, m);
+        });
+        // `normalize()` recolle les nœuds de texte scindés par le surlignage.
+        // Sans lui, chaque recherche fragmente un peu plus le chapitre, et la
+        // suivante ne retrouve plus un terme à cheval sur deux morceaux.
+        zone.normalize();
+        rechercheHits = [];
+        rechercheIdx = -1;
+    }
+
+    function surligner(terme) {
+        retirerSurlignage();
+        const zone = document.getElementById('novelContent');
+        if (!zone || !terme || terme.length < 2) { majCompteurRecherche(); return; }
+        const cible = plier(terme);
+
+        // On collecte AVANT de modifier : remplacer un nœud pendant qu'on
+        // parcourt l'arbre invaliderait le parcours.
+        const noeuds = [];
+        const it = document.createTreeWalker(zone, NodeFilter.SHOW_TEXT, {
+            acceptNode(n) {
+                if (!n.nodeValue || !n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                const p = n.parentElement;
+                if (!p || p.closest('script, style, mark.nf-hit')) return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            },
+        });
+        let n;
+        while ((n = it.nextNode())) noeuds.push(n);
+
+        for (const noeud of noeuds) {
+            const brut = noeud.nodeValue;
+            const plie = plier(brut);
+            let depuis = 0;
+            const morceaux = [];
+            for (;;) {
+                const i = plie.indexOf(cible, depuis);
+                if (i < 0) break;
+                morceaux.push([i, i + cible.length]);
+                depuis = i + cible.length;
+            }
+            if (!morceaux.length) continue;
+
+            const frag = document.createDocumentFragment();
+            let curseur = 0;
+            for (const [a, b] of morceaux) {
+                if (a > curseur) frag.appendChild(document.createTextNode(brut.slice(curseur, a)));
+                const mark = document.createElement('mark');
+                mark.className = 'nf-hit';
+                mark.textContent = brut.slice(a, b);
+                frag.appendChild(mark);
+                rechercheHits.push(mark);
+                curseur = b;
+            }
+            if (curseur < brut.length) frag.appendChild(document.createTextNode(brut.slice(curseur)));
+            noeud.parentNode.replaceChild(frag, noeud);
+        }
+
+        if (rechercheHits.length) allerAuHit(0);
+        majCompteurRecherche();
+    }
+
+    function allerAuHit(i) {
+        if (!rechercheHits.length) return;
+        rechercheHits[rechercheIdx]?.classList.remove('on');
+        rechercheIdx = (i + rechercheHits.length) % rechercheHits.length;
+        const m = rechercheHits[rechercheIdx];
+        m.classList.add('on');
+        // `scrollIntoView` opère aussi sur l'axe horizontal : c'est ce qui rend
+        // le mode pages navigable, là où le Ctrl+F du navigateur échoue.
+        m.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        majCompteurRecherche();
+    }
+
+    function majCompteurRecherche() {
+        const c = document.getElementById('nfCompteur');
+        if (!c) return;
+        const champ = document.getElementById('nfChamp');
+        const terme = (champ?.value || '').trim();
+        if (terme.length < 2) { c.textContent = ''; return; }
+        c.textContent = rechercheHits.length
+            ? `${rechercheIdx + 1} / ${rechercheHits.length}`
+            : 'aucun résultat';
+        // `aria-live` sur la barre : sans annonce, un lecteur d'écran ne saurait
+        // pas si la frappe a produit quelque chose.
+        c.setAttribute('aria-live', 'polite');
+    }
+
+    function ouvrirRecherche() {
+        if (rechercheOuverte) { document.getElementById('nfChamp')?.focus(); return; }
+        const hote = document.getElementById('novelWrap') || document.body;
+        const barre = document.createElement('div');
+        barre.className = 'novel-find';
+        barre.id = 'novelFind';
+        barre.setAttribute('role', 'search');
+        barre.innerHTML = `
+            <input type="search" id="nfChamp" class="nf-champ" placeholder="Chercher dans le chapitre…"
+                   aria-label="Chercher dans le chapitre" autocomplete="off" spellcheck="false">
+            <span class="nf-compteur" id="nfCompteur"></span>
+            <button type="button" class="nf-btn" id="nfPrec" aria-label="Occurrence précédente" title="Précédent (Maj+Entrée)">‹</button>
+            <button type="button" class="nf-btn" id="nfSuiv" aria-label="Occurrence suivante" title="Suivant (Entrée)">›</button>
+            <button type="button" class="nf-btn" id="nfFermer" aria-label="Fermer la recherche" title="Fermer (Échap)">✕</button>`;
+        hote.appendChild(barre);
+        rechercheOuverte = true;
+
+        const champ = barre.querySelector('#nfChamp');
+        let minuteur = null;
+        champ.addEventListener('input', () => {
+            // Débounce : surligner à chaque frappe sur un chapitre de dix mille
+            // mots rendrait la saisie hachée.
+            clearTimeout(minuteur);
+            minuteur = setTimeout(() => surligner(champ.value.trim()), 220);
+        });
+        champ.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); allerAuHit(rechercheIdx + (e.shiftKey ? -1 : 1)); }
+            else if (e.key === 'Escape') { e.preventDefault(); fermerRecherche(); }
+        });
+        barre.querySelector('#nfSuiv').addEventListener('click', () => allerAuHit(rechercheIdx + 1));
+        barre.querySelector('#nfPrec').addEventListener('click', () => allerAuHit(rechercheIdx - 1));
+        barre.querySelector('#nfFermer').addEventListener('click', fermerRecherche);
+        champ.focus();
+    }
+
+    function fermerRecherche() {
+        retirerSurlignage();
+        document.getElementById('novelFind')?.remove();
+        rechercheOuverte = false;
+    }
+
+    function basculerRecherche() {
+        if (rechercheOuverte) fermerRecherche(); else ouvrirRecherche();
     }
 
     // ── Notes de lecture (journal) ──
@@ -704,7 +906,8 @@
                 case 'p': case 'P': goChapter(-1); break;
                 case 's': case 'S': toggleSettings(); break;
                 case 'j': case 'J': openNotes(); break;
-                case 'Escape': document.getElementById('novelSettings')?.remove(); break;
+                case 'f': case 'F': e.preventDefault(); basculerRecherche(); break;
+                case 'Escape': document.getElementById('novelSettings')?.remove(); fermerRecherche(); break;
             }
         });
     }

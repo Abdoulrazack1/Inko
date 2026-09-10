@@ -156,3 +156,34 @@
   .lib2-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
   .lib2-list, .lib2-grid.lib2-list { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ── Filtres actifs de la bibliothèque ───────────────────────
+   Même geste que le bloc « Filtres actifs » du catalogue : deux pages qui
+   filtrent doivent se filtrer de la même façon, sinon on réapprend à chaque
+   écran. Masqué tant que rien ne filtre. */
+.lib2-resume {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin: 0 0 10px;
+}
+.lib2-resume-label {
+  font-size: 11.5px; color: var(--text3); text-transform: uppercase;
+  letter-spacing: .04em; margin-right: 2px;
+}
+.lib2-resume-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px;
+  background: color-mix(in srgb, var(--orange) 12%, transparent);
+  border: 1px solid var(--orange); border-radius: 999px;
+  color: var(--orange); font: inherit; font-size: 12px; cursor: pointer;
+}
+.lib2-resume-chip:hover { background: var(--orange); color: #fff; }
+.lib2-resume-tout {
+  background: none; border: none; padding: 4px 6px;
+  color: var(--text3); font: inherit; font-size: 12px;
+  text-decoration: underline; cursor: pointer;
+}
+.lib2-resume-tout:hover { color: var(--text); }
+
+@media (pointer: coarse) {
+  .lib2-resume-chip, .lib2-resume-tout { min-height: 38px; padding: 8px 12px; }
+}

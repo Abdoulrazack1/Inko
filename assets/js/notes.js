@@ -15,6 +15,7 @@
         await loadStats();
         await loadNotes();
         document.getElementById('jrExportMd')?.addEventListener('click', exporterMarkdown);
+        brancherFiltres();
         const btnRecit = document.getElementById('jrRecit');
         if (btnRecit) {
             const peindre = () => {
@@ -75,7 +76,7 @@
         const mois = [...parMois.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-12);
 
         el.hidden = false;
-        el.innerHTML = `<div class="jr-moods-title">Humeurs au fil du temps</div>
+        el.innerHTML = `<h2 class="jr-moods-title">Humeurs au fil du temps</h2>
             <div class="jr-moods-row">${mois.map(([cle, compte]) => {
         const total = Object.values(compte).reduce((a, b) => a + b, 0);
         const label = new Date(cle + '-01').toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
@@ -165,17 +166,120 @@
         } catch (e) { MH.toast?.('Erreur : ' + e.message); }
     }
 
+    // ── Filtrer le journal : humeur et série ────────────────
+    //
+    // Le journal savait chercher dans le TEXTE des notes. Deux questions
+    // courantes n'avaient pourtant aucune réponse :
+    //
+    //   · « montre-moi ce qui m'a ému » — la frise affichait « 3 notes
+    //     émouvantes en mars » sans qu'on puisse les ouvrir ;
+    //   · « qu'est-ce que j'ai écrit sur cette série » — il fallait taper son
+    //     titre, en espérant l'orthographier comme la source.
+    //
+    // Les deux listes sont construites à partir des notes RÉELLES. Proposer
+    // une humeur que personne n'a jamais posée, ou une série absente du
+    // journal, reviendrait à offrir un filtre qui ne rend jamais rien.
+    let filtreHumeur = '';
+    let filtreSerie = '';
+
+    /** La recherche en cours, quel que soit l'endroit d'où l'on relance. */
+    const requete = () => (document.getElementById('jrSearch')?.value || '').trim().toLowerCase();
+
+    function construireFiltres() {
+        const zone = document.getElementById('jrFiltres');
+        const hZone = document.getElementById('jrFiltreHumeurs');
+        const sel = document.getElementById('jrFiltreSerie');
+        if (!zone || !hZone || !sel) return;
+
+        // Sous trois notes, filtrer n'a pas de sens : la barre serait plus
+        // grande que ce qu'elle trie.
+        if (allNotes.length < 3) { zone.hidden = true; return; }
+        zone.hidden = false;
+
+        const MOODS = window.NotesUI?.MOODS || [];
+        const compte = new Map();
+        const series = new Map();
+        for (const n of allNotes) {
+            if (n.mood) compte.set(n.mood, (compte.get(n.mood) || 0) + 1);
+            const cle = n.mangaId;
+            if (cle && !series.has(cle)) series.set(cle, n.mangaTitle || cle);
+        }
+
+        hZone.innerHTML = MOODS
+            .filter(([id]) => compte.has(id))
+            .map(([id, libelle, couleur]) => `
+                <button type="button" class="jr-humeur${filtreHumeur === id ? ' on' : ''}"
+                        data-humeur="${MH.esc(id)}" aria-pressed="${filtreHumeur === id}"
+                        style="--h:${couleur}" title="${MH.esc(libelle)} — ${compte.get(id)} note(s)">
+                    ${MH.esc(libelle)} <span class="jr-humeur-n">${compte.get(id)}</span>
+                </button>`).join('');
+
+        const triees = [...series.entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr'));
+        sel.innerHTML = `<option value="">Toutes les séries (${triees.length})</option>`
+            + triees.map(([id, titre]) =>
+                `<option value="${MH.esc(id)}"${filtreSerie === id ? ' selected' : ''}>${MH.esc(titre)}</option>`).join('');
+
+        const raz = document.getElementById('jrFiltresRaz');
+        if (raz) raz.hidden = !filtreHumeur && !filtreSerie;
+    }
+
+    function brancherFiltres() {
+        const hZone = document.getElementById('jrFiltreHumeurs');
+        const sel = document.getElementById('jrFiltreSerie');
+        const raz = document.getElementById('jrFiltresRaz');
+
+        // Délégation : la barre est reconstruite à chaque rendu, et rebrancher
+        // chaque puce à chaque fois empilerait les écouteurs.
+        hZone?.addEventListener('click', (e) => {
+            const b = e.target.closest('.jr-humeur');
+            if (!b) return;
+            // Recliquer la même humeur la retire : sans ça, on ne peut plus
+            // revenir à « tout » sans chercher un bouton dédié.
+            filtreHumeur = filtreHumeur === b.dataset.humeur ? '' : b.dataset.humeur;
+            render(requete());
+        });
+        sel?.addEventListener('change', () => { filtreSerie = sel.value; render(requete()); });
+        raz?.addEventListener('click', () => {
+            filtreHumeur = ''; filtreSerie = '';
+            const champ = document.getElementById('jrSearch');
+            if (champ) champ.value = '';
+            render('');
+        });
+    }
+
+    /** Applique les filtres de la barre, avant la recherche plein texte. */
+    function filtrer(notes) {
+        let out = notes;
+        if (filtreHumeur) out = out.filter((n) => n.mood === filtreHumeur);
+        if (filtreSerie) out = out.filter((n) => String(n.mangaId) === String(filtreSerie));
+        return out;
+    }
+
     function render(q) {
         const body = document.getElementById('jrBody');
-        let notes = allNotes;
+        construireFiltres();
+        let notes = filtrer(allNotes);
         if (q) notes = notes.filter(n => (n.body || '').toLowerCase().includes(q) || (n.mangaTitle || '').toLowerCase().includes(q));
         if (!notes.length) {
+            // Trois vides différents : rien pour ce texte, rien pour ces
+            // filtres, ou journal réellement vide. Le premier se corrige en
+            // changeant de mot, le deuxième en élargissant, le troisième en
+            // écrivant une note. Les confondre envoie chercher au mauvais
+            // endroit.
+            const filtre = !!(filtreHumeur || filtreSerie);
             body.innerHTML = q
-                ? `<div class="jr-empty">Aucune note ne correspond à « ${MH.esc(q)} ».</div>`
+                ? `<div class="jr-empty">Aucune note ne correspond à « ${MH.esc(q)} »${filtre ? ' avec ces filtres' : ''}.</div>`
+                : filtre
+                    ? `<div class="jr-empty">Aucune note ne correspond à ces filtres.
+                        <button type="button" id="jrVideRaz" class="link-orange"
+                            style="background:none;border:none;padding:0;font:inherit;cursor:pointer;text-decoration:underline">Tout afficher</button></div>`
                 : `<div class="jr-empty">
                     <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:6px">Ton journal est vide</div>
                     <div style="margin-bottom:16px">Pendant que tu lis un chapitre, ouvre le bouton Notes (ou la touche J) pour noter ce que tu ressens.</div>
                     <a href="catalogue.html" class="btn btn-primary btn-sm">Commencer à lire →</a></div>`;
+            document.getElementById('jrVideRaz')?.addEventListener('click', () => {
+                filtreHumeur = ''; filtreSerie = ''; render(requete());
+            });
             return;
         }
         // Regroupe par série, en conservant l'ordre chronologique (récent d'abord)
@@ -218,7 +322,7 @@
                     <img src="${MH.cover(m.cover, MH.placeholderCover(m.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(m.mangaId)}'">
                 </a>
                 <div>
-                    <div class="jr-group-title"><a href="${serieHref}">${MH.esc(m.mangaTitle || m.mangaId)}</a></div>
+                    <h3 class="jr-group-title"><a href="${serieHref}">${MH.esc(m.mangaTitle || m.mangaId)}</a></h3>
                     <div class="jr-group-meta">${g.notes.length} note${g.notes.length > 1 ? 's' : ''}</div>
                 </div>
             </div>

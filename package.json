@@ -24,6 +24,8 @@
     "gen-repli-ar": "node scripts-ci/gen-repli-aspect-ratio.js",
     "verifier-installeur": "node scripts-ci/verifier-installeur.js",
     "gen-openapi": "node scripts-ci/gen-openapi.js",
+    "audit-css": "node scripts-ci/audit-css.js",
+    "audit-decoratifs": "node scripts-ci/audit-controles-decoratifs.js",
     "setup": "node scripts-ci/setup-env.js",
     "setup:check": "node scripts-ci/setup-env.js --check",
     "gen-meta": "node scripts-ci/gen-meta.js",

@@ -98,7 +98,7 @@
 .jr-group-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .jr-group-cover { width: 42px; height: 56px; border-radius: 7px; overflow: hidden; flex-shrink: 0; background: var(--bg4); box-shadow: var(--shadow-1); }
 .jr-group-cover img { width: 100%; height: 100%; object-fit: cover; }
-.jr-group-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; }
+.jr-group-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; margin: 0; }
 .jr-group-title a { color: inherit; }
 .jr-group-meta { font-size: 12px; color: var(--text3); }
 .jr-timeline { display: flex; flex-direction: column; gap: 12px; padding-left: 8px; border-left: 2px solid var(--border); margin-left: 20px; }
@@ -126,7 +126,7 @@
 .jr-moods { margin-top: 16px; }
 .jr-moods-title {
   font-size: 11.5px; font-weight: 700; letter-spacing: .05em;
-  text-transform: uppercase; color: var(--text3); margin-bottom: 8px;
+  text-transform: uppercase; color: var(--text3); /* promu en <h2> : marge posee en entier */ margin: 0 0 8px;
 }
 .jr-moods-row { display: flex; align-items: flex-end; gap: 6px; }
 .jr-mood-col { flex: 1 1 0; min-width: 0; text-align: center; }
@@ -138,4 +138,44 @@
 .jr-mood-label {
   font-size: 10px; color: var(--text3); margin-top: 5px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Barre de filtres du journal ─────────────────────────────
+   Sous la barre d'outils, au-dessus des notes : on filtre avant de lire, pas
+   après. Elle disparaît complètement sous trois notes — une barre de filtres
+   plus grande que ce qu'elle trie est du bruit. */
+.jr-filtres {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 10px 0 14px;
+}
+.jr-filtres-humeurs { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.jr-humeur {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  background: var(--bg3); border: 1px solid var(--border2); border-radius: 999px;
+  color: var(--text2); font: inherit; font-size: 12.5px; cursor: pointer;
+  transition: border-color var(--transition), color var(--transition);
+}
+.jr-humeur:hover { border-color: var(--h, var(--accent)); color: var(--text); }
+/* L'humeur active porte SA couleur, celle qu'elle a dans le lecteur : une
+   pastille « Émouvant » bleue ici et rouge là-bas serait deux objets. */
+.jr-humeur.on {
+  border-color: var(--h, var(--accent));
+  color: var(--h, var(--accent));
+  background: color-mix(in srgb, var(--h, var(--accent)) 12%, transparent);
+}
+.jr-humeur-n { font-size: 11px; opacity: .7; font-variant-numeric: tabular-nums; }
+
+.jr-filtre-serie select {
+  max-width: 240px;
+  padding: 6px 10px;
+  background: var(--bg3); border: 1px solid var(--border2); border-radius: 9px;
+  color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  /* Au doigt, une pastille de 26 px se rate. */
+  .jr-humeur { min-height: 40px; padding: 8px 14px; }
+  .jr-filtre-serie select { min-height: 40px; }
 }

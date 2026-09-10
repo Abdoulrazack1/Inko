@@ -44,6 +44,22 @@
            pas pour etre lu. Une note de lecture s'ouvre dans un carnet. -->
       <button class="btn btn-secondary btn-sm" id="jrExportMd" title="Exporter en Markdown (Obsidian, Logseq…)">Export Markdown</button>
     </div>
+
+    <!-- Filtrer par humeur et par série.
+         La frise des humeurs montrait « 3 notes émouvantes en mars » sans
+         qu'on puisse les ouvrir, et retrouver ses notes sur une série
+         demandait d'en taper le titre. Deux questions courantes, aucune
+         réponse. Les deux listes sont construites à partir des notes
+         RÉELLES : proposer une humeur que personne n'a jamais posée
+         reviendrait à offrir un filtre qui ne rend jamais rien. -->
+    <div class="jr-filtres" id="jrFiltres" hidden>
+      <div class="jr-filtres-humeurs" id="jrFiltreHumeurs" role="group" aria-label="Filtrer par humeur"></div>
+      <label class="jr-filtre-serie">
+        <span class="visually-hidden">Filtrer par série</span>
+        <select id="jrFiltreSerie" aria-label="Filtrer par série"></select>
+      </label>
+      <button type="button" class="btn btn-ghost btn-sm" id="jrFiltresRaz" hidden>Tout afficher</button>
+    </div>
     <div id="jrBody">
       <div class="jr-empty"><div class="spinner-inline"></div></div>
     </div>
@@ -60,6 +76,14 @@
   <script src="assets/js/global.js"></script>
   <script src="assets/js/une-main.js"></script>
   <script src="assets/js/tirer-rafraichir.js"></script>
+  <!-- `notes-ui.js` est le module du panneau de notes DANS le lecteur.
+       Il est chargé ici pour sa seule table `MOODS`, dont la page a
+       besoin pour filtrer par humeur. La recopier ici ferait deux
+       listes à tenir à jour, et une pastille « Émouvant » bleue dans le
+       journal et rouge dans le lecteur seraient deux objets différents.
+       Le module n'a aucun effet au chargement : il n'expose que des
+       fonctions, et n'insère son panneau qu'au premier `open()`. -->
+  <script src="assets/js/notes-ui.js"></script>
   <script src="assets/js/notes.js"></script>
   <script src="assets/js/eula.js"></script>
   <script src="assets/js/pwa.js"></script>

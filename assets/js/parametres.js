@@ -13,12 +13,28 @@
         bindData();
         bindConnections();
         // Charge les settings serveur si connecté (override le local)
+        //
+        // Sauf ce que l'utilisateur vient de changer. La page s'affiche
+        // d'abord sur le stockage local, PUIS ce chargement écrasait TOUTES
+        // les préférences et re-synchronisait les segments : un clic donné
+        // avant l'arrivée de la réponse était annulé sous les doigts, sans
+        // rien dire. Vérifié dans le navigateur — cliquer « Double » juste
+        // après l'ouverture laissait « Défilement » actif et `readMode` à
+        // « scroll » ; la même page posée, le bouton marche.
+        //
+        // En boucle locale la fenêtre dure quelques dizaines de millisecondes
+        // — assez pour que l'audit des contrôles déclare « Double » INERTE.
+        // Sur un hub distant elle dure le temps d'un aller-retour, et c'est
+        // l'utilisateur qui perd son réglage.
         if (API.isLoggedIn()) {
             try {
                 const s = await API.me.settings();
-                Object.entries(s).forEach(([k, v]) => window.Storage.setPref(k, v));
-                if (s.theme) window.Theme.apply(s.theme);
+                Object.entries(s).forEach(([k, v]) => {
+                    if (!TOUCHEES.has(k)) window.Storage.setPref(k, v);
+                });
+                if (s.theme && !TOUCHEES.has('theme')) window.Theme.apply(s.theme);
                 initSegments(); // re-sync l'état actif
+                if (!TOUCHEES.has('accent')) initAccent();
             } catch (e) { window.MH?.err?.('parametres.js', e); }
         }
     });
@@ -27,10 +43,24 @@
     function initAccent() {
         const el = document.getElementById('accentSwatches');
         if (!el || !window.Theme) return;
-        const presets = ['#ff6b1a','#3b82f6','#a855f7','#22c55e','#ec4899','#ef4444','#06b6d4','#f59e0b'];
+        // Une couleur porte un NOM, pas son code.
+        //
+        // Le title valait « #3b82f6 » : un lecteur d'écran annonçait
+        // « dièse trois b huit deux f six », et la pastille n'était qu'un
+        // rond de couleur — donc muette pour qui ne voit pas la couleur.
+        // Relevé par l'audit des contrôles, qui signale les noms
+        // accessibles illisibles.
+        //
+        // aria-pressed dit EN PLUS laquelle est choisie : la bordure ne le
+        // dit qu'à l'œil.
+        const presets = [
+            ['#ff6b1a', 'Orange'], ['#3b82f6', 'Bleu'], ['#a855f7', 'Violet'],
+            ['#22c55e', 'Vert'], ['#ec4899', 'Rose'], ['#ef4444', 'Rouge'],
+            ['#06b6d4', 'Cyan'], ['#f59e0b', 'Ambre'],
+        ];
         const cur = window.Theme.currentAccent();
-        el.innerHTML = presets.map(c =>
-            `<button class="accent-dot" data-accent="${c}" title="${c}" style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${c.toLowerCase()===cur.toLowerCase()?'var(--text)':'transparent'};cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)"></button>`
+        el.innerHTML = presets.map(([c, nom]) =>
+            `<button class="accent-dot" data-accent="${c}" title="${nom}" aria-label="Couleur d’accentuation ${nom}" aria-pressed="${c.toLowerCase() === cur.toLowerCase()}" style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${c.toLowerCase()===cur.toLowerCase()?'var(--text)':'transparent'};cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)"></button>`
         ).join('') +
         `<label title="Couleur personnalisée" style="width:26px;height:26px;border-radius:50%;overflow:hidden;cursor:pointer;border:2px dashed var(--border2);display:inline-flex;align-items:center;justify-content:center;color:var(--text2)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10" r="1" fill="currentColor" stroke="none"/></svg>
             <!-- Audit QUAL-05 : le <label> qui l'entoure ne contient qu'une
@@ -49,7 +79,14 @@
     }
 
     // ── Sauvegarde d'une pref (locale + serveur si connecté) ──
+    //
+    // Les clés touchées ici sont celles d'un GESTE, et le geste prime sur
+    // toute réponse arrivant après lui. Voir le chargement des réglages
+    // serveur, plus haut.
+    const TOUCHEES = new Set();
+
     async function savePref(key, val) {
+        TOUCHEES.add(key);
         window.Storage.setPref(key, val);
         if (API.isLoggedIn()) {
             try { await API.me.saveSettings({ [key]: val }); } catch (e) { window.MH?.err?.('parametres.js', e); }
@@ -91,7 +128,7 @@
                 await API.auth.updateProfile({ username });
                 toast('Profil mis à jour ✓');
                 window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: API.user } }));
-            } catch (e) { toast('Erreur : ' + e.message); }
+            } catch (e) { MH.toastErreur(e); }
         });
 
         renderSessions();
@@ -324,7 +361,7 @@
                     const r = await API.me.backupRestore(file, phrase);
                     const n = r.imported || {};
                     toast(`Restaure : ${n.favorites || 0} favoris, ${n.readChapters || 0} chapitres lus`);
-                } catch (e) { toast('Erreur : ' + e.message); }
+                } catch (e) { MH.toastErreur(e); }
                 finally { b.disabled = false; }
             });
         });
@@ -364,7 +401,7 @@
                     if (r.self) { toast('Deconnecte'); setTimeout(() => location.reload(), 600); return; }
                     toast('Session fermee');
                     renderSessions();
-                } catch (e) { toast('Erreur : ' + e.message); }
+                } catch (e) { MH.toastErreur(e); }
             });
         });
 
@@ -379,7 +416,7 @@
                     const r = await API.auth.revokeOthers();
                     toast(r.closed ? `${r.closed} session(s) fermee(s)` : 'Aucune autre session');
                     renderSessions();
-                } catch (e) { toast('Erreur : ' + e.message); }
+                } catch (e) { MH.toastErreur(e); }
             });
         }
     }
@@ -448,7 +485,7 @@
                 a.href = url; a.download = `inko-export-${new Date().toISOString().slice(0,10)}.json`;
                 a.click(); URL.revokeObjectURL(url);
                 toast('Export téléchargé ✓');
-            } catch (e) { toast('Erreur : ' + e.message); }
+            } catch (e) { MH.toastErreur(e); }
         });
 
         // Import d'une sauvegarde JSON
@@ -468,7 +505,7 @@
                 const r = await API.me.importData(data);
                 const c = r.imported || {};
                 toast(`Import : ${c.favorites || 0} favoris, ${c.progress || 0} progressions ✓`, 3500);
-            } catch (e) { toast('Erreur : ' + e.message); }
+            } catch (e) { MH.toastErreur(e); }
             finally { importFile.value = ''; }
         });
 
@@ -476,7 +513,7 @@
             if (!API.isLoggedIn()) { toast('Connecte-toi'); return; }
             if (!await MH.confirm('Effacer tout ton historique de lecture ? (favoris conservés)', { danger: true, okText: 'Effacer' })) return;
             try { await API.me.clearHistory(); toast('Historique effacé ✓'); }
-            catch (e) { toast('Erreur : ' + e.message); }
+            catch (e) { MH.toastErreur(e); }
         });
 
         document.getElementById('btnDeleteAccount')?.addEventListener('click', async () => {
@@ -486,7 +523,7 @@
                 await API.auth.deleteAccount(password);
                 toast('Compte supprimé. À bientôt.');
                 setTimeout(() => { window.location.href = 'accueil.html'; }, 1000);
-            } catch (e) { toast('Erreur : ' + e.message); }
+            } catch (e) { MH.toastErreur(e); }
         });
     }
 
@@ -494,6 +531,8 @@
     async function bindConnections() {
         // Bouton "Ouvrir le lecteur" de musique
         document.getElementById('btnReplayTour')?.addEventListener('click', () => MH.startTour());
+        document.getElementById('btnDiagVoir')?.addEventListener('click', afficherDiagnostic);
+        document.getElementById('btnDiagCopier')?.addEventListener('click', copierDiagnostic);
 
     // ── Vider le cache ──
     // Après une mise à jour, la fenêtre desktop (ou la PWA) peut rester sur
@@ -642,7 +681,132 @@
             if (notFound) bits.push(`${notFound} introuvable(s) sur AniList`);
             if (failed)   bits.push(`${failed} échec(s)`);
             toast(bits.join(' · '));
-        } catch (e) { toast('Erreur : ' + e.message); }
+        } catch (e) { MH.toastErreur(e); }
         finally { btn.disabled = false; btn.textContent = orig; }
     }
+    // ── Diagnostic ────────────────────────────────────────
+    //
+    // `MH.errors` retient les cent dernières erreurs JavaScript depuis
+    // toujours. Rien ne les avait jamais montrées : elles vivaient dans une
+    // variable qu'il fallait connaître et lire depuis la console du navigateur.
+    //
+    // Sur une application qu'on héberge soi-même, c'est la différence entre
+    // « ça marche pas » — dont personne ne peut rien faire — et un rapport qui
+    // dit la version, le mode, la source active et ce qui a échoué.
+    //
+    // Ce que le rapport ne contient PAS est aussi important que ce qu'il
+    // contient : ni jeton, ni email, ni titre d'œuvre, ni adresse de hub. Un
+    // rapport qu'on hésite à coller dans un ticket public ne sert à rien.
+
+    /** Taille lisible : 4.8 Mo se lit, 5033164 non. */
+    function taille(n) {
+        if (!Number.isFinite(n)) return '—';
+        const u = ['o', 'Ko', 'Mo', 'Go'];
+        let i = 0;
+        while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+        return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
+    }
+
+    async function construireDiagnostic() {
+        const L = [];
+        const ajout = (cle, val) => L.push(`${String(cle).padEnd(18)} ${val}`);
+
+        L.push('── Inko · diagnostic ──');
+        ajout('Date', new Date().toISOString());
+        // La version n'est exposée nulle part côté page : `/api/health` ne la
+        // rend qu'en production (`APP_VERSION`), et le dev n'en a pas. Elle est
+        // pourtant DANS le nom du cache du service worker — `inko-2.6.1-…` —
+        // que `gen-precache.js` fabrique depuis `package.json`. On la lit là :
+        // ça marche hors ligne, et sans compte.
+        let version = '—';
+        try {
+            const cle = (await caches.keys()).find((k) => /^inko-\d/.test(k));
+            if (cle) version = (cle.match(/^inko-([\d.]+)/) || [, '—'])[1];
+        } catch (e) { /* caches indisponible : on reste sur '—' */ }
+        ajout('Version', version);
+        // Le MODE explique la moitié des symptômes rapportés : sans hub, une
+        // page qui « ne charge rien » est un comportement, pas une panne.
+        ajout('Mode', window.INKO_AUTONOME ? 'autonome (sans hub)' : 'hub');
+        ajout('Connecté', window.API?.isLoggedIn?.() ? 'oui' : 'non');
+        ajout('Source active', window.API?.sources?.current || '—');
+        ajout('Langue', window.MH?.lang || '—');
+        ajout('Thème', window.Storage?.getPref?.('theme') || 'dark');
+        // `innerWidth` vaut 0 quand la fenêtre est masquée (onglet en arrière-
+        // plan, panneau replié) : on retombe alors sur la taille de l'écran,
+        // qui reste un renseignement utile.
+        const l = window.innerWidth || window.screen?.width || 0;
+        const h = window.innerHeight || window.screen?.height || 0;
+        ajout('Écran', `${l}×${h} @${window.devicePixelRatio || 1}x`);
+        ajout('En ligne', navigator.onLine ? 'oui' : 'non');
+        // L'agent utilisateur dit le WebView d'Android, dont la version
+        // explique à elle seule plusieurs classes de pannes de mise en page.
+        ajout('Navigateur', (navigator.userAgent || '').slice(0, 120));
+
+        try {
+            const sw = await navigator.serviceWorker?.getRegistration?.();
+            ajout('Service worker', sw ? (sw.active ? 'actif' : 'enregistré') : 'absent');
+        } catch (e) { ajout('Service worker', 'inconnu'); }
+
+        try {
+            const q = await navigator.storage?.estimate?.();
+            if (q) ajout('Stockage', `${taille(q.usage)} utilisés sur ${taille(q.quota)}`);
+        } catch (e) { /* estimate() n'existe pas partout */ }
+
+        try {
+            const n = (window.UserData?.file?.() || []).length;
+            ajout('À lire ensuite', `${n} entrée(s)`);
+        } catch (e) { /* UserData absent sur les pages sans global.js */ }
+
+        // ── Les erreurs, de la plus récente à la plus ancienne ──
+        const err = (window.MH?.errors || []).slice(-15).reverse();
+        L.push('');
+        L.push(`── ${err.length} dernière(s) erreur(s) sur ${(window.MH?.errors || []).length} retenue(s) ──`);
+        if (!err.length) L.push('(aucune)');
+        for (const e of err) {
+            const quand = new Date(e.at || Date.now()).toISOString().slice(11, 19);
+            L.push(`${quand}  ${e.ctx || '?'} : ${String(e.msg || '').slice(0, 160)}`);
+        }
+        return L.join('\n');
+    }
+
+    // Le bouton BASCULE : il affiche, puis il masque. Sans aria-expanded il
+    // annonce « Afficher » dans les deux etats, et rien ne dit qu'un panneau
+    // s'est ouvert plus bas. Meme defaut que la cloche de notifications.
+    async function afficherDiagnostic() {
+        const zone = document.getElementById('diagSortie');
+        if (!zone) return;
+        const bouton = document.getElementById('btnDiagVoir');
+        const dire = (ouvert) => bouton?.setAttribute('aria-expanded', String(ouvert));
+        if (!zone.hidden) { zone.hidden = true; dire(false); return; }
+        zone.textContent = await construireDiagnostic();
+        zone.hidden = false;
+        dire(true);
+        zone.focus();
+    }
+
+    async function copierDiagnostic() {
+        const texte = await construireDiagnostic();
+        try {
+            await navigator.clipboard.writeText(texte);
+            MH.toast?.('Rapport copié — colle-le dans ton signalement');
+        } catch (e) {
+            // Le presse-papiers demande un contexte sûr et une permission. Sans
+            // lui, on AFFICHE le rapport et on le sélectionne : l'utilisateur
+            // fait Ctrl+C. Un « impossible de copier » sans rien d'autre
+            // laisserait la seule information utile hors de portée.
+            const zone = document.getElementById('diagSortie');
+            if (zone) {
+                zone.textContent = texte;
+                zone.hidden = false;
+                document.getElementById('btnDiagVoir')?.setAttribute('aria-expanded', 'true');
+                const r = document.createRange();
+                r.selectNodeContents(zone);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(r);
+            }
+            MH.toast?.('Copie refusée par le navigateur — le rapport est sélectionné, fais Ctrl+C');
+        }
+    }
+
 })();

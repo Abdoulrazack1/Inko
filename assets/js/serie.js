@@ -162,6 +162,7 @@
         // sans avoir l'air d'une panne.
         const STATUTS = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };
         const statusLabel = STATUTS[manga.status] || (manga.status ? String(manga.status) : '—');
+        const enFile = !!window.UserData?.dansLaFile?.(manga.id, API.sources.current);
         const resumeChap = progress?.chapterId;
         // Libellé du bouton Reprendre : numéro de chapitre si connu, sinon générique
         const resumeLabel = (progress?.chapter != null && progress.chapter !== '')
@@ -186,6 +187,13 @@
                 <div class="serie-meta-row">
                     ${manga.author ? `<span class="serie-meta-item"><span class="serie-meta-icon"></span> ${MH.esc(manga.author)}</span>` : ''}
                     <span class="serie-meta-item" id="chapCountMeta"><span class="serie-meta-icon"></span> <span class="spinner-inline" style="width:10px;height:10px;border-width:1px"></span> chapitres</span>
+                    <!-- La date de la DERNIERE parution répond à la seule
+                         question qu'on se pose devant une fiche inconnue :
+                         est-ce que ça sort encore ? Le statut annoncé par la
+                         source ne le dit pas — « En cours » couvre aussi bien
+                         une sortie hebdomadaire qu'un abandon de trois ans.
+                         Remplie par updateTabsLabels(), avec les chapitres. -->
+                    <span class="serie-meta-item" id="lastReleaseMeta" hidden></span>
                     ${manga.year ? `<span class="serie-meta-item"><span class="serie-meta-icon"></span> ${manga.year}</span>` : ''}
                     <span class="serie-meta-item">
                         <span class="serie-meta-icon"></span>
@@ -215,6 +223,14 @@
                     <button class="btn btn-ghost btn-sm" id="btnNextUnread" title="Ouvrir le premier chapitre non lu">1er non-lu</button>
                     <button class="btn btn-ghost ${favorited ? 'is-fav' : ''}" id="btnFavorite">
                         ${favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste'}
+                    </button>
+                    <!-- « À lire ensuite » n'est pas un doublon de « Ma liste ».
+                         La liste RANGE ce qu'on suit ; la file dit quoi ouvrir
+                         maintenant, et l'accueil la rappelle. Elle marche sans
+                         compte et hors ligne, comme les épingles. -->
+                    <button class="btn btn-ghost ${enFile ? 'is-fav' : ''}" id="btnFile"
+                            title="${enFile ? 'Retirer de « À lire ensuite »' : 'Mettre en tête de « À lire ensuite »'}">
+                        ${enFile ? '✓ Dans la file' : '＋ À lire ensuite'}
                     </button>
                     <select id="serieStatus" title="Statut de lecture" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:9px 12px;border-radius:9px;font-size:13px;cursor:pointer">
                         <option value="">Sans statut</option>
@@ -304,6 +320,18 @@
             window.location.href = MH.readerHref(manga.id, next.id, API.sources.current);
         });
 
+        document.getElementById('btnFile')?.addEventListener('click', () => {
+            const b = document.getElementById('btnFile');
+            const dedans = window.UserData?.basculerFile?.({
+                id: manga.id, source: API.sources.current,
+                title: manga.title, cover: manga.coverThumb || manga.cover,
+            });
+            b.classList.toggle('is-fav', dedans);
+            b.textContent = dedans ? '✓ Dans la file' : '＋ À lire ensuite';
+            b.title = dedans ? 'Retirer de « À lire ensuite »' : 'Mettre en tête de « À lire ensuite »';
+            MH.toast?.(dedans ? 'Ajouté à « À lire ensuite »' : 'Retiré de la file');
+        });
+
         document.getElementById('btnFavorite')?.addEventListener('click', async () => {
             if (!API.isLoggedIn()) { MH.toast('Connectez-vous pour ajouter des favoris'); return; }
             const btn = document.getElementById('btnFavorite');
@@ -313,7 +341,7 @@
                 btn.classList.toggle('is-fav', favorited);
                 btn.textContent = favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste';
                 MH.toast(favorited ? 'Ajouté à votre liste !' : 'Retiré de votre liste');
-            } catch(err) { MH.toast('Erreur : ' + err.message); }
+            } catch(err) { MH.toastErreur(err); }
         });
 
         function updateFavBtn() {
@@ -334,7 +362,7 @@
                 if (status) { try { window.AniList?.syncByTitle(manga.title, { status }); } catch (e) { window.MH?.err?.('serie.js', e); } }
                 MH.toast(status ? 'Statut : ' + e.target.options[e.target.selectedIndex].text : 'Statut retiré');
                 if (status === 'completed') proposerNotation();
-            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            } catch (err) { MH.toastErreur(err); }
         });
 
         // Audit AMEL-54 : bascule de surveillance. On ne recharge pas la fiche
@@ -397,7 +425,7 @@
                 btn.title = libNotify ? 'Ne plus être averti des nouveaux chapitres' : 'Être averti des nouveaux chapitres';
                 btn.setAttribute('aria-pressed', String(libNotify));
                 MH.toast(libNotify ? 'Tu seras averti des nouveaux chapitres' : 'Série mise en sourdine');
-            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            } catch (err) { MH.toastErreur(err); }
             finally { btn.disabled = false; }
         });
 
@@ -411,7 +439,7 @@
                 libCategory = cat || null; favorited = true; updateFavBtn();
                 const b = document.getElementById('btnCategory'); if (b) b.textContent = libCategory || '+ Catégorie';
                 MH.toast(libCategory ? 'Catégorie : ' + libCategory : 'Catégorie retirée');
-            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            } catch (err) { MH.toastErreur(err); }
         });
 
         document.getElementById('btnShare')?.addEventListener('click', async () => {
@@ -513,7 +541,7 @@
     async function openListPicker() {
         if (!API.isLoggedIn()) { MH.toast('Connecte-toi pour utiliser les listes'); return; }
         let lists = [];
-        try { lists = await API.me.lists(); } catch (e) { MH.toast('Erreur : ' + e.message); return; }
+        try { lists = await API.me.lists(); } catch (e) { MH.toastErreur(e); return; }
         const meta = { title: manga.title, cover: manga.cover || manga.coverThumb, source: API.sources.current };
         const inSet = new Set(lists.filter(l => (l.mangaIds || []).map(String).includes(String(manga.id))).map(l => l.id));
         document.getElementById('listPicker')?.remove();
@@ -523,7 +551,7 @@
         wrap.style.display = 'flex';
         wrap.innerHTML = `
             <div class="list-modal">
-                <div class="list-modal-head"><span>Ajouter à une liste</span><button class="list-modal-close" id="lpClose">✕</button></div>
+                <div class="list-modal-head"><span>Ajouter à une liste</span><button class="list-modal-close" id="lpClose" aria-label="Fermer" title="Fermer">✕</button></div>
                 <div class="lp-lists" id="lpLists">
                     ${lists.length ? lists.map(l => `
                         <label class="lp-row">
@@ -548,7 +576,7 @@
                 if (cb.checked) await API.me.addToList(id, manga.id, meta);
                 else            await API.me.removeFromList(id, manga.id);
                 MH.toast(cb.checked ? 'Ajouté à la liste' : 'Retiré de la liste');
-            } catch (e) { MH.toast('Erreur : ' + e.message); cb.checked = !cb.checked; }
+            } catch (e) { MH.toastErreur(e); cb.checked = !cb.checked; }
             finally { cb.disabled = false; }
         }));
         wrap.querySelector('#lpCreate').addEventListener('click', async () => {
@@ -559,7 +587,7 @@
                 await API.me.addToList(r.id, manga.id, meta);
                 MH.toast(`Ajouté à « ${name} »`);
                 close();
-            } catch (e) { MH.toast('Erreur : ' + e.message); }
+            } catch (e) { MH.toastErreur(e); }
         });
         wrap.querySelector('#lpNewName')?.addEventListener('keydown', e => { if (e.key === 'Enter') wrap.querySelector('#lpCreate').click(); });
     }
@@ -592,6 +620,31 @@
     function updateTabsLabels() {
         const meta = document.getElementById('chapCountMeta');
         if (meta) meta.innerHTML = `<span class="serie-meta-icon"></span> ${chapters.length} chapitres`;
+
+        // « Dernière sortie : il y a 3 jours » — ou « il y a 4 ans », qui est
+        // l'information la plus utile de la fiche quand elle arrive.
+        //
+        // On prend le maximum des dates plutôt que le premier chapitre de la
+        // liste : l'ordre dépend de la source, et une seule qui trie à
+        // l'envers suffirait à annoncer la sortie la plus ANCIENNE comme la
+        // plus récente. Se tromper ici est pire que se taire.
+        const derniere = chapters.reduce((max, c) => {
+            const t = c.publishedAt ? new Date(c.publishedAt).getTime() : 0;
+            return Number.isFinite(t) && t > max ? t : max;
+        }, 0);
+        const el = document.getElementById('lastReleaseMeta');
+        if (el) {
+            if (derniere > 0) {
+                const iso = new Date(derniere).toISOString();
+                el.hidden = false;
+                el.innerHTML = `<span class="serie-meta-icon"></span> Dernière sortie ${MH.relTime(iso)}`;
+                el.title = `Dernier chapitre paru le ${MH.fullDate(iso)}`;
+            } else {
+                // Toutes les sources ne datent pas leurs chapitres (Gutenberg
+                // rend un livre entier). Mieux vaut rien qu'une date inventée.
+                el.hidden = true;
+            }
+        }
         document.querySelectorAll('.serie-tab[data-tab="chapitres"]').forEach(b => {
             b.textContent = `Chapitres (${chapters.length})`;
         });
@@ -608,12 +661,12 @@
     function renderApercu(el) {
         el.innerHTML = `
         <div class="synopsis-block">
-            <div class="synopsis-block-header"><div class="synopsis-block-title">Synopsis</div></div>
+            <div class="synopsis-block-header"><h2 class="synopsis-block-title">Synopsis</h2></div>
             <div class="synopsis-text">${MH.esc(manga.description || 'Aucun synopsis disponible.')}</div>
         </div>
         <div class="chapters-block">
             <div class="chapters-block-header">
-                <div class="chapters-block-title">Derniers chapitres</div>
+                <h2 class="chapters-block-title">Derniers chapitres</h2>
                 <button class="section-link" data-goto="chapitres">Voir tous →</button>
             </div>
             <div class="chapters-list" id="apercuChapsList">
@@ -626,7 +679,7 @@
         <div class="chapters-block" id="similarBlock" style="display:none">
             <div class="chapters-block-header">
                 <div>
-                    <div class="chapters-block-title">Tu aimeras aussi</div>
+                    <h2 class="chapters-block-title">Tu aimeras aussi</h2>
                     <div id="similarSub" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
                 </div>
             </div>
@@ -638,7 +691,7 @@
         <div class="chapters-block" id="autresSourcesBlock" style="display:none">
             <div class="chapters-block-header">
                 <div>
-                    <div class="chapters-block-title">Aussi disponible sur</div>
+                    <h2 class="chapters-block-title">Aussi disponible sur</h2>
                     <div style="font-size:12px;color:var(--text3);margin-top:2px">Mêmes chapitres, autre source — utile si celle-ci est indisponible</div>
                 </div>
             </div>
@@ -648,7 +701,7 @@
              cliquables au-delà des 4 premiers genres du titre. -->
         <div class="chapters-block" id="lieesBlock" style="display:none">
             <div class="chapters-block-header">
-                <div class="chapters-block-title">Explorer</div>
+                <h2 class="chapters-block-title">Explorer</h2>
             </div>
             <div id="lieesRow" style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 2px 8px"></div>
         </div>`;
@@ -720,7 +773,7 @@
             // onglet : rafraîchir l'onglet courant laissait les étoiles vides
             // juste après avoir noté.
             renderRating();
-        } catch (e) { MH.toast('Erreur : ' + e.message); }
+        } catch (e) { MH.toastErreur(e); }
     }
 
     // ── Ambiance musicale suggeree (audit AMEL-96) ───────────
@@ -1393,7 +1446,7 @@
         if (!chapters.length) {
             el.innerHTML = `
             <div class="chapters-block">
-                <div class="chapters-block-header"><div class="chapters-block-title">Tous les chapitres</div></div>
+                <div class="chapters-block-header"><h2 class="chapters-block-title">Tous les chapitres</h2></div>
                 <div class="chapters-list">
                     <div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">
                         <div class="spinner-inline"></div>
@@ -1412,7 +1465,7 @@
         el.innerHTML = `
         <div class="chapters-block">
             <div class="chapters-block-header">
-                <div class="chapters-block-title">Tous les chapitres · <span id="chapCount">${chapters.length}</span></div>
+                <h2 class="chapters-block-title">Tous les chapitres · <span id="chapCount">${chapters.length}</span></h2>
                 <div class="chapters-controls">
                     <input type="text" id="chapSearch" class="chap-search-input" placeholder="Chercher un chapitre…">
                     <select id="chapLang" class="chap-sort-btn" title="Langue des chapitres" style="cursor:pointer">
@@ -1465,7 +1518,7 @@
                 else if (u?.hasNew) MH.toast(`Nouveau chapitre ! Dernier : Ch. ${u.latest?.chapter}`);
                 else if (u) MH.toast(u.unreadCount > 0 ? `${u.unreadCount} chapitre(s) non lu(s)` : 'Série à jour');
                 else MH.toast('Ajoute la série en favori pour la suivre');
-            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            } catch (err) { MH.toastErreur(err); }
             finally { b.disabled = false; b.textContent = lbl; }
         });
         const list    = el.querySelector('#chapsList');
@@ -1573,12 +1626,12 @@
 
         <!-- Notes -->
         <div class="sidebar-rating card" id="ratingCard" style="padding:14px">
-            <div class="sidebar-block-header"><span class="sidebar-block-title">Note</span></div>
+            <div class="sidebar-block-header"><h2 class="sidebar-block-title">Note</h2></div>
             <div id="ratingBody" style="margin-top:8px;color:var(--text3);font-size:12.5px">Chargement…</div>
         </div>
 
         <div class="sidebar-tags card" style="padding:14px">
-            <div class="sidebar-block-header"><span class="sidebar-block-title">Tags</span></div>
+            <div class="sidebar-block-header"><h2 class="sidebar-block-title">Tags</h2></div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
                 ${(manga.tags || []).map(t =>
                     `<a href="catalogue.html?q=${encodeURIComponent(t)}" class="tag tag-link">${MH.esc(t)}</a>`
@@ -1588,7 +1641,7 @@
 
         <!-- Notes personnelles (privées, synchronisées) -->
         <div class="sidebar-note card" id="noteCard" style="padding:14px">
-            <div class="sidebar-block-header"><span class="sidebar-block-title">Ma note perso</span>
+            <div class="sidebar-block-header"><h2 class="sidebar-block-title">Ma note perso</h2>
                 <span id="noteStatus" style="font-size:11px;color:var(--text3)"></span></div>
             <textarea id="noteArea" placeholder="Note privée : où j'en suis, mon avis, à retenir…"
                 style="width:100%;margin-top:8px;min-height:78px;resize:vertical;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;color:var(--text);font-size:12.5px;padding:9px 11px;font-family:inherit;line-height:1.5"></textarea>
@@ -1695,7 +1748,7 @@
                     // muette pour quiconque note depuis un panneau vierge.
                     afficherScoreAniList(v);
                     MH.toast(`Note ${(v / 2).toFixed(1).replace('.', ',')}/5`);
-                } catch (e) { MH.toast('Erreur : ' + e.message); }
+                } catch (e) { MH.toastErreur(e); }
             });
         });
         body.querySelector('.rate-stars')?.addEventListener('mouseleave', () => peindre(note10));
@@ -1708,7 +1761,7 @@
             try {
                 await API.ratings.set(manga.id, { rating: note10, review: review || null });
                 MH.toast('Ton avis est enregistré');
-            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            } catch (err) { MH.toastErreur(err); }
             finally { e.target.disabled = false; e.target.textContent = lbl; }
         });
     }

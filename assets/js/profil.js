@@ -33,8 +33,6 @@
         initToggles();
         initPrefBtns();
         initHistoryFilters();
-        initViewToggles();
-        initListNav();
         bindDangerActions();
         wireExtraButtons();
     });
@@ -362,7 +360,7 @@
                 renderHeroIdentity();
                 MH.toast('Profil mis à jour ✓');
                 ov.remove();
-            } catch (e) { MH.toast('Erreur : ' + e.message); }
+            } catch (e) { MH.toastErreur(e); }
         });
         ov.querySelector('#epName').focus();
     }
@@ -661,6 +659,118 @@
     // Audit P8 : le bouton « ↕ Plus récent en premier » ne triait rien
     // (toast « Fonctionnalité à venir ») — il inverse désormais la frise.
     let histAsc = false;
+    // ── Les filtres de l'historique ─────────────────────────
+    //
+    // L'onglet Historique portait une barre de recherche, trois filtres de
+    // période et trois pastilles de filtrage. Rien de tout cela ne filtrait
+    // quoi que ce soit :
+    //
+    //   · les périodes (« Derniers 7 jours », « 30 jours », « Cette année »)
+    //     ne faisaient que se passer une classe `active` — le bouton
+    //     s'allumait, la liste ne bougeait pas. C'est pire qu'un bouton mort :
+    //     il RÉPOND, donc on croit que la liste montre bien sept jours ;
+    //   · le champ de recherche n'avait aucun écouteur ;
+    //   · les trois pastilles ouvraient un toast « Fonctionnalité à venir ».
+    //
+    // L'audit des contrôles ne les voyait pas : ils vivent dans un onglet qui
+    // n'est pas celui par défaut, donc invisibles au moment de la mesure.
+    //
+    // Les cinq filtres sont désormais réels. Les données étaient toutes là :
+    // la date sur l'événement, le titre et les tags sur l'œuvre, le type via
+    // la source, et le moment de la journée dans l'heure de l'événement.
+    let histPeriode = 7;        // en jours ; 365 pour « cette année »
+    let histTexte   = '';
+    let histType    = 'tous';   // 'tous' | 'manga' | 'novel'
+    let histGenre   = '';
+    let histMoment  = '';       // '' | 'matin' | 'apresmidi' | 'soir' | 'nuit'
+
+    const MOMENTS = [
+        ['matin', 'Matin (5 h – 12 h)', (h) => h >= 5 && h < 12],
+        ['apresmidi', 'Après-midi (12 h – 18 h)', (h) => h >= 12 && h < 18],
+        ['soir', 'Soir (18 h – 23 h)', (h) => h >= 18 && h < 23],
+        ['nuit', 'Nuit (23 h – 5 h)', (h) => h >= 23 || h < 5],
+    ];
+    function momentDe(d) {
+        const h = d.getHours();
+        return (MOMENTS.find(([, , test]) => test(h)) || [''])[0];
+    }
+
+    /** Compare sans casse ni accents, à longueur libre (on ne surligne pas ici). */
+    function plierHisto(s) {
+        return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    }
+
+    /**
+     * Un petit menu attaché à une pastille.
+     *
+     * Pas de composant générique dans ce projet : trois pastilles ne
+     * justifiaient pas d'en inventer un, mais elles justifiaient encore moins
+     * de rester décoratives. Fermé au clic dehors et à Échap — un menu qu'on ne
+     * peut fermer qu'en re-cliquant sur son ouvreur est un piège au clavier.
+     */
+    function menuPastille(pastille, options, valeurActive, onChoix) {
+        document.querySelectorAll('.histo-menu').forEach((m) => m.remove());
+        const menu = document.createElement('div');
+        menu.className = 'histo-menu';
+        menu.setAttribute('role', 'menu');
+        menu.innerHTML = options.map(([val, libelle]) => `
+            <button type="button" role="menuitemradio" aria-checked="${val === valeurActive}"
+                    class="histo-menu-item${val === valeurActive ? ' on' : ''}"
+                    data-val="${MH.esc(val)}">${MH.esc(libelle)}</button>`).join('');
+        document.body.appendChild(menu);
+
+        const r = pastille.getBoundingClientRect();
+        menu.style.top = `${Math.round(r.bottom + window.scrollY + 6)}px`;
+        menu.style.left = `${Math.round(Math.min(r.left + window.scrollX, window.innerWidth - 240))}px`;
+
+        const fermer = () => {
+            menu.remove();
+            document.removeEventListener('click', dehors, true);
+            document.removeEventListener('keydown', echap, true);
+        };
+        const dehors = (e) => { if (!menu.contains(e.target) && e.target !== pastille) fermer(); };
+        const echap = (e) => { if (e.key === 'Escape') { e.preventDefault(); fermer(); pastille.focus(); } };
+        setTimeout(() => {
+            document.addEventListener('click', dehors, true);
+            document.addEventListener('keydown', echap, true);
+        }, 0);
+
+        menu.querySelectorAll('.histo-menu-item').forEach((b) => {
+            b.addEventListener('click', () => { fermer(); onChoix(b.dataset.val); });
+        });
+        menu.querySelector('.histo-menu-item')?.focus();
+    }
+
+    /** Les genres réellement présents dans l'historique, et eux seuls. */
+    function genresDisponibles() {
+        const compte = new Map();
+        for (const m of cacheMangas.values()) {
+            for (const t of (m?.tags || [])) compte.set(t, (compte.get(t) || 0) + 1);
+        }
+        return [...compte.entries()]
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr'))
+            .slice(0, 24)
+            .map(([t]) => [t, t]);
+    }
+
+    /** Le libellé d'une pastille reflète son état : sinon on ne sait plus ce qui filtre. */
+    function majPastilles() {
+        const pills = document.querySelectorAll('.history-filter-pills .tag');
+        const libelles = [
+            histType === 'tous' ? 'Type de contenu' : (histType === 'novel' ? 'Romans' : 'Mangas'),
+            histGenre ? `Genre : ${histGenre}` : 'Genres',
+            histMoment ? (MOMENTS.find(([v]) => v === histMoment) || [, 'Moment'])[1] : 'Moment de lecture',
+        ];
+        pills.forEach((p, i) => {
+            if (libelles[i] === undefined) return;
+            p.textContent = libelles[i];
+            const actif = (i === 0 && histType !== 'tous')
+                || (i === 1 && !!histGenre) || (i === 2 && !!histMoment);
+            p.classList.toggle('on', actif);
+            p.setAttribute('aria-pressed', String(actif));
+        });
+    }
+
     async function renderHistoryTimeline() {
         const el = document.getElementById('historyTimeline');
         if (!el) return;
@@ -678,13 +788,63 @@
                 el.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Aucune activité enregistrée. Lis un chapitre pour démarrer.</div>`;
                 return;
             }
+
+            // ── Les cinq filtres ────────────────────────────
+            // Période et moment d'abord : ils ne coûtent rien et réduisent le
+            // nombre d'œuvres à charger pour les trois suivants.
+            const depuis = Date.now() - histPeriode * 86400000;
+            let candidats = readEvents.filter(e => new Date(e.at).getTime() >= depuis);
+            if (histMoment) candidats = candidats.filter(e => momentDe(new Date(e.at)) === histMoment);
+
+            // Le titre, les tags et le type exigent l'œuvre. `loadMangas` passe
+            // par `cacheMangas`, donc un second filtrage ne recharge rien.
+            const idsCandidats = [...new Set(candidats.map(e => e.mangaId))].slice(0, 300);
+            await loadMangas(idsCandidats);
+
+            if (histType !== 'tous') {
+                candidats = candidats.filter(e => {
+                    const novel = MH.isNovelSource?.(sourceDe(e.mangaId, e.source));
+                    return histType === 'novel' ? !!novel : !novel;
+                });
+            }
+            if (histGenre) {
+                candidats = candidats.filter(e =>
+                    (cacheMangas.get(e.mangaId)?.tags || []).includes(histGenre));
+            }
+            if (histTexte) {
+                const q = plierHisto(histTexte);
+                candidats = candidats.filter(e => {
+                    const m = cacheMangas.get(e.mangaId);
+                    return plierHisto(`${m?.title || ''} ${e.metadata?.chapter ?? ''}`).includes(q);
+                });
+            }
+
+            majPastilles();
+
+            // « Rien pour ce filtre » et « rien du tout » sont deux messages
+            // différents : le premier se corrige en élargissant, le second non.
+            if (!candidats.length) {
+                el.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">
+                    Aucune lecture ne correspond à ces filtres.
+                    <button type="button" id="histReset" class="link-orange"
+                        style="background:none;border:none;padding:0;font:inherit;cursor:pointer;text-decoration:underline">Tout afficher</button>
+                </div>`;
+                document.getElementById('histReset')?.addEventListener('click', () => {
+                    histPeriode = 365; histTexte = ''; histType = 'tous'; histGenre = ''; histMoment = '';
+                    const champ = document.querySelector('.history-search-bar input');
+                    if (champ) champ.value = '';
+                    document.querySelectorAll('.hqf-btn').forEach((b, i) => b.classList.toggle('active', i === 2));
+                    renderHistoryTimeline();
+                });
+                return;
+            }
             const now = new Date();
             const today = now.toDateString();
             const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
             const yStr = yesterday.toDateString();
             const weekAgo = Date.now() - 7 * 86400000;
 
-            const shown = readEvents.slice(0, histShown);
+            const shown = candidats.slice(0, histShown);
             const groups = { "Aujourd'hui": [], 'Hier': [], 'Cette semaine': [], 'Plus ancien': [] };
             shown.forEach(e => {
                 const d = new Date(e.at);
@@ -741,7 +901,7 @@
             };
 
             // « Charger plus » tant qu'il reste des événements de lecture
-            if (readEvents.length > histShown && histShown < 500) {
+            if (candidats.length > histShown && histShown < 500) {
                 el.innerHTML += `<div style="text-align:center;padding:14px">
                     <button class="btn btn-secondary btn-sm" id="histMore">Charger plus</button></div>`;
                 el.querySelector('#histMore')?.addEventListener('click', () => {
@@ -868,7 +1028,7 @@
                             MH.toast(`Liste « ${name.trim()} » créée`);
                             await renderListsPanel();
                             selectList(l.id);
-                        } catch(e) { MH.toast('Erreur : ' + e.message); }
+                        } catch(e) { MH.toastErreur(e); }
                     }
                 });
             }
@@ -892,7 +1052,7 @@
                         MH.toast('Liste supprimée');
                         await renderListsPanel();
                         selectList('favoris');
-                    } catch(e) { MH.toast('Erreur : ' + e.message); }
+                    } catch(e) { MH.toastErreur(e); }
                 });
             }
         } catch (e) { window.MH?.err?.('profil.js', e); }
@@ -980,7 +1140,7 @@
                         const p = { ...(cur.privacy || {}), [key]: isOn };
                         await API.me.saveSettings({ privacy: p });
                         MH.toast(isOn ? 'Activé ✓' : 'Désactivé');
-                    } catch (e) { MH.toast('Erreur : ' + e.message); t.classList.toggle('on'); }
+                    } catch (e) { MH.toastErreur(e); t.classList.toggle('on'); }
                 } else {
                     MH.toast(isOn ? 'Activé ✓' : 'Désactivé');
                 }
@@ -1061,23 +1221,101 @@
         // "Ouvrir le lecteur" dans les préférences → lecteur de chapitre démo déjà un lien
         // Boutons "Voir tout", "Gérer", etc. avec data-goto déjà gérés par initTabs.
 
-        // Boutons génériques restants sans handler → feedback honnête
-        document.querySelectorAll('.card-link, .sort-btn, .badges-grid .badge-item').forEach(el => {
-            if (el.dataset.wired || el.dataset.goto || el.getAttribute('href')) return;
+        // Le fourre-tout « Fonctionnalité à venir » a été retiré.
+        //
+        // Il attrapait `.card-link`, `.sort-btn` et `.badges-grid .badge-item`.
+        // Les deux premiers sont tous câblés depuis (data-goto pour les liens,
+        // `initHistoryFilters` pour le tri) ; il ne restait donc que les
+        // badges — qui sont des `<div>` décoratifs. Leur poser un gestionnaire
+        // de clic les faisait PASSER POUR des contrôles, puis promettait une
+        // fonction inexistante. Deux fautes pour un seul geste.
+        //
+        // Un badge devient ce qu'il aurait dû être : un raccourci vers l'onglet
+        // qui les montre tous, et un élément que les lecteurs d'écran savent
+        // nommer. Un `title` sur un `<div>` non focalisable n'est annoncé nulle
+        // part.
+        document.querySelectorAll('.badges-grid .badge-item').forEach(el => {
+            if (el.dataset.wired) return;
             el.dataset.wired = '1';
-            el.addEventListener('click', (e) => {
-                if (el.closest('a')) return;
-                MH.toast('Fonctionnalité à venir');
+            const nom = el.getAttribute('title') || 'Badge';
+            el.setAttribute('role', 'button');
+            el.setAttribute('tabindex', '0');
+            el.setAttribute('aria-label', `${nom} — voir tous les badges`);
+            const aller = () => document.querySelector('[data-goto="badges"]')?.click();
+            el.addEventListener('click', aller);
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); aller(); }
             });
         });
     }
     function initHistoryFilters() {
-        document.querySelectorAll('.hqf-btn').forEach(btn => {
+        // Les périodes FILTRENT, au lieu de se passer une classe.
+        // L'ordre des boutons porte le sens : 7 jours, 30 jours, cette année.
+        const JOURS = [7, 30, 365];
+        document.querySelectorAll('.hqf-btn').forEach((btn, i) => {
+            if (btn.dataset.wired) return;
+            btn.dataset.wired = '1';
+            btn.setAttribute('aria-pressed', String(btn.classList.contains('active')));
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.hqf-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.hqf-btn').forEach(b => {
+                    b.classList.remove('active');
+                    b.setAttribute('aria-pressed', 'false');
+                });
                 btn.classList.add('active');
+                btn.setAttribute('aria-pressed', 'true');
+                histPeriode = JOURS[i] ?? 7;
+                histShown = 30;   // une nouvelle période repart du début
+                renderHistoryTimeline();
             });
         });
+
+        // La recherche : elle n'avait aucun écouteur.
+        const champ = document.querySelector('.history-search-bar input');
+        if (champ && !champ.dataset.wired) {
+            champ.dataset.wired = '1';
+            let minuteur = null;
+            champ.addEventListener('input', () => {
+                clearTimeout(minuteur);
+                // Débounce : chaque frappe relance un rendu qui charge des
+                // œuvres. 250 ms suffisent à ne pas hacher la saisie.
+                minuteur = setTimeout(() => {
+                    histTexte = champ.value.trim();
+                    histShown = 30;
+                    renderHistoryTimeline();
+                }, 250);
+            });
+            champ.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && champ.value) {
+                    e.preventDefault();
+                    champ.value = '';
+                    histTexte = '';
+                    renderHistoryTimeline();
+                }
+            });
+        }
+
+        // Les trois pastilles : elles ouvraient un toast « à venir ».
+        const pills = [...document.querySelectorAll('.history-filter-pills .tag')];
+        const ouvreurs = [
+            () => menuPastille(pills[0], [
+                ['tous', 'Tout'], ['manga', 'Mangas'], ['novel', 'Romans'],
+            ], histType, (v) => { histType = v; histShown = 30; renderHistoryTimeline(); }),
+            () => {
+                const g = genresDisponibles();
+                if (!g.length) { MH.toast?.('Aucun genre connu sur les œuvres affichées'); return; }
+                menuPastille(pills[1], [['', 'Tous les genres'], ...g], histGenre,
+                    (v) => { histGenre = v; histShown = 30; renderHistoryTimeline(); });
+            },
+            () => menuPastille(pills[2], [['', 'À toute heure'], ...MOMENTS.map(([v, l]) => [v, l])],
+                histMoment, (v) => { histMoment = v; histShown = 30; renderHistoryTimeline(); }),
+        ];
+        pills.forEach((p, i) => {
+            if (p.dataset.wired || !ouvreurs[i]) return;
+            p.dataset.wired = '1';
+            p.setAttribute('aria-haspopup', 'menu');
+            p.addEventListener('click', ouvreurs[i]);
+        });
+        majPastilles();
         // Audit P8 : câble le tri de la ligne du temps (avant : toast générique)
         const sortBtn = document.querySelector('.history-timeline-header .sort-btn');
         if (sortBtn && !sortBtn.dataset.wired) {
@@ -1089,24 +1327,24 @@
             });
         }
     }
-    function initViewToggles() {
-        document.querySelectorAll('.view-toggle-btns').forEach(group => {
-            group.querySelectorAll('.view-toggle').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    group.querySelectorAll('.view-toggle').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                });
-            });
-        });
-    }
-    function initListNav() {
-        document.querySelectorAll('.list-nav-item[data-list]').forEach(item => {
-            item.addEventListener('click', () => {
-                document.querySelectorAll('.list-nav-item').forEach(i => i.classList.remove('active'));
-                item.classList.add('active');
-            });
-        });
-    }
+    // `initViewToggles` et `initListNav` ont été retirés.
+    //
+    // Tous deux ne faisaient que déplacer une classe `active`, sans jamais
+    // rien relancer — la même forme que les filtres de période de
+    // l'historique, qui, eux, mentaient vraiment. Ici la conséquence était
+    // différente, et pire à lire :
+    //
+    //   · `.view-toggle` n'existe dans AUCUN balisage de `profil.html` — le
+    //     gestionnaire parcourait une liste vide. Du code qui a l'air de
+    //     câbler une bascule grille/liste inexistante ;
+    //   · `.list-nav-item` est déjà câblé par `renderListsPanel`, qui appelle
+    //     `selectList()` — lequel pose la classe `active` ET affiche la liste.
+    //     Le second gestionnaire faisait la moitié du travail du premier, en
+    //     double, et laissait croire que la sélection se réduisait à ça.
+    //
+    // Retirés plutôt que « complétés » : compléter un câblage vers un contrôle
+    // qui n'existe pas revient à inventer une fonctionnalité, et dupliquer
+    // `selectList` n'apporte rien.
 
     function bindDangerActions() {
         document.querySelector('.sidebar-nav-danger')?.addEventListener('click', async (e) => {
@@ -1139,7 +1377,7 @@
                 const r = await API.me.clearHistory(30);
                 MH.toast(`${r.deleted?.readChapters || 0} chapitre(s) retiré(s) de l'historique`);
                 renderHistoryTimeline(); renderHistoryMini();
-            } catch (e) { MH.toast('Erreur : ' + e.message); }
+            } catch (e) { MH.toastErreur(e); }
         });
         document.getElementById('btnClearHistAll')?.addEventListener('click', async () => {
             if (!await MH.confirm('Effacer TOUT ton historique de lecture ?', {
@@ -1150,7 +1388,7 @@
                 await API.me.clearHistory();
                 MH.toast('Historique effacé');
                 renderHistoryTimeline(); renderHistoryMini();
-            } catch (e) { MH.toast('Erreur : ' + e.message); }
+            } catch (e) { MH.toastErreur(e); }
         });
     }
 
@@ -1205,7 +1443,7 @@
             await API.me.deleteHistoryEntry(mangaId, chapterId);
             MH.toast('Retiré de ton historique');
             return true;
-        } catch (e) { MH.toast('Erreur : ' + e.message); return false; }
+        } catch (e) { MH.toastErreur(e); return false; }
     }
 
     function relativeTime(ts) {

@@ -191,9 +191,14 @@
 .hero-arrow svg { width: 20px; height: 20px; }
 
 /* Responsive */
+/* Ce fichier contient DEUX blocs `@media (max-width: 768px)` — celui-ci et un
+   autre ligne ~438. Le second gagne, et deux declarations d'ici etaient donc
+   mortes : `.hero { height: 460px }` (le second dit 380px) et le `padding` de
+   `.hero-content` (le second dit `0 16px 32px`). Elles sont retirees : le rendu
+   ne change pas, mais on cesse de lire une valeur qui ne s'applique jamais.
+   `align-items`, lui, n'est redeclare nulle part — il reste. */
 @media (max-width: 768px) {
-  .hero { height: 460px; }
-  .hero-content { padding: 0 18px 30px; align-items: flex-end; }
+  .hero-content { align-items: flex-end; }
   .hero-poster-link { display: none; }
   .hero-rail { right: 18px; bottom: 22px; }
   .hero-thumb { width: 34px; height: 48px; }
@@ -471,4 +476,36 @@
   .section-latest { margin-top: 20px; }
   .latest-filters { flex-wrap: wrap; gap: 4px; }
   .sidebar-premium { padding: 12px; }
+}
+/* ── Le bouton pause du carrousel ────────────────────────────
+   Posé sous la flèche « suivant », pas au centre : le centre est l'endroit
+   qu'on regarde pour LIRE, et un bouton y volerait le texte qu'il sert à
+   garder à l'écran. */
+.hero-arrow.hero-pause {
+  right: 14px;
+  top: auto;
+  bottom: 18px;
+  transform: none;
+  /* TOUJOURS visible, contrairement aux flèches.
+     `.hero-arrow` reste à `opacity: 0` jusqu'au survol — or il n'y a pas de
+     survol au doigt. Le seul contrôle qui permet d'arrêter la rotation aurait
+     donc été invisible précisément là où il est nécessaire. On le laisse
+     discret plutôt que caché. */
+  opacity: .55;
+}
+.hero-arrow.hero-pause:hover,
+.hero-arrow.hero-pause:focus-visible,
+.hero:hover .hero-arrow.hero-pause { opacity: 1; }
+/* `.hero-arrow:active` recentre avec translateY(-50%) : ce bouton n'est pas
+   centré verticalement, il repartirait de travers au clic. */
+.hero-arrow.hero-pause:active { transform: scale(.92); }
+@media (max-width: 768px) {
+  /* Sur téléphone, les flèches sont masquées et c'est ce bouton qui devient
+     le SEUL moyen d'arrêter la rotation — `mouseenter` ne s'y déclenche
+     jamais. Il reste donc visible, et assez grand pour le doigt. */
+  .hero-arrow.hero-pause {
+    display: flex;
+    width: 44px; height: 44px;
+    right: 12px; bottom: 14px;
+  }
 }

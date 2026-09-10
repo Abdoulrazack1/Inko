@@ -320,6 +320,25 @@
         </div>
         <button class="btn btn-secondary btn-sm" id="btnReplayTour">Revoir la visite</button>
       </div>
+      <!-- Diagnostic — « ça marche pas » ne se corrige pas.
+           `MH.errors` retient déjà les cent dernières erreurs JavaScript ;
+           rien ne les avait jamais montrées. Sur une application qu'on héberge
+           soi-même, c'est pourtant la seule différence entre un problème qu'on
+           subit et un rapport de bug exploitable. -->
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Diagnostic</div>
+          <div class="set-row-desc">Version, mode, stockage et dernières erreurs — à joindre à un signalement</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" id="btnDiagVoir" aria-expanded="false" aria-controls="diagSortie">Afficher</button>
+          <button class="btn btn-primary btn-sm" id="btnDiagCopier">Copier le rapport</button>
+        </div>
+      </div>
+      <pre id="diagSortie" hidden tabindex="0" aria-label="Rapport de diagnostic"
+           style="margin-top:10px;padding:12px;background:var(--bg3);border:1px solid var(--border2);
+                  border-radius:10px;font-size:11.5px;line-height:1.55;color:var(--text2);
+                  white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto"></pre>
     </div>
 
     <!-- DONNÉES -->

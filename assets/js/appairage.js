@@ -212,7 +212,7 @@
                         const r = await window.API.devices.revoquer(b.dataset.revoquer);
                         window.MH.toast(`Appareil déconnecté${r.sessionsFermees ? ` — ${r.sessionsFermees} session(s) fermée(s)` : ''}`);
                         rendre();
-                    } catch (e) { b.disabled = false; window.MH.toast('Échec : ' + e.message); }
+                    } catch (e) { b.disabled = false; window.MH.toastErreur(e); }
                 });
             });
         };

@@ -1038,6 +1038,34 @@
      * vide : c'est volontaire — l'utilisateur n'a pas à apprendre deux mises
      * en page pour deux mauvaises nouvelles.
      */
+    /**
+     * L'erreur en TOAST, sans code technique.
+     *
+     * La taxonomie P1.6 couvrait les états de page ; les toasts, eux, sont
+     * restés à `'Erreur : ' + e.message` — trente-neuf fois dans le dépôt.
+     * C'est le même défaut, en plus court et en plus fréquent : « Erreur :
+     * HTTP 504 » ou « Erreur : Failed to fetch » passent une seconde et demie
+     * à l'écran et n'apprennent rien à personne.
+     *
+     * On réutilise `messageErreur` : elle sait déjà distinguer le hub
+     * injoignable de la session expirée, et elle écarte les codes techniques.
+     * Un toast ne peut pas porter d'action — le texte doit donc se suffire.
+     */
+    window.MH.toastErreur = function (err, ctx = {}) {
+        const m = window.MH.messageErreur(err, ctx);
+        // Le TITRE seul, et pas « titre — texte ».
+        //
+        // La traduction se fait par correspondance exacte de la chaîne
+        // française : une chaîne COMPOSÉE à l'exécution n'est dans aucun
+        // dictionnaire, et resterait donc en français pour un lecteur
+        // anglophone. Les titres, eux, sont des constantes, et ils portent
+        // déjà le geste utile (« Impossible de joindre le serveur »,
+        // « Session terminée »). Le détail et les actions restent l'affaire
+        // de `poserEtatErreur`, qui dispose d'une vraie surface.
+        window.MH.toast(m.titre, 3600);
+        return m.code;
+    };
+
     window.MH.poserEtatErreur = function (cible, err, ctx = {}) {
         const m = window.MH.messageErreur(err, ctx);
         const el = window.MH.poserEtatVide(cible, m);
@@ -1133,6 +1161,15 @@
         document.querySelectorAll('#navLibBadge, #navLibBadgeM').forEach(b => {
             if (n > 0) { b.textContent = n > 99 ? '99+' : String(n); b.style.display = ''; }
             else { b.style.display = 'none'; }
+            // Un nombre collé sur « Bibliothèque » s'annonce « Bibliothèque 5 ».
+            // Cinq quoi ? On le dit sur le LIEN, et on tait la pastille.
+            b.setAttribute('aria-hidden', 'true');
+            const lien = b.closest('a');
+            if (lien) {
+                lien.setAttribute('aria-label', n > 0
+                    ? `Bibliothèque — ${n} série${n > 1 ? 's' : ''} avec des chapitres non lus`
+                    : 'Bibliothèque');
+            }
         });
     };
 
@@ -1254,8 +1291,37 @@
         document.querySelectorAll('#btnRefresh').forEach(b => {
             b.classList.toggle('spinning', on);
             b.disabled = on;
+            // `disabled` + une animation ne disent RIEN à un lecteur d'écran :
+            // le bouton devient injoignable, sans qu'on sache pourquoi. Le scan
+            // peut durer plusieurs dizaines de secondes (toutes les sources).
+            b.setAttribute('aria-busy', String(on));
+            if (on) b.setAttribute('aria-label', 'Recherche de nouveaux chapitres en cours…');
+            else majTitreRefresh();
         });
     }
+
+    /**
+     * Le bouton dit QUAND il a cherché pour la dernière fois.
+     *
+     * `inko_lib_lastcheck` était écrit à chaque scan et n'était jamais relu
+     * pour l'affichage. On appuyait donc sans savoir si le dernier passage
+     * datait de deux minutes ou de trois jours — et comme le serveur garde
+     * quinze minutes entre deux scans complets, appuyer trop tôt ne fait rien
+     * de visible. Le bouton portait alors toute la faute.
+     */
+    function majTitreRefresh() {
+        let quand = 0;
+        try { quand = +localStorage.getItem('inko_lib_lastcheck') || 0; } catch (e) { quand = 0; }
+        const base = 'Actualiser mes séries (nouveaux chapitres)';
+        const texte = quand
+            ? `${base} — dernière recherche ${window.MH.relTime(new Date(quand).toISOString())}`
+            : `${base} — jamais recherché`;
+        document.querySelectorAll('#btnRefresh').forEach(b => {
+            b.title = texte;
+            b.setAttribute('aria-label', texte);
+        });
+    }
+    window.MH.majTitreRefresh = majTitreRefresh;
 
     // Au lancement : une fois par session, en silence.
     async function launchUpdateCheck() {
@@ -1329,7 +1395,7 @@
                 wrap.querySelector('#al-cid-save').onclick = async () => {
                     const v = wrap.querySelector('#al-cid').value.trim();
                     try { await API.anilist.setConfig(v); MH.toast('AniList configuré ✓'); AniList.clearConfigCache?.(); renderAniListConn(root, changed); }
-                    catch (e) { MH.toast('Erreur : ' + e.message); }
+                    catch (e) { MH.toastErreur(e); }
                 };
             }
             return;
@@ -1352,7 +1418,7 @@
             btn.onclick = async () => {
                 btn.disabled = true; btn.textContent = 'Redirection vers AniList…';
                 try { await AniList.connect(); }   // redirige la page ; ne revient pas
-                catch (e) { btn.disabled = false; btn.textContent = 'Connecter'; MH.toast('Erreur : ' + e.message); }
+                catch (e) { btn.disabled = false; btn.textContent = 'Connecter'; MH.toastErreur(e); }
             };
             action.appendChild(btn);
         }
@@ -1431,7 +1497,7 @@
                 const l = await API.me.createList({ name: nom.trim() });
                 await API.me.addToList(l.id, id, meta);
                 MH.toast(`Ajouté à « ${nom.trim()} »`);
-            } catch (err) { MH.toast('Erreur : ' + err.message); }
+            } catch (err) { MH.toastErreur(err); }
             return;
         }
 
@@ -1451,7 +1517,7 @@
             }
             await API.me.addToList(cible.id, id, meta);
             MH.toast(`Ajouté à « ${cible.name} »`);
-        } catch (err) { MH.toast('Erreur : ' + err.message); }
+        } catch (err) { MH.toastErreur(err); }
     });
 
     // ── Choix parmi les lectures récentes (audit AMEL-30) ────
@@ -1539,8 +1605,8 @@
         // Cloche de notifications (connecté) + accès admin (role admin)
         const bell = u ? `
           <div class="notif-wrap" style="position:relative;display:inline-flex">
-            <button class="header-icon-btn" id="btnNotif" title="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" style="display:none;position:absolute;top:1px;right:1px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#b91c1c;color:#fff;font-size:9px;font-weight:700;line-height:15px;text-align:center"></span></button>
-            <div id="notifDropdown" style="display:none;position:absolute;right:0;top:44px;width:330px;max-height:440px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45);z-index:200"></div>
+            <button class="header-icon-btn" id="btnNotif" title="Notifications" aria-haspopup="true" aria-expanded="false" aria-controls="notifDropdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" style="display:none;position:absolute;top:1px;right:1px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#b91c1c;color:#fff;font-size:9px;font-weight:700;line-height:15px;text-align:center"></span></button>
+            <div id="notifDropdown" role="group" aria-label="Notifications" style="display:none;position:absolute;right:0;top:44px;width:330px;max-height:440px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45);z-index:200"></div>
           </div>` : '';
         // L'administration vivra dans une app dédiée (Inko Admin) — pas de
         // page admin dans l'app de lecture.
@@ -1700,6 +1766,7 @@
         initBackToTop();
         renderMobileNav(activePage);
         window.MH.updateLibBadge();
+        majTitreRefresh();             // le bouton dit depuis quand il n'a pas cherché
         window.MH.loadSourceTypes();   // pré-charge les types pour le routage lecteur
         // Audit AMEL-111 : astuce contextuelle a la premiere visite de cette
         // page. Differee : elle ne doit pas concurrencer le chargement, ni
@@ -1744,6 +1811,19 @@
         if (!b) return;
         if (n > 0) { b.textContent = n > 99 ? '99+' : n; b.style.display = ''; }
         else b.style.display = 'none';
+        // La pastille est un nombre nu, posé sur une icône : annoncé seul, il
+        // ne veut rien dire. Le compte va donc sur le BOUTON, qui est ce qu'on
+        // atteint au clavier. Et `aria-hidden` sur la pastille évite qu'il
+        // soit lu deux fois.
+        b.setAttribute('aria-hidden', 'true');
+        const bouton = document.getElementById('btnNotif');
+        if (bouton) {
+            const texte = n > 0
+                ? `Notifications — ${n > 99 ? 'plus de 99' : n} non lue${n > 1 ? 's' : ''}`
+                : 'Notifications — aucune non lue';
+            bouton.title = texte;
+            bouton.setAttribute('aria-label', texte);
+        }
     }
     /* Rendu partagé d'une notification (audit N2) : la cloche déroulante et
        la page notifications.html dupliquaient le même gabarit (icône par
@@ -1851,15 +1931,50 @@
             } catch (e) { window.MH?.err?.('global.js', e); }
         }
         const dd = document.getElementById('notifDropdown');
+        if (!dd) return;   // header partiel : sans panneau, le bouton n'a rien à ouvrir
+
+        // La cloche est un bouton À BASCULE, et rien ne le disait.
+        //
+        // Relevé en l'actionnant à la main, sur le vrai hub :
+        //   · `aria-expanded` restait absent — ouvert ou fermé, un lecteur
+        //     d'écran annonçait la même chose, et rien n'indiquait même qu'un
+        //     panneau existait ;
+        //   · Échap ne fermait pas. Tout le reste de l'application ferme sur
+        //     Échap (la palette, les menus, les feuilles) : la cloche était
+        //     l'exception, sans raison ;
+        //   · le focus restait sur le `body`. Le panneau contient jusqu'à
+        //     trente lignes ; pour les atteindre au clavier il fallait
+        //     traverser tout l'en-tête à l'aveugle.
+        const fermer = ({ rendreFocus = false } = {}) => {
+            if (dd.style.display === 'none') return;
+            dd.style.display = 'none';
+            btn.setAttribute('aria-expanded', 'false');
+            // On ne reprend le focus QUE si l'on ferme au clavier. Le reprendre
+            // sur un clic ailleurs arracherait le curseur à ce qu'on vient de
+            // viser.
+            if (rendreFocus) btn.focus();
+        };
+        const ouvrir = () => {
+            dd.style.display = 'block';
+            btn.setAttribute('aria-expanded', 'true');
+            renderNotifDropdown();
+            // Le panneau se remplit de façon asynchrone : viser le focus avant
+            // le rendu le poserait sur un « Chargement… » qui disparaît.
+            setTimeout(() => {
+                if (dd.style.display !== 'block') return;
+                if (!dd.hasAttribute('tabindex')) dd.setAttribute('tabindex', '-1');
+                dd.focus({ preventScroll: true });
+            }, 0);
+        };
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const open = dd.style.display !== 'none';
-            if (open) { dd.style.display = 'none'; return; }
-            dd.style.display = 'block';
-            renderNotifDropdown();
+            if (dd.style.display !== 'none') fermer(); else ouvrir();
         });
         document.addEventListener('click', (e) => {
-            if (dd && dd.style.display === 'block' && !e.target.closest('.notif-wrap')) dd.style.display = 'none';
+            if (dd.style.display === 'block' && !e.target.closest('.notif-wrap')) fermer();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && dd.style.display === 'block') { e.preventDefault(); fermer({ rendreFocus: true }); }
         });
     }
 
@@ -2235,7 +2350,7 @@
                 btn.classList.toggle('is-fav', !willFav);
                 if (isIcon) btn.innerHTML = MH.heartIcon(!willFav);
                 else        btn.textContent = !willFav ? 'Suivi' : '+ Suivre';
-                MH.toast('Erreur : ' + err.message);
+                MH.toastErreur(err);
             }
         });
     }
@@ -2399,6 +2514,11 @@
         { id: 'reprendre',  defaut: 'c', label: 'Reprendre la lecture' },
         { id: 'bibliotheque', defaut: 'b', label: 'Ma bibliotheque' },
         { id: 'accueil',    defaut: 'h', label: 'Accueil' },
+        // Le lecteur de musique est injecté sur TOUTES les pages et n'avait
+        // aucune touche : il fallait viser une icône de 17 px dans l'en-tête.
+        // Il passe par le même système remappable que le reste — coder la
+        // touche en dur est précisément ce que l'audit AMEL-82 a corrigé.
+        { id: 'musique',    defaut: 'm', label: 'Ouvrir ou fermer la musique' },
         { id: 'aide',       defaut: '?', label: 'Afficher cette aide' },
     ];
     const CLE_RACCOURCIS = 'raccourcis';
@@ -2447,6 +2567,7 @@
                 if (last) window.location.href = last.href; else MH.toast('Aucune lecture en cours');
                 break;
             }
+            case 'musique': window.MH.openMusic?.(); break;
             case 'aide': toggleShortcutsHelp(); break;
         }
     };

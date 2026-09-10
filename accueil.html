@@ -26,6 +26,12 @@
   <div id="header-slot"></div>
   <main id="main" tabindex="-1">
 
+  <!-- Le seul h1 de la page etait le titre du manga mis en avant, DANS le
+       carrousel : il changeait toutes les quelques secondes. Releve en
+       parcourant la page rendue — deux titres en tout, et le premier n'etait
+       pas celui de la page. Un h1 nomme la page ; celui-ci nommait ce qui
+       defile. -->
+  <h1 class="a11y-invisible">Accueil</h1>
   <!-- ══ HERO ══════════════════════════════════════════════ -->
   <section class="hero" id="hero" aria-roledescription="carrousel">
     <div class="hero-bg" id="heroBg"></div>
@@ -44,18 +50,35 @@
   <section class="section-resume container" id="sectionResume">
     <div class="section-header">
       <div>
-        <div class="section-title">Reprendre la lecture</div>
+        <h2 class="section-title">Reprendre la lecture</h2>
       </div>
       <a href="profil.html" class="section-link">Voir l'historique →</a>
     </div>
     <div class="resume-list" id="resumeList"></div>
   </section>
 
+  <!-- ══ À LIRE ENSUITE ═════════════════════════════════════
+       « Reprendre » dit où on s'est arrêté ; cette section dit ce qu'on
+       s'était promis d'ouvrir. Les deux questions sont différentes, et la
+       seconde n'avait aucune réponse : une collection « à lire » demandait
+       d'aller la chercher, et rien ne la rappelait ici.
+       Masquée tant que la file est vide — une section vide sur l'accueil
+       est du bruit, pas une invitation. -->
+  <section class="section-resume container" id="sectionFile" hidden>
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">À lire ensuite</h2>
+        <div class="section-subtitle">Ce que tu as mis de côté, dans l'ordre où tu l'as ajouté</div>
+      </div>
+    </div>
+    <div class="resume-list" id="fileList"></div>
+  </section>
+
   <!-- ══ TENDANCES ══════════════════════════════════════════ -->
   <section class="section-trending container">
     <div class="section-header">
       <div>
-        <div class="section-title"><span class="section-title-icon">●</span> Tendances</div>
+        <h2 class="section-title"><span class="section-title-icon" aria-hidden="true">●</span> Tendances</h2>
         <div class="section-subtitle">Séries mises à jour récemment sur la source active</div>
       </div>
       <div class="arrow-nav">
@@ -76,7 +99,7 @@
       <section class="section-reco">
         <div class="section-header">
           <div>
-            <div class="section-title"><span class="section-title-icon">●</span> Recommandé pour vous</div>
+            <h2 class="section-title"><span class="section-title-icon" aria-hidden="true">●</span> Recommandé pour vous</h2>
             <div class="section-subtitle">Basé sur votre historique de lecture</div>
           </div>
           <a href="catalogue.html" class="section-link">Voir tout →</a>
@@ -89,7 +112,7 @@
       <section class="section-latest">
         <div class="section-header">
           <div>
-            <div class="section-title"><span class="section-title-icon">●</span> Dernières sorties</div>
+            <h2 class="section-title"><span class="section-title-icon" aria-hidden="true">●</span> Dernières sorties</h2>
             <div class="section-subtitle">Chapitres fraîchement publiés</div>
           </div>
           <div class="latest-filters" id="latestFilters">

@@ -321,9 +321,11 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
    parce qu'on l'atteint au clavier. Le contour épouse déjà le rayon réel. */
 /* Les titres Display (grotesque condensée) gagnent une chasse resserrée. */
 h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); letter-spacing: -0.01em; }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
-}
+/* « Mouvement reduit » est declare une seule fois, plus bas dans ce fichier
+   (section « Reduced motion »). Il l'etait ici AUSSI, avec les memes durees
+   ecrites autrement (`.01ms` contre `0.01ms`) : deux blocs concurrents pour un
+   meme selecteur universel, dont l'un ne servait a rien. `scroll-behavior`,
+   qui n'existait que dans celui-ci, a ete repris dans l'autre. */
 
 /* ── Liquid glass : surface flottante translucide (hero, overlays, rails) ──
    Verre liquide : fond translucide + réfraction (blur+saturate) + arête
@@ -675,6 +677,10 @@ body.incognito-on::before {
 .section-title {
   font-family: var(--font-head); font-size: 17px; font-weight: 700;
   display: flex; align-items: center; gap: 8px;
+  /* Ces intertitres sont passes de <div> a <h2> pour exister dans la
+     navigation par titres. Un h2 apporte ses marges par defaut : sans ce
+     zero, chaque section se decalerait. */
+  margin: 0;
 }
 .section-title-icon { color: var(--orange); font-size: 16px; }
 .section-subtitle { font-size: 12px; color: var(--text2); margin-top: 2px; }
@@ -1200,6 +1206,9 @@ a[data-nsfw] .manga-card-cover::after,
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    /* Repris du bloc jumeau retire plus haut : sans lui, un defilement anime
+       subsistait pour qui demande justement moins de mouvement. */
+    scroll-behavior: auto !important;
   }
 }
 

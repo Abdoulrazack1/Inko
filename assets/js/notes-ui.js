@@ -240,5 +240,9 @@
         document.body.classList.remove('notes-open');
     }
 
-    window.NotesUI = { open, close, updateBadge };
+    // `MOODS`, `moodLabel` et `moodColor` sont EXPOSES : la page Journal en a
+    // besoin pour filtrer, et les recopier la-bas ferait deux tables a tenir
+    // a jour — la meme faute que le gabarit de notification dupliquee
+    // (audit N2), reglee de la meme facon : une seule source.
+    window.NotesUI = { open, close, updateBadge, MOODS, moodLabel, moodColor };
 })();

@@ -218,13 +218,13 @@
                     }
                     MH.toast('Extension désinstallée');
                     render();
-                } catch (e) { MH.toast('Erreur : ' + e.message); }
+                } catch (e) { MH.toastErreur(e); }
             });
         });
         el.querySelectorAll('[data-reinstall-src]').forEach(btn => {
             btn.addEventListener('click', async () => {
                 try { await API.sources.reinstall(btn.dataset.reinstallSrc); MH.toast('Extension réinstallée ✓'); render(); }
-                catch (e) { MH.toast('Erreur : ' + e.message); }
+                catch (e) { MH.toastErreur(e); }
             });
         });
 
@@ -300,7 +300,7 @@
                         + String.fromCharCode(10, 10)
                         + lignes,
                         { title: 'Journal — ' + id });
-                } catch (e) { MH.toast('Erreur : ' + e.message); }
+                } catch (e) { MH.toastErreur(e); }
                 finally { btn.disabled = false; }
             });
         });
