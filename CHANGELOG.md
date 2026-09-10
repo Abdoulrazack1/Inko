@@ -3,6 +3,152 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.7.0 — Un reglage change etait annule sous les doigts, et la musique n'existait que dans l'onglet
+
+**Un reglage change etait annule sous les doigts, sans un mot.** La page
+Parametres s'affiche sur le stockage local, puis chargeait les reglages du
+serveur en ecrasant TOUTES les preferences. Un clic donne avant l'arrivee de
+la reponse etait defait en silence.
+
+Reproduit dans le navigateur, sur un vrai serveur :
+
+    clic a l'ouverture : « Defilement » reste actif, readMode = scroll  <- perdu
+    clic 2 s plus tard : « Double » s'active, readMode = double
+
+En boucle locale la fenetre dure quelques dizaines de millisecondes. Sur un
+hub distant elle dure un aller-retour, et c'est l'utilisateur qui perd son
+reglage. Les cles touchees par un geste sont desormais protegees de la
+reponse tardive. Les six autres appelants de `me.settings()` ont ete
+verifies un par un : eux lisent au moment du geste, ou fusionnent par
+horodatage.
+
+**Le cache pouvait servir du code perime.** `CACHE_VERSION` est derive de la
+version plus une empreinte, censee invalider le cache quand les assets
+changent a version egale. Elle etait calculee sur la liste des CHEMINS, pas
+sur le contenu : modifier dix scripts la laissait identique. Constate en
+preparant cette version — l'empreinte n'avait pas bouge alors qu'une dizaine
+de fichiers avaient change. C'etait le seul filet sous un oubli de bump,
+c'est-a-dire exactement l'ecran noir apres mise a jour que ce mecanisme
+existe pour empecher.
+
+### Ce que la navigation par titres ne trouvait pas
+
+L'accueil n'exposait QUE DEUX titres. Ses intertitres etaient des `div`
+stylees : des titres a l'oeil, rien du tout pour la navigation par titres,
+qui est le moyen de parcourir une page longue au lecteur d'ecran. Et le seul
+`h1` etait le titre du manga mis en avant, DANS le carrousel — il changeait
+toutes les quelques secondes.
+
+    accueil : 2 titres -> 8
+    serie   : 1 titre  -> 9
+
+Le catalogue, le journal et le bloc « Details » du lecteur avaient le meme
+defaut. Le piege etait de sur-appliquer le correctif : l'app compte une
+trentaine de classes en « -title », mais les titres de CARTES n'en sont pas.
+Les promouvoir aurait noye la navigation sous des dizaines d'entrees. La
+liste a donc ete verifiee une par une, et la mise en page est inchangee au
+pixel pres.
+
+### Un piege au clavier sur dix-huit pages
+
+L'iframe YouTube du lecteur d'ambiance restait atteignable au clavier. Son
+conteneur est pose hors ecran, en 1x1, `overflow:hidden` — mais ni
+`overflow:hidden` ni un decalage negatif ne retirent quoi que ce soit de la
+tabulation. On tabulait dans le vide, puis a l'aveugle dans les commandes de
+l'embarque.
+
+La 2.6.1 avait classe ce constat comme normal. C'etait faux.
+
+### Le reste, trouve en actionnant plutot qu'en lisant
+
+- La cloche de notifications ouvrait et fermait parfaitement a la souris, et
+  n'annoncait rien : aucun etat ouvert/ferme, Echap ne fermait pas alors que
+  tout le reste de l'app ferme sur Echap, et le focus restait en dehors d'un
+  panneau de trente lignes.
+- Les pastilles de couleur portaient leur code hexadecimal en guise de nom :
+  un lecteur d'ecran annoncait « diese trois b huit deux f six ». Elles ont
+  un nom, et disent laquelle est choisie.
+- Deux croix sans nom, dont une qui SUPPRIME un telechargement sans dire
+  lequel.
+- Anglais : les couleurs, leurs libelles et le theme « Contraste ».
+
+### Le lecteur de musique
+
+**La musique n'existait que dans l'onglet.** `mediaSession` n'etait branche
+nulle part : sur telephone, l'ecran verrouille n'affichait rien, le bouton
+du casque ne mettait pas en pause, et la notification media d'Android ne
+montrait pas ce qui joue. On lit d'une main, l'appareil dans la poche —
+c'est exactement la que ces commandes servent. Metadonnees, etat de lecture
+et cinq actions systeme sont desormais exposes.
+
+**L'icone de volume etait un ornement.** Un haut-parleur dessine a cote de
+la glissiere, sur quoi on clique naturellement, et qui ne faisait rien. Elle
+coupe le son maintenant, avec le volume memorise. C'est aussi le seul
+reglage de volume qui reste sur telephone, ou la glissiere est masquee faute
+de place : sans ce bouton, aucun moyen de faire taire la musique sans fermer
+le lecteur et perdre la station en cours.
+
+**Les stations qu'on garde.** Une etoile par resultat de recherche, et une
+rangee « Mes stations ». L'adresse du flux est enregistree avec le nom : une
+favorite qui ne garderait qu'un identifiant exigerait de reinterroger
+l'annuaire pour s'afficher, donc pas de favorites quand l'annuaire tombe —
+precisement quand on veut sa station habituelle.
+
+**Six etiquettes de plus**, choisies en comptant ce que l'annuaire rend
+vraiment : anime 61 stations, jpop 36, game music 33, chiptune 24, j-pop 21,
+vocaloid 10. L'etiquette `ost` a ete ECARTEE malgre ses 100 stations —
+l'echantillon rendait du jazz, du rock alternatif et des radios
+generalistes. Une etiquette qui ramene surtout autre chose est un bouton qui
+ment.
+
+**Minuterie** : le decompte ne vivait que dans une infobulle, invisible au
+doigt. Il s'ecrit sur le bouton, et l'extinction se fait en fondu sur vingt
+secondes au lieu d'une coupure seche — ce qu'une minuterie de sommeil doit
+justement eviter. Plus un raccourci `m`, remappable comme les autres, et
+Echap qui replie le panneau SANS couper le son.
+
+Une piste a ete tentee puis retiree : SomaFM. Sondee en ligne de commande,
+elle repondait parfaitement. Testee dans un navigateur, tous ses flux
+renvoient 403 — elle bloque le hotlinking depuis une page web, et l'outil de
+sonde ne le voyait pas parce qu'il n'envoie pas les en-tetes d'un
+navigateur. Mieux vaut pas de bouton qu'un bouton qui echoue.
+
+### Outillage
+
+L'audit des controles se connecte a un vrai compte pour mesurer. Il cliquait
+donc des controles qui ENREGISTRENT, et repartait en laissant un mode de
+lecture, un theme et une couleur d'accent que personne n'avait choisis —
+quatre segments sur cinq se retrouvaient sur leur derniere option, ce qu'un
+parcours de gauche a droite explique entierement. Il releve et repose
+desormais les reglages, meme si la mesure plante en cours de route.
+
+Deux fois de suite, sa liste « a corriger » a ete occupee par un controle en
+parfait etat : un controle qui pose une valeur DEJA posee ne change rien de
+mesurable. Ce cas a maintenant son propre verdict, distinct d'« inerte ».
+Et trois pages signalees comme muettes disaient en realite exactement ce
+qu'il fallait — le classifieur ne connaissait que le vocabulaire de la
+panne.
+
+Un rapport faux coute plus cher que pas de rapport : il envoie reparer ce
+qui marche.
+
+### Verifications
+
+    312 tests frontend, 142 tests serveur, lint propre, 0 conflit CSS
+    i18n : 0 chaine non traduite sur 23 pages
+    clavier : 0 controle visible jamais atteint
+    installeur : 3402 fichiers inspectes, aucune fuite, conforme
+
+### Limites connues
+
+- **Aucun APK Android dans cette version.** La machine de build n'a pas de
+  JDK. Les numeros de version Android sont donc restes en place : les
+  incrementer sans produire l'APK correspondant ne creerait que de la
+  derive.
+- **L'API AniList est coupee** cote AniList (« temporarily disabled due to
+  severe stability issues »). La liaison de compte est sans effet tant que le
+  service ne revient pas. Rien a faire cote Inko.
+
 ## 2.6.1 — La mise a jour s'installe enfin, et l'app Android a son logo
 
 **L'installeur bloquait « au desinstallement ».** Passer de la 2.5.7 a la
