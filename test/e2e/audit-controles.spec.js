@@ -275,6 +275,25 @@ const LISTER = ({ DESTRUCTIF_SRC }) => {
                     && !!e.href
                     && e.href.split('#')[0] === location.href.split('#')[0],
                 destructif: DESTRUCTIF.test(libelle),
+                // Un contrôle DÉJÀ dans l'état qu'il pose n'est pas mesurable.
+                //
+                // Deux fois de suite, la liste « à corriger » a été occupée par
+                // un contrôle en parfait état de marche : « Double » d'abord,
+                // puis « Couleur d'accentuation Bleu ». Tous deux posent une
+                // valeur — et cette valeur était déjà posée, par la passe
+                // précédente. Cliquer ne change alors ni classe, ni texte, ni
+                // rien : la signature est identique, et l'outil conclut INERTE.
+                //
+                // Vérifié à la main dans le navigateur : les deux fonctionnent.
+                // Ce n'est donc pas un défaut du produit mais une limite de la
+                // mesure, et elle doit se lire comme telle. Un rapport qui
+                // envoie réparer ce qui marche coûte plus cher que pas de
+                // rapport du tout.
+                dejaActif: e.getAttribute('aria-pressed') === 'true'
+                    || e.getAttribute('aria-selected') === 'true'
+                    || e.hasAttribute('aria-current')
+                    || e.classList.contains('active')
+                    || e.classList.contains('is-active'),
             });
         });
     return out;
@@ -287,6 +306,53 @@ async function hubJoignable() {
         q.on('error', () => ok(false));
         q.setTimeout(2500, () => { q.destroy(); ok(false); });
     });
+}
+
+// ── Rendre ses réglages à l'utilisateur ─────────────────────
+//
+// La passe « hub » se connecte au VRAI compte, et le `DESTRUCTIF` ne la
+// protège que des libellés qui annoncent une perte. Il ne dit rien des
+// contrôles qui ENREGISTRENT : cliquer « Double », « Sombre » ou une pastille
+// de couleur appelle `savePref`, donc `PUT /me/settings` — l'audit repartait
+// en laissant à l'utilisateur un mode de lecture, un thème et une couleur
+// d'accent qu'il n'avait pas choisis.
+//
+// C'est aussi ce qui rendait la mesure fausse. Un segment déjà actif ne change
+// rien quand on le reclique : la deuxième exécution déclarait « Double »
+// INERTE parce que la PREMIÈRE l'avait mis là. Un rapport qui décrit les
+// traces de son propre passage.
+//
+// On relève donc les réglages avant, on les repose après. Les clés créées par
+// l'audit sont remises à `null` : `JSON_MERGE_PATCH` les efface, là où une
+// simple réécriture les aurait laissées.
+async function ouvrirSession(browser) {
+    const ctx = await browser.newContext({ baseURL: BASE_HUB });
+    const r = await ctx.request.post('/api/auth/local').catch(() => null);
+    if (!r || !r.ok()) { await ctx.close(); return null; }
+    return ctx;
+}
+
+async function lireReglages(browser) {
+    const ctx = await ouvrirSession(browser);
+    if (!ctx) return null;
+    try {
+        const r = await ctx.request.get('/api/me/settings');
+        return r.ok() ? await r.json() : null;
+    } catch (e) { return null; } finally { await ctx.close(); }
+}
+
+async function rendreReglages(browser, avant) {
+    if (!avant) return false;
+    const ctx = await ouvrirSession(browser);
+    if (!ctx) return false;
+    try {
+        const apres = await ctx.request.get('/api/me/settings')
+            .then((r) => (r.ok() ? r.json() : {})).catch(() => ({}));
+        const patch = { ...avant };
+        for (const k of Object.keys(apres || {})) if (!(k in avant)) patch[k] = null;
+        const r = await ctx.request.put('/api/me/settings', { data: patch });
+        return r.ok();
+    } catch (e) { return false; } finally { await ctx.close(); }
 }
 
 // ── Deux passes, et c'est tout l'interet ────────────────────
@@ -468,11 +534,39 @@ async function auditerMode(browser, MODE) {
                 // dans le balisage, et il est certain.
                 if (c.nouvelOnglet) { verdicts.push({ ...c, verdict: 'OUVRE UN ONGLET' }); continue; }
                 if (c.memePage) { verdicts.push({ ...c, verdict: 'MÊME PAGE' }); continue; }
+                // Déjà dans son état : le reclic ne peut rien changer, et
+                // l'absence de changement ne prouve rien. On le dit.
+                if (c.dejaActif) { verdicts.push({ ...c, verdict: 'DÉJÀ ACTIF (non mesurable)' }); continue; }
                 let verdict = 'INERTE';
                 try {
-                    const avant = await page.evaluate(SIGNATURE);
                     const cible = page.locator(`[data-audit="${c.ref}"]`).first();
                     if (!(await cible.count())) { verdicts.push({ ...c, verdict: 'DISPARU' }); continue; }
+
+                    // Amener la cible À L'ÉCRAN, puis SEULEMENT APRÈS
+                    // photographier l'état.
+                    //
+                    // Deux raisons, et l'ordre compte autant que le geste :
+                    //
+                    //   · `force: true` court-circuite les contrôles
+                    //     d'actionnabilité, et un lien sous la ligne de
+                    //     flottaison recevait un clic à une position qui n'était
+                    //     pas la sienne. Sept liens de pied de page —
+                    //     « Catalogue », « Nouveautés », « Top » sur trois
+                    //     pages — ressortaient inertes alors que ce sont de
+                    //     simples ancres avec un `href` valide. Vérifié à la
+                    //     main : le lien se trouvait à y=882 dans une fenêtre
+                    //     de 812 ;
+                    //   · la signature COMPARE la position de défilement.
+                    //     Scroller après l'avoir prise ferait passer chaque
+                    //     contrôle du bas de page pour « AGIT (défilement) » —
+                    //     on aurait troqué sept faux inertes contre des
+                    //     dizaines de faux « agit ».
+                    await cible.scrollIntoViewIfNeeded({ timeout: 1500 }).catch(() => {});
+                    // Pas d'attente ici : `scrollIntoViewIfNeeded` de Playwright
+                    // n'utilise pas de défilement doux, et 120 ms par contrôle sur
+                    // près de mille faisaient dépasser le délai du test — la passe
+                    // hub était coupée en route.
+                    const avant = await page.evaluate(SIGNATURE);
                     // Sentinelle : un `location.reload()` rend une page IDENTIQUE,
                     // donc invisible a toutes les mesures — le bouton
                     // « Reessayer » de la page hors-ligne, dont c'est la seule
@@ -579,7 +673,9 @@ test.use({ trace: 'off', video: 'off' });
 
 test.describe('Audit fonctionnel — chaque contrôle, en autonome et via le hub', () => {
     test('actionner chaque contrôle et voir s’il produit un effet', async ({ browser }) => {
-        test.setTimeout(50 * 60 * 1000);
+        // 90 min : deux passes, vingt-trois pages, près de mille contrôles
+        // actionnés, et des sources tierces qui ralentissent sous la charge.
+        test.setTimeout(90 * 60 * 1000);
         if (!fs.existsSync(PAQUET)) test.skip(true, 'paquet mobile absent');
         const serveur = await servir();
 
@@ -596,6 +692,13 @@ test.describe('Audit fonctionnel — chaque contrôle, en autonome et via le hub
         // Le rapport s'écrit dans un `finally` : ce qui a été mesuré est écrit,
         // même si la suite échoue. Une panne d'outillage survenue après la
         // dernière page a déjà emporté vingt et une minutes de relevés.
+        // Relevé AVANT la première page : la passe « hub » va cliquer des
+        // contrôles qui enregistrent, et ces réglages sont ceux de quelqu'un.
+        const reglagesAvant = modes.some((m) => m.nom === 'hub')
+            ? await lireReglages(browser) : null;
+        if (modes.some((m) => m.nom === 'hub') && !reglagesAvant)
+            console.log('  ⚠ réglages illisibles — la passe hub les modifiera sans pouvoir les rendre.');
+
         const parMode = [];
         try {
             for (const MODE of modes) {
@@ -604,6 +707,13 @@ test.describe('Audit fonctionnel — chaque contrôle, en autonome et via le hub
             }
         } finally {
             await new Promise((ok) => serveur.close(ok));
+            // Avant le rapport : un plantage de l'écriture ne doit pas laisser
+            // le compte avec les réglages qu'a posés l'audit.
+            if (reglagesAvant) {
+                console.log(await rendreReglages(browser, reglagesAvant)
+                    ? '  ✓ réglages du compte rendus à leur état d’avant l’audit'
+                    : '  ⚠ réglages NON rendus — thème, mode de lecture et accent sont ceux de l’audit');
+            }
             if (parMode.length) ecrire(parMode);
         }
         expect(parMode[0].resultats.length).toBe(PAGES.length);
@@ -629,6 +739,7 @@ function ecrire(parMode) {
     L.push('| `RECHARGE LA PAGE` | la page est repartie du serveur — identique à l’œil, mais le contrôle a agi |');
     L.push('| `INERTE` | **rien n’a bougé** — à examiner |');
     L.push('| `ÉVITÉ` | libellé destructif : non actionné, par précaution |');
+    L.push('| `DÉJÀ ACTIF` | il pose un état qu’il a déjà : le reclic ne peut rien changer, la mesure ne conclut pas |');
     L.push('');
     for (const m of parMode) L.push(`- **${m.mode}** — \`${m.base}\``);
     L.push('');

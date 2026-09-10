@@ -1,10 +1,10 @@
 # Audit i18n — ce qui reste en français en mode anglais
 
-Relevé du 2026-09-08, sur le paquet `mobile/www`,
+Relevé du 2026-09-09, sur le paquet `mobile/www`,
 interface forcée en anglais (`inko_lang = "en"`), sans hub.
 
-Le dictionnaire `assets/i18n/en.json` compte **1102 entrées** pour
-**1166 traductions distinctes**.
+Le dictionnaire `assets/i18n/en.json` compte **1194 entrées** pour
+**1303 traductions distinctes**.
 
 > ⚠ **Heuristique, pas verdict.** Une chaîne est signalée si elle porte un
 > mot-outil français ou une lettre accentuée. Un titre d’œuvre en français
@@ -16,24 +16,24 @@ Le dictionnaire `assets/i18n/en.json` compte **1102 entrées** pour
 
 | Page | Chaînes visibles | **Encore en français** |
 |---|---|---|
-| accueil | 7 | **0** |
+| accueil | 5 | **0** |
 | catalogue | 13 | **0** |
 | recherche | 5 | **0** |
-| bibliotheque | 7 | **0** |
+| bibliotheque | 5 | **0** |
 | serie | 6 | **0** |
 | chapitre | 4 | **0** |
 | lecture | 4 | **0** |
 | collections | 5 | **0** |
 | collection-detail | 5 | **0** |
-| notes | 9 | **0** |
-| notifications | 7 | **0** |
+| notes | 7 | **0** |
+| notifications | 5 | **0** |
 | downloads | 6 | **0** |
-| import | 10 | **0** |
+| import | 8 | **0** |
 | localreader | 2 | **0** |
-| parametres | 27 | **0** |
-| profil | 7 | **0** |
+| parametres | 16 | **0** |
+| profil | 5 | **0** |
 | u | 7 | **0** |
-| stats | 7 | **0** |
+| stats | 5 | **0** |
 | sources | 9 | **0** |
 | liste | 5 | **0** |
 | anilist | 0 | **0** |

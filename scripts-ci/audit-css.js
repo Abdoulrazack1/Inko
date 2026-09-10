@@ -126,7 +126,22 @@ function analyser() {
             const contexte = blocEnglobant(s, bloc.index);
             const estImageCle = /^\s*(from|to|\d+%)\s*$/.test(sel);
             if (!estImageCle && !/^\s*@/.test(sel)) {
+                // Le REPLI ANDROID 8, qui est voulu et documenté partout où il
+                // apparaît : la même propriété écrite deux fois DANS LA MÊME
+                // règle, la seconde avec `env()` ou `calc(… env(…))`. Le WebView
+                // d'Android 8 ne sait pas lire `env()` et jette la déclaration
+                // ENTIÈRE plutôt que de retomber sur une valeur par défaut ;
+                // sans le doublon, `bottom` disparaîtrait et le bandeau irait se
+                // coller en haut de l'écran (régression MOB-02).
+                //
+                // Le signaler revenait à demander de casser exactement ce que
+                // ce doublon protège. On le reconnaît, on le laisse tranquille.
+                const replisAndroid8 = new Set();
                 for (const d of corps.matchAll(/([a-z-]+)\s*:\s*([^;]+);/g)) {
+                    if (/env\s*\(/.test(d[2])) replisAndroid8.add(d[1]);
+                }
+                for (const d of corps.matchAll(/([a-z-]+)\s*:\s*([^;]+);/g)) {
+                    if (replisAndroid8.has(d[1])) continue;
                     // La clé porte le FICHIER : `global.css` pose la base et
                     // `accueil.css` la surcharge, c'est la cascade, telle
                     // qu'on l'a voulue. Ce qui mérite un regard, c'est le même

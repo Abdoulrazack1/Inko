@@ -324,7 +324,30 @@ test.describe('Audit clavier & états — ce qu’on ne voyait pas', () => {
                     const tourne = document.querySelectorAll(
                         '.spinner,.spinner-inline,.loader,.skeleton,[class*="squelette"]').length;
                     // Un mot qui EXPLIQUE : erreur, hors-ligne, réessayer…
-                    const explique = /(indisponible|injoignable|hors[- ]ligne|erreur|impossible|réessa|connecte|connexion|pas de connexion|introuvable|vide|aucun)/i
+                    // Le vocabulaire de l'attente et de l'absence, pas
+                    // seulement celui de la PANNE.
+                    //
+                    // La liste ne connaissait que le registre de l'erreur, et
+                    // signalait donc trois pages qui font exactement ce qu'il
+                    // faut. Vérifié une par une :
+                    //
+                    //   · `liste` — « Cette liste n'existe pas ou n'est pas
+                    //     partagée publiquement. Aller à l'accueil » : elle dit
+                    //     quoi, pourquoi, et offre une sortie. Elle disait
+                    //     « n'existe pas » là où le motif attendait
+                    //     « introuvable » ;
+                    //   · `anilist` — ouverte sans paramètre, elle explique
+                    //     qu'elle attend une réponse d'AniList et renvoie aux
+                    //     paramètres. Elle ne DOIT pas annoncer d'échec : c'est
+                    //     précisément le correctif DESK-03 ;
+                    //   · `recherche` — son invite d'accueil. Rien n'a encore
+                    //     échoué au chargement ; la page n'a rien à signaler.
+                    //
+                    // Trois faux constats en tête d'un rapport envoient
+                    // réparer ce qui marche. D'où l'élargissement, et le
+                    // rappel plus bas que ce verdict est une piste, pas un
+                    // jugement.
+                    const explique = /(indisponible|injoignable|hors[- ]ligne|erreur|impossible|réessa|connecte|connexion|pas de connexion|introuvable|n[’']existe pas|non disponible|pas partagée?|se lance depuis|requise?|vide|aucun)/i
                         .test(texte);
                     return {
                         longueur: texte.length,
@@ -445,7 +468,13 @@ function ecrireEtats(etats) {
     }
     L.push('');
     const aTraiter = etats.filter((e) => e.verdict && e.verdict !== 'EXPLIQUE');
-    L.push(`**${aTraiter.length} page(s)** ne disent pas à l’utilisateur ce qui se passe.`);
+    L.push(`**${aTraiter.length} page(s)** à relire : rien n’y a été reconnu comme une explication.`);
+    L.push('');
+    L.push('> ⚠ **Heuristique, pas verdict.** `MUET` se décide sur du vocabulaire :');
+    L.push('> une page qui explique parfaitement les choses avec d’autres mots est');
+    L.push('> signalée à tort. Trois l’ont été — `liste`, `anilist` et `recherche` —');
+    L.push('> et les trois faisaient exactement ce qu’il fallait. Lire l’extrait');
+    L.push('> avant de conclure.');
     const dest = path.join(RACINE, 'docs', 'audit-etats.md');
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, L.join('\n') + '\n');
