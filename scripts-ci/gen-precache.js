@@ -126,8 +126,28 @@ let next = sw.replace(re, block);
 // on y ajoute une empreinte du contenu précaché : deux changements d'assets
 // dans une même version invalident quand même le cache.
 const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
-const digest = require('crypto').createHash('sha256')
-    .update(sorted.join('\n')).digest('hex').slice(0, 6);
+// L'empreinte porte sur le CONTENU, et elle ne le faisait pas.
+//
+// `sorted` est la liste des CHEMINS. La hacher ne changeait l'empreinte que
+// si un fichier apparaissait ou disparaissait — modifier le contenu de dix
+// scripts la laissait identique. Constaté en passant en 2.7.0 : `f7a697`
+// était inchangé alors qu'une dizaine d'assets avaient bougé.
+//
+// La promesse écrite juste au-dessus — « deux changements d'assets dans une
+// même version invalident quand même le cache » — était donc fausse, et
+// c'était le seul filet sous un oubli de bump. Précisément l'« écran noir
+// après mise à jour » que ce mécanisme existe pour empêcher.
+//
+// Fins de ligne normalisées : Git réécrit en CRLF au passage, et une
+// empreinte qui changerait selon la machine ferait réinstaller le cache à
+// tout le monde sans raison.
+const hash = require('crypto').createHash('sha256');
+for (const a of sorted) {
+    hash.update(a + '\n');
+    try { hash.update(fs.readFileSync(path.join(ROOT, a.slice(1)), 'utf8').replace(/\r\n/g, '\n')); }
+    catch (e) { hash.update('<illisible>'); }
+}
+const digest = hash.digest('hex').slice(0, 6);
 const cacheVersion = `inko-${version}-${digest}`;
 const reVer = /const CACHE_VERSION = '[^']*';/;
 if (!reVer.test(next)) {
