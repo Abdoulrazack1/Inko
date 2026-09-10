@@ -245,3 +245,41 @@ test('UserData déclare la file « à lire ensuite » dans ses valeurs par défa
         assert.ok(src.includes(m), `UserData doit exposer ${m}`);
     }
 });
+
+// ── « Tu as la dernière version » est une AFFIRMATION ────────
+//
+// Elle s'affichait dès que la vérification échouait. `check()` avalait
+// l'erreur, rendait `hasUpdate: false`, et rien ne distinguait « vérifié,
+// rien de neuf » de « je n'ai pas pu regarder ». On repartait rassuré sur
+// une vérification qui n'avait pas eu lieu.
+//
+// Le déclencheur est concret : l'appel partait à CHAQUE chargement de page,
+// sans cache, sur un quota anonyme de soixante par heure et par adresse IP.
+// Une session de lecture soutenue l'épuise, et l'app cesse alors de voir les
+// nouvelles versions — en silence.
+test('une vérification de mise à jour ratée ne se déguise pas en « à jour »', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const JS = path.join(__dirname, '..', '..', 'assets', 'js');
+    const global_ = fs.readFileSync(path.join(JS, 'global.js'), 'utf8');
+    const param = fs.readFileSync(path.join(JS, 'parametres.js'), 'utf8');
+
+    // Le résultat doit porter la RAISON de l'échec, pas seulement son absence.
+    const bloc = /async check\(\{ forcer = false \} = \{\} \)?\s*\{([\s\S]*?)\n        \},/.exec(global_)
+        || /async check\(([\s\S]*?)\n        \},/.exec(global_);
+    assert.ok(bloc, 'appUpdates.check doit rester lisible');
+    assert.match(bloc[1], /echec/, 'le résultat doit porter la raison de l’échec');
+    assert.match(bloc[1], /x-ratelimit-remaining/,
+        'le quota épuisé est un refus de répondre, pas une absence de version');
+
+    // Un cache, sinon chaque page consomme un appel du quota.
+    assert.match(global_, /const CLE_MAJ = 'inko_maj_cache'/, 'le relevé doit être mémorisé');
+    assert.match(global_, /MAJ_TTL/, 'le relevé doit expirer');
+
+    // Et la page Paramètres doit LIRE cette raison avant de rassurer.
+    const i = param.indexOf('Tu as la dernière version');
+    assert.ok(i > 0, 'le message « à jour » doit rester lisible');
+    const avant = param.slice(Math.max(0, i - 700), i);
+    assert.match(avant, /r\.echec/,
+        'le « ✓ » ne doit s’afficher qu’après une vérification qui a abouti');
+});

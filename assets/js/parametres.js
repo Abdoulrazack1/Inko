@@ -588,13 +588,30 @@
         async function check(manual) {
             try {
                 if (manual) { btnCk.disabled = true; st.textContent = 'Vérification…'; }
-                const r = await MH.appUpdates.check();
+                // Appuyer sur « Vérifier », c'est demander une réponse
+                // FRAÎCHE : on court-circuite le cache de six heures. Le
+                // chargement de page, lui, s'en contente.
+                const r = await MH.appUpdates.check({ forcer: !!manual });
                 vEl.textContent = r.current ? 'v' + r.current : '(développement)';
                 if (r.hasUpdate) {
-                    st.textContent = 'Nouvelle version disponible : v' + r.latest;
+                    st.textContent = 'Nouvelle version disponible : v' + r.latest
+                        + (r.echec ? ' (relevé daté)' : '');
                     btnDl.style.display = '';
+                } else if (!r.current) {
+                    st.textContent = 'Version de développement — mises à jour non applicables.';
+                    btnDl.style.display = 'none';
+                } else if (r.echec) {
+                    // Ne PAS dire « tu as la dernière version ».
+                    //
+                    // C'est ce que cette page affichait dès que GitHub ne
+                    // répondait pas : `hasUpdate` valait `false`, et rien ne
+                    // distinguait « vérifié, rien de neuf » de « je n'ai pas
+                    // pu regarder ». Un utilisateur repartait rassuré sur une
+                    // vérification qui n'avait pas eu lieu.
+                    st.textContent = 'Vérification impossible : ' + r.echec;
+                    btnDl.style.display = r.latest ? '' : 'none';
                 } else {
-                    st.textContent = r.current ? 'Tu as la dernière version ✓' : 'Version de développement — mises à jour non applicables.';
+                    st.textContent = 'Tu as la dernière version ✓';
                     btnDl.style.display = 'none';
                 }
             } catch (e) { st.textContent = 'Vérification impossible (hors-ligne ?)'; }

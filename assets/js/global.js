@@ -2604,24 +2604,102 @@
         }
         return 0;
     }
+    /* ── Le résultat de la dernière interrogation de GitHub ──────
+     *
+     * Sans mémoire, chaque CHARGEMENT DE PAGE consommait un appel à l'API
+     * GitHub. Le quota anonyme est de soixante par heure et par ADRESSE IP —
+     * partagé, donc, avec tout ce qui interroge GitHub depuis le même réseau.
+     * Une session de lecture soutenue l'épuisait, et l'app cessait alors de
+     * voir les nouvelles versions.
+     *
+     * Six heures : assez pour qu'une journée de navigation coûte quatre
+     * appels au lieu de deux cents, assez peu pour qu'une version publiée le
+     * matin soit vue le jour même.
+     */
+    const CLE_MAJ = 'inko_maj_cache';
+    const MAJ_TTL = 6 * 3600 * 1000;
+    function lireCacheMaj() {
+        try {
+            const c = JSON.parse(localStorage.getItem(CLE_MAJ) || 'null');
+            if (c && typeof c.latest === 'string' && typeof c.at === 'number') return c;
+        } catch (e) { /* stockage refusé ou illisible */ }
+        return null;
+    }
+
     window.MH.appUpdates = {
         exeUrl: UPDATE_EXE,
-        // → { current, latest, hasUpdate } ; current absent en dev (pas d'APP_VERSION)
-        async check() {
+        /* → { current, latest, hasUpdate, echec, deCache }
+         *
+         * `echec` porte la RAISON quand la vérification n'a pas abouti, et
+         * c'est le point de tout ceci.
+         *
+         * Avant, un échec rendait `hasUpdate: false` — indiscernable d'un
+         * « tu es à jour ». La page Paramètres affichait donc « Tu as la
+         * dernière version ✓ » alors que GitHub n'avait pas répondu du tout.
+         * Une vérification qui n'a pas eu lieu ne doit pas s'annoncer comme
+         * rassurante ; c'est une affirmation qu'on n'a pas les moyens de
+         * faire.
+         *
+         * `current` reste nul en développement (pas d'`APP_VERSION`, posé par
+         * le lanceur Tauri) : là il n'y a rien à vérifier, et ce n'est pas un
+         * échec.
+         */
+        async check({ forcer = false } = {}) {
             const h = await window.API.health();
-            if (!h.version) return { current: null, latest: null, hasUpdate: false };
-            // Timeout sur l'API GitHub (peut être lente/dégradée) : on renvoie au
-            // moins la version courante plutôt que de faire tourner le bouton.
-            let latest = '';
+            if (!h.version) return { current: null, latest: null, hasUpdate: false, echec: null };
+
+            const verdict = (latest, echec, deCache) => ({
+                current: h.version, latest: latest || null,
+                hasUpdate: !!latest && cmpVer(latest, h.version) > 0,
+                echec: echec || null, deCache: !!deCache,
+            });
+
+            const cache = lireCacheMaj();
+            if (!forcer && cache && Date.now() - cache.at < MAJ_TTL) return verdict(cache.latest, null, true);
+
+            let reponse;
             try {
                 const ctrl = new AbortController();
                 const t = setTimeout(() => ctrl.abort(), 12000);
-                const rel = await fetch('https://api.github.com/repos/Abdoulrazack1/Inko/releases/latest',
-                    { headers: { Accept: 'application/vnd.github+json' }, signal: ctrl.signal }).then(r => r.json());
+                reponse = await fetch('https://api.github.com/repos/Abdoulrazack1/Inko/releases/latest',
+                    { headers: { Accept: 'application/vnd.github+json' }, signal: ctrl.signal });
                 clearTimeout(t);
-                latest = (rel.tag_name || '').replace(/^v/, '');
-            } catch (e) { window.MH?.err?.('appUpdates.check', e); }
-            return { current: h.version, latest, hasUpdate: !!latest && cmpVer(latest, h.version) > 0 };
+            } catch (e) {
+                window.MH?.err?.('appUpdates.check', e);
+                // Un relevé périmé vaut mieux que rien : il dit au moins ce
+                // qui existait il y a quelques heures. Mais il est marqué.
+                if (cache) return verdict(cache.latest, 'GitHub injoignable — relevé daté', true);
+                return verdict('', 'GitHub injoignable');
+            }
+
+            // Le quota épuisé répond 403 avec un corps explicite. Le lire comme
+            // « pas de nouvelle version » était l'erreur : c'est « je n'ai pas
+            // pu regarder ».
+            if (reponse.status === 403 || reponse.status === 429) {
+                const reste = reponse.headers.get('x-ratelimit-remaining');
+                const quota = reste === '0';
+                const raison = quota
+                    ? 'Quota GitHub épuisé — nouvelle tentative dans une heure'
+                    : 'GitHub a refusé la requête (' + reponse.status + ')';
+                if (cache) return verdict(cache.latest, raison + ' — relevé daté', true);
+                return verdict('', raison);
+            }
+            if (!reponse.ok) {
+                if (cache) return verdict(cache.latest, 'GitHub a répondu ' + reponse.status + ' — relevé daté', true);
+                return verdict('', 'GitHub a répondu ' + reponse.status);
+            }
+
+            let latest = '';
+            try { latest = ((await reponse.json()).tag_name || '').replace(/^v/, ''); }
+            catch (e) { window.MH?.err?.('appUpdates.check', e); }
+            if (!latest) {
+                if (cache) return verdict(cache.latest, 'Réponse GitHub inattendue — relevé daté', true);
+                return verdict('', 'Réponse GitHub inattendue');
+            }
+
+            try { localStorage.setItem(CLE_MAJ, JSON.stringify({ latest, at: Date.now() })); }
+            catch (e) { /* stockage refusé : on vérifiera à nouveau, sans plus */ }
+            return verdict(latest, null, false);
         },
         download() { window.open(UPDATE_EXE, '_blank'); },
         // Télécharge ET installe directement (app desktop) : le backend récupère
@@ -2653,6 +2731,12 @@
         try {
             if (document.getElementById('appUpdateBar')) return;
             const r = await MH.appUpdates.check();
+            // L'échec reste MUET ici, délibérément : ce bandeau n'a pas été
+            // demandé. Annoncer « impossible de vérifier » à chaque page
+            // serait du bruit sur un problème que l'utilisateur ne peut pas
+            // régler. La page Paramètres, elle, répond à un geste — et là
+            // taire l'échec serait mentir, puisqu'on affichait « tu as la
+            // dernière version » sans avoir rien pu vérifier.
             if (!r.hasUpdate) return;
             let dismissed = '';
             try { dismissed = localStorage.getItem('inko_upd_dismissed') || ''; } catch (e) { window.MH?.err?.('global.js', e); }
