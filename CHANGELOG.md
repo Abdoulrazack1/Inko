@@ -3,6 +3,48 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.7.1 — « Tu as la derniere version » s'affichait sans avoir rien pu verifier
+
+**La page Parametres annoncait « Tu as la derniere version ✓ » des que
+l'appel a GitHub echouait.** `check()` avalait l'erreur, rendait
+`hasUpdate: false`, et rien ne distinguait « verifie, rien de neuf » de
+« je n'ai pas pu regarder ». Le `catch` de la page ne se declenchait jamais,
+puisque `check()` ne levait pas. On repartait rassure sur une verification
+qui n'avait pas eu lieu.
+
+Le declencheur est concret : l'appel partait a CHAQUE chargement de page,
+sans cache ni authentification. Le quota anonyme de l'API GitHub est de
+soixante par heure et par ADRESSE IP — partage avec tout ce qui interroge
+GitHub depuis le meme reseau. Une session de lecture soutenue l'epuise, et
+l'app cesse alors de voir les nouvelles versions, en silence.
+
+La verification rend desormais la RAISON de son echec. Le 403 avec
+`x-ratelimit-remaining: 0` est lu pour ce qu'il est : un refus de repondre,
+pas une absence de version.
+
+Un cache de six heures : une journee de navigation coute quatre appels au
+lieu de deux cents, et une version publiee le matin reste vue le jour meme.
+Quand l'appel echoue, un releve perime est rendu plutot que rien — il dit au
+moins ce qui existait il y a quelques heures, et il est marque comme date.
+
+Les deux appelants n'ont volontairement pas le meme contrat :
+
+- le bandeau au chargement reste MUET en cas d'echec. Il n'a pas ete demande,
+  et annoncer « impossible de verifier » a chaque page serait du bruit sur un
+  probleme que l'utilisateur ne peut pas regler ;
+- le bouton des Parametres repond a un geste, et force une reponse fraiche.
+  La, taire l'echec serait mentir.
+
+Verifie dans le navigateur, en simulant une app installee :
+
+    quota epuise, sans cache   -> « Verification impossible : Quota GitHub epuise »
+    quota epuise, cache perime -> v2.7.0 annoncee, marquee « releve date »
+    reseau mort, sans cache    -> « GitHub injoignable »
+    2.6.1 + GitHub repond      -> « Nouvelle version disponible »
+    2.7.1 + GitHub repond      -> « Tu as la derniere version ✓ »
+
+Le « ✓ » n'apparait plus que lorsque la verification a reellement abouti.
+
 ## 2.7.0 — Un reglage change etait annule sous les doigts, et la musique n'existait que dans l'onglet
 
 **Un reglage change etait annule sous les doigts, sans un mot.** La page
