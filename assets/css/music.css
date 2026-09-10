@@ -57,6 +57,10 @@
 #inko-music .im-ico{background:none;border:none;color:#e8e8ee;cursor:pointer;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s}
 #inko-music .im-ico:hover{background:rgba(255,255,255,.1)}
 #inko-music .im-ico.on{color:var(--orange,#ff6b1a)}
+/* Coupe : la couleur SEULE ne dit rien a qui ne la distingue pas. Une barre
+   oblique traverse l'icone, et se voit en noir et blanc. */
+#inko-music .im-mute.on{color:var(--text3,#6b6b76);position:relative}
+#inko-music .im-mute.on::after{content:"";position:absolute;left:50%;top:50%;width:22px;height:2px;background:currentColor;transform:translate(-50%,-50%) rotate(-45deg);border-radius:2px}
 #im-repeat{position:relative}
 #inko-music .im-rep1{position:absolute;top:2px;right:2px;font-size:8px;font-weight:800;background:var(--orange,#ff6b1a);color:#fff;border-radius:6px;min-width:11px;height:11px;display:flex;align-items:center;justify-content:center;line-height:1;padding:0 1px}
 #inko-music .im-ico svg{width:18px;height:18px}
@@ -70,6 +74,9 @@
 #inko-music .im-chev svg{transition:transform .3s}
 #inko-music .im-progress{position:absolute;left:14px;right:14px;bottom:4px;height:3px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
 #inko-music .im-progress i{display:block;height:100%;width:0;background:var(--orange,#ff6b1a)}
+/* Sous 640 px la glissiere disparait : il n'y a plus la place. Le bouton
+   muet, lui, RESTE — sinon le telephone n'a aucun moyen de faire taire la
+   musique sans fermer le lecteur, donc sans perdre la station en cours. */
 @media(max-width:640px){ #inko-music .im-vol{display:none} #inko-music .im-bar{height:60px} }
 /* Pastille minimale */
 #inko-music .im-pill{pointer-events:auto;position:fixed;right:18px;bottom:18px;width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;color:#fff;display:none;align-items:center;justify-content:center;background:linear-gradient(135deg,#ff6b1a,#ff9a3c);box-shadow:0 10px 30px rgba(255,107,26,.45);transition:transform .15s}
@@ -80,3 +87,9 @@
 #inko-music .im-pill .peq i:nth-child(2){animation-delay:.2s}.im-pill .peq i:nth-child(3){animation-delay:.4s}
 #inko-music.min .im-bar,#inko-music.min .im-panel{display:none}
 #inko-music.min .im-pill{display:flex}
+
+/* L'etoile des stations gardees. La couleur seule ne suffit pas : le
+   caractere lui-meme change (☆ / ★), donc l'etat se lit aussi en noir
+   et blanc et par un lecteur d'ecran via aria-pressed. */
+#inko-music .im-fav{font-size:15px;line-height:1;color:var(--text3,#6b6b76)}
+#inko-music .im-fav.on{color:var(--orange,#ff6b1a)}

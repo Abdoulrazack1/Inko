@@ -67,11 +67,16 @@
         root.id = 'inko-music';
         root.innerHTML = `
             <div class="im-panel">
-                <div class="im-tabs">
-                    <button class="im-tab" data-tab="stations">${ICON.radio}<span>Stations</span></button>
-                    <button class="im-tab" data-tab="radio">${ICON.radio}<span>Radio</span></button>
-                    <button class="im-tab" data-tab="youtube">${ICON.youtube}<span>YouTube</span></button>
-                    <button class="im-tab" data-tab="local">${ICON.folder}<span>Fichiers</span></button>
+                <!-- Quatre onglets qui n'en étaient pas.
+                     Sans « role=tablist », un lecteur d'écran annonce quatre
+                     boutons quelconques : ni qu'ils forment un groupe, ni
+                     lequel est ouvert. « aria-selected » porte l'état actif,
+                     que la classe « .on » ne disait qu'à l'œil. -->
+                <div class="im-tabs" role="tablist" aria-label="Sources de musique">
+                    <button class="im-tab" role="tab" aria-selected="false" data-tab="stations">${ICON.radio}<span>Stations</span></button>
+                    <button class="im-tab" role="tab" aria-selected="false" data-tab="radio">${ICON.radio}<span>Radio</span></button>
+                    <button class="im-tab" role="tab" aria-selected="false" data-tab="youtube">${ICON.youtube}<span>YouTube</span></button>
+                    <button class="im-tab" role="tab" aria-selected="false" data-tab="local">${ICON.folder}<span>Fichiers</span></button>
                 </div>
                 <div class="im-content" id="im-content"></div>
             </div>
@@ -83,10 +88,18 @@
                     <button class="im-ico pp" id="im-pp" title="Lecture/Pause" aria-label="Lecture / pause">${ICON.play}</button>
                     <button class="im-ico" id="im-next" title="Suivant" aria-label="Piste ou station suivante">${ICON.next}</button>
                 </div>
-                <div class="im-vol">${ICON.vol}<input type="range" id="im-vol" min="0" max="1" step="0.01" value="${S.vol}" aria-label="Volume"></div>
+                <!-- L'icône de volume était un ORNEMENT : un haut-parleur
+                     dessiné à côté d'une glissière, sur quoi on clique
+                     naturellement, et qui ne faisait rien.
+                     Elle coupe le son maintenant — et c'est le seul réglage de
+                     volume qui reste sur téléphone, où « .im-vol » est masquée
+                     sous 640 px. Sans elle, aucun moyen de faire taire la
+                     musique sans fermer le lecteur. -->
+                <button class="im-ico im-mute" id="im-mute" title="Couper le son" aria-label="Couper le son" aria-pressed="false">${ICON.vol}</button>
+                <div class="im-vol"><input type="range" id="im-vol" min="0" max="1" step="0.01" value="${S.vol}" aria-label="Volume"></div>
                 <button class="im-ico" id="im-repeat" title="Répéter" aria-label="Mode répétition">${ICON.repeat}</button>
                 <button class="im-ico" id="im-timer" title="Minuterie de sommeil" aria-label="Minuterie de sommeil">${ICON.timer}</button>
-                <button class="im-ico im-chev" id="im-exp" title="Agrandir" aria-label="Agrandir le lecteur">${ICON.chevron}</button>
+                <button class="im-ico im-chev" id="im-exp" title="Agrandir" aria-label="Agrandir le lecteur" aria-expanded="false" aria-controls="im-content">${ICON.chevron}</button>
                 <button class="im-ico" id="im-min" title="Réduire en pastille" aria-label="Réduire le lecteur en pastille">${ICON.minus}</button>
                 <button class="im-ico im-x" id="im-close" title="Fermer et arrêter" aria-label="Fermer le lecteur et arrêter la musique">${ICON.close}</button>
                 <div class="im-progress" id="im-prog" style="display:none"><i></i></div>
@@ -105,9 +118,19 @@
         root.querySelector('#im-prev').onclick = () => skip(-1);
         root.querySelector('#im-next').onclick = () => skip(1);
         root.querySelector('#im-vol').oninput = e => setVolume(+e.target.value);
+        root.querySelector('#im-mute').onclick = basculerMuet;
         root.querySelector('#im-timer').onclick = cycleSleep;
         root.querySelector('#im-repeat').onclick = cycleRepeat;
         root.querySelectorAll('.im-tab').forEach(t => t.onclick = () => { S.tab = t.dataset.tab; save(); renderContent(); });
+        // Échap referme le panneau — comme partout ailleurs dans l'application.
+        // La musique CONTINUE : on replie une vue, on n'arrête pas la lecture.
+        // Fermer pour de bon reste le rôle de la croix, qui, elle, coupe le son.
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape' || !root.classList.contains('open')) return;
+            e.preventDefault();
+            setExpanded(false);
+            root.querySelector('#im-exp')?.focus();
+        });
         updateRepeatBtn();
         localAudio = new Audio(); localAudio.volume = S.vol;
         localAudio.addEventListener('timeupdate', updateProgress);
@@ -119,7 +142,12 @@
     // ══════════════════════ AFFICHAGE ══════════════════════
     function setExpanded(v) {
         root.classList.toggle('open', v);
-        root.querySelector('#im-exp').title = v ? 'Réduire' : 'Agrandir';
+        const b = root.querySelector('#im-exp');
+        b.title = v ? 'Réduire' : 'Agrandir';
+        // Le libellé ET l'état : `aria-expanded` seul laisserait « Agrandir »
+        // sur un panneau déjà ouvert.
+        b.setAttribute('aria-label', v ? 'Réduire le lecteur' : 'Agrandir le lecteur');
+        b.setAttribute('aria-expanded', String(!!v));
         if (v) renderContent();
     }
     // Réserve la place du dock sous le contenu (audit A15 : le dock fixe
@@ -139,8 +167,18 @@
         root.querySelector('#im-s').textContent = s || '';
         const art = root.querySelector('#im-art');
         if (artHtml) art.innerHTML = artHtml;
+        majSession();   // l'ecran verrouille doit annoncer la meme chose que la barre
     }
-    function setPlaying(v) { playing = v; root.querySelector('#im-pp').innerHTML = v ? ICON.pause : ICON.play; markStation(); updatePill(); }
+    function setPlaying(v) {
+        playing = v;
+        const pp = root.querySelector('#im-pp');
+        pp.innerHTML = v ? ICON.pause : ICON.play;
+        // Un bouton qui bascule doit dire dans quel état il est : l'icône seule
+        // ne le dit qu'à l'œil, et « Lecture / pause » ne dit ni l'un ni l'autre.
+        pp.setAttribute('aria-label', v ? 'Mettre en pause' : 'Reprendre la lecture');
+        pp.title = v ? 'Pause' : 'Lecture';
+        markStation(); updatePill(); majSession();
+    }
     function markStation() {
         document.querySelectorAll('.im-station').forEach(el => {
             const on = (S.mode === 'yt' && el.dataset.yt === S.ytId);
@@ -159,7 +197,11 @@
     // ══════════════════════ CONTENU (onglets) ══════════════════════
     function renderContent() {
         const c = root.querySelector('#im-content');
-        root.querySelectorAll('.im-tab').forEach(t => t.classList.toggle('on', t.dataset.tab === S.tab));
+        root.querySelectorAll('.im-tab').forEach(t => {
+            const actif = t.dataset.tab === S.tab;
+            t.classList.toggle('on', actif);
+            t.setAttribute('aria-selected', String(actif));   // la classe ne parle qu'à l'œil
+        });
         if (S.tab === 'stations') return renderStations(c);
         if (S.tab === 'radio')    return renderRadio(c);
         if (S.tab === 'youtube')  return renderYouTube(c);
@@ -172,7 +214,22 @@
     // inscription/clé — identifié comme la meilleure option depuis la v2.1.0.
     // Flux https uniquement (compatibles CSP media-src en production).
     const RB_BASE = 'https://all.api.radio-browser.info/json';
-    const RB_TAGS = ['lofi', 'jazz', 'anime', 'jpop', 'chill', 'classical', 'electronic', 'ambient'];
+    // Étiquettes choisies en COMPTANT ce que l'annuaire rend, pas au jugé.
+    //
+    // Relevé sur Radio Browser (stations vivantes, en HTTPS) :
+    //   anime 61 · jpop 36 · game music 33 · japanese 30 · chiptune 24 ·
+    //   j-pop 21 · vocaloid 10
+    //
+    // `ost` a été ÉCARTÉ malgré ses 100 stations : l'échantillon rendait du
+    // jazz, du rock alternatif et des radios généralistes. Une étiquette qui
+    // ramène surtout autre chose est un bouton qui ment.
+    //
+    // Rappel de ce que ces boutons sont, et ne sont pas : des radios sous
+    // licence, diffusées par leurs opérateurs. Aucune API ne distribue
+    // légalement et gratuitement des bandes originales d'anime en flux ; ce
+    // que l'on peut offrir, ce sont les stations qui en programment.
+    const RB_TAGS = ['lofi', 'jazz', 'chill', 'classical', 'electronic', 'ambient',
+        'anime', 'jpop', 'j-pop', 'vocaloid', 'game music', 'chiptune'];
     let radioResults = [];   // derniers résultats (pour next/prev)
 
     async function rbSearch(params) {
@@ -184,22 +241,70 @@
         return r.json();
     }
 
+    // ── Les stations qu'on garde ────────────────────────────
+    //
+    // Radio Browser en propose des milliers, et on retrouvait la sienne en
+    // retapant la même recherche à chaque fois. Une station écoutée deux fois
+    // mérite un bouton.
+    //
+    // On enregistre l'ADRESSE DU FLUX avec le nom : une favorite qui ne
+    // garderait qu'un identifiant obligerait à réinterroger l'annuaire pour
+    // s'afficher — donc pas de favorites hors ligne, ni quand l'annuaire
+    // tombe, c'est-à-dire précisément quand on veut sa station habituelle.
+    function favoris() { return Array.isArray(S.favs) ? S.favs : (S.favs = []); }
+    function estFavorite(st) {
+        const u = st.url_resolved || st.url;
+        return favoris().some(f => f.url === u);
+    }
+    function basculerFavorite(st) {
+        const u = st.url_resolved || st.url;
+        if (!u) return;
+        const l = favoris();
+        const i = l.findIndex(f => f.url === u);
+        if (i >= 0) { l.splice(i, 1); window.MH?.toast?.('Station retirée'); }
+        else {
+            l.unshift({ name: st.name || 'Station', url: u, country: st.country || '', tags: st.tags || '' });
+            l.splice(20);   // au-delà, ce n'est plus une sélection
+            window.MH?.toast?.('Station gardée');
+        }
+        save(); renderContent();
+    }
+
     function renderRadio(c) {
+        const favs = favoris();
         c.innerHTML = `
             <div class="im-row"><input class="im-input" id="im-rbq" placeholder="Rechercher une radio (nom)…"><button class="im-btn" id="im-rbgo">Chercher</button></div>
+            ${favs.length ? `<div class="im-hint" style="margin:8px 0 4px">Mes stations</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+                ${favs.map((f, i) => `<button class="im-btn" data-fav="${i}" style="padding:4px 10px;font-size:11.5px"
+                    title="${esc([f.country, f.tags].filter(Boolean).join(' · '))}">${esc(f.name)}</button>`).join('')}
+            </div>` : ''}
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0">
                 ${RB_TAGS.map(t => `<button class="im-btn" data-rbtag="${t}" style="padding:4px 10px;font-size:11.5px">${t}</button>`).join('')}
             </div>
             <div id="im-rblist"><div class="im-hint">Choisis un genre ou cherche une radio — annuaire libre Radio Browser, des milliers de stations.</div></div>`;
+
+        c.querySelectorAll('[data-fav]').forEach(b => b.onclick = () => playRadio(favoris()[+b.dataset.fav]));
+
         const listEl = c.querySelector('#im-rblist');
         const paint = () => {
             if (!radioResults.length) { listEl.innerHTML = '<div class="im-hint">Aucune station trouvée.</div>'; return; }
-            listEl.innerHTML = radioResults.map((st, i) => `
-                <button class="im-station im-rb" data-rbi="${i}" style="width:100%;text-align:left;margin-bottom:5px">
-                    <span style="font-weight:600">${MH.esc(st.name || 'Sans nom')}</span>
-                    <span style="font-size:10.5px;color:var(--text3);display:block">${MH.esc([st.country, (st.tags || '').split(',').slice(0, 3).join(', ')].filter(Boolean).join(' · '))}</span>
-                </button>`).join('');
+            listEl.innerHTML = radioResults.map((st, i) => {
+                const gardee = estFavorite(st);
+                return `
+                <div style="display:flex;align-items:stretch;gap:4px;margin-bottom:5px">
+                    <button class="im-station im-rb" data-rbi="${i}" style="flex:1;text-align:left">
+                        <span style="font-weight:600">${MH.esc(st.name || 'Sans nom')}</span>
+                        <span style="font-size:10.5px;color:var(--text3);display:block">${MH.esc([st.country, (st.tags || '').split(',').slice(0, 3).join(', ')].filter(Boolean).join(' · '))}</span>
+                    </button>
+                    <button class="im-btn im-fav${gardee ? ' on' : ''}" data-rbfav="${i}" aria-pressed="${gardee}"
+                            title="${gardee ? 'Retirer de mes stations' : 'Garder cette station'}"
+                            aria-label="${gardee ? 'Retirer' : 'Garder'} ${MH.esc(st.name || 'cette station')}"
+                            style="flex:0 0 auto;padding:0 11px">${gardee ? '★' : '☆'}</button>
+                </div>`;
+            }).join('');
             listEl.querySelectorAll('[data-rbi]').forEach(b => b.onclick = () => playRadio(radioResults[+b.dataset.rbi]));
+            listEl.querySelectorAll('[data-rbfav]').forEach(b => b.onclick = () => basculerFavorite(radioResults[+b.dataset.rbfav]));
         };
         const search = async (params) => {
             listEl.innerHTML = '<div class="im-hint">Recherche…</div>';
@@ -294,7 +399,24 @@
     function mediaContainer() {
         // un hôte média persistant, hors-flux mais vivant quand replié
         let h = document.getElementById('im-media');
-        if (!h) { h = document.createElement('div'); h.id = 'im-media'; h.style.cssText = 'position:fixed;left:-9999px;bottom:0;width:1px;height:1px;overflow:hidden'; document.body.appendChild(h); }
+        if (!h) {
+            h = document.createElement('div'); h.id = 'im-media';
+            h.style.cssText = 'position:fixed;left:-9999px;bottom:0;width:1px;height:1px;overflow:hidden';
+            // Ce conteneur est HORS ÉCRAN, pas hors du parcours au clavier.
+            //
+            // `overflow:hidden` et `left:-9999px` ne retirent rien de l'ordre
+            // de tabulation — seuls `display:none` et `visibility:hidden` le
+            // font. L'iframe YouTube qu'il héberge restait donc focalisable :
+            // l'audit clavier l'a relevée sur DIX-HUIT pages, « focalisée sans
+            // rien de visible ». On tabule, le focus part à -9999px, et rien
+            // ne bouge à l'écran — puis on continue à l'aveugle dans les
+            // commandes propres à l'embarqué YouTube.
+            //
+            // Le lecteur a ses propres boutons, dans la page : cette iframe
+            // n'a aucune raison d'être atteinte au clavier.
+            h.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(h);
+        }
         return h;
     }
     function playYouTube(id, label, sub, g) {
@@ -311,7 +433,16 @@
                     width: '320', height: '180', videoId: id,
                     playerVars: { autoplay: 1, playsinline: 1 },
                     events: {
-                        onReady: e => { e.target.setVolume(S.vol * 100); e.target.playVideo(); },
+                        onReady: e => {
+                            e.target.setVolume(S.vol * 100); e.target.playVideo();
+                            // `aria-hidden` sur le conteneur cache l'iframe aux
+                            // lecteurs d'écran ; il ne la retire PAS de la
+                            // tabulation. C'est `tabindex="-1"`, posé sur
+                            // l'iframe elle-même, qui la sort du parcours — et
+                            // elle n'existe qu'une fois le lecteur construit.
+                            try { e.target.getIframe()?.setAttribute('tabindex', '-1'); }
+                            catch (err) { window.MH?.err?.('music.js', err); }
+                        },
                         onStateChange: e => setPlaying(e.data === 1),
                         // Audit AMEL-95 : sans ce gestionnaire, un flux mort
                         // laissait le lecteur affiche « en lecture » sans un
@@ -382,24 +513,92 @@
         S.vol = v; save(); localAudio.volume = v;
         if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(v * 100);
         const sl = root.querySelector('#im-vol'); if (sl && +sl.value !== v) sl.value = v;
+        // Bouger la glissière, c'est vouloir entendre : on sort du muet plutôt
+        // que de laisser un curseur à mi-course sans un son, qui passerait pour
+        // une panne.
+        if (volAvantMuet !== null && v > 0) { volAvantMuet = null; majBoutonMuet(); }
+    }
+
+    // ══════════════════════ Muet ══════════════════════
+    //
+    // Le volume mémorisé, pas remis à zéro : couper puis rétablir doit rendre
+    // le niveau qu'on avait choisi, pas un niveau par défaut.
+    let volAvantMuet = null;
+    function basculerMuet() {
+        if (volAvantMuet === null) { volAvantMuet = S.vol || 0.7; setVolume(0); }
+        else { const v = volAvantMuet; volAvantMuet = null; setVolume(v); }
+        majBoutonMuet();
+    }
+    function majBoutonMuet() {
+        const b = root?.querySelector('#im-mute'); if (!b) return;
+        const muet = volAvantMuet !== null;
+        b.classList.toggle('on', muet);
+        b.setAttribute('aria-pressed', String(muet));
+        b.title = muet ? 'Rétablir le son' : 'Couper le son';
+        b.setAttribute('aria-label', b.title);
     }
     function stopYouTube() { try { if (ytPlayer) ytPlayer.stopVideo?.(); } catch (e) { window.MH?.err?.('music.js', e); } }
     function stopLocal()   { try { localAudio.pause(); } catch (e) { window.MH?.err?.('music.js', e); } }
     function stopAll() { stopYouTube(); stopLocal(); setPlaying(false); }
 
     // ══════════════════════ Minuterie de sommeil ══════════════════════
-    let sleepMin = 0, sleepHandle = null;
+    // Le temps restant, LISIBLE, et une extinction en fondu.
+    //
+    // Deux défauts d'une minuterie qu'on règle avant de s'endormir :
+    //   · le décompte ne vivait que dans l'infobulle du bouton. Il fallait
+    //     viser une icône à la souris pour savoir combien de temps il restait —
+    //     donc impossible à connaître au doigt, et invisible sur téléphone ;
+    //   · l'arrêt était NET. Une coupure sèche réveille ; c'est précisément ce
+    //     qu'une minuterie de sommeil doit éviter.
+    let sleepMin = 0, sleepHandle = null, sleepFin = 0, sleepTick = null;
+    function tempsRestant() {
+        if (!sleepFin) return 0;
+        return Math.max(0, Math.ceil((sleepFin - Date.now()) / 60000));
+    }
     function updateTimerBtn() {
         const btn = root.querySelector('#im-timer'); if (!btn) return;
-        btn.classList.toggle('on', sleepMin > 0);
-        btn.title = sleepMin > 0 ? `Minuterie : arrêt dans ${sleepMin} min (cliquer pour changer)` : 'Minuterie de sommeil';
+        const actif = sleepMin > 0;
+        btn.classList.toggle('on', actif);
+        const reste = tempsRestant();
+        btn.title = actif ? `Minuterie : arrêt dans ${reste} min (cliquer pour changer)` : 'Minuterie de sommeil';
+        btn.setAttribute('aria-label', btn.title);
+        // Le décompte s'écrit SUR le bouton : lisible sans survol, au doigt
+        // comme à l'œil.
+        btn.innerHTML = ICON.timer + (actif ? `<span class="im-rep1">${reste}</span>` : '');
+    }
+    function arreterMinuterie() {
+        if (sleepHandle) { clearTimeout(sleepHandle); sleepHandle = null; }
+        if (sleepTick) { clearInterval(sleepTick); sleepTick = null; }
+        sleepMin = 0; sleepFin = 0;
+    }
+    // Vingt secondes de descente, puis l'arrêt. Le volume choisi est rendu tel
+    // quel ensuite : la minuterie ne doit pas laisser le lecteur à zéro pour la
+    // prochaine fois.
+    function extinctionEnFondu() {
+        const depart = S.vol;
+        const pas = depart / 20;
+        let v = depart;
+        const t = setInterval(() => {
+            v = Math.max(0, v - pas);
+            appliquerVolume(v);
+            if (v > 0) return;
+            clearInterval(t);
+            stopAll();
+            appliquerVolume(depart);            // on rend le niveau choisi
+            arreterMinuterie(); updateTimerBtn();
+            window.MH?.toast?.('Musique arrêtée (minuterie)');
+        }, 1000);
     }
     function cycleSleep() {
         const steps = [0, 15, 30, 60, 90];
         sleepMin = steps[(steps.indexOf(sleepMin) + 1) % steps.length];
-        if (sleepHandle) { clearTimeout(sleepHandle); sleepHandle = null; }
+        const suivant = sleepMin;
+        arreterMinuterie();
+        sleepMin = suivant;
         if (sleepMin > 0) {
-            sleepHandle = setTimeout(() => { stopAll(); sleepMin = 0; updateTimerBtn(); window.MH?.toast?.('Musique arrêtée (minuterie)'); }, sleepMin * 60000);
+            sleepFin = Date.now() + sleepMin * 60000;
+            sleepHandle = setTimeout(extinctionEnFondu, sleepMin * 60000);
+            sleepTick = setInterval(updateTimerBtn, 30000);   // le décompte suit
             window.MH?.toast?.(`Minuterie : arrêt dans ${sleepMin} min`);
         } else { window.MH?.toast?.('Minuterie désactivée'); }
         updateTimerBtn();
@@ -436,9 +635,48 @@
         return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ESC_MAP[c]);
     }
 
+    // ══════════════════════ Commandes du système ══════════════════════
+    //
+    // Sans `mediaSession`, la musique n'existe que dans l'onglet.
+    //
+    // C'est le manque le plus coûteux du lecteur, et il ne se voit pas en
+    // regardant la page : sur téléphone, l'écran verrouillé n'affiche rien, le
+    // bouton du casque ne met pas en pause, et la notification média d'Android
+    // ne montre pas ce qui joue. On lit d'une main, l'appareil dans la poche —
+    // c'est exactement là que ces commandes servent.
+    //
+    // L'API est ignorée là où elle n'existe pas : aucun repli à écrire.
+    function majSession() {
+        if (!('mediaSession' in navigator)) return;
+        try {
+            const MM = window.MediaMetadata;
+            if (MM) {
+                navigator.mediaSession.metadata = new MM({
+                    title: S.label || 'Inko',
+                    artist: S.sub || 'Lecteur Inko',
+                    album: 'Inko',
+                });
+            }
+            navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+        } catch (e) { window.MH?.err?.('music.js', e); }
+    }
+    function brancherSession() {
+        if (!('mediaSession' in navigator)) return;
+        const poser = (action, fn) => {
+            try { navigator.mediaSession.setActionHandler(action, fn); }
+            catch (e) { /* action non gérée par ce navigateur : sans conséquence */ }
+        };
+        poser('play', () => { if (!playing) togglePlay(); });
+        poser('pause', () => { if (playing) togglePlay(); });
+        poser('stop', () => stopAll());
+        poser('previoustrack', () => skip(-1));
+        poser('nexttrack', () => skip(1));
+    }
+
     // ══════════════════════ Init ══════════════════════
     function init() {
         injectCSS(); build();
+        brancherSession();
         root.style.display = S.visible ? 'flex' : 'none';
         if (S.visible && S.min) root.classList.add('min');
         // Reprise inter-pages : recharge la dernière station (les flux live reprennent)
