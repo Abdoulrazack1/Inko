@@ -337,6 +337,20 @@ module.exports = {
             const num = chapterNumFromText(label);
             if (num === null) return;
             seen.add(cid);
+            // La date de sortie était écrite `null` EN DUR, et la page la
+            // porte depuis toujours.
+            //
+            // Relevé en lisant une série pour de vrai : mille cent
+            // quatre-vingt-douze chapitres, zéro date affichée. Le champ
+            // existait dans la réponse, valait `null` partout, et rien ne
+            // distinguait « cette source ne date pas ses chapitres » de « on
+            // ne l'a jamais lue ».
+            //
+            // Vérifié sur le HTML brut avant d'écrire ce correctif : 1192
+            // liens de chapitre, 1192 balises `<time datetime>`, chacune DANS
+            // son `<a>`. La correspondance est exacte — ce n'est pas une
+            // heuristique.
+            const iso = $(a).find('time[datetime]').first().attr('datetime') || null;
             out.push({
                 id: cid,
                 chapter: num,
@@ -344,7 +358,9 @@ module.exports = {
                 title: null,
                 lang: 'en',
                 pages: 0,
-                publishedAt: null,
+                // Une date invalide vaut mieux absente : `relTime` afficherait
+                // « Invalid Date » là où le vide ne dit rien de faux.
+                publishedAt: iso && !Number.isNaN(Date.parse(iso)) ? iso : null,
             });
         });
         out.sort((a, b) => b.chapter - a.chapter);
