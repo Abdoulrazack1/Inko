@@ -39,10 +39,10 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.1",
-    "@playwright/test": "^1.62.1",
+    "@playwright/test": "^1.63.0",
     "axe-core": "^4.13.0",
     "esbuild": "^0.28.2",
-    "eslint": "^10.9.1",
+    "eslint": "^10.10.0",
     "jsdom": "^30.0.1"
   },
   "dependencies": {
