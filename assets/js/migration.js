@@ -38,7 +38,29 @@
         { cle: 'signets',       label: 'Signets' },
     ];
 
+    function stylesMasse() {
+        if (document.getElementById('migr-masse-css')) return;
+        const st = document.createElement('style');
+        st.id = 'migr-masse-css';
+        st.textContent = `
+        .migr-masse{width:min(760px,94vw)!important;max-width:none!important}
+        .migr-cible{display:flex;align-items:center;gap:10px;margin:14px 0;font-size:13.5px}
+        .migr-cible select,.migr-ligne select{flex:1;min-width:0;height:34px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);padding:0 8px}
+        .migr-barre{height:6px;border-radius:6px;background:var(--bg4);overflow:hidden;margin:12px 0 4px}
+        .migr-barre span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+        .migr-revue{max-height:52vh;overflow:auto;margin:10px 0;border:1px solid var(--border);border-radius:10px}
+        .migr-ligne{display:grid;grid-template-columns:22px minmax(0,1fr) minmax(0,1.3fr);gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border)}
+        .migr-ligne:last-child{border-bottom:0}
+        .migr-ligne.vide{opacity:.6}
+        .migr-ligne-titre{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .migr-ligne-titre small{display:block;font-weight:400;color:var(--text3);font-size:11.5px}
+        .migr-rien{font-size:12px;color:var(--text3)}
+        @media (max-width:560px){.migr-ligne{grid-template-columns:22px 1fr}.migr-ligne select,.migr-rien{grid-column:2}}`;
+        document.head.appendChild(st);
+    }
+
     function styles() {
+        stylesMasse();
         if (document.getElementById('mh-migr-css')) return;
         const s = document.createElement('style');
         s.id = 'mh-migr-css';
@@ -243,8 +265,134 @@
         });
     }
 
+    // ── Migration en masse ─────────────────────────────────
+    // Quand une source meurt, ce sont des dizaines de séries à déménager : les
+    // faire une par une n'est pas une option. On cherche la correspondance de
+    // chacune, on présente TOUT dans une liste relue par l'utilisateur, puis on
+    // migre. Fidèle au parti pris n°1 : seules les correspondances quasi
+    // certaines (score ≥ 85, même titre) arrivent cochées ; les autres
+    // attendent un choix explicite dans leur liste déroulante.
+    const SEUIL_AUTO = 85;
+
+    async function migrerEnMasse(series, { sourceCible = '' } = {}) {
+        if (!series?.length) return;
+        const { boite, fermer } = veiler();
+        boite.classList.add('migr-masse');
+        const sources = await window.API.sources.list().catch(() => []);
+        boite.innerHTML = `
+            <div class="mh-modal-title">Migrer ${series.length} série${series.length > 1 ? 's' : ''}</div>
+            <div class="migr-sub">Choisis où les chercher, puis relis les correspondances avant de lancer.</div>
+            <label class="migr-cible">Vers
+                <select id="migrCible">
+                    <option value="">la meilleure correspondance, toutes sources</option>
+                    ${sources.map(x => `<option value="${esc(x.id)}" ${x.id === sourceCible ? 'selected' : ''}>${esc(x.name || x.id)}</option>`).join('')}
+                </select>
+            </label>
+            <div class="mh-modal-actions">
+                <button class="mh-modal-btn ghost" data-act="cancel">Annuler</button>
+                <button class="mh-modal-btn primary" data-act="go">Chercher les correspondances</button>
+            </div>`;
+        boite.querySelector('[data-act="cancel"]').addEventListener('click', fermer);
+        boite.querySelector('[data-act="go"]').addEventListener('click', () => chercher(boite.querySelector('#migrCible').value));
+
+        async function chercher(cible) {
+            boite.innerHTML = `<div class="mh-modal-title">Recherche des correspondances</div>
+                <div class="migr-sub" id="migrAvance">0 / ${series.length}</div>
+                <div class="migr-barre"><span id="migrBarre"></span></div>`;
+            const lignes = new Array(series.length);
+            let faits = 0, i = 0;
+            const travail = async () => {
+                while (i < series.length) {
+                    const k = i++;
+                    const x = series[k];
+                    try {
+                        const d = await window.API.migrate.candidats(x.source, x.mangaId, x.titre);
+                        let c = (d.candidats || []);
+                        if (cible) c = c.filter(y => y.source === cible);
+                        lignes[k] = { x, candidats: c.slice(0, 6) };
+                    } catch (e) { lignes[k] = { x, candidats: [], erreur: e.message }; }
+                    faits++;
+                    const av = boite.querySelector('#migrAvance'); if (av) av.textContent = `${faits} / ${series.length}`;
+                    const b = boite.querySelector('#migrBarre'); if (b) b.style.width = (faits / series.length * 100) + '%';
+                }
+            };
+            // Deux à la fois : chaque recherche interroge toutes les sources.
+            await Promise.all([travail(), travail()]);
+            relire(lignes);
+        }
+
+        function relire(lignes) {
+            const auto = (l) => l.candidats[0] && l.candidats[0].score >= SEUIL_AUTO;
+            boite.innerHTML = `
+                <div class="mh-modal-title">Relis avant de migrer</div>
+                <div class="migr-sub">${lignes.filter(auto).length} correspondance(s) sûre(s) cochée(s).
+                    Les autres sont à choisir ou à laisser de côté.</div>
+                <div class="migr-revue">${lignes.map((l, k) => `
+                    <div class="migr-ligne${l.candidats.length ? '' : ' vide'}">
+                        <input type="checkbox" data-k="${k}" ${auto(l) ? 'checked' : ''} ${l.candidats.length ? '' : 'disabled'} aria-label="Migrer ${esc(l.x.titre)}">
+                        <span class="migr-ligne-titre" title="${esc(l.x.titre)}">${esc(l.x.titre)}<small>${esc(window.MH?.sourceName?.(l.x.source) || l.x.source || '')}</small></span>
+                        ${l.candidats.length ? `<select data-sel="${k}" aria-label="Correspondance pour ${esc(l.x.titre)}">
+                            ${auto(l) ? '' : '<option value="">— choisir —</option>'}
+                            ${l.candidats.map((c, j) => `<option value="${j}">${esc(c.sourceNom || c.source)} · ${esc(c.titre)} (${c.score})</option>`).join('')}
+                        </select>` : `<span class="migr-rien">${esc(l.erreur || 'Introuvable ailleurs')}</span>`}
+                    </div>`).join('')}</div>
+                <div class="migr-garder">${ELEMENTS.map(e => `<label><input type="checkbox" value="${e.cle}" checked> ${esc(e.label)}</label>`).join('')}</div>
+                <div class="mh-modal-actions">
+                    <button class="mh-modal-btn ghost" data-act="cancel">Annuler</button>
+                    <button class="mh-modal-btn primary" data-act="ok">Migrer</button>
+                </div>`;
+            const btnOk = boite.querySelector('[data-act="ok"]');
+            const compter = () => {
+                const n = [...boite.querySelectorAll('.migr-ligne input[data-k]:checked')]
+                    .filter(cb => boite.querySelector(`[data-sel="${cb.dataset.k}"]`)?.value !== '').length;
+                btnOk.textContent = n ? `Migrer ${n} série${n > 1 ? 's' : ''}` : 'Migrer';
+                btnOk.disabled = !n;
+            };
+            boite.querySelectorAll('[data-sel]').forEach(sel => sel.addEventListener('change', () => {
+                const cb = boite.querySelector(`input[data-k="${sel.dataset.sel}"]`);
+                if (cb && sel.value !== '') cb.checked = true;
+                compter();
+            }));
+            boite.querySelectorAll('.migr-ligne input[data-k]').forEach(cb => cb.addEventListener('change', compter));
+            boite.querySelector('[data-act="cancel"]').addEventListener('click', fermer);
+            compter();
+            btnOk.addEventListener('click', () => lancer(lignes));
+        }
+
+        async function lancer(lignes) {
+            const conserver = [...boite.querySelectorAll('.migr-garder input:checked')].map(x => x.value);
+            if (!conserver.length) { window.MH?.toast?.('Coche au moins un élément à conserver'); return; }
+            const aFaire = [...boite.querySelectorAll('.migr-ligne input[data-k]:checked')].map(cb => {
+                const k = +cb.dataset.k, v = boite.querySelector(`[data-sel="${k}"]`)?.value;
+                return v === '' || v == null ? null : { l: lignes[k], c: lignes[k].candidats[+v] };
+            }).filter(Boolean);
+            boite.innerHTML = `<div class="mh-modal-title">Migration en cours</div>
+                <div class="migr-sub" id="migrAvance">0 / ${aFaire.length}</div>
+                <div class="migr-barre"><span id="migrBarre"></span></div>`;
+            const ok = [], ko = [];
+            for (const [n, { l, c }] of aFaire.entries()) {
+                try {
+                    await window.API.migrate.lancer({
+                        de: { source: l.x.source, mangaId: l.x.mangaId },
+                        vers: { source: c.source, mangaId: c.id, titre: c.titre, cover: c.cover },
+                        conserver,
+                    });
+                    ok.push(l.x.titre);
+                } catch (e) { ko.push(`${l.x.titre} — ${e.message || 'échec'}`); }
+                const av = boite.querySelector('#migrAvance'); if (av) av.textContent = `${n + 1} / ${aFaire.length}`;
+                const b = boite.querySelector('#migrBarre'); if (b) b.style.width = ((n + 1) / aFaire.length * 100) + '%';
+            }
+            boite.innerHTML = `<div class="mh-modal-title">${ok.length} série${ok.length > 1 ? 's' : ''} migrée${ok.length > 1 ? 's' : ''}</div>
+                ${ko.length ? `<div class="migr-avert">${ko.length} échec(s) :<br>${ko.slice(0, 8).map(esc).join('<br>')}</div>` : ''}
+                <div class="migr-vide">Chaque migration reste annulable pendant sept jours depuis la fiche de la série.</div>
+                <div class="mh-modal-actions"><button class="mh-modal-btn primary" data-act="close">Terminé</button></div>`;
+            boite.querySelector('[data-act="close"]').addEventListener('click', () => { fermer(); setTimeout(() => window.location.reload(), 150); });
+        }
+    }
+
     window.MH = window.MH || {};
     window.MH.ouvrirMigration = ouvrirMigration;
+    window.MH.migrerEnMasse = migrerEnMasse;
 
     // Point d'entrée déclaratif : n'importe quelle page peut poser
     // `data-migrer="<mangaId>" data-migrer-source="<source>"` sur un bouton.

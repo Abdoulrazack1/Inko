@@ -10,6 +10,13 @@
     let kindFilter = 'all';    // 'all' | 'manga' | 'novel' (sépare romans et mangas)
     let unreadOnly = false;    // n'afficher que les séries avec des chapitres non lus
     let sourceFilter = null;   // filtrer par source d'origine
+    // Onglet de catégorie courant : '__all' (tout), '__none' (sans catégorie)
+    // ou le nom d'une catégorie. Mémorisé : on revient là où on rangeait.
+    let catTab = '__all';
+    try { catTab = window.Storage?.getPref?.('libCatTab') || '__all'; } catch (e) { /* stockage indisponible */ }
+    // Ordre des catégories + catégories vides (une catégorie qu'on vient de
+    // créer n'a encore aucune série : elle doit exister quand même).
+    let categoriesPerso = [];
     let viewMode = 'grid';     // 'grid' | 'list' (audit §10.3)
     let selectMode = false;    // mode sélection multiple (audit §10.3)
     const selected = new Set(); // mangaIds sélectionnés
@@ -47,6 +54,8 @@
         wireViewToggle();
         wireSelect();
         wireGridDelegation();
+        wirePopovers();
+        document.getElementById('btnLibCats')?.addEventListener('click', ouvrirGestionCategories);
         maybeAutoCheck();
     });
 
@@ -89,7 +98,7 @@
         const status = document.getElementById('libRefreshStatus');
         if (status) status.innerHTML = '<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span> Recherche de nouveautés…';
         try {
-            await fetchUpdates();
+            await fetchUpdates(undefined, { statusEl: status });
             render();
             try { localStorage.setItem(KEY, String(Date.now())); } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
             if (status) status.textContent = `À jour · ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
@@ -98,11 +107,21 @@
 
     // ── Mise à jour des chapitres depuis l'onglet Bibliothèque (§15) ──
     // scope 'active' (défaut) ignore Terminé/Abandonné ; 'all' revérifie tout.
-    async function fetchUpdates(scope) {
-        const data = await API.me.updates({
+    // Avancement visible : « Vérification… 142 / 491 » + barre fine.
+    function afficherAvancement(el, { faits, total }) {
+        if (!el) return;
+        const pct = total ? Math.round(faits / total * 100) : 0;
+        el.innerHTML = `<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span>
+            Vérification… ${total ? `<strong>${faits}</strong> / ${total}` : ''}
+            <span class="lib-scan-bar" aria-hidden="true"><span style="width:${pct}%"></span></span>`;
+    }
+
+    async function fetchUpdates(scope, { force = false, statusEl = null } = {}) {
+        const data = await API.me.scanUpdates({
             lang: window.Storage?.getPref('readingLang') || 'fr,en',
             scope: scope || (includeFinished() ? 'all' : 'active'),
-        });
+            force,
+        }, (p) => afficherAvancement(statusEl, p));
         (data.updates || []).forEach(u => {
             updatesByManga[u.mangaId] = { unreadCount: u.unreadCount, latest: u.latest, hasNew: u.hasNew };
             const f = favs.find(x => x.mangaId === u.mangaId);
@@ -175,7 +194,10 @@
         if (!el) return;
         const totalUnread = favs.reduce((n, f) => n + unreadCount(f), 0);
         const n = favs.length;
-        el.textContent = `${n} série${n > 1 ? 's' : ''}${totalUnread > 0 ? ` · ${totalUnread} chapitre${totalUnread > 1 ? 's' : ''} non lu${totalUnread > 1 ? 's' : ''}` : ' · à jour'}`;
+        const aVerifier = favs.filter(nonVerifiee).length;
+        el.textContent = `${n} série${n > 1 ? 's' : ''}`
+            + (totalUnread > 0 ? ` · ${totalUnread.toLocaleString('fr-FR')} chapitre${totalUnread > 1 ? 's' : ''} non lu${totalUnread > 1 ? 's' : ''}` : '')
+            + (aVerifier ? ` · ${aVerifier} jamais vérifiée${aVerifier > 1 ? 's' : ''}` : (totalUnread ? '' : ' · à jour'));
     }
 
     // Densité d'affichage (compact/confort) + Export de la bibliothèque
@@ -376,7 +398,7 @@
             btn.disabled = true;
             if (status) status.innerHTML = '<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span> Vérification…';
             try {
-                const data = await fetchUpdates();
+                const data = await fetchUpdates(undefined, { force: true, statusEl: status });
                 const ups = data.updates || [];
                 const totalNew = ups.reduce((n, u) => n + (u.hasNew ? 1 : 0), 0);
                 const totalUnread = ups.reduce((n, u) => n + (u.unreadCount || 0), 0);
@@ -496,14 +518,17 @@
         await MH.loadSourceTypes();   // pour séparer mangas/romans
         await window.UserData?.ready?.();   // épingles + données perso
         try {
-            const [favoris, allRead, allProg] = await Promise.all([
+            const [favoris, allRead, allProg, reglages] = await Promise.all([
                 API.me.favorites(),
                 API.me.readChapters(),
                 API.me.progress(),
+                API.me.settings().catch(() => ({})),
             ]);
             favs = favoris;
             readByManga = allRead;
             progressByManga = allProg;
+            const lc = reglages?.libCategories ?? reglages?.data?.libCategories;
+            categoriesPerso = Array.isArray(lc) ? lc.filter(c => typeof c === 'string' && c.trim()) : [];
         } catch (e) {
             MH.poserEtatErreur(grid, e, { onRetry: () => render() });
             if (grid.firstChild) grid.firstChild.style.gridColumn = '1/-1';
@@ -524,9 +549,18 @@
         // l'API en interrogeant LA SOURCE DU FAVORI (audit N49 : l'ancien code
         // passait par la source courante de l'app — mauvais catalogue dès que le
         // favori venait d'ailleurs, échec silencieux à chaque visite).
+        // On affiche TOUT DE SUITE, puis on complète en arrière-plan : avant,
+        // la grille attendait que chaque fiche incomplète ait été redemandée à
+        // sa source — plusieurs secondes de page vide.
+        window.Storage?.cacheLibrary?.(favs);
+        renderSummary();
+        renderCatTabs();
+        renderFilters();
+        render();
+
         const missing = favs.filter(f => !f.title || !f.cover);
         if (missing.length) {
-            await Promise.allSettled(missing.map(async f => {
+            await Promise.allSettled(missing.slice(0, 40).map(async f => {
                 try {
                     // BUG-01 : le repli « best-effort » interrogeait la source
                     // COURANTE. Il ne complétait donc pas la fiche, il y
@@ -539,25 +573,22 @@
                     f.cover = f.cover || m.cover || m.coverThumb;
                 } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
             }));
+            window.Storage?.cacheLibrary?.(favs);
+            render();
         }
-
-        // Miroir local : la bibliothèque reste visible même déconnecté / hors-ligne.
-        window.Storage?.cacheLibrary?.(favs);
-
-        renderSummary();
-        renderFilters();
-        render();
     }
 
+    // Non-lus EXACTS uniquement : ceux du scan en cours, sinon ceux que le
+    // serveur a gardés du dernier scan (migration 22). L'ancienne estimation
+    // « dernier chapitre − chapitres lus » affichait 65 740 non-lus sur une
+    // bibliothèque de 490 séries. Une série jamais vérifiée compte 0 et
+    // n'affiche pas de pastille, plutôt qu'un chiffre inventé.
     function unreadCount(f) {
-        // Données serveur précises (après « Mettre à jour ») si dispo
         const srv = updatesByManga[f.mangaId];
         if (srv && typeof srv.unreadCount === 'number') return srv.unreadCount;
-        // sinon approximation : dernier chapitre connu - nb de chapitres lus
-        const read = (readByManga[f.mangaId] || []).length;
-        const last = f.lastChapter || 0;
-        return Math.max(0, Math.round(last) - read);
+        return typeof f.unreadCount === 'number' ? f.unreadCount : 0;
     }
+    const nonVerifiee = (f) => !updatesByManga[f.mangaId] && typeof f.unreadCount !== 'number';
 
     // ── Ce qui filtre, et comment tout relâcher ─────────────
     //
@@ -578,8 +609,6 @@
         }
         if (filter.type === 'status') {
             out.push({ l: (STATUS[filter.value] || [filter.value])[0], off: () => { filter = { type: 'all', value: null }; } });
-        } else if (filter.type === 'category') {
-            out.push({ l: filter.value, off: () => { filter = { type: 'all', value: null }; } });
         }
         if (sourceFilter) out.push({ l: sourceFilter, off: () => { sourceFilter = null; } });
         if (unreadOnly) out.push({ l: 'Non lus', off: () => { unreadOnly = false; } });
@@ -646,9 +675,11 @@
             kindHtml = `<div class="lib2-kinds">${k('all', 'Tout', favs.length)}${k('manga', 'Mangas', nManga)}${k('novel', 'Romans', nNovel)}</div>`;
         }
 
-        let html = chip('all', '', 'Tout', favsOfKind().length, filter.type === 'all');
+        let html = '<div class="lib-filter-group"><div class="lib-filter-label">Statut</div><div class="lib-filter-chips">'
+            + chip('all', '', 'Tous', favsOfKind().length, filter.type === 'all');
         Object.keys(STATUS).forEach(s => { if (sc[s]) html += chip('status', s, STATUS[s][0], sc[s], filter.type === 'status' && filter.value === s); });
-        Object.keys(cc).sort().forEach(c => { html += chip('category', c, c, cc[c], filter.type === 'category' && filter.value === c); });
+        html += '</div></div>';
+        void cc;
 
         // Filtre par source (n'apparaît que si la biblio compte plusieurs sources)
         const srcCount = {};
@@ -656,13 +687,22 @@
         let srcHtml = '';
         const sources = Object.keys(srcCount);
         if (sources.length > 1) {
-            srcHtml = `<span style="width:100%;height:1px"></span>` +
-                `<button class="lib2-chip ${!sourceFilter ? 'on' : ''}" aria-pressed="${!sourceFilter}" data-src="">Toutes sources</button>` +
-                sources.sort().map(s => `<button class="lib2-chip ${sourceFilter === s ? 'on' : ''}" aria-pressed="${sourceFilter === s}" data-src="${MH.esc(s)}">${MH.esc(s)}<span class="cnt">${srcCount[s]}</span></button>`).join('');
+            srcHtml = '<div class="lib-filter-group"><div class="lib-filter-label">Source</div><div class="lib-filter-chips">' +
+                `<button class="lib2-chip ${!sourceFilter ? 'on' : ''}" aria-pressed="${!sourceFilter}" data-src="">Toutes</button>` +
+                sources.sort().map(s => `<button class="lib2-chip ${sourceFilter === s ? 'on' : ''}" aria-pressed="${sourceFilter === s}" data-src="${MH.esc(s)}">${MH.esc(nomSource(s))}<span class="cnt">${srcCount[s]}</span></button>`).join('')
+                + '</div></div>';
         }
         // Bascule « Non lus uniquement »
-        const unreadHtml = `<button class="lib2-chip ${unreadOnly ? 'on' : ''}" aria-pressed="${!!unreadOnly}" id="chipUnread" style="margin-left:auto" title="N'afficher que les séries avec des chapitres non lus">● Non lus</button>`;
-        el.innerHTML = kindHtml + html + srcHtml + unreadHtml;
+        const unreadHtml = `<div class="lib-filter-group"><div class="lib-filter-label">Lecture</div><div class="lib-filter-chips">
+            <button class="lib2-chip ${unreadOnly ? 'on' : ''}" aria-pressed="${!!unreadOnly}" id="chipUnread" title="N'afficher que les séries avec des chapitres non lus">Avec des non-lus</button></div></div>`;
+        const kindGroup = kindHtml ? `<div class="lib-filter-group"><div class="lib-filter-label">Type</div>${kindHtml}</div>` : '';
+        el.innerHTML = kindGroup + html + srcHtml + unreadHtml
+            + (filtresActifs().length ? '<button type="button" class="lib-filter-reset" id="libFilterReset">Tout effacer</button>' : '');
+        el.querySelector('#libFilterReset')?.addEventListener('click', () => { effacerFiltres(); renderFilters(); });
+        const nb = filtresActifs().filter(f => !f.l.startsWith('«')).length;
+        const badge = document.getElementById('libFilterCount');
+        if (badge) { badge.hidden = !nb; badge.textContent = String(nb); }
+        document.getElementById('btnLibFilters')?.classList.toggle('is-active', nb > 0);
 
         el.querySelectorAll('[data-src]').forEach(ch => ch.addEventListener('click', () => {
             sourceFilter = ch.dataset.src || null;
@@ -689,7 +729,7 @@
         const box = document.getElementById('libResume');
         if (!box) return;
         // En mode sélection ou avec un filtre actif, on masque la rangée pour ne pas gêner.
-        const active = selectMode || filter.type !== 'all' || unreadOnly || sourceFilter;
+        const active = selectMode || filter.type !== 'all' || unreadOnly || sourceFilter || catTab !== '__all';
         const inProgress = favsOfKind()
             .filter(f => progressByManga[f.mangaId]?.chapterId)
             .sort((a, b) => new Date(progressByManga[b.mangaId]?.updatedAt || 0) - new Date(progressByManga[a.mangaId]?.updatedAt || 0))
@@ -742,7 +782,8 @@
 
         let list = favsOfKind().filter(f => !q || (f.title || '').toLowerCase().includes(q));
         if (filter.type === 'status')   list = list.filter(f => f.status === filter.value);
-        if (filter.type === 'category') list = list.filter(f => f.category === filter.value);
+        if (catTab === '__none') list = list.filter(f => !f.category);
+        else if (catTab !== '__all') list = list.filter(f => f.category === catTab);
         if (sourceFilter)               list = list.filter(f => (f.source || 'mangadex') === sourceFilter);
         if (unreadOnly)                 list = list.filter(f => unreadCount(f) > 0);
 
@@ -766,7 +807,8 @@
         if (sort === 'activity') {
             const quand = (f) => {
                 const u = updatesByManga[f.mangaId];
-                return u?.latest?.publishedAt ? new Date(u.latest.publishedAt).getTime() : 0;
+                const d = u?.latest?.publishedAt || f.latestAt;
+                return d ? new Date(d).getTime() || 0 : 0;
             };
             list.sort((a, b) => quand(b) - quand(a));
         }
@@ -994,6 +1036,20 @@
         document.getElementById('bulkDelete')?.addEventListener('click', bulkDelete);
         document.getElementById('bulkStatus')?.addEventListener('click', bulkStatus);
         document.getElementById('bulkCategory')?.addEventListener('click', bulkCategory);   // audit AMEL-33
+        document.getElementById('bulkAll')?.addEventListener('click', () => {
+            // Tout ce qui est affiché (filtres + onglet), pas toute la bibliothèque.
+            const tous = renderList.map(f => f.mangaId);
+            const dejaTout = tous.length && tous.every(id => selected.has(id));
+            if (dejaTout) tous.forEach(id => selected.delete(id)); else tous.forEach(id => selected.add(id));
+            render(); renderBulkBar();
+        });
+        document.getElementById('bulkMigrate')?.addEventListener('click', () => {
+            if (!selected.size) { MH.toast?.('Rien de sélectionné'); return; }
+            if (!MH.migrerEnMasse) { MH.toast?.('Migration indisponible sur cette page'); return; }
+            const series = [...selected].map(id => favs.find(f => f.mangaId === id)).filter(Boolean)
+                .map(f => ({ source: f.source, mangaId: f.mangaId, titre: f.title || '' }));
+            MH.migrerEnMasse(series);
+        });
         btn?.addEventListener('click', () => setSelectMode(!selectMode));
     }
     function setSelectMode(on) {
@@ -1010,6 +1066,8 @@
         bar.classList.toggle('hidden', !selectMode);
         const c = document.getElementById('bulkCount');
         if (c) c.textContent = `${selected.size} sélectionné(s)`;
+        const all = document.getElementById('bulkAll');
+        if (all) all.textContent = renderList.length && renderList.every(f => selected.has(f.mangaId)) ? 'Tout désélectionner' : `Tout sélectionner (${renderList.length})`;
     }
     // Progression des actions groupées (audit N50) — réutilise le compteur de la barre
     function bulkProgress(done, total) {
@@ -1055,7 +1113,7 @@
         }
         MH.toast?.(`Statut mis à jour (${STATUS[status][0]})`);
         setSelectMode(false);
-        renderFilters(); render();
+        renderCatTabs(); renderFilters(); render();
     }
 
     // ── Catégorie en masse (audit AMEL-33) ───────────────────
@@ -1065,44 +1123,202 @@
     // exactement ce à quoi sert la sélection multiple.
     async function bulkCategory() {
         if (!selected.size) { MH.toast?.('Rien de sélectionné'); return; }
-        // On propose les catégories DÉJÀ utilisées : c'est le cas courant, et
-        // les retaper à l'identique créerait des doublons à une faute près.
-        const existantes = [...new Set(favs.map(f => f.category).filter(Boolean))].sort();
-        const aide = existantes.length
-            ? `Catégories existantes : ${existantes.join(', ')}.\nLaisse vide pour retirer la catégorie.`
-            : 'Laisse vide pour retirer la catégorie.';
-        const cat = await MH.prompt(`Catégorie pour ${selected.size} série(s)`,
-            { message: aide, placeholder: 'ex. À lire, Terminé 2026…', okText: 'Appliquer' });
-        if (cat === null) return;   // annulé (≠ chaîne vide, qui retire)
-        const valeur = String(cat).trim();
-
-        if (!await MH.confirm(
-            valeur ? `Ranger ${selected.size} série(s) dans « ${valeur} » ?`
-                : `Retirer la catégorie de ${selected.size} série(s) ?`,
-            { okText: 'Appliquer' })) return;
+        // On CHOISIT parmi les catégories existantes (retaper un nom à
+        // l'identique créait des doublons à une faute près), ou on en crée une.
+        const cat = await choisirCategorie(selected.size);
+        if (cat === undefined) return;   // annulé (≠ null, qui retire)
+        const valeur = String(cat || '').trim();
 
         const ids = [...selected];
-        let done = 0, ko = 0;
-        for (const id of ids) {
-            bulkProgress(++done, ids.length);
-            try {
-                const f = favs.find(x => x.mangaId === id);
-                await API.me.setCategory(id, {
-                    category: valeur || null,
-                    // Titre et couverture accompagnent l'écriture : la route
-                    // crée le favori s'il manque, et sans eux elle l'inscrirait
-                    // sans nom ni image.
-                    title: f?.title, cover: f?.cover, source: f?.source,
-                });
-                if (f) f.category = valeur || null;
-            } catch (e) { ko++; }
-        }
+        let ko = 0;
+        try {
+            // Une seule requête pour toute la sélection (avant : une par série).
+            await API.me.setCategoryBulk(ids, valeur || null);
+            ids.forEach(id => { const f = favs.find(x => x.mangaId === id); if (f) f.category = valeur || null; });
+            if (valeur && !categoriesPerso.includes(valeur)) { categoriesPerso.push(valeur); sauverCategories(); }
+        } catch (e) { ko = ids.length; MH.toastErreur?.(e); }
         window.Storage?.cacheLibrary?.(favs);
         MH.toast?.(ko ? `${ids.length - ko} rangée(s), ${ko} en échec`
             : valeur ? `${ids.length} série(s) rangée(s) dans « ${valeur} »`
                 : `Catégorie retirée de ${ids.length} série(s)`);
         setSelectMode(false);
         renderFilters(); render();
+    }
+
+    // ── Catégories ─────────────────────────────────────────
+    /** Rend le nom choisi, null pour « sans catégorie », undefined si annulé. */
+    function choisirCategorie(nb) {
+        return new Promise((resoudre) => {
+            let rendu = undefined, f = null;
+            const corps = document.createElement('div');
+            corps.className = 'lib-catpick';
+            const cats = listeCategories();
+            corps.innerHTML = `
+                <p class="lib-catpick-sub">Ranger ${nb} série${nb > 1 ? 's' : ''} dans :</p>
+                <div class="lib-catpick-list">
+                    ${cats.map(c => `<button type="button" class="lib-catpick-opt" data-v="${MH.esc(c)}">${MH.esc(c)}</button>`).join('')}
+                    <button type="button" class="lib-catpick-opt lib-catpick-none" data-none="1">Sans catégorie</button>
+                </div>
+                <form class="lib-catmgr-add" id="catPickNew">
+                    <input type="text" maxlength="60" placeholder="…ou une nouvelle catégorie" aria-label="Nouvelle catégorie">
+                    <button type="submit" class="btn btn-primary btn-sm">Créer et ranger</button>
+                </form>`;
+            const finir = (v) => { rendu = v; f?.fermer?.(); };
+            corps.querySelectorAll('.lib-catpick-opt').forEach(b => b.addEventListener('click', () => finir(b.dataset.none ? null : b.dataset.v)));
+            corps.querySelector('#catPickNew').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const v = e.target.querySelector('input').value.trim().replace(/\s+/g, ' ').slice(0, 60);
+                if (v) finir(v);
+            });
+            f = MH.feuille({ titre: 'Catégorie', hauteur: 'filtres', contenu: corps, onFermeture: () => resoudre(rendu) });
+        });
+    }
+
+    const nomSource = (id) => window.MH?.sourceName?.(id) || id;
+
+    /** Toutes les catégories, dans l'ordre choisi par l'utilisateur. */
+    function listeCategories() {
+        const utilisees = [...new Set(favs.map(f => f.category).filter(Boolean))];
+        const ordre = categoriesPerso.filter(c => c);
+        const reste = utilisees.filter(c => !ordre.includes(c)).sort((a, b) => a.localeCompare(b, 'fr'));
+        return [...ordre, ...reste];
+    }
+
+    function sauverCategories() {
+        API.me.saveSettings({ libCategories: categoriesPerso }).catch(e => window.MH?.err?.('bibliotheque.js', e));
+    }
+
+    function renderCatTabs() {
+        const el = document.getElementById('libCats');
+        if (!el) return;
+        const cats = listeCategories();
+        if (catTab !== '__all' && catTab !== '__none' && !cats.includes(catTab)) catTab = '__all';
+        const base = favsOfKind();
+        const n = (pred) => base.filter(pred).length;
+        const sansCat = n(f => !f.category);
+        // Pas de catégorie du tout : les onglets n'ont rien à ranger, on
+        // propose d'en créer une plutôt qu'afficher un « Tout » solitaire.
+        if (!cats.length) {
+            el.innerHTML = `<button type="button" class="lib-cat-add" id="libCatAddFirst">＋ Créer une catégorie pour ranger tes séries</button>`;
+            el.querySelector('#libCatAddFirst').addEventListener('click', ouvrirGestionCategories);
+            return;
+        }
+        const tab = (val, label, count) => `<button type="button" role="tab" class="lib-cat${catTab === val ? ' on' : ''}" aria-selected="${catTab === val}" data-cat="${MH.esc(val)}">${MH.esc(label)}<span class="cnt">${count}</span></button>`;
+        el.innerHTML = tab('__all', 'Tout', base.length)
+            + cats.map(c => tab(c, c, n(f => f.category === c))).join('')
+            + (sansCat && sansCat !== base.length ? tab('__none', 'Sans catégorie', sansCat) : '')
+            + `<button type="button" class="lib-cat-edit" id="libCatEdit" title="Gérer les catégories" aria-label="Gérer les catégories">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>`;
+        el.querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => {
+            catTab = b.dataset.cat;
+            try { window.Storage?.setPref?.('libCatTab', catTab); } catch (e) { /* stockage indisponible */ }
+            renderCatTabs(); render();
+        }));
+        el.querySelector('#libCatEdit')?.addEventListener('click', ouvrirGestionCategories);
+        el.querySelector('.lib-cat.on')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    }
+
+    // Créer, renommer, réordonner, supprimer — au même endroit.
+    function ouvrirGestionCategories() {
+        const corps = document.createElement('div');
+        corps.className = 'lib-catmgr';
+        const peindre = () => {
+            const cats = listeCategories();
+            corps.innerHTML = `
+                <form class="lib-catmgr-add" id="catAddForm">
+                    <input type="text" id="catAddInput" maxlength="60" placeholder="Nouvelle catégorie (ex. Shōnen en cours, Favoris…)" aria-label="Nom de la nouvelle catégorie">
+                    <button type="submit" class="btn btn-primary btn-sm">Créer</button>
+                </form>
+                ${cats.length ? `<ul class="lib-catmgr-list">${cats.map((c, i) => {
+                    const nb = favs.filter(f => f.category === c).length;
+                    return `<li data-i="${i}">
+                        <span class="lib-catmgr-name">${MH.esc(c)}</span>
+                        <span class="lib-catmgr-count">${nb} série${nb > 1 ? 's' : ''}</span>
+                        <button type="button" data-act="up" ${i === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
+                        <button type="button" data-act="down" ${i === cats.length - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
+                        <button type="button" data-act="rename">Renommer</button>
+                        <button type="button" data-act="delete" class="danger">Supprimer</button>
+                    </li>`;
+                }).join('')}</ul>` : '<p class="lib-catmgr-empty">Aucune catégorie pour l’instant. Crée-en une, puis range tes séries avec « Sélectionner ».</p>'}`;
+            corps.querySelector('#catAddForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const v = corps.querySelector('#catAddInput').value.trim().replace(/\s+/g, ' ').slice(0, 60);
+                if (!v) return;
+                if (listeCategories().includes(v)) { MH.toast?.('Cette catégorie existe déjà'); return; }
+                categoriesPerso = [...listeCategories(), v];
+                sauverCategories();
+                peindre(); renderCatTabs();
+                corps.querySelector('#catAddInput')?.focus();
+            });
+            corps.querySelectorAll('li [data-act]').forEach(b => b.addEventListener('click', async () => {
+                const cats2 = listeCategories();
+                const i = +b.closest('li').dataset.i;
+                const c = cats2[i];
+                const act = b.dataset.act;
+                if (act === 'up' || act === 'down') {
+                    const j = act === 'up' ? i - 1 : i + 1;
+                    [cats2[i], cats2[j]] = [cats2[j], cats2[i]];
+                    categoriesPerso = cats2; sauverCategories();
+                } else if (act === 'rename') {
+                    const nv = await MH.prompt('Renommer la catégorie', { value: c, okText: 'Renommer' });
+                    const v = (nv || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+                    if (!v || v === c) return;
+                    try {
+                        await API.me.renameCategory(c, v);
+                        favs.forEach(f => { if (f.category === c) f.category = v; });
+                        categoriesPerso = cats2.map(x => x === c ? v : x).filter((x, k, a) => a.indexOf(x) === k);
+                        sauverCategories();
+                        if (catTab === c) catTab = v;
+                    } catch (e) { MH.toastErreur?.(e); return; }
+                } else if (act === 'delete') {
+                    const nb = favs.filter(f => f.category === c).length;
+                    const ok = await MH.confirm(nb
+                        ? `Supprimer « ${MH.esc(c)} » ? Ses ${nb} série(s) restent dans ta bibliothèque, simplement sans catégorie.`
+                        : `Supprimer la catégorie vide « ${MH.esc(c)} » ?`, { okText: 'Supprimer', title: 'Supprimer la catégorie' });
+                    if (!ok) return;
+                    try {
+                        if (nb) await API.me.deleteCategory(c);
+                        favs.forEach(f => { if (f.category === c) f.category = null; });
+                        categoriesPerso = cats2.filter(x => x !== c);
+                        sauverCategories();
+                        if (catTab === c) catTab = '__all';
+                    } catch (e) { MH.toastErreur?.(e); return; }
+                }
+                window.Storage?.cacheLibrary?.(favs);
+                peindre(); renderCatTabs(); render();
+            }));
+        };
+        peindre();
+        if (MH.feuille) {
+            MH.feuille({ titre: 'Catégories', hauteur: 'filtres', contenu: corps,
+                actions: [{ libelle: 'Terminé', principal: true, onClick: (f) => f?.fermer?.() }] });
+        }
+        setTimeout(() => corps.querySelector('#catAddInput')?.focus(), 60);
+    }
+
+    // Panneau « Filtres » et menu « ⋯ » : un seul ouvert à la fois, fermés
+    // par un clic ailleurs ou Échap.
+    function wirePopovers() {
+        const paires = [['btnLibFilters', 'libFilterPanel'], ['btnLibMore', 'libMoreMenu']];
+        const fermer = () => paires.forEach(([b, p]) => {
+            const pop = document.getElementById(p); if (pop) pop.hidden = true;
+            document.getElementById(b)?.setAttribute('aria-expanded', 'false');
+        });
+        paires.forEach(([b, p]) => {
+            const btn = document.getElementById(b), pop = document.getElementById(p);
+            if (!btn || !pop) return;
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const ouvrir = pop.hidden;
+                fermer();
+                if (ouvrir) { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+            });
+            pop.addEventListener('click', (e) => e.stopPropagation());
+        });
+        // Une action du menu « ⋯ » le referme.
+        document.getElementById('libMoreMenu')?.addEventListener('click', (e) => { if (e.target.closest('.lib-menu-item')) fermer(); });
+        document.addEventListener('click', fermer);
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fermer(); });
     }
 
     // Case « Inclure terminé/abandonné » (§15.4-1) — persistée
@@ -1132,7 +1348,7 @@
             status.innerHTML = '<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span> Vérification en cours…';
             listEl.innerHTML = '';
             try {
-                const data = await fetchUpdates();
+                const data = await fetchUpdates(undefined, { force: true, statusEl: status });
                 const ups = data.updates || [];
                 const fails = data.failures || [];
                 status.textContent = `${data.scanned ?? ups.length} vérifiée(s)`

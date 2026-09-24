@@ -1,511 +1,122 @@
-/* ── index.css ─────────────────────────────────────────────── */
+/* ============================================================
+   accueil.css — Accueil : reprendre, nouveautés suivies, rayons
+   ============================================================ */
 
-/* Sidebar : stats mini (remplace l'ancien sondage) */
-.stats-mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-.stat-mini2 { background: var(--bg3); border: 1px solid var(--border); border-radius: 9px; padding: 10px; text-align: center; }
-.stat-mini2-num { font-family: var(--font-head); font-size: 19px; font-weight: 800; color: var(--orange); }
-.stat-mini2-label { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
+.home { padding-top: 28px; padding-bottom: 48px; }
 
-/* Sidebar : commentaires récents */
-.recent-comment { display: flex; gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--border); text-decoration: none; }
-.recent-comment:last-child { border-bottom: none; }
-.recent-comment-avatar {
-  flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
-  background: var(--bg4); color: var(--orange); font-weight: 700; font-size: 11px;
-  display: flex; align-items: center; justify-content: center;
-}
-.recent-comment-body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.recent-comment-user { font-size: 11.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.recent-comment-text { font-size: 11.5px; color: var(--text2); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* ── En-tête ─────────────────────────────────────────────── */
+.home-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 22px; }
+.home-hello { font-family: var(--font-head); font-size: clamp(26px, 3.2vw, 36px); font-weight: 700; letter-spacing: -.01em; margin: 0; }
+.home-sub { margin: 4px 0 0; color: var(--text3); font-size: 13.5px; }
+.home-sub:empty { display: none; }
+.home-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.home-stat { display: flex; flex-direction: column; min-width: 110px; padding: 10px 14px; border-radius: 12px;
+    background: var(--bg2); border: 1px solid var(--border); color: inherit; text-decoration: none; transition: border-color .15s; }
+.home-stat:hover { border-color: var(--border2); }
+.home-stat strong { font-family: var(--font-head); font-size: 20px; line-height: 1.1; }
+.home-stat span { color: var(--text3); font-size: 12px; }
 
-/* ══ HERO — carrousel des dernières sorties ════════════════════ */
-/* Le hero est TOUJOURS un environnement sombre (illustration + scrim, ou
-   duotone profond) : on force l'encre claire quel que soit le thème —
-   sinon en édition Washi (claire) le titre devenait noir sur noir. */
-.hero {
-  position: relative; height: 520px;
-  overflow: hidden; background: #141416;
-  outline: none;
-  --text: #f2f0ea; --text2: #cfccc2; --text3: #a5a196;
-  color: var(--text);
-}
-.hero-title { color: #fff; }
-/* Boutons du hero : secondaire en verre sombre (le blanc Washi jurait sur
-   l'illustration) — lisible et premium sur n'importe quel fond. */
-.hero .btn-secondary {
-  background: rgba(20,20,24,.45); color: #fff;
-  border: 1px solid rgba(255,255,255,.28);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  backdrop-filter: blur(16px) saturate(1.6);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
-}
-.hero .btn-secondary:hover { background: rgba(30,30,36,.6); border-color: rgba(255,255,255,.4); }
-.hero .btn-ghost { color: #fff; border-color: rgba(255,255,255,.3); }
-.hero .btn-ghost:hover { background: rgba(255,255,255,.12); color: #fff; }
-/* Fonds (couche courante + couche suivante pour le crossfade) */
-.hero-bg {
-  position: absolute; inset: 0;
-  background-size: cover; background-position: center 22%;
-  transform: scale(1.08);
-  animation: heroKenBurns 18s ease-in-out infinite alternate;
-  will-change: transform;
-}
-.hero-bg-next { opacity: 0; transition: opacity .7s ease; animation: none; z-index: 1; }
-@keyframes heroKenBurns {
-  from { transform: scale(1.06); }
-  to   { transform: scale(1.14); }
-}
-/* Sans illustration large : la cover devient le décor — VISIBLE, pas une
-   bande noire (avant : brightness .5 + blur 34 = image invisible). */
-.hero:not(.has-banner) .hero-bg { filter: blur(14px) brightness(.82) saturate(1.2); transform: scale(1.18); }
-.hero.has-banner .hero-bg { filter: brightness(.8) saturate(1.05); }
-/* Aucune illustration chargée : le repli signature (duotone + screentone)
-   s'affiche NET, sans le filtre qui l'écrasait en bande noire. */
-.hero.hero-noart .hero-bg {
-  filter: none; transform: none; animation: none;
-  background-position: center;
-}
+/* ── Reprendre ───────────────────────────────────────────── */
+.home-continue { margin-bottom: 34px; }
+.cont-skel { height: 236px; border-radius: 18px; background: var(--bg2); animation: home-pulse 1.4s ease-in-out infinite; }
+@keyframes home-pulse { 50% { opacity: .55; } }
 
-/* Dégradés de lisibilité */
-.hero-scrim {
-  position: absolute; inset: 0; z-index: 2;
-  background:
-    linear-gradient(90deg, rgba(10,10,12,.94) 0%, rgba(10,10,12,.78) 38%, rgba(10,10,12,.25) 66%, rgba(10,10,12,.55) 100%),
-    linear-gradient(to top, rgba(10,10,12,.95) 2%, transparent 46%);
-}
+.cont-hero { position: relative; display: flex; gap: 26px; align-items: center; padding: 22px; border-radius: 18px;
+    overflow: hidden; background: #111; color: #f3f1ea; isolation: isolate; min-height: 236px; }
+.cont-hero-bg { position: absolute; inset: -40px; z-index: -1; background-size: cover; background-position: center 30%;
+    filter: blur(34px) saturate(1.3) brightness(.45); transform: scale(1.1); }
+.cont-hero::after { content: ""; position: absolute; inset: 0; z-index: -1;
+    background: linear-gradient(90deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.25) 60%, rgba(0,0,0,.1) 100%); }
+.cont-hero-cover { flex: 0 0 auto; width: 132px; aspect-ratio: 3 / 4.3; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 14px 34px rgba(0,0,0,.5); }
+.cont-hero-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cont-hero-body { min-width: 0; flex: 1; }
+.cont-hero-kicker { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+.cont-hero-title { font-family: var(--font-head); font-size: clamp(22px, 2.6vw, 32px); line-height: 1.1; margin: 6px 0 8px; }
+.cont-hero-title a { color: inherit; text-decoration: none; }
+.cont-hero-title a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.cont-hero-where { font-size: 14px; color: rgba(255,255,255,.82); }
+.cont-hero-left { color: #ffc9a8; font-weight: 600; }
+.cont-bar { height: 4px; border-radius: 4px; background: rgba(255,255,255,.18); overflow: hidden; margin: 12px 0 16px; max-width: 420px; }
+.cont-bar > span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.cont-bar--small { margin: 6px 0 0; height: 3px; background: var(--bg4); }
+.cont-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.cont-hero-cta { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; font-size: 14px; }
+.cont-hero .btn-ghost { color: #fff; border-color: rgba(255,255,255,.28); background: rgba(255,255,255,.06); }
+.cont-hero .btn-ghost:hover { background: rgba(255,255,255,.14); }
 
-/* Contenu (poster + texte) */
-.hero-content {
-  position: absolute; inset: 0; z-index: 4;
-  display: flex; align-items: center;
-  max-width: 1200px; margin: 0 auto;
-  padding: 0 24px 40px;
-  transition: opacity .35s ease, transform .35s ease;
-}
-.hero-content.hero-fading { opacity: 0; transform: translateY(12px); }
-.hero-inner { display: flex; align-items: flex-end; gap: 30px; width: 100%; }
+.cont-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 12px; }
+.cont-item { position: relative; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); transition: border-color .15s; }
+.cont-item:hover { border-color: var(--border2); }
+.cont-item-link { display: flex; gap: 12px; align-items: center; padding: 10px 36px 10px 10px; color: inherit; text-decoration: none; }
+.cont-item-link img { width: 44px; height: 62px; object-fit: cover; border-radius: 6px; flex: 0 0 auto; background: var(--bg3); }
+.cont-item-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.cont-item-title { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cont-item-where { color: var(--text3); font-size: 12px; margin-top: 2px; }
+.cont-item-x { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border: 0; border-radius: 6px;
+    background: none; color: var(--text3); cursor: pointer; opacity: 0; transition: opacity .15s; }
+.cont-item:hover .cont-item-x, .cont-item-x:focus-visible { opacity: 1; }
+.cont-item-x:hover { color: var(--text); background: var(--bg3); }
+@media (hover: none) { .cont-item-x { opacity: .7; } }
 
-/* Poster net */
-.hero-poster-link {
-  position: relative; flex-shrink: 0; display: block;
-  width: 200px; aspect-ratio: 2/3; border-radius: 14px; overflow: hidden;
-  box-shadow: 0 24px 60px rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.12);
-  transition: transform .25s ease;
-}
-.hero-poster-link:hover { transform: translateY(-4px); }
-.hero-poster { width: 100%; height: 100%; object-fit: cover; display: block; background: var(--bg3); }
-.hero-poster-tag {
-  position: absolute; top: 10px; left: 10px;
-  font-size: 9px; font-weight: 800; letter-spacing: .04em; color: #fff;
-  background: var(--ai); padding: 3px 8px; border-radius: 5px;
-}
+.cont-empty { display: flex; gap: 22px; align-items: center; padding: 26px; border-radius: 18px;
+    background: var(--bg2); border: 1px solid var(--border); }
+.cont-empty-kanji { font-size: 64px; line-height: 1; color: var(--accent); font-weight: 700; flex: 0 0 auto; }
+.cont-empty h2 { margin: 0 0 6px; font-family: var(--font-head); font-size: 22px; }
+.cont-empty p { margin: 0 0 14px; color: var(--text2); max-width: 560px; }
+.cont-empty-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* Texte */
-.hero-text { flex: 1; min-width: 0; padding-bottom: 8px; }
-.hero-eyebrow {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--orange); margin-bottom: 12px;
-}
-.hero-eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 4px rgba(255,107,26,.25); animation: heroPulse 2s ease-in-out infinite; }
-@keyframes heroPulse { 50% { box-shadow: 0 0 0 7px rgba(255,107,26,0); } }
-.hero-title-link { text-decoration: none; color: inherit; }
-.hero-title {
-  font-family: var(--font-head);
-  font-size: clamp(28px, 4.2vw, 50px);
-  font-weight: 800; line-height: 1.05; letter-spacing: -.01em;
-  margin-bottom: 12px; max-width: 18ch;
-  text-shadow: 0 2px 20px rgba(0,0,0,.55);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
-.hero-title-link:hover .hero-title { color: #fff; }
-.hero-genres { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.hero-genre {
-  font-size: 11px; font-weight: 600; color: #fff;
-  background: rgba(255,255,255,.10);
-  -webkit-backdrop-filter: blur(16px) saturate(1.7);
-  backdrop-filter: blur(16px) saturate(1.7);   /* liquid glass */
-  padding: 4px 11px; border-radius: 20px; text-decoration: none;
-  border: 1px solid rgba(255,255,255,.24);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.30);
-  transition: background .15s, transform .15s var(--ease-out);
-}
-.hero-genre:hover { background: var(--accent); border-color: var(--accent); transform: translateY(-1px); }
-.hero-meta {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  font-size: 12.5px; color: var(--text2); margin-bottom: 14px;
-}
-.hero-dot-sep { opacity: .4; }
-.hero-demo { text-transform: capitalize; }
-.hero-desc {
-  font-size: 14px; color: rgba(240,240,242,.82);
-  line-height: 1.6; max-width: 600px; margin-bottom: 22px;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-}
-.hero-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.hero-read { display: inline-flex; align-items: center; gap: 8px; }
-.hero-fav-btn { width: 42px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
-.hero-fav-btn svg { width: 18px; height: 18px; }
-.hero-fav-btn.is-fav { color: var(--orange); }
+/* ── Rayons ──────────────────────────────────────────────── */
+.shelf { position: relative; margin-bottom: 30px; }
+.shelf-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.shelf-title { font-family: var(--font-head); font-size: 20px; margin: 0; }
+.shelf-sub { margin: 2px 0 0; color: var(--text3); font-size: 12.5px; }
+.shelf-sub:empty { display: none; }
+.shelf-actions { display: flex; gap: 14px; align-items: center; }
+.shelf-link { border: 0; background: none; padding: 0; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.shelf-link:hover { text-decoration: underline; }
+.shelf-link:disabled { color: var(--text3); cursor: default; text-decoration: none; }
 
-/* Rail de vignettes (carrousel) */
-.hero-rail {
-  position: absolute; right: 40px; bottom: 30px; z-index: 5;
-  display: flex; gap: 8px;
-}
-.hero-rail {
-  padding: 7px;
-  border-radius: 13px;
-  background: rgba(20,20,24,.32);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  backdrop-filter: blur(16px) saturate(1.6);   /* liquid glass */
-  border: 1px solid rgba(255,255,255,.16);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.20), 0 8px 24px rgba(0,0,0,.35);
-}
-.hero-thumb {
-  width: 42px; height: 58px; border-radius: 7px; overflow: hidden;
-  border: 2px solid transparent; background: var(--bg3); cursor: pointer;
-  opacity: .5; transition: opacity .2s, border-color .2s, transform .2s; padding: 0;
-}
-.hero-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.hero-thumb:hover { opacity: .85; transform: translateY(-3px); }
-.hero-thumb.active { opacity: 1; border-color: var(--orange); }
+.shelf-track { display: grid; grid-auto-flow: column; grid-auto-columns: 148px; gap: 14px;
+    overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding: 2px 2px 6px; }
+.shelf-track::-webkit-scrollbar { display: none; }
+.shelf-track[hidden] { display: none; }
+.shelf-card { position: relative; scroll-snap-align: start; min-width: 0; background: none !important; border: 0 !important; box-shadow: none !important; }
+.shelf-card:hover { transform: none; }
+.shelf-cover { position: relative; aspect-ratio: 3 / 4.3; border-radius: 10px; overflow: hidden; background: var(--bg3); }
+.shelf-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
+.shelf-card:hover .shelf-cover img { transform: scale(1.04); }
+.shelf-name { margin-top: 8px; font-size: 13px; font-weight: 600; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.shelf-meta { margin-top: 2px; font-size: 11.5px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shelf-badge { position: absolute; left: 6px; bottom: 6px; z-index: 2; padding: 3px 8px; border-radius: 12px;
+    background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.shelf-card .card-fav-btn, .shelf-x { position: absolute; top: 6px; right: 6px; z-index: 3; }
+.shelf-x { width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; opacity: 0; transition: opacity .15s; }
+.shelf-card:hover .shelf-x, .shelf-x:focus-visible { opacity: 1; }
+@media (hover: none) { .shelf-x { opacity: 1; } }
+.shelf-card--skel .shelf-cover { animation: home-pulse 1.4s ease-in-out infinite; }
+.shelf-card--skel .shelf-name { height: 12px; width: 80%; border-radius: 4px; background: var(--bg3); }
 
-/* Barre de progression de l'auto-défilement */
-.hero-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.1); z-index: 6; }
-.hero-progress-fill { height: 100%; width: 0; background: var(--orange); }
+.shelf-arrow { position: absolute; top: calc(50% + 4px); z-index: 5; width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid var(--border2); background: var(--bg2); color: var(--text); font-size: 22px; line-height: 1;
+    cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.3); opacity: 0; transition: opacity .15s; }
+.shelf-arrow--prev { left: -14px; }
+.shelf-arrow--next { right: -14px; }
+.shelf:hover .shelf-arrow, .shelf-arrow:focus-visible { opacity: 1; }
+.shelf-arrow[hidden] { display: none; }
+@media (hover: none) { .shelf-arrow { display: none; } }
 
-/* Flèches */
-.hero-arrow {
-  position: absolute; top: 50%; transform: translateY(-50%); z-index: 6;
-  width: 42px; height: 42px; border-radius: 50%;
-  background: rgba(13,13,15,.5); border: 1px solid rgba(255,255,255,.15);
-  color: #fff; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; opacity: 0;
-  transition: opacity .25s ease, background .2s ease, transform .2s ease;
-  backdrop-filter: blur(6px);
-}
-.hero:hover .hero-arrow { opacity: 1; }
-.hero-arrow:hover { background: var(--orange); border-color: var(--orange); }
-.hero-arrow:active { transform: translateY(-50%) scale(.92); }
-.hero-arrow svg { width: 20px; height: 20px; }
-
-/* Responsive */
-/* Ce fichier contient DEUX blocs `@media (max-width: 768px)` — celui-ci et un
-   autre ligne ~438. Le second gagne, et deux declarations d'ici etaient donc
-   mortes : `.hero { height: 460px }` (le second dit 380px) et le `padding` de
-   `.hero-content` (le second dit `0 16px 32px`). Elles sont retirees : le rendu
-   ne change pas, mais on cesse de lire une valeur qui ne s'applique jamais.
-   `align-items`, lui, n'est redeclare nulle part — il reste. */
-@media (max-width: 768px) {
-  .hero-content { align-items: flex-end; }
-  .hero-poster-link { display: none; }
-  .hero-rail { right: 18px; bottom: 22px; }
-  .hero-thumb { width: 34px; height: 48px; }
-  .hero-arrow { display: none; }
-  .hero-desc { -webkit-line-clamp: 2; font-size: 13px; }
+@media (max-width: 640px) {
+  .home { padding-top: 16px; }
+  .home-stats { width: 100%; }
+  .home-stat { flex: 1; min-width: 0; }
+  .cont-hero { flex-direction: column; align-items: flex-start; padding: 18px; }
+  .cont-hero-cover { width: 96px; }
+  .shelf-track { grid-auto-columns: 118px; gap: 10px; }
+  .cont-empty { flex-direction: column; align-items: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-bg { animation: none; }
-}
-
-/* ── Reprendre lecture ─────────────────────────────────────── */
-.section-resume { padding-top: 28px; }
-/* La règle `--prioritaire` d'AMEL-01 est retirée avec le déplacement au-dessus
-   du hero : plus rien ne pose cette classe. Ce qu'elle apportait de bon est
-   conservé ici — une grille fixe à 3 colonnes laissait la 4ᵉ reprise seule sur
-   sa ligne avec deux tiers de vide. En colonnes automatiques, les entrées se
-   répartissent et le nombre de colonnes suit la largeur disponible. */
-.resume-list {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;
-}
-.resume-item {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 10px 12px;
-  transition: border-color var(--transition);
-}
-.resume-item:hover { border-color: var(--border2); }
-.resume-cover {
-  width: 38px; height: 52px; border-radius: 5px;
-  overflow: hidden; flex-shrink: 0;
-}
-.resume-cover img { width: 100%; height: 100%; object-fit: cover; }
-.resume-info { flex: 1; min-width: 0; }
-.resume-title {
-  font-size: 13px; font-weight: 600;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.resume-chap { font-size: 11.5px; color: var(--text2); margin: 2px 0; }
-.resume-progress { height: 2px; background: var(--bg4); border-radius: 1px; }
-.resume-progress-fill { height: 100%; background: var(--orange); border-radius: 1px; }
-.resume-action {
-  flex-shrink: 0; width: 28px; height: 28px;
-  background: var(--bg4); border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; color: var(--text2);
-  transition: all var(--transition);
-}
-.resume-action:hover { background: var(--orange); color: #fff; }
-
-/* ── Trending ──────────────────────────────────────────────── */
-.section-trending { padding-top: 32px; }
-.trending-track-wrap { overflow: hidden; }
-.trending-track {
-  display: flex; gap: 12px;
-  transition: transform 0.35s ease;
-}
-.trending-card {
-  flex: 0 0 calc(20% - 10px); min-width: 0;
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden;
-  position: relative; cursor: pointer;
-  transition: all var(--transition);
-}
-.trending-card:hover { border-color: var(--border2); transform: translateY(-2px); }
-.trending-rank {
-  position: absolute; top: 8px; left: 8px; z-index: 2;
-  width: 22px; height: 22px; border-radius: 50%;
-  background: var(--orange); color: #fff;
-  font-family: var(--font-head); font-size: 11px; font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
-}
-.trending-card:first-child .trending-rank { background: var(--amber); width: 26px; height: 26px; font-size: 13px; }
-.trending-cover {
-  aspect-ratio: 3/4; overflow: hidden;
-  position: relative;
-}
-.trending-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
-.trending-card:hover .trending-cover img { transform: scale(1.05); }
-.trending-overlay {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  background: linear-gradient(to top, rgba(0,0,0,.9) 0%, transparent 60%);
-  padding: 12px 10px 10px;
-  color: #fff;   /* le texte vit sur un scrim sombre : encre claire, quel que soit le thème */
-}
-.trending-title {
-  font-size: 12.5px; font-weight: 600; line-height: 1.3; color: #fff;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  text-shadow: 0 1px 6px rgba(0,0,0,.5);
-}
-.trending-meta { font-size: 10.5px; color: rgba(255,255,255,.78); margin-top: 2px; }
-
-/* ── Main split ────────────────────────────────────────────── */
-.main-split {
-  display: grid; grid-template-columns: 1fr 300px;
-  gap: 28px; padding-top: 36px; align-items: start;
-}
-.main-left { min-width: 0; }
-
-/* ── Recommandé grid ───────────────────────────────────────── */
-.reco-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 14px; margin-bottom: 14px;
-}
-
-/* ── Collection banners ────────────────────────────────────── */
-.collection-banners {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-  margin-top: 4px;
-}
-.collection-banner {
-  border-radius: var(--radius); overflow: hidden;
-  position: relative; height: 90px; cursor: pointer;
-  transition: transform var(--transition);
-}
-.collection-banner:hover { transform: scale(1.02); }
-.collection-banner-bg {
-  position: absolute; inset: 0;
-  background-size: cover; background-position: center;
-}
-.collection-banner-overlay {
-  position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(13,13,15,.85) 0%, rgba(13,13,15,.3) 100%);
-}
-.collection-banner-content {
-  position: relative; padding: 12px 14px;
-}
-.collection-banner-type {
-  font-size: 9px; font-weight: 700; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--orange); margin-bottom: 4px;
-}
-.collection-banner-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; }
-.collection-banner-link {
-  font-size: 11px; color: var(--orange); margin-top: 4px;
-  display: flex; align-items: center; gap: 3px;
-}
-
-/* ── Latest section ────────────────────────────────────────── */
-.section-latest { margin-top: 36px; }
-.latest-filters { display: flex; gap: 6px; }
-.btn-more {
-  display: block; width: 100%; margin-top: 20px; height: 40px;
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--radius); color: var(--text2); font-size: 13px;
-  transition: all var(--transition);
-}
-.btn-more:hover { border-color: var(--border2); color: var(--text); }
-
-/* ── Sidebar ───────────────────────────────────────────────── */
-.main-sidebar { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 70px; }
-.sidebar-block { padding: 14px 16px; }
-.sidebar-block-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 12px;
-}
-.sidebar-block-title { font-family: var(--font-head); font-size: 13.5px; font-weight: 700; }
-
-/* Top manga list */
-.top-manga-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 0; border-bottom: 1px solid var(--border);
-  min-width: 0;    /* MOB-01 : sans ça, un titre long fige la colonne entière */
-}
-.top-manga-item > * { min-width: 0; }
-.top-manga-item:last-child { border-bottom: none; }
-.top-rank {
-  width: 20px; flex-shrink: 0;
-  font-family: var(--font-head); font-size: 14px;
-  font-weight: 800; color: var(--text3); text-align: center;
-}
-.top-rank-1 { color: var(--amber); }
-.top-rank-2 { color: #9ca3af; }
-.top-rank-3 { color: #cd7f32; }
-.top-cover {
-  width: 34px; height: 48px; border-radius: 4px;
-  overflow: hidden; flex-shrink: 0;
-}
-.top-cover img { width: 100%; height: 100%; object-fit: cover; }
-.top-info { flex: 1; min-width: 0; }
-.top-title {
-  font-size: 12.5px; font-weight: 600;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.top-meta { font-size: 11px; color: var(--text2); display: flex; align-items: center; gap: 4px; }
-
-/* Poll */
-.poll-title { font-family: var(--font-head); font-size: 12.5px; font-weight: 700; margin-bottom: 4px; }
-.poll-question { font-size: 12px; color: var(--text2); margin-bottom: 12px; line-height: 1.4; }
-.poll-option { margin-bottom: 8px; }
-.poll-option-label { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 12px; }
-.poll-bar-wrap { height: 6px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
-.poll-bar { height: 100%; background: var(--orange); border-radius: 3px; transition: width .8s ease; }
-
-/* Comments */
-.comment-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
-.comment-item:last-child { border-bottom: none; }
-.comment-manga { font-size: 12px; font-weight: 600; color: var(--orange); margin-bottom: 2px; }
-.comment-user { font-size: 11px; color: var(--text3); }
-.comment-text { font-size: 12px; color: var(--text2); line-height: 1.4; margin-top: 2px; }
-
-/* Genre cloud */
-.genre-cloud { display: flex; flex-wrap: wrap; gap: 6px; }
-
-/* Premium */
-.sidebar-premium {
-  display: flex; flex-direction: column; align-items: center;
-  text-align: center; padding: 16px;
-  background: linear-gradient(135deg, var(--bg3), rgba(255,107,26,.06));
-  border-color: rgba(255,107,26,.2) !important;
-}
-.premium-icon { font-size: 24px; margin-bottom: 6px; }
-.premium-title { font-family: var(--font-head); font-size: 13px; font-weight: 700; }
-.premium-sub { font-size: 11.5px; color: var(--text2); margin-top: 2px; }
-
-/* ╔══════════════════════════════════════════════════════════╗
-   ║  RESPONSIVE — accueil.css                                ║
-   ╚══════════════════════════════════════════════════════════╝ */
-
-/* ── Tablet (≤ 1024px) ──────────────────────────────────── */
-@media (max-width: 1024px) {
-  /* MOB-01 : `1fr` vaut `minmax(auto, 1fr)`, et ce `auto` est le MIN-CONTENT
-     de l'élément — ici 438 px, imposés par la grille de recommandations à deux
-     colonnes qu'elle contient. La piste ne pouvait donc pas se réduire sous
-     438 px alors que l'écran en fait 375, d'où 77 px de débordement : la règle
-     était écrite, elle paraissait juste, et elle ne s'appliquait pas.
-     `minmax(0, 1fr)` autorise enfin la réduction. C'est le même défaut que
-     `.sources-group`, et il vaut pour toute grille dont le contenu est large. */
-  .main-split {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
-  }
-  .main-sidebar {
-    position: static;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-  }
-  .trending-card { flex: 0 0 calc(25% - 9px); }
-  .reco-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-/* ── Mobile landscape (≤ 768px) ─────────────────────────── */
-@media (max-width: 768px) {
-  .hero { height: 380px; }
-  .hero-content { padding: 0 16px 32px; max-width: 100%; }
-  .hero-title { font-size: clamp(22px, 5vw, 32px); }
-  .hero-desc { display: none; }
-  .hero-actions { gap: 8px; }
-  .hero-poster { display: none; }
-  .resume-list { grid-template-columns: 1fr; }
-  .trending-card { flex: 0 0 calc(33.33% - 8px); }
-  .reco-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .collection-banners { grid-template-columns: 1fr; }
-  /* Même piège que `.main-split` : `1fr` ne descend pas sous le min-content
-     de son contenu — ici les lignes « Top Manga », dont le titre ne se coupe
-     pas. La colonne restait à 438 px sur un écran de 375. */
-  .main-sidebar {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .section-resume { padding-top: 20px; }
-  .section-trending { padding-top: 24px; }
-}
-
-/* ── Mobile portrait (≤ 480px) ──────────────────────────── */
-@media (max-width: 480px) {
-  .hero { height: 320px; }
-  .hero-content { padding: 0 14px 24px; max-width: 100%; }
-  .hero-badges { flex-wrap: wrap; }
-  .hero-meta { flex-wrap: wrap; gap: 8px; }
-  .hero-actions .btn { flex: 1; justify-content: center; }
-  .hero-dots { bottom: 10px; right: 14px; }
-  .resume-list { grid-template-columns: 1fr; gap: 8px; }
-  .trending-card { flex: 0 0 calc(50% - 6px); }
-  .reco-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .main-split { padding-top: 20px; gap: 16px; }
-  .section-latest { margin-top: 20px; }
-  .latest-filters { flex-wrap: wrap; gap: 4px; }
-  .sidebar-premium { padding: 12px; }
-}
-/* ── Le bouton pause du carrousel ────────────────────────────
-   Posé sous la flèche « suivant », pas au centre : le centre est l'endroit
-   qu'on regarde pour LIRE, et un bouton y volerait le texte qu'il sert à
-   garder à l'écran. */
-.hero-arrow.hero-pause {
-  right: 14px;
-  top: auto;
-  bottom: 18px;
-  transform: none;
-  /* TOUJOURS visible, contrairement aux flèches.
-     `.hero-arrow` reste à `opacity: 0` jusqu'au survol — or il n'y a pas de
-     survol au doigt. Le seul contrôle qui permet d'arrêter la rotation aurait
-     donc été invisible précisément là où il est nécessaire. On le laisse
-     discret plutôt que caché. */
-  opacity: .55;
-}
-.hero-arrow.hero-pause:hover,
-.hero-arrow.hero-pause:focus-visible,
-.hero:hover .hero-arrow.hero-pause { opacity: 1; }
-/* `.hero-arrow:active` recentre avec translateY(-50%) : ce bouton n'est pas
-   centré verticalement, il repartirait de travers au clic. */
-.hero-arrow.hero-pause:active { transform: scale(.92); }
-@media (max-width: 768px) {
-  /* Sur téléphone, les flèches sont masquées et c'est ce bouton qui devient
-     le SEUL moyen d'arrêter la rotation — `mouseenter` ne s'y déclenche
-     jamais. Il reste donc visible, et assez grand pour le doigt. */
-  .hero-arrow.hero-pause {
-    display: flex;
-    width: 44px; height: 44px;
-    right: 12px; bottom: 14px;
-  }
+  .cont-skel, .shelf-card--skel .shelf-cover { animation: none; }
+  .shelf-cover img { transition: none; }
 }

@@ -324,9 +324,24 @@
 
     // GET avec un réessai automatique (audit DF9) : uniquement les lectures
     // (idempotentes) et uniquement sur erreur réseau ou 5xx — jamais sur 4xx.
+    //
+    // Source qui dit « trop de requêtes » : le serveur l'a mise en pause. On
+    // attend et on réessaie (3 s, 6 s, 10 s) au lieu d'afficher une impasse,
+    // et on le signale (`api:retry`) pour que l'écran dise ce qui se passe.
+    const LIMITEE = /limit|saturée|trop de requ|too many/i;
     async function getWithRetry(p) {
         try { return await request('GET', p); }
         catch (e) {
+            if (LIMITEE.test(e.message || '') && e.status >= 500) {
+                let derniere = e;
+                for (const [i, attente] of [3000, 6000, 10000].entries()) {
+                    try { window.dispatchEvent(new CustomEvent('api:retry', { detail: { path: p, attente, tentative: i + 1 } })); } catch (_) { /* noop */ }
+                    await new Promise(r => setTimeout(r, attente));
+                    try { return await request('GET', p); }
+                    catch (e2) { derniere = e2; if (!LIMITEE.test(e2.message || '')) throw e2; }
+                }
+                throw derniere;
+            }
             if (e.network || (e.status >= 500 && e.status <= 599)) {
                 await new Promise(r => setTimeout(r, 800));
                 return request('GET', p);
@@ -725,7 +740,7 @@
             _prefix()          { const id = API.sources.current; return id ? `/sources/${encodeURIComponent(id)}` : ''; },
             search:   (params = {}) => get(API.mangas._prefix() + '/mangas/search'  + API.mangas._qs(params)).then(mapMangaPage),
             // limit : 12 par défaut (aperçu), plus généreux sur recherche.html (audit N38)
-            searchAll:(q, limit = 12) => get('/search-all?q=' + encodeURIComponent(q || '') + '&limit=' + limit).then(mapMangaPage),
+            searchAll:(q, limit = 12, { fond = false } = {}) => get('/search-all?q=' + encodeURIComponent(q || '') + '&limit=' + limit + (fond ? '&prio=low' : '')).then(mapMangaPage),
             popular:  (params = {}) => get(API.mangas._prefix() + '/mangas/popular' + API.mangas._qs(params)).then(mapMangaPage),
             latest:   (params = {}) => get(API.mangas._prefix() + '/mangas/latest'  + API.mangas._qs(params)).then(mapMangaPage),
             // Variantes ciblant une source précise (catalogue « Toutes les sources »)
@@ -797,6 +812,29 @@
                 });
             },
 
+            // Scan complet en tâche de fond : lance (ou rejoint) le scan serveur,
+            // relit l'avancement chaque seconde et rend le même format que
+            // updates(). `onProgress({ faits, total })` alimente la barre.
+            scanUpdates: async (opts = {}, onProgress) => {
+                const corps = { lang: opts.lang || 'fr,en', scope: opts.scope || 'active', force: !!opts.force };
+                let job = await request('POST', '/me/updates/scan', corps);
+                const debut = Date.now();
+                while (job && job.etat === 'en_cours') {
+                    try { onProgress?.({ faits: job.faits || 0, total: job.total || 0 }); } catch (e) { /* UI fautive */ }
+                    if (Date.now() - debut > 15 * 60 * 1000) throw new Error('La vérification prend trop de temps');
+                    await new Promise(r => setTimeout(r, 1000));
+                    job = await request('GET', '/me/updates/scan');
+                }
+                if (job?.erreur) throw new Error(job.erreur);
+                (job && job.updates  || []).forEach(u => { if (u.cover) u.cover = proxyCover(u.cover); });
+                (job && job.failures || []).forEach(u => { if (u.cover) u.cover = proxyCover(u.cover); });
+                return job || { updates: [], failures: [] };
+            },
+
+            renameCategory:   (from, to)   => request('POST', '/me/categories/rename', { from, to }),
+            deleteCategory:   (name)       => request('POST', '/me/categories/delete', { name }),
+            setCategoryBulk:  (mangaIds, category) => request('POST', '/me/favorites/category-bulk', { mangaIds, category }),
+
             library:          ()           => get('/me/library'),
             setLibrary:       (mangaId, status, rating) =>
                 put('/me/library/' + encodeURIComponent(mangaId), { status, rating }),
@@ -833,6 +871,7 @@
                                                     .then(r => { (r.notes || []).forEach(n => { if (n.cover) n.cover = proxyCover(n.cover); }); return r; });
                                               },
             notesStats:       ()           => get('/me/notes/stats'),
+            journalActivite:  (jours = 60) => get('/me/journal/activite?jours=' + jours),
             addNote:          (payload)    => post('/me/notes', payload),
             updateNote:       (id, payload) => put('/me/notes/' + encodeURIComponent(id), payload),
             removeNote:       (id)         => del('/me/notes/' + encodeURIComponent(id)),

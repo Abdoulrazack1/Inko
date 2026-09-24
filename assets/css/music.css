@@ -93,3 +93,9 @@
    et blanc et par un lecteur d'ecran via aria-pressed. */
 #inko-music .im-fav{font-size:15px;line-height:1;color:var(--text3,#6b6b76)}
 #inko-music .im-fav.on{color:var(--orange,#ff6b1a)}
+
+/* Lecture automatique refusée après un changement de page : le bouton ▶
+   pulse pour dire « un clic suffit », au lieu d'un lecteur muet sans raison. */
+#inko-music.im-attente #im-pp { animation: im-attente 1.2s ease-in-out infinite; box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
+@keyframes im-attente { 50% { box-shadow: 0 0 0 8px transparent; transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { #inko-music.im-attente #im-pp { animation: none; outline: 2px solid var(--accent); } }

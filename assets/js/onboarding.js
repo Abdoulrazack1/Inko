@@ -44,42 +44,25 @@
         rocket:  S('<path d="M12 2c4 2 6 6 6 10l3 4-5-1a7 7 0 0 1-8 0l-5 1 3-4c0-4 2-8 6-10z"/><circle cx="12" cy="10" r="2"/>'),
     };
 
+    // Trois écrans, pas sept : on n'explique pas une app à quelqu'un qui n'en
+    // a pas encore vu une page. Le détail vient ensuite, par les astuces
+    // contextuelles (une par écran, au moment où elle a un sens).
     const SLIDES = [
         {
             art: 'logo', accent: 'var(--accent, #c1531b)',
             title: 'Bienvenue sur Inko',
-            text: 'Ton sanctuaire de lecture : <strong>mangas, light novels et livres</strong>, dans une app qui t’appartient. Pas de compte, pas de pub — ta bibliothèque et ta progression restent chez toi.',
-        },
-        {
-            art: 'explore', accent: '#c1531b',
-            title: 'Explore le catalogue',
-            text: '<strong>Catalogue</strong> et <strong>Recherche</strong> puisent dans les extensions intégrées (MangaDex, Weeb Central, novels, classiques…). Active le mode « Toutes les sources » dans <strong>Sources</strong> pour chercher partout à la fois.',
+            text: 'Mangas, webtoons, light novels et classiques, dans une app qui t’appartient. Pas de compte, pas de pub : ta bibliothèque et ta progression restent chez toi.',
         },
         {
             art: 'library', accent: '#3d5170',
-            title: 'Construis ta bibliothèque',
-            text: 'Sur une œuvre : <strong>« Ajouter à ma liste »</strong>, un statut (en cours, terminé, à lire…) et des catégories. Le bouton <strong>« Mettre à jour »</strong> de la bibliothèque vérifie les nouveaux chapitres de toutes tes séries.',
+            title: 'Trouve, range, suis',
+            text: 'Cherche sur <strong>toutes tes sources</strong> à la fois, ajoute une série à ta <strong>bibliothèque</strong> et range-la par statut ou catégorie. Inko vérifie les nouveaux chapitres pour toi.',
         },
         {
             art: 'reader', accent: '#c1531b',
-            title: 'Un lecteur à ta main',
-            text: 'Sens de lecture <strong>manga (RTL)</strong>, page simple, double ou défilement webtoon, gestes tactiles, mode nuit. Tout se règle depuis le lecteur lui-même ou dans <strong>Paramètres</strong>.',
-        },
-        {
-            art: 'journal', accent: '#3d5170',
-            title: 'Ton journal de lecture',
-            text: 'Prends des <strong>notes pendant ta lecture</strong>, donne ton avis, suis tes <strong>statistiques</strong> et débloque des badges sur ton <strong>Profil</strong>. Comme un carnet, mais qui se remplit tout seul.',
-        },
-        {
-            art: 'bell', accent: '#a83232',
-            title: 'Ne rate aucun chapitre',
-            text: 'La <strong>cloche</strong> te notifie quand une série de ta bibliothèque a un nouveau chapitre — avec sa couverture. Et connecte <strong>AniList</strong> en un clic (Paramètres → Comptes liés) pour synchroniser ta progression.',
-        },
-        {
-            art: 'rocket', accent: 'var(--accent, #c1531b)',
-            title: 'C’est parti !',
-            text: 'Commence par le <strong>Catalogue</strong> pour trouver ta première série, ou importe tes propres fichiers <strong>EPUB / CBZ / PDF</strong>. Tu peux revoir cette visite depuis les Paramètres. Bonne lecture !',
-            cta: 'Commencer à lire',
+            title: 'Lis à ta façon',
+            text: 'Page par page, double page ou défilement webtoon, sens manga, plein écran. Tes notes, ton journal et tes statistiques se remplissent pendant que tu lis.',
+            cta: 'Commencer',
         },
     ];
 
@@ -205,14 +188,20 @@
     // jamais : on note ou on en etait.
     window.addEventListener('pagehide', () => { if (veil) memoriserPosition(idx); });
 
+    // Les astuces s'affichent aussi sans la visite : les styles doivent donc
+    // être posés par l'une OU l'autre. Avant, une astuce montrée seule sortait
+    // en texte brut sous le pied de page.
+    function injecterStyles() {
+        if (document.getElementById('itrStyles')) return;
+        const st = document.createElement('style');
+        st.id = 'itrStyles';
+        st.textContent = CSS;
+        document.head.appendChild(st);
+    }
+
     function start() {
         if (veil) return;
-        if (!document.getElementById('itrStyles')) {
-            const st = document.createElement('style');
-            st.id = 'itrStyles';
-            st.textContent = CSS;
-            document.head.appendChild(st);
-        }
+        injecterStyles();
         idx = positionMemorisee();
         veil = document.createElement('div');
         veil.className = 'itr-veil';
@@ -242,13 +231,13 @@
     // Elles sont independantes de la visite : la passer n'y renonce pas, et
     // les avoir vues n'empeche pas de rejouer la visite.
     const ASTUCES = {
-        catalogue:    'Change de source en haut a droite, ou active « Toutes les sources » pour chercher partout a la fois.',
-        bibliotheque: 'Filtre par statut, categorie ou source. Le bouton « Mettre a jour » verifie les nouveaux chapitres de tout ce que tu suis.',
-        serie:        "Depuis cette fiche : suivre la serie, l'epingler sur ton profil, ou la lire en prive sans laisser de trace.",
-        chapitre:     'Clique a gauche ou a droite pour tourner les pages. La barre du haut regroupe sens de lecture, zoom et qualite.',
-        stats:        'Ton objectif hebdomadaire peut se caler sur ton rythme reel — le lien est sous la barre de progression.',
+        catalogue:    'Choisis une source dans la barre du haut, ou « Toutes les sources » pour chercher partout à la fois.',
+        bibliotheque: 'Filtre par statut, catégorie ou source. « Mettre à jour » vérifie les nouveaux chapitres de tout ce que tu suis.',
+        serie:        'Le bouton de bibliothèque range la série (statut, catégories, alertes) ; « ⋯ » regroupe le reste.',
+        chapitre:     'Clique à gauche ou à droite pour tourner les pages. « M » ouvre les réglages, « F » passe en plein écran.',
+        stats:        'Ton objectif hebdomadaire peut se caler sur ton rythme réel — le lien est sous la barre de progression.',
         profil:       "L'onglet Historique permet d'exporter ou de retirer des lectures, une par une.",
-        notifications:'Regle la frequence de verification ici. Une serie se met en sourdine depuis sa fiche, sans cesser de la suivre.',
+        notifications:'Règle la fréquence de vérification ici. Une série se met en sourdine depuis sa fiche, sans cesser de la suivre.',
     };
     const CLE_ASTUCES = 'inko_astuces_vues';
     function astucesVues() {
@@ -266,6 +255,7 @@
         // n'en font aucune.
         if (veil) return false;
         marquerAstuceVue(page);
+        injecterStyles();
         const el = document.createElement('div');
         el.className = 'itr-astuce';
         el.setAttribute('role', 'status');

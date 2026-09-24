@@ -326,6 +326,32 @@
         return (window.MH._sourceNoms && window.MH._sourceNoms[id]) || id || '';
     };
 
+    // ── Objectif hebdomadaire : UNE seule définition ─────────
+    // Le profil lisait une préférence locale (défaut 15) et comptait via la
+    // heatmap ; la page Stats lisait l'objectif synchronisé (UserData) et
+    // comptait les ÉVÉNEMENTS « lu », enregistrés en double à chaque
+    // ouverture du lecteur. Résultat : « 19 / 15 » ici, « 69 / 10 » là.
+    window.MH.objectifHebdo = function () {
+        const synchro = +((window.UserData?.getGoal?.() || {}).weekly || 0);
+        if (synchro > 0) return synchro;
+        const ancien = +(window.Storage?.getPref?.('weeklyGoal') || 0);
+        return ancien > 0 ? ancien : 15;
+    };
+    window.MH.definirObjectifHebdo = function (n) {
+        window.UserData?.setGoal?.({ weekly: n });
+        window.Storage?.setPref?.('weeklyGoal', n);
+    };
+    /** Chapitres lus sur les 7 derniers jours, depuis la heatmap de /me/stats. */
+    window.MH.lusSurSeptJours = function (heat) {
+        let n = 0;
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            n += (heat || {})[k] || 0;
+        }
+        return n;
+    };
+
     window.MH.isNovelSource = function (id) {
         const t = window.MH._sourceTypes && window.MH._sourceTypes[id];
         return t === 'novel' || t === 'book';   // les deux ouvrent le lecteur de texte
@@ -651,7 +677,7 @@
         @keyframes mhModalIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
         /* Affichage instantané et garanti (aucune animation d'entrée dont
            dépend la visibilité). Fondu de sortie via .closing uniquement. */
-        .mh-modal-veil{position:fixed;top:0;right:0;bottom:0;left:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;
+        .mh-modal-veil{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147482000;display:flex;align-items:center;justify-content:center;padding:20px;
           background:color-mix(in srgb, var(--bg,#111) 55%, transparent);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
           opacity:1}
         .mh-modal-veil.closing{opacity:0;transition:opacity .15s ease}
@@ -1242,7 +1268,14 @@
         if (!silent && force) MH.toast('Recherche de nouveaux chapitres…');
         try {
             const lang = window.Storage?.getPref('readingLang') || 'fr,en';
-            const data = await API.me.updates(lang);
+            const data = await API.me.scanUpdates({ lang, force }, ({ faits, total }) => {
+                window.dispatchEvent(new CustomEvent('updates:progress', { detail: { faits, total } }));
+                document.querySelectorAll('#btnRefresh').forEach(b => {
+                    b.title = total ? `Vérification des nouveaux chapitres : ${faits} / ${total}` : 'Vérification en cours…';
+                    b.dataset.progress = total ? String(Math.round(faits / total * 100)) : '';
+                    b.style.setProperty('--refresh-pct-n', total ? String(faits / total) : '0');
+                });
+            });
             const ups = data.updates || [];
             const newCount = ups.filter(u => u.unreadCount > 0).length;
             const fresh    = ups.filter(u => u.hasNew);
@@ -1253,6 +1286,10 @@
             window.MH.updateLibBadge();
             try { window.dispatchEvent(new CustomEvent('updates:checked', { detail: data })); } catch (e) { window.MH?.err?.('global.js', e); }
             if (!silent) {
+                const echecs = (data.failures || []).length;
+                if (echecs && force) {
+                    setTimeout(() => MH.toast(`${echecs} série${echecs > 1 ? 's' : ''} n'ont pas pu être vérifiée${echecs > 1 ? 's' : ''} (source indisponible) — détail dans Bibliothèque › Mises à jour`), 2600);
+                }
                 if (fresh.length) {
                     const names = fresh.slice(0, 2).map(u => u.title).filter(Boolean).join(', ');
                     MH.toast(`Nouveaux chapitres : ${names}${fresh.length > 2 ? ` (+${fresh.length - 2})` : ''}`);

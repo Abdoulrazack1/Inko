@@ -31,23 +31,29 @@
     };
 
     // Stations (live, un clic) — YouTube IFrame API.
+    // Chaque station joue un FLUX AUDIO DIRECT (radios web vérifiées), et
+    // YouTube ne sert plus que de secours. Les directs YouTube de Lofi Girl
+    // (lofi, anime, piano) refusent désormais la lecture intégrée (erreur 150) :
+    // la moitié des stations jouaient une autre ambiance que celle choisie, ou
+    // rien. Un flux Icecast/MP3 ne dépend d'aucune règle d'intégration et
+    // s'écoute avec le même élément <audio> que la radio.
     const STATIONS = [
-        // Audit AMEL-95 : `alt` = flux de secours. Un live YouTube qui s'arrete
-        // casse la station EN SILENCE — l'interface annonce « en lecture » et
-        // rien ne sort. Les identifiants sont en dur par construction ; ce
-        // qu'on peut faire, c'est ne pas dependre d'UN SEUL.
-        { id: 'lofi',  name: 'Lofi Hip-Hop', sub: 'Détente & lecture', g: ['#fc5c7d', '#6a82fb'], yt: 'jfKfPfyJRdk', alt: ['4xDzrJKXOOY', '5yx6BWlEVcY'] },
-        { id: 'anime', name: 'Anime Lofi',   sub: 'Vibes asiatiques',  g: ['#f857a6', '#ff5858'], yt: 'Na0w3Mz46GA', alt: ['jfKfPfyJRdk'] },
-        { id: 'chill', name: 'Chillhop',     sub: 'Jazzy beats',       g: ['#43cea2', '#185a9d'], yt: '5yx6BWlEVcY', alt: ['jfKfPfyJRdk'] },
-        { id: 'jazz',  name: 'Jazz Café',    sub: 'Piano lent',        g: ['#c79081', '#dfa579'], yt: 'Dx5qFachd3A', alt: ['4oStw0r33so'] },
-        { id: 'synth', name: 'Synthwave',    sub: 'Rétro nocturne',    g: ['#7028e4', '#e5b2ca'], yt: '4xDzrJKXOOY', alt: ['jfKfPfyJRdk'] },
-        { id: 'rain',  name: 'Pluie',        sub: 'Ambiance nature',   g: ['#2c3e50', '#3f5efb'], yt: 'yIQd2Ya0Ziw', alt: ['4oStw0r33so'] },
-        // Ex-stations Spotify (résidu audit F.1) : re-câblées sur de vrais flux
-        // YouTube — un champ `sp:` seul faisait playYouTube(undefined) (aucun son,
-        // UI « en lecture » quand même).
-        { id: 'focus', name: 'Deep Focus',   sub: 'Concentration',     g: ['#11998e', '#38ef7d'], yt: 'lTRiuFIWV54', alt: ['jfKfPfyJRdk'] },
-        { id: 'piano', name: 'Piano',        sub: 'Piano paisible',    g: ['#2c3e50', '#4ca1af'], yt: '4oStw0r33so', alt: ['Dx5qFachd3A'] },
+        { id: 'lofi',  name: 'Lofi Hip-Hop', sub: 'Détente & lecture', g: ['#fc5c7d', '#6a82fb'], flux: 'https://listen.reyfm.de/lofi_320kbps.mp3', yt: 'lTRiuFIWV54', alt: ['5yx6BWlEVcY'] },
+        { id: 'anime', name: 'Anime & J-pop', sub: 'Vibes japonaises',  g: ['#f857a6', '#ff5858'], flux: 'https://listen.moe/stream', yt: '4xDzrJKXOOY', alt: [] },
+        { id: 'chill', name: 'Chillhop',     sub: 'Jazzy beats',       g: ['#43cea2', '#185a9d'], flux: 'https://ilm.stream12.radiohost.de/ilm_ilovechillhop_mp3-192', yt: '5yx6BWlEVcY', alt: [] },
+        { id: 'jazz',  name: 'Jazz Café',    sub: 'Piano lent',        g: ['#c79081', '#dfa579'], flux: 'https://jazz-wr04.ice.infomaniak.ch/jazz-wr04-128.mp3', yt: 'Dx5qFachd3A', alt: [] },
+        { id: 'synth', name: 'Synthwave',    sub: 'Rétro nocturne',    g: ['#7028e4', '#e5b2ca'], flux: 'https://stream.nightride.fm/nightride.mp3', yt: '4xDzrJKXOOY', alt: [] },
+        { id: 'rain',  name: 'Pluie',        sub: 'Ambiance nature',   g: ['#2c3e50', '#3f5efb'], flux: 'https://maggie.torontocast.com:2020/stream/natureradiorain', yt: 'yIQd2Ya0Ziw', alt: [] },
+        { id: 'focus', name: 'Deep Focus',   sub: 'Chillsynth sans paroles', g: ['#11998e', '#38ef7d'], flux: 'https://stream.nightride.fm/chillsynth.mp3', yt: 'lTRiuFIWV54', alt: [] },
+        { id: 'piano', name: 'Piano',        sub: 'Piano paisible',    g: ['#2c3e50', '#4ca1af'], flux: 'https://stream.epic-piano.com/chillout-piano', yt: 'Dx5qFachd3A', alt: [] },
     ];
+
+    // Lance une station : flux direct d'abord, YouTube si le flux échoue.
+    function playStation(st) {
+        if (!st) return;
+        if (!st.flux) return playYouTube(st.yt, st.name, 'Station · ' + st.sub, st.g);
+        playRadio({ name: st.name, url_resolved: st.flux, stationId: st.id, sous: 'Station · ' + st.sub, g: st.g });
+    }
 
     // ── État ──
     let S = { mode: null, ytId: null, spId: null, label: '', sub: '', art: null, vol: 0.7, expanded: false, tab: 'stations', visible: false, min: false, repeat: 'off' };
@@ -137,6 +143,15 @@
         localAudio.addEventListener('ended', onTrackEnded);
         localAudio.addEventListener('play', () => setPlaying(true));
         localAudio.addEventListener('pause', () => setPlaying(false));
+        // Flux d'une station qui tombe : on passe sur son secours YouTube
+        // plutôt que de laisser un lecteur muet.
+        localAudio.addEventListener('error', () => {
+            if (S.mode !== 'radio' || !S.radio?.stationId) return;
+            const st = STATIONS.find(x => x.id === S.radio.stationId);
+            if (!st?.yt) return;
+            window.MH?.toast?.('Flux indisponible — bascule sur le secours');
+            playYouTube(st.yt, st.name, 'Station · ' + st.sub, st.g);
+        });
     }
 
     // ══════════════════════ AFFICHAGE ══════════════════════
@@ -181,7 +196,8 @@
     }
     function markStation() {
         document.querySelectorAll('.im-station').forEach(el => {
-            const on = (S.mode === 'yt' && el.dataset.yt === S.ytId);
+            const on = (S.mode === 'yt' && el.dataset.yt === S.ytId)
+                || (S.mode === 'radio' && S.radio?.stationId && S.radio.stationId === el.dataset.id);
             el.classList.toggle('on', !!on);
             const eq = el.querySelector('.eq');
             if (eq) eq.style.display = on && playing ? 'flex' : 'none';
@@ -320,12 +336,21 @@
     function playRadio(st) {
         if (!st || !(st.url_resolved || st.url)) return;
         stopYouTube();
-        S.mode = 'radio'; S.label = st.name || 'Radio'; S.sub = 'Radio · ' + (st.country || 'Radio Browser'); save();
+        S.mode = 'radio'; S.label = st.name || 'Radio'; S.sub = st.sous || ('Radio · ' + (st.country || 'Radio Browser'));
+        S.radio = { name: st.name, url_resolved: st.url_resolved, url: st.url, country: st.country, stationId: st.stationId || null, sous: st.sous, g: st.g };
+        S.enPause = false; save();
         localAudio.src = st.url_resolved || st.url;
         localAudio.volume = S.vol;
-        localAudio.play().catch(() => window.MH?.toast?.('Flux injoignable — essaie une autre station'));
+        localAudio.play().catch((e) => {
+            // Autoplay refusé (changement de page sans clic) : le flux va bien,
+            // il attend juste un geste. Le dire, au lieu de « flux injoignable ».
+            if (e && e.name === 'NotAllowedError') { signalerBlocage(); return; }
+            window.MH?.toast?.('Flux injoignable — essaie une autre station');
+        });
         setMeta(S.label, S.sub, ICON.radio);
-        root.querySelector('#im-art').style.background = 'linear-gradient(135deg,#134e5e,#71b280)';
+        root.querySelector('#im-art').style.background = st.g
+            ? `linear-gradient(135deg,${st.g[0]},${st.g[1]})` : 'linear-gradient(135deg,#134e5e,#71b280)';
+        markStation();
         show();
     }
 
@@ -338,8 +363,7 @@
                 <span class="nm">${st.name}</span><span class="sb">${st.sub}</span>
             </button>`).join('') + `</div>`;
         c.querySelectorAll('.im-station').forEach(el => el.onclick = () => {
-            const st = STATIONS.find(s => s.id === el.dataset.id);
-            if (st && st.yt) playYouTube(st.yt, st.name, 'Station · ' + st.sub, st.g);
+            playStation(STATIONS.find(s => s.id === el.dataset.id));
         });
         markStation();
     }
@@ -421,7 +445,8 @@
     }
     function playYouTube(id, label, sub, g) {
         stopLocal();
-        S.mode = 'yt'; S.ytId = id; S.label = label; S.sub = sub; save();
+        if (S.ytId !== id) S.ytT = 0;
+        S.mode = 'yt'; S.ytId = id; S.label = label; S.sub = sub; S.enPause = false; save();
         setMeta(label, sub, ICON.youtube);
         if (g) root.querySelector('#im-art').style.background = `linear-gradient(135deg,${g[0]},${g[1]})`;
         ensureYT(() => {
@@ -434,7 +459,17 @@
                     playerVars: { autoplay: 1, playsinline: 1 },
                     events: {
                         onReady: e => {
-                            e.target.setVolume(S.vol * 100); e.target.playVideo();
+                            e.target.setVolume(S.vol * 100);
+                            // Vidéo (pas un direct) : on reprend où l'on en était
+                            // sur la page précédente, pas au début.
+                            try {
+                                const d = e.target.getDuration?.() || 0;
+                                if (S.ytT > 5 && d > 0 && S.ytT < d - 5 && S.ytId === id) e.target.seekTo(S.ytT, true);
+                            } catch (err) { window.MH?.err?.('music.js', err); }
+                            e.target.playVideo();
+                            // Toujours pas en lecture 2,5 s plus tard : le
+                            // navigateur a refusé la lecture automatique.
+                            setTimeout(() => { try { if (e.target.getPlayerState?.() !== 1) signalerBlocage(); } catch (err) { /* lecteur détruit */ } }, 2500);
                             // `aria-hidden` sur le conteneur cache l'iframe aux
                             // lecteurs d'écran ; il ne la retire PAS de la
                             // tabulation. C'est `tabindex="-1"`, posé sur
@@ -489,6 +524,8 @@
 
     // ══════════════════════ CONTRÔLES UNIFIÉS ══════════════════════
     function togglePlay() {
+        S.enPause = !!playing; save();
+        root?.classList.remove('im-attente');
         if (S.mode === 'local' || S.mode === 'radio') { localAudio.paused ? localAudio.play() : localAudio.pause(); }
         else if (S.mode === 'yt' && ytPlayer) { playing ? ytPlayer.pauseVideo() : ytPlayer.playVideo(); }
         else if (!S.mode) { S.tab = 'stations'; open(); }
@@ -674,13 +711,46 @@
     }
 
     // ══════════════════════ Init ══════════════════════
+    // L'app change de page à chaque clic : la musique s'arrête donc à chaque
+    // navigation et doit reprendre sur la page suivante. On retient où l'on en
+    // était (position d'une vidéo, flux radio) et si l'utilisateur avait mis
+    // en pause — une pause voulue ne doit pas se lever toute seule.
+    function memoriserPosition() {
+        try {
+            if (S.mode === 'yt' && ytPlayer?.getCurrentTime) S.ytT = Math.floor(ytPlayer.getCurrentTime() || 0);
+            save();
+        } catch (e) { /* lecteur pas prêt */ }
+    }
+
+    let blocageSignale = false;
+    function signalerBlocage() {
+        setPlaying(false);
+        root?.classList.add('im-attente');
+        if (blocageSignale) return;
+        blocageSignale = true;
+        window.MH?.toast?.('Musique en pause — clique ▶ pour la reprendre');
+        // Le premier geste sur la page suffit à débloquer : on relance alors
+        // tout seul, sans obliger à viser le bouton.
+        const relancer = () => {
+            root?.classList.remove('im-attente');
+            if (S.enPause) return;
+            if (S.mode === 'yt' && ytPlayer?.playVideo) ytPlayer.playVideo();
+            else if (S.mode === 'radio' && localAudio?.src) localAudio.play().catch(() => {});
+        };
+        document.addEventListener('pointerdown', relancer, { once: true, capture: true });
+        document.addEventListener('keydown', relancer, { once: true, capture: true });
+    }
+
     function init() {
         injectCSS(); build();
         brancherSession();
         root.style.display = S.visible ? 'flex' : 'none';
         if (S.visible && S.min) root.classList.add('min');
-        // Reprise inter-pages : recharge la dernière station (les flux live reprennent)
-        if (S.visible && S.mode === 'yt' && S.ytId) playYouTube(S.ytId, S.label, S.sub);
+        window.addEventListener('pagehide', memoriserPosition);
+        if (!S.visible || S.enPause) return;
+        // Reprise inter-pages : station YouTube ou flux radio.
+        if (S.mode === 'yt' && S.ytId) playYouTube(S.ytId, S.label, S.sub);
+        else if (S.mode === 'radio' && S.radio) playRadio(S.radio);
     }
 
     // ══════════════════════ Baisse automatique (audit AMEL-97) ══════════════
@@ -767,7 +837,7 @@
 
     window.Music = {
         open, close, toggle, show,
-        playStationId: id => { const s = STATIONS.find(x => x.id === id); if (s && s.yt) playYouTube(s.yt, s.name, 'Station · ' + s.sub, s.g); },
+        playStationId: id => playStation(STATIONS.find(x => x.id === id)),
         // Renvoie la station suggeree sans rien lancer : c'est a l'appelant de
         // proposer, jamais a la musique de demarrer toute seule.
         suggestionPourTags: (tags) => {

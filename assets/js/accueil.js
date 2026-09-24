@@ -1,839 +1,387 @@
-// accueil.js — Page d'accueil dynamique (backend)
+// accueil.js — Page d'accueil : ce que je lis, ce qui est sorti, puis la découverte
+// ------------------------------------------------------------
+// L'accueil répond d'abord à « qu'est-ce que je lis maintenant ? » :
+//   1. la lecture la plus récente, en grand, et les suivantes ;
+//   2. les nouveaux chapitres des séries suivies (non-lus exacts, migration 22) ;
+//   3. « À lire ensuite » (local, sans réseau) ;
+//   4. une recommandation dont on comprend l'origine ;
+//   5. populaire et dernières sorties de la source, en rayons.
+//
+// Chaque section se remplit seule et indépendamment : une source lente ne
+// retarde plus la reprise de lecture, qui ne dépend que du hub.
 (function () {
     'use strict';
 
-    let heroMangas = [];
-    let heroIdx = 0;
-    let heroTimer = null;
-    let heroShow = null;        // référence module vers show() (pour rafraîchir après enrichissement)
-    let latestCount = 8;
-    let popularCache = null;
-    let latestCache = null;
-    const LATEST_LIMIT = 16;   // hero (6) + tendances (10) + grille — un seul appel
+    const STATUTS = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };
+    let favoris = [];
+    let favorisPret = Promise.resolve();
+    let favSet = new Set();
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('accueil');
-        // Charger hero d'abord (la sidebar dépend de popularCache)
-        await loadHeroAndTrending();
-        loadFile();   // local, immediat : ne doit pas attendre le reseau
-        await Promise.all([loadLatest(), loadResume(), loadSidebar()]);
-        bindLatestControls();
+        await (window.API?.ready || Promise.resolve());
+        await MH.loadSourceTypes();
+        saluer();
+        loadFile();                      // local : immédiat
+        brancherRayons();
+
+        const connecte = API.isLoggedIn();
+        // Tout part en même temps : la reprise ne doit pas attendre la liste
+        // complète des favoris (491 séries) avant de demander la progression.
+        favorisPret = connecte
+            ? API.me.favorites().then(f => { favoris = f; favSet = new Set(f.map(x => String(x.mangaId))); }).catch(() => {})
+            : Promise.resolve();
+        chargerReprise();
+        chargerDecouverte();
+        if (connecte) favorisPret.then(() => { rendreNouveautes(); rendreStats(); });
+        window.addEventListener('updates:checked', () => rechargerFavorisPuisNouveautes());
     });
 
-    // ── Hero (dernières sorties) + Tendances ─────────────────
-    const HERO_MS = 7000;
-    let heroLatestChap = {};   // mangaId -> { id, chapter } (dernier chapitre, lazy)
-
-    async function loadHeroAndTrending() {
-        // Tendances/reco s'appuient sur le populaire ; le hero sur les dernières sorties
-        try {
-            // Audit PERF-02 : « dernières sorties » était demandé DEUX fois au
-            // chargement — limit 12 ici (hero + tendances) puis limit 16 dans
-            // loadLatest(). Deux allers-retours vers une source tierce pour des
-            // données qui se recouvrent à 75 %. On demande 16 une seule fois :
-            // le hero en prend 6, les tendances 10, la grille les 16.
-            const [pop, latest] = await Promise.all([
-                API.mangas.popular({ limit: 12 }),
-                API.mangas.latest({ limit: LATEST_LIMIT }),
-            ]);
-            popularCache = pop.results || [];
-            latestCache = latest.results || [];
-            const hasCover = m => m.banner || m.coverLarge || m.cover || m.coverThumb;
-            const fresh = (latest.results || []).filter(hasCover);
-            const pool  = fresh.length ? fresh : popularCache.filter(hasCover);
-            heroMangas = (pool.length ? pool : popularCache).slice(0, 6);
-            // Audit TOP1/TOP2 : « Tendances » = séries mises à jour récemment
-            // (donnée réellement temporelle), distinctes du « Top manga » de la
-            // sidebar (classement popularité). Avant, les deux blocs affichaient
-            // les mêmes 10 titres et « de la semaine » ne calculait rien.
-            const trendPool = fresh.length ? fresh : popularCache;
-            renderTrending(trendPool.slice(0, 10));
-            renderReco(popularCache.slice(4, 7));
-            await MH.loadSourceTypes();
-            renderHero();
-            // Audit PERF-02 : les 6 illustrations larges (banner AniList) étaient
-            // demandées d'un coup au chargement — 6 appels /api/artwork pour UNE
-            // diapositive visible, les 5 autres n'étant utiles qu'après 7 s,
-            // 14 s, 21 s… ou jamais si l'utilisateur clique ailleurs.
-            // Désormais : celle qui s'affiche, plus celle d'après en avance.
-            ensureBanner(0);
-        } catch (e) {
-            // « Le backend est-il lancé ? » est une question de développeur,
-            // posée à quelqu'un qui voulait lire un manga.
-            showError('hero', 'Impossible de charger la mise en avant', () => loadHeroAndTrending());
-        }
+    // ── En-tête ────────────────────────────────────────────
+    function saluer() {
+        const h = new Date().getHours();
+        const moment = h < 5 ? 'Bonne nuit' : h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
+        const nom = API.user?.username || '';
+        const el = document.getElementById('homeHello');
+        if (el) el.textContent = nom ? `${moment}, ${nom}` : moment;
     }
 
-    // Illustration large d'une diapositive du hero, récupérée à la demande et
-    // une seule fois (audit PERF-02). Repeint la diapositive si elle est encore
-    // à l'écran quand la réponse arrive ; sinon la valeur reste en mémoire et
-    // servira au prochain passage.
-    const bannerAsked = new Set();
-    function ensureBanner(i) {
-        const m = heroMangas[i];
-        if (!m || bannerAsked.has(i)) return;
-        bannerAsked.add(i);
-        API.art.get(m.title).then(a => {
-            if (!a || !a.banner) return;
-            heroMangas[i] = Object.assign({}, heroMangas[i], { banner: a.banner });
-            if (heroIdx === i && heroShow) heroShow(i, true);
-        }).catch(() => {});
-    }
-
-    // Récupère (et cache) le dernier chapitre d'une série pour le CTA de lecture
-    async function fetchLatestChapter(m) {
-        if (heroLatestChap[m.id] !== undefined) return heroLatestChap[m.id];
-        try {
-            const data = await API.mangas.chaptersFor(API.sources.current, m.id,
-                { lang: window.Storage?.getPref('readingLang') || 'fr,en', limit: 1 });
-            const c = (data.results || [])[0] || null;
-            heroLatestChap[m.id] = c;
-            return c;
-        } catch (e) { heroLatestChap[m.id] = null; return null; }
-    }
-
-    function renderHero() {
-        const bg    = document.getElementById('heroBg');
-        const bgN   = document.getElementById('heroBgNext');
-        const content = document.getElementById('heroContent');
-        const rail  = document.getElementById('heroRail');
-        const prog  = document.getElementById('heroProgress');
-        const hero  = document.getElementById('hero');
-        if (!bg || !content || !hero || !heroMangas.length) return;
-
-        clearInterval(heroTimer);
-        const src = API.sources.current;
-        const isNovel = MH.isNovelSource(src);
-
-        function slideHTML(m) {
-            const genres = (m.tags || []).filter(Boolean).slice(0, 4);
-            const metaBits = [];
-            if (m.year) metaBits.push(`<span>${m.year}</span>`);
-            if (m.demographic) metaBits.push(`<span class="hero-demo">${MH.esc(m.demographic)}</span>`);
-            if (m.status) metaBits.push(MH.statusBadge(m.status));
-            const desc = (m.description || '').replace(/\s+/g, ' ').trim();
-            return `
-                <div class="hero-inner">
-                    <a class="hero-poster-link" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}">
-                        <img class="hero-poster" src="${MH.cover(m.coverLarge, m.cover)}" alt="${MH.esc(m.title)}"
-                             onerror="this.style.visibility='hidden'">
-                        ${isNovel ? '<span class="hero-poster-tag">ROMAN</span>' : ''}
-                    </a>
-                    <div class="hero-text">
-                        <div class="hero-eyebrow"><span class="hero-eyebrow-dot"></span> ${isNovel ? 'Nouveau chapitre · Roman' : 'Dernière sortie'}</div>
-                        <a class="hero-title-link" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}"><h2 class="hero-title">${MH.esc(m.title)}</h2></a>
-                        ${genres.length ? `<div class="hero-genres">${genres.map(g => `<a class="hero-genre" href="catalogue.html?tag=${encodeURIComponent(g)}">${MH.esc(g)}</a>`).join('')}</div>` : ''}
-                        ${metaBits.length ? `<div class="hero-meta">${metaBits.join('<span class="hero-dot-sep">·</span>')}</div>` : ''}
-                        ${desc ? `<p class="hero-desc">${MH.esc(desc.slice(0, 230))}${desc.length > 230 ? '…' : ''}</p>` : ''}
-                        <div class="hero-actions">
-                            <a class="btn btn-primary hero-read" id="heroRead" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                                <span id="heroReadLabel">${isNovel ? 'Lire' : 'Lire le dernier chapitre'}</span>
-                            </a>
-                            <a class="btn btn-secondary" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}">Voir la fiche</a>
-                            <button class="btn btn-ghost hero-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">${MH.heartIcon(false)}</button>
-                        </div>
-                    </div>
-                </div>`;
-        }
-
-        // Met à jour le CTA "Lire le dernier chapitre" pour le slide visible
-        async function wireReadCTA(m) {
-            if (isNovel) return; // pour les romans : reste sur la fiche (chapitrage variable)
-            const c = await fetchLatestChapter(m);
-            if (heroIdx !== heroMangas.indexOf(m)) return; // slide changé entre-temps
-            const read = document.getElementById('heroRead');
-            const label = document.getElementById('heroReadLabel');
-            if (c && read) {
-                read.href = MH.readerHref(m.id, c.id, src);
-                if (label) label.textContent = `Lire le Ch. ${MH.chapNum(c.chapter)}`;
-            }
-        }
-
-        // ── Fond du hero : JAMAIS de vide ──────────────────────────────
-        // Un repli signature s'affiche immédiatement : duotone de marque
-        // (Kakishibu ou Ai selon l'œuvre) + trame screentone. L'illustration
-        // ne s'installe QUE quand elle a réellement fini de charger — fini
-        // les bandes noires quand la cover est absente ou bloquée (hotlink).
-        const HERO_DOTS = 'radial-gradient(rgba(233,231,224,.13) 1.1px, transparent 1.6px)';
-        function heroGradient(m) {
-            const s = ((m.id || '') + (m.title || '')).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-            // Alterne les deux accents fonctionnels §13, en version profonde mais VISIBLE
-            const warm = s % 2 === 0;
-            const h  = warm ? 21 : 215;         // Kakishibu ↔ Ai
-            const h2 = warm ? 36 : 232;
-            return `linear-gradient(132deg, hsl(${h},46%,26%) 0%, hsl(${h2},40%,13%) 62%, hsl(${h2},42%,9%) 100%)`;
-        }
-        function paintBg(val, size, hasArt, isBanner, instant) {
-            hero.classList.toggle('has-banner', !!isBanner && hasArt);
-            hero.classList.toggle('hero-noart', !hasArt);
-            if (instant) {
-                bg.style.backgroundImage = val; bg.style.backgroundSize = size;
-                bgN.style.opacity = '0';
-            } else {
-                bgN.style.backgroundImage = val; bgN.style.backgroundSize = size;
-                bgN.style.opacity = '1';
-                setTimeout(() => { bg.style.backgroundImage = val; bg.style.backgroundSize = size; bgN.style.opacity = '0'; }, 700);
-            }
-        }
-        function show(idx, instant) {
-            const m = heroMangas[idx]; if (!m) return;
-            heroIdx = idx;
-            // Celle-ci si elle manque encore, et la suivante en avance pour
-            // qu'elle soit prête avant la rotation (audit PERF-02).
-            ensureBanner(idx);
-            ensureBanner((idx + 1) % heroMangas.length);
-            const url  = m.banner || m.coverLarge || m.cover || m.coverThumb || '';
-            const grad = heroGradient(m);
-
-            // 1) Le repli est peint tout de suite (aucun trou noir possible)
-            paintBg(`${HERO_DOTS}, ${grad}`, '7px 7px, cover', false, false, instant);
-            // 2) L'illustration ne remplace le repli que si elle charge vraiment ;
-            //    si elle échoue : 2e essai via le PROXY serveur (contourne le
-            //    hotlink/CF, comme les couvertures), puis 3e chance AniList.
-            const proxied = (u) => (!u || u.startsWith('/') || u.startsWith('data:') || u.includes('/api/img?'))
-                ? u : API.base + '/img?u=' + encodeURIComponent(u);
-            const tryArt = (artUrl, isBanner, onFail) => {
-                const im = new Image();
-                im.onload = () => {
-                    if (heroIdx !== idx) return;   // le slide a changé entre-temps
-                    paintBg(`url('${artUrl}'), ${HERO_DOTS}, ${grad}`, 'cover, 7px 7px, cover', true, isBanner, false);
-                };
-                im.onerror = () => { if (heroIdx === idx && onFail) onFail(); };
-                im.src = artUrl;
-            };
-            const secondChance = async () => {
-                try {
-                    const a = await API.art.get(m.title);
-                    const alt = a?.banner || a?.cover;
-                    if (alt && heroIdx === idx) tryArt(alt, !!a.banner, () => tryArt(proxied(alt), !!a.banner, null));
-                } catch (e) { /* le repli duotone reste — jamais de vide */ }
-            };
-            if (url) tryArt(url, !!m.banner, () => tryArt(proxied(url), !!m.banner, secondChance));
-            else secondChance();
-            content.classList.add('hero-fading');
-            setTimeout(() => {
-                content.innerHTML = slideHTML(m);
-                content.classList.remove('hero-fading');
-                if (window.MH?.markFavorites) MH.markFavorites(content);
-                wireReadCTA(m);
-            }, instant ? 0 : 240);
-            rail.querySelectorAll('.hero-thumb').forEach((d, i) => d.classList.toggle('active', i === idx));
-            restartProgress();
-        }
-
-        function go(idx) { show((idx + heroMangas.length) % heroMangas.length); restart(); }
-        // Audit H1 : respecte prefers-reduced-motion, comme hero3d.js juste
-        // à côté — l'auto-rotation ne démarre pas pour un utilisateur
-        // sensible au mouvement (navigation manuelle toujours possible).
-        const REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-        // ── Un arrêt EXPLICITE, et qui se souvient ──────────
-        //
-        // La rotation se met bien en pause au survol et au focus clavier. Mais
-        // `mouseenter` ne se déclenche jamais au doigt : sur téléphone, rien
-        // n'arrêtait le carrousel. On lit une description, elle disparaît au
-        // bout de sept secondes, et le seul recours est de garder le doigt
-        // posé. WCAG 2.2.2 demande un moyen de mettre en pause ; il existait
-        // pour la souris et le clavier, pas pour le tactile — c'est-à-dire pas
-        // là où l'application est le plus utilisée.
-        //
-        // Le choix est MÉMORISÉ : quelqu'un qui arrête un carrousel ne veut pas
-        // le réarrêter à chaque visite.
-        const CLE_PAUSE = 'inko_hero_pause';
-        let heroArrete = false;
-        try { heroArrete = localStorage.getItem(CLE_PAUSE) === '1'; } catch (e) { heroArrete = false; }
-
-        function start() {
-            if (REDUCED_MOTION || heroArrete) return;
-            heroTimer = setInterval(() => show((heroIdx + 1) % heroMangas.length), HERO_MS); restartProgress();
-        }
-        function restart() { clearInterval(heroTimer); start(); }
-        function restartProgress() {
-            if (!prog) return;
-            prog.style.transition = 'none'; prog.style.width = '0%';
-            // force reflow puis lance l'animation
-            void prog.offsetWidth;
-            prog.style.transition = `width ${HERO_MS}ms linear`; prog.style.width = '100%';
-        }
-
-        // Rail de vignettes (carrousel visuel)
-        rail.innerHTML = heroMangas.map((m, i) => `
-            <button class="hero-thumb ${i === 0 ? 'active' : ''}" data-i="${i}" aria-label="${MH.esc(m.title)}">
-                <img src="${MH.cover(m.coverThumb, m.cover)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-            </button>`).join('');
-        rail.querySelectorAll('.hero-thumb').forEach(t => t.addEventListener('click', () => go(+t.dataset.i)));
-
-        // Flèches
-        if (!document.getElementById('heroPrev')) {
-            const arrow = (id, side, d) => {
-                const b = document.createElement('button');
-                b.id = id; b.className = 'hero-arrow'; b.style[side] = '14px';
-                b.setAttribute('aria-label', id === 'heroPrev' ? 'Précédent' : 'Suivant');
-                b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
-                return b;
-            };
-            const prev = arrow('heroPrev', 'left',  'M15 18l-6-6 6-6');
-            const next = arrow('heroNext', 'right', 'M9 18l6-6-6-6');
-            prev.addEventListener('click', () => go(heroIdx - 1));
-            next.addEventListener('click', () => go(heroIdx + 1));
-            hero.append(prev, next);
-
-            // Le bouton pause/lecture. Masqué si le système demande déjà moins
-            // de mouvement : la rotation ne démarre pas, il n'y a rien à
-            // arrêter, et un bouton sans effet est pire que pas de bouton.
-            if (!REDUCED_MOTION) {
-                const pp = document.createElement('button');
-                pp.id = 'heroPause';
-                pp.className = 'hero-arrow hero-pause';
-                const peindre = () => {
-                    const t = heroArrete ? 'Reprendre le défilement' : 'Mettre le défilement en pause';
-                    pp.title = t;
-                    pp.setAttribute('aria-label', t);
-                    pp.setAttribute('aria-pressed', String(heroArrete));
-                    pp.innerHTML = heroArrete
-                        ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'
-                        : '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
-                };
-                peindre();
-                pp.addEventListener('click', () => {
-                    heroArrete = !heroArrete;
-                    try { localStorage.setItem(CLE_PAUSE, heroArrete ? '1' : '0'); } catch (e) { /* stockage refusé */ }
-                    peindre();
-                    if (heroArrete) {
-                        clearInterval(heroTimer);
-                        if (prog) { prog.style.transition = 'none'; prog.style.width = '0%'; }
-                        MH.announce?.('Défilement du carrousel en pause');
-                    } else {
-                        start();
-                        MH.announce?.('Défilement du carrousel repris');
-                    }
-                });
-                hero.append(pp);
-            }
-        }
-
-        heroShow = show;
-        show(0, true);
-        start();
-
-        if (!hero.dataset.heroBound) {
-            hero.dataset.heroBound = '1';
-            // Pause au survol — et au focus clavier (audit H2, WCAG 2.2.2 :
-            // un utilisateur qui Tab sur « Lire » ne doit pas voir le
-            // contenu changer sous lui pendant qu'il le lit).
-            const pause = () => { clearInterval(heroTimer); if (prog) { prog.style.transition = 'none'; } };
-            hero.addEventListener('mouseenter', pause);
-            // `restart` respecte `heroArrete` : quitter le survol ne doit pas
-            // relancer un carrousel que l'utilisateur a explicitement arrêté.
-            hero.addEventListener('mouseleave', restart);
-            hero.addEventListener('focusin', pause);
-            hero.addEventListener('focusout', e => { if (!hero.contains(e.relatedTarget)) restart(); });
-            // Clavier
-            hero.setAttribute('tabindex', '0');
-            hero.addEventListener('keydown', e => {
-                if (e.key === 'ArrowLeft') go(heroIdx - 1);
-                else if (e.key === 'ArrowRight') go(heroIdx + 1);
-            });
-            // Swipe tactile
-            let sx = 0;
-            hero.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
-            hero.addEventListener('touchend', e => {
-                const dx = e.changedTouches[0].clientX - sx;
-                if (Math.abs(dx) > 50) go(heroIdx + (dx < 0 ? 1 : -1));
-            }, { passive: true });
-        }
-    }
-
-    function renderTrending(mangas) {
-        const track = document.getElementById('trendingTrack');
-        if (!track) return;
-        track.innerHTML = mangas.map((m, i) => `
-            <a href="serie.html?id=${encodeURIComponent(m.id)}" class="trending-card" data-manga-id="${m.id}">
-                <div class="trending-rank">${i + 1}</div>
-                <div class="trending-cover">
-                    <img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" onerror="this.src='${MH.placeholderCover(m.id)}'">
-                    <div class="trending-overlay">
-                        <div class="trending-title">${MH.esc(m.title)}</div>
-                        <div class="trending-meta">${m.year || ''} ${m.status ? '· ' + m.status : ''}</div>
-                    </div>
-                </div>
-            </a>`).join('');
-
-        let trendOffset = 0;
-        const update = () => {
-            const cardW = (track.firstElementChild?.offsetWidth || 0) + 12;
-            track.style.transform = `translateX(-${trendOffset * cardW}px)`;
-        };
-        document.getElementById('trendPrev')?.addEventListener('click', () => {
-            trendOffset = Math.max(0, trendOffset - 1); update();
-        });
-        document.getElementById('trendNext')?.addEventListener('click', () => {
-            // Audit H3 : borne plancher 0 — avec moins de 5 tendances,
-            // (length - 5) devenait négatif et translatait la piste à l'envers.
-            trendOffset = Math.min(Math.max(0, mangas.length - 5), trendOffset + 1); update();
-        });
-    }
-
-    // ── Reco personnalisée (tags des favoris) ─────────────
-    // Connecté avec favoris → séries du genre préféré non suivies.
-    // Sinon → repli sur les populaires.
-    async function renderReco(fallback) {
-        const el = document.getElementById('recoGrid');
+    async function rendreStats() {
+        const el = document.getElementById('homeStats');
         if (!el) return;
-        const subEl = document.querySelector('.section-reco .section-subtitle');
-
-        const showFallback = () => {
-            if (subEl) subEl.textContent = 'Les séries les plus suivies en ce moment';
-            el.innerHTML = (fallback || []).map(m => mangaCardHTML(m)).join('');
-            MH.markFavorites(el);
-        };
-
-        if (!API.isLoggedIn()) return showFallback();
         try {
-            const favs = await API.me.favorites();
-            if (!favs.length) return showFallback();
-            const favSet = new Set(favs.map(f => String(f.mangaId)));
-
-            // Audit AMEL-02 : la recommandation partait des FAVORIS et
-            // n'annonçait qu'un genre — « Parce que tu suis des séries
-            // Action ». Suivre une série et l'avoir lue ne disent pas la même
-            // chose : on suit par intention, on lit par goût effectif. On part
-            // donc de la dernière série réellement lue, et on la NOMME : une
-            // recommandation dont on comprend l'origine se juge, une
-            // recommandation anonyme se subit.
-            let origine = null;   // { titre, tags }
-            try {
-                const progress = await API.me.progress();
-                const derniere = Object.entries(progress)
-                    .map(([id, p]) => ({ mangaId: id, ...p }))
-                    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
-                if (derniere) {
-                    const m = await API.mangas.getFrom(derniere.source, derniere.mangaId);
-                    if (m && m.title && (m.tags || []).length) origine = { titre: m.title, tags: m.tags };
-                }
-            } catch (e) { /* pas d'historique exploitable : on retombe sur les favoris */ }
-
-            let tags = origine ? origine.tags.slice(0, 3) : null;
-            if (!tags) {
-                // Repli : genres dominants parmi les favoris, comme auparavant.
-                const mangas = (await Promise.allSettled(favs.slice(0, 8).map(f => API.mangas.get(f.mangaId))))
-                    .filter(r => r.status === 'fulfilled').map(r => r.value);
-                const counts = {};
-                mangas.forEach(m => (m.tags || []).slice(0, 5).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
-                tags = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
-            }
-            if (!tags.length) return showFallback();
-
-            const data = await API.mangas.search({ includedTags: [tags[0]], limit: 12, sort: 'popularity' });
-            const picks = (data.results || []).filter(m => !favSet.has(String(m.id))).slice(0, 3);
-            if (!picks.length) return showFallback();
-
-            if (subEl) {
-                subEl.textContent = origine
-                    ? `Parce que tu as lu « ${origine.titre} »`
-                    : `Parce que tu suis des séries ${tags[0]}`;
-            }
-            el.innerHTML = picks.map(m => mangaCardHTML(m, tags.find(t => (m.tags || []).includes(t)))).join('');
-            MH.markFavorites(el);
-        } catch (e) { showFallback(); }
-    }
-
-    // ── Dernières sorties ────────────────────────────────
-    async function loadLatest() {
-        try {
-            // Déjà rempli par loadHeroAndTrending(), qui tourne avant (audit
-            // PERF-02). On ne redemande que si ce chargement a échoué.
-            if (!latestCache) latestCache = (await API.mangas.latest({ limit: LATEST_LIMIT })).results || [];
-            renderLatest();
-        } catch(e) {
-            showError('latest', 'Impossible de charger les nouveautés', () => { latestCache = null; loadLatest(); });
-        }
-    }
-
-    let latestFilter = 'all';
-    async function filteredLatest() {
-        if (latestFilter === 'populaire') return popularCache || [];
-        if (latestFilter === 'suivis') {
-            const favSet = await MH.getFavSet();
-            return (latestCache || []).filter(m => favSet.has(String(m.id)));
-        }
-        return latestCache || [];
-    }
-
-    async function renderLatest() {
-        const el = document.getElementById('latestGrid');
-        if (!el || !latestCache) return;
-        const list = await filteredLatest();
-        if (!list.length) {
-            el.innerHTML = `<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text3);font-size:13px">
-                ${latestFilter === 'suivis' ? 'Aucune sortie récente parmi tes séries suivies.' : 'Rien à afficher.'}
-            </div>`;
-        } else {
-            el.innerHTML = list.slice(0, latestCount).map(m => mangaCardHTML(m)).join('');
-        }
-        const more = document.getElementById('btnMore');
-        if (more) more.style.display = latestCount >= list.length ? 'none' : '';
-        MH.markFavorites(el);
-    }
-
-    function bindLatestControls() {
-        document.getElementById('btnMore')?.addEventListener('click', () => {
-            latestCount = Math.min(latestCount + 4, 16);
-            renderLatest();
-        });
-        document.getElementById('latestFilters')?.addEventListener('click', e => {
-            const btn = e.target.closest('[data-filter]');
-            if (!btn) return;
-            document.querySelectorAll('#latestFilters [data-filter]')
-                .forEach(b => b.classList.remove('tag-orange', 'active'));
-            btn.classList.add('tag-orange', 'active');
-            latestFilter = btn.dataset.filter;
-            latestCount = 8;
-            renderLatest();
-        });
-    }
-
-    // AMEL-01 faisait remonter la reprise AU-DESSUS du hero des qu'une lecture
-    // etait en cours. Revenu en arriere sur demande : le hero reste la premiere
-    // chose qu'on voit, et la reprise se place juste en dessous — sa position
-    // dans le HTML.
-    //
-    // Sans lecture en cours, la section affiche son etat vide (« Aucune lecture
-    // en cours » + lien vers le catalogue) : c'est utile pour un nouvel
-    // arrivant, et ca evite un trou dans la page.
-    function placerReprise() {
-        const section = document.getElementById('sectionResume');
-        if (!section) return;
-        // Filet : si une version precedente avait deja deplace le bloc dans
-        // ce document, on le remet a sa place.
-        section.classList.remove('section-resume--prioritaire');
-        const hero = document.getElementById('hero');
-        if (hero && hero.previousElementSibling === section) {
-            hero.parentNode.insertBefore(section, hero.nextElementSibling);
-        }
-    }
-
-    // ── À lire ensuite ────────────────────────────────────
-    //
-    // « Reprendre » répond à « où en étais-je ». Cette section répond à « que
-    // voulais-je lire ensuite » — une question différente, et qui n'avait
-    // aucune réponse dans l'application : une collection « à lire » demandait
-    // d'aller la chercher, et rien, ici, ne la rappelait.
-    //
-    // Elle se rend depuis `UserData` SEUL : aucun appel réseau. La file garde
-    // titre et couverture avec chaque entrée, précisément pour s'afficher quand
-    // il n'y a ni hub ni connexion — c'est-à-dire au moment où l'on cherche
-    // quoi lire.
-    function loadFile() {
-        const section = document.getElementById('sectionFile');
-        const el = document.getElementById('fileList');
-        if (!section || !el) return;
-
-        const entrees = window.UserData?.file?.() || [];
-        // Une section vide sur l'accueil est du bruit, pas une invitation :
-        // tant que rien n'a été mis de côté, elle n'existe pas.
-        section.hidden = entrees.length === 0;
-        if (!entrees.length) { el.innerHTML = ''; return; }
-
-        el.innerHTML = entrees.slice(0, 6).map((e) => `
-            <div class="resume-item" data-file="${MH.esc(e.k)}" style="position:relative">
-                <a href="serie.html?id=${encodeURIComponent(e.id)}&source=${encodeURIComponent(e.source || '')}"
-                   style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
-                    <div class="resume-cover">
-                        <img src="${MH.cover(e.cover, e.cover)}" alt="" loading="lazy">
-                    </div>
-                    <div class="resume-info">
-                        <div class="resume-title">${MH.esc(e.title || e.id)}</div>
-                        <div class="resume-chap">${MH.esc(e.source || '')}</div>
-                    </div>
-                </a>
-                <button class="resume-remove" data-defile="${MH.esc(e.id)}" data-src="${MH.esc(e.source || '')}"
-                    aria-label="Retirer « ${MH.esc(e.title || e.id)} » de la file"
-                    title="Retirer de « À lire ensuite »"
-                    style="background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;flex-shrink:0">✕</button>
-            </div>`).join('');
-
-        // Délégation : les gestionnaires ne sont pas écrits en attribut, la CSP
-        // de l'app installée les bloque (DESK-01/DESK-02).
-        el.querySelectorAll('[data-defile]').forEach((b) => {
-            b.addEventListener('click', (ev) => {
-                ev.preventDefault();
-                window.UserData?.retirerDeLaFile?.(b.dataset.defile, b.dataset.src);
-                loadFile();
-                MH.toast?.('Retiré de « À lire ensuite »');
-            });
-        });
-    }
-
-    // ── Reprendre la lecture ──────────────────────────────
-    async function loadResume() {
-        const el = document.getElementById('resumeList');
-        if (!el) return;
-        if (!API.isLoggedIn()) {
-            // Audit N1 : message honnête (non connecté ≠ serveur en panne)
-            el.innerHTML = `<div style="padding:10px 14px">${MH.guestNotice({ compact: true })}</div>`;
-            return;
-        }
-        try {
-            const progress = await API.me.progress();
-            const entries = Object.entries(progress)
-                .map(([id, p]) => ({ mangaId: id, ...p }))
-                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                .slice(0, 4);
-
-            if (!entries.length) {
-                el.innerHTML = `<div style="color:var(--text3);padding:14px;font-size:13px">
-                    Aucune lecture en cours. <a href="catalogue.html" class="link-orange">Découvrir le catalogue →</a>
-                </div>`;
-                return;
-            }
-
-            // Une lecture est en cours : la section devient visible, a sa
-            // place — juste sous le hero.
-            placerReprise();
-
-            await MH.loadSourceTypes();
-            // Récupère les détails des mangas depuis LEUR source d'origine
-            const mangas = await Promise.allSettled(entries.map(e => API.mangas.getFrom(e.source, e.mangaId)));
-            el.innerHTML = entries.map((e, i) => {
-                const r = mangas[i];
-                if (r.status !== 'fulfilled' || !r.value || !r.value.title) return '';
-                const m = r.value;
-                const isNovel = MH.isNovelSource(e.source);
-                // Pour un roman, "page" = % de défilement ; pour un manga, %
-                // exact via le nombre réel de pages persisté (audit HIST2) —
-                // repli 0 (barre neutre) si la progression date d'avant.
-                const pct = isNovel ? Math.min(100, e.page || 0)
-                    : (e.totalPages > 0 ? Math.min(100, Math.round((e.page / e.totalPages) * 100)) : 0);
-                const sub = isNovel ? `Chapitre ${MH.chapNum(e.chapter)} · ${pct}%` : `Chapitre ${MH.chapNum(e.chapter)} · Page ${e.page}`;
-                return `
-                <div class="resume-item" data-resume="${MH.esc(m.id)}" style="position:relative">
-                    <a href="${MH.readerHref(m.id, e.chapterId, e.source)}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
-                        <div class="resume-cover">
-                            <img src="${MH.cover(m.coverThumb, m.cover)}" alt="${MH.esc(m.title)}" loading="lazy">
-                        </div>
-                        <div class="resume-info">
-                            <div class="resume-title">${MH.esc(m.title)}</div>
-                            <div class="resume-chap">${sub}</div>
-                            <div class="resume-progress"><div class="resume-progress-fill" style="width:${pct}%"></div></div>
-                        </div>
-                    </a>
-                    <!-- Audit AMEL-28 : ouvrir par erreur un vieux chapitre
-                         écrasait la position, sans retour possible. -->
-                    <button class="resume-history" data-histo="${MH.esc(m.id)}" data-src="${MH.esc(e.source || '')}"
-                        title="Reprendre à une position précédente"
-                        style="background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;flex-shrink:0">↺</button>
-                    <button class="resume-remove" data-remove="${MH.esc(m.id)}" title="Retirer de la liste"
-                        style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:6px;flex-shrink:0">✕</button>
-                </div>`;
-            }).join('');
-
-            // Suppression d'une œuvre de "reprendre la lecture"
-            el.querySelectorAll('[data-remove]').forEach(btn => {
-                btn.addEventListener('click', async (ev) => {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    const id = btn.dataset.remove;
-                    try {
-                        await API.me.removeProgress(id);
-                        btn.closest('[data-resume]')?.remove();
-                        MH.toast('Retiré de « Reprendre la lecture »');
-                        if (!el.querySelector('[data-resume]')) {
-                            el.innerHTML = `<div style="color:var(--text3);padding:14px;font-size:13px">Aucune lecture en cours. <a href="catalogue.html" class="link-orange">Découvrir →</a></div>`;
-                        }
-                    } catch (e2) { MH.toastErreur(e2); }
-                });
-            });
-
-            // Audit AMEL-28 : reprendre à une position précédente.
-            el.querySelectorAll('[data-histo]').forEach(btn => {
-                btn.addEventListener('click', async (ev) => {
-                    ev.preventDefault(); ev.stopPropagation();
-                    const id = btn.dataset.histo;
-                    let histo = [];
-                    try { histo = await API.me.progressHistory(id); }
-                    catch (e2) { MH.toast('Historique indisponible'); return; }
-                    // La position courante est en tête de l'historique : la
-                    // proposer reviendrait à « reprendre là où je suis déjà ».
-                    const precedentes = histo.slice(1);
-                    if (!precedentes.length) {
-                        MH.toast('Aucune position précédente enregistrée pour cette série');
-                        return;
-                    }
-                    const unite = MH.unitLabel(btn.dataset.src, { short: true });
-                    const choix = await MH.prompt(
-                        'Position à reprendre :\n' + precedentes.slice(0, 8).map((h, i) =>
-                            `${i + 1}. ${unite} ${MH.chapNum(h.chapter)} · page ${h.page} (${MH.relTime(h.at)})`).join('\n'),
-                        { value: '1', okText: 'Reprendre' });
-                    const n = parseInt(choix, 10);
-                    if (!(n >= 1 && n <= Math.min(8, precedentes.length))) return;
-                    const h = precedentes[n - 1];
-                    window.location.href = MH.readerHref(id, h.chapterId, h.source || btn.dataset.src);
-                });
-            });
-        } catch(err) {
-            el.innerHTML = `<div style="color:var(--text3);padding:14px;font-size:13px">Erreur de chargement</div>`;
-        }
-    }
-
-    // ── Sidebar (top manga + genres) ──────────────────────
-    async function loadSidebar() {
-        const topEl = document.getElementById('topMangaList');
-        if (topEl && popularCache) {
-            const ranks = ['top-rank-1', 'top-rank-2', 'top-rank-3'];
-            topEl.innerHTML = popularCache.slice(0, 10).map((m, i) => `
-                <a href="serie.html?id=${encodeURIComponent(m.id)}" class="top-manga-item" data-manga-id="${m.id}">
-                    <div class="top-rank ${ranks[i] || ''}">${i + 1}</div>
-                    <div class="top-cover">
-                        <img src="${MH.cover(m.coverThumb, m.cover)}" alt="${MH.esc(m.title)}" loading="lazy">
-                    </div>
-                    <div class="top-info">
-                        <div class="top-title">${MH.esc(m.title)}</div>
-                        <div class="top-meta">${m.year || ''} ${m.demographic ? '· ' + m.demographic : ''}</div>
-                    </div>
-                </a>`).join('');
-        }
-
-        // Genres populaires (audit TOP3) : construits à partir des genres
-        // réellement présents sur les œuvres populaires de la source active,
-        // au lieu d'une liste anglaise figée sans lien avec la source.
-        const genreEl = document.getElementById('genreCloud');
-        if (genreEl) {
-            const counts = new Map();
-            (popularCache || []).concat(latestCache || []).forEach(m =>
-                (m.tags || []).forEach(t => counts.set(t, (counts.get(t) || 0) + 1)));
-            let genres = [...counts.entries()]
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 10)
-                .map(([g]) => g);
-            if (!genres.length) {
-                // Source sans tags sur ses listes : repli sur l'endpoint tags
-                try { genres = ((await API.mangas.tags()).results || []).slice(0, 10).map(t => t.name || t); }
-                catch (e) { genres = []; }
-            }
-            genreEl.innerHTML = genres.map(g =>
-                `<a href="catalogue.html?tag=${encodeURIComponent(g)}" class="tag">${MH.esc(g)}</a>`
-            ).join('') || '<span style="font-size:12px;color:var(--text3)">Aucun genre disponible sur cette source.</span>';
-        }
-
-        renderStatsMini();
-        wireInstallButton();
-    }
-
-    // Bouton "Installer l'application" : visible seulement si la PWA est installable
-    function wireInstallButton() {
-        const btn = document.getElementById('btnInstallApp');
-        if (!btn) return;
-        const show = () => { if (window.MH?.canInstall?.()) { btn.style.display = ''; } };
-        show();
-        window.addEventListener('pwa:installable', show);
-        if (!btn.dataset.bound) {
-            btn.dataset.bound = '1';
-            btn.addEventListener('click', () => window.MH.pwaInstall());
-        }
-    }
-
-    // Bloc stats réel (remplace l'ancien faux sondage)
-    async function renderStatsMini() {
-        const el = document.getElementById('pollBlock');
-        if (!el) return;
-        if (!API.isLoggedIn()) {
-            // Audit N1 : message honnête (non connecté ≠ serveur en panne)
-            el.innerHTML = `<div class="sidebar-block-header"><span class="sidebar-block-title">Ta progression</span></div>
-                ${MH.guestNotice({ compact: true })}`;
-            return;
-        }
-        try {
-            const stats = await API.me.stats();
-            const t = stats.totals || {};
-            const streak = stats.streak?.current || 0;
-            const item = (num, label) => `<div class="stat-mini2"><div class="stat-mini2-num">${MH.fmt(num || 0)}</div><div class="stat-mini2-label">${label}</div></div>`;
-            el.innerHTML = `
-                <div class="sidebar-block-header"><span class="sidebar-block-title">Ta progression</span>
-                    <a href="stats.html" class="section-link" style="font-size:11px">Détails →</a></div>
-                <div class="stats-mini-grid">
-                    ${item(t.chapters_read, 'Chapitres')}
-                    ${item(t.series_read, 'Séries')}
-                    ${item(streak, 'Jours d\'affilée')}
-                    ${item(t.favorites, 'Favoris')}
-                </div>`;
+            const st = await API.me.stats();
+            const t = st.totals || {};
+            const serie = st.streak?.current || 0;
+            const bloc = (n, l, href) => `<a class="home-stat" href="${href}"><strong>${MH.fmt(n || 0)}</strong><span>${l}</span></a>`;
+            el.innerHTML = bloc(t.chapters_read, 'chapitres lus', 'stats.html')
+                + bloc(serie, serie > 1 ? 'jours d’affilée' : 'jour d’affilée', 'stats.html')
+                + bloc(favoris.length, 'séries suivies', 'bibliotheque.html');
         } catch (e) { el.innerHTML = ''; }
     }
 
-    // ── Card HTML ──
-    // matchTag : tag favori de l'utilisateur présent sur cette série (reco perso)
-    const STATUS_LABELS = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };
-    const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-    function mangaCardHTML(m, matchTag) {
-        const isNovel = MH.isNovelSource(API.sources.current);
-        const tags = (m.tags || []).filter(Boolean).slice(0, 3);
-        const statusLabel = STATUS_LABELS[m.status] || '';
-        const sub = m.author || (tags.length ? tags.join(' · ') : (isNovel ? 'Roman' : ''));
-        const metaBits = [];
-        if (m.year) metaBits.push(`<span class="mc-year">${m.year}</span>`);
-        if (m.demographic) metaBits.push(`<span class="mc-demo">${MH.esc(cap(m.demographic))}</span>`);
-        if (statusLabel) metaBits.push(`<span class="mc-status mc-${m.status}">${statusLabel}</span>`);
-        // Audit C3 : le bouton favori n'est plus DANS le lien (HTML invalide,
-        // arbre d'accessibilité incorrect) — la carte est un <div> avec un
-        // lien « étendu » (.manga-card-link) et le cœur en frère au-dessus.
+    // ── 1. Reprendre ───────────────────────────────────────
+    async function chargerReprise() {
+        const zone = document.getElementById('homeContinue');
+        if (!zone) return;
+        if (!API.isLoggedIn()) { zone.innerHTML = MH.guestNotice({ compact: true }); return; }
+        zone.innerHTML = `<div class="cont-skel"></div>`;
+        let entrees = [];
+        try {
+            const [prog] = await Promise.all([API.me.progress(), favorisPret]);
+            entrees = Object.entries(prog).map(([id, p]) => ({ mangaId: id, ...p }))
+                .filter(e => e.chapterId)
+                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                .slice(0, 7);
+        } catch (e) {
+            zone.innerHTML = '';
+            MH.poserEtatErreur?.(zone, e, { onRetry: chargerReprise });
+            return;
+        }
+        if (!entrees.length) { rendreAccueilVide(zone); return; }
+
+        // Titre et couverture : d'abord ceux de la bibliothèque (aucun appel
+        // réseau), la source seulement pour ce qui manque.
+        const parId = new Map(favoris.map(f => [String(f.mangaId), f]));
+        await Promise.allSettled(entrees.map(async e => {
+            const f = parId.get(String(e.mangaId));
+            e.title = e.title || f?.title;
+            e.cover = e.cover || f?.cover;
+            e.unread = f?.unreadCount;
+            if (!e.title || !e.cover) {
+                try {
+                    const m = await API.mangas.getFrom(e.source, e.mangaId);
+                    e.title = e.title || m.title; e.cover = e.cover || m.coverThumb || m.cover;
+                } catch (er) { window.MH?.err?.('accueil.js', er); }
+            }
+        }));
+        const visibles = entrees.filter(e => e.title);
+        if (!visibles.length) { rendreAccueilVide(zone); return; }
+
+        const [une, ...autres] = visibles;
+        const pct = (e) => MH.isNovelSource(e.source)
+            ? Math.min(100, e.page || 0)
+            : (e.totalPages > 0 ? Math.min(100, Math.round((e.page / e.totalPages) * 100)) : 0);
+        const unite = (e) => MH.unitLabel(e.source, { short: true });
+        const ou = (e) => MH.isNovelSource(e.source)
+            ? `${unite(e)} ${MH.chapNum(e.chapter)} · ${pct(e)} %`
+            : `${unite(e)} ${MH.chapNum(e.chapter)}${e.totalPages ? ` · page ${e.page} / ${e.totalPages}` : e.page ? ` · page ${e.page}` : ''}`;
+        const lien = (e) => MH.readerHref(e.mangaId, e.chapterId, e.source);
+        const fiche = (e) => `serie.html?id=${encodeURIComponent(e.mangaId)}&source=${encodeURIComponent(e.source || '')}`;
+        const couv = (e) => MH.cover(e.cover, MH.placeholderCover(e.mangaId));
+
+        zone.innerHTML = `
+            <article class="cont-hero">
+                <div class="cont-hero-bg" style="background-image:url('${couv(une)}')" aria-hidden="true"></div>
+                <a class="cont-hero-cover" href="${lien(une)}" tabindex="-1" aria-hidden="true"><img src="${couv(une)}" alt=""></a>
+                <div class="cont-hero-body">
+                    <div class="cont-hero-kicker">Reprendre · ${MH.esc(MH.relTime(une.updatedAt))}</div>
+                    <h2 class="cont-hero-title"><a href="${fiche(une)}">${MH.esc(une.title)}</a></h2>
+                    <div class="cont-hero-where">${MH.esc(ou(une))}${typeof une.unread === 'number' && une.unread > 1 ? ` · <span class="cont-hero-left">${une.unread} chapitres non lus</span>` : ''}</div>
+                    <div class="cont-bar"><span style="width:${pct(une)}%"></span></div>
+                    <div class="cont-hero-actions">
+                        <a class="btn btn-primary cont-hero-cta" href="${lien(une)}">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                            Reprendre la lecture</a>
+                        <a class="btn btn-ghost" href="${fiche(une)}">Voir la fiche</a>
+                    </div>
+                </div>
+            </article>
+            ${autres.length ? `<div class="cont-row">${autres.map(e => `
+                <div class="cont-item" data-id="${MH.esc(e.mangaId)}">
+                    <a class="cont-item-link" href="${lien(e)}">
+                        <img src="${couv(e)}" alt="" loading="lazy">
+                        <span class="cont-item-text">
+                            <span class="cont-item-title">${MH.esc(e.title)}</span>
+                            <span class="cont-item-where">${MH.esc(ou(e))}</span>
+                            <span class="cont-bar cont-bar--small"><span style="width:${pct(e)}%"></span></span>
+                        </span>
+                    </a>
+                    <button class="cont-item-x" type="button" data-retirer="${MH.esc(e.mangaId)}"
+                        title="Retirer de « Reprendre »" aria-label="Retirer « ${MH.esc(e.title)} » de « Reprendre »">✕</button>
+                </div>`).join('')}</div>` : ''}`;
+
+        zone.querySelectorAll('[data-retirer]').forEach(b => b.addEventListener('click', async (ev) => {
+            ev.preventDefault();
+            try {
+                await API.me.removeProgress(b.dataset.retirer);
+                b.closest('.cont-item')?.remove();
+                MH.toast('Retiré de « Reprendre »');
+            } catch (e) { MH.toastErreur(e); }
+        }));
+    }
+
+    // Premier lancement, rien de lu : on dit par où commencer.
+    function rendreAccueilVide(zone) {
+        zone.innerHTML = `
+            <div class="cont-empty">
+                <div class="cont-empty-kanji" aria-hidden="true">愛</div>
+                <div>
+                    <h2>Par où commencer ?</h2>
+                    <p>Cherche une série que tu connais, parcours le catalogue de tes sources, ou ouvre tes propres fichiers EPUB, CBZ ou PDF.</p>
+                    <div class="cont-empty-actions">
+                        <a class="btn btn-primary" href="catalogue.html">Parcourir le catalogue</a>
+                        <a class="btn btn-ghost" href="recherche.html">Rechercher</a>
+                        <a class="btn btn-ghost" href="import.html">Importer un fichier</a>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // ── 2. Nouveaux chapitres des séries suivies ───────────
+    async function rechargerFavorisPuisNouveautes() {
+        try { favoris = await API.me.favorites(); } catch (e) { return; }
+        rendreNouveautes();
+    }
+
+    // Seulement les séries COMMENCÉES (une progression, ou le statut « en
+    // cours ») : 1 167 chapitres d'une série jamais ouverte ne sont pas des
+    // « nouveaux chapitres », c'est une série à découvrir.
+    let commencees = null;
+    async function rendreNouveautes() {
+        const section = document.getElementById('shelfNew');
+        const track = document.getElementById('shelfNewTrack');
+        if (!section || !track) return;
+        if (!commencees) {
+            try { commencees = new Set(Object.keys(await API.me.progress()).map(String)); }
+            catch (e) { commencees = new Set(); }
+        }
+        const avec = favoris
+            .filter(f => commencees.has(String(f.mangaId)) || f.status === 'reading')
+            .filter(f => typeof f.unreadCount === 'number' && f.unreadCount > 0)
+            .sort((a, b) => (new Date(b.latestAt || 0) - new Date(a.latestAt || 0)) || (b.unreadCount - a.unreadCount))
+            .slice(0, 24);
+        const jamais = favoris.filter(f => typeof f.unreadCount !== 'number').length;
+        section.hidden = !favoris.length;
+        const sub = document.getElementById('shelfNewSub');
+        if (sub) {
+            const total = avec.reduce((n, f) => n + f.unreadCount, 0);
+            sub.textContent = avec.length
+                ? `${avec.length} série${avec.length > 1 ? 's' : ''} · ${total.toLocaleString('fr-FR')} chapitre${total > 1 ? 's' : ''} à lire`
+                : jamais ? 'Pas encore vérifié — lance une vérification pour voir ce qui est sorti' : 'Tout est lu. Rien de nouveau pour l’instant.';
+        }
+        if (!avec.length) { track.innerHTML = ''; track.hidden = true; return; }
+        track.hidden = false;
+        track.innerHTML = avec.map(f => carte({
+            id: f.mangaId, source: f.source, title: f.title, cover: f.cover,
+            badge: `${f.unreadCount} à lire`,
+            sous: f.latestAt ? MH.relTime(new Date(f.latestAt).toISOString()) : '',
+        })).join('');
+        MH.markFavorites?.(track);
+    }
+
+    function brancherVerification() {
+        const b = document.getElementById('homeCheck');
+        if (!b || b.dataset.ok) return;
+        b.dataset.ok = '1';
+        b.addEventListener('click', async () => {
+            b.disabled = true;
+            b.textContent = 'Vérification…';
+            const suivi = (ev) => { const d = ev.detail || {}; if (d.total) b.textContent = `Vérification… ${d.faits} / ${d.total}`; };
+            window.addEventListener('updates:progress', suivi);
+            try { await MH.checkUpdates({ force: true }); }
+            finally {
+                window.removeEventListener('updates:progress', suivi);
+                b.disabled = false; b.textContent = 'Vérifier maintenant';
+            }
+        });
+    }
+
+    // ── 3. À lire ensuite (local) ──────────────────────────
+    function loadFile() {
+        const section = document.getElementById('shelfFile');
+        const track = document.getElementById('shelfFileTrack');
+        if (!section || !track) return;
+        const entrees = window.UserData?.file?.() || [];
+        // Une section vide sur l'accueil est du bruit, pas une invitation.
+        section.hidden = entrees.length === 0;
+        if (!entrees.length) { track.innerHTML = ''; return; }
+        track.innerHTML = entrees.slice(0, 20).map(e => carte({
+            id: e.id, source: e.source, title: e.title || e.id, cover: e.cover,
+            sous: MH.sourceName?.(e.source) || e.source || '',
+            retirer: `data-defile="${MH.esc(e.id)}" data-src="${MH.esc(e.source || '')}"`,
+        })).join('');
+        track.querySelectorAll('[data-defile]').forEach(b => b.addEventListener('click', (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            window.UserData?.retirerDeLaFile?.(b.dataset.defile, b.dataset.src);
+            loadFile();
+            MH.toast?.('Retiré de « À lire ensuite »');
+        }));
+    }
+
+    // ── 4 & 5. Découverte : populaire, dernières sorties, recommandation ──
+    async function chargerDecouverte() {
+        const nomSrc = MH.sourceName?.(API.sources.current) || API.sources.current || '';
+        const pSub = document.getElementById('shelfPopularSub');
+        const lSub = document.getElementById('shelfLatestSub');
+        if (pSub) pSub.textContent = `Les séries les plus suivies sur ${nomSrc}`;
+        if (lSub) lSub.textContent = `Chapitres fraîchement publiés sur ${nomSrc}`;
+        squelette('shelfPopularTrack'); squelette('shelfLatestTrack');
+
+        const [pop, lat] = await Promise.allSettled([
+            API.mangas.popular({ limit: 20 }),
+            API.mangas.latest({ limit: 20 }),
+        ]);
+        const rendre = (id, r, secours) => {
+            const track = document.getElementById(id);
+            if (!track) return [];
+            if (r.status !== 'fulfilled') { showError(track, `${nomSrc} ne répond pas`, chargerDecouverte); return []; }
+            const items = (r.value.results || []).filter(visible);
+            track.innerHTML = items.map(m => carte({
+                id: m.id, source: API.sources.current, title: m.title, cover: m.cover || m.coverThumb, manga: m,
+                sous: secours(m),
+            })).join('');
+            MH.markFavorites?.(track);
+            return items;
+        };
+        const populaires = rendre('shelfPopularTrack', pop, m => [m.year, STATUTS[m.status]].filter(Boolean).join(' · '));
+        rendre('shelfLatestTrack', lat, m => m.updatedAt ? MH.relTime(m.updatedAt) : (STATUTS[m.status] || ''));
+        rendreReco(populaires);
+    }
+
+    // Recommandation nommée : « Parce que tu as lu X ». Même source que X,
+    // pour que la recherche par genre porte sur le bon catalogue.
+    async function rendreReco(populaires) {
+        const section = document.getElementById('shelfReco');
+        const track = document.getElementById('shelfRecoTrack');
+        const sub = document.getElementById('shelfRecoSub');
+        if (!section || !track || !API.isLoggedIn()) return;
+        try {
+            const prog = await API.me.progress();
+            const derniere = Object.entries(prog).map(([id, p]) => ({ mangaId: id, ...p }))
+                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
+            let origine = null, source = API.sources.current;
+            if (derniere) {
+                const m = await API.mangas.getFrom(derniere.source, derniere.mangaId);
+                if (m?.title && (m.tags || []).length) { origine = m; source = derniere.source || source; }
+            }
+            if (!origine) return;
+            const tags = origine.tags.slice(0, 2);
+            const r = await API.mangas.searchFor(source, { includedTags: [tags[0]], limit: 24, sort: 'popularity' });
+            const picks = (r.results || [])
+                .filter(m => !favSet.has(String(m.id)) && String(m.id) !== String(origine.id) && visible(m))
+                .slice(0, 16);
+            if (picks.length < 4) return;
+            section.hidden = false;
+            if (sub) sub.textContent = `Parce que tu as lu « ${origine.title} »`;
+            track.innerHTML = picks.map(m => carte({
+                id: m.id, source, title: m.title, cover: m.cover || m.coverThumb, manga: m,
+                sous: (m.tags || []).find(t => tags.includes(t)) || m.year || '',
+            })).join('');
+            MH.markFavorites?.(track);
+        } catch (e) { void populaires; window.MH?.err?.('accueil.js', e); }
+    }
+
+    /**
+     * L'échec d'une section : on l'AFFICHE, avec une sortie. (L'ancienne
+     * version de cette fonction ne peignait rien et laissait une section vide
+     * sans un mot, sur le premier écran de l'application.)
+     */
+    function showError(el, titre, onRetry) {
+        if (!el) return;
+        MH.poserEtatVide?.(el, {
+            icone: '⚠',
+            titre,
+            texte: 'Réessaie dans un instant, ou change de source depuis le catalogue. Ta bibliothèque, elle, reste disponible.',
+            actions: [
+                ...(onRetry ? [{ libelle: 'Réessayer', onClick: onRetry }] : []),
+                { libelle: 'Sources', href: 'sources.html' },
+            ],
+        });
+    }
+
+    // ── Rayons ─────────────────────────────────────────────
+    // Contenu adulte : exclu de l'accueil tant qu'il n'est pas autorisé
+    // (flouté ailleurs, mais une page d'accueil ne se floute pas à moitié).
+    const visible = (m) => MH.nsfwAllowed?.() || !MH.isAdultManga?.(m);
+
+    function carte({ id, source, title, cover, sous, badge, retirer, manga }) {
+        const href = `serie.html?id=${encodeURIComponent(id)}&source=${encodeURIComponent(source || '')}`;
         return `
-        <div class="manga-card" data-manga-id="${m.id}">
-            <a href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(API.sources.current)}" class="manga-card-link" aria-label="${MH.esc(m.title)}"${MH.nsfwCardAttrs(m)}></a>
-            <div class="manga-card-cover">
-                <img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
-                     onerror="this.src='${MH.placeholderCover(m.id)}'">
-                <div class="manga-card-badges">
-                    ${matchTag ? `<span class="badge badge-orange">${MH.esc(matchTag.toUpperCase())}</span>` : ''}
-                    ${isNovel ? '<span class="badge" style="background:var(--ai);color:#fff">ROMAN</span>' : ''}
-                    ${m.status === 'completed' ? '<span class="badge badge-termine">TERMINÉ</span>' : ''}
-                </div>
-                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris">${MH.heartIcon(false)}</button>
-                <div class="manga-card-overlay">
-                    <div class="btn-read-overlay">Lire</div>
-                </div>
+        <div class="shelf-card manga-card" data-manga-id="${MH.esc(id)}">
+            <a href="${href}" class="manga-card-link" aria-label="${MH.esc(title || '')}"${manga ? MH.nsfwCardAttrs?.(manga) || '' : ''}></a>
+            <div class="shelf-cover">
+                <img src="${MH.cover(cover, MH.placeholderCover(id))}" alt="" loading="lazy" decoding="async">
+                ${badge ? `<span class="shelf-badge">${MH.esc(badge)}</span>` : ''}
+                ${retirer ? `<button class="shelf-x" type="button" ${retirer} aria-label="Retirer">✕</button>`
+                    : `<button class="card-fav-btn" data-fav="${MH.esc(id)}" title="Ajouter à ma bibliothèque">${MH.heartIcon(favSet.has(String(id)))}</button>`}
             </div>
-            <div class="manga-card-info">
-                <div class="manga-card-title">${MH.esc(m.title)}</div>
-                ${sub ? `<div class="manga-card-author">${MH.esc(sub)}</div>` : ''}
-                ${metaBits.length ? `<div class="manga-card-meta">${metaBits.join('')}</div>` : ''}
-            </div>
+            <div class="shelf-name">${MH.esc(title || '')}</div>
+            ${sous ? `<div class="shelf-meta">${MH.esc(String(sous))}</div>` : ''}
         </div>`;
     }
 
-    // Le toggle des favoris (cœurs de cartes) est géré globalement dans global.js.
+    function squelette(id) {
+        const t = document.getElementById(id);
+        if (t) t.innerHTML = Array.from({ length: 8 }, () => '<div class="shelf-card shelf-card--skel"><div class="shelf-cover"></div><div class="shelf-name"></div></div>').join('');
+    }
 
-    // ── Helpers ──
-    /**
-     * L'échec d'une section de l'accueil.
-     *
-     * Cette fonction n'AFFICHAIT RIEN. Elle cherchait l'élément et, s'il
-     * existait, ne faisait rien du tout ; sinon elle écrivait dans la console.
-     * Quand le hero ou les nouveautés échouaient, l'utilisateur voyait donc une
-     * section vide, sans un mot — sur le PREMIER écran de l'application. Elle
-     * avait la forme d'un afficheur d'erreur sans en être un.
-     *
-     * Deux conséquences en cascade : les sélecteurs passés étaient faux sans
-     * que personne le voie (`.latest` ne désigne rien, la section s'appelle
-     * `.section-latest`), et le message du hero demandait « Le backend est-il
-     * lancé ? » — une question de développeur, posée à un lecteur.
-     */
-    function showError(zone, msg, onRetry) {
-        // Chaque zone dit où écrire : le hero peint dans son CONTENU, pas sur
-        // son fond, et les nouveautés dans leur grille.
-        const CIBLES = { hero: 'heroContent', latest: 'latestGrid' };
-        const el = document.getElementById(CIBLES[zone] || zone)
-            || document.querySelector('#' + zone) || document.querySelector('.' + zone);
-        if (!el) { console.warn('[accueil]', msg); return; }
-        window.MH?.poserEtatVide?.(el, {
-            icone: '⚠',
-            titre: msg,
-            texte: "La source ou le serveur n'a pas répondu. Le reste de l'application "
-                + 'reste utilisable : ta bibliothèque et tes téléchargements sont locaux.',
-            actions: [
-                ...(onRetry ? [{ libelle: 'Réessayer', onClick: onRetry }] : []),
-                { libelle: 'Ma bibliothèque', href: 'bibliotheque.html' },
-            ],
+    // Flèches de défilement : ajoutées à chaque rayon, visibles au survol, et
+    // masquées aux extrémités.
+    function brancherRayons() {
+        brancherVerification();
+        document.querySelectorAll('.shelf').forEach(sec => {
+            const track = sec.querySelector('.shelf-track');
+            if (!track || sec.querySelector('.shelf-arrow')) return;
+            const fl = (sens) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = `shelf-arrow shelf-arrow--${sens < 0 ? 'prev' : 'next'}`;
+                b.setAttribute('aria-label', sens < 0 ? 'Précédents' : 'Suivants');
+                b.textContent = sens < 0 ? '‹' : '›';
+                b.addEventListener('click', () => track.scrollBy({ left: sens * track.clientWidth * 0.85, behavior: 'smooth' }));
+                sec.appendChild(b);
+                return b;
+            };
+            const prev = fl(-1), next = fl(1);
+            const maj = () => {
+                prev.hidden = track.scrollLeft < 8;
+                next.hidden = track.scrollLeft + track.clientWidth >= track.scrollWidth - 8;
+            };
+            track.addEventListener('scroll', maj, { passive: true });
+            new MutationObserver(maj).observe(track, { childList: true });
+            window.addEventListener('resize', maj);
+            maj();
         });
     }
 })();

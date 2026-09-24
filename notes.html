@@ -36,7 +36,14 @@
     <div class="jr-moods" id="jrMoods" hidden></div>
     </div>
     <div class="jr-toolbar">
-      <input type="text" class="jr-search" id="jrSearch" placeholder="Rechercher dans mes notes…" autocomplete="off" aria-label="Rechercher dans mes notes">
+      <button class="btn btn-primary btn-sm" id="jrNew">＋ Nouvelle entrée</button>
+      <!-- Deux façons de relire : le CARNET, jour par jour (ce qu'on a lu et
+           ce qu'on a écrit), ou PAR SÉRIE. -->
+      <div class="jr-vues" role="group" aria-label="Affichage">
+        <button type="button" class="jr-vue" data-vue="carnet" aria-pressed="true">Carnet</button>
+        <button type="button" class="jr-vue" data-vue="series" aria-pressed="false">Par série</button>
+      </div>
+      <input type="text" class="jr-search" id="jrSearch" placeholder="Rechercher dans mes notes, ou #tag…" autocomplete="off" aria-label="Rechercher dans mes notes">
       <!-- Audit AMEL-45 : relire son journal comme un recit demande l'ordre
            chronologique ; la consultation courante veut le plus recent. -->
       <button class="btn btn-secondary btn-sm" id="jrRecit" aria-pressed="false" title="Lire chaque série du début à la fin">Mode récit</button>
@@ -53,7 +60,9 @@
          RÉELLES : proposer une humeur que personne n'a jamais posée
          reviendrait à offrir un filtre qui ne rend jamais rien. -->
     <div class="jr-filtres" id="jrFiltres" hidden>
+      <div class="jr-types" id="jrTypes" role="group" aria-label="Filtrer par type"></div>
       <div class="jr-filtres-humeurs" id="jrFiltreHumeurs" role="group" aria-label="Filtrer par humeur"></div>
+      <div class="jr-tags" id="jrTags" role="group" aria-label="Filtrer par tag"></div>
       <label class="jr-filtre-serie">
         <span class="visually-hidden">Filtrer par série</span>
         <select id="jrFiltreSerie" aria-label="Filtrer par série"></select>
@@ -83,6 +92,7 @@
        journal et rouge dans le lecteur seraient deux objets différents.
        Le module n'a aucun effet au chargement : il n'expose que des
        fonctions, et n'insère son panneau qu'au premier `open()`. -->
+  <script src="assets/js/feuille.js"></script>
   <script src="assets/js/notes-ui.js"></script>
   <script src="assets/js/notes.js"></script>
   <script src="assets/js/eula.js"></script>

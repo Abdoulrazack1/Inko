@@ -25,144 +25,63 @@
 <body class="page-body">
   <div id="header-slot"></div>
   <main id="main" tabindex="-1">
-
-  <!-- Le seul h1 de la page etait le titre du manga mis en avant, DANS le
-       carrousel : il changeait toutes les quelques secondes. Releve en
-       parcourant la page rendue — deux titres en tout, et le premier n'etait
-       pas celui de la page. Un h1 nomme la page ; celui-ci nommait ce qui
-       defile. -->
-  <h1 class="a11y-invisible">Accueil</h1>
-  <!-- ══ HERO ══════════════════════════════════════════════ -->
-  <section class="hero" id="hero" aria-roledescription="carrousel">
-    <div class="hero-bg" id="heroBg"></div>
-    <div class="hero-bg hero-bg-next" id="heroBgNext"></div>
-    <div class="hero-scrim"></div>
-    <div class="hero-content" id="heroContent"></div>
-    <div class="hero-rail" id="heroRail"></div>
-    <div class="hero-progress"><div class="hero-progress-fill" id="heroProgress"></div></div>
-  </section>
-
-  <!--REPRENDRE LECTURE ══════════════════════════════════
-       Audit AMEL-01 : ce bloc remonte AU-DESSUS du hero dès qu'une lecture
-       est en cours (accueil.js, loadResume). Sur une bibliothèque de plusieurs
-       centaines de séries, on revient sur l'accueil pour reprendre, pas pour
-       découvrir — la découverte reste juste en dessous. -->
-  <section class="section-resume container" id="sectionResume">
-    <div class="section-header">
+  <!--
+    Accueil refait autour d'une seule question : « qu'est-ce que je lis
+    maintenant ? ». Dans l'ordre : la lecture en cours, les nouveaux chapitres
+    de ce que je suis, ce que j'ai mis de côté, puis seulement la découverte.
+    L'ancien carrousel mettait en avant la dernière série parue sur la source
+    — n'importe laquelle, contenu adulte compris — au-dessus de tout le reste.
+  -->
+  <div class="home container">
+    <header class="home-head">
       <div>
-        <h2 class="section-title">Reprendre la lecture</h2>
+        <!-- Le titre de la page reste « Accueil » pour les lecteurs d'écran ;
+             la salutation n'en est que la partie visible. -->
+        <h1 class="home-hello"><span class="a11y-invisible">Accueil — </span><span id="homeHello">Bonjour</span></h1>
+        <p class="home-sub" id="homeSub"></p>
       </div>
-      <a href="profil.html" class="section-link">Voir l'historique →</a>
-    </div>
-    <div class="resume-list" id="resumeList"></div>
-  </section>
+      <div class="home-stats" id="homeStats"></div>
+    </header>
 
-  <!-- ══ À LIRE ENSUITE ═════════════════════════════════════
-       « Reprendre » dit où on s'est arrêté ; cette section dit ce qu'on
-       s'était promis d'ouvrir. Les deux questions sont différentes, et la
-       seconde n'avait aucune réponse : une collection « à lire » demandait
-       d'aller la chercher, et rien ne la rappelait ici.
-       Masquée tant que la file est vide — une section vide sur l'accueil
-       est du bruit, pas une invitation. -->
-  <section class="section-resume container" id="sectionFile" hidden>
-    <div class="section-header">
-      <div>
-        <h2 class="section-title">À lire ensuite</h2>
-        <div class="section-subtitle">Ce que tu as mis de côté, dans l'ordre où tu l'as ajouté</div>
-      </div>
-    </div>
-    <div class="resume-list" id="fileList"></div>
-  </section>
+    <section class="home-continue" id="homeContinue" aria-label="Reprendre la lecture"></section>
 
-  <!-- ══ TENDANCES ══════════════════════════════════════════ -->
-  <section class="section-trending container">
-    <div class="section-header">
-      <div>
-        <h2 class="section-title"><span class="section-title-icon" aria-hidden="true">●</span> Tendances</h2>
-        <div class="section-subtitle">Séries mises à jour récemment sur la source active</div>
-      </div>
-      <div class="arrow-nav">
-        <button class="arrow-btn" id="trendPrev" aria-label="Tendances précédentes">‹</button>
-        <button class="arrow-btn" id="trendNext" aria-label="Tendances suivantes">›</button>
-      </div>
-    </div>
-    <div class="trending-track-wrap">
-      <div class="trending-track" id="trendingTrack"></div>
-    </div>
-  </section>
-
-  <!-- ══ MAIN SPLIT : recommandé + sidebar ══════════════════ -->
-  <div class="main-split container">
-    <div class="main-left">
-
-      <!-- Recommandé pour vous -->
-      <section class="section-reco">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title"><span class="section-title-icon" aria-hidden="true">●</span> Recommandé pour vous</h2>
-            <div class="section-subtitle">Basé sur votre historique de lecture</div>
-          </div>
-          <a href="catalogue.html" class="section-link">Voir tout →</a>
+    <section class="shelf" id="shelfNew" hidden>
+      <div class="shelf-head">
+        <div><h2 class="shelf-title">Nouveaux chapitres</h2><p class="shelf-sub" id="shelfNewSub">Dans les séries que tu suis</p></div>
+        <div class="shelf-actions">
+          <button class="shelf-link" id="homeCheck" type="button">Vérifier maintenant</button>
+          <a class="shelf-link" href="bibliotheque.html">Ma bibliothèque →</a>
         </div>
-        <div class="reco-grid" id="recoGrid"></div>
-        <div class="collection-banners" id="collectionBanners"></div>
-      </section>
-
-      <!-- Dernières sorties -->
-      <section class="section-latest">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title"><span class="section-title-icon" aria-hidden="true">●</span> Dernières sorties</h2>
-            <div class="section-subtitle">Chapitres fraîchement publiés</div>
-          </div>
-          <div class="latest-filters" id="latestFilters">
-            <button class="tag tag-orange active" data-filter="all">Tout</button>
-            <button class="tag" data-filter="suivis">Suivis</button>
-            <button class="tag" data-filter="populaire">Populaire</button>
-          </div>
-        </div>
-        <div class="manga-grid-4" id="latestGrid"></div>
-        <button class="btn-more" id="btnMore">Charger plus</button>
-      </section>
-    </div>
-
-    <!-- ══ SIDEBAR ════════════════════════════════════════ -->
-    <aside class="main-sidebar">
-
-      <!-- Top Manga -->
-      <div class="sidebar-block card">
-        <div class="sidebar-block-header">
-          <span class="sidebar-block-title">Top Manga</span>
-          <a href="catalogue.html" class="section-link" style="font-size:11px">Voir tout →</a>
-        </div>
-        <div id="topMangaList"></div>
       </div>
+      <div class="shelf-track" id="shelfNewTrack"></div>
+    </section>
 
-      <!-- Sondage -->
-      <div class="sidebar-block card" id="pollBlock"></div>
+    <section class="shelf" id="shelfFile" hidden>
+      <div class="shelf-head"><div><h2 class="shelf-title">À lire ensuite</h2><p class="shelf-sub">Ce que tu as mis de côté</p></div></div>
+      <div class="shelf-track" id="shelfFileTrack"></div>
+    </section>
 
-      <!-- Genres populaires -->
-      <div class="sidebar-block card">
-        <div class="sidebar-block-header">
-          <span class="sidebar-block-title">Genres populaires</span>
-        </div>
-        <div class="genre-cloud" id="genreCloud"></div>
+    <section class="shelf" id="shelfReco" hidden>
+      <div class="shelf-head"><div><h2 class="shelf-title">Recommandé pour toi</h2><p class="shelf-sub" id="shelfRecoSub"></p></div></div>
+      <div class="shelf-track" id="shelfRecoTrack"></div>
+    </section>
+
+    <section class="shelf" id="shelfPopular">
+      <div class="shelf-head">
+        <div><h2 class="shelf-title">Populaire</h2><p class="shelf-sub" id="shelfPopularSub"></p></div>
+        <a class="shelf-link" href="catalogue.html">Catalogue →</a>
       </div>
+      <div class="shelf-track" id="shelfPopularTrack"></div>
+    </section>
 
-      <!-- App / open-source -->
-      <div class="sidebar-premium card">
-        <div class="premium-icon">愛</div>
-        <div>
-          <div class="premium-title">Inko</div>
-          <div class="premium-sub">Lecteur open-source · sans pub · aucune télémétrie</div>
-        </div>
-        <button class="btn btn-primary btn-sm" id="btnInstallApp" style="margin-top:12px;width:100%;justify-content:center;display:none">Installer l'application</button>
-        <a href="https://github.com/Abdoulrazack1/Inko" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%;justify-content:center">Voir sur GitHub ★</a>
+    <section class="shelf" id="shelfLatest">
+      <div class="shelf-head">
+        <div><h2 class="shelf-title">Dernières sorties</h2><p class="shelf-sub" id="shelfLatestSub"></p></div>
+        <a class="shelf-link" href="catalogue.html?sort=latest">Tout voir →</a>
       </div>
-
-    </aside>
+      <div class="shelf-track" id="shelfLatestTrack"></div>
+    </section>
   </div>
-
   </main>
   <div id="footer-slot"></div>
 
@@ -175,11 +94,6 @@
   <script src="assets/js/global.js"></script>
   <script src="assets/js/une-main.js"></script>
   <script src="assets/js/tirer-rafraichir.js"></script>
-  <!-- Audit PERF-06 : three.min.js (594 Ko) était chargé ici en dur, sur le
-       chemin critique de la page d'entrée, pour tout le monde — y compris sans
-       WebGL, en mouvement réduit ou en économiseur de données. hero3d.js le
-       charge désormais à la demande, après le premier rendu. -->
-  <script src="assets/js/hero3d.js"></script>
   <script src="assets/js/feuille.js"></script>
   <script src="assets/js/downloads.js"></script>
   <script src="assets/js/cartes-gestes.js"></script>

@@ -42,41 +42,52 @@
 
     <!-- TAB BIBLIOTHÈQUE -->
     <div id="tabLibrary">
+      <!-- Catégories en onglets, comme dans Mihon : c'est la façon dont on
+           RANGE sa bibliothèque, pas un filtre parmi d'autres. -->
+      <div class="lib-cats" id="libCats" role="tablist" aria-label="Catégories"></div>
       <div class="lib2-toolbar">
-        <input type="text" class="lib2-search" id="libSearch" placeholder="Filtrer ma bibliothèque…"
-               aria-label="Filtrer ma bibliothèque">
+        <input type="search" class="lib2-search" id="libSearch" placeholder="Rechercher dans ma bibliothèque…"
+               aria-label="Rechercher dans ma bibliothèque">
+        <div class="lib-pop-wrap" data-pop-wrap>
+          <button class="btn btn-secondary btn-sm ic-btn" id="btnLibFilters" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Filtres<span class="lib-filter-count" id="libFilterCount" hidden></span></button>
+          <div class="lib-pop" id="libFilterPanel" role="dialog" aria-label="Filtres" hidden>
+            <div class="lib2-filters" id="libFilters"></div>
+                </div>
+        </div>
         <!-- Audit QUAL-05 : sans nom accessible, un lecteur d'écran annonce
-             « liste déroulante » sans dire de quoi il s'agit. Le libellé
-             visible manque par choix de mise en page ; aria-label le fournit. -->
+             « liste déroulante » sans dire de quoi il s'agit. -->
         <select class="lib2-sort" id="libSort" aria-label="Trier la bibliothèque">
           <option value="recent">Récemment ajoutés</option>
           <option value="recent-read">Récemment lus</option>
           <option value="title">Titre A→Z</option>
           <option value="unread">Non-lus d'abord</option>
+          <option value="backlog">À rattraper (plus de retard)</option>
+          <option value="activity">Dernière sortie</option>
           <option value="progress">Progression</option>
-          <!-- Audit AMEL-32 : 55 578 chapitres non lus n'etaient qu'un nombre ;
-               ce tri met devant les series ou le retard est le plus grand. -->
-          <option value="backlog">À rattraper (retard le + grand)</option>
-          <!-- Audit AMEL-35 : savoir quelles series bougent encore. -->
-          <option value="activity">Activité de la source</option>
         </select>
         <div class="lib2-view" id="libViewToggle" role="group" aria-label="Vue">
-          <button data-view="grid" class="on" title="Vue grille" aria-label="Vue grille"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
-          <button data-view="list" title="Vue liste" aria-label="Vue liste"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+          <button data-view="grid" class="on" title="Vue grille" aria-label="Vue grille"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+          <button data-view="list" title="Vue liste" aria-label="Vue liste"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
         </div>
-        <button class="btn btn-secondary btn-sm ic-btn" id="btnLibDensity" title="Changer la densité d'affichage"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Compact</button>
-        <button class="btn btn-secondary btn-sm ic-btn" id="btnLibSelect" title="Sélectionner plusieurs séries"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Sélectionner</button>
-        <button class="btn btn-secondary btn-sm ic-btn" id="btnLibRandom" title="Ouvrir une série au hasard dans ma bibliothèque"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.3" fill="currentColor" stroke="none"/></svg>Au hasard</button>
-        <button class="btn btn-secondary btn-sm ic-btn" id="btnLibExport" title="Télécharger une sauvegarde de mes données (JSON)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Exporter</button>
-        <button class="btn btn-secondary btn-sm ic-btn" id="btnLibExportCsv" title="Exporter la bibliothèque en CSV (tableur, Goodreads…)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>CSV</button>
-        <button class="btn btn-secondary btn-sm ic-btn" id="btnLibImport" title="Restaurer une sauvegarde (JSON)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/></svg>Importer</button>
-        <!-- Audit AMEL-34 : accepte desormais aussi le CSV que l export produit. -->
+        <button class="btn btn-secondary btn-sm ic-btn" id="btnLibSelect" title="Sélectionner plusieurs séries"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Sélectionner</button>
+        <div class="lib-pop-wrap" data-pop-wrap>
+          <button class="btn btn-secondary btn-sm lib-more-btn" id="btnLibMore" aria-haspopup="menu" aria-expanded="false" title="Plus d'actions" aria-label="Plus d'actions">⋯</button>
+          <div class="lib-pop lib-pop--right lib-menu" id="libMoreMenu" role="menu" hidden>
+            <button class="lib-menu-item" id="btnLibDensity" role="menuitem">Compact</button>
+            <button class="lib-menu-item" id="btnLibRandom" role="menuitem"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/></svg>Ouvrir une série au hasard</button>
+            <button class="lib-menu-item" id="btnLibCats" role="menuitem"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Gérer les catégories…</button>
+            <div class="lib-menu-sep"></div>
+            <button class="lib-menu-item" id="btnLibExport" role="menuitem"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Exporter une sauvegarde (JSON)</button>
+            <button class="lib-menu-item" id="btnLibExportCsv" role="menuitem"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Exporter en tableur (CSV)</button>
+            <button class="lib-menu-item" id="btnLibImport" role="menuitem"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/></svg>Importer (JSON ou CSV)…</button>
+          </div>
+        </div>
         <input type="file" id="libImportFile" accept="application/json,.json,text/csv,.csv" style="display:none"
                aria-label="Fichier à importer (JSON ou CSV)">
         <button class="btn btn-primary btn-sm" id="btnLibRefresh" title="Vérifier les nouveaux chapitres de toute la bibliothèque">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-2px;margin-right:5px"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>Mettre à jour
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-2px;margin-right:5px" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>Mettre à jour
         </button>
-        <span id="libRefreshStatus" style="font-size:12px;color:var(--text3)"></span>
+        <span id="libRefreshStatus" class="lib-refresh-status"></span>
       </div>
       <div class="lib2-resume" id="libResume" style="display:none"></div>
       <!-- Filtres actifs. La bibliothèque peut en porter cinq à la fois, et
@@ -84,7 +95,6 @@
            ce bloc depuis l'audit ; deux pages qui filtrent doivent se filtrer
            de la même façon. -->
       <div class="lib2-resume" id="libFilterSummary" hidden></div>
-      <div class="lib2-filters" id="libFilters"></div>
       <div class="lib2-grid" id="libGrid">
         <div class="lib2-empty" style="grid-column:1/-1"><div class="spinner-inline"></div></div>
       </div>
@@ -117,10 +127,15 @@
   <!-- Barre d'actions groupées (mode sélection, audit §10.3) -->
   <div class="lib2-bulkbar hidden" id="libBulkBar">
     <span class="count" id="bulkCount">0 sélectionné(s)</span>
+    <!-- Sélectionne tout ce que les filtres et l'onglet affichent : filtrer
+         « source : SushiScan » puis « Tout » donne la source entière. -->
+    <button class="btn btn-secondary btn-sm" id="bulkAll">Tout sélectionner</button>
     <button class="btn btn-secondary btn-sm" id="bulkStatus">Statut…</button>
     <!-- Audit AMEL-33 : la categorie ne pouvait etre posee que serie par serie
          depuis la fiche ; ranger 358 series a la main n'est pas une option. -->
     <button class="btn btn-secondary btn-sm" id="bulkCategory">Catégorie…</button>
+    <!-- Migration en masse (une source qui meurt emporte des dizaines de séries). -->
+    <button class="btn btn-secondary btn-sm" id="bulkMigrate">Migrer…</button>
     <button class="btn btn-sm" id="bulkDelete" style="background:rgba(239,68,68,.15);color:#ef4444">Retirer</button>
     <button class="btn btn-sm" id="bulkCancel">Annuler</button>
   </div>

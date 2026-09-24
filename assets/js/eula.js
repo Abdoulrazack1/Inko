@@ -175,6 +175,10 @@
         });
 
         yes.addEventListener('click', () => {
+            // Accepter ces conditions couvre aussi l'information sur le stockage
+            // local : inutile d'empiler un bandeau de plus juste derrière.
+            try { localStorage.setItem('inko_consent', '1'); } catch (e) { /* stockage indisponible */ }
+            document.getElementById('inkoConsent')?.remove();
             try { localStorage.setItem(KEY, JSON.stringify({ acceptedAt: Date.now(), version: 1 })); }
             catch (e) { window.MH?.err?.('eula.js', e); }
             overlay.remove();

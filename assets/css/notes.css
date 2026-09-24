@@ -179,3 +179,50 @@
   .jr-humeur { min-height: 40px; padding: 8px 14px; }
   .jr-filtre-serie select { min-height: 40px; }
 }
+
+/* ── Journal : vues, types, tags, carnet, éditeur ─────────────────── */
+.jr-vues { display: inline-flex; border: 1px solid var(--border2); border-radius: 9px; overflow: hidden; }
+.jr-vue { border: 0; background: none; color: var(--text2); padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.jr-vue[aria-pressed="true"] { background: var(--bg3); color: var(--text); font-weight: 600; }
+.jr-types, .jr-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.jr-chip { border: 1px solid var(--border2); background: var(--bg2); color: var(--text2); border-radius: 16px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+.jr-chip span { color: var(--text3); margin-left: 2px; }
+.jr-chip.on { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 14%, var(--bg2)); }
+.jr-chip-tag { font-family: var(--font-mono, ui-monospace, monospace); }
+.jr-tag { color: var(--accent); text-decoration: none; font-weight: 600; }
+.jr-tag:hover { text-decoration: underline; }
+.jr-note-kind { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 6px; background: var(--bg3); color: var(--text2); }
+.jr-kind-citation { background: color-mix(in srgb, var(--ai, #3d5170) 25%, var(--bg3)); color: var(--text); }
+.jr-kind-reflexion { background: color-mix(in srgb, #3f7d4e 25%, var(--bg3)); color: var(--text); }
+.jr-note-serie { font-weight: 600; font-size: 12.5px; color: var(--text); text-decoration: none; }
+.jr-note-serie:hover { text-decoration: underline; }
+.jr-citation { font-family: var(--font-read, Georgia, serif); font-style: italic; border-left: 3px solid var(--accent); padding-left: 12px; }
+.jr-note.is-pinned { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.jr-note-tool.on { color: var(--accent); }
+.jr-pinned { margin-bottom: 18px; }
+.jr-day { margin-bottom: 22px; }
+.jr-day-title { font-family: var(--font-head); font-size: 15px; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); color: var(--text); }
+.jr-lu { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.jr-lu-item { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px; border-radius: 10px; background: var(--bg2); border: 1px solid var(--border); color: var(--text2); font-size: 12px; text-decoration: none; max-width: 320px; }
+.jr-lu-item:hover { border-color: var(--border2); }
+.jr-lu-item img { width: 26px; height: 36px; object-fit: cover; border-radius: 4px; flex: 0 0 auto; }
+.jr-lu-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jr-lu-item b { color: var(--text); font-weight: 600; margin-right: 6px; }
+.jr-lu-plus { align-self: center; color: var(--text3); font-size: 12px; }
+.jr-editeur { display: flex; flex-direction: column; gap: 14px; }
+.jr-ed-l { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); }
+.jr-ed-l input, .jr-ed-l textarea { font: inherit; text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 14px; color: var(--text);
+  background: var(--bg3); border: 1px solid var(--border2); border-radius: 9px; padding: 9px 11px; }
+.jr-ed-l textarea { resize: vertical; min-height: 140px; line-height: 1.55; }
+.jr-ed-court input { max-width: 160px; }
+.jr-ed-serie-fixe { font-weight: 700; font-size: 15px; }
+.jr-ed-seg, .jr-ed-moods { display: flex; flex-wrap: wrap; gap: 6px; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.jr-ed-seg label, .jr-ed-moods label { display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border: 1px solid var(--border2); border-radius: 16px; color: var(--text2); font-size: 13px; cursor: pointer; }
+.jr-ed-seg input, .jr-ed-moods input { position: absolute; opacity: 0; pointer-events: none; }
+.jr-ed-seg label:has(input:checked) { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.jr-ed-moods label:has(input:checked) { border-color: var(--h, var(--accent)); color: var(--text); background: color-mix(in srgb, var(--h, var(--accent)) 18%, transparent); }
+.jr-ed-seg label:focus-within, .jr-ed-moods label:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.jr-filtres[hidden], #jrFiltresRaz[hidden] { display: none !important; }
+.jr-filtre-serie .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.jr-astuce { color: var(--text3); font-size: 13px; margin: 4px 0 16px; }

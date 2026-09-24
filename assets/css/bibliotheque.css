@@ -187,3 +187,69 @@
 @media (pointer: coarse) {
   .lib2-resume-chip, .lib2-resume-tout { min-height: 38px; padding: 8px 12px; }
 }
+
+/* Avancement du scan des mises à jour */
+.lib-scan-bar { display: inline-block; vertical-align: middle; width: 90px; height: 4px; margin-left: 8px;
+    border-radius: 4px; background: var(--bg4, rgba(127,127,127,.2)); overflow: hidden; }
+.lib-scan-bar > span { display: block; height: 100%; background: var(--accent); transition: width .4s ease; }
+
+/* ── Catégories en onglets ─────────────────────────────────────────── */
+.lib-cats { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none;
+    border-bottom: 1px solid var(--border); margin: 6px 0 12px; }
+.lib-cats::-webkit-scrollbar { display: none; }
+.lib-cat { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 12px; border: 0; background: none; color: var(--text2); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.lib-cat .cnt { font-size: 11px; font-weight: 600; color: var(--text3); background: var(--bg3); border-radius: 10px; padding: 1px 7px; }
+.lib-cat:hover { color: var(--text); }
+.lib-cat.on { color: var(--text); }
+.lib-cat.on::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
+.lib-cat.on .cnt { background: color-mix(in srgb, var(--accent) 18%, var(--bg3)); color: var(--text); }
+.lib-cat-edit { flex: 0 0 auto; margin-left: auto; width: 34px; height: 34px; border-radius: 8px; border: 0; background: none; color: var(--text3); cursor: pointer; }
+.lib-cat-edit:hover { color: var(--text); background: var(--bg3); }
+.lib-cat-add { border: 1px dashed var(--border2); background: none; color: var(--text2); border-radius: 10px; padding: 8px 14px; margin-bottom: 10px; cursor: pointer; font-size: 13px; }
+.lib-cat-add:hover { color: var(--text); border-color: var(--accent); }
+
+/* ── Panneau de filtres et menu « ⋯ » ───────────────────────────────── */
+.lib-pop-wrap { position: relative; }
+.lib-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 70; min-width: 400px; max-width: min(520px, 92vw);
+    padding: 12px; background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,.35); }
+.lib-pop--right { left: auto; right: 0; }
+.lib-pop .lib2-filters { display: block; margin: 0; padding: 0; border: 0; background: none; }
+.lib-filter-group + .lib-filter-group { margin-top: 12px; }
+.lib-filter-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); margin-bottom: 6px; }
+.lib-filter-chips, .lib-pop .lib2-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.lib-filter-reset { margin-top: 14px; border: 0; background: none; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; }
+.lib-filter-count[hidden] { display: none; }
+.lib-filter-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px;
+    margin-left: 6px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; }
+#btnLibFilters.is-active { border-color: var(--accent); }
+.lib-more-btn { min-width: 34px; font-size: 17px; line-height: 1; letter-spacing: 1px; }
+.lib-menu { min-width: 280px; padding: 6px; }
+.lib-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 8px;
+    background: none; color: var(--text); font-size: 13.5px; text-align: left; cursor: pointer; }
+.lib-menu-item:hover, .lib-menu-item:focus-visible { background: var(--bg3); outline: none; }
+.lib-menu-item svg { flex: 0 0 auto; color: var(--text3); }
+.lib-menu-sep { height: 1px; background: var(--border); margin: 6px 4px; }
+.lib-refresh-status { font-size: 12px; color: var(--text3); display: inline-flex; align-items: center; gap: 6px; }
+
+/* ── Gestion des catégories (feuille) ───────────────────────────────── */
+.lib-catmgr-add { display: flex; gap: 8px; margin-bottom: 14px; }
+.lib-catmgr-add input { flex: 1; min-width: 0; height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border2); background: var(--bg3); color: var(--text); }
+.lib-catmgr-list { list-style: none; margin: 0; padding: 0; }
+.lib-catmgr-list li { display: flex; align-items: center; gap: 8px; padding: 9px 4px; border-bottom: 1px solid var(--border); }
+.lib-catmgr-name { flex: 1; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-catmgr-count { color: var(--text3); font-size: 12px; margin-right: 6px; white-space: nowrap; }
+.lib-catmgr-list button { border: 1px solid var(--border); background: var(--bg3); color: var(--text2); border-radius: 7px; padding: 5px 9px; font-size: 12px; cursor: pointer; }
+.lib-catmgr-list button:hover:not(:disabled) { color: var(--text); border-color: var(--border2); }
+.lib-catmgr-list button:disabled { opacity: .35; cursor: default; }
+.lib-catmgr-list button.danger { color: var(--red, #c0392b); }
+.lib-catmgr-empty { color: var(--text3); font-size: 13px; }
+.lib-catpick-sub { color: var(--text2); font-size: 13px; margin: 0 0 10px; }
+.lib-catpick-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.lib-catpick-opt { padding: 9px 14px; border-radius: 10px; border: 1px solid var(--border2); background: var(--bg3); color: var(--text); font-size: 13.5px; cursor: pointer; }
+.lib-catpick-opt:hover { border-color: var(--accent); }
+.lib-catpick-none { color: var(--text2); border-style: dashed; }
+@media (max-width: 560px) {
+  .lib-pop { position: fixed; left: 12px; right: 12px; top: auto; bottom: 76px; max-width: none; min-width: 0; }
+  .lib-catmgr-list li { flex-wrap: wrap; }
+}

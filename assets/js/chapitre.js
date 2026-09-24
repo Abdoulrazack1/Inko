@@ -13,7 +13,9 @@
     let doubleBase   = 1;       // 1re page de la planche affichée en mode double
 
     // ── Réglages lecteur (persistés) ──
-    const rs = { bg: 'dark', brightness: 100, gap: 8, fit: 'original', direction: 'rtl', autospeed: 1.4, warm: 0,
+    // « Hauteur » par défaut : la planche entière tient à l'écran, comme dans
+    // Mihon. « Original » la faisait déborder et obligeait à défiler dans la page.
+    const rs = { bg: 'dark', brightness: 100, gap: 8, fit: 'height', direction: 'rtl', autospeed: 1.4, warm: 0,
         // IX.8 : « libre » par defaut, et c'est deliberе. Verrouiller
         // d'autorite priverait de la double page en paysage ceux qui la
         // preferent — le verrou repond a une gene reelle (se retourner dans
@@ -169,6 +171,12 @@
         surRotation();
 
         showLoader('Chargement…');
+        // Source momentanément saturée : api.js réessaie seul ; on le dit.
+        const surReessai = (ev) => {
+            const sec = Math.round((ev.detail?.attente || 0) / 1000);
+            showLoader(`Source occupée — nouvel essai dans ${sec} s…`);
+        };
+        window.addEventListener('api:retry', surReessai);
 
         try {
             // Récupère manga + chapitres + pages en parallèle (repli hors-ligne si échec)
@@ -195,6 +203,7 @@
                 })) };
                 MH.toast?.('Lecture hors-ligne');
             }
+            window.removeEventListener('api:retry', surReessai);
             manga    = m;
             chapters = chapsData.results || [];
             currentChap = chapters.find(c => c.id === chapterId);
@@ -347,34 +356,37 @@
             <button class="reader-icon-btn" ${!nextChap ? 'disabled' : ''} id="btnNextChap" title="Chapitre suivant (→)" aria-label="Chapitre suivant">›</button>
         </div>
         <div class="toolbar-right">
+            <!-- Cinq gestes visibles — ceux qu'on fait en lisant. Le reste
+                 (marquer lu, défilement auto, immersif, partage, zoom) vit
+                 dans « ⋯ » : quinze icônes sans libellé ne se lisent pas. -->
             <button class="reader-icon-btn" id="btnBookmark" title="Ajouter un signet sur cette page (B)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
             </button>
             <button class="reader-icon-btn" id="btnNotes" title="Mes notes de lecture (J)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             </button>
-            <button class="reader-icon-btn" id="btnShare" title="Partager ce chapitre">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
-            </button>
-            <button class="reader-icon-btn" id="btnImmersive" title="Mode immersif — masquer l'interface (I)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
-            </button>
-            <button class="reader-icon-btn" id="btnMarkRead" title="Marquer ce chapitre (et les précédents) comme lus">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M20 6 9 17l-5-5"/></svg>
-            </button>
             <button class="reader-icon-btn" id="btnDownload" title="Télécharger pour lire hors-ligne"></button>
-            <button class="reader-icon-btn" id="btnZoomOut" title="Zoom −">−</button>
-            <span class="reader-zoom-label" id="zoomLabel">${zoom}%</span>
-            <button class="reader-icon-btn" id="btnZoomIn" title="Zoom +">+</button>
             <button class="reader-icon-btn" id="btnFullscreen" title="Plein écran">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-            </button>
-            <button class="reader-icon-btn" id="btnAutoScroll" title="Défilement automatique (A)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></svg>
             </button>
             <button class="reader-icon-btn" id="btnReaderSettings" title="Réglages du lecteur">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
+            <div class="reader-more" data-pop-wrap>
+                <button class="reader-icon-btn" id="btnReaderMore" title="Plus d'actions" aria-label="Plus d'actions" aria-haspopup="menu" aria-expanded="false">⋯</button>
+                <div class="reader-pop" id="readerMoreMenu" role="menu" hidden>
+                    <button class="reader-pop-item" id="btnMarkRead" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Marquer lu jusqu'ici</span></button>
+                    <button class="reader-pop-item" id="btnAutoScroll" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true"><path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></svg><span>Défilement automatique</span><kbd>A</kbd></button>
+                    <button class="reader-pop-item" id="btnImmersive" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg><span>Mode immersif</span><kbd>I</kbd></button>
+                    <button class="reader-pop-item" id="btnShare" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg><span>Partager ce chapitre</span></button>
+                    <div class="reader-pop-zoom">
+                        <span>Zoom</span>
+                        <button class="reader-icon-btn" id="btnZoomOut" title="Zoom −" aria-label="Zoom moins">−</button>
+                        <span class="reader-zoom-label" id="zoomLabel">${zoom}%</span>
+                        <button class="reader-icon-btn" id="btnZoomIn" title="Zoom +" aria-label="Zoom plus">+</button>
+                    </div>
+                </div>
+            </div>
         </div>`;
 
         document.getElementById('btnZoomOut')?.addEventListener('click', () => window.changeZoom(-10));
@@ -387,6 +399,7 @@
         document.getElementById('btnImmersive')?.addEventListener('click', toggleImmersive);
         document.getElementById('btnShare')?.addEventListener('click', shareChapter);
         document.getElementById('btnNotes')?.addEventListener('click', openNotes);
+        brancherMenuLecteur();
         window.NotesUI?.updateBadge?.(notesContext());
         refreshBookmarkBtn();
         wireDownloadBtn();
@@ -395,6 +408,36 @@
         document.getElementById('chapSelect')?.addEventListener('change', e => { window.location.href = chapURL(e.target.value); });
         document.getElementById('btnPrevChap')?.addEventListener('click', () => { if (prevChap) window.location.href = chapURL(prevChap.id); });
         document.getElementById('btnNextChap')?.addEventListener('click', () => { if (nextChap) window.location.href = chapURL(nextChap.id); });
+    }
+
+    // Menu « ⋯ » du lecteur : fermé au clic ailleurs, par Échap, ou après
+    // une action (sauf le zoom, qu'on ajuste en plusieurs clics).
+    let menuLecteurBranche = false;
+    function brancherMenuLecteur() {
+        const btn = document.getElementById('btnReaderMore');
+        const pop = document.getElementById('readerMoreMenu');
+        if (!btn || !pop) return;
+        const fermer = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const ouvrir = pop.hidden;
+            pop.hidden = !ouvrir;
+            btn.setAttribute('aria-expanded', String(ouvrir));
+        });
+        pop.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (e.target.closest('.reader-pop-item')) fermer();
+        });
+        if (menuLecteurBranche) return;
+        menuLecteurBranche = true;
+        document.addEventListener('click', () => {
+            const p = document.getElementById('readerMoreMenu');
+            if (p && !p.hidden) { p.hidden = true; document.getElementById('btnReaderMore')?.setAttribute('aria-expanded', 'false'); }
+        });
+        document.addEventListener('keydown', (e) => {
+            const p = document.getElementById('readerMoreMenu');
+            if (e.key === 'Escape' && p && !p.hidden) { e.stopImmediatePropagation(); p.hidden = true; document.getElementById('btnReaderMore')?.focus(); }
+        }, true);
     }
 
     // ── Modebar ──

@@ -6,6 +6,13 @@
     const MOOD_COLOR = { love: '#a83232', wow: '#c1531b', laugh: '#b5761b', cry: '#3d5170', angry: '#8a3a2a', fear: '#5a4a6a', think: '#3f7d4e', meh: '#6d685b' };
     let allNotes = [];
     let searchTimer = null;
+    // Vue du journal : « carnet » (jour par jour) ou « series ».
+    let vue = 'carnet';
+    try { vue = window.Storage?.getPref?.('journal_vue') === 'series' ? 'series' : 'carnet'; } catch (e) { /* défaut */ }
+    let activiteJours = [];      // [{ jour, series: [...] }] — ce qu'on a lu, par jour
+    let filtreType = '';
+    let filtreTag = '';
+    const KINDS = { note: 'Note', citation: 'Citation', reflexion: 'Réflexion' };
 
     document.addEventListener('DOMContentLoaded', async () => {
         MH.initPage('notes');
@@ -13,7 +20,26 @@
         if (!API.isLoggedIn()) { showLoggedOut(); return; }
         await MH.loadSourceTypes?.();
         await loadStats();
+        API.me.journalActivite(90).then(async r => {
+            activiteJours = r.jours || [];
+            if (vue === 'carnet') render(requete());
+            // Séries lues mais absentes de la bibliothèque : titre et couverture
+            // demandés à leur source, une fois (10 au plus).
+            const manquantes = new Map();
+            activiteJours.forEach(j => j.series.forEach(s => { if (!s.titre && s.source) manquantes.set(s.mangaId, s); }));
+            const liste = [...manquantes.values()].slice(0, 10);
+            if (!liste.length) return;
+            const res = await Promise.allSettled(liste.map(s => API.mangas.getFrom(s.source, s.mangaId)));
+            const infos = new Map();
+            res.forEach((x, i) => { if (x.status === 'fulfilled' && x.value?.title) infos.set(liste[i].mangaId, x.value); });
+            activiteJours.forEach(j => j.series.forEach(s => {
+                const m = infos.get(s.mangaId);
+                if (m) { s.titre = m.title; s.cover = s.cover || m.coverThumb || m.cover; }
+            }));
+            if (vue === 'carnet') render(requete());
+        }).catch(e => window.MH?.err?.('notes.js', e));
         await loadNotes();
+        brancherJournal();
         document.getElementById('jrExportMd')?.addEventListener('click', exporterMarkdown);
         brancherFiltres();
         const btnRecit = document.getElementById('jrRecit');
@@ -193,7 +219,7 @@
 
         // Sous trois notes, filtrer n'a pas de sens : la barre serait plus
         // grande que ce qu'elle trie.
-        if (allNotes.length < 3) { zone.hidden = true; return; }
+        if (allNotes.length < 3 && !allNotes.some(n => tagsDe(n.body).length)) { zone.hidden = true; return; }
         zone.hidden = false;
 
         const MOODS = window.NotesUI?.MOODS || [];
@@ -219,8 +245,20 @@
             + triees.map(([id, titre]) =>
                 `<option value="${MH.esc(id)}"${filtreSerie === id ? ' selected' : ''}>${MH.esc(titre)}</option>`).join('');
 
+        // Types présents, et #tags réellement écrits.
+        const tZone = document.getElementById('jrTypes');
+        const kinds = new Map();
+        allNotes.forEach(n => { const k = n.kind || 'note'; kinds.set(k, (kinds.get(k) || 0) + 1); });
+        if (tZone) tZone.innerHTML = kinds.size > 1 ? Object.entries(KINDS).filter(([k]) => kinds.has(k)).map(([k, l]) =>
+            `<button type="button" class="jr-chip${filtreType === k ? ' on' : ''}" data-type="${k}" aria-pressed="${filtreType === k}">${l} <span>${kinds.get(k)}</span></button>`).join('') : '';
+        const gZone = document.getElementById('jrTags');
+        const tags = new Map();
+        allNotes.forEach(n => tagsDe(n.body).forEach(t => tags.set(t, (tags.get(t) || 0) + 1)));
+        if (gZone) gZone.innerHTML = [...tags.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([t, c]) =>
+            `<button type="button" class="jr-chip jr-chip-tag${filtreTag === t ? ' on' : ''}" data-tag="${MH.esc(t)}" aria-pressed="${filtreTag === t}">#${MH.esc(t)} <span>${c}</span></button>`).join('');
+
         const raz = document.getElementById('jrFiltresRaz');
-        if (raz) raz.hidden = !filtreHumeur && !filtreSerie;
+        if (raz) raz.hidden = !filtreHumeur && !filtreSerie && !filtreType && !filtreTag;
     }
 
     function brancherFiltres() {
@@ -239,8 +277,16 @@
             render(requete());
         });
         sel?.addEventListener('change', () => { filtreSerie = sel.value; render(requete()); });
+        document.getElementById('jrTypes')?.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-type]'); if (!b) return;
+            filtreType = filtreType === b.dataset.type ? '' : b.dataset.type; render(requete());
+        });
+        document.getElementById('jrTags')?.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-tag]'); if (!b) return;
+            filtreTag = filtreTag === b.dataset.tag ? '' : b.dataset.tag; render(requete());
+        });
         raz?.addEventListener('click', () => {
-            filtreHumeur = ''; filtreSerie = '';
+            filtreHumeur = ''; filtreSerie = ''; filtreType = ''; filtreTag = '';
             const champ = document.getElementById('jrSearch');
             if (champ) champ.value = '';
             render('');
@@ -250,6 +296,8 @@
     /** Applique les filtres de la barre, avant la recherche plein texte. */
     function filtrer(notes) {
         let out = notes;
+        if (filtreType) out = out.filter((n) => (n.kind || 'note') === filtreType);
+        if (filtreTag) out = out.filter((n) => tagsDe(n.body).includes(filtreTag));
         if (filtreHumeur) out = out.filter((n) => n.mood === filtreHumeur);
         if (filtreSerie) out = out.filter((n) => String(n.mangaId) === String(filtreSerie));
         return out;
@@ -259,7 +307,17 @@
         const body = document.getElementById('jrBody');
         construireFiltres();
         let notes = filtrer(allNotes);
-        if (q) notes = notes.filter(n => (n.body || '').toLowerCase().includes(q) || (n.mangaTitle || '').toLowerCase().includes(q));
+        if (q && q.startsWith('#') && q.length > 1) notes = notes.filter(n => tagsDe(n.body).some(t => t.startsWith(q.slice(1))));
+        else if (q) notes = notes.filter(n => (n.body || '').toLowerCase().includes(q) || (n.mangaTitle || '').toLowerCase().includes(q));
+        // Carnet sans note mais avec des lectures : c'est justement là qu'il sert
+        // (« le carnet se remplit tout seul »). On ne montre le vide que s'il n'y
+        // a VRAIMENT rien à raconter.
+        const filtreActif = !!(filtreHumeur || filtreSerie || filtreType || filtreTag || q);
+        if (!notes.length && vue === 'carnet' && !filtreActif && activiteJours.length) {
+            body.innerHTML = `<div class="jr-astuce">Tu n'as encore rien écrit : voici ce que tu as lu. Ajoute une entrée pour garder une impression, une réplique, une théorie.</div>`
+                + renderCarnet([]);
+            return;
+        }
         if (!notes.length) {
             // Trois vides différents : rien pour ce texte, rien pour ces
             // filtres, ou journal réellement vide. Le premier se corrige en
@@ -275,8 +333,9 @@
                             style="background:none;border:none;padding:0;font:inherit;cursor:pointer;text-decoration:underline">Tout afficher</button></div>`
                 : `<div class="jr-empty">
                     <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:6px">Ton journal est vide</div>
-                    <div style="margin-bottom:16px">Pendant que tu lis un chapitre, ouvre le bouton Notes (ou la touche J) pour noter ce que tu ressens.</div>
-                    <a href="catalogue.html" class="btn btn-primary btn-sm">Commencer à lire →</a></div>`;
+                    <div style="margin-bottom:16px">Écris une entrée ici, ou pendant ta lecture avec le bouton Notes (touche J).</div>
+                    <button type="button" class="btn btn-primary btn-sm" id="jrVideNew">＋ Nouvelle entrée</button></div>`;
+            document.getElementById('jrVideNew')?.addEventListener('click', () => ouvrirEditeur());
             document.getElementById('jrVideRaz')?.addEventListener('click', () => {
                 filtreHumeur = ''; filtreSerie = ''; render(requete());
             });
@@ -294,7 +353,10 @@
         if (modeRecit) {
             groups.forEach(g => g.notes.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)));
         }
-        body.innerHTML = [...groups.values()].map(renderGroup).join('');
+        const epinglees = notes.filter(n => n.pinned);
+        const blocEpingle = epinglees.length && !filtreSerie
+            ? `<section class="jr-pinned"><h2 class="jr-day-title">Épinglées</h2>${epinglees.map(renderNote).join('')}</section>` : '';
+        body.innerHTML = blocEpingle + (vue === 'carnet' ? renderCarnet(notes) : [...groups.values()].map(renderGroup).join(''));
         renderMoodTimeline(allNotes);   // audit AMEL-46
 
         // Pagination (audit J2) : indicateur honnête + « charger plus ».
@@ -309,6 +371,11 @@
         }
 
         body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => removeNote(b.dataset.del)));
+        body.querySelectorAll('[data-pin]').forEach(b => b.addEventListener('click', () => basculerEpingle(b.dataset.pin)));
+        body.querySelectorAll('.jr-note-body [data-tag]').forEach(a => a.addEventListener('click', (e) => {
+            e.preventDefault(); filtreTag = a.dataset.tag; render(requete());
+            document.getElementById('jrFiltres')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }));
         body.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editNote(b.dataset.edit)));
     }
 
@@ -338,32 +405,170 @@
             : `serie.html?id=${encodeURIComponent(n.mangaId)}&source=${encodeURIComponent(n.source || '')}`;
         const when = MH.fullDate ? MH.fullDate(n.createdAt) : new Date(n.createdAt).toLocaleString('fr-FR');
         return `
-        <article class="jr-note" data-id="${n.id}">
+        <article class="jr-note${n.pinned ? ' is-pinned' : ''}" data-id="${n.id}">
             <div class="jr-note-head">
+                ${n.kind && n.kind !== 'note' ? `<span class="jr-note-kind jr-kind-${n.kind}">${KINDS[n.kind] || ''}</span>` : ''}
+                ${vue === 'carnet' || n.pinned ? `<a class="jr-note-serie" href="serie.html?id=${encodeURIComponent(n.mangaId)}&source=${encodeURIComponent(n.source || '')}">${MH.esc(n.mangaTitle || '')}</a>` : ''}
                 ${n.mood ? `<span class="jr-note-mood" style="color:${MOOD_COLOR[n.mood] || 'var(--accent)'}">${MOOD_LABEL[n.mood] || ''}</span>` : ''}
                 ${loc ? `<a class="jr-note-loc" href="${read}">${MH.esc(loc)}</a>` : ''}
                 <span class="jr-note-date">${MH.esc(when)}</span>
                 <span class="jr-note-tools">
+                    <button class="jr-note-tool${n.pinned ? ' on' : ''}" data-pin="${n.id}" title="${n.pinned ? 'Désépingler' : 'Épingler en haut du journal'}" aria-label="${n.pinned ? 'Désépingler' : 'Épingler'}" aria-pressed="${!!n.pinned}"><svg viewBox="0 0 24 24" width="14" height="14" fill="${n.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76V6h6v4.76l2 3.24H7z"/><path d="M8 3h8"/></svg></button>
                     <button class="jr-note-tool" data-edit="${n.id}" title="Modifier" aria-label="Modifier"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
                     <button class="jr-note-tool" data-del="${n.id}" title="Supprimer" aria-label="Supprimer"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                 </span>
             </div>
-            <div class="jr-note-body" data-body="${n.id}">${MH.esc(n.body)}</div>
+            <div class="jr-note-body${n.kind === 'citation' ? ' jr-citation' : ''}" data-body="${n.id}">${corpsAvecTags(n.body)}</div>
         </article>`;
     }
 
     async function editNote(id) {
         const n = allNotes.find(x => String(x.id) === String(id));
+        if (n) ouvrirEditeur(n);
+    }
+
+    // ── #tags ──────────────────────────────────────────────
+    function tagsDe(texte) {
+        const out = new Set();
+        for (const m of String(texte || '').matchAll(/(^|[\s(])#([\p{L}\p{N}_-]{2,30})/gu)) out.add(m[2].toLowerCase());
+        return [...out];
+    }
+    function corpsAvecTags(texte) {
+        return MH.esc(texte).replace(/(^|[\s(])#([\p{L}\p{N}_-]{2,30})/gu,
+            (_, avant, t) => `${avant}<a href="#" class="jr-tag" data-tag="${t.toLowerCase()}">#${t}</a>`);
+    }
+
+    async function basculerEpingle(id) {
+        const n = allNotes.find(x => String(x.id) === String(id));
         if (!n) return;
-        const next = await MH.prompt('Modifier la note', { value: n.body, okText: 'Enregistrer' });
-        if (next == null || !next.trim() || next.trim() === n.body) return;
         try {
-            await API.me.updateNote(id, { body: next.trim(), mood: n.mood });
-            n.body = next.trim();
-            const el = document.querySelector(`.jr-note-body[data-body="${id}"]`);
-            if (el) el.textContent = n.body;
-            MH.toast?.('Note mise à jour');
-        } catch (e) { MH.toast?.('Erreur : ' + e.message); }
+            await API.me.updateNote(id, { pinned: !n.pinned });
+            n.pinned = !n.pinned;
+            render(requete());
+            MH.toast?.(n.pinned ? 'Épinglée en haut du journal' : 'Désépinglée');
+        } catch (e) { MH.toastErreur?.(e); }
+    }
+
+    // ── Carnet : un jour = ce qu'on a lu + ce qu'on a écrit ──
+    const jourLocal = (d) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+    function titreJour(j) {
+        const d = new Date(j + 'T12:00:00');
+        const auj = jourLocal(new Date()), hier = jourLocal(Date.now() - 864e5);
+        if (j === auj) return "Aujourd'hui";
+        if (j === hier) return 'Hier';
+        const s = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+        return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+    function renderCarnet(notes) {
+        const filtre = !!(filtreHumeur || filtreSerie || filtreType || filtreTag || requete());
+        const jours = new Map();
+        notes.filter(n => !n.pinned || filtreSerie).forEach(n => {
+            const j = jourLocal(n.createdAt);
+            if (!jours.has(j)) jours.set(j, { notes: [], lu: [] });
+            jours.get(j).notes.push(n);
+        });
+        // L'activité de lecture n'apparaît que sans filtre : filtrer « citations »
+        // et voir « lu 5 chapitres » brouillerait la réponse.
+        if (!filtre) activiteJours.forEach(a => {
+            if (!jours.has(a.jour)) jours.set(a.jour, { notes: [], lu: [] });
+            jours.get(a.jour).lu = a.series;
+        });
+        const ordre = [...jours.keys()].sort((a, b) => b.localeCompare(a));
+        return ordre.map(j => {
+            const { notes: ns, lu } = jours.get(j);
+            const unite = (s) => MH.unitLabel ? MH.unitLabel(s.source, { short: true }) : 'Chap.';
+            const ligneLu = lu.length ? `<div class="jr-lu">${lu.slice(0, 6).map(s => `
+                <a class="jr-lu-item" href="serie.html?id=${encodeURIComponent(s.mangaId)}&source=${encodeURIComponent(s.source || '')}">
+                    <img src="${MH.cover(s.cover, MH.placeholderCover(s.mangaId))}" alt="" loading="lazy">
+                    <span><b>${MH.esc(s.titre || 'Série')}</b>${s.chapitres ? `${unite(s)} ${s.de === s.a || s.a == null ? s.de : `${s.de} → ${s.a}`}` : ''}</span>
+                </a>`).join('')}${lu.length > 6 ? `<span class="jr-lu-plus">+${lu.length - 6}</span>` : ''}</div>` : '';
+            return `<section class="jr-day">
+                <h2 class="jr-day-title">${titreJour(j)}</h2>
+                ${ligneLu}
+                ${ns.map(renderNote).join('')}
+            </section>`;
+        }).join('');
+    }
+
+    // ── Écrire une entrée (ou la modifier) ──────────────────
+    let favorisCache = null;
+    async function ouvrirEditeur(existante = null) {
+        if (!favorisCache) {
+            try {
+                const [favs, prog] = await Promise.all([API.me.favorites(), API.me.progress().catch(() => ({}))]);
+                favorisCache = favs.map(f => ({ ...f, lu: prog[f.mangaId]?.updatedAt || 0, ch: prog[f.mangaId]?.chapter ?? null }))
+                    .sort((a, b) => new Date(b.lu || 0) - new Date(a.lu || 0));
+            } catch (e) { favorisCache = []; }
+        }
+        const MOODS = window.NotesUI?.MOODS || [];
+        const corps = document.createElement('form');
+        corps.className = 'jr-editeur';
+        const e = existante || {};
+        corps.innerHTML = `
+            ${existante ? `<div class="jr-ed-serie-fixe">${MH.esc(e.mangaTitle || '')}</div>` : `
+            <label class="jr-ed-l">Série
+                <input list="jrSeries" id="jrEdSerie" placeholder="Commence à taper un titre…" autocomplete="off" required>
+                <datalist id="jrSeries">${favorisCache.slice(0, 400).map(f => `<option value="${MH.esc(f.title || f.mangaId)}"></option>`).join('')}</datalist>
+            </label>
+            <label class="jr-ed-l jr-ed-court">Chapitre <input id="jrEdChap" inputmode="decimal" placeholder="optionnel"></label>`}
+            <div class="jr-ed-l">Type
+                <div class="jr-ed-seg" role="radiogroup">${Object.entries(KINDS).map(([k, l]) =>
+                    `<label><input type="radio" name="kind" value="${k}" ${(e.kind || 'note') === k ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+            </div>
+            <div class="jr-ed-l">Humeur
+                <div class="jr-ed-moods">${MOODS.map(([id, l, c]) =>
+                    `<label style="--h:${c}"><input type="radio" name="mood" value="${id}" ${e.mood === id ? 'checked' : ''}> ${l}</label>`).join('')}
+                    <label><input type="radio" name="mood" value="" ${!e.mood ? 'checked' : ''}> Aucune</label></div>
+            </div>
+            <label class="jr-ed-l">Texte
+                <textarea id="jrEdTexte" rows="7" maxlength="5000" placeholder="Ce que tu as ressenti, une réplique qui t'a marqué, une théorie… Les #tags sont cliquables dans le journal." required>${MH.esc(e.body || '')}</textarea>
+            </label>`;
+        // Pré-remplit le chapitre en cours quand on choisit une série.
+        corps.querySelector('#jrEdSerie')?.addEventListener('change', (ev) => {
+            const f = favorisCache.find(x => (x.title || x.mangaId) === ev.target.value);
+            const ch = corps.querySelector('#jrEdChap');
+            if (f && ch && !ch.value && f.ch != null) ch.value = f.ch;
+        });
+        const enregistrer = async ({ fermer }) => {
+            const texte = corps.querySelector('#jrEdTexte').value.trim();
+            if (!texte) { MH.toast?.('Écris quelque chose'); return; }
+            const kind = corps.querySelector('input[name="kind"]:checked')?.value || 'note';
+            const mood = corps.querySelector('input[name="mood"]:checked')?.value || null;
+            try {
+                if (existante) {
+                    const r = await API.me.updateNote(existante.id, { body: texte, mood, kind });
+                    Object.assign(existante, r.note || { body: texte, mood, kind });
+                } else {
+                    const nom = corps.querySelector('#jrEdSerie').value.trim();
+                    const f = favorisCache.find(x => (x.title || x.mangaId) === nom);
+                    if (!f) { MH.toast?.('Choisis une série de ta bibliothèque dans la liste'); return; }
+                    const ch = corps.querySelector('#jrEdChap').value.trim().replace(',', '.');
+                    const r = await API.me.addNote({ mangaId: f.mangaId, source: f.source, mangaTitle: f.title, cover: f.cover,
+                        chapterNum: ch && !Number.isNaN(Number(ch)) ? Number(ch) : null, body: texte, mood, kind });
+                    if (r.note) allNotes.unshift(r.note);
+                    notesTotal++;
+                }
+                fermer();
+                await loadStats();
+                render(requete());
+                MH.toast?.(existante ? 'Entrée mise à jour' : 'Ajouté au journal');
+            } catch (err) { MH.toastErreur?.(err); }
+        };
+        MH.feuille({ titre: existante ? 'Modifier l’entrée' : 'Nouvelle entrée', hauteur: 'edition', contenu: corps,
+            actions: [{ libelle: existante ? 'Enregistrer' : 'Ajouter au journal', principal: true, onClick: enregistrer }] });
+        setTimeout(() => (corps.querySelector('#jrEdSerie') || corps.querySelector('#jrEdTexte'))?.focus(), 80);
+    }
+
+    function brancherJournal() {
+        document.getElementById('jrNew')?.addEventListener('click', () => ouvrirEditeur());
+        const vues = document.querySelectorAll('.jr-vue');
+        const peindre = () => vues.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.vue === vue)));
+        peindre();
+        vues.forEach(b => b.addEventListener('click', () => {
+            vue = b.dataset.vue;
+            try { window.Storage?.setPref?.('journal_vue', vue); } catch (e) { /* stockage indisponible */ }
+            peindre(); render(requete());
+        }));
     }
 
     async function removeNote(id) {

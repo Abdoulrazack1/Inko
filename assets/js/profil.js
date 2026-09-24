@@ -225,7 +225,7 @@
             const heat = stats.heatmap || {};
             const statsEls = document.querySelectorAll('.profil-stat .profil-stat-num');
             if (statsEls[0]) statsEls[0].textContent = MH.fmt(t.chapters_read || 0);
-            if (statsEls[1]) statsEls[1].textContent = MH.fmt(t.library || 0);
+            if (statsEls[1]) statsEls[1].textContent = MH.fmt(t.series_read || 0);
             if (statsEls[2]) statsEls[2].textContent = MH.fmt(t.favorites || 0);
 
             // Niveau : progression douce basée sur les chapitres réellement lus
@@ -280,12 +280,8 @@
 
     // ── Objectif hebdo (réel : heatmap des 7 derniers jours) ──
     function renderWeeklyGoal(heat) {
-        const goal = Math.max(1, +(window.Storage?.getPref('weeklyGoal') || 15));
-        let read = 0;
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(); d.setDate(d.getDate() - i);
-            read += heat[d.toISOString().slice(0, 10)] || 0;
-        }
+        const goal = Math.max(1, MH.objectifHebdo());
+        const read = MH.lusSurSeptJours(heat);
         const ring = document.getElementById('goalRingFill');
         const num  = document.getElementById('goalNum');
         const lab  = document.getElementById('goalLabel');
@@ -312,7 +308,7 @@
                 if (v === null) return;
                 const n = parseInt(v, 10);
                 if (!n || n < 1) { MH.toast('Valeur invalide'); return; }
-                window.Storage?.setPref('weeklyGoal', n);
+                MH.definirObjectifHebdo(n);
                 renderWeeklyGoal(heat);
                 MH.toast('Objectif mis à jour : ' + n + ' chapitres/semaine');
             });

@@ -71,6 +71,7 @@
                 progress    = allProg[manga.id] || null;
             }
 
+            try { sourcesConnues = (await API.sources.list()) || []; } catch (e) { sourcesConnues = []; }
             renderHero();
             renderTabs();
             renderTab('apercu');
@@ -152,6 +153,69 @@
     // ── HERO ──
     let favSource = null;      // source enregistrée du favori (audit XIII.1)
 
+    // Libellé du bouton de bibliothèque : il dit OÙ en est la série, pas
+    // seulement si elle est suivie.
+    const STATUT_LIB = { reading: 'En cours', completed: 'Terminé', planned: 'À lire', paused: 'En pause', dropped: 'Abandonné' };
+    function libelleBiblio() {
+        const caret = '<svg class="btn-lib-caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+        if (!favorited) return '＋ Ajouter à ma bibliothèque';
+        return `<span class="btn-lib-check" aria-hidden="true">✓</span> ${STATUT_LIB[libStatus] || 'Dans ma bibliothèque'}${caret}`;
+    }
+
+    // « En bref » : seulement ce que la source renseigne vraiment. Une grille
+    // de tirets donnait l'impression d'une fiche cassée.
+    let sourcesConnues = [];
+    function ficheRows() {
+        const STATUTS = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };
+        const src = sourcesConnues.find(x => x.id === API.sources.current);
+        const rows = [
+            ['Statut', STATUTS[manga.status] || ''],
+            ['Source', src?.name || API.sources.current || ''],
+            ['Chapitres', chapters.length ? String(chapters.length) : '…', 'ficheChapitres'],
+            ['Année', manga.year ? String(manga.year) : ''],
+            ['Démographie', manga.demographic ? manga.demographic.charAt(0).toUpperCase() + manga.demographic.slice(1) : ''],
+            ['Artiste', manga.artist && manga.artist !== manga.author ? manga.artist : ''],
+            ['Note', manga.rating?.bayesian ? manga.rating.bayesian.toFixed(2) + ' / 10' : ''],
+        ];
+        return rows.filter(([, v]) => v);
+    }
+
+    // Menus déroulants de la fiche : un seul ouvert à la fois, fermés par un
+    // clic ailleurs ou Échap, focus rendu au bouton qui les a ouverts.
+    let menusBranches = false;
+    function brancherMenus(root) {
+        const fermerTout = (sauf) => root.querySelectorAll('.serie-pop').forEach(pop => {
+            if (pop === sauf) return;
+            pop.hidden = true;
+            pop.closest('[data-pop-wrap]')?.querySelector('[aria-haspopup]')?.setAttribute('aria-expanded', 'false');
+        });
+        const ouvrir = (btn, pop) => {
+            if (!btn || !pop) return;
+            const deja = !pop.hidden;
+            fermerTout();
+            if (deja) return;
+            pop.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            pop.querySelector('button:not([hidden])')?.focus({ preventScroll: true });
+        };
+        root.querySelector('#btnMore')?.addEventListener('click', (e) => { e.stopPropagation(); ouvrir(e.currentTarget, root.querySelector('#moreMenu')); });
+        // Un choix dans « ⋯ » referme le menu ; ceux du menu bibliothèque le
+        // laissent ouvert (on règle souvent statut puis catégorie d'affilée).
+        root.querySelector('#moreMenu')?.addEventListener('click', (e) => { if (e.target.closest('.serie-pop-item')) fermerTout(); });
+        if (!menusBranches) {
+            menusBranches = true;
+            document.addEventListener('click', (e) => { if (!e.target.closest('[data-pop-wrap]') && !e.target.closest('.modal, .mh-modal, [role="dialog"]')) fermerTout(); });
+            document.addEventListener('keydown', (e) => {
+                if (e.key !== 'Escape') return;
+                const ouvert = root.querySelector('.serie-pop:not([hidden])');
+                if (!ouvert) return;
+                fermerTout();
+                ouvert.closest('[data-pop-wrap]')?.querySelector('[aria-haspopup]')?.focus();
+            });
+        }
+        return { ouvrir, fermerTout };
+    }
+
     function renderHero() {
         const el = document.getElementById('serieHero');
         if (!el) return;
@@ -202,96 +266,76 @@
                 </div>
                 <p class="serie-desc-short">${MH.esc((manga.description || '').slice(0, 400))}${manga.description?.length > 400 ? '…' : ''}</p>
                 <div class="serie-actions">
-                    <!-- Audit AMEL-100 : « Lire depuis le début », « Reprendre
-                         Ch.X » et « 1er non-lu » se présentaient comme trois
-                         boutons de même poids. Trois façons de commencer, aucune
-                         hiérarchie : il fallait les lire pour choisir.
-                         L'action PRINCIPALE est désormais unique et nommée
-                         d'après la situation réelle (reprendre si une lecture
-                         est en cours, sinon commencer) ; les deux autres
-                         deviennent des replis discrets. -->
+                    <!-- Trois éléments, pas quinze. L'action principale est
+                         unique et nommée d'après la situation (reprendre ou
+                         commencer) ; le bouton de bibliothèque dit où en est la
+                         série et range tout ce qui la concerne ; « ⋯ » regroupe
+                         le reste. Les identifiants des anciens boutons sont
+                         conservés : leurs gestionnaires n'ont pas changé. -->
                     ${resumeChap
                         ? `<button class="btn btn-primary btn-reprise" id="btnResume">
-                               <span class="reprise-label">${resumeLabel.replace(/^↻\s*/, '')}</span>
+                               <span class="reprise-label">${resumeLabel.replace(/^↻s*/, '')}</span>
                                <span class="reprise-sub">Reprendre où tu t'es arrêté·e</span>
-                           </button>
-                           <button class="btn btn-ghost btn-sm" id="btnReadStart" title="Repartir du chapitre 1">Depuis le début</button>`
+                           </button>`
                         : `<button class="btn btn-primary btn-reprise" id="btnReadStart">
                                <span class="reprise-label">Commencer la lecture</span>
                                <span class="reprise-sub">Premier chapitre disponible</span>
                            </button>`}
-                    <button class="btn btn-ghost btn-sm" id="btnNextUnread" title="Ouvrir le premier chapitre non lu">1er non-lu</button>
-                    <button class="btn btn-ghost ${favorited ? 'is-fav' : ''}" id="btnFavorite">
-                        ${favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste'}
-                    </button>
-                    <!-- « À lire ensuite » n'est pas un doublon de « Ma liste ».
-                         La liste RANGE ce qu'on suit ; la file dit quoi ouvrir
-                         maintenant, et l'accueil la rappelle. Elle marche sans
-                         compte et hors ligne, comme les épingles. -->
-                    <button class="btn btn-ghost ${enFile ? 'is-fav' : ''}" id="btnFile"
-                            title="${enFile ? 'Retirer de « À lire ensuite »' : 'Mettre en tête de « À lire ensuite »'}">
-                        ${enFile ? '✓ Dans la file' : '＋ À lire ensuite'}
-                    </button>
-                    <select id="serieStatus" title="Statut de lecture" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:9px 12px;border-radius:9px;font-size:13px;cursor:pointer">
-                        <option value="">Sans statut</option>
-                        <option value="reading"   ${libStatus==='reading'  ?'selected':''}>En cours</option>
-                        <option value="completed" ${libStatus==='completed'?'selected':''}>Terminé</option>
-                        <option value="planned"   ${libStatus==='planned'  ?'selected':''}>À lire</option>
-                        <option value="paused"    ${libStatus==='paused'   ?'selected':''}>En pause</option>
-                        <option value="dropped"   ${libStatus==='dropped'  ?'selected':''}>Abandonné</option>
-                    </select>
-                    <button class="btn btn-ghost btn-sm" id="btnCategory">${libCategory ? MH.esc(libCategory) : '+ Catégorie'}</button>
-                    <!-- Audit XIII.1 : quand une source meurt, la série devient
-                         inatteignable alors que la progression, les notes et les
-                         signets existent toujours. Le bouton n'apparaît que si
-                         l'œuvre est suivie — il n'y a rien à déménager avant.
-                         L'attribut data-migrer est capté par migration.js. -->
-                    ${favorited ? `<button class="btn btn-ghost btn-sm" data-migrer="${MH.esc(manga.id)}"
-                        data-migrer-source="${MH.esc(favSource || API.sources.current || '')}" data-migrer-titre="${MH.esc(manga.title || '')}"
-                        title="Suivre cette série depuis une autre source, en gardant ta progression">⇄ Changer de source</button>` : ''}
-                    <!-- Audit AMEL-54 : suivre une série et vouloir en être
-                         averti sont deux choses. Le bouton n'apparaît que
-                         lorsqu'elle est dans la bibliothèque : il n'y a rien à
-                         mettre en sourdine avant. -->
-                    <!-- Audit AMEL-63 : la liste d'epingles existait depuis
-                         toujours et restait vide — rien ne permettait d'y
-                         mettre quoi que ce soit. C'est la seule chose qu'un
-                         profil montre par CHOIX plutot que par agregation. -->
-                    <!-- Audit AMEL-108 : le besoin reel est de masquer UNE
-                         lecture, pas toute une session. Couper globalement
-                         oblige a penser a rallumer — et a perdre la trace de
-                         tout ce qu'on lit ensuite si on oublie. -->
-                    <button class="btn btn-ghost btn-sm" id="btnPrive" aria-pressed="false"
-                        title="Lire cette serie sans laisser de trace">Lire en prive</button>
-                    ${favorited ? `<button class="btn btn-ghost btn-sm" id="btnPin"
-                        title="Mettre en avant sur ton profil public" aria-pressed="false">📌 Épingler</button>` : ''}
-                    ${favorited ? `<button class="btn btn-ghost btn-sm" id="btnNotify"
-                        title="${libNotify ? 'Ne plus être averti des nouveaux chapitres' : 'Être averti des nouveaux chapitres'}"
-                        aria-pressed="${libNotify}">${libNotify ? '🔔 Alertes' : '🔕 En sourdine'}</button>` : ''}
-                    <button class="btn btn-ghost btn-sm" id="btnAddList">+ Liste</button>
-                    <button class="btn btn-ghost btn-sm" id="btnAniList" title="Suivi AniList — pousse ta progression, ton statut et ta note">
-                        <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style="vertical-align:-2px;margin-right:5px"><path d="M6.361 2.943 0 21.056h4.942l1.077-3.133H11.4l1.052 3.133H22.9c.71 0 1.1-.392 1.1-1.101V17.53c0-.71-.39-1.101-1.1-1.101h-6.483V4.045c0-.71-.392-1.102-1.101-1.102h-2.422c-.71 0-1.101.392-1.101 1.102v1.064l-.758-2.166zm2.324 5.948 1.688 5.018H7.144z"/></svg>AniList
-                    </button>
-                    <button class="btn btn-ghost btn-icon" id="btnShare" title="Partager">↗</button>
+                    <div class="serie-lib" data-pop-wrap>
+                        <button class="btn btn-lib ${favorited ? 'is-in' : ''}" id="btnFavorite" aria-haspopup="menu" aria-expanded="false">${libelleBiblio()}</button>
+                        <div class="serie-pop" id="libMenu" role="menu" hidden>
+                            <div class="serie-pop-title">Statut de lecture</div>
+                            <div class="serie-status-grid" role="group" aria-label="Statut de lecture">
+                                ${[['reading','En cours'],['planned','À lire'],['completed','Terminé'],['paused','En pause'],['dropped','Abandonné']]
+                                    .map(([v, l]) => `<button type="button" class="serie-status-opt${libStatus === v ? ' on' : ''}" data-status="${v}" aria-pressed="${libStatus === v}">${l}</button>`).join('')}
+                            </div>
+                            <select id="serieStatus" hidden aria-hidden="true" tabindex="-1">
+                                <option value="">Sans statut</option>
+                                <option value="reading"   ${libStatus==='reading'  ?'selected':''}>En cours</option>
+                                <option value="completed" ${libStatus==='completed'?'selected':''}>Terminé</option>
+                                <option value="planned"   ${libStatus==='planned'  ?'selected':''}>À lire</option>
+                                <option value="paused"    ${libStatus==='paused'   ?'selected':''}>En pause</option>
+                                <option value="dropped"   ${libStatus==='dropped'  ?'selected':''}>Abandonné</option>
+                            </select>
+                            <div class="serie-pop-sep"></div>
+                            <button class="serie-pop-item" id="btnCategory" role="menuitem">
+                                <span>Catégorie</span><span class="serie-pop-val">${libCategory ? MH.esc(libCategory) : 'Aucune'}</span></button>
+                            <button class="serie-pop-item" id="btnAddList" role="menuitem"><span>Ajouter à une liste…</span></button>
+                            ${favorited ? `<button class="serie-pop-item" id="btnNotify" role="menuitem" aria-pressed="${libNotify}"
+                                title="${libNotify ? 'Ne plus être averti des nouveaux chapitres' : 'Être averti des nouveaux chapitres'}">
+                                <span>Alertes nouveaux chapitres</span><span class="serie-pop-val">${libNotify ? 'Activées' : 'En sourdine'}</span></button>` : ''}
+                            ${favorited ? `<button class="serie-pop-item" role="menuitem" data-migrer="${MH.esc(manga.id)}"
+                                data-migrer-source="${MH.esc(favSource || API.sources.current || '')}" data-migrer-titre="${MH.esc(manga.title || '')}"
+                                title="Suivre cette série depuis une autre source, en gardant ta progression"><span>Changer de source…</span></button>` : ''}
+                            ${favorited ? `<div class="serie-pop-sep"></div>
+                                <button class="serie-pop-item serie-pop-danger" id="btnUnfav" role="menuitem"><span>Retirer de la bibliothèque</span></button>` : ''}
+                        </div>
+                    </div>
+                    <div class="serie-more" data-pop-wrap>
+                        <button class="btn btn-ghost btn-icon" id="btnMore" aria-haspopup="menu" aria-expanded="false" title="Plus d'actions" aria-label="Plus d'actions">⋯</button>
+                        <div class="serie-pop serie-pop--right" id="moreMenu" role="menu" hidden>
+                            ${resumeChap ? `<button class="serie-pop-item" id="btnReadStart" role="menuitem"><span>Lire depuis le début</span></button>` : ''}
+                            <button class="serie-pop-item" id="btnNextUnread" role="menuitem"><span>Premier chapitre non lu</span></button>
+                            <button class="serie-pop-item" id="btnFile" role="menuitem"><span>${enFile ? 'Retirer de « À lire ensuite »' : 'Mettre dans « À lire ensuite »'}</span></button>
+                            <div class="serie-pop-sep"></div>
+                            <button class="serie-pop-item" id="btnPrive" role="menuitem" aria-pressed="false"><span>Lire en privé</span></button>
+                            ${favorited ? `<button class="serie-pop-item" id="btnPin" role="menuitem" aria-pressed="false"><span>Épingler sur mon profil</span></button>` : ''}
+                            <button class="serie-pop-item" id="btnAniList" role="menuitem" title="Pousse ta progression, ton statut et ta note vers AniList (clic droit : changer la fiche liée)"><span>Synchroniser avec AniList</span></button>
+                            <button class="serie-pop-item" id="btnShare" role="menuitem"><span>Partager le lien</span></button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="serie-fiche">
-                <div class="serie-fiche-title">Fiche rapide</div>
-                <div class="fiche-subtitle">Informations principales</div>
-                ${[
-                    ['Statut', statusLabel],
-                    ['Démographie', manga.demographic || '—'],
-                    ['1er chapitre', manga.year || '—'],
-                    ['Dernier chap.', manga.lastChapter || '—'],
-                    ['Note moyenne', manga.rating?.bayesian ? manga.rating.bayesian.toFixed(2) : '—'],
-                ].map(([k, v]) => `
-                    <div class="fiche-row">
+            <div class="serie-fiche" id="serieFiche">
+                <div class="serie-fiche-title">En bref</div>
+                ${ficheRows().map(([k, v, id]) => `
+                    <div class="fiche-row"${id ? ` id="${id}"` : ''}>
                         <span class="fiche-key">${k}</span>
                         <span class="fiche-val">${MH.esc(v)}</span>
                     </div>`).join('')}
-                <div class="fiche-langs">
-                    ${(manga.langs || []).slice(0, 5).map(l => `<span class="lang-badge">${l.toUpperCase()}</span>`).join('')}
-                </div>
+                ${(manga.langs || []).length ? `<div class="fiche-langs">
+                    ${manga.langs.slice(0, 6).map(l => `<span class="lang-badge">${MH.esc(String(l).toUpperCase())}</span>`).join('')}
+                </div>` : ''}
             </div>
         </div>`;
 
@@ -326,27 +370,64 @@
                 id: manga.id, source: API.sources.current,
                 title: manga.title, cover: manga.coverThumb || manga.cover,
             });
-            b.classList.toggle('is-fav', dedans);
-            b.textContent = dedans ? '✓ Dans la file' : '＋ À lire ensuite';
-            b.title = dedans ? 'Retirer de « À lire ensuite »' : 'Mettre en tête de « À lire ensuite »';
+            b.innerHTML = `<span>${dedans ? 'Retirer de « À lire ensuite »' : 'Mettre dans « À lire ensuite »'}</span>`;
             MH.toast?.(dedans ? 'Ajouté à « À lire ensuite »' : 'Retiré de la file');
         });
 
-        document.getElementById('btnFavorite')?.addEventListener('click', async () => {
-            if (!API.isLoggedIn()) { MH.toast('Connectez-vous pour ajouter des favoris'); return; }
-            const btn = document.getElementById('btnFavorite');
+        const menus = brancherMenus(el);
+
+        // Pas encore suivie : un clic l'ajoute (statut « En cours ») et ouvre
+        // le menu pour ajuster. Déjà suivie : un clic ouvre le menu. Retirer
+        // n'est plus jamais un clic accidentel sur le même bouton.
+        document.getElementById('btnFavorite')?.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const btn = e.currentTarget;
+            if (favorited) { menus.ouvrir(btn, document.getElementById('libMenu')); return; }
+            if (!API.isLoggedIn()) { MH.toast('Connecte-toi pour suivre une série'); return; }
+            btn.disabled = true;
             try {
-                if (favorited) { await API.me.removeFavorite(manga.id); favorited = false; }
-                else           { await API.me.addFavorite(manga.id, { title: manga.title, cover: manga.cover || manga.coverThumb }); favorited = true; }
-                btn.classList.toggle('is-fav', favorited);
-                btn.textContent = favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste';
-                MH.toast(favorited ? 'Ajouté à votre liste !' : 'Retiré de votre liste');
-            } catch(err) { MH.toastErreur(err); }
+                await API.me.addFavorite(manga.id, { title: manga.title, cover: manga.cover || manga.coverThumb });
+                favorited = true;
+                if (!libStatus) {
+                    try { await API.me.setLibrary(manga.id, 'reading'); libStatus = 'reading'; } catch (er) { window.MH?.err?.('serie.js', er); }
+                }
+                MH.toast('Ajoutée à ta bibliothèque');
+                renderHero();   // fait apparaître alertes, épingle, changement de source
+                const b2 = document.getElementById('btnFavorite');
+                const m2 = document.getElementById('libMenu');
+                if (b2 && m2) { m2.hidden = false; b2.setAttribute('aria-expanded', 'true'); }
+            } catch (err) { MH.toastErreur(err); btn.disabled = false; }
         });
+
+        document.getElementById('btnUnfav')?.addEventListener('click', async () => {
+            const ok = await MH.confirm(`Retirer « ${MH.esc(manga.title)} » de ta bibliothèque ? Ta progression et tes chapitres lus sont conservés.`,
+                { okText: 'Retirer', title: 'Retirer de la bibliothèque' });
+            if (!ok) return;
+            try {
+                await API.me.removeFavorite(manga.id);
+                favorited = false; libStatus = null;
+                MH.toast('Retirée de ta bibliothèque');
+                renderHero();
+            } catch (err) { MH.toastErreur(err); }
+        });
+
+        // Les pastilles de statut pilotent le <select> d'origine : son
+        // gestionnaire (ajout aux favoris, AniList, notation) reste le seul.
+        el.querySelectorAll('.serie-status-opt').forEach(b => b.addEventListener('click', () => {
+            const sel = document.getElementById('serieStatus');
+            if (!sel) return;
+            sel.value = b.classList.contains('on') ? '' : b.dataset.status;
+            sel.dispatchEvent(new Event('change'));
+        }));
 
         function updateFavBtn() {
             const b = document.getElementById('btnFavorite');
-            if (b) { b.classList.toggle('is-fav', favorited); b.textContent = favorited ? 'Dans ma liste' : '♡ Ajouter à ma liste'; }
+            if (b) { b.classList.toggle('is-in', favorited); b.innerHTML = libelleBiblio(); }
+            el.querySelectorAll('.serie-status-opt').forEach(o => {
+                const on = o.dataset.status === libStatus;
+                o.classList.toggle('on', on);
+                o.setAttribute('aria-pressed', String(on));
+            });
         }
 
         document.getElementById('serieStatus')?.addEventListener('change', async (e) => {
@@ -359,6 +440,7 @@
                 }
                 await API.me.setLibrary(manga.id, status || null);
                 libStatus = status || null;
+                updateFavBtn();
                 if (status) { try { window.AniList?.syncByTitle(manga.title, { status }); } catch (e) { window.MH?.err?.('serie.js', e); } }
                 MH.toast(status ? 'Statut : ' + e.target.options[e.target.selectedIndex].text : 'Statut retiré');
                 if (status === 'completed') proposerNotation();
@@ -368,11 +450,6 @@
         // Audit AMEL-54 : bascule de surveillance. On ne recharge pas la fiche
         // — seul le libellé du bouton change, et un rechargement complet ferait
         // perdre l'onglet et la position de lecture en cours.
-        // Audit AMEL-96 : une ambiance qui colle a ce qu'on lit, plutot qu'une
-        // liste de huit stations sans rapport avec la page. Suggeree, JAMAIS
-        // lancee : deviner l'ambiance d'une oeuvre est subjectif, et se
-        // tromper en imposant serait pire que ne rien proposer.
-        proposerAmbiance();
 
         // Audit AMEL-108 : portee par serie, memorisee pour la session comme
         // le mode global. Aucun appel reseau : c'est un etat local qui change
@@ -380,8 +457,7 @@
         const btnPrive = document.getElementById('btnPrive');
         if (btnPrive) {
             const majPrive = (on) => {
-                btnPrive.textContent = on ? 'Lecture privée' : 'Lire en privé';
-                btnPrive.classList.toggle('is-fav', on);
+                btnPrive.innerHTML = `<span>Lire en privé</span><span class="serie-pop-val">${on ? 'Activé' : ''}</span>`;
                 btnPrive.setAttribute('aria-pressed', String(on));
                 btnPrive.title = on
                     ? 'Cette série ne laisse aucune trace — cliquer pour réactiver le suivi'
@@ -403,7 +479,7 @@
         if (btnPin) {
             const src = API.sources.current;
             const majPin = (on) => {
-                btnPin.textContent = on ? '📌 Épinglée' : '📌 Épingler';
+                btnPin.innerHTML = `<span>Épingler sur mon profil</span><span class="serie-pop-val">${on ? 'Épinglée' : ''}</span>`;
                 btnPin.setAttribute('aria-pressed', String(on));
                 btnPin.title = on ? 'Retirer de la vitrine de ton profil' : 'Mettre en avant sur ton profil public';
             };
@@ -421,7 +497,7 @@
             try {
                 const r = await API.notifications.watch(manga.id, !libNotify);
                 libNotify = r.notify;
-                btn.textContent = libNotify ? '🔔 Alertes' : '🔕 En sourdine';
+                btn.innerHTML = `<span>Alertes nouveaux chapitres</span><span class="serie-pop-val">${libNotify ? 'Activées' : 'En sourdine'}</span>`;
                 btn.title = libNotify ? 'Ne plus être averti des nouveaux chapitres' : 'Être averti des nouveaux chapitres';
                 btn.setAttribute('aria-pressed', String(libNotify));
                 MH.toast(libNotify ? 'Tu seras averti des nouveaux chapitres' : 'Série mise en sourdine');
@@ -437,7 +513,7 @@
             try {
                 await API.me.setCategory(manga.id, { category: cat || null, title: manga.title, cover: manga.cover || manga.coverThumb, source: API.sources.current });
                 libCategory = cat || null; favorited = true; updateFavBtn();
-                const b = document.getElementById('btnCategory'); if (b) b.textContent = libCategory || '+ Catégorie';
+                const v = document.querySelector('#btnCategory .serie-pop-val'); if (v) v.textContent = libCategory || 'Aucune';
                 MH.toast(libCategory ? 'Catégorie : ' + libCategory : 'Catégorie retirée');
             } catch (err) { MH.toastErreur(err); }
         });
@@ -456,7 +532,7 @@
         // ── Suivi AniList (façon Mihon) : lie le compte au besoin puis pousse
         //    progression (dernier chapitre lu) + statut + note vers AniList ──
         const alBtn = document.getElementById('btnAniList');
-        if (alBtn && window.AniList?.isLinked?.()) alBtn.style.color = '#02a9ff';
+
         alBtn?.addEventListener('click', async () => {
             if (!window.AniList) { MH.toast('AniList indisponible'); return; }
             const label = alBtn.innerHTML;
@@ -595,7 +671,6 @@
     // ── TABS ──
     function renderTabs() {
         const tabs = document.getElementById('serieTabs');
-        const right = document.getElementById('serieTabsRight');
         if (!tabs) return;
 
         const tabDefs = [
@@ -614,7 +689,22 @@
             renderTab(activeTab);
         });
 
-        if (right) right.textContent = manga.lastChapter ? `Dernier chap. : ${manga.lastChapter}` : '';
+        majCouverture();
+    }
+
+    // « Dernier chap. : 343 » à côté de « Chapitres (53) » se lisait comme une
+    // erreur. C'est en fait le nombre de chapitres PARUS, quand la source n'en
+    // héberge qu'une partie (licence, retard de traduction) : on le dit ainsi,
+    // et seulement dans ce cas.
+    function majCouverture() {
+        const right = document.getElementById('serieTabsRight');
+        if (!right) return;
+        const parus = parseFloat(manga.lastChapter);
+        const dispo = chapters.reduce((m, c) => Math.max(m, parseFloat(c.chapter) || 0), 0);
+        right.textContent = (Number.isFinite(parus) && chapters.length && parus > dispo + 0.5)
+            ? `${dispo ? 'Jusqu’au chap. ' + dispo : chapters.length + ' chapitres'} ici · ${parus} parus`
+            : '';
+        right.title = right.textContent ? 'Cette source ne propose pas tous les chapitres parus — « Changer de source » peut aider.' : '';
     }
 
     function updateTabsLabels() {
@@ -648,6 +738,9 @@
         document.querySelectorAll('.serie-tab[data-tab="chapitres"]').forEach(b => {
             b.textContent = `Chapitres (${chapters.length})`;
         });
+        majCouverture();
+        const fc = document.querySelector('#ficheChapitres .fiche-val');
+        if (fc) fc.textContent = chapters.length ? String(chapters.length) : '0';
     }
 
     function renderTab(tab) {
@@ -659,11 +752,14 @@
 
     // ── APERÇU ──
     function renderApercu(el) {
+        // Le haut de la fiche montre déjà les 400 premiers caractères : on ne
+        // répète le synopsis ici que s'il est plus long (texte complet).
+        const synopsisLong = (manga.description || '').length > 400;
         el.innerHTML = `
-        <div class="synopsis-block">
-            <div class="synopsis-block-header"><h2 class="synopsis-block-title">Synopsis</h2></div>
-            <div class="synopsis-text">${MH.esc(manga.description || 'Aucun synopsis disponible.')}</div>
-        </div>
+        ${synopsisLong ? `<div class="synopsis-block">
+            <div class="synopsis-block-header"><h2 class="synopsis-block-title">Synopsis complet</h2></div>
+            <div class="synopsis-text">${MH.esc(manga.description)}</div>
+        </div>` : ''}
         <div class="chapters-block">
             <div class="chapters-block-header">
                 <h2 class="chapters-block-title">Derniers chapitres</h2>
@@ -683,7 +779,7 @@
                     <div id="similarSub" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
                 </div>
             </div>
-            <div id="similarRow" style="display:flex;gap:12px;overflow-x:auto;padding:4px 2px 8px"></div>
+            <div id="similarRow" class="sim-grid"></div>
         </div>
         <!-- Audit AMEL-102 : quand une source casse, l'utilisateur ne sait pas
              que le titre existe ailleurs — alors que la recherche sait déjà
@@ -776,24 +872,6 @@
         } catch (e) { MH.toastErreur(e); }
     }
 
-    // ── Ambiance musicale suggeree (audit AMEL-96) ───────────
-    function proposerAmbiance() {
-        const cible = document.getElementById('serieStatus')?.parentElement;
-        if (!cible || !window.Music?.suggestionPourTags) return;
-        if (document.getElementById('btnAmbiance')) return;
-        const st = window.Music.suggestionPourTags(manga.tags || []);
-        if (!st) return;   // aucun tag reconnu : on ne propose rien plutot qu'au hasard
-        const b = document.createElement('button');
-        b.id = 'btnAmbiance';
-        b.className = 'btn btn-ghost btn-sm';
-        b.title = `Lancer la station « ${st.name} » — ${st.sub}`;
-        b.textContent = `♪ ${st.name}`;
-        b.addEventListener('click', () => {
-            window.Music.playStationId(st.id);
-            MH.toast(`Ambiance : ${st.name}`);
-        });
-        cible.appendChild(b);
-    }
 
     // ── Annulation d'un marquage en masse (audit AMEL-40) ────
     // « Tout lu » touche des centaines de chapitres d'un coup et n'avait aucun
@@ -943,7 +1021,7 @@
                 // bonus, il ne doit jamais retarder ni casser la fiche.
                 await Promise.all(candidates.map(async (s) => {
                     try {
-                        const r = await API.mangas.searchFor(s.id, { q: manga.title, limit: 6 });
+                        const r = await API.mangas.searchFor(s.id, { q: manga.title, limit: 6, prio: 'low' });
                         const m = (r.results || []).find(x => norm(x.title) === cible);
                         if (m) trouves.push({ source: s.id, nom: s.name || s.id, id: m.id });
                     } catch (e) { /* source muette : simplement pas listée */ }
@@ -1324,7 +1402,7 @@
 
         row.innerHTML = items.map((m, i) => `
             <a class="sim-card" data-idx="${i}" href="recherche.html?q=${encodeURIComponent(m.title)}"
-               style="flex:0 0 116px;text-decoration:none;color:inherit;display:block">
+               style="text-decoration:none;color:inherit;display:block;min-width:0">
                 <div style="aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--bg4);position:relative">
                     <img src="${MH.esc(m.cover || '')}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.style.visibility='hidden'">
                     <div class="sim-badge" data-badge="${i}" style="display:none;position:absolute;left:6px;bottom:6px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;background:#3f7d4e;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4)"></div>
@@ -1333,21 +1411,31 @@
             </a>`).join('');
         block.style.display = '';
 
-        verifyExistence(items, row);
+        // La vérification interroge toutes les sources pour chaque carte : on
+        // ne la lance que si le bloc est réellement vu, et en priorité basse
+        // (le serveur fait passer le lecteur devant).
+        if ('IntersectionObserver' in window) {
+            const io = new IntersectionObserver((es) => {
+                if (!es.some(e => e.isIntersecting)) return;
+                io.disconnect();
+                verifyExistence(items, row);
+            }, { rootMargin: '200px' });
+            io.observe(block);
+        } else verifyExistence(items, row);
     }
 
     // Recherche silencieuse : si une correspondance existe sur une source installée,
     // on surclasse la carte en lien direct vers la fiche. Jamais de rétrogradation.
     async function verifyExistence(items, row) {
         let next = 0;
-        const CONC = 3;
+        const CONC = 2;
         const worker = async () => {
             while (next < items.length) {
                 const i = next++;
                 const card = row.querySelector(`.sim-card[data-idx="${i}"]`);
                 if (!card) continue;
                 try {
-                    const data = await API.mangas.searchAll(items[i].title);
+                    const data = await API.mangas.searchAll(items[i].title, 12, { fond: true });
                     for (const g of (data.groups || [])) {
                         if (g.error || !g.items) continue;
                         const hit = g.items.find(m => titleMatch(items[i].title, m.title));
@@ -1365,13 +1453,23 @@
         if (badge) { badge.style.display = ''; badge.textContent = '✓ ' + MH.esc(match.sourceName || match.source); }
     }
 
+    // Beaucoup de sources titrent « Chapter 1193 » : répété à côté de
+    // « Chap. 1193 », ça ne dit rien. On n'affiche que les vrais titres.
+    function titreUtile(c) {
+        const t = String(c.title || '').trim();
+        if (!t) return '';
+        const nu = t.replace(/^(vol(ume)?\.?\s*[\d.]+\s*[-–:]?\s*)?(ch(ap(ter|itre)?)?|épisode|episode|ep)?\.?\s*#?/i, '');
+        if (/^[\d.]+$/.test(nu) && parseFloat(nu) === parseFloat(c.chapter)) return '';
+        return t;
+    }
+
     function renderChapterRow(c) {
         const isRead = readChapsSet.has(c.id);
         const isBm = window.UserData?.hasBookmark?.(manga.id, c.id);
         return `
         <a href="${MH.readerHref(manga.id, c.id, API.sources.current)}" class="chapter-row${isRead ? ' chapter-row--read' : ''}">
             <div class="chapter-num">${MH.unitLabel(API.sources.current, { short: true })} ${c.chapter}</div>
-            <div class="chapter-title-text">${MH.esc(c.title || 'Chapitre ' + c.chapter)}</div>
+            <div class="chapter-title-text">${MH.esc(titreUtile(c))}</div>
             <div class="chapter-meta">
                 <span class="chapter-date" title="${c.publishedAt ? MH.fullDate(c.publishedAt) : ''}">${c.publishedAt ? MH.relTime(c.publishedAt) : ''}</span>
                 <span class="chapter-time">${c.pages ? c.pages + ' p.' : ''}</span>

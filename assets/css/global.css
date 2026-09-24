@@ -512,6 +512,10 @@ body.incognito-on::before {
 }
 
 #btnRefresh.spinning svg { animation: inko-spin .8s linear infinite; }
+/* Avancement du scan : fine barre sous le bouton (largeur = % de séries vérifiées) */
+#btnRefresh { position: relative; }
+#btnRefresh.spinning::after { content: ""; position: absolute; left: 6px; bottom: 3px; height: 2px; border-radius: 2px;
+    width: calc((100% - 12px) * var(--refresh-pct-n, 0)); background: var(--accent); transition: width .4s ease; }
 @keyframes inko-spin { to { transform: rotate(360deg); } }
 .header-user {
   display: flex; align-items: center; gap: 8px;

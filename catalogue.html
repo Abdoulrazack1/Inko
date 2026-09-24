@@ -91,10 +91,6 @@
         <div class="filter-checkboxes" id="filterRating"></div>
       </div>
 
-      <div class="filter-section">
-        <div class="filter-label">Dernières sorties</div>
-        <div id="weekCalendar"></div>
-      </div>
     </aside>
 
     <!-- ══ CONTENU PRINCIPAL ════════════════════════════════ -->
@@ -103,10 +99,15 @@
       <!-- Header catalogue -->
       <div class="catalogue-header">
         <div class="catalogue-header-left">
-          <h1 class="catalogue-title">Catalogue Ultimate</h1>
-          <p class="catalogue-desc">Explorez des milliers de mangas, webtoons et manhwas avec des recommandations intelligentes, des filtres ultra-précis et une mise à jour continue.</p>
-          <div class="catalogue-chips" id="catalogueChips"></div>
-          <div class="catalogue-quick-filters" id="quickFilters"></div>
+          <h1 class="catalogue-title">Catalogue</h1>
+          <p class="catalogue-desc" id="catalogueDesc">Parcours les séries de tes sources.</p>
+          <!-- Chercher DANS le catalogue affiché, avec les filtres en cours.
+               Avant, seule la recherche du header existait : elle quittait
+               la page et oubliait les filtres. -->
+          <div class="cat-search">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input type="search" id="catSearch" placeholder="Chercher un titre dans ce catalogue…" aria-label="Chercher un titre dans ce catalogue" autocomplete="off">
+          </div>
           <div class="catalogue-actions-bar">
             <button class="btn btn-primary btn-sm" id="btnRandom">
               Lecture aléatoire
@@ -114,16 +115,9 @@
             <span class="catalogue-active-filters" id="activeFiltersCount"></span>
           </div>
         </div>
-        <div class="catalogue-focus" id="catalogueFocus"></div>
+
       </div>
 
-      <!-- Team picks -->
-      <div class="team-picks-section">
-        <div class="section-header">
-          <h2 class="section-title">Les incontournables</h2>
-        </div>
-        <div class="team-picks-grid" id="teamPicksGrid"></div>
-      </div>
 
       <!-- Results header -->
       <div class="results-header">

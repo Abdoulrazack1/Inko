@@ -37,12 +37,12 @@
         restoreCtx();        // restaure le dernier contexte (filtres/tri/vue)
         readURLParams();     // l'URL (?q=, ?tag=, ?sort=) reste prioritaire
         try { allSources = localStorage.getItem('inko_cat_allsrc') === '1'; } catch (e) { window.MH?.err?.('catalogue.js', e); }
-        renderQuickFilters();
         bindEvents();
+        brancherRecherche();
         renderSourceBar();   // bascule source unique / toutes les sources
 
         // Sections annexes : chargement non bloquant, en parallèle
-        loadSourceInfo().then(renderChips).catch(() => {});
+        loadSourceInfo().then(renderChips).catch(() => {});   // renseigne aussi la description
         loadTags().then(renderFilterSidebar).catch(() => {});
         renderTeamPicks();
         renderFocus();
@@ -171,7 +171,7 @@
     function renderSourceBar() {
         let bar = document.getElementById('sourceBar');
         if (!bar) {
-            const anchor = document.getElementById('quickFilters');
+            const anchor = document.querySelector('.cat-search');
             if (!anchor) return;
             bar = document.createElement('div');
             bar.id = 'sourceBar';
@@ -186,7 +186,7 @@
         bar.querySelectorAll('[data-allsrc]').forEach(b => b.addEventListener('click', async () => {
             allSources = true;
             try { localStorage.setItem('inko_cat_allsrc', '1'); } catch (e) { window.MH?.err?.('catalogue.js', e); }
-            currentPage = 1; renderSourceBar();
+            currentPage = 1; renderSourceBar(); renderChips();
             await runSearch();
         }));
         bar.querySelectorAll('[data-src]').forEach(b => b.addEventListener('click', async () => {
@@ -278,51 +278,36 @@
     }
 
     // ── Chips info ──
+    // Une phrase qui dit CE QU'ON REGARDE (quelle source, quelle langue),
+    // à la place de quatre pastilles publicitaires.
     function renderChips() {
-        const el = document.getElementById('catalogueChips');
+        const el = document.getElementById('catalogueDesc');
         if (!el) return;
-        const name = sourceInfo?.name || 'source active';
+        if (allSources) { el.textContent = 'Toutes tes sources à la fois, doublons fusionnés.'; return; }
+        const name = sourceInfo?.name || 'la source active';
         const lang = (sourceInfo?.lang || '').toUpperCase();
-        el.innerHTML = [
-            `Catalogue ${MH.esc(name)} en direct`,
-            lang ? `Langue : ${MH.esc(lang)}` : 'Multi-langues',
-            'Mises à jour temps réel',
-            'Lecture intégrée',
-        ].map(t => `<div class="catalogue-chip">${t}</div>`).join('');
+        el.textContent = `Catalogue de ${name}${lang ? ` · ${lang}` : ''}`;
     }
 
-    // ── Quick filters ──
-    function renderQuickFilters() {
-        const el = document.getElementById('quickFilters');
-        if (!el) return;
-        const options = [
-            { label: 'Tout',       val: null },
-            { label: 'En cours',   val: 'ongoing',  type: 'status' },
-            { label: 'Terminés',   val: 'completed', type: 'status' },
-            { label: 'Pause',      val: 'hiatus',   type: 'status' },
-            { label: 'Shōnen',     val: 'shounen',  type: 'demo'   },
-            { label: 'Seinen',     val: 'seinen',   type: 'demo'   },
-            { label: 'Shōjo',      val: 'shoujo',   type: 'demo'   },
-            { label: 'Josei',      val: 'josei',    type: 'demo'   },
-        ];
-        el.innerHTML = options.map(o =>
-            `<button class="quick-filter-btn" data-quick="${o.val || ''}" data-type="${o.type || ''}">${o.label}</button>`
-        ).join('');
-        syncQuickFilters();
-        el.addEventListener('click', async e => {
-            const btn = e.target.closest('.quick-filter-btn');
-            if (!btn) return;
-            const v = btn.dataset.quick;
-            const t = btn.dataset.type;
-            if (!v) { activeStatus.clear(); activeDemo.clear(); }   // « Tout »
-            else if (t === 'status') { activeStatus.has(v) ? activeStatus.delete(v) : activeStatus.add(v); }
-            else if (t === 'demo')   { activeDemo.has(v)   ? activeDemo.delete(v)   : activeDemo.add(v); }
-            currentPage = 1;
-            syncQuickFilters();
-            syncSidebarState();
-            await runSearch();
+    // Recherche dans le catalogue : les filtres restent appliqués.
+    function brancherRecherche() {
+        const input = document.getElementById('catSearch');
+        if (!input) return;
+        input.value = lastQuery || '';
+        let t = null;
+        input.addEventListener('input', () => {
+            clearTimeout(t);
+            t = setTimeout(() => {
+                const q = input.value.trim();
+                if (q === lastQuery) return;
+                if (q && q.length < 2) return;
+                lastQuery = q; currentPage = 1;
+                runSearch();
+            }, 350);
         });
+        input.addEventListener('keydown', (e) => { if (e.key === 'Escape' && input.value) { input.value = ''; input.dispatchEvent(new Event('input')); } });
     }
+
 
     // Reflète l'état des sets sur les boutons rapides (plusieurs actifs possibles)
     function syncQuickFilters() {

@@ -168,12 +168,13 @@ test('les intertitres de section sont de vrais titres', () => {
 
 test('le h1 de l’accueil nomme la page, pas le manga qui défile', () => {
     const html = lire('accueil.html');
-    assert.match(html, /<h1 class="a11y-invisible">Accueil<\/h1>/,
+    // Accueil refait (sept. 2026) : plus de carrousel. Le h1 porte « Accueil »
+    // pour les lecteurs d'écran, la salutation en est la partie visible.
+    assert.match(html, /<h1[^>]*>\s*<span class="a11y-invisible">Accueil/,
         'la page doit porter un titre stable');
+    assert.equal((html.match(/<h1\b/g) || []).length, 1, 'un seul h1');
     const js = lireJs('accueil.js');
-    assert.ok(!/<h1 class="hero-title">/.test(js),
-        'le titre du carrousel ne peut pas être le titre de la page : il change tout seul');
-    assert.match(js, /<h2 class="hero-title">/, 'il reste un titre, d’un cran plus bas');
+    assert.ok(!/<h1\b/.test(js), 'aucun titre de page fabriqué par le script : il changerait tout seul');
 
     // La pastille « ● » est décorative. Dans un titre, elle est ANNONCÉE —
     // « cercle noir, Tendances ».

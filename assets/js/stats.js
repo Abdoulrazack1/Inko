@@ -54,9 +54,9 @@
             ['', t.favorites || 0, 'Favoris'],
         ];
         // Objectif de lecture hebdomadaire (UserData)
-        const goal = (window.UserData?.getGoal?.() || {}).weekly || 0;
-        const weekAgo = Date.now() - 7 * 86400 * 1000;
-        const readThisWeek = (events || []).filter(e => e.type === 'read' && new Date(e.at).getTime() >= weekAgo).length;
+        const goal = MH.objectifHebdo();
+        void events;
+        const readThisWeek = MH.lusSurSeptJours(stats.heatmap || {});
         const pct = goal > 0 ? Math.min(100, Math.round((readThisWeek / goal) * 100)) : 0;
 
         // Audit AMEL-60 : l'objectif était un nombre saisi à la main, sans
@@ -140,7 +140,7 @@
         // Objectif de lecture : sauvegarde + re-rendu
         document.getElementById('goalSave')?.addEventListener('click', () => {
             const v = Math.max(0, parseInt(document.getElementById('goalInput').value, 10) || 0);
-            window.UserData?.setGoal?.({ weekly: v });
+            MH.definirObjectifHebdo(v);
             MH.toast?.(v ? `Objectif fixé : ${v} chapitre(s)/semaine` : 'Objectif retiré');
             render(body, stats, events, favs, lus, prog);
         });
@@ -155,7 +155,7 @@
         // à la main juste à côté — proposer n'est pas imposer.
         document.getElementById('goalSuggest')?.addEventListener('click', (e) => {
             const v = parseInt(e.currentTarget.dataset.v, 10);
-            window.UserData?.setGoal?.({ weekly: v });
+            MH.definirObjectifHebdo(v);
             MH.toast?.(`Objectif fixé sur ton rythme : ${v} chapitre(s)/semaine`);
             render(body, stats, events, favs, lus, prog);
         });
