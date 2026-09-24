@@ -3,6 +3,14 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.8.1 — Lisible avec tous les accents, et traduite
+
+- Le bandeau « Nouvelle version disponible » prenait la couleur d'accent comme fond : avec un accent clair (violet), son texte blanc devenait illisible. Fond sombre fixe, lisible quel que soit l'accent.
+- Liens « Tout voir », « Tout effacer » et #tags de l'accueil, de la bibliothèque et du journal : couleur d'accent réservée au texte (contraste AA).
+- La zone des catégories n'est plus annoncée comme une liste d'onglets quand elle ne contient que le bouton de création.
+- Une centaine de nouveaux libellés traduits en anglais.
+- Repli Android 8 pour les nouvelles grilles de couvertures.
+
 ## 2.8.0 — Inko se refait une tête : fiable, rangé, et centré sur ce qu'on lit
 
 Une refonte en profondeur, partie d'un constat simple : l'app « faisait
