@@ -3,6 +3,69 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.8.0 — Inko se refait une tête : fiable, rangé, et centré sur ce qu'on lit
+
+Une refonte en profondeur, partie d'un constat simple : l'app « faisait
+amateur ». Trop de boutons, des chiffres faux, des sources qui se bloquaient
+toutes seules, une musique qui se coupait à chaque clic.
+
+### Fiabilité
+
+- **Les sources ne se font plus bannir.** Une seule fiche série lançait
+  ~110 recherches d'un coup (vérification des recommandations sur toutes les
+  sources) : WeebCentral répondait « trop de requêtes » et le lecteur ouvert
+  juste après affichait « Weebcentral ne répond pas ». Chaque source a
+  désormais sa file d'attente (4 appels simultanés au plus), le lecteur passe
+  toujours devant, et un « trop de requêtes » fait ralentir la source au lieu
+  de l'insister (pause de 3 s à 1 min).
+- **L'actualisation de la bibliothèque tourne en tâche de fond**, avec sa
+  progression (« 142 / 491 »), une file par source (une source lente ne
+  bloque plus les autres), et un mémo de 20 min : relancer juste après ne
+  coûte rien.
+- **Le lecteur réessaie tout seul** quand une source est saturée, et le dit.
+- **Nombre de non-lus exact.** Il était *estimé* (dernier chapitre − chapitres
+  marqués lus) : 65 740 non-lus annoncés sur une bibliothèque de 490 séries,
+  « 1192 nouveaux » sur One Piece lu à jour. Il est maintenant calculé au scan,
+  gardé en base, et compté *après* l'endroit où l'on en est.
+- **Couvertures en cache disque** : elles s'affichent instantanément dès la
+  deuxième ouverture de l'app.
+- L'activité ne compte plus une « lecture » à chaque page tournée, et
+  l'objectif hebdomadaire est le même sur le profil et les statistiques.
+
+### Nouvelles fonctionnalités
+
+- **Catégories de bibliothèque en onglets**, comme dans Mihon : créer,
+  renommer, réordonner, supprimer ; ranger une sélection en un geste.
+- **Migration en masse** : sélectionner des séries (ou toute une source morte
+  via le filtre + « Tout sélectionner »), relire les correspondances proposées,
+  migrer. Seules les correspondances sûres sont cochées d'office ; les
+  candidats sont du même type (un roman ne migre plus vers son adaptation manga).
+- **Journal enrichi** : écrire une entrée directement depuis le journal,
+  types *note / citation / réflexion*, entrées épinglées, #tags cliquables,
+  et une vue **Carnet** qui montre jour par jour ce que tu as lu — même sans
+  rien écrire.
+- **Stations de musique en flux radio directs** (YouTube en secours) : trois
+  directs YouTube refusaient désormais la lecture intégrée. La radio reprend
+  après un changement de page ; l'app de bureau autorise la lecture
+  automatique.
+
+### Écrans refaits
+
+- **Accueil** : ta lecture en cours en grand, les nouveaux chapitres des séries
+  commencées, « À lire ensuite », une recommandation expliquée, puis les rayons
+  de la source. Fini le carrousel qui mettait en avant n'importe quelle série.
+- **Fiche série** : trois actions au lieu de quinze — reprendre, un bouton de
+  bibliothèque qui montre ton statut et range tout (statut, catégorie, alertes,
+  changement de source), et « ⋯ » pour le reste. « En bref » n'affiche plus que
+  des informations réelles.
+- **Lecteur** : sans en-tête de site, planche ajustée à l'écran par défaut, plus
+  de colonne vide à droite, barre d'outils réduite à l'essentiel.
+- **Bibliothèque** : filtres regroupés dans un panneau, actions secondaires dans
+  un menu, affichage immédiat.
+- **Catalogue** : plus de slogans ni de filtres en double, une vraie recherche
+  dans la source affichée.
+- **Premier lancement** : une fenêtre au lieu de trois, visite en 3 écrans.
+
 ## 2.7.1 — « Tu as la derniere version » s'affichait sans avoir rien pu verifier
 
 **La page Parametres annoncait « Tu as la derniere version ✓ » des que
