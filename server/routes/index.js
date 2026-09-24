@@ -299,6 +299,7 @@ router.delete('/ratings/:mangaId',        auth.authRequired, User.deleteMangaRat
 // ── Journal de lecture : notes personnelles ──
 router.get   ('/me/notes',                auth.authRequired, Notes.listNotes);
 router.get   ('/me/notes/stats',          auth.authRequired, Notes.notesStats);
+router.get   ('/me/journal/activite',     auth.authRequired, Notes.activite);
 router.post  ('/me/notes',                auth.authRequired, Notes.createNote);
 router.put   ('/me/notes/:id',            auth.authRequired, Notes.updateNote);
 router.delete('/me/notes/:id',            auth.authRequired, Notes.deleteNote);
@@ -330,6 +331,11 @@ router.get   ('/me/events',               auth.authRequired, User.getEvents);
 router.get   ('/me/stats',                auth.authRequired, User.getStats);
 router.get   ('/me/stats/distribution',       auth.authRequired, User.getStatsDistribution);   // audit AMEL-57
 router.get   ('/me/updates',              auth.authRequired, User.checkUpdates);
+router.post  ('/me/updates/scan',         auth.authRequired, User.startUpdatesScan);
+router.post  ('/me/categories/rename',    auth.authRequired, User.renameCategory);
+router.post  ('/me/categories/delete',    auth.authRequired, User.deleteCategory);
+router.post  ('/me/favorites/category-bulk', auth.authRequired, User.setCategoryBulk);
+router.get   ('/me/updates/scan',         auth.authRequired, User.getUpdatesScan);
 
 
 module.exports = router;

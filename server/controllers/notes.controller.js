@@ -23,8 +23,14 @@ function mapNote(r) {
         mood: r.mood || null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
+        kind: r.kind || 'note',
+        pinned: !!r.pinned,
     };
 }
+
+// Types d'entrée du journal (migration 23). « note » reste le défaut : les
+// notes prises dans le lecteur n'ont rien à préciser.
+const KINDS = ['note', 'citation', 'reflexion'];
 
 // GET /api/me/notes?manga=&q=&limit=  — journal (tout) ou notes d'une série
 async function listNotes(req, res, next) {
@@ -42,7 +48,7 @@ async function listNotes(req, res, next) {
         if (manga) { where.push('manga_id = ?'); params.push(manga); }
         if (q) { where.push('(body LIKE ? OR manga_title LIKE ?)'); params.push('%' + q + '%', '%' + q + '%'); }
         const [rows] = await pool.query(
-            `SELECT * FROM reading_notes WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
+            `SELECT * FROM reading_notes WHERE ${where.join(' AND ')} ORDER BY pinned DESC, created_at DESC LIMIT ${limit} OFFSET ${offset}`,
             params
         );
         const [[tot]] = await pool.query(
@@ -77,13 +83,14 @@ async function createNote(req, res, next) {
         if (!body) return res.status(400).json({ error: 'La note est vide' });
         if (body.length > 5000) return res.status(400).json({ error: 'Note trop longue (5000 caractères max)' });
         const mood = MOODS.includes(b.mood) ? b.mood : null;
+        const kind = KINDS.includes(b.kind) ? b.kind : 'note';
         const [r] = await pool.query(
             `INSERT INTO reading_notes
-                (user_id, manga_id, source, manga_title, cover, chapter_id, chapter_num, page, body, mood)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (user_id, manga_id, source, manga_title, cover, chapter_id, chapter_num, page, body, mood, kind)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [req.user.id, b.mangaId, b.source || null, b.mangaTitle || null, b.cover || null,
-             b.chapterId || null, b.chapterNum != null ? b.chapterNum : null,
-             b.page != null ? parseInt(b.page, 10) : null, body, mood]
+             b.chapterId || null, b.chapterNum != null && b.chapterNum !== '' ? b.chapterNum : null,
+             b.page != null ? parseInt(b.page, 10) : null, body, mood, kind]
         );
         const [[row]] = await pool.query('SELECT * FROM reading_notes WHERE id = ?', [r.insertId]);
         res.json({ ok: true, note: mapNote(row) });
@@ -94,6 +101,14 @@ async function createNote(req, res, next) {
 async function updateNote(req, res, next) {
     try {
         const b = req.body || {};
+        // Épingler/désépingler seul : pas besoin de renvoyer le texte.
+        if (b.body === undefined && typeof b.pinned === 'boolean') {
+            const [r0] = await pool.query('UPDATE reading_notes SET pinned = ? WHERE id = ? AND user_id = ?',
+                [b.pinned ? 1 : 0, req.params.id, req.user.id]);
+            if (!r0.affectedRows) return res.status(404).json({ error: 'Note introuvable' });
+            const [[row0]] = await pool.query('SELECT * FROM reading_notes WHERE id = ?', [req.params.id]);
+            return res.json({ ok: true, note: mapNote(row0) });
+        }
         const body = String(b.body || '').trim();
         if (!body) return res.status(400).json({ error: 'La note est vide' });
         if (body.length > 5000) return res.status(400).json({ error: 'Note trop longue (5000 caractères max)' });
@@ -103,6 +118,8 @@ async function updateNote(req, res, next) {
         // absent du payload → inchangée.
         const sets = ['body = ?'];
         const vals = [body];
+        if (KINDS.includes(b.kind)) { sets.push('kind = ?'); vals.push(b.kind); }
+        if (typeof b.pinned === 'boolean') { sets.push('pinned = ?'); vals.push(b.pinned ? 1 : 0); }
         if (MOODS.includes(b.mood)) { sets.push('mood = ?'); vals.push(b.mood); }
         else if (b.mood === null)   { sets.push('mood = NULL'); }
         vals.push(req.params.id, req.user.id);
@@ -128,4 +145,53 @@ async function deleteNote(req, res, next) {
     } catch (e) { next(e); }
 }
 
-module.exports = { listNotes, notesStats, createNote, updateNote, deleteNote };
+// GET /api/me/journal/activite?jours=60
+// Ce qu'on a LU, jour par jour : le carnet se remplit tout seul, même sans
+// écrire une ligne. Deux traces se complètent : les chapitres marqués lus et
+// l'historique de progression (beaucoup lisent sans rien marquer).
+async function activite(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const jours = Math.min(Math.max(parseInt(req.query.jours || '60', 10) || 60, 1), 365);
+        const TZ = process.env.STATS_TZ || 'Europe/Paris';
+        const jourDe = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(d));
+        const [lus] = await pool.query(
+            `SELECT manga_id, chapter_number AS ch, read_at AS at FROM read_chapters
+             WHERE user_id = ? AND read_at >= NOW() - INTERVAL ? DAY`, [uid, jours]);
+        let prog = [];
+        try {
+            [prog] = await pool.query(
+                `SELECT manga_id, chapter_number AS ch, recorded_at AS at, source FROM progress_history
+                 WHERE user_id = ? AND recorded_at >= NOW() - INTERVAL ? DAY`, [uid, jours]);
+        } catch (e) { /* table absente : les chapitres lus suffisent */ }
+        const [favs] = await pool.query('SELECT manga_id, title, cover, source FROM favorites WHERE user_id = ?', [uid]);
+        const infos = new Map(favs.map(f => [f.manga_id, f]));
+        // jour -> manga -> Set(chapitres)
+        const parJour = new Map();
+        const sourceDe = new Map();
+        prog.forEach(r => { if (r.source && !sourceDe.has(r.manga_id)) sourceDe.set(r.manga_id, r.source); });
+        try {
+            const [ps] = await pool.query('SELECT manga_id, source FROM progress WHERE user_id = ? AND source IS NOT NULL', [uid]);
+            ps.forEach(r => { if (!sourceDe.has(r.manga_id)) sourceDe.set(r.manga_id, r.source); });
+        } catch (e) { /* sans importance : la série restera sans titre */ }
+        for (const r of [...lus, ...prog]) {
+            const j = jourDe(r.at);
+            if (!parJour.has(j)) parJour.set(j, new Map());
+            const m = parJour.get(j);
+            if (!m.has(r.manga_id)) m.set(r.manga_id, new Set());
+            if (r.ch != null) m.get(r.manga_id).add(Number(r.ch));
+        }
+        const out = [...parJour.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([jour, m]) => ({
+            jour,
+            series: [...m.entries()].map(([id, set]) => {
+                const f = infos.get(id) || {};
+                const chs = [...set].sort((a, b) => a - b);
+                return { mangaId: id, titre: f.title || null, cover: f.cover || null, source: f.source || sourceDe.get(id) || null,
+                    chapitres: chs.length, de: chs[0] ?? null, a: chs[chs.length - 1] ?? null };
+            }).sort((a, b) => b.chapitres - a.chapitres),
+        }));
+        res.json({ jours: out });
+    } catch (e) { next(e); }
+}
+
+module.exports = { listNotes, notesStats, createNote, updateNote, deleteNote, activite };

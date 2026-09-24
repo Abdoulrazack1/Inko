@@ -584,6 +584,31 @@ const MIGRATIONS = [
                 REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
     } },
+    { version: 22, name: 'favoris : non-lus exacts, dernière parution, dernière vérification', apply: async () => {
+        // Le nombre de non-lus était ESTIMÉ côté client (« dernier chapitre
+        // connu − chapitres lus ») : faux dès qu'une série saute des numéros,
+        // compte des demi-chapitres ou change de source — une bibliothèque de
+        // 490 séries affichait 65 740 chapitres non lus. Le scan de mises à
+        // jour connaît le vrai chiffre : on le garde ici, avec la date de la
+        // dernière parution (tri « activité ») et celle de la vérification.
+        if (!(await columnExists('favorites', 'unread_count'))) {
+            await run('ALTER TABLE favorites ADD COLUMN unread_count INT DEFAULT NULL');
+        }
+        if (!(await columnExists('favorites', 'latest_at'))) {
+            await run('ALTER TABLE favorites ADD COLUMN latest_at DATETIME DEFAULT NULL');
+        }
+        if (!(await columnExists('favorites', 'checked_at'))) {
+            await run('ALTER TABLE favorites ADD COLUMN checked_at DATETIME DEFAULT NULL');
+        }
+    } },
+    { version: 23, name: 'journal : type d’entrée (note, citation, réflexion) et entrées épinglées', apply: async () => {
+        if (!(await columnExists('reading_notes', 'kind'))) {
+            await run("ALTER TABLE reading_notes ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'note'");
+        }
+        if (!(await columnExists('reading_notes', 'pinned'))) {
+            await run('ALTER TABLE reading_notes ADD COLUMN pinned TINYINT(1) NOT NULL DEFAULT 0');
+        }
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──

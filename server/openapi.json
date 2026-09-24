@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "API Inko",
-    "version": "2.7.1",
+    "version": "2.8.0",
     "description": "Référence générée depuis server/routes/index.js. Ne pas éditer à la main : régénérer avec `npm run gen-openapi`."
   },
   "servers": [
@@ -3548,6 +3548,33 @@
         }
       }
     },
+    "/me/journal/activite": {
+      "get": {
+        "summary": "Notes.activite",
+        "operationId": "Notes_activite",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
     "/me/notes/{id}": {
       "put": {
         "summary": "Notes.updateNote",
@@ -4078,6 +4105,139 @@
       "get": {
         "summary": "User.checkUpdates",
         "operationId": "User_checkUpdates",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/updates/scan": {
+      "post": {
+        "summary": "User.startUpdatesScan",
+        "operationId": "User_startUpdatesScan",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      },
+      "get": {
+        "summary": "User.getUpdatesScan",
+        "operationId": "User_getUpdatesScan",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/categories/rename": {
+      "post": {
+        "summary": "User.renameCategory",
+        "operationId": "User_renameCategory",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/categories/delete": {
+      "post": {
+        "summary": "User.deleteCategory",
+        "operationId": "User_deleteCategory",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
+    "/me/favorites/category-bulk": {
+      "post": {
+        "summary": "User.setCategoryBulk",
+        "operationId": "User_setCategoryBulk",
         "tags": [
           "me"
         ],

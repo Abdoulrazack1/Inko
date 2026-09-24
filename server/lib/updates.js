@@ -15,6 +15,7 @@
 // ============================================================
 const { pool } = require('../config/db');
 const extensions = require('../extensions/loader');
+const { planifier } = require('./ordonnanceur');
 const { createNotification, purgerNotificationsLues, RETENTION_JOURS } = require('./notify');
 
 // Concurrence bornée (reprend le mapLimit du controller, ici partagé)
@@ -79,7 +80,44 @@ function dernierScan(uid) {
  *   notifyOnly  n'examine que les séries dont les notifications sont actives
  * @returns {{updates: Array, failures: Array, scanned: number, skipped: number}}
  */
-async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = 'fr,en', notifyOnly = false } = {}) {
+// ── Mémo par série ──────────────────────────────────────────
+// Une série vérifiée il y a moins de 20 minutes n'est pas redemandée au site :
+// relancer « Mettre à jour » juste après un premier passage, ou l'enchaîner
+// avec le scan de fond, ne coûte plus rien aux sources. Seule la forme
+// compacte des chapitres est gardée (id + numéro), pas les listes complètes.
+const MEMO_TTL = parseInt(process.env.UPDATES_MEMO_MS || String(20 * 60 * 1000), 10);
+const memoSeries = new BoundedCache({ max: 5000, ttl: MEMO_TTL });
+const MEMO_FORCE_MS = 3 * 60 * 1000;
+
+async function chapitresDe(src, mangaId, lang, { force = false, prio = 'normale' } = {}) {
+    const cle = `${src.id}:${mangaId}:${lang}`;
+    // Un clic manuel (force) revérifie, sauf ce qui vient de l'être : deux
+    // clics rapprochés ne doivent pas doubler la charge sur les sites.
+    const m = memoSeries.get(cle);
+    if (m && (!force || Date.now() - m.at < MEMO_FORCE_MS)) return m.chaps;
+    // Le délai ne court qu'une fois la requête PARTIE : l'attente dans la file
+    // de la source (quand elle ralentit après un 429) n'est pas une panne.
+    const data = await planifier(src.id, prio, () => withTimeout(src.getChapters(mangaId, { lang }), PER_SERIES_MS),
+        { patient: prio !== 'haute' });
+    const chaps = (data && data.results || []).map(c => ({
+        id: c.id, chapter: c.chapter, title: c.title, publishedAt: c.publishedAt,
+    }));
+    memoSeries.set(cle, { chaps, at: Date.now() });
+    return chaps;
+}
+
+// Timeout par série (robustesse) : une source lente/bloquée (Cloudflare,
+// site HS) ne doit pas figer tout le scan.
+const PER_SERIES_MS = 20000;
+const withTimeout = (p, ms) => {
+    let t;
+    return Promise.race([
+        p,
+        new Promise((_, rej) => { t = setTimeout(() => rej(new Error('délai dépassé (source lente)')), ms); }),
+    ]).finally(() => clearTimeout(t));
+};
+
+async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = 'fr,en', notifyOnly = false, force = false, onProgress = null } = {}) {
     const params = [uid];
     let where = 'f.user_id = ?';
     if (mangaId) { where += ' AND f.manga_id = ?'; params.push(mangaId); }
@@ -108,22 +146,35 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
     const [readRows] = await pool.query(
         'SELECT manga_id, chapter_number FROM read_chapters WHERE user_id = ?', [uid]
     );
+    const progressByManga = {};
+    try {
+        const [progRows] = await pool.query('SELECT manga_id, chapter_number FROM progress WHERE user_id = ?', [uid]);
+        progRows.forEach(r => { progressByManga[r.manga_id] = r.chapter_number; });
+    } catch (e) { /* table absente : on s'en tient aux chapitres marqués lus */ }
     const readByManga = {};
     readRows.forEach(r => {
         (readByManga[r.manga_id] = readByManga[r.manga_id] || new Set()).add(r.chapter_number);
     });
 
-    // Timeout par série (robustesse) : une source lente/bloquée (Cloudflare,
-    // site HS) ne doit pas figer tout le scan. Chaque getChapters est borné ;
-    // au-delà, la série est marquée en échec et le scan continue.
-    const PER_SERIES_MS = 20000;
-    const withTimeout = (p, ms) => Promise.race([
-        p,
-        new Promise((_, rej) => setTimeout(() => rej(new Error('délai dépassé (source lente)')), ms)),
-    ]);
-
     const failures = [];
-    const results = await mapLimit(targets, 4, async (f) => {
+    let faits = 0;
+    const signaler = () => { if (onProgress) try { onProgress({ faits, total: targets.length }); } catch (e) { /* observateur fautif */ } };
+    // Une file par source : une source lente ou freinée (429) n'immobilise
+    // plus les séries des autres sources derrière elle.
+    const parSource = new Map();
+    targets.forEach(f => {
+        const k = f.source || 'mangadex';
+        if (!parSource.has(k)) parSource.set(k, []);
+        parSource.get(k).push(f);
+    });
+    const results = (await Promise.all([...parSource.values()].map(groupe =>
+        mapLimit(groupe, 4, async (f) => {
+            try { return await examinerSerie(f); }
+            finally { faits++; signaler(); }
+        })
+    ))).flat();
+
+    async function examinerSerie(f) {
         const src = extensions.get(f.source || 'mangadex') || extensions.defaultSource();
         if (!src || typeof src.getChapters !== 'function') {
             failures.push({ mangaId: f.manga_id, title: f.title || f.manga_id, cover: f.cover || null, error: `Source « ${f.source} » indisponible` });
@@ -131,8 +182,7 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
         }
         let chaps = [];
         try {
-            const data = await withTimeout(src.getChapters(f.manga_id, { lang }), PER_SERIES_MS);
-            chaps = data.results || [];
+            chaps = await chapitresDe(src, f.manga_id, lang, { force: force || !!mangaId, prio: mangaId ? 'haute' : 'normale' });
         } catch (e) {
             // §15.2 : l'échec est remonté, plus jamais avalé en silence
             failures.push({ mangaId: f.manga_id, title: f.title || f.manga_id, cover: f.cover || null, source: f.source, error: String(e.message || e).slice(0, 200) });
@@ -142,7 +192,17 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
 
         const readSet = readByManga[f.manga_id] || new Set();
         const latest  = chaps[0];   // trié desc par les extensions
-        const unread  = chaps.filter(c => !readSet.has(c.chapter));
+        // « Non lu » = APRÈS l'endroit où l'on en est. Beaucoup de lecteurs
+        // reprennent une série au chapitre 1192 sans avoir marqué les 1191
+        // précédents : les compter comme non lus annonçait « 1192 nouveaux »
+        // sur One Piece, lu à jour. Le plafond est le plus loin des deux :
+        // le chapitre de la PROGRESSION (où l'on est). Pas le plus haut chapitre
+        // marqué lu : lire le 10 et le 12 en sautant le 11 doit laisser le 11
+        // à lire.
+        let plafond = -Infinity;
+        const pc = Number(progressByManga[f.manga_id]);
+        if (Number.isFinite(pc) && pc > plafond) plafond = pc;
+        const unread  = chaps.filter(c => !readSet.has(c.chapter) && !(Number(c.chapter) <= plafond));
         // Audit AMEL-55 : « Lire maintenant » doit ouvrir le PREMIER non lu,
         // pas le dernier paru. Sur trois chapitres en retard, envoyer au plus
         // récent fait sauter les deux du milieu.
@@ -150,10 +210,16 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
             ? unread.reduce((a, b) => (Number(a.chapter) <= Number(b.chapter) ? a : b))
             : null;
 
-        if (latest?.chapter != null && latest.chapter !== f.last_chapter) {
-            pool.query('UPDATE favorites SET last_chapter = ? WHERE user_id = ? AND manga_id = ?',
-                [latest.chapter, uid, f.manga_id]).catch(() => {});
-        }
+        // Le vrai nombre de non-lus, gardé en base : la bibliothèque l'affiche
+        // ensuite sans rien estimer, même après un redémarrage.
+        const parution = latest?.publishedAt ? new Date(latest.publishedAt) : null;
+        pool.query(
+            `UPDATE favorites SET last_chapter = COALESCE(?, last_chapter), unread_count = ?,
+                latest_at = COALESCE(?, latest_at), checked_at = NOW()
+             WHERE user_id = ? AND manga_id = ?`,
+            [latest?.chapter ?? null, unread.length,
+             parution && !Number.isNaN(parution.getTime()) ? parution : null, uid, f.manga_id]
+        ).catch(() => { /* colonne absente (migration 22 pas encore passée) : sans gravité */ });
 
         return {
             mangaId:    f.manga_id,
@@ -165,7 +231,7 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
             unreadCount: unread.length,
             hasNew:     latest && f.last_chapter != null && latest.chapter > f.last_chapter,
         };
-    });
+    }
 
     const updates = results.filter(Boolean)
         .sort((a, b) => (b.hasNew - a.hasNew) || (b.unreadCount - a.unreadCount));
@@ -250,4 +316,36 @@ async function backgroundScan() {
     finally { scanRunning = false; }
 }
 
-module.exports = { scanUserUpdates, fullScanCooldown, markFullScan, dernierScan, backgroundScan };
+// ── Scan en tâche de fond, suivi par le client ─────────────
+// Avant : une seule requête HTTP qui durait tant que TOUTE la bibliothèque
+// n'était pas vérifiée — plusieurs minutes pour 400 séries, au-delà du délai
+// du client (« serveur trop long »), sans aucune progression visible.
+// Désormais le scan tourne ici ; le client relit l'état toutes les secondes
+// et affiche « 142 / 491 ». Un second clic rejoint le scan en cours.
+const jobs = new Map();   // uid -> job
+
+function vueJob(j) {
+    if (!j) return null;
+    return {
+        id: j.id, etat: j.etat, faits: j.faits, total: j.total,
+        startedAt: j.startedAt, finishedAt: j.finishedAt || null,
+        ...(j.etat === 'fini' ? { ...j.resultat, frais: true, checkedAt: j.finishedAt } : {}),
+        ...(j.erreur ? { erreur: j.erreur } : {}),
+    };
+}
+
+function lancerScan(uid, opts = {}) {
+    const courant = jobs.get(uid);
+    if (courant && courant.etat === 'en_cours') return vueJob(courant);
+    const j = { id: Date.now().toString(36), etat: 'en_cours', faits: 0, total: 0, startedAt: Date.now() };
+    jobs.set(uid, j);
+    scanUserUpdates(uid, { ...opts, onProgress: ({ faits, total }) => { j.faits = faits; j.total = total; } })
+        .then(r => { j.resultat = r; j.total = r.scanned; j.faits = r.scanned; markFullScan(uid, r); })
+        .catch(e => { j.erreur = String(e && e.message || e).slice(0, 200); })
+        .finally(() => { j.etat = 'fini'; j.finishedAt = Date.now(); });
+    return vueJob(j);
+}
+
+function etatScan(uid) { return vueJob(jobs.get(uid)); }
+
+module.exports = { scanUserUpdates, fullScanCooldown, markFullScan, dernierScan, backgroundScan, lancerScan, etatScan };

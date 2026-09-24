@@ -8,6 +8,11 @@
 const extensions = require('../extensions/loader');
 const health     = require('../lib/source-health');
 const BoundedCache = require('../lib/bounded-cache');
+const { planifier, prioDe } = require('../lib/ordonnanceur');
+
+// Tout appel à une source passe par l'ordonnanceur (voir lib/ordonnanceur.js) :
+// le lecteur n'attend plus derrière une rafale de recherches de fond.
+const viaFile = (src, prio, fn) => planifier(src.id, prio, fn);
 
 // ── Cache de relais (audit AMEL-64 / PERF-03) ────────────────
 // getOne() et getChapters() étaient de purs relais : chaque appel déclenchait
@@ -20,6 +25,10 @@ const META_TTL  = parseInt(process.env.SOURCE_META_TTL_MS  || String(15 * 60 * 1
 const CHAP_TTL  = parseInt(process.env.SOURCE_CHAP_TTL_MS  || String(5  * 60 * 1000), 10);  // chapitres : 5 min
 const metaCache = new BoundedCache({ max: 800, ttl: META_TTL });
 const chapCache = new BoundedCache({ max: 400, ttl: CHAP_TTL });
+// Recherches : la fiche série vérifie ses recommandations, la recherche du
+// header et la page de recherche repassent souvent les mêmes titres.
+const SEARCH_TTL  = parseInt(process.env.SOURCE_SEARCH_TTL_MS || String(10 * 60 * 1000), 10);
+const searchCache = new BoundedCache({ max: 600, ttl: SEARCH_TTL });
 
 // Déduplication des requêtes simultanées : 24 onglets qui demandent la même
 // fiche en même temps ne doivent produire qu'UN scrape (même principe que le
@@ -98,7 +107,7 @@ async function popular(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'popular')) return notSupported(res, src, 'popular');
-        res.json(noterSiVide(src.id, await health.track(src.id, () => src.popular(req.query), 'populaires')));
+        res.json(noterSiVide(src.id, await health.track(src.id, () => viaFile(src, prioDe(req), () => src.popular(req.query)), 'populaires')));
     } catch (e) { next(e); }
 }
 
@@ -106,7 +115,7 @@ async function latest(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'latest')) return notSupported(res, src, 'latest');
-        res.json(noterSiVide(src.id, await health.track(src.id, () => src.latest(req.query), 'nouveautes')));
+        res.json(noterSiVide(src.id, await health.track(src.id, () => viaFile(src, prioDe(req), () => src.latest(req.query)), 'nouveautes')));
     } catch (e) { next(e); }
 }
 
@@ -140,7 +149,11 @@ async function search(req, res, next) {
         if (!supports(src, 'search')) return notSupported(res, src, 'search');
         const { q, limit, offset, ...rest } = req.query;
         const exclus = listeDe(rest.excludedTags || rest['excludedTags[]']);
-        const r = await health.track(src.id, () => src.search({ q, limit, offset, filters: rest }), 'recherche');
+        delete rest.prio;
+        const k = `s:${src.id}:${JSON.stringify({ q, limit, offset, rest })}`;
+        const r = await cached(searchCache, k,
+            () => health.track(src.id, () => viaFile(src, prioDe(req), () => src.search({ q, limit, offset, filters: rest })), 'recherche'),
+            SEARCH_TTL);
         res.json(appliquerExclusions(r, exclus));
     } catch (e) { next(e); }
 }
@@ -158,8 +171,10 @@ async function searchAll(req, res, next) {
             const base = { source: s.id, sourceName: s.name, lang: s.lang || '' };
             let timer = null;   // nettoyé quoi qu'il arrive (audit B5 : timer qui traînait 15 s)
             try {
+                const prio = prioDe(req);
                 const r = await Promise.race([
-                    s.search({ q: q.trim(), limit: +limit }),
+                    cached(searchCache, `s:${s.id}:${JSON.stringify({ q: q.trim(), limit: String(limit) })}`,
+                        () => viaFile(s, prio, () => s.search({ q: q.trim(), limit: +limit })), SEARCH_TTL),
                     new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('délai dépassé')), 15000); }),
                 ]);
                 health.recordOk(s.id);
@@ -180,7 +195,7 @@ async function getOne(req, res, next) {
         const src = resolveSource(req);
         if (!supports(src, 'manga')) return notSupported(res, src, 'manga');
         const out = await cached(metaCache, `m:${src.id}:${req.params.id}`,
-            () => health.track(src.id, () => src.getManga(req.params.id), 'fiche'),
+            () => health.track(src.id, () => viaFile(src, prioDe(req, 'haute'), () => src.getManga(req.params.id)), 'fiche'),
             ttlDe(src, META_TTL));
         res.json(out);
     } catch (e) { next(e); }
@@ -194,7 +209,7 @@ async function chapters(req, res, next) {
         // différentes du même manga ne doivent pas se servir mutuellement.
         const k = `c:${src.id}:${req.params.id}:${req.query.lang || ''}:${req.query.limit || ''}:${req.query.offset || ''}`;
         const out = await cached(chapCache, k,
-            () => health.track(src.id, () => src.getChapters(req.params.id, req.query), 'chapitres'),
+            () => health.track(src.id, () => viaFile(src, prioDe(req, 'haute'), () => src.getChapters(req.params.id, req.query)), 'chapitres'),
             ttlDe(src, CHAP_TTL));
         res.json(out);
     } catch (e) { next(e); }
@@ -204,7 +219,7 @@ async function pages(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'pages')) return notSupported(res, src, 'pages');
-        res.json(await health.track(src.id, () => src.getPages(req.params.id), 'pages'));
+        res.json(await health.track(src.id, () => viaFile(src, 'haute', () => src.getPages(req.params.id)), 'pages'));
     } catch (e) { next(e); }
 }
 
@@ -214,7 +229,7 @@ async function text(req, res, next) {
         const src = resolveSource(req);
         if (!supports(src, 'text') || typeof src.getText !== 'function')
             return notSupported(res, src, 'text');
-        res.json(await health.track(src.id, () => src.getText(req.params.id), 'texte'));
+        res.json(await health.track(src.id, () => viaFile(src, 'haute', () => src.getText(req.params.id)), 'texte'));
     } catch (e) { next(e); }
 }
 

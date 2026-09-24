@@ -110,7 +110,7 @@ async function getFavorites(req, res, next) {
         // fréquente de l'application. Il est désormais une colonne de
         // `favorites` (migration 7).
         const [rows] = await pool.query(
-            `SELECT manga_id, source, title, cover, last_chapter, category, added_at, status, notify
+            `SELECT *
              FROM favorites
              WHERE user_id = ? ORDER BY added_at DESC`,
             [req.user.id]
@@ -123,6 +123,10 @@ async function getFavorites(req, res, next) {
             // sourdine — distinct du fait de suivre la série.
             notify: r.notify !== 0,
             addedAt: r.added_at,
+            // Migration 22 : null tant que la série n'a pas été vérifiée.
+            unreadCount: r.unread_count ?? null,
+            latestAt: r.latest_at || null,
+            checkedAt: r.checked_at || null,
         }));
     } catch (e) { next(e); }
 }
@@ -280,6 +284,12 @@ async function setProgress(req, res, next) {
         // La comparaison est faite DANS le UPDATE, pas en JS : deux requêtes
         // concurrentes sur la même ligne s'entrelaceraient entre le SELECT et
         // l'UPDATE, et on retomberait sur le défaut qu'on corrige.
+        // Chapitre précédemment enregistré : l'événement « lu » ne part qu'au
+        // CHANGEMENT de chapitre. Avant, chaque page tournée (sauvegarde
+        // débouncée) en créait un — l'activité et les statistiques comptaient
+        // 69 lectures pour une semaine de 19 chapitres.
+        const [[avant]] = await pool.query(
+            'SELECT chapter_id FROM progress WHERE user_id = ? AND manga_id = ?', [req.user.id, mangaId]);
         const clientAt = Number.isFinite(Date.parse(req.body.clientAt || ''))
             ? new Date(req.body.clientAt) : null;
         await pool.query(
@@ -295,8 +305,10 @@ async function setProgress(req, res, next) {
             [req.user.id, mangaId, chapterId || null, chapter || null, page || 1, tp, source || null, clientAt]
         );
         await enregistrerHistorique(req.user.id, mangaId, chapterId, chapter, page, source);
-        await pushEvent(req.user.id, 'read',
-            { mangaId, source, chapterId, metadata: { chapter, page } }, req);
+        if (!avant || avant.chapter_id !== (chapterId || null)) {
+            await pushEvent(req.user.id, 'read',
+                { mangaId, source, chapterId, metadata: { chapter, page } }, req);
+        }
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -387,6 +399,17 @@ async function getReadChapters(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// Tient le compteur de non-lus (migration 22) à jour entre deux scans :
+// lire un chapitre le fait baisser tout de suite dans la bibliothèque.
+function ajusterNonLus(uid, mangaId, delta) {
+    if (!delta) return Promise.resolve();
+    return pool.query(
+        `UPDATE favorites SET unread_count = GREATEST(unread_count + ?, 0)
+         WHERE user_id = ? AND manga_id = ? AND unread_count IS NOT NULL`,
+        [delta, uid, mangaId]
+    ).catch(() => { /* colonne absente : sans gravité */ });
+}
+
 async function markChapter(req, res, next) {
     try {
         const { mangaId, chapterId, chapter, read = true } = req.body;
@@ -397,12 +420,16 @@ async function markChapter(req, res, next) {
                  VALUES (?, ?, ?, ?)`,
                 [req.user.id, mangaId, chapterId, chapter || null]
             );
-            if (r.affectedRows) await pushEvent(req.user.id, 'read', { mangaId, chapterId, chapter }, req);
+            if (r.affectedRows) {
+                await pushEvent(req.user.id, 'read', { mangaId, chapterId, chapter }, req);
+                await ajusterNonLus(req.user.id, mangaId, -r.affectedRows);
+            }
         } else {
-            await pool.query(
+            const [r] = await pool.query(
                 'DELETE FROM read_chapters WHERE user_id = ? AND chapter_id = ?',
                 [req.user.id, chapterId]
             );
+            await ajusterNonLus(req.user.id, mangaId, r.affectedRows || 0);
         }
         res.json({ ok: true });
     } catch (e) { next(e); }
@@ -418,10 +445,11 @@ async function markChaptersBulk(req, res, next) {
             .filter(c => c && c.chapterId)
             .map(c => [req.user.id, mangaId, c.chapterId, (c.chapter ?? null)]);
         if (!values.length) return res.json({ ok: true, count: 0 });
-        await pool.query(
+        const [r] = await pool.query(
             'INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES ?',
             [values]
         );
+        await ajusterNonLus(req.user.id, mangaId, -(r.affectedRows || 0));
         res.json({ ok: true, count: values.length });
     } catch (e) { next(e); }
 }
@@ -444,6 +472,7 @@ async function unmarkChaptersBulk(req, res, next) {
             `DELETE FROM read_chapters
              WHERE user_id = ? AND manga_id = ? AND chapter_id IN (${ids.map(() => '?').join(',')})`,
             [req.user.id, mangaId, ...ids]);
+        await ajusterNonLus(req.user.id, mangaId, r.affectedRows || 0);
         res.json({ ok: true, count: r.affectedRows });
     } catch (e) { next(e); }
 }
@@ -1569,7 +1598,75 @@ async function checkUpdates(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ── Catégories de la bibliothèque ───────────────────────────
+// Une catégorie n'est qu'une valeur de `favorites.category` : la renommer ou
+// la supprimer, c'est réécrire toutes les séries qui la portent — en UNE
+// requête, là où l'interface appelait la route unitaire série par série.
+const nomCategorie = (v) => {
+    const s = String(v == null ? '' : v).trim().replace(/\s+/g, ' ');
+    return s ? s.slice(0, 60) : null;
+};
+
+async function renameCategory(req, res, next) {
+    try {
+        const from = nomCategorie(req.body?.from);
+        const to = nomCategorie(req.body?.to);
+        if (!from || !to) return res.status(400).json({ error: 'Ancien et nouveau nom requis' });
+        const [r] = await pool.query('UPDATE favorites SET category = ? WHERE user_id = ? AND category = ?',
+            [to, req.user.id, from]);
+        res.json({ ok: true, count: r.affectedRows });
+    } catch (e) { next(e); }
+}
+
+async function deleteCategory(req, res, next) {
+    try {
+        const name = nomCategorie(req.body?.name);
+        if (!name) return res.status(400).json({ error: 'Nom requis' });
+        const [r] = await pool.query('UPDATE favorites SET category = NULL WHERE user_id = ? AND category = ?',
+            [req.user.id, name]);
+        res.json({ ok: true, count: r.affectedRows });
+    } catch (e) { next(e); }
+}
+
+async function setCategoryBulk(req, res, next) {
+    try {
+        const ids = (Array.isArray(req.body?.mangaIds) ? req.body.mangaIds : [])
+            .filter(idOeuvreValide).slice(0, 5000);
+        if (!ids.length) return res.status(400).json({ error: 'mangaIds[] requis' });
+        const cat = nomCategorie(req.body?.category);
+        const [r] = await pool.query(
+            `UPDATE favorites SET category = ? WHERE user_id = ? AND manga_id IN (${ids.map(() => '?').join(',')})`,
+            [cat, req.user.id, ...ids]);
+        res.json({ ok: true, count: r.affectedRows, category: cat });
+    } catch (e) { next(e); }
+}
+
+// Scan de bibliothèque en tâche de fond : POST le lance (ou rejoint celui en
+// cours), GET en rend l'avancement puis le résultat.
+async function startUpdatesScan(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const scope = req.body?.scope === 'all' ? 'all' : 'active';
+        const lang = String(req.body?.lang || 'fr,en').slice(0, 40);
+        const force = !!req.body?.force;
+        res.status(202).json(updatesLib.lancerScan(uid, { scope, lang, force }));
+    } catch (e) { next(e); }
+}
+
+async function getUpdatesScan(req, res, next) {
+    try {
+        const uid = req.user.id;
+        const job = updatesLib.etatScan(uid);
+        if (job) return res.json(job);
+        // Aucun scan depuis le démarrage : on rend le dernier résultat connu s'il existe.
+        const dernier = updatesLib.dernierScan(uid);
+        if (dernier) return res.json({ etat: 'fini', ...dernier, frais: false });
+        res.json({ etat: 'aucun' });
+    } catch (e) { next(e); }
+}
+
 module.exports = {
+    startUpdatesScan, getUpdatesScan, renameCategory, deleteCategory, setCategoryBulk,
     getFavorites, addFavorite, removeFavorite, setFavoriteCategory,
     getAnilistLinks, setAnilistLinks,
     getLibrary, setLibraryStatus,

@@ -15,6 +15,7 @@
 'use strict';
 
 const extensions   = require('../extensions/loader');
+const { planifier } = require('../lib/ordonnanceur');
 const health       = require('../lib/source-health');
 const appariement  = require('../lib/appariement');
 const migrations   = require('../lib/migration-sources');
@@ -76,8 +77,13 @@ async function candidats(req, res, next) {
             [req.user.id, mangaId]);
         const reference = { titre, chapitres: null, annee: null };
 
+        // Même TYPE que l'origine : la progression d'un roman ne se reporte pas
+        // sur son adaptation manga (« Shadow Slave » roman → manga WeebCentral
+        // était proposé). Origine inconnue (source désinstallée) : on garde tout.
+        const typeOrigine = extensions.get(source || fav?.source)?.type || null;
         const autres = extensions.getAll()
-            .filter(s => s.id !== (source || fav?.source) && supporte(s, 'search'));
+            .filter(s => s.id !== (source || fav?.source) && supporte(s, 'search'))
+            .filter(s => !typeOrigine || (s.type || 'manga') === typeOrigine);
 
         // Les sources francophones et chinoises publient le titre en plusieurs
         // langues à la fois : « Crazy Detective｜狂探 ». Sur les 13 séries
@@ -100,7 +106,11 @@ async function candidats(req, res, next) {
         await Promise.all(autres.map(async s => {
             for (const q of variantes) {
                 try {
-                    const r = await avecDelai(s.search({ q, limit: 6 }), DELAI_SOURCE_MS, s.id);
+                    // Par l'ordonnanceur : une migration en masse enchaîne des
+                    // dizaines de recherches, elles ne doivent pas bannir la
+                    // source ni passer devant le lecteur.
+                    const r = await planifier(s.id, 'normale',
+                        () => avecDelai(s.search({ q, limit: 6 }), DELAI_SOURCE_MS, s.id), { patient: true });
                     health.recordOk(s.id);
                     for (const m of (r.results || []).slice(0, 6)) {
                         const cle = JSON.stringify([s.id, m.id]);   // clé composite lisible, sans séparateur invisible
@@ -156,7 +166,7 @@ async function migrer(req, res, next) {
 
         let chapitresCible = [];
         try {
-            const r = await avecDelai(cible.getChapters(vers.mangaId, {}), DELAI_SOURCE_MS, vers.source);
+            const r = await planifier(cible.id, 'haute', () => avecDelai(cible.getChapters(vers.mangaId, {}), DELAI_SOURCE_MS, vers.source));
             chapitresCible = Array.isArray(r) ? r : (r?.chapters || r?.results || []);
             health.recordOk(cible.id);
         } catch (e) {

@@ -24,6 +24,125 @@ let cacheBytes = 0;
 const cache  = new Map();               // url -> { buf, type, expires }
 const inflight = new Map();             // url -> Promise
 
+// ══════════════════════ Cache disque (2e niveau) ══════════════════════
+//
+// Le cache ci-dessus est un `Map` : il MEURT avec le processus.
+//
+// L'app de bureau relance son serveur à chaque ouverture. Chaque session
+// repartait donc à froid, et chaque planche déjà lue hier se retéléchargeait
+// aujourd'hui. Le TTL de sept jours ne servait à rien : le cache n'a jamais
+// vécu jusque-là.
+//
+// Ce que la mesure justifie, et elle seule :
+//
+//     page en cache   :      5 – 25 ms
+//     page à froid    :  3 700 – 9 000 ms
+//
+// Un facteur cent à mille. C'est le seul écart de cette page qui dépasse
+// franchement la variance de la source — mesurée à 3× d'un moment à l'autre.
+// J'ai renoncé à toucher la concurrence du lecteur pour cette raison : les
+// relevés se contredisaient, et changer une constante sur du bruit aurait été
+// pire que ne rien faire.
+//
+// Pas d'index : le nom du fichier porte l'empreinte de l'URL, son extension
+// porte le type, et sa date de modification porte l'âge. Un index séparé
+// serait un second état à tenir cohérent, et une corruption possible.
+const fs   = require('fs');
+const fsp  = fs.promises;
+const path = require('path');
+const os   = require('os');
+const crypto = require('crypto');
+
+const DISQUE_MAX_MO = parseInt(process.env.IMG_DISK_CACHE_MB || '512', 10);
+const DISQUE_ACTIF  = DISQUE_MAX_MO > 0 && process.env.IMG_DISK_CACHE !== '0';
+
+function dossierCache() {
+    const base = process.env.APPDATA || path.join(os.homedir(), '.config');
+    return path.join(base, 'Inko', 'cache-img');
+}
+
+const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
+    'image/gif': 'gif', 'image/avif': 'avif' };
+const TYPE = Object.fromEntries(Object.entries(EXT).map(([t, e]) => [e, t]));
+
+const empreinte = (url) => crypto.createHash('sha256').update(url).digest('hex');
+
+/** Le chemin d'une URL en cache, s'il existe — sinon `null`. */
+async function surDisque(url) {
+    if (!DISQUE_ACTIF) return null;
+    const h = empreinte(url);
+    for (const ext of Object.keys(TYPE)) {
+        const p = path.join(dossierCache(), h + '.' + ext);
+        try {
+            const st = await fsp.stat(p);
+            // Périmé : on le laisse à l'éviction plutôt que de le servir.
+            if (Date.now() - st.mtimeMs > TTL) return null;
+            return { chemin: p, type: TYPE[ext] };
+        } catch (e) { /* absent : on essaie l'extension suivante */ }
+    }
+    return null;
+}
+
+/**
+ * Écrit l'image sur disque. Le fichier temporaire puis le renommage sont
+ * délibérés : sans eux, une écriture interrompue laisserait une image
+ * TRONQUÉE que la lecture suivante servirait comme valide — un défaut
+ * silencieux, et le pire genre.
+ */
+async function poserSurDisque(url, buf, type) {
+    if (!DISQUE_ACTIF) return;
+    const ext = EXT[type];
+    if (!ext) return;                       // type inconnu : on ne devine pas
+    const dir = dossierCache();
+    const dst = path.join(dir, empreinte(url) + '.' + ext);
+    const tmp = dst + '.' + process.pid + '.tmp';
+    try {
+        await fsp.mkdir(dir, { recursive: true });
+        await fsp.writeFile(tmp, buf);
+        await fsp.rename(tmp, dst);
+    } catch (e) {
+        // Disque plein, dossier en lecture seule, hub sur un NAS : le cache
+        // disque est un CONFORT. Son échec ne doit jamais empêcher de lire.
+        try { await fsp.unlink(tmp); } catch (_) { /* déjà parti */ }
+    }
+}
+
+/**
+ * Ramène le dossier sous son quota, en supprimant les plus anciens d'abord.
+ *
+ * Lancé au plus une fois par minute, et JAMAIS sur le chemin d'une requête :
+ * un balayage de plusieurs milliers de fichiers ne doit pas s'ajouter à
+ * l'attente d'une page.
+ */
+let derniereEviction = 0;
+async function evincer() {
+    if (!DISQUE_ACTIF) return;
+    if (Date.now() - derniereEviction < 60_000) return;
+    derniereEviction = Date.now();
+    const dir = dossierCache();
+    try {
+        const noms = await fsp.readdir(dir);
+        const fichiers = [];
+        let total = 0;
+        for (const n of noms) {
+            if (n.endsWith('.tmp')) continue;
+            try {
+                const st = await fsp.stat(path.join(dir, n));
+                fichiers.push({ n, taille: st.size, age: st.mtimeMs });
+                total += st.size;
+            } catch (e) { /* disparu entre-temps */ }
+        }
+        const quota = DISQUE_MAX_MO * 1024 * 1024;
+        if (total <= quota) return;
+        fichiers.sort((a, b) => a.age - b.age);          // les plus vieux d'abord
+        for (const f of fichiers) {
+            if (total <= quota) break;
+            try { await fsp.unlink(path.join(dir, f.n)); total -= f.taille; }
+            catch (e) { /* déjà supprimé */ }
+        }
+    } catch (e) { /* dossier absent : rien à évincer */ }
+}
+
 // ── Audit S6 : liste blanche de domaines ─────────────────────
 // Le proxy n'était restreint par rien : n'importe qui pouvait relayer
 // n'importe quelle image publique via l'IP du hub (vol de bande passante,
@@ -133,7 +252,28 @@ function fetchImage(url, pinnedIp) {
     try { const u = new URL(url); origin = u.origin + '/'; host = u.hostname; port = u.port || (u.protocol === 'https:' ? '443' : '80'); } catch { /* laissé vide */ }
     // --resolve host:port:ip force curl à taper l'IP vérifiée par Node, tout en
     // gardant le SNI/Host d'origine (donc le certificat TLS reste validé).
-    const args = ['-s', '-L', '--max-redirs', '4', '--compressed', '-m', '20', '-A', UA, '-e', origin,
+    // Deux délais, pas un seul — et c'est la correction.
+    //
+    // `-m 20` plafonnait le transfert ENTIER à vingt secondes. Mesuré sur la
+    // source d'un lecteur réel (scans-hot), une planche de 225 Ko met :
+    //
+    //     3 700 – 9 000 ms   une par une, selon le moment
+    //    17 000 – 25 000 ms  quand plusieurs partent ensemble
+    //
+    // Le plafond tombait donc EN PLEIN TÉLÉCHARGEMENT d'une image parfaitement
+    // valide. Le proxy rendait un échec, le lecteur affichait une page vide, et
+    // rien ne disait que c'était un abandon plutôt qu'une image manquante.
+    //
+    // Un seul délai ne peut pas distinguer « hôte mort » de « hôte lent ». On
+    // les sépare : dix secondes pour ÉTABLIR la connexion — au-delà, l'hôte ne
+    // répond pas et insister ne sert à rien — puis soixante pour transférer,
+    // parce qu'une source lente finit par livrer.
+    //
+    // La variance mesurée du CDN atteint 3× d'un moment à l'autre : un plafond
+    // calé au plus juste redeviendrait trop court à la première mauvaise heure.
+    const MAX_TRANSFERT = process.env.IMG_TIMEOUT_S || '60';
+    const args = ['-s', '-L', '--max-redirs', '4', '--compressed',
+        '--connect-timeout', '10', '-m', MAX_TRANSFERT, '-A', UA, '-e', origin,
         '-H', 'Accept: image/avif,image/webp,image/*,*/*;q=0.8'];
     if (pinnedIp && host && port) args.push('--resolve', `${host}:${port}:${pinnedIp}`);
     args.push(url);
@@ -177,8 +317,30 @@ async function proxy(req, res) {
         return res.end(hit.buf);
     }
 
+    // Deuxième niveau : le disque. Il survit au redémarrage, là où le `Map`
+    // ci-dessus repart vide à chaque ouverture de l'app.
+    const surD = await surDisque(url);
+    if (surD) {
+        try {
+            const buf = await fsp.readFile(surD.chemin);
+            res.set('Content-Type', surD.type);
+            res.set('Cache-Control', 'public, max-age=604800, immutable');
+            res.set('X-Inko-Cache', 'DISK');
+            // Remonte en mémoire : relire le fichier à chaque page de la même
+            // planche serait payer un accès disque pour rien.
+            if (buf.length < MAX_BYTES) {
+                cache.set(url, { buf, type: surD.type, expires: Date.now() + TTL });
+                cacheBytes += buf.length;
+            }
+            return res.end(buf);
+        } catch (e) { /* fichier disparu ou illisible : on retéléchargera */ }
+    }
+
     try {
         const img = await fetchImage(url, safe.ip);
+        // Le disque d'abord : si l'insertion mémoire évince cette image
+        // aussitôt (grosse planche, cache plein), elle reste au moins ici.
+        poserSurDisque(url, img.buf, img.type).then(evincer).catch(() => {});
         // Insère dans le cache (éviction FIFO, bornée en nombre ET en octets — audit S6)
         while (cache.size && (cache.size >= MAX || cacheBytes + img.buf.length > MAX_BYTES)) {
             const oldest = cache.keys().next().value;
