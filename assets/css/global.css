@@ -1501,9 +1501,9 @@ a[data-nsfw] .manga-card-cover::after,
    (WebView Android 8 = Chrome 61). Sur un navigateur récent, ce bloc
    entier est ignoré. */
 @supports not (aspect-ratio: 1 / 1) {
-    .hero-poster-link { height: 300px; }
-    .trending-cover { height: 0; padding-top: 133.3333%; }
-    .trending-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .cont-hero-cover { height: 189.2px; }
+    .shelf-cover { height: 0; padding-top: 143.3333%; }
+    .shelf-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .lib2-cover { height: 0; padding-top: 133.3333%; }
     .lib2-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .focus-cover { height: 0; padding-top: 56.25%; }

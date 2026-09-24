@@ -218,7 +218,7 @@
 .lib-filter-group + .lib-filter-group { margin-top: 12px; }
 .lib-filter-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); margin-bottom: 6px; }
 .lib-filter-chips, .lib-pop .lib2-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
-.lib-filter-reset { margin-top: 14px; border: 0; background: none; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; }
+.lib-filter-reset { margin-top: 14px; border: 0; background: none; color: var(--accent-text, var(--accent)); font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; }
 .lib-filter-count[hidden] { display: none; }
 .lib-filter-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px;
     margin-left: 6px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; }

@@ -106,11 +106,13 @@ test.describe('Accueil', () => {
         await expect(page.locator('body')).not.toContainText('Impossible de charger l’accueil');
     });
 
+    // Accueil refait (2.8.0) : plus de carrousel. Les rayons de la source
+    // (populaire, dernières sorties) doivent se remplir de vraies cartes.
     test('affiche du contenu réel quand les sources répondent', async ({ page }) => {
         const c = await contexte(page);
         test.skip(!c.sourcesEnLigne, 'sources distantes injoignables depuis cet environnement');
         await ouvrir(page, '/accueil.html');
-        const titre = page.locator('.hero-title').first();
+        const titre = page.locator('#shelfPopularTrack .shelf-name').first();
         await expect(titre).toBeVisible({ timeout: 20_000 });
         await expect(titre).not.toHaveText('');
     });
@@ -119,9 +121,9 @@ test.describe('Accueil', () => {
         const c = await contexte(page);
         test.skip(!c.sourcesEnLigne, 'sources distantes injoignables depuis cet environnement');
         await ouvrir(page, '/accueil.html');
-        await expect(page.locator('.hero-thumb')).not.toHaveCount(0, { timeout: 20_000 });
-        for (const id of ['#trendingTrack', '#recoGrid', '#latestGrid', '#topMangaList']) {
-            await expect(page.locator(`${id} > *`).first()).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('#homeContinue > *').first()).toBeVisible({ timeout: 20_000 });
+        for (const id of ['#shelfPopularTrack', '#shelfLatestTrack']) {
+            await expect(page.locator(id + ' .shelf-card:not(.shelf-card--skel)').first()).toBeVisible({ timeout: 20_000 });
         }
     });
 });

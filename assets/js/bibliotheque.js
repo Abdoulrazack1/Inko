@@ -1198,6 +1198,9 @@
         const sansCat = n(f => !f.category);
         // Pas de catégorie du tout : les onglets n'ont rien à ranger, on
         // propose d'en créer une plutôt qu'afficher un « Tout » solitaire.
+        // « tablist » seulement quand il y a des onglets : un bouton seul dans
+        // une liste d'onglets est une faute d'accessibilité (aria-required-children).
+        if (cats.length) el.setAttribute('role', 'tablist'); else el.removeAttribute('role');
         if (!cats.length) {
             el.innerHTML = `<button type="button" class="lib-cat-add" id="libCatAddFirst">＋ Créer une catégorie pour ranger tes séries</button>`;
             el.querySelector('#libCatAddFirst').addEventListener('click', ouvrirGestionCategories);

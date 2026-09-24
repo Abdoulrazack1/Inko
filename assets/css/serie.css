@@ -1008,7 +1008,7 @@
 }
 .btn-lib:hover { border-color: var(--accent); }
 .btn-lib.is-in { border-color: color-mix(in srgb, var(--accent) 55%, var(--border2)); }
-.btn-lib-check { color: var(--accent); font-weight: 700; }
+.btn-lib-check { color: var(--accent-text, var(--accent)); font-weight: 700; }
 .btn-lib-caret { opacity: .7; margin-left: 2px; }
 .serie-more .btn-icon { height: 44px; width: 44px; font-size: 20px; line-height: 1; letter-spacing: 1px; }
 
