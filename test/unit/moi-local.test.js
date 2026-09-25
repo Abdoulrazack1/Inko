@@ -87,20 +87,20 @@ test('`clientAt` fait foi sur l’heure d’envoi', () => {
 test('les chapitres lus se marquent à l’unité et en masse', () => {
     const M = charger();
     M.repondre('POST', '/me/read-chapters', { mangaId: 'm', chapterId: 'c1', chapter: 1 });
-    assert.deepEqual(M.repondre('GET', '/me/read-chapters').m, ['c1']);
+    assert.deepEqual((M.repondre('GET', '/me/read-chapters').m || []).map(x => x.chapterId), ['c1']);
 
     M.repondre('POST', '/me/read-chapters/bulk', { mangaId: 'm', chapters: [{ chapterId: 'c2' }, { chapterId: 'c3' }] });
-    assert.deepEqual(M.repondre('GET', '/me/read-chapters').m, ['c1', 'c2', 'c3']);
+    assert.deepEqual((M.repondre('GET', '/me/read-chapters').m || []).map(x => x.chapterId), ['c1', 'c2', 'c3']);
 
     M.repondre('POST', '/me/read-chapters/unmark-bulk', { mangaId: 'm', chapterIds: ['c2'] });
-    assert.deepEqual(M.repondre('GET', '/me/read-chapters').m, ['c1', 'c3']);
+    assert.deepEqual((M.repondre('GET', '/me/read-chapters').m || []).map(x => x.chapterId), ['c1', 'c3']);
 });
 
 test('marquer deux fois le même chapitre ne le compte pas deux fois', () => {
     const M = charger();
     M.repondre('POST', '/me/read-chapters', { mangaId: 'm', chapterId: 'c1' });
     M.repondre('POST', '/me/read-chapters', { mangaId: 'm', chapterId: 'c1' });
-    assert.deepEqual(M.repondre('GET', '/me/read-chapters').m, ['c1']);
+    assert.deepEqual((M.repondre('GET', '/me/read-chapters').m || []).map(x => x.chapterId), ['c1']);
     assert.equal(M.repondre('GET', '/me/stats').chaptersRead, 1);
 });
 
@@ -204,4 +204,19 @@ test('ce qui n’est pas du ressort local est refusé, pas inventé', () => {
     const M = charger();
     assert.equal(M.repondre('GET', '/me/backups'), M.ABSENT);
     assert.equal(M.repondre('GET', '/mangas/search'), M.ABSENT, 'les sources ne passent pas par ici');
+});
+
+test('chapitres lus : le format du serveur ({ chapterId }), et les anciennes données converties', () => {
+    // Les pages font « (lus[id] || []).map(r => r.chapterId) » : une liste de
+    // simples identifiants rendait toutes les coches « lu » invisibles en autonome.
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/', runScripts: 'outside-only' });
+    const w = dom.window;
+    w.localStorage.setItem('inko_moi_local', JSON.stringify({ version: 1, readChapters: { m: ['c1', 'c2'] } }));
+    w.eval(SRC);
+    const lus = w.INKO_MOI_LOCAL.repondre('GET', '/me/read-chapters').m;
+    assert.deepEqual(lus.map(x => x.chapterId), ['c1', 'c2']);
+    w.INKO_MOI_LOCAL.repondre('POST', '/me/read-chapters', { mangaId: 'm', chapterId: 'c3', chapter: 3 });
+    const c3 = w.INKO_MOI_LOCAL.repondre('GET', '/me/read-chapters').m.find(x => x.chapterId === 'c3');
+    assert.equal(c3.chapter, 3);
+    assert.ok(c3.readAt);
 });

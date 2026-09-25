@@ -56,14 +56,13 @@ test('hub.js crée le magasin `chapters` comme downloads.js', () => {
     assert.match(HUB, /createIndex\('mangaId'/, 'même index que downloads.js');
 });
 
-test('le mur n’est posé que s’il n’y a rien à lire', () => {
-    // On vérifie la FORME de la décision : `ecran(...)` bloquant seulement
-    // dans la branche « aucun chapitre », bandeau sinon.
-    const i = HUB.indexOf('const n = await chapitresHorsLigne()');
-    assert.ok(i > 0, 'la décision doit consulter les chapitres hors ligne');
-    const suite = HUB.slice(i, i + 400);
-    assert.match(suite, /if\s*\(!n\)/, 'le blocage doit être conditionné à l’absence de chapitre');
-    assert.match(suite, /bandeauHorsLigne/, 'avec des chapitres, on affiche un bandeau');
+test('PC injoignable : jamais de mur, l’app reste autonome', () => {
+    // Depuis la synchronisation « à la Spotify », le téléphone lit et écrit
+    // chez lui : un PC éteint ne bloque plus rien. On le signale d'une
+    // pastille, et on ne rouvre JAMAIS l'écran d'appairage pour ça.
+    assert.ok(HUB.includes('pastillePcAbsent(r.raison)'), 'une pastille informe que le PC ne répond pas');
+    assert.ok(HUB.includes('window.INKO_AUTONOME = true;'), 'appairé ou non, le téléphone reste autonome');
+    assert.ok(!HUB.includes("ne répond plus : ' + r.raison"), 'plus d’écran bloquant « le serveur ne répond plus »');
 });
 
 test('le bandeau propose une sortie, il n’informe pas seulement', () => {

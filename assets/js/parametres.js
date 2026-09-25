@@ -826,4 +826,47 @@
         }
     }
 
+
+    // ── Ton PC (application mobile uniquement) ─────────────
+    // Le téléphone est autonome ; cette carte dit s'il est appairé, quand il
+    // s'est synchronisé pour la dernière fois, et ce qui attend d'être envoyé.
+    function carteTonPc() {
+        const carte = document.getElementById('cardTonPc');
+        if (!carte || !window.INKO_MOI_LOCAL) return;
+        carte.hidden = false;
+        // « Connecter un appareil » n'a pas de sens SUR le téléphone.
+        const appareils = document.getElementById('cardAppareils');
+        appareils?.querySelector('[data-appairer]')?.closest('.set-row')?.setAttribute('hidden', '');
+        appareils?.querySelector('[data-appareils]')?.closest('.set-row')?.setAttribute('hidden', '');
+        const peindre = () => {
+            const r = window.INKO_SYNCHRO?.resume?.() || { appaire: !!window.INKO_HUB, enAttente: 0 };
+            const etat = document.getElementById('pcEtat');
+            const detail = document.getElementById('pcDetail');
+            const btn = document.getElementById('pcSync');
+            document.getElementById('pcLierLabel').textContent = r.appaire ? 'Changer de PC' : 'Connecter un PC';
+            if (!r.appaire) {
+                etat.textContent = 'Aucun PC appairé';
+                detail.textContent = 'Tes données restent sur ce téléphone.';
+                btn.hidden = true;
+                return;
+            }
+            btn.hidden = false;
+            etat.textContent = window.INKO_HORS_LIGNE ? 'PC injoignable — mode autonome' : 'PC appairé';
+            const quand = r.derniere ? 'Dernière synchro ' + MH.relTime(new Date(r.derniere).toISOString()) : 'Jamais synchronisé';
+            detail.textContent = quand
+                + (r.enAttente ? ` · ${r.enAttente} modification${r.enAttente > 1 ? 's' : ''} en attente` : '')
+                + (r.erreur && !window.INKO_HORS_LIGNE ? ' · ' + r.erreur : '')
+                + (window.INKO_HUB ? ' · ' + window.INKO_HUB : '');
+        };
+        peindre();
+        window.addEventListener('inko:synchro-etat', peindre);
+        document.getElementById('pcSync')?.addEventListener('click', async (e) => {
+            const b = e.currentTarget;
+            b.disabled = true; b.textContent = 'Synchronisation…';
+            try { await window.INKO_SYNCHRO?.synchroniser?.(); } finally { b.disabled = false; b.textContent = 'Synchroniser maintenant'; peindre(); }
+        });
+        document.getElementById('pcLier')?.addEventListener('click', () => window.INKO_changerHub?.());
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', carteTonPc);
+    else carteTonPc();
 })();

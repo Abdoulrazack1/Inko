@@ -215,7 +215,9 @@
         // Les ÉCRITURES, elles, partent quand même : la file hors-ligne existe
         // pour ça (audit AMEL-79), et une progression de lecture doit pouvoir
         // s'y ranger même quand le hub est éteint.
-        if (window.INKO_HORS_LIGNE && method === 'GET') {
+        // En autonome, le moteur local répond d'abord : « hors ligne » ne
+        // concerne que ce qui DOIT partir vers le PC (traité plus bas).
+        if (window.INKO_HORS_LIGNE && method === 'GET' && !window.INKO_AUTONOME) {
             const e = new Error('Hors ligne — le serveur n’est pas joignable.');
             e.network = true; e.horsLigne = true;
             throw e;
@@ -255,9 +257,16 @@
                 if (r !== moi.ABSENT) return r;
             }
 
-            const e = new Error('Aucun ordinateur connecté — Paramètres → Connexion au hub.');
-            e.network = true; e.autonome = true;
-            throw e;
+            // Local d'abord, PC en renfort (modèle Spotify, voir synchro.js) :
+            // ce que le téléphone ne sait pas faire seul part vers le PC appairé,
+            // s'il répond. Sinon, on le dit clairement.
+            if (!HUB || window.INKO_HORS_LIGNE) {
+                const e = new Error(HUB
+                    ? 'Ton PC ne répond pas — cette fonction revient dès qu’il est joignable.'
+                    : 'Disponible avec un PC connecté — Paramètres → Ton PC.');
+                e.network = true; e.autonome = true;
+                throw e;
+            }
         }
 
         const ctrl  = new AbortController();

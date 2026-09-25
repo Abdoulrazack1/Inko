@@ -204,6 +204,8 @@ function injecterHub(dir) {
         '<script src="assets/js/extensions-navigateur.js"></script>',
         '<script src="assets/js/sources-embarquees.js"></script>',
         '<script src="assets/js/moi-local.js"></script>',
+        // Après moi-local : la synchronisation enveloppe ses écritures.
+        '<script src="assets/js/synchro.js"></script>',
         '<script src="assets/js/fichiers-locaux.js"></script>',
     ];
     let touchees = 0;

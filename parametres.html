@@ -116,8 +116,30 @@
       </div>
     </div>
 
+    <!-- TON PC — n'apparaît que dans l'application mobile. Le téléphone est
+         autonome ; le PC appairé est un pair avec lequel il se synchronise
+         (synchro.js), comme Spotify entre ses appareils. -->
+    <div class="set-card" id="cardTonPc" hidden>
+      <h2>Ton PC</h2>
+      <div class="sub">L'app fonctionne seule. Appairée à ton PC, elle échange bibliothèque, progression, chapitres lus et notes dès qu'il est joignable.</div>
+      <div class="set-row">
+        <div>
+          <div class="set-row-label" id="pcEtat">—</div>
+          <div class="set-row-desc" id="pcDetail"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="pcSync" hidden>Synchroniser maintenant</button>
+      </div>
+      <div class="set-row">
+        <div>
+          <div class="set-row-label" id="pcLierLabel">Connecter un PC</div>
+          <div class="set-row-desc">Sur le PC : Paramètres › Appareils › Afficher le code, puis scanne-le ici.</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="pcLier">Scanner le code</button>
+      </div>
+    </div>
+
     <!-- APPAREILS (audit VIII.5.1) -->
-    <div class="set-card">
+    <div class="set-card" id="cardAppareils">
       <h2>Appareils</h2>
       <div class="sub">Connecte ton téléphone pour lire ta bibliothèque en dehors de cet ordinateur.</div>
       <div class="set-row">

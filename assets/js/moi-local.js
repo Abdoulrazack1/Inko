@@ -13,10 +13,10 @@
 //
 // ── Ce que ça n'est pas ─────────────────────────────────────
 //
-// Ce n'est PAS une synchronisation. Ces données vivent sur cet appareil, et
-// nulle part ailleurs. Connecter un hub reste ce qui les fait suivre d'un
-// écran à l'autre — et l'interface doit le dire, sous peine de laisser croire
-// à une sauvegarde qui n'existe pas.
+// Ces données vivent sur cet appareil. Quand un PC est appairé, `synchro.js`
+// les échange avec lui dès qu'il est joignable (boîte d'envoi + rapatriement) :
+// le téléphone reste utilisable seul, et rattrape le PC ensuite — le modèle de
+// Spotify. Sans PC appairé, elles ne quittent jamais l'appareil.
 //
 // ── Pourquoi localStorage, et ce que ça coûte ───────────────
 //
@@ -40,7 +40,7 @@
             version: VERSION,
             favorites: [],        // [{ mangaId, title, cover, source, category, addedAt }]
             progress: {},         // mangaId → { chapterId, chapter, page, totalPages, source, updatedAt }
-            readChapters: {},     // mangaId → [chapterId]
+            readChapters: {},     // mangaId → [{ chapterId, chapter, readAt }]  (format du serveur)
             notes: [],            // [{ id, mangaId, chapterId, chapter, page, text, createdAt }]
             lists: [],            // [{ id, name, items[], public, smart, createdAt }]
             bookmarks: [],
@@ -71,6 +71,13 @@
         // Un magasin écrit par une version plus ancienne peut manquer des
         // sections. On complète plutôt que d'échouer à la première lecture.
         for (const [k, v] of Object.entries(vide())) if (etat[k] === undefined) etat[k] = v;
+        // Les versions précédentes stockaient les chapitres lus comme de simples
+        // identifiants, alors que toutes les pages attendent le format du
+        // serveur ({ chapterId, … }) : en autonome, aucune coche « lu » ne
+        // pouvait s'afficher. On convertit une fois, en place.
+        for (const [m, l] of Object.entries(etat.readChapters || {})) {
+            etat.readChapters[m] = (l || []).map(x => (x && typeof x === 'object') ? x : { chapterId: String(x), chapter: null, readAt: null });
+        }
         return etat;
     }
 
@@ -207,13 +214,18 @@
 
         // ── Chapitres lus ──────────────────────────────────
         case 'read-chapters': {
-            if (method === 'GET') return { ...s.readChapters };
+            if (method === 'GET') {
+                const out = {};
+                for (const [m, l] of Object.entries(s.readChapters)) out[m] = l.map(x => ({ ...x }));
+                return out;
+            }
+            const aLu = (l, cid) => l.some(x => x.chapterId === cid);
             if (method === 'POST' && !arg) {
                 const d = corps || {};
                 const liste = s.readChapters[d.mangaId] || (s.readChapters[d.mangaId] = []);
                 const cid = String(d.chapterId);
-                if (d.read === false) s.readChapters[d.mangaId] = liste.filter((x) => x !== cid);
-                else if (!liste.includes(cid)) liste.push(cid);
+                if (d.read === false) s.readChapters[d.mangaId] = liste.filter((x) => x.chapterId !== cid);
+                else if (!aLu(liste, cid)) liste.push({ chapterId: cid, chapter: d.chapter ?? null, readAt: maintenant() });
                 journal('chapter', { mangaId: d.mangaId, chapter: d.chapter });
                 ecrire();
                 return { ok: true };
@@ -223,7 +235,7 @@
                 const liste = s.readChapters[d.mangaId] || (s.readChapters[d.mangaId] = []);
                 for (const c of (d.chapters || [])) {
                     const cid = String(c.chapterId ?? c.id ?? c);
-                    if (!liste.includes(cid)) liste.push(cid);
+                    if (!aLu(liste, cid)) liste.push({ chapterId: cid, chapter: c.chapter ?? null, readAt: maintenant() });
                 }
                 ecrire();
                 return { ok: true, count: (d.chapters || []).length };
@@ -231,7 +243,7 @@
             if (method === 'POST' && arg === 'unmark-bulk') {
                 const d = corps || {};
                 const retirer = new Set((d.chapterIds || []).map(String));
-                s.readChapters[d.mangaId] = (s.readChapters[d.mangaId] || []).filter((x) => !retirer.has(x));
+                s.readChapters[d.mangaId] = (s.readChapters[d.mangaId] || []).filter((x) => !retirer.has(x.chapterId));
                 ecrire();
                 return { ok: true };
             }
@@ -533,6 +545,7 @@
         ABSENT,
         place,
         _etat: lire,
+        _ecrire: ecrire,
         _reinitialiser() { etat = vide(); ecrire(); },
     };
 })();

@@ -173,7 +173,8 @@ test('marquer un chapitre lu survit à la relecture', async () => {
     const { API } = monter();
     await API.me.markChapter({ mangaId: 'm', chapterId: 'c1', chapter: 1, read: true });
     const lus = await API.me.readChapters();
-    assert.deepEqual(lus.m, ['c1']);
+    // Format du serveur : les pages lisent « r.chapterId ».
+    assert.deepEqual(lus.m.map(x => x.chapterId), ['c1']);
 });
 
 test('notes et listes traversent l’API publique', async () => {

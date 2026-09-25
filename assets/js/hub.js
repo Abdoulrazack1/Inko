@@ -495,7 +495,7 @@
             + 'border:1px solid #444;background:transparent;color:#ddd;font-size:15px;cursor:pointer">'
             + 'Connecter un ordinateur</button>'
             + '<p style="color:#666;font-size:12px;margin-top:16px">'
-            + 'Tu pourras le faire à tout moment dans Paramètres → Connexion au hub.</p>'
+            + 'Tu pourras le faire à tout moment dans Paramètres → Ton PC.</p>'
             + '</div>';
         document.body.appendChild(v);
 
@@ -522,6 +522,10 @@
     // adresse qui n'existe pas sur un telephone : chaque appel partirait
     // attendre un delai d'expiration, et l'app aurait l'air cassee plutot que
     // simplement non connectee.
+    // Défini AVANT le retour anticipé ci-dessous : un téléphone jamais
+    // appairé doit pouvoir ouvrir l'écran d'appairage depuis les réglages.
+    window.INKO_changerHub = () => ecran('');
+
     if (!window.INKO_HUB) {
         window.INKO_AUTONOME = true;
         const ouvrir = () => chapitresHorsLigne().then((n) => {
@@ -553,6 +557,15 @@
         else ouvrir();
         return;
     }
+
+    // ── Appairé : le téléphone reste AUTONOME (modèle Spotify) ──
+    //
+    // Avant, appairer un PC faisait du téléphone un simple client : PC éteint,
+    // il ne restait que les chapitres téléchargés. Désormais le téléphone lit
+    // et écrit toujours chez lui ; `synchro.js` échange avec le PC dès qu'il
+    // répond, et `api.js` ne lui confie que ce que le téléphone ne sait pas
+    // faire seul.
+    window.INKO_AUTONOME = true;
 
     // ── P2.3 : hub injoignable ≠ application inutile ────────
     // Première version : un hub qui ne répond plus rouvrait l'écran de
@@ -622,14 +635,38 @@
             return;
         }
 
-        const n = await chapitresHorsLigne();
-        if (!n) {
-            ecran('Le serveur configuré (' + window.INKO_HUB + ') ne répond plus : ' + r.raison + '.');
-            return;
-        }
+        // Le PC ne répond pas : l'app continue seule. On le signale, sans
+        // bloquer — c'est le cas normal hors de la maison.
         window.INKO_HORS_LIGNE = true;
-        bandeauHorsLigne(n, r.raison);
+        pastillePcAbsent(r.raison);
     });
+
+    /** Pastille discrète « PC injoignable — mode autonome », refermable. */
+    function pastillePcAbsent(raison) {
+        if (document.getElementById('inko-pc-absent')) return;
+        let vu = false;
+        try { vu = sessionStorage.getItem('inko_pc_absent_vu') === '1'; } catch (e) { vu = false; }
+        if (vu) return;
+        const el = document.createElement('div');
+        el.id = 'inko-pc-absent';
+        el.setAttribute('role', 'status');
+        el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:76px;'
+            + 'bottom:calc(64px + env(safe-area-inset-bottom, 0px) + 12px);'
+            + 'z-index:2147482000;display:flex;gap:10px;align-items:center;'
+            + 'padding:10px 12px;border-radius:12px;background:#1f2229;border:1px solid #3a3f4b;'
+            + 'color:#e6e8ee;font-size:12.5px;line-height:1.45;font-family:system-ui,-apple-system,sans-serif;'
+            + 'box-shadow:0 8px 24px rgba(0,0,0,.35)';
+        el.innerHTML = '<span style="flex:1;min-width:0"><b>Mode autonome</b> — ton PC ne répond pas ('
+            + esc(raison) + '). Tout ce que tu fais ici se synchronisera à son retour.</span>'
+            + '<button type="button" aria-label="Fermer" style="min-width:40px;min-height:40px;background:none;'
+            + 'border:none;color:#e6e8ee;font-size:18px;cursor:pointer">×</button>';
+        document.body.appendChild(el);
+        el.querySelector('button').addEventListener('click', () => {
+            el.remove();
+            try { sessionStorage.setItem('inko_pc_absent_vu', '1'); } catch (e) { /* sans importance */ }
+        });
+        setTimeout(() => el.remove(), 9000);
+    }
 
     /**
      * Bandeau de mode hors ligne. Fixe en bas — la barre du haut porte déjà la
@@ -702,11 +739,12 @@
 
             const r = await tester(window.INKO_HUB);
             if (r.ok) {
-                // Le hub est revenu. On recharge plutot que de lever le
-                // drapeau en place : les pages ont deja rendu leurs etats
-                // hors-ligne, et les remettre a jour une par une serait dix
-                // fois le meme travail, fait dix fois a moitie.
-                if (window.INKO_HORS_LIGNE) window.location.reload();
+                // Le PC est revenu : l'app n'a jamais cessé de marcher, on
+                // lève simplement le drapeau et on lance une synchronisation.
+                window.INKO_HORS_LIGNE = false;
+                document.getElementById('inko-pc-absent')?.remove();
+                document.getElementById('inko-hors-ligne')?.remove();
+                window.INKO_SYNCHRO?.synchroniser?.();
                 return;
             }
             // Changer de réseau, c'est justement le moment où l'adresse du hub
@@ -718,8 +756,8 @@
                 return;
             }
             if (window.INKO_HORS_LIGNE) return;     // deja signale
-            const n = await chapitresHorsLigne();
-            if (n) { window.INKO_HORS_LIGNE = true; bandeauHorsLigne(n, r.raison); }
+            window.INKO_HORS_LIGNE = true;
+            pastillePcAbsent(r.raison);
         });
     }
 
