@@ -198,6 +198,8 @@ function injecterHub(dir) {
     // L'adaptateur (cheerio puis extensions) vient donc AVANT ceux qui s'en
     // servent, et `api.js` reste bon dernier.
     const balises = [
+        // Compléments des fonctions absentes du WebView d'Android 8 : AVANT tout.
+        '<script src="assets/js/compat.js"></script>',
         '<script src="assets/js/natif.js"></script>',
         '<script src="assets/js/hub.js"></script>',
         '<script src="assets/js/cheerio-navigateur.js"></script>',
