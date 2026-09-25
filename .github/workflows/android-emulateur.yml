@@ -25,7 +25,11 @@ on:
     paths:
       - 'android/**'
       - 'capacitor.config.json'
-      - 'assets/js/hub.js'
+      # Tout script de page : c'est accueil.js qui a cassé le démarrage sur
+      # Android 8 (Promise.allSettled), et ce test ne regardait que hub.js.
+      - 'assets/js/**'
+      - 'scripts-ci/build-mobile-www.js'
+      - 'scripts-ci/emulateur-demarrage.sh'
       - '.github/workflows/android-emulateur.yml'
 
 permissions:
