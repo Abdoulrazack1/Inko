@@ -3,6 +3,14 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.8.2 — Inko se tient comme une app sur téléphone
+
+- **Sur téléphone, une vraie barre d'application** : le titre de l'écran, et un bouton retour sur les écrans secondaires ; la navigation passe par les onglets du bas. L'en-tête ne garde que musique, notifications et profil.
+- **Paramètres › Ton PC** (application mobile) : état de la synchronisation avec le PC, modifications en attente, « Synchroniser maintenant ». Le PC n'a rien à faire : il reçoit les modifications du téléphone par les routes habituelles. Voir *Inko Mobile 1.4.0*.
+- L'onglet « Plus » de la barre du bas avait une police différente des autres.
+- Le lien « Aller au contenu » débordait par-dessus le titre de l'écran sur téléphone.
+- Dépendances à jour (Capacitor 8.5.2, dotenv 18, multer 2.4, mysql2, nodemailer, Playwright, ESLint, jsdom).
+
 ## 2.8.1 — Lisible avec tous les accents, et traduite
 
 - Le bandeau « Nouvelle version disponible » prenait la couleur d'accent comme fond : avec un accent clair (violet), son texte blanc devenait illisible. Fond sombre fixe, lisible quel que soit l'accent.
