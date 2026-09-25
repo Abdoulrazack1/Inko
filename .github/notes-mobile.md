@@ -1,5 +1,9 @@
 **Inko sur Android.** Une vraie application, **autonome** : elle cherche sur les sources, garde ta bibliothèque et ta progression **sur le téléphone**, et fonctionne sans ordinateur. Appairée à ton PC, elle se **synchronise avec lui dès qu'il est joignable** — comme Spotify entre tes appareils.
 
+## 1.4.1 — correctif Android 8
+
+Sur les téléphones dont le WebView n'a pas été mis à jour (Android 8 d'origine), l'accueil plantait à l'ouverture : une fonction JavaScript récente (`Promise.allSettled`) y manque. L'app embarque désormais les fonctions absentes de ces anciens moteurs. **Mets à jour depuis la 1.4.0.**
+
 ## 1.4.0 — autonome, et synchronisée avec ton PC
 
 **Le téléphone ne dépend plus du PC.** Avant, appairer un ordinateur faisait de l'app un simple client : PC éteint, il ne restait que les chapitres téléchargés. Désormais l'app lit et écrit toujours chez elle, et interroge elle-même les 9 sources (chaque extension est vérifiée par empreinte avant d'être exécutée).
@@ -16,7 +20,7 @@
 
 ## Installer
 
-1. Télécharge l'APK `Inko-1.4.0.apk` ci-dessous.
+1. Télécharge l'APK `Inko-1.4.1.apk` ci-dessous.
 2. Android demandera d'autoriser l'installation depuis cette source — c'est normal, l'app n'est pas sur le Play Store.
 3. Pour la synchroniser avec ton PC : sur le PC, Paramètres → Appareils → Afficher le code ; sur le téléphone, Paramètres → Ton PC → Scanner le code. L'app retrouve aussi le PC toute seule sur le réseau local (mDNS).
 
