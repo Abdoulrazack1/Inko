@@ -1495,6 +1495,45 @@ a[data-nsfw] .manga-card-cover::after,
   z-index: 2;
 }
 
+/* ══ Habillage « application » sur téléphone ═════════════════════════
+   Sous 768 px, l'en-tête devient une barre d'app : titre de l'écran, retour
+   sur les écrans secondaires ; la navigation passe par la barre du bas. */
+.appbar { display: none; }
+@media (max-width: 768px) {
+  .appbar { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+  .appbar-titre { font-family: var(--font-head); font-weight: 700; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .appbar-retour { width: 40px; height: 40px; margin-left: -8px; border: 0; border-radius: 50%; background: none; color: var(--text); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  .appbar-retour:active { background: var(--bg3); }
+  .site-header .header-nav, .site-header .header-search { display: none !important; }
+  .site-header .header-logo span, .site-header .header-logo .logo-text { display: none; }
+  .site-header.avec-retour .header-logo { display: none; }
+  .site-header .header-user .header-avatar { width: 30px; height: 30px; }
+}
+/* Dans l'APK seulement : ce qui trahit une page web. */
+html.inko-app { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+html.inko-app body { -webkit-user-select: none; user-select: none; }
+html.inko-app input, html.inko-app textarea, html.inko-app [contenteditable], html.inko-app .jr-note-body,
+html.inko-app .synopsis-text, html.inko-app .serie-desc-short, html.inko-app .lr-text, html.inko-app .novel-content { -webkit-user-select: text; user-select: text; }
+html.inko-app #footer-slot, html.inko-app .site-footer { display: none !important; }
+html.inko-app main { animation: inko-app-entree .18s ease-out; }
+@keyframes inko-app-entree { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { html.inko-app main { animation: none; } }
+/* Le lien d'évitement ne se montre qu'au focus clavier. « top: -48px » seul
+   ne suffisait plus : un décalage (barre de titre, en-tête) le faisait
+   dépasser par-dessus le titre de l'écran sur téléphone. */
+.skip-link:not(:focus) { opacity: 0; pointer-events: none; clip-path: inset(50%); }
+
+/* Téléphone : l'en-tête ne garde que musique, notifications et profil.
+   Les autres raccourcis (lecture privée, reprendre, actualiser, réglages) sont
+   dans « Plus » et sur les pages concernées ; sept icônes de 40 px ne tiennent
+   pas sur 375 px sans écraser le logo. */
+@media (max-width: 560px) {
+  .site-header #btnIncognito,
+  .site-header #btnContinue,
+  .site-header #btnRefresh,
+  .site-header a[href="parametres.html"] { display: none !important; }
+}
+
 /* ══ REPLI aspect-ratio — GÉNÉRÉ par scripts-ci/gen-repli-aspect-ratio.js ══ */
 /* Ne pas modifier à la main : `npm run gen-repli-ar` régénère ce bloc.
    16 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio

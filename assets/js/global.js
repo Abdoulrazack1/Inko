@@ -1232,7 +1232,7 @@
             item('recherche.html', 'recherche', 'Recherche', I.search) +
             item('profil.html', 'profil', 'Profil', I.user) +
             `<button type="button" class="mnav-item" id="mnavMore" aria-label="Plus de sections" aria-haspopup="dialog"
-                style="background:none;border:none;font:inherit;color:inherit;cursor:pointer">
+                style="background:none;border:none;font-family:inherit;cursor:pointer">
                 <span class="mnav-icon">${I.menu}</span><span class="mnav-label">Plus</span>
             </button>`;
         document.body.appendChild(nav);
@@ -1653,7 +1653,7 @@
         <header class="site-header">
           <a href="accueil.html" class="header-logo">
             <img src="/assets/img/icon.svg" alt="Inko" class="logo-icon" style="width:28px;height:28px;border-radius:7px">
-            Inko
+            <span class="logo-text">Inko</span>
           </a>
           <nav class="header-nav">
             <a href="accueil.html" class="${activePage === 'accueil' ? 'active' : ''}" data-i18n="nav.home">Accueil</a>
@@ -1785,12 +1785,45 @@
         bar.addEventListener('dblclick', (e) => { if (e.target.closest('.tb-controls')) return; try { w()?.toggleMaximize(); } catch (err) { window.MH?.err?.('titlebar', err); } });
     }
 
+    // ── Barre d'application (téléphone) ─────────────────────
+    // Sur petit écran, l'en-tête devient une barre d'app : le titre de
+    // l'écran, et un bouton retour sur les écrans secondaires (une fiche, un
+    // réglage…). Les cinq onglets du bas n'en ont pas : ce sont des racines.
+    const RACINES = ['accueil', 'catalogue', 'bibliotheque', 'recherche', 'profil'];
+    function barreApp(activePage) {
+        const h = document.querySelector('.site-header');
+        if (!h || h.querySelector('.appbar')) return;
+        const racine = RACINES.includes(activePage);
+        const el = document.createElement('div');
+        el.className = 'appbar' + (racine ? ' appbar--racine' : '');
+        // Classe plutôt que :has() — la WebView d'Android 8 ne le connaît pas.
+        if (!racine) h.classList.add('avec-retour');
+        el.innerHTML = (racine ? '' : '<button type="button" class="appbar-retour" aria-label="Retour">'
+            + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>')
+            + '<span class="appbar-titre"></span>';
+        h.querySelector('.header-logo')?.after(el);
+        const titre = el.querySelector('.appbar-titre');
+        const maj = () => { titre.textContent = (document.title.split('—').slice(1).join('—') || 'Inko').trim(); };
+        maj();
+        // Les fiches posent leur titre après chargement (« Inko — One Piece »).
+        const t = document.querySelector('title');
+        if (t) new MutationObserver(maj).observe(t, { childList: true, characterData: true, subtree: true });
+        el.querySelector('.appbar-retour')?.addEventListener('click', () => {
+            if (history.length > 1 && document.referrer && new URL(document.referrer).origin === location.origin) history.back();
+            else location.href = 'accueil.html';
+        });
+    }
+
     window.MH.initPage = function (activePage) {
         injectTitlebar();
         const headerSlot = document.getElementById('header-slot');
         const footerSlot = document.getElementById('footer-slot');
         if (headerSlot) headerSlot.outerHTML = headerHTML(activePage);
-        if (footerSlot) footerSlot.innerHTML = footerHTML;
+        // Dans l'application, pas de pied de page de site : une app n'a pas
+        // de « mentions en bas de page » sous chaque écran.
+        const dansApp = document.documentElement.classList.contains('inko-app');
+        if (footerSlot && !dansApp) footerSlot.innerHTML = footerHTML;
+        barreApp(activePage);
         injectSkipLink();
         applyAriaLabels();
         initSearch();
@@ -1825,6 +1858,7 @@
             const wrapper = document.createElement('div');
             wrapper.innerHTML = headerHTML(activePage);
             oldHeader.replaceWith(wrapper.firstElementChild);
+            barreApp(activePage);              // l'en-tête reconstruit perdait sa barre d'app
             initSearch();
             initNotifications();
             applyAriaLabels();                  // ré-applique les aria-label au header reconstruit (audit A2)

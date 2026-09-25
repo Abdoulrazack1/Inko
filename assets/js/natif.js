@@ -22,6 +22,9 @@
     const P = () => (window.Capacitor && window.Capacitor.Plugins) || {};
     const dansApp = !!(window.Capacitor && window.Capacitor.isNativePlatform
         && window.Capacitor.isNativePlatform());
+    // Le CSS s'appuie sur cette classe pour l'habillage « application »
+    // (pas de pied de page de site, pas de surbrillance au toucher…).
+    if (dansApp) document.documentElement.classList.add('inko-app');
 
     // Toute méthode peut échouer : un greffon absent, une permission refusée,
     // une version d'Android qui ne l'implémente pas. Aucune de ces situations
