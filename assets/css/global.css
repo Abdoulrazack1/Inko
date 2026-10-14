@@ -867,6 +867,25 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   border-radius: var(--radius2);
 }
 @keyframes shimmer { 0%{background-position:200%} 100%{background-position:-200%} }
+
+/* ── Une couverture qui arrive ne doit pas ressembler à une panne ──
+   Relevé sur l'accueil : 36 images sur 83 encore en vol au moment de la
+   mesure, affichées en rectangles noirs. Rien ne les distinguait d'un échec
+   de chargement — et la source met de 3,7 à 9 secondes par image.
+   On vise les images PROXIFIÉES, c'est-à-dire exactement les lentes, sans
+   avoir à toucher le gabarit de chaque page. Le fond d'une <img> se voit
+   tant que ses données ne sont pas là ; l'image le recouvre en arrivant. */
+img[src*="/api/img"]:not(.img-arrivee) {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+  background-size: 400% 100%;
+  animation: shimmer 1.5s infinite;
+}
+/* Échec : un fond calme et muet. Un miroitement sans fin promettrait une
+   image qui ne viendra jamais. */
+img.img-echec { background: var(--bg3); animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  img[src*="/api/img"]:not(.img-arrivee) { animation: none; }
+}
 @keyframes spin    { to { transform: rotate(360deg); } }
 @keyframes fadeIn  { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
