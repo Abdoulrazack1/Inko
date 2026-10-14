@@ -923,6 +923,10 @@
         // Audit AMEL-14 : fenêtre ajustée à la vitesse réellement mesurée.
         const fenetre = fenetrePrechargement();
         for (let i = 1; i <= fenetre; i++) preloadPage(p + i);
+        // À l'approche de la fin, on prépare VRAIMENT le chapitre suivant.
+        // C'est ici qu'il sert, pas au chargement de la page — où l'on est à
+        // la planche 1 et où le cache mémoire a tout le temps d'évincer.
+        if (totalPages && p >= totalPages - 2) preloadNextChapter({ profond: true });
         document.querySelectorAll('.reader-thumb').forEach((t, i) => t.classList.toggle('active', i + 1 === p));
         centerActiveThumb();   // recentre la miniature SANS jamais bouger la fenêtre
         const pct = document.querySelector('.modebar-pct');
@@ -2061,16 +2065,42 @@
         im.onload = () => noterDureePage(performance.now() - t0);
         im.src = pageSrc(p);
     }
-    function preloadNextChapter() {
+    // ── Le chapitre suivant, préparé pour de bon ────────────────
+    //
+    // Deux manques, et le même symptôme : on tourne la dernière page et on
+    // attend devant un écran vide.
+    //
+    //   · une SEULE page était préchargée. La source mesurée met de 3,7 à
+    //     9 secondes par planche selon le moment : la page 2 du chapitre
+    //     suivant arrivait donc aussi tard que si rien n'avait été fait ;
+    //   · le préchargement n'avait lieu qu'au CHARGEMENT de la page. On y est
+    //     alors à la planche 1 sur 17 — dix minutes avant d'en avoir besoin,
+    //     largement de quoi se faire évincer du cache mémoire. Il fallait
+    //     l'armer à l'approche de la fin, au moment où il sert.
+    //
+    // La profondeur suit la fenêtre déjà calculée sur la latence réellement
+    // observée : une liaison poussive ne doit pas être encombrée pour un
+    // chapitre qu'on n'ouvrira peut-être pas. Le cache disque, lui, garde ce
+    // travail d'une session à l'autre.
+    // On retient l'id ET la profondeur : le passage superficiel du chargement
+    // ne doit pas empêcher le passage profond de la fin de chapitre.
+    let chapSuivantPrepare = { id: null, profond: false };
+    function preloadNextChapter({ profond = false } = {}) {
         const next = neighborChapter(1);
         if (!next) return;
+        if (chapSuivantPrepare.id === next.id && (chapSuivantPrepare.profond || !profond)) return;
+        chapSuivantPrepare = { id: next.id, profond };
+        const combien = profond ? Math.max(2, Math.min(fenetrePrechargement(), 5)) : 1;
         API.mangas.pages(next.id).then(d => {
-            const first = d.pages?.[0];
-            // Audit PERF-08 : cette ligne posait l'URL BRUTE. Un seul appel,
-            // mais suffisant pour contacter le site source en direct — donc
-            // pour rendre l'ensemble de l'effort inutile, puisqu'il suffit
-            // d'une requête pour révéler l'adresse IP.
-            if (first) { const im = new Image(); im.src = MH.proxify ? MH.proxify(first.url) : first.url; }
-        }).catch(() => {});
+            const liste = (d.pages || []).slice(0, combien);
+            for (const p of liste) {
+                // Audit PERF-08 : cette ligne posait l'URL BRUTE. Un seul appel,
+                // mais suffisant pour contacter le site source en direct — donc
+                // pour rendre l'ensemble de l'effort inutile, puisqu'il suffit
+                // d'une requête pour révéler l'adresse IP.
+                const im = new Image();
+                im.src = MH.proxify ? MH.proxify(p.url) : p.url;
+            }
+        }).catch(() => { chapSuivantPrepare = null; });   // un échec doit pouvoir être retenté
     }
 })();
