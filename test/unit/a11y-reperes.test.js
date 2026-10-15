@@ -21,7 +21,10 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
 const pages = fs.readdirSync(ROOT).filter((f) => f.endsWith('.html')).sort();
-const lire = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+// Normalise les fins de ligne : git reecrit la copie de travail en CRLF
+// sous Windows, et toutes les expressions ci-dessous attendent « \n ».
+const normal = (s) => s.replace(/\r\n/g, '\n');
+const lire = (p) => normal(fs.readFileSync(path.join(ROOT, p), 'utf8'));
 
 // Les scripts communs : ils ne portent pas le titre d'une page précise.
 const COMMUNS = new Set(['global', 'i18n', 'pwa', 'eula', 'api', 'hub', 'natif',
@@ -35,7 +38,7 @@ function aUnTitre(page) {
     const scripts = [...html.matchAll(/<script src="assets\/js\/([a-z0-9-]+)\.js"/g)]
         .map((m) => m[1]).filter((n) => !COMMUNS.has(n));
     return scripts.some((n) => {
-        try { return /<h1[\s>]/.test(fs.readFileSync(path.join(ROOT, 'assets', 'js', n + '.js'), 'utf8')); }
+        try { return /<h1[\s>]/.test(normal(fs.readFileSync(path.join(ROOT, 'assets', 'js', n + '.js'), 'utf8'))); }
         catch (e) { return false; }
     });
 }
@@ -95,7 +98,7 @@ test('aucun gestionnaire écrit en attribut (DESK-02)', () => {
 test('la classe qui cache aux yeux sans cacher aux lecteurs est correcte', () => {
     // `display:none` et `visibility:hidden` retirent l'élément de l'arbre
     // d'accessibilité AUSSI : un titre ainsi masqué ne sert plus à rien.
-    const css = fs.readFileSync(path.join(ROOT, 'assets', 'css', 'global.css'), 'utf8');
+    const css = normal(fs.readFileSync(path.join(ROOT, 'assets', 'css', 'global.css'), 'utf8'));
     const bloc = /\.a11y-invisible\s*\{([^}]*)\}/.exec(css);
     assert.ok(bloc, '.a11y-invisible doit exister');
     assert.ok(!/display\s*:\s*none/.test(bloc[1]), 'display:none retirerait le titre des lecteurs d’écran');
@@ -115,7 +118,7 @@ test('la classe qui cache aux yeux sans cacher aux lecteurs est correcte', () =>
 // `title="Chapitre précédent (←)"` sur ces boutons, `chapitre.js` (images) ne
 // portait rien. Mêmes ids, même gabarit d'origine, deux fichiers — un seul
 // avait reçu le correctif. C'est cette dérive-là qu'on tient ici.
-const lireJs = (f) => fs.readFileSync(path.join(ROOT, 'assets', 'js', f), 'utf8');
+const lireJs = (f) => normal(fs.readFileSync(path.join(ROOT, 'assets', 'js', f), 'utf8'));
 
 /** Un pictogramme entre `>` et `</…>` sans le moindre caractère lisible. */
 // La liste de caracteres et la liste de fichiers etaient toutes les deux trop
