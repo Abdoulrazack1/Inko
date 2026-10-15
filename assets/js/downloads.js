@@ -54,6 +54,29 @@
     // L'identifiant est assaini : il vient d'une source distante, et il finit
     // dans un CHEMIN DE FICHIER — un `../` y serait une écriture hors du bac
     // à sable de l'application.
+    // ── Les hotes qui refusent le CORS, retenus le temps de la session ──
+    //
+    // `fetchPage` tente chaque page en direct avant de se replier sur le
+    // proxy, et c'est voulu : une reponse directe est non-opaque et evite de
+    // faire transiter tout le volume par le hub. Mais rien ne retenait le
+    // refus, donc la tentative vouee a l'echec etait refaite A CHAQUE PAGE.
+    //
+    // Mesure en telechargeant trois chapitres (source weebcentral, hote
+    // `hot.planeptune.us`) : 393 erreurs de console, soit une requete perdue
+    // par page. Le cout n'est pas que du bruit dans la console — c'est un
+    // aller-retour reseau par page, sur l'operation la plus longue de
+    // l'application, et une console si noyee qu'elle masque les vraies
+    // erreurs.
+    //
+    // Portee SESSION, et pas `localStorage` : un hote peut changer de
+    // configuration, et une memoire persistee serait fausse sans un mecanisme
+    // d'expiration qui couterait plus cher que la tentative qu'il economise.
+    // Au rechargement, une page paie une sonde et retrouve la reponse.
+    const corsRefuse = new Set();
+    const origineDe = (url) => {
+        try { return new URL(url, location.href).origin; } catch (e) { return ''; }
+    };
+
     function dossierChapitre(chapterId) {
         return 'chapitres/' + String(chapterId).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 120);
     }
@@ -137,15 +160,33 @@
             // aussi). null = échec réel détecté.
             const base = (window.API && API.base) || '';
             async function fetchPage(url) {
-                try {
-                    const r = await fetch(url, { mode: 'cors' });
-                    if (r.ok) return r;                     // statut HTTP OK et lisible
-                    if (r.status >= 400) return null;       // 403/404… échec confirmé
-                } catch (e) { /* CORS bloqué → repli proxy */ }
+                const origine = origineDe(url);
+                // Sans proxy, on tente le direct quoi qu'il arrive : c'est la
+                // seule voie.
+                const direct = !(base && corsRefuse.has(origine));
+                if (direct) {
+                    try {
+                        const r = await fetch(url, { mode: 'cors' });
+                        if (r.ok) return r;                     // statut HTTP OK et lisible
+                        if (r.status >= 400) return null;       // 403/404… échec confirmé
+                    } catch (e) { /* CORS bloqué ou réseau coupé : le repli tranchera */ }
+                }
                 if (base) {
                     try {
                         const pr = await fetch(base + '/img?u=' + encodeURIComponent(url));
-                        if (pr.ok) return pr;
+                        if (pr.ok) {
+                            // Le proxy passe là où le direct a échoué : c'est
+                            // l'hôte qui nous refuse, pas le réseau qui manque.
+                            //
+                            // La distinction est tout l'intérêt de la
+                            // condition : un échec des DEUX côtés est une
+                            // coupure réseau, et la retenir ferait passer
+                            // toute la session par le hub une fois le réseau
+                            // revenu — en punissant durablement les hôtes qui,
+                            // eux, acceptaient le direct.
+                            if (direct && origine) corsRefuse.add(origine);
+                            return pr;
+                        }
                     } catch (e) { /* échec réseau */ }
                 }
                 return null;
