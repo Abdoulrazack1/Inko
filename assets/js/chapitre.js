@@ -68,7 +68,13 @@
         const prefs = window.Storage?.getPrefs() || {};
         if (prefs.readMode) readMode = prefs.readMode;
         if (prefs['readMode_' + mangaId]) readMode = prefs['readMode_' + mangaId];
-        if (prefs.zoom)     zoom     = prefs.zoom;
+        // Le zoom suit la MEME logique que le mode de lecture, et pour la
+        // meme raison : un scan de magazine se lit confortablement a 60 % sur
+        // un grand ecran, un webtoon a 100 %. Un seul zoom global obligeait a
+        // le refaire a chaque changement de serie - et jusqu'a ce qu'on y
+        // pense, le reglage d'une autre serie restait applique a celle-ci.
+        if (prefs.zoom)               zoom = prefs.zoom;
+        if (prefs['zoom_' + mangaId]) zoom = prefs['zoom_' + mangaId];
         loadReaderSettings();
         if (prefs.readingDir) rs.direction = prefs.readingDir;
 
@@ -467,6 +473,10 @@
             window.Storage?.setPref('readMode_' + manga.id, readMode);     // mémorisé pour cette série
             el.querySelectorAll('.modebar-btn').forEach(b => b.classList.toggle('active', b === btn));
             if (readMode === 'double') doubleBase = currentPage;            // ancre la planche sur la page courante
+            // Les bornes du zoom dépendent du mode : passer en défilement avec
+            // 150 % en mémoire afficherait une planche à 100 % sous une
+            // étiquette « 150 % ». On renormalise avant de redessiner.
+            appliquerZoom(zoom);
             renderPage(currentPage);
             resetPagedScroll(1);
         });
@@ -923,6 +933,10 @@
         // Audit AMEL-14 : fenêtre ajustée à la vitesse réellement mesurée.
         const fenetre = fenetrePrechargement();
         for (let i = 1; i <= fenetre; i++) preloadPage(p + i);
+        // À l'approche de la fin, on prépare VRAIMENT le chapitre suivant.
+        // C'est ici qu'il sert, pas au chargement de la page — où l'on est à
+        // la planche 1 et où le cache mémoire a tout le temps d'évincer.
+        if (totalPages && p >= totalPages - 2) preloadNextChapter({ profond: true });
         document.querySelectorAll('.reader-thumb').forEach((t, i) => t.classList.toggle('active', i + 1 === p));
         centerActiveThumb();   // recentre la miniature SANS jamais bouger la fenêtre
         const pct = document.querySelector('.modebar-pct');
@@ -1368,13 +1382,13 @@
         if (!area || area.dataset.touchBound) return;
         area.dataset.touchBound = '1';
 
-        // Audit AMEL-18 : PAS de double-clic pour zoomer au bureau. Tenté puis
-        // écarté après essai : la zone de lecture est déjà découpée en bandes
-        // de navigation (page-zone-prev / page-zone-next), donc le premier clic
-        // tourne la page avant que le second n'arrive. On aurait tourné deux
-        // pages puis zoomé — pire que pas de raccourci.
-        // Le geste desktop équivalent est Ctrl + molette, qui n'a aucun
-        // conflit ; il est désormais ancré au curseur (voir bindWheel).
+        // Audit AMEL-18 : le double-clic de bureau ne vaut que sur l'image.
+        // Les bandes de navigation (page-zone-prev / page-zone-next) couvrent
+        // 35 % de chaque côté : y double-cliquer tourne deux pages, et le
+        // gestionnaire posé par `bindKeyboard` s'y retire de lui-même puisqu'il
+        // exige `.reader-page-img`. Il ne reste donc actif que dans la bande
+        // centrale. Le geste de bureau à recommander est Ctrl + molette, sans
+        // aucun conflit et ancré au curseur (voir bindWheel).
         let sx = 0, sy = 0, st = 0, moved = false, lastTap = 0;
         area.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) return;
@@ -1417,17 +1431,42 @@
         });
     }
 
-    // Point d'entrée unique du zoom : le pinch, le double-tap et Ctrl+molette
-    // passent tous par ici, pour que l'ancrage et la persistance soient écrits
-    // une seule fois.
+    // Point d'entrée unique du zoom. Il ne l'était pas : trois fonctions
+    // écrivaient chacune sa version — celle-ci pour le pinch, `changeZoom`
+    // pour les boutons et le clavier, `toggleTapZoom` pour le double-tap —
+    // avec trois bornes différentes et deux façons d'appliquer l'échelle.
+    // Deux défauts en sortaient, tous deux atteignables au doigt :
+    //
+    //   · pincer jusqu'à 400 % puis toucher « − » retombait à 200 %, parce que
+    //     `changeZoom` plafonnait là. Un « −10 % » qui divise par deux.
+    //   · en défilement, le pinch posait `transform: scale()` sur la colonne
+    //     d'images empilées — précisément ce que `changeZoom` évite depuis un
+    //     correctif, la mise à l'échelle faisant déborder le bas du chapitre
+    //     hors de la zone défilable, donc hors d'atteinte. Le défilement est
+    //     le mode des webtoons et le pinch un geste de téléphone : leur
+    //     croisement était la situation la plus probable, pas la plus rare.
+    //
+    // En défilement le zoom est une LARGEUR, et une largeur ne dépasse pas son
+    // conteneur : la borne y est 100 %. Sans elle, l'étiquette annoncerait
+    // « 150 % » devant une planche qui n'a pas bougé.
     function appliquerZoom(z, point) {
-        zoom = Math.round(Math.min(400, Math.max(20, z)));
+        const defilement = readMode === 'scroll';
+        zoom = Math.round(Math.min(defilement ? 100 : 400, Math.max(50, z)));
         const label = document.getElementById('zoomLabel');
         if (label) label.textContent = zoom + '%';
-        ancrerZoomSur(zoom > 100 ? point : null);
-        document.querySelectorAll('.reader-page-wrapper')
-            .forEach(w => { w.style.transform = `scale(${zoom / 100})`; });
-        window.Storage?.setPref('zoom', zoom);
+        if (defilement) {
+            document.querySelectorAll('.reader-page-wrapper').forEach(w => {
+                w.style.transform = '';
+                w.style.transformOrigin = '';
+                w.style.width = zoom + '%';
+            });
+        } else {
+            ancrerZoomSur(zoom > 100 ? point : null);
+            document.querySelectorAll('.reader-page-wrapper')
+                .forEach(w => { w.style.transform = `scale(${zoom / 100})`; });
+        }
+        window.Storage?.setPref('zoom', zoom);                      // défaut global
+        if (manga?.id) window.Storage?.setPref('zoom_' + manga.id, zoom);
     }
     // ── Zoom ancré (audit AMEL-18) ───────────────────────────
     // Le zoom partait de `transform-origin: top center` : agrandir éloignait
@@ -1450,16 +1489,11 @@
         });
     }
 
+    // `appliquerZoom` remet l'origine au neutre en dessous de 100 % : le
+    // retour à 100 % n'a donc plus besoin d'être traité à part ici.
     function toggleTapZoom(point) {
         if (readMode === 'scroll') return;
-        const agrandi = zoom > 110;
-        zoom = agrandi ? 100 : 170;
-        const label = document.getElementById('zoomLabel'); if (label) label.textContent = zoom + '%';
-        // Retour à 100 % : origine neutre, sinon la page resterait décalée.
-        ancrerZoomSur(agrandi ? null : point);
-        document.querySelectorAll('.reader-page-wrapper')
-            .forEach(w => { w.style.transform = `scale(${zoom / 100})`; });
-        window.Storage?.setPref('zoom', zoom);
+        appliquerZoom(zoom > 110 ? 100 : 170, point);
     }
 
     // ── Partager ce chapitre (audit §9) ──
@@ -1528,23 +1562,9 @@
         setTimeout(() => { document.getElementById('chapTransition')?.remove(); }, 8000);
     }
 
-    window.changeZoom = function (delta) {
-        zoom = Math.min(200, Math.max(50, zoom + delta));
-        const label = document.getElementById('zoomLabel');
-        if (label) label.textContent = `${zoom}%`;
-        const wrapper = document.querySelector('.reader-page-wrapper');
-        if (wrapper) {
-            if (readMode === 'scroll') {
-                // En défilement, le zoom passe par la LARGEUR (jamais transform:scale,
-                // qui laisserait le bas du chapitre inatteignable — bug corrigé).
-                wrapper.style.transform = '';
-                wrapper.style.width = `${Math.max(20, Math.min(100, zoom))}%`;
-            } else {
-                wrapper.style.transform = `scale(${zoom / 100})`;
-            }
-        }
-        window.Storage?.setPref('zoom', zoom);
-    };
+    // Boutons « + / − » du panneau, touches + et −, Ctrl + molette.
+    // Tout le travail est dans `appliquerZoom` : ici il ne reste que le pas.
+    window.changeZoom = function (delta) { appliquerZoom(zoom + delta); };
 
     window.toggleFullscreen = function () {
         const inReal = !!document.fullscreenElement;
@@ -1907,8 +1927,43 @@
         }
         if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour suivre ta lecture'); return; }
         if (!items.length) return;
-        try { await API.me.markChaptersBulk(manga.id, items); MH.toast?.(msg); }
-        catch (e) { MH.toast?.('Erreur : ' + e.message); }
+
+        // ── L'annulation ne doit défaire QUE ce que ce geste a fait ──
+        //
+        // « Marquer jusqu'ici » envoie tous les chapitres précédents, y
+        // compris ceux qu'on avait déjà lus il y a des mois. Démarquer
+        // l'ensemble effacerait la frontière entre lu et non lu — la donnée
+        // la plus longue à reconstituer, et précisément celle qu'une
+        // annulation est censée protéger.
+        //
+        // On relève donc l'état avant d'écrire, et le bandeau ne propose de
+        // défaire que les chapitres réellement ajoutés.
+        let dejaLus = null;
+        try {
+            const tout = await API.me.readChapters();
+            dejaLus = new Set((tout?.[manga.id] || []).map(c => c.chapterId));
+        } catch (e) { dejaLus = null; }
+        const nouveaux = dejaLus ? items.filter(i => !dejaLus.has(i.chapterId)) : [];
+
+        try { await API.me.markChaptersBulk(manga.id, items); }
+        catch (e) { MH.toast?.('Erreur : ' + e.message); return; }
+
+        // Sans cet état, pas d'annulation proposée : mieux vaut ne rien
+        // offrir qu'un bouton qui démarquerait d'anciennes lectures.
+        if (!dejaLus || !nouveaux.length) { MH.toast?.(msg); return; }
+
+        // Le bandeau (audit IX.6) plutôt que le toast : lui seul peut porter
+        // une action, et il s'ancre au-dessus de la barre d'onglets.
+        MH.bandeau?.(msg, {
+            action: 'Annuler',
+            duree: 5000,        // IX.6 : cinq secondes, le temps de réaliser
+            onAction: async () => {
+                try {
+                    await API.me.unmarkChaptersBulk(manga.id, nouveaux.map(c => c.chapterId));
+                    MH.bandeau?.(`${nouveaux.length} chapitre(s) remis en non-lu.`);
+                } catch (e) { MH.bandeau?.('Annulation impossible : ' + e.message); }
+            },
+        });
     }
     function markUpToHere() {
         const cur = parseFloat(currentChap.chapter);
@@ -2061,16 +2116,42 @@
         im.onload = () => noterDureePage(performance.now() - t0);
         im.src = pageSrc(p);
     }
-    function preloadNextChapter() {
+    // ── Le chapitre suivant, préparé pour de bon ────────────────
+    //
+    // Deux manques, et le même symptôme : on tourne la dernière page et on
+    // attend devant un écran vide.
+    //
+    //   · une SEULE page était préchargée. La source mesurée met de 3,7 à
+    //     9 secondes par planche selon le moment : la page 2 du chapitre
+    //     suivant arrivait donc aussi tard que si rien n'avait été fait ;
+    //   · le préchargement n'avait lieu qu'au CHARGEMENT de la page. On y est
+    //     alors à la planche 1 sur 17 — dix minutes avant d'en avoir besoin,
+    //     largement de quoi se faire évincer du cache mémoire. Il fallait
+    //     l'armer à l'approche de la fin, au moment où il sert.
+    //
+    // La profondeur suit la fenêtre déjà calculée sur la latence réellement
+    // observée : une liaison poussive ne doit pas être encombrée pour un
+    // chapitre qu'on n'ouvrira peut-être pas. Le cache disque, lui, garde ce
+    // travail d'une session à l'autre.
+    // On retient l'id ET la profondeur : le passage superficiel du chargement
+    // ne doit pas empêcher le passage profond de la fin de chapitre.
+    let chapSuivantPrepare = { id: null, profond: false };
+    function preloadNextChapter({ profond = false } = {}) {
         const next = neighborChapter(1);
         if (!next) return;
+        if (chapSuivantPrepare.id === next.id && (chapSuivantPrepare.profond || !profond)) return;
+        chapSuivantPrepare = { id: next.id, profond };
+        const combien = profond ? Math.max(2, Math.min(fenetrePrechargement(), 5)) : 1;
         API.mangas.pages(next.id).then(d => {
-            const first = d.pages?.[0];
-            // Audit PERF-08 : cette ligne posait l'URL BRUTE. Un seul appel,
-            // mais suffisant pour contacter le site source en direct — donc
-            // pour rendre l'ensemble de l'effort inutile, puisqu'il suffit
-            // d'une requête pour révéler l'adresse IP.
-            if (first) { const im = new Image(); im.src = MH.proxify ? MH.proxify(first.url) : first.url; }
-        }).catch(() => {});
+            const liste = (d.pages || []).slice(0, combien);
+            for (const p of liste) {
+                // Audit PERF-08 : cette ligne posait l'URL BRUTE. Un seul appel,
+                // mais suffisant pour contacter le site source en direct — donc
+                // pour rendre l'ensemble de l'effort inutile, puisqu'il suffit
+                // d'une requête pour révéler l'adresse IP.
+                const im = new Image();
+                im.src = MH.proxify ? MH.proxify(p.url) : p.url;
+            }
+        }).catch(() => { chapSuivantPrepare = null; });   // un échec doit pouvoir être retenté
     }
 })();

@@ -753,7 +753,31 @@
             veil.addEventListener('click', (e) => { if (e.target === veil) onCancel(); });
         });
     }
-    window.MH.confirm = (message, opts = {}) => mhModal({ message, showCancel: true, okText: opts.okText || 'Confirmer', cancelText: opts.cancelText, danger: opts.danger, title: opts.title });
+    /* `opts.message` était silencieusement jeté.
+     *
+     * La signature est `(message, opts)`, et huit appels passaient malgré tout
+     * un `opts.message` — sans doute par analogie avec `title`. Il n'était lu
+     * nulle part : l'explication n'apparaissait jamais.
+     *
+     * Les huit sont des actions destructrices, et le texte perdu était à
+     * chaque fois ce qu'on a besoin de savoir AVANT de répondre : ce que
+     * contient la sauvegarde qu'on restaure, que la restauration fusionne au
+     * lieu de remplacer, que la position de lecture survit à l'effacement de
+     * l'historique, qu'une extension désinstallée se réinstalle.
+     *
+     * Corrigé ici plutôt qu'aux huit endroits : un neuvième appel écrirait la
+     * même chose, et serait perdu pareil. Quand `opts.message` est fourni, le
+     * premier argument devient le titre — c'est ce que ces appels voulaient
+     * dire.
+     */
+    window.MH.confirm = (message, opts = {}) => mhModal({
+        message: opts.message || message,
+        title: opts.message ? (opts.title || message) : opts.title,
+        showCancel: true,
+        okText: opts.okText || 'Confirmer',
+        cancelText: opts.cancelText,
+        danger: opts.danger,
+    });
     window.MH.prompt  = (message, opts = {}) => mhModal({ message, input: true, showCancel: true, value: opts.value, placeholder: opts.placeholder, okText: opts.okText || 'Valider', cancelText: opts.cancelText, title: opts.title });
     window.MH.alert   = (message, opts = {}) => mhModal({ message, showCancel: false, okText: opts.okText || 'OK', title: opts.title });
 
@@ -1826,6 +1850,8 @@
         barreApp(activePage);
         injectSkipLink();
         applyAriaLabels();
+        suivreArriveeImages();
+        memoriserDefilement();
         initSearch();
         initFooterButtons();
         initHeaderButtons();
@@ -2047,6 +2073,109 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && dd.style.display === 'block') { e.preventDefault(); fermer({ rendreFocus: true }); }
         });
+    }
+
+    /* ── Marquer les couvertures qui arrivent ────────────────
+     *
+     * Le miroitement vit dans la feuille de style, sur `img[src*="/api/img"]`
+     * — les images proxifiées, c'est-à-dire exactement les lentes. Il faut
+     * ensuite l'ARRÊTER, sinon une page de cinquante couvertures garde
+     * cinquante animations qui tournent pour rien une fois tout chargé.
+     *
+     * `load` et `error` ne remontent PAS : un écouteur posé sur `document`
+     * ne les voit qu'en phase de capture. C'est la même raison qui fait
+     * qu'un `play` doit être intercepté à la descente dans le lecteur de
+     * musique.
+     *
+     * Et l'on rattrape celles déjà arrivées avant que ce code ne tourne :
+     * une image servie par le cache disque revient en 46 ms, souvent avant
+     * que l'écouteur ne soit en place. Sans ce rattrapage, elle miroiterait
+     * sous une image parfaitement visible.
+     */
+    function suivreArriveeImages() {
+        if (window.MH._suiviImages) return;
+        window.MH._suiviImages = true;
+
+        const marquer = (img, echec) => {
+            if (!img || img.tagName !== 'IMG') return;
+            img.classList.add(echec ? 'img-echec' : 'img-arrivee');
+        };
+        document.addEventListener('load', (e) => marquer(e.target, false), true);
+        document.addEventListener('error', (e) => marquer(e.target, true), true);
+
+        const rattraper = () => {
+            document.querySelectorAll('img[src*="/api/img"]').forEach((img) => {
+                if (!img.complete) return;
+                marquer(img, img.naturalWidth === 0);
+            });
+        };
+        rattraper();
+        // Les cartes arrivent après coup, au fil des réponses de l'API : on
+        // rattrape aussi celles-là, sans réobserver à chaque mutation.
+        let prevu = null;
+        new MutationObserver(() => {
+            if (prevu) return;
+            prevu = setTimeout(() => { prevu = null; rattraper(); }, 250);
+        }).observe(document.body, { childList: true, subtree: true });
+    }
+
+    /* ── Revenir là où on était ──────────────────────────────
+     *
+     * Ouvrir une série depuis la bibliothèque puis revenir renvoyait en haut
+     * de page. Sur 495 séries, c'est une grande partie de la liste à refaire
+     * défiler à chaque aller-retour.
+     *
+     * Le navigateur sait pourtant le faire — mais seulement sur Précédent.
+     * L'application, elle, navigue par `location.href`, ce qui est une
+     * navigation NEUVE : de son point de vue, il n'y a rien à restaurer.
+     *
+     * La difficulté est le moment. Les listes se remplissent après coup, au
+     * fil des réponses de l'API : restaurer trop tôt ne fait rien, la page
+     * n'ayant pas encore sa hauteur. On réessaie donc tant que le document
+     * grandit, et on s'arrête net dès que l'utilisateur touche à la molette —
+     * lui reprendre la main sur son propre défilement serait pire que de la
+     * lui avoir fait perdre.
+     */
+    const CLE_DEFIL = 'inko_defilement';
+    function memoriserDefilement() {
+        if (window.MH._defilementPose) return;
+        window.MH._defilementPose = true;
+
+        const cle = location.pathname + location.search;
+        const lire = () => { try { return JSON.parse(sessionStorage.getItem(CLE_DEFIL) || '{}'); } catch (e) { return {}; } };
+        const ecrire = (o) => { try { sessionStorage.setItem(CLE_DEFIL, JSON.stringify(o)); } catch (e) { /* stockage refusé */ } };
+
+        const verser = () => {
+            const y = window.scrollY || document.documentElement.scrollTop || 0;
+            const tout = lire();
+            if (y > 40) tout[cle] = y; else delete tout[cle];
+            // Borné : sans cela, chaque recherche filtrée laisserait son entrée.
+            const cles = Object.keys(tout);
+            if (cles.length > 20) delete tout[cles[0]];
+            ecrire(tout);
+        };
+        window.addEventListener('pagehide', verser);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') verser();
+        });
+
+        const vise = lire()[cle];
+        if (!vise) return;
+
+        let abandonne = false;
+        // Le moindre geste de l'utilisateur prime sur la restauration.
+        ['wheel', 'touchstart', 'keydown'].forEach(ev =>
+            window.addEventListener(ev, () => { abandonne = true; }, { once: true, passive: true }));
+
+        const t0 = Date.now();
+        (function essayer() {
+            if (abandonne) return;
+            const max = document.documentElement.scrollHeight - window.innerHeight;
+            if (max >= vise) { window.scrollTo(0, vise); return; }
+            // Deux secondes : au-delà, la liste ne grandira plus, et insister
+            // ferait sauter la page sous les yeux de quelqu'un qui lit déjà.
+            if (Date.now() - t0 < 2000) setTimeout(essayer, 120);
+        })();
     }
 
     /* ── Accessibilité : skip link + aria-labels (audit A1/A2) ── */

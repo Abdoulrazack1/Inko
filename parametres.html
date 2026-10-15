@@ -23,7 +23,30 @@
   <style>
     .set-wrap { max-width: 820px; margin: 0 auto; padding: 28px 20px 80px; }
     .set-head h1 { font-family: var(--font-head); font-size: 28px; font-weight: 700; margin-bottom: 4px; }
-    .set-head p  { color: var(--text2); font-size: 13.5px; margin-bottom: 26px; }
+    .set-head p  { color: var(--text2); font-size: 13.5px; margin-bottom: 14px; }
+    .set-chercher {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 26px;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 0 12px; color: var(--text3);
+    }
+    .set-chercher:focus-within { border-color: var(--accent); }
+    .set-chercher input {
+      flex: 1 1 auto; min-width: 0; background: none; border: 0; outline: none;
+      color: var(--text); font: inherit; font-size: 13.5px; padding: 10px 0;
+    }
+    /* La croix native des champs `search` differe d'un navigateur a l'autre
+       et reste invisible au clavier : on pose la notre. */
+    .set-chercher input::-webkit-search-cancel-button { display: none; }
+    .set-chercher button {
+      flex: 0 0 auto; background: none; border: 0; cursor: pointer;
+      color: var(--text3); font-size: 13px; padding: 4px 2px; line-height: 1;
+    }
+    .set-chercher button:hover { color: var(--text); }
+    .set-chercher-vide { color: var(--text2); font-size: 13.5px; margin-bottom: 26px; }
+    /* Masque par la RECHERCHE, et seulement par elle : l'attribut `hidden`
+       reste la propriete de l'application, qui s'en sert pour les reglages
+       propres au tactile. Les confondre revelerait des reglages sans effet. */
+    .sr-filtre { display: none !important; }
     .set-card {
       background: var(--bg2); border: 1px solid var(--border);
       border-radius: 12px; padding: 22px 24px; margin-bottom: 18px;
@@ -105,6 +128,20 @@
     <div class="set-head">
       <h1>Paramètres</h1>
       <p>Personnalise ton expérience de lecture. Les réglages du compte sont synchronisés.</p>
+      <!-- Vingt-sept réglages répartis sur neuf cartes : au-delà d'une
+           dizaine, on ne parcourt plus, on cherche. Le champ filtre sur le
+           libellé ET sur la description, parce qu'on retient souvent ce que
+           fait un réglage plutôt que son nom. -->
+      <div class="set-chercher">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>
+        </svg>
+        <input type="search" id="setSearch" placeholder="Chercher un réglage…"
+               aria-label="Chercher un réglage" autocomplete="off" spellcheck="false">
+        <button type="button" id="setSearchClear" aria-label="Effacer la recherche" hidden>✕</button>
+      </div>
+      <p class="set-chercher-vide" id="setSearchEmpty" hidden role="status"></p>
     </div>
 
     <!-- COMPTE -->

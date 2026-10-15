@@ -25,7 +25,10 @@ const fs = require('fs');
 const path = require('path');
 
 const JS = path.join(__dirname, '..', '..', 'assets', 'js');
-const lire = (f) => fs.readFileSync(path.join(JS, f), 'utf8');
+// Normalise les fins de ligne : git reecrit la copie de travail en CRLF
+// sous Windows, et toutes les expressions ci-dessous attendent « \n ».
+const normal = (s) => s.replace(/\r\n/g, '\n');
+const lire = (f) => normal(fs.readFileSync(path.join(JS, f), 'utf8'));
 
 // ── Chercher dans le chapitre ───────────────────────────────
 
@@ -242,8 +245,9 @@ test('une pastille de couleur s’annonce par son nom, pas par son code', () => 
 // qu'aucun choix humain n'explique et qu'un parcours de gauche à droite
 // explique entièrement.
 test('l’audit des contrôles rend les réglages qu’il a modifiés', () => {
-    const src = fs.readFileSync(
-        path.join(__dirname, '..', 'e2e', 'audit-controles.spec.js'), 'utf8');
+    const src = normal(fs.readFileSync(
+
+        path.join(__dirname, '..', 'e2e', 'audit-controles.spec.js'), 'utf8'));
     assert.match(src, /async function lireReglages\(browser\)/,
         'les réglages doivent être relevés avant la première page');
     assert.match(src, /async function rendreReglages\(browser, avant\)/,
@@ -262,4 +266,193 @@ test('l’audit des contrôles rend les réglages qu’il a modifiés', () => {
     // fusion est un JSON_MERGE_PATCH, qui n'efface que sur null.
     assert.match(src, /patch\[k\] = null/,
         'les clés ajoutées par l’audit doivent être effacées, pas laissées');
+});
+
+// ── Le chapitre suivant, préparé au bon moment ──────────────
+//
+// Le préchargement existait, et ne servait presque à rien :
+//
+//   · il ne tirait qu'UNE planche. La source met de 3,7 à 9 secondes par
+//     page selon le moment — la deuxième arrivait donc aussi tard que si
+//     rien n'avait été fait ;
+//   · il n'avait lieu qu'au CHARGEMENT de la page, c'est-à-dire à la planche
+//     1 sur 17. Dix minutes avant d'en avoir besoin, largement de quoi se
+//     faire évincer du cache mémoire.
+//
+// Vérifié par contraste dans le navigateur, même manipulation sur deux
+// serveurs : l'ancien code demandait `1191-001`, le corrigé demande `001`,
+// `002` et `003`.
+test('le chapitre suivant est préparé à l’approche de la fin, pas au chargement', () => {
+    const src = lire('chapitre.js');
+
+    // Le déclencheur doit vivre dans la mise à jour de page : c'est le seul
+    // endroit qui sait qu'on arrive au bout.
+    const maj = /function updateUIPage\(p\)([\s\S]{0,700})/.exec(src);
+    assert.ok(maj, 'updateUIPage doit rester lisible');
+    assert.match(maj[1], /p >= totalPages - 2/,
+        'sans ce seuil, le préchargement reste calé sur le chargement de la page');
+    assert.match(maj[1], /preloadNextChapter\(\{ profond: true \}\)/,
+        'l’approche de la fin doit demander un préchargement PROFOND');
+
+    // Et la profondeur suit la latence mesurée : une liaison poussive ne doit
+    // pas être encombrée pour un chapitre qu'on n'ouvrira peut-être pas.
+    const pre = /function preloadNextChapter\(([\s\S]*?)\n    \}/.exec(src);
+    assert.ok(pre, 'preloadNextChapter doit rester lisible');
+    assert.match(pre[1], /fenetrePrechargement\(\)/,
+        'la profondeur doit dériver de la fenêtre calculée sur la latence réelle');
+
+    // Le passage superficiel du chargement ne doit pas bloquer le profond :
+    // c'est pour ça que le garde retient l'id ET la profondeur.
+    assert.match(pre[1], /chapSuivantPrepare\.profond \|\| !profond/,
+        'le garde doit laisser passer un second passage plus profond');
+
+    // Audit PERF-08 : jamais l'URL brute, qui révélerait l'adresse IP.
+    assert.match(pre[1], /MH\.proxify/, 'les planches préchargées passent par le proxy');
+});
+
+// ── Une annulation qui détruit est pire que pas d'annulation ──
+//
+// « Marquer jusqu'ici » touchait des centaines de chapitres sans retour
+// arrière. Le serveur offrait pourtant `unmark-bulk` depuis l'audit AMEL-40,
+// et le bandeau avec action depuis l'audit IX.6 : les deux briques
+// existaient, le lecteur ne s'en servait pas.
+//
+// Le piège est dans le détail. Le geste envoie TOUS les chapitres
+// précédents, y compris ceux lus il y a des mois. Défaire l'ensemble
+// effacerait la frontière entre lu et non lu — la donnée la plus longue à
+// reconstituer, et précisément celle qu'une annulation est censée protéger.
+test('l’annulation d’un marquage ne défait que ce que le geste a ajouté', () => {
+    const src = lire('chapitre.js');
+    const bloc = /async function bulkMark\(items, msg\)([\s\S]*?)\n    \}\n/.exec(src);
+    assert.ok(bloc, 'bulkMark doit rester lisible');
+
+    // L'état AVANT écriture : sans lui, impossible de distinguer l'ajout de
+    // l'existant.
+    assert.match(bloc[1], /API\.me\.readChapters\(\)/,
+        'l’état lu doit être relevé avant d’écrire');
+    assert.match(bloc[1], /items\.filter\(i => !dejaLus\.has\(i\.chapterId\)\)/,
+        'seuls les chapitres réellement nouveaux sont annulables');
+    assert.match(bloc[1], /unmarkChaptersBulk\(manga\.id, nouveaux\.map/,
+        'l’annulation doit porter sur les nouveaux, jamais sur `items`');
+
+    // Et si l'état n'a pas pu être relevé, on n'offre RIEN — un bouton qui
+    // démarquerait d'anciennes lectures serait pire que son absence.
+    assert.match(bloc[1], /if \(!dejaLus \|\| !nouveaux\.length\)/,
+        'sans état fiable, aucune annulation ne doit être proposée');
+
+    // Le bandeau, pas le toast : lui seul peut porter une action.
+    assert.match(bloc[1], /MH\.bandeau\?\.\(msg, \{/, 'l’annulation passe par le bandeau');
+    assert.match(bloc[1], /action: 'Annuler'/, 'l’action doit être nommée');
+});
+
+// ── Les filtres survivent à la page, la recherche non ───────
+//
+// L'onglet de catégorie était mémorisé ; les quatre filtres de la
+// bibliothèque ne l'étaient pas. Restreindre à « non lus », ouvrir une série,
+// revenir — et tout était relâché. Sur 495 titres, c'est le filtrage entier à
+// refaire pour un réglage qu'on vient de poser.
+//
+// Vérifié dans le navigateur, aller-retour complet : `nonLus: true` écrit,
+// rechargement, puis « FILTRES ACTIFS · Non lus » affiché et badge
+// « Filtres1 ». Restauré ET appliqué, pas seulement stocké.
+test('les filtres de la bibliothèque survivent au rechargement', () => {
+    const src = lire('bibliotheque.js');
+
+    assert.match(src, /function restaurerFiltres\(\)/, 'la restauration doit exister');
+    assert.match(src, /function sauverFiltres\(\)/, 'la sauvegarde doit exister');
+
+    // La sauvegarde vit dans `render()` — le seul point par lequel TOUT
+    // changement de filtre passe. S'accrocher aux dix-sept endroits qui les
+    // modifient reviendrait à en oublier un au prochain ajout, ce qui était
+    // déjà arrivé au résumé des filtres.
+    // 1200 : l'appel est à 855 caractères du début de `render()`, derrière le
+    // commentaire qui explique pourquoi il vit là. Une fenêtre trop juste
+    // ferait échouer le test au premier paragraphe ajouté.
+    const rendu = /function render\(\)([\s\S]{0,1200})/.exec(src);
+    assert.ok(rendu, 'render doit rester lisible');
+    assert.match(rendu[1], /sauverFiltres\(\)/,
+        'la sauvegarde doit passer par l’entonnoir, pas par chaque mutation');
+
+    // La recherche reste éphémère : un champ encore rempli d'un mot tapé la
+    // veille se lit comme une bibliothèque vide, et l'on cherche le défaut
+    // ailleurs.
+    const sauve = /function sauverFiltres\(\)([\s\S]*?)\n    \}/.exec(src);
+    assert.ok(sauve, 'sauverFiltres doit rester lisible');
+    assert.ok(!/libSearch/.test(sauve[1]),
+        'la recherche ne doit pas être mémorisée');
+
+    // Et un stockage refusé ne doit jamais empêcher la page de fonctionner.
+    assert.match(sauve[1], /catch/, 'un stockage refusé doit être absorbé');
+});
+
+// ── Une série de lecture à zéro est un reproche, pas un chiffre ──
+//
+// Vu sur l'accueil : « 0 jour d'affilée » occupait le même poids visuel que
+// « 495 séries suivies », en tête de page. Une série à zéro ne mesure rien —
+// elle constate qu'on a laissé tomber, et c'est la première chose qu'on lit
+// en ouvrant l'application.
+//
+// `chapters_this_month` est déjà calculé par le serveur et énonce un fait.
+// La série ne s'affiche donc que lorsqu'elle existe, c'est-à-dire quand elle
+// encourage au lieu d'accuser.
+//
+// Vérifié en direct pour la branche NON NULLE (série à 1 → « 1 jour
+// d'affilée »). La branche zéro n'a pas pu être observée sans effacer un
+// historique de lecture réel : c'est ce test qui la tient.
+test('l’accueil n’affiche une série de lecture que si elle existe', () => {
+    const src = lire('accueil.js');
+    const bloc = /async function rendreStats\(\)([\s\S]*?)\n    \}/.exec(src);
+    assert.ok(bloc, 'rendreStats doit rester lisible');
+
+    assert.match(bloc[1], /serie > 0\s*\n?\s*\?/,
+        'la série ne doit être rendue que lorsqu’elle est supérieure à zéro');
+    assert.match(bloc[1], /chapters_this_month/,
+        'le repli doit être un fait déjà calculé, pas une valeur inventée');
+    assert.match(bloc[1], /chapitres ce mois/, 'le libellé de repli doit être lisible');
+
+    // Le champ doit exister côté serveur, sinon le repli affiche un vide.
+    const ctl = normal(fs.readFileSync(
+
+        path.join(__dirname, '..', '..', 'server', 'controllers', 'user.controller.js'), 'utf8'));
+    assert.match(ctl, /AS chapters_this_month/,
+        'le serveur doit réellement fournir ce champ');
+});
+
+// ── Chercher un réglage parmi vingt-sept ────────────────────
+//
+// Au-delà d'une dizaine, on ne parcourt plus une page de réglages : on y
+// cherche quelque chose qu'on sait exister et qu'on ne retrouve pas.
+//
+// Vérifié dans le navigateur : « theme » comme « thème » ramènent la même
+// ligne unique, « zzzz » rend l'état vide annoncé, et Échap relâche tout —
+// 260 lignes revenues.
+test('la page Réglages se cherche, sans révéler ce que l’app masque', () => {
+    const src = lire('parametres.js');
+    const bloc = /function brancherRechercheReglages\(\)([\s\S]*?)\n    \}\n/.exec(src);
+    assert.ok(bloc, 'brancherRechercheReglages doit rester lisible');
+
+    // Les accents sont pliés : on ne sait jamais lequel des deux l'utilisateur
+    // tapera, et les deux doivent trouver.
+    assert.match(src, /normalize\('NFD'\)/, 'la comparaison doit plier les accents');
+
+    // LE point qui compte : `hidden` appartient à l'application, qui s'en sert
+    // pour les réglages propres au tactile. Un filtre qui le manipulerait
+    // ferait apparaître, au premier mot cherché, des réglages sans effet sur
+    // cet appareil.
+    assert.match(bloc[1], /if \(ligne\.hidden\)/,
+        'une ligne masquée par l’app doit être ignorée du filtre');
+    assert.ok(!/ligne\.hidden\s*=/.test(bloc[1]),
+        'le filtre ne doit JAMAIS écrire dans `hidden`');
+    assert.match(bloc[1], /classList\.toggle\('sr-filtre'/,
+        'le masquage par recherche passe par sa propre classe');
+
+    // Le titre de carte compte aussi : chercher « compte » doit ramener la
+    // carte entière, même si aucune ligne ne porte le mot.
+    assert.match(bloc[1], /parLeTitre/, 'le titre de carte doit être cherchable');
+
+    // Un filtrage silencieux ne dit rien à qui ne voit pas la liste rétrécir.
+    const html = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'parametres.html'), 'utf8').replace(/\r\n/g, '\n');
+    assert.match(html, /id="setSearchEmpty"[^>]*role="status"/,
+        'l’absence de résultat doit être annoncée');
 });

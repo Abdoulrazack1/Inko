@@ -10,6 +10,7 @@
         renderAccount();
         initSegments();
         initAccent();
+        brancherRechercheReglages();
         bindData();
         bindConnections();
         // Charge les settings serveur si connecté (override le local)
@@ -38,6 +39,79 @@
             } catch (e) { window.MH?.err?.('parametres.js', e); }
         }
     });
+
+    // ── Chercher un réglage ──────────────────────────────────
+    //
+    // Vingt-sept réglages répartis sur neuf cartes. Au-delà d'une dizaine on
+    // ne parcourt plus une page de réglages : on y cherche quelque chose
+    // qu'on sait exister, et qu'on ne retrouve pas.
+    //
+    // Le filtre porte sur le libellé ET sur la description, parce qu'on
+    // retient souvent ce qu'un réglage FAIT plutôt que son nom — « double
+    // page » se trouve ainsi par « planche ».
+    //
+    // Deux précautions :
+    //
+    //   · les accents sont pliés dans les DEUX sens. « reglage » trouve
+    //     « réglage », et « réglage » trouve « reglage » : on ne sait jamais
+    //     lequel des deux l'utilisateur tapera ;
+    //   · l'attribut `hidden` n'est JAMAIS touché. Il appartient à
+    //     l'application, qui s'en sert pour les réglages propres au tactile.
+    //     Les confondre ferait apparaître, au premier mot cherché, des
+    //     réglages sans effet sur cet appareil.
+    const plier = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+    function brancherRechercheReglages() {
+        const champ = document.getElementById('setSearch');
+        const croix = document.getElementById('setSearchClear');
+        const vide  = document.getElementById('setSearchEmpty');
+        if (!champ) return;
+
+        const cartes = [...document.querySelectorAll('.set-card')];
+        const filtrer = () => {
+            const q = plier(champ.value.trim());
+            if (croix) croix.hidden = !q;
+
+            let trouves = 0;
+            for (const carte of cartes) {
+                const lignes = [...carte.querySelectorAll('.set-row')];
+                let visiblesIci = 0;
+                for (const ligne of lignes) {
+                    // Une ligne que l'application masque reste masquée, quoi
+                    // qu'on cherche.
+                    if (ligne.hidden) { ligne.classList.remove('sr-filtre'); continue; }
+                    const texte = plier(ligne.textContent);
+                    const garde = !q || texte.includes(q);
+                    ligne.classList.toggle('sr-filtre', !garde);
+                    if (garde) visiblesIci++;
+                }
+                // Le titre de la carte compte aussi : chercher « compte » doit
+                // ramener la carte Compte entière, même si aucune de ses
+                // lignes ne porte le mot.
+                const titre = plier(carte.querySelector('h2')?.textContent);
+                const parLeTitre = q && titre.includes(q);
+                if (parLeTitre) {
+                    lignes.forEach(l => { if (!l.hidden) l.classList.remove('sr-filtre'); });
+                    visiblesIci = lignes.filter(l => !l.hidden).length;
+                }
+                carte.classList.toggle('sr-filtre', !!q && visiblesIci === 0);
+                trouves += visiblesIci;
+            }
+
+            if (vide) {
+                vide.hidden = !q || trouves > 0;
+                // Annoncé par `role="status"` : un filtrage silencieux ne dit
+                // rien à qui ne voit pas la liste rétrécir.
+                if (!vide.hidden) vide.textContent = `Aucun réglage ne correspond à « ${champ.value.trim()} ».`;
+            }
+        };
+
+        champ.addEventListener('input', filtrer);
+        champ.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && champ.value) { e.preventDefault(); champ.value = ''; filtrer(); }
+        });
+        croix?.addEventListener('click', () => { champ.value = ''; filtrer(); champ.focus(); });
+    }
 
     // ── COULEUR D'ACCENT ──
     function initAccent() {
@@ -354,9 +428,8 @@
                         `Restaurer ta sauvegarde du ${new Date(p.createdAt || Date.now()).toLocaleDateString('fr-FR')} ?`,
                         { okText: 'Restaurer',
                             message: `Elle contient ${p.mine.favorites} favori(s), ${p.mine.readChapters} chapitre(s) lu(s), `
-                                + `${p.mine.progress} progression(s), ${p.mine.ratings} note(s), ${p.mine.lists} liste(s).`
-                                + String.fromCharCode(10, 10)
-                                + "La restauration FUSIONNE : rien de ce que tu as aujourd'hui ne sera supprime." });
+                                + `${p.mine.progress} progression(s), ${p.mine.ratings} note(s), ${p.mine.lists} liste(s). `
+                                + "La restauration FUSIONNE : rien de ce que tu as aujourd'hui ne sera supprimé." });
                     if (!ok) return;
                     const r = await API.me.backupRestore(file, phrase);
                     const n = r.imported || {};
@@ -411,7 +484,7 @@
             autres.addEventListener('click', async () => {
                 if (!await MH.confirm('Fermer toutes les autres sessions ?', {
                     danger: true, okText: 'Fermer les autres',
-                    message: 'Cet appareil reste connecte. Tous les autres devront se reconnecter.' })) return;
+                    message: 'Cet appareil reste connecté. Tous les autres devront se reconnecter.' })) return;
                 try {
                     const r = await API.auth.revokeOthers();
                     toast(r.closed ? `${r.closed} session(s) fermee(s)` : 'Aucune autre session');

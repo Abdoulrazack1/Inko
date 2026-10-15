@@ -30,6 +30,53 @@
     background: transparent; border: 0; color: #8d8a80; cursor: pointer; border-radius: 6px;
   }
   .tb-close-boot:hover { background: #e81123; color: #fff; }
+
+  /* ── Pourquoi du mouvement ici, et pas de la décoration ──────
+     Cet écran passe l'essentiel de son temps bloqué à 94 % : la barre est
+     calée sur une HORLOGE, pas sur une progression réelle — le serveur ne
+     peut rien dire de son avancement tant qu'il n'écoute pas. Une barre
+     immobile à 94 % pendant vingt secondes se lit « c'est planté », et c'est
+     ce qu'on nous rapportait.
+     Ces trois animations ne décorent pas : elles répondent à la seule
+     question que l'on se pose devant cet écran — est-ce que ça travaille
+     encore ? */
+
+  /* 1. La marque respire : la preuve de vie la plus discrète qui soit. */
+  .mark { animation: respire 3.2s ease-in-out infinite; will-change: transform; }
+  @keyframes respire {
+    0%, 100% { transform: scale(1);     box-shadow: 0 18px 50px rgba(0,0,0,.5); }
+    50%      { transform: scale(1.035); box-shadow: 0 22px 60px rgba(193,83,27,.28); }
+  }
+
+  /* 2. Une lueur PARCOURT la barre, même quand sa largeur ne bouge plus.
+        C'est elle qui distingue « ça avance lentement » de « c'est figé ». */
+  .bar i { position: relative; overflow: hidden; }
+  .bar i::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+    transform: translateX(-100%);
+    animation: balaye 1.6s ease-in-out infinite;
+  }
+  @keyframes balaye { to { transform: translateX(100%); } }
+
+  /* 3. Le texte d'étape se fond au lieu de sauter. */
+  .txt, .sub { transition: opacity .28s ease; }
+  .fondu { opacity: 0; }
+
+  /* L'arrivée : la barre cesse de balayer et vire au vert. Le mouvement
+     s'arrête AVEC la raison qui le justifiait. */
+  body.pret .bar i::after { animation: none; opacity: 0; }
+  body.pret .bar i { background: linear-gradient(90deg, #2f9e5e, #43c07a); }
+  body.pret .mark { animation: none; transform: scale(1); }
+
+  /* Certains utilisateurs souffrent de ces mouvements — nausée, vertige. La
+     préférence système existe pour ça, et l'information reste entière sans
+     l'animation. */
+  @media (prefers-reduced-motion: reduce) {
+    .mark, .bar i::after { animation: none; }
+    .bar i::after { opacity: 0; }
+    .txt, .sub { transition: none; }
+  }
 </style>
 </head>
 <body data-tauri-drag-region>
@@ -79,12 +126,39 @@
     if (sec <= 75) return 80 + (sec - 30) / 45 * 14;    // 80 → 94 %
     return 94;
   }
+  // L'étape affichée en ce moment. Sans cette mémoire, le fondu se
+  // redéclencherait à CHAQUE tick — soit toutes les 450 ms — et le texte
+  // clignoterait au lieu de se fondre.
+  let etapeAffichee = null;
+  // Déclaré ICI, et pas plus bas avec `fini` : `tick()` s'exécute dès la ligne
+  // qui suit `setInterval`, donc AVANT les déclarations de la boucle d'attente.
+  // Lire `fini` depuis ce fondu lèverait une ReferenceError de zone morte au
+  // tout premier tick — un écran vide définitif, soit pire que le blocage
+  // qu'on corrige.
+  let bascule = false;
+  function poserEtape(step) {
+    if (bascule) return;
+    if (etapeAffichee === step) return;
+    const premiere = etapeAffichee === null;
+    etapeAffichee = step;
+    const ecrire = () => {
+      // Un fondu déjà programmé ne doit pas écraser « C'est prêt ! » : le
+      // serveur a pu répondre pendant ces 280 ms.
+      if (bascule) return;
+      txt.textContent = step[1];
+      sub.textContent = step[2];
+      txt.classList.remove('fondu'); sub.classList.remove('fondu');
+    };
+    if (premiere) return ecrire();     // rien à fondre au premier affichage
+    txt.classList.add('fondu'); sub.classList.add('fondu');
+    setTimeout(ecrire, 280);           // la durée de la transition CSS
+  }
+
   function tick() {
     const sec = (Date.now() - t0) / 1000;
     let step = STEPS[0];
     for (const s of STEPS) if (sec >= s[0]) step = s;
-    txt.textContent = step[1];
-    sub.textContent = step[2];
+    poserEtape(step);
     const p = progressFor(sec);
     fill.style.width = p.toFixed(1) + '%';
     // Estimation honnête du temps restant (budget premier lancement : 45 s)
@@ -107,18 +181,54 @@
     } catch (e) { window.close(); }
   };
 
+  // ── Une sonde SANS délai pouvait figer le démarrage pour toujours ──
+  //
+  // `fetch` n'abandonne pas tout seul. Quand le serveur accepte la connexion
+  // mais ne répond pas — base embarquée encore en train de s'initialiser,
+  // sidecar à moitié levé — la promesse ne se règle JAMAIS : ni `done()`, ni
+  // `retry()`. Et comme `tries` n'avance que dans `retry()`, la limite des 300
+  // essais n'était jamais atteinte : le diagnostic ne s'affichait pas, la
+  // barre montait à 94 % et y restait. Un écran de démarrage éternel, sans un
+  // mot.
+  //
+  // Six secondes par sonde : largement au-dessus d'un `/api/health` local, qui
+  // répond en millisecondes dès qu'il écoute. Au-delà, ce n'est plus de la
+  // lenteur, c'est une connexion qui ne reviendra pas — on relance.
+  const DELAI_SONDE = 6000;
+  function sonder() {
+    if (typeof AbortController !== 'function') {
+      return fetch(APP + '/api/health', { cache: 'no-store' });
+    }
+    const ctrl = new AbortController();
+    const minuteur = setTimeout(() => ctrl.abort(), DELAI_SONDE);
+    return fetch(APP + '/api/health', { cache: 'no-store', signal: ctrl.signal })
+      .finally(() => clearTimeout(minuteur));
+  }
+
   let tries = 0;
+  let fini = false;          // `done()` ne doit basculer qu'une fois
   (function poll() {
-    fetch(APP + '/api/health', { cache: 'no-store' })
-      .then(r => r.ok ? done() : retry())
-      .catch(retry);
+    sonder()
+      // `retry` n'est appelé QUE sur l'échec de la sonde. Avant, un `.catch`
+      // unique couvrait aussi `done()` : la moindre erreur pendant la bascule
+      // relançait l'attente en silence, au lieu de la signaler.
+      .then(r => { if (r.ok) done(); else retry(); }, retry);
     function done() {
-      clearInterval(clock);
-      txt.textContent = 'C’est prêt !';
-      sub.textContent = '';
-      fill.style.width = '100%';
-      pct.textContent = '100 %';
+      if (fini) return;
+      fini = true;
+      // La bascule est programmée AVANT les retouches d'affichage : le serveur
+      // répond, donc l'app doit s'ouvrir même si une de ces lignes échoue.
+      // Faire l'inverse ferait dépendre le démarrage de la décoration.
       setTimeout(() => location.replace(APP + '/accueil.html'), 350);
+      try {
+        bascule = true;          // neutralise un fondu encore en attente
+        clearInterval(clock);
+        document.body.classList.add('pret');
+        txt.textContent = 'C’est prêt !';
+        sub.textContent = '';
+        fill.style.width = '100%';
+        pct.textContent = '100 %';
+      } catch (e) { /* l'ouverture est déjà programmée */ }
     }
     function retry() {
       if (++tries > 300) {   // ~150 s : marge large pour les PC lents

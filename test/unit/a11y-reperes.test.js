@@ -21,7 +21,10 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
 const pages = fs.readdirSync(ROOT).filter((f) => f.endsWith('.html')).sort();
-const lire = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+// Normalise les fins de ligne : git reecrit la copie de travail en CRLF
+// sous Windows, et toutes les expressions ci-dessous attendent « \n ».
+const normal = (s) => s.replace(/\r\n/g, '\n');
+const lire = (p) => normal(fs.readFileSync(path.join(ROOT, p), 'utf8'));
 
 // Les scripts communs : ils ne portent pas le titre d'une page précise.
 const COMMUNS = new Set(['global', 'i18n', 'pwa', 'eula', 'api', 'hub', 'natif',
@@ -35,7 +38,7 @@ function aUnTitre(page) {
     const scripts = [...html.matchAll(/<script src="assets\/js\/([a-z0-9-]+)\.js"/g)]
         .map((m) => m[1]).filter((n) => !COMMUNS.has(n));
     return scripts.some((n) => {
-        try { return /<h1[\s>]/.test(fs.readFileSync(path.join(ROOT, 'assets', 'js', n + '.js'), 'utf8')); }
+        try { return /<h1[\s>]/.test(normal(fs.readFileSync(path.join(ROOT, 'assets', 'js', n + '.js'), 'utf8'))); }
         catch (e) { return false; }
     });
 }
@@ -95,7 +98,7 @@ test('aucun gestionnaire écrit en attribut (DESK-02)', () => {
 test('la classe qui cache aux yeux sans cacher aux lecteurs est correcte', () => {
     // `display:none` et `visibility:hidden` retirent l'élément de l'arbre
     // d'accessibilité AUSSI : un titre ainsi masqué ne sert plus à rien.
-    const css = fs.readFileSync(path.join(ROOT, 'assets', 'css', 'global.css'), 'utf8');
+    const css = normal(fs.readFileSync(path.join(ROOT, 'assets', 'css', 'global.css'), 'utf8'));
     const bloc = /\.a11y-invisible\s*\{([^}]*)\}/.exec(css);
     assert.ok(bloc, '.a11y-invisible doit exister');
     assert.ok(!/display\s*:\s*none/.test(bloc[1]), 'display:none retirerait le titre des lecteurs d’écran');
@@ -115,7 +118,7 @@ test('la classe qui cache aux yeux sans cacher aux lecteurs est correcte', () =>
 // `title="Chapitre précédent (←)"` sur ces boutons, `chapitre.js` (images) ne
 // portait rien. Mêmes ids, même gabarit d'origine, deux fichiers — un seul
 // avait reçu le correctif. C'est cette dérive-là qu'on tient ici.
-const lireJs = (f) => fs.readFileSync(path.join(ROOT, 'assets', 'js', f), 'utf8');
+const lireJs = (f) => normal(fs.readFileSync(path.join(ROOT, 'assets', 'js', f), 'utf8'));
 
 /** Un pictogramme entre `>` et `</…>` sans le moindre caractère lisible. */
 // La liste de caracteres et la liste de fichiers etaient toutes les deux trop
@@ -208,6 +211,47 @@ test('l’iframe du lecteur d’ambiance est hors du parcours au clavier', () =>
     // n'existe qu'une fois le lecteur YouTube construit.
     assert.match(src, /getIframe\(\)\?\.setAttribute\('tabindex', '-1'\)/,
         'sans tabindex -1, l’iframe reste un arrêt de tabulation invisible');
+});
+
+// ── Une couverture qui arrive n'est pas une panne ───────────
+//
+// Relevé sur l'accueil : 36 images sur 83 encore en vol au moment de la
+// mesure, affichées en rectangles noirs. Rien ne les distinguait d'un échec,
+// et la source met de 3,7 à 9 secondes par image — l'attente est donc
+// longue, et l'écran ressemble à une application cassée.
+//
+// Vérifié dans le navigateur après correctif : le nombre d'images qui
+// miroitent égale EXACTEMENT le nombre d'images encore en vol, à une
+// seconde (18 = 18) comme à dix (10 = 10).
+test('les couvertures en cours de chargement miroitent, et s’arrêtent en arrivant', () => {
+    const css = fs.readFileSync(path.join(ROOT, 'assets', 'css', 'global.css'), 'utf8');
+
+    // On vise les images PROXIFIÉES : ce sont exactement les lentes, et ça
+    // évite d'avoir à toucher le gabarit de chaque page.
+    assert.match(css, /img\[src\*="\/api\/img"\]:not\(\.img-arrivee\)/,
+        'le miroitement doit porter sur les images proxifiées non encore arrivées');
+    // Un miroitement sans fin promettrait une image qui ne viendra jamais.
+    assert.match(css, /img\.img-echec[\s\S]{0,80}animation:\s*none/,
+        'un échec doit arrêter l’animation, pas la laisser tourner');
+
+    const src = lireJs('global.js');
+    const bloc = /function suivreArriveeImages\(\)([\s\S]*?)\n    \}\n/.exec(src);
+    assert.ok(bloc, 'suivreArriveeImages doit rester lisible');
+
+    // `load` et `error` NE REMONTENT PAS : sans la phase de capture, aucun
+    // des deux n'atteint un écouteur posé sur `document`.
+    assert.match(bloc[1], /addEventListener\('load',[\s\S]{0,60}true\)/,
+        'l’écoute de `load` doit se faire en capture');
+    assert.match(bloc[1], /addEventListener\('error',[\s\S]{0,60}true\)/,
+        'l’écoute de `error` doit se faire en capture');
+
+    // Une image servie par le cache disque revient en 46 ms, souvent avant
+    // que l'écouteur ne soit en place : sans rattrapage elle miroiterait
+    // sous une image parfaitement visible.
+    assert.match(bloc[1], /if \(!img\.complete\) return;/,
+        'les images déjà arrivées doivent être rattrapées');
+    assert.match(bloc[1], /naturalWidth === 0/,
+        'une image complète mais vide est un échec, pas une arrivée');
 });
 
 // ── La cloche est une bascule, et elle doit le dire ─────────
