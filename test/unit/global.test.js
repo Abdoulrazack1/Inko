@@ -7,6 +7,54 @@
 // constat d'audit déjà corrigé : ces tests existent pour qu'il ne revienne pas.
 'use strict';
 
+// ── Revenir là où on était ──────────────────────────────────
+//
+// Ouvrir une série depuis la bibliothèque puis revenir renvoyait en haut de
+// page. Sur 495 séries, c'est une grande partie de la liste à refaire défiler
+// à chaque aller-retour.
+//
+// Le navigateur sait le faire, mais seulement sur Précédent : l'application
+// navigue par `location.href`, ce qui est une navigation NEUVE.
+//
+// Vérifié dans le navigateur : bibliothèque défilée à 900 px sur 37 191,
+// ouverture d'une fiche, retour — position rétablie à 900 et stable pendant
+// 5,4 secondes, sans dériver pendant que la liste finissait de grandir.
+const { test: testDefilement } = require('node:test');
+const assertDefilement = require('node:assert');
+const fsDefilement = require('fs');
+const pathDefilement = require('path');
+
+testDefilement('le défilement est rendu au retour, sans voler la main', () => {
+    const src = fsDefilement.readFileSync(
+        pathDefilement.join(__dirname, '..', '..', 'assets', 'js', 'global.js'), 'utf8'
+    ).replace(/\r\n/g, '\n');
+
+    const bloc = /function memoriserDefilement\(\)([\s\S]*?)\n    \}\n/.exec(src);
+    assertDefilement.ok(bloc, 'memoriserDefilement doit rester lisible');
+
+    // La clé porte l'URL COMPLÈTE : deux filtres différents de la même page
+    // sont deux positions différentes.
+    assertDefilement.match(bloc[1], /location\.pathname \+ location\.search/,
+        'la position doit être mémorisée par URL complète, filtres compris');
+
+    // Les listes se remplissent après coup : restaurer une seule fois, au
+    // chargement, ne ferait rien — la page n'a pas encore sa hauteur.
+    assertDefilement.match(bloc[1], /scrollHeight - window\.innerHeight/,
+        'la restauration doit attendre que la page ait la hauteur voulue');
+    assertDefilement.match(bloc[1], /Date\.now\(\) - t0 < 2000/,
+        'les tentatives doivent être bornées dans le temps');
+
+    // Et surtout : le moindre geste de l'utilisateur annule la restauration.
+    // Lui reprendre la main sur son défilement serait pire que de la lui
+    // avoir fait perdre.
+    assertDefilement.match(bloc[1], /'wheel', 'touchstart', 'keydown'/,
+        'un geste de l’utilisateur doit abandonner la restauration');
+    assertDefilement.match(bloc[1], /abandonne = true/, 'l’abandon doit être effectif');
+
+    // Borné : sans cela, chaque recherche filtrée laisserait son entrée.
+    assertDefilement.match(bloc[1], /cles\.length > 20/, 'le stockage doit être borné');
+});
+
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { loadGlobal } = require('../helpers/dom');

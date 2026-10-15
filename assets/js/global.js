@@ -1827,6 +1827,7 @@
         injectSkipLink();
         applyAriaLabels();
         suivreArriveeImages();
+        memoriserDefilement();
         initSearch();
         initFooterButtons();
         initHeaderButtons();
@@ -2092,6 +2093,65 @@
             if (prevu) return;
             prevu = setTimeout(() => { prevu = null; rattraper(); }, 250);
         }).observe(document.body, { childList: true, subtree: true });
+    }
+
+    /* ── Revenir là où on était ──────────────────────────────
+     *
+     * Ouvrir une série depuis la bibliothèque puis revenir renvoyait en haut
+     * de page. Sur 495 séries, c'est une grande partie de la liste à refaire
+     * défiler à chaque aller-retour.
+     *
+     * Le navigateur sait pourtant le faire — mais seulement sur Précédent.
+     * L'application, elle, navigue par `location.href`, ce qui est une
+     * navigation NEUVE : de son point de vue, il n'y a rien à restaurer.
+     *
+     * La difficulté est le moment. Les listes se remplissent après coup, au
+     * fil des réponses de l'API : restaurer trop tôt ne fait rien, la page
+     * n'ayant pas encore sa hauteur. On réessaie donc tant que le document
+     * grandit, et on s'arrête net dès que l'utilisateur touche à la molette —
+     * lui reprendre la main sur son propre défilement serait pire que de la
+     * lui avoir fait perdre.
+     */
+    const CLE_DEFIL = 'inko_defilement';
+    function memoriserDefilement() {
+        if (window.MH._defilementPose) return;
+        window.MH._defilementPose = true;
+
+        const cle = location.pathname + location.search;
+        const lire = () => { try { return JSON.parse(sessionStorage.getItem(CLE_DEFIL) || '{}'); } catch (e) { return {}; } };
+        const ecrire = (o) => { try { sessionStorage.setItem(CLE_DEFIL, JSON.stringify(o)); } catch (e) { /* stockage refusé */ } };
+
+        const verser = () => {
+            const y = window.scrollY || document.documentElement.scrollTop || 0;
+            const tout = lire();
+            if (y > 40) tout[cle] = y; else delete tout[cle];
+            // Borné : sans cela, chaque recherche filtrée laisserait son entrée.
+            const cles = Object.keys(tout);
+            if (cles.length > 20) delete tout[cles[0]];
+            ecrire(tout);
+        };
+        window.addEventListener('pagehide', verser);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') verser();
+        });
+
+        const vise = lire()[cle];
+        if (!vise) return;
+
+        let abandonne = false;
+        // Le moindre geste de l'utilisateur prime sur la restauration.
+        ['wheel', 'touchstart', 'keydown'].forEach(ev =>
+            window.addEventListener(ev, () => { abandonne = true; }, { once: true, passive: true }));
+
+        const t0 = Date.now();
+        (function essayer() {
+            if (abandonne) return;
+            const max = document.documentElement.scrollHeight - window.innerHeight;
+            if (max >= vise) { window.scrollTo(0, vise); return; }
+            // Deux secondes : au-delà, la liste ne grandira plus, et insister
+            // ferait sauter la page sous les yeux de quelqu'un qui lit déjà.
+            if (Date.now() - t0 < 2000) setTimeout(essayer, 120);
+        })();
     }
 
     /* ── Accessibilité : skip link + aria-labels (audit A1/A2) ── */
