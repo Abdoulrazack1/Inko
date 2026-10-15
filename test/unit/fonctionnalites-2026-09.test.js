@@ -345,6 +345,46 @@ test('l’annulation d’un marquage ne défait que ce que le geste a ajouté', 
     assert.match(bloc[1], /action: 'Annuler'/, 'l’action doit être nommée');
 });
 
+// ── Les filtres survivent à la page, la recherche non ───────
+//
+// L'onglet de catégorie était mémorisé ; les quatre filtres de la
+// bibliothèque ne l'étaient pas. Restreindre à « non lus », ouvrir une série,
+// revenir — et tout était relâché. Sur 495 titres, c'est le filtrage entier à
+// refaire pour un réglage qu'on vient de poser.
+//
+// Vérifié dans le navigateur, aller-retour complet : `nonLus: true` écrit,
+// rechargement, puis « FILTRES ACTIFS · Non lus » affiché et badge
+// « Filtres1 ». Restauré ET appliqué, pas seulement stocké.
+test('les filtres de la bibliothèque survivent au rechargement', () => {
+    const src = lire('bibliotheque.js');
+
+    assert.match(src, /function restaurerFiltres\(\)/, 'la restauration doit exister');
+    assert.match(src, /function sauverFiltres\(\)/, 'la sauvegarde doit exister');
+
+    // La sauvegarde vit dans `render()` — le seul point par lequel TOUT
+    // changement de filtre passe. S'accrocher aux dix-sept endroits qui les
+    // modifient reviendrait à en oublier un au prochain ajout, ce qui était
+    // déjà arrivé au résumé des filtres.
+    // 1200 : l'appel est à 855 caractères du début de `render()`, derrière le
+    // commentaire qui explique pourquoi il vit là. Une fenêtre trop juste
+    // ferait échouer le test au premier paragraphe ajouté.
+    const rendu = /function render\(\)([\s\S]{0,1200})/.exec(src);
+    assert.ok(rendu, 'render doit rester lisible');
+    assert.match(rendu[1], /sauverFiltres\(\)/,
+        'la sauvegarde doit passer par l’entonnoir, pas par chaque mutation');
+
+    // La recherche reste éphémère : un champ encore rempli d'un mot tapé la
+    // veille se lit comme une bibliothèque vide, et l'on cherche le défaut
+    // ailleurs.
+    const sauve = /function sauverFiltres\(\)([\s\S]*?)\n    \}/.exec(src);
+    assert.ok(sauve, 'sauverFiltres doit rester lisible');
+    assert.ok(!/libSearch/.test(sauve[1]),
+        'la recherche ne doit pas être mémorisée');
+
+    // Et un stockage refusé ne doit jamais empêcher la page de fonctionner.
+    assert.match(sauve[1], /catch/, 'un stockage refusé doit être absorbé');
+});
+
 // ── Une série de lecture à zéro est un reproche, pas un chiffre ──
 //
 // Vu sur l'accueil : « 0 jour d'affilée » occupait le même poids visuel que
