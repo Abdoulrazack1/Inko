@@ -365,13 +365,19 @@ test('les filtres de la bibliothèque survivent au rechargement', () => {
     // changement de filtre passe. S'accrocher aux dix-sept endroits qui les
     // modifient reviendrait à en oublier un au prochain ajout, ce qui était
     // déjà arrivé au résumé des filtres.
-    // 1200 : l'appel est à 855 caractères du début de `render()`, derrière le
-    // commentaire qui explique pourquoi il vit là. Une fenêtre trop juste
-    // ferait échouer le test au premier paragraphe ajouté.
-    const rendu = /function render\(\)([\s\S]{0,1200})/.exec(src);
-    assert.ok(rendu, 'render doit rester lisible');
-    assert.match(rendu[1], /sauverFiltres\(\)/,
+    // Première version : une fenêtre de 1200 caractères depuis
+    // `function render(`. Elle a cassé au premier paragraphe de commentaire
+    // ajouté dans `render()` — un test qui échoue parce qu'on a expliqué le
+    // code ne mesure pas ce qu'il prétend mesurer.
+    //
+    // Ce qu'on veut dire tient sans compteur : UN SEUL appel dans tout le
+    // fichier, et il est dans `render()`. Deux appels voudraient dire qu'on a
+    // recommencé à s'accrocher aux mutations une par une.
+    const appels = (src.match(/^\s*sauverFiltres\(\);/gm) || []).length;
+    assert.equal(appels, 1,
         'la sauvegarde doit passer par l’entonnoir, pas par chaque mutation');
+    assert.ok(src.search(/^\s*sauverFiltres\(\);/m) > src.indexOf('function render()'),
+        'et cet appel unique doit être dans render()');
 
     // La recherche reste éphémère : un champ encore rempli d'un mot tapé la
     // veille se lit comme une bibliothèque vide, et l'on cherche le défaut

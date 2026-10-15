@@ -31,16 +31,110 @@
             if (s.filtre && s.filtre.type === 'status' && s.filtre.value) filter = s.filtre;
             if (typeof s.source === 'string' && s.source) sourceFilter = s.source;
             if (s.nonLus === true) unreadOnly = true;
+            if (typeof s.tri === 'string' && s.tri) tri = s.tri;
         } catch (e) { /* stockage indisponible ou illisible : on part à neuf */ }
     }
     function sauverFiltres() {
         try {
             window.Storage?.setPref?.(CLE_FILTRES, JSON.stringify({
                 kind: kindFilter, filtre: filter, source: sourceFilter, nonLus: unreadOnly,
+                tri,
             }));
         } catch (e) { /* stockage refusé : les filtres restent valables pour la session */ }
     }
+
+    // ── Le tri ──────────────────────────────────────────────
+    // Il vivait UNIQUEMENT dans le `<select>`, lu à chaque rendu et jamais
+    // retenu. Choisir « À rattraper », ouvrir une série, revenir : retour aux
+    // « récemment ajoutés ». C'est le même défaut que les quatre filtres
+    // ci-dessus, et il avait été manqué parce que le tri n'est pas une
+    // variable de ce module mais une valeur de formulaire.
+    let tri = 'recent';
+    // La valeur restaurée n'est posée dans le `<select>` qu'UNE fois : sans ce
+    // drapeau, chaque rendu réécraserait le choix que l'utilisateur vient de
+    // faire avec la valeur d'avant.
+    let triPose = false;
+
+    // ── Et l'état entier passe dans l'URL ───────────────────
+    //
+    // Deux raisons :
+    //
+    //   · une vue qu'on refait souvent — « mes mangas non lus, par titre » —
+    //     devient une adresse qu'on met en favori ;
+    //   · le bouton Précédent du navigateur retrouve la vue d'avant, au lieu
+    //     de ramener à une bibliothèque dont les réglages ont changé sous les
+    //     yeux.
+    //
+    // Effet de bord constaté sur `memoriserDefilement` (global.js), à savoir
+    // pour qui touchera à l'un des deux : il mémorise la position par URL
+    // complète, et fixe sa clé UNE fois, au chargement. Arriver par une
+    // adresse filtrée mise en favori donne donc sa propre position mémorisée
+    // — observé en session : la clé enregistrée portait bien les filtres.
+    // Changer un filtre en cours de visite ne redéplace pas la clé, et c'est
+    // tant mieux : le retour par le lien de navigation, qui vise
+    // `bibliotheque.html` sans paramètres, retrouve la position comme avant.
+    //
+    // L'URL l'emporte sur le stockage quand elle porte quelque chose : un lien
+    // mis en favori doit montrer ce qu'il promet, pas les derniers réglages en
+    // date. Sans elle, le stockage reprend la main.
+    function lireURL() {
+        const q = new URLSearchParams(location.search);
+        if (!q.toString()) return;
+        // Dès que l'adresse dit quelque chose, elle dit TOUT : ce qu'elle ne
+        // porte pas revient au défaut, au lieu de laisser remonter les
+        // réglages mémorisés.
+        //
+        // Sans cette remise à zéro, un lien `?tri=titre` partagé ou mis en
+        // favori rouvrirait avec le « non lus seulement » de la dernière
+        // visite collé dessus — une vue que personne n'a demandée, et qui ne
+        // ressemble ni au lien ni à ce qu'on avait laissé.
+        filter = { type: 'all', value: null };
+        kindFilter = 'all';
+        unreadOnly = false;
+        sourceFilter = null;
+        tri = 'recent';
+        const genre = q.get('genre');
+        if (genre === 'manga' || genre === 'novel') kindFilter = genre;
+        const statut = q.get('statut');
+        if (statut) filter = { type: 'status', value: statut };
+        if (q.get('source')) sourceFilter = q.get('source');
+        if (q.has('nonlus')) unreadOnly = q.get('nonlus') === '1';
+        if (q.get('tri')) tri = q.get('tri');
+    }
+
+    // Écrite depuis `render()`, le seul point par lequel TOUT changement de
+    // filtre passe — s'accrocher aux dix-sept endroits qui les modifient
+    // reviendrait à en oublier un au prochain ajout.
+    //
+    // `replaceState` et non `pushState` : changer un filtre n'est pas une
+    // navigation, et empiler dix-sept entrées d'historique ferait du bouton
+    // Précédent une machine à défaire les réglages un par un.
+    //
+    // La recherche N'Y EST PAS, pour la même raison qu'elle n'est pas
+    // mémorisée : une requête de passage s'oublie, et une adresse partagée ne
+    // doit pas transporter ce qu'on tapait.
+    function ecrireURL() {
+        const q = new URLSearchParams();
+        // Seulement ce qui s'ÉCARTE du défaut, et seulement ce que `lireURL`
+        // sait relire. `genre=all` est la vue par défaut : l'écrire salirait
+        // l'adresse de tout le monde pour ne rien dire, et écrire une valeur
+        // qu'on refuse ensuite de relire serait pire — une adresse qui ment
+        // sur ce qu'elle rouvrira.
+        if (kindFilter === 'manga' || kindFilter === 'novel') q.set('genre', kindFilter);
+        if (filter.type === 'status' && filter.value) q.set('statut', filter.value);
+        if (sourceFilter) q.set('source', sourceFilter);
+        if (unreadOnly) q.set('nonlus', '1');
+        if (tri && tri !== 'recent') q.set('tri', tri);
+        const cible = location.pathname + (q.toString() ? '?' + q : '');
+        // Ne réécrire que si l'adresse change VRAIMENT : `render()` est appelé
+        // à tout bout de champ, et remplacer l'entrée courante par elle-même
+        // ferait repartir la mémoire de défilement à chaque fois.
+        if (cible === location.pathname + location.search) return;
+        try { history.replaceState(history.state, '', cible); } catch (e) { /* adresse refusée : sans effet */ }
+    }
+
     restaurerFiltres();
+    lireURL();
     // Onglet de catégorie courant : '__all' (tout), '__none' (sans catégorie)
     // ou le nom d'une catégorie. Mémorisé : on revient là où on rangeait.
     let catTab = '__all';
@@ -809,10 +903,19 @@
         // par lequel TOUT changement de filtre passe. S'accrocher aux dix-sept
         // endroits qui les modifient reviendrait à en oublier un au prochain
         // ajout — c'est exactement ce qui était arrivé au résumé.
+        const select = document.getElementById('libSort');
+        // Le `<select>` reste la commande vivante ; `tri` la suit pour que le
+        // stockage et l'URL aient quelque chose à retenir. Au premier rendu
+        // c'est l'inverse : la valeur restaurée est posée DANS le select.
+        if (select) {
+            if (!triPose) { triPose = true; if (select.value !== tri) select.value = tri; }
+            tri = select.value;
+        }
         sauverFiltres();
+        ecrireURL();
         renderResume();
         const q = (document.getElementById('libSearch').value || '').toLowerCase();
-        const sort = document.getElementById('libSort').value;
+        const sort = tri;
         // Set des mangas ayant au moins un signet (audit §10.3 : icône signet sur la carte)
         const bmSet = new Set((window.UserData?.getBookmarks?.() || []).map(b => b.mangaId));
 
