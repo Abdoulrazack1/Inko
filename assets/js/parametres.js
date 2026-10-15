@@ -428,9 +428,8 @@
                         `Restaurer ta sauvegarde du ${new Date(p.createdAt || Date.now()).toLocaleDateString('fr-FR')} ?`,
                         { okText: 'Restaurer',
                             message: `Elle contient ${p.mine.favorites} favori(s), ${p.mine.readChapters} chapitre(s) lu(s), `
-                                + `${p.mine.progress} progression(s), ${p.mine.ratings} note(s), ${p.mine.lists} liste(s).`
-                                + String.fromCharCode(10, 10)
-                                + "La restauration FUSIONNE : rien de ce que tu as aujourd'hui ne sera supprime." });
+                                + `${p.mine.progress} progression(s), ${p.mine.ratings} note(s), ${p.mine.lists} liste(s). `
+                                + "La restauration FUSIONNE : rien de ce que tu as aujourd'hui ne sera supprimé." });
                     if (!ok) return;
                     const r = await API.me.backupRestore(file, phrase);
                     const n = r.imported || {};
@@ -485,7 +484,7 @@
             autres.addEventListener('click', async () => {
                 if (!await MH.confirm('Fermer toutes les autres sessions ?', {
                     danger: true, okText: 'Fermer les autres',
-                    message: 'Cet appareil reste connecte. Tous les autres devront se reconnecter.' })) return;
+                    message: 'Cet appareil reste connecté. Tous les autres devront se reconnecter.' })) return;
                 try {
                     const r = await API.auth.revokeOthers();
                     toast(r.closed ? `${r.closed} session(s) fermee(s)` : 'Aucune autre session');

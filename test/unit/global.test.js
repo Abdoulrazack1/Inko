@@ -55,6 +55,57 @@ testDefilement('le défilement est rendu au retour, sans voler la main', () => {
     assertDefilement.match(bloc[1], /cles\.length > 20/, 'le stockage doit être borné');
 });
 
+// ── Huit explications qui n'ont jamais été affichées ────────
+//
+// `MH.confirm` a pour signature `(message, opts)`. Huit appels passaient
+// malgré tout un `opts.message` — par analogie avec `title`, qui lui est bien
+// lu. Il n'était transmis nulle part : le texte disparaissait en silence.
+//
+// Les huit sont des actions destructrices, et le texte perdu était à chaque
+// fois ce qu'on a besoin de savoir AVANT de répondre : ce que contient la
+// sauvegarde qu'on restaure, qu'elle fusionne au lieu de remplacer, que la
+// position de lecture survit à l'effacement de l'historique, qu'une extension
+// désinstallée se réinstalle.
+//
+// Corrigé dans `MH.confirm` et non aux huit endroits : un neuvième appel
+// écrirait la même chose et serait perdu pareil.
+//
+// Vérifié dans le navigateur : titre et message rendus tous les deux.
+const { test: testConfirm } = require('node:test');
+const assertConfirm = require('node:assert');
+const fsConfirm = require('fs');
+const pathConfirm = require('path');
+
+testConfirm('MH.confirm affiche le message passé en option', () => {
+    const src = fsConfirm.readFileSync(
+        pathConfirm.join(__dirname, '..', '..', 'assets', 'js', 'global.js'), 'utf8'
+    ).replace(/\r\n/g, '\n');
+
+    const bloc = /window\.MH\.confirm = \(message, opts = \{\}\) => mhModal\(\{([\s\S]*?)\}\);/.exec(src);
+    assertConfirm.ok(bloc, 'MH.confirm doit rester lisible');
+
+    assertConfirm.match(bloc[1], /message: opts\.message \|\| message/,
+        'l’option doit primer sur le premier argument');
+    // Quand les deux sont donnés, le premier argument devient le titre : c'est
+    // ce que ces huit appels voulaient dire.
+    assertConfirm.match(bloc[1], /title: opts\.message \? \(opts\.title \|\| message\) : opts\.title/,
+        'le premier argument doit devenir le titre quand un message est fourni');
+
+    // Et la garde qui compte vraiment : aucun appelant ne doit plus voir son
+    // explication disparaître. Si ce compte tombe à zéro, c'est que quelqu'un
+    // a « nettoyé » les appels — et le correctif ci-dessus devient inutile.
+    const dossier = pathConfirm.join(__dirname, '..', '..', 'assets', 'js');
+    let appels = 0;
+    for (const f of fsConfirm.readdirSync(dossier).filter((x) => x.endsWith('.js'))) {
+        const s = fsConfirm.readFileSync(pathConfirm.join(dossier, f), 'utf8');
+        for (const m of s.matchAll(/MH\.confirm\(/g)) {
+            if (/message:/.test(s.slice(m.index, m.index + 400))) appels++;
+        }
+    }
+    assertConfirm.ok(appels >= 5,
+        `au moins cinq appels passent opts.message (trouvés : ${appels})`);
+});
+
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { loadGlobal } = require('../helpers/dom');
