@@ -10,6 +10,37 @@
     let kindFilter = 'all';    // 'all' | 'manga' | 'novel' (sépare romans et mangas)
     let unreadOnly = false;    // n'afficher que les séries avec des chapitres non lus
     let sourceFilter = null;   // filtrer par source d'origine
+
+    // ── Les filtres survivent à la page ─────────────────────
+    //
+    // L'onglet de catégorie était mémorisé ; les quatre filtres ci-dessus ne
+    // l'étaient pas. Restreindre à « non lus », ouvrir une série, revenir —
+    // et tout était relâché. Sur 495 titres, c'est le filtrage entier à
+    // refaire à chaque aller-retour, pour un réglage qu'on vient justement
+    // de poser.
+    //
+    // La RECHERCHE, elle, reste volontairement éphémère : retrouver un champ
+    // encore rempli d'un mot tapé la veille se lit comme une bibliothèque
+    // vide, et l'on cherche le défaut ailleurs. Un filtre structurel se
+    // retient, une requête de passage s'oublie.
+    const CLE_FILTRES = 'libFiltres';
+    function restaurerFiltres() {
+        try {
+            const s = JSON.parse(window.Storage?.getPref?.(CLE_FILTRES) || '{}');
+            if (s.kind === 'manga' || s.kind === 'novel') kindFilter = s.kind;
+            if (s.filtre && s.filtre.type === 'status' && s.filtre.value) filter = s.filtre;
+            if (typeof s.source === 'string' && s.source) sourceFilter = s.source;
+            if (s.nonLus === true) unreadOnly = true;
+        } catch (e) { /* stockage indisponible ou illisible : on part à neuf */ }
+    }
+    function sauverFiltres() {
+        try {
+            window.Storage?.setPref?.(CLE_FILTRES, JSON.stringify({
+                kind: kindFilter, filtre: filter, source: sourceFilter, nonLus: unreadOnly,
+            }));
+        } catch (e) { /* stockage refusé : les filtres restent valables pour la session */ }
+    }
+    restaurerFiltres();
     // Onglet de catégorie courant : '__all' (tout), '__none' (sans catégorie)
     // ou le nom d'une catégorie. Mémorisé : on revient là où on rangeait.
     let catTab = '__all';
@@ -774,6 +805,11 @@
         // RECHERCHE — qui est aussi un filtre — n'appelle que `render()`. Taper
         // un mot rétrécissait donc la liste sans que le résumé le dise.
         renderResumeFiltres();
+        // Même raison que le résumé ci-dessus : `render()` est le seul point
+        // par lequel TOUT changement de filtre passe. S'accrocher aux dix-sept
+        // endroits qui les modifient reviendrait à en oublier un au prochain
+        // ajout — c'est exactement ce qui était arrivé au résumé.
+        sauverFiltres();
         renderResume();
         const q = (document.getElementById('libSearch').value || '').toLowerCase();
         const sort = document.getElementById('libSort').value;
