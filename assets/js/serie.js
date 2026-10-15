@@ -943,47 +943,34 @@
         if (!n) return;
 
         const lot = nonTelecharges.slice(0, n);
-        const btn = document.getElementById('chapDlRange');
-        let annule = false;
-        if (btn) {
-            btn.dataset.libelle = btn.textContent;
-            btn.title = 'Cliquer pour interrompre';
-            btn.onclick = () => { annule = true; MH.toast?.('Interruption après le chapitre en cours…'); };
-        }
 
-        let ok = 0, echecs = 0, premiereErreur = null;
-        for (let i = 0; i < lot.length; i++) {
-            if (annule) break;
-            const c = lot[i];
-            if (btn) btn.textContent = `↓ ${i + 1}/${lot.length}…`;
-            try {
-                const d = await API.mangas.pages(c.id);
-                const pages = d.pages || [];
-                if (!pages.length) throw new Error('aucune page renvoyée par la source');
-                await window.Downloads.download({
-                    mangaId: manga.id, chapterId: c.id, chapterNum: c.chapter,
-                    mangaTitle: manga.title, cover: manga.cover || manga.coverThumb,
-                    source: API.sources.current,
-                }, pages);
-                ok++;
-            } catch (e) {
-                echecs++;
-                // « 1 en échec » sans raison n'est pas exploitable : ni par
-                // l'utilisateur (que faire ?), ni au diagnostic. On garde la
-                // première cause pour la dire.
-                if (!premiereErreur) premiereErreur = e.message || String(e);
-                window.MH?.err?.('serie.js', e);
-            }
-        }
+        // La file vit DESORMAIS hors de cette page (voir `dl-file.js`).
+        //
+        // La boucle qui etait ici mourait en silence des qu'on quittait la
+        // serie — c'est-a-dire des qu'on allait lire un chapitre, ce que
+        // l'application invite a faire pendant que le reste se telecharge. On
+        // lancait vingt chapitres, on revenait, il s'etait arrete a trois, et
+        // rien ne le disait.
+        if (!window.DlFile) { MH.toast?.('File de téléchargement indisponible'); return; }
 
-        if (btn) {
-            btn.textContent = btn.dataset.libelle || '↓ Télécharger…';
-            btn.title = 'Télécharger une plage de chapitres pour le hors-ligne';
-            btn.onclick = telechargerPlage;
-        }
-        MH.toast?.(echecs
-            ? `${ok} chapitre(s) téléchargé(s), ${echecs} en échec — ${premiereErreur}`
-            : `${ok} chapitre(s) disponibles hors-ligne`);
+        const ajoutes = window.DlFile.ajouter(lot.map(c => ({
+            chapterId: c.id, mangaId: manga.id, chapterNum: c.chapter,
+            mangaTitle: manga.title, cover: manga.cover || manga.coverThumb,
+            source: API.sources.current,
+        })));
+        const restants = window.DlFile.liste().length;
+
+        // « 0 ajoutés » et « 10 ajoutés » sont deux réponses différentes à la
+        // même action : sans la distinction, un double clic laisse croire que
+        // la seconde demande n'a pas été entendue.
+        const message = ajoutes
+            ? `${ajoutes} chapitre(s) en file d'attente — ${restants} au total`
+            : 'Ces chapitres étaient déjà dans la file';
+        // Le bandeau porte l'action : la file est sur une AUTRE page, et une
+        // file qu'on ne sait pas où regarder ne vaut pas mieux qu'une boucle
+        // invisible.
+        if (MH.bandeau) MH.bandeau(message, { action: 'Voir la file', onAction: () => { location.href = 'downloads.html'; } });
+        else MH.toast?.(message);
     }
 
     // ── Disponibilité sur les autres sources (audit AMEL-102) ──

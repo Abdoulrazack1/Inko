@@ -21,8 +21,91 @@
             MH.toast?.('Téléchargements supprimés');
             render();
         });
+        // La file se redessine toute seule : elle avance sans que la page
+        // soit touchee, et un ecran fige pendant un telechargement est
+        // exactement ce qu'on vient verifier ici.
+        window.DlFile?.surChangement(rendreFile);
+        rendreFile();
         render();
     });
+
+    // ── La file d'attente (voir dl-file.js) ─────────────────
+    //
+    // Telecharger une plage de chapitres etait une boucle vivant dans la page
+    // de la serie : elle mourait en silence des qu'on la quittait, et rien
+    // n'a jamais montre ce qu'il restait a faire. La file est desormais un
+    // etat persiste ; cette page est l'endroit ou on la voit et ou on la
+    // range.
+    //
+    // Reordonner n'est pas un luxe : sur quarante chapitres en attente, celui
+    // qu'on veut lire ce soir peut etre en trente-huitieme position, et la
+    // seule facon de l'obtenir avant demain etait de tout annuler.
+    function rendreFile() {
+        const zone = document.getElementById('dlQueue');
+        if (!zone || !window.DlFile) return;
+
+        const items = window.DlFile.liste();
+        if (!items.length) { zone.innerHTML = ''; return; }
+
+        const enCours = window.DlFile.enCours();
+        const pause = window.DlFile.enPause();
+        const bloques = items.filter(it => it.bloque).length;
+
+        zone.innerHTML = `<div class="dl-group">
+            <div class="dl-ghead">
+                <div class="dl-gtitle">File d'attente
+                    <div class="dl-gcount">${items.length} chapitre(s) en attente${
+                        bloques ? ` · ${bloques} en echec` : ''}${
+                        pause ? ' · en pause' : ''}</div>
+                </div>
+                <button class="btn btn-sm" id="dlqPause">${pause ? '▶ Reprendre' : '⏸ Mettre en pause'}</button>
+                <button class="btn btn-sm" id="dlqVider" style="color:#ef4444">Vider la file</button>
+            </div>
+            ${items.map((it, i) => {
+                const actif = enCours && enCours.chapterId === it.chapterId;
+                const pct = actif && enCours.total ? Math.round(enCours.fait / enCours.total * 100) : 0;
+                const titre = `${it.mangaTitle || it.mangaId} — ${MH.unitLabel
+                    ? MH.unitLabel(it.source, { short: true }) : 'Ch.'} ${MH.chapNum ? MH.chapNum(it.chapterNum) : it.chapterNum}`;
+                return `
+                <div class="dl-chap">
+                    <span class="tag">${actif ? '↓' : i + 1}</span>
+                    <span class="grow">${MH.esc(titre)}${
+                        actif ? `<span style="color:var(--accent);font-size:11px;margin-left:6px">${
+                            enCours.total ? `${pct}% · ${enCours.fait}/${enCours.total} pages` : 'demarrage…'}</span>` : ''}${
+                        it.bloque ? `<span style="color:#f59e0b;font-size:11px;margin-left:6px" title="${
+                            MH.esc(it.erreur || '')}">⚠ ${MH.esc(it.erreur || 'echec')}</span>` : ''}</span>
+                    ${it.bloque ? `<button class="btn btn-sm" data-dlqretry="${MH.esc(it.chapterId)}" style="color:var(--accent)">Relancer</button>` : ''}
+                    <button class="btn btn-sm" data-dlqup="${MH.esc(it.chapterId)}" aria-label="Monter dans la file" title="Monter"${i === 0 ? ' disabled' : ''}>↑</button>
+                    <button class="btn btn-sm" data-dlqdown="${MH.esc(it.chapterId)}" aria-label="Descendre dans la file" title="Descendre"${i === items.length - 1 ? ' disabled' : ''}>↓</button>
+                    <button class="btn btn-sm" data-dlqdel="${MH.esc(it.chapterId)}" aria-label="Retirer de la file" title="Retirer de la file">✕</button>
+                </div>`;
+            }).join('')}
+        </div>`;
+
+        document.getElementById('dlqPause').addEventListener('click', () => {
+            const enPause = window.DlFile.basculerPause();
+            // Dire ce qui arrive au chapitre EN COURS : l'abandonner jetterait
+            // les pages deja prises, donc la pause s'applique au suivant. Sans
+            // cette phrase, une barre qui continue de monter apres « pause »
+            // passe pour un bouton casse.
+            MH.toast?.(enPause ? 'En pause apres le chapitre en cours' : 'File reprise');
+        });
+        document.getElementById('dlqVider').addEventListener('click', async () => {
+            if (!await MH.confirm('Vider la file d\'attente ?', {
+                danger: true, okText: 'Vider',
+                message: `${items.length} chapitre(s) ne seront pas telecharges. Les chapitres deja telecharges ne sont pas touches.` })) return;
+            window.DlFile.vider();
+            MH.toast?.('File videe');
+        });
+        zone.querySelectorAll('[data-dlqup]').forEach(b => b.addEventListener('click',
+            () => window.DlFile.deplacer(b.dataset.dlqup, -1)));
+        zone.querySelectorAll('[data-dlqdown]').forEach(b => b.addEventListener('click',
+            () => window.DlFile.deplacer(b.dataset.dlqdown, 1)));
+        zone.querySelectorAll('[data-dlqdel]').forEach(b => b.addEventListener('click',
+            () => window.DlFile.retirer(b.dataset.dlqdel)));
+        zone.querySelectorAll('[data-dlqretry]').forEach(b => b.addEventListener('click',
+            () => window.DlFile.relancer(b.dataset.dlqretry)));
+    }
 
     function fmtSize(n) {
         n = +n || 0;
