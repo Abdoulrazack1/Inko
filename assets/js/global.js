@@ -1826,6 +1826,7 @@
         barreApp(activePage);
         injectSkipLink();
         applyAriaLabels();
+        suivreArriveeImages();
         initSearch();
         initFooterButtons();
         initHeaderButtons();
@@ -2047,6 +2048,50 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && dd.style.display === 'block') { e.preventDefault(); fermer({ rendreFocus: true }); }
         });
+    }
+
+    /* ── Marquer les couvertures qui arrivent ────────────────
+     *
+     * Le miroitement vit dans la feuille de style, sur `img[src*="/api/img"]`
+     * — les images proxifiées, c'est-à-dire exactement les lentes. Il faut
+     * ensuite l'ARRÊTER, sinon une page de cinquante couvertures garde
+     * cinquante animations qui tournent pour rien une fois tout chargé.
+     *
+     * `load` et `error` ne remontent PAS : un écouteur posé sur `document`
+     * ne les voit qu'en phase de capture. C'est la même raison qui fait
+     * qu'un `play` doit être intercepté à la descente dans le lecteur de
+     * musique.
+     *
+     * Et l'on rattrape celles déjà arrivées avant que ce code ne tourne :
+     * une image servie par le cache disque revient en 46 ms, souvent avant
+     * que l'écouteur ne soit en place. Sans ce rattrapage, elle miroiterait
+     * sous une image parfaitement visible.
+     */
+    function suivreArriveeImages() {
+        if (window.MH._suiviImages) return;
+        window.MH._suiviImages = true;
+
+        const marquer = (img, echec) => {
+            if (!img || img.tagName !== 'IMG') return;
+            img.classList.add(echec ? 'img-echec' : 'img-arrivee');
+        };
+        document.addEventListener('load', (e) => marquer(e.target, false), true);
+        document.addEventListener('error', (e) => marquer(e.target, true), true);
+
+        const rattraper = () => {
+            document.querySelectorAll('img[src*="/api/img"]').forEach((img) => {
+                if (!img.complete) return;
+                marquer(img, img.naturalWidth === 0);
+            });
+        };
+        rattraper();
+        // Les cartes arrivent après coup, au fil des réponses de l'API : on
+        // rattrape aussi celles-là, sans réobserver à chaque mutation.
+        let prevu = null;
+        new MutationObserver(() => {
+            if (prevu) return;
+            prevu = setTimeout(() => { prevu = null; rattraper(); }, 250);
+        }).observe(document.body, { childList: true, subtree: true });
     }
 
     /* ── Accessibilité : skip link + aria-labels (audit A1/A2) ── */

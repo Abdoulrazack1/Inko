@@ -210,6 +210,47 @@ test('l’iframe du lecteur d’ambiance est hors du parcours au clavier', () =>
         'sans tabindex -1, l’iframe reste un arrêt de tabulation invisible');
 });
 
+// ── Une couverture qui arrive n'est pas une panne ───────────
+//
+// Relevé sur l'accueil : 36 images sur 83 encore en vol au moment de la
+// mesure, affichées en rectangles noirs. Rien ne les distinguait d'un échec,
+// et la source met de 3,7 à 9 secondes par image — l'attente est donc
+// longue, et l'écran ressemble à une application cassée.
+//
+// Vérifié dans le navigateur après correctif : le nombre d'images qui
+// miroitent égale EXACTEMENT le nombre d'images encore en vol, à une
+// seconde (18 = 18) comme à dix (10 = 10).
+test('les couvertures en cours de chargement miroitent, et s’arrêtent en arrivant', () => {
+    const css = fs.readFileSync(path.join(ROOT, 'assets', 'css', 'global.css'), 'utf8');
+
+    // On vise les images PROXIFIÉES : ce sont exactement les lentes, et ça
+    // évite d'avoir à toucher le gabarit de chaque page.
+    assert.match(css, /img\[src\*="\/api\/img"\]:not\(\.img-arrivee\)/,
+        'le miroitement doit porter sur les images proxifiées non encore arrivées');
+    // Un miroitement sans fin promettrait une image qui ne viendra jamais.
+    assert.match(css, /img\.img-echec[\s\S]{0,80}animation:\s*none/,
+        'un échec doit arrêter l’animation, pas la laisser tourner');
+
+    const src = lireJs('global.js');
+    const bloc = /function suivreArriveeImages\(\)([\s\S]*?)\n    \}\n/.exec(src);
+    assert.ok(bloc, 'suivreArriveeImages doit rester lisible');
+
+    // `load` et `error` NE REMONTENT PAS : sans la phase de capture, aucun
+    // des deux n'atteint un écouteur posé sur `document`.
+    assert.match(bloc[1], /addEventListener\('load',[\s\S]{0,60}true\)/,
+        'l’écoute de `load` doit se faire en capture');
+    assert.match(bloc[1], /addEventListener\('error',[\s\S]{0,60}true\)/,
+        'l’écoute de `error` doit se faire en capture');
+
+    // Une image servie par le cache disque revient en 46 ms, souvent avant
+    // que l'écouteur ne soit en place : sans rattrapage elle miroiterait
+    // sous une image parfaitement visible.
+    assert.match(bloc[1], /if \(!img\.complete\) return;/,
+        'les images déjà arrivées doivent être rattrapées');
+    assert.match(bloc[1], /naturalWidth === 0/,
+        'une image complète mais vide est un échec, pas une arrivée');
+});
+
 // ── La cloche est une bascule, et elle doit le dire ─────────
 //
 // Trouvé en l'actionnant à la main sur le vrai hub, pas en lisant le code.

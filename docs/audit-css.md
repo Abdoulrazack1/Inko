@@ -2,7 +2,7 @@
 
 ## Feuilles de style — empilement et conflits
 
-14 feuilles · 2233 règles · 248 Ko
+14 feuilles · 2237 règles · 249 Ko
 
 | Feuille | Règles | Lignes | Poids |
 |---|---|---|---|
@@ -16,7 +16,7 @@
 | `bibliotheque.css` | 116 | 698 | 13 Ko |
 | `collection-detail.css` | 109 | 554 | 10 Ko |
 | `notes.css` | 86 | 542 | 10 Ko |
-| `music.css` | 78 | 472 | 9 Ko |
+| `music.css` | 82 | 495 | 9 Ko |
 | `lecture.css` | 71 | 452 | 9 Ko |
 | `recherche.css` | 53 | 336 | 6 Ko |
 | `fonts.css` | 42 | 862 | 15 Ko |
