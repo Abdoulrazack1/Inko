@@ -753,7 +753,31 @@
             veil.addEventListener('click', (e) => { if (e.target === veil) onCancel(); });
         });
     }
-    window.MH.confirm = (message, opts = {}) => mhModal({ message, showCancel: true, okText: opts.okText || 'Confirmer', cancelText: opts.cancelText, danger: opts.danger, title: opts.title });
+    /* `opts.message` était silencieusement jeté.
+     *
+     * La signature est `(message, opts)`, et huit appels passaient malgré tout
+     * un `opts.message` — sans doute par analogie avec `title`. Il n'était lu
+     * nulle part : l'explication n'apparaissait jamais.
+     *
+     * Les huit sont des actions destructrices, et le texte perdu était à
+     * chaque fois ce qu'on a besoin de savoir AVANT de répondre : ce que
+     * contient la sauvegarde qu'on restaure, que la restauration fusionne au
+     * lieu de remplacer, que la position de lecture survit à l'effacement de
+     * l'historique, qu'une extension désinstallée se réinstalle.
+     *
+     * Corrigé ici plutôt qu'aux huit endroits : un neuvième appel écrirait la
+     * même chose, et serait perdu pareil. Quand `opts.message` est fourni, le
+     * premier argument devient le titre — c'est ce que ces appels voulaient
+     * dire.
+     */
+    window.MH.confirm = (message, opts = {}) => mhModal({
+        message: opts.message || message,
+        title: opts.message ? (opts.title || message) : opts.title,
+        showCancel: true,
+        okText: opts.okText || 'Confirmer',
+        cancelText: opts.cancelText,
+        danger: opts.danger,
+    });
     window.MH.prompt  = (message, opts = {}) => mhModal({ message, input: true, showCancel: true, value: opts.value, placeholder: opts.placeholder, okText: opts.okText || 'Valider', cancelText: opts.cancelText, title: opts.title });
     window.MH.alert   = (message, opts = {}) => mhModal({ message, showCancel: false, okText: opts.okText || 'OK', title: opts.title });
 

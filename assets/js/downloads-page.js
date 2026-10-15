@@ -9,7 +9,13 @@
             return;
         }
         document.getElementById('dlClearAll').addEventListener('click', async () => {
-            if (!await MH.confirm('Supprimer TOUS les chapitres téléchargés ?', { danger: true, okText: 'Tout supprimer' })) return;
+            // Même raison qu'au-dessus, et le chiffre pèse davantage ici :
+            // c'est le geste le plus destructeur de la page.
+            const combien = poidsTotal
+                ? `Cela libérera ${fmtSize(poidsTotal)}, et les chapitres devront être retéléchargés.`
+                : 'Les chapitres devront être retéléchargés.';
+            if (!await MH.confirm('Supprimer TOUS les chapitres téléchargés ?', {
+                danger: true, okText: 'Tout supprimer', message: combien })) return;
             const all = await window.Downloads.list();
             await Promise.all(all.map(c => window.Downloads.remove(c.chapterId)));
             MH.toast?.('Téléchargements supprimés');
@@ -30,11 +36,22 @@
     // liberer de la place revient a supprimer au hasard. La mesure lit les
     // reponses en cache : elle est differee apres le rendu, la page ne doit pas
     // attendre pour s'afficher.
+    // Les poids mesures, gardes pour les confirmations de suppression.
+    //
+    // Sans cette memoire il faudrait remesurer au moment du clic — c'est-a-dire
+    // relire des centaines de blobs dans le cache, et figer l'onglet pile au
+    // moment ou l'utilisateur attend une reponse. La mesure differee a deja
+    // tout lu : autant s'en servir.
+    const poidsConnus = new Map();   // mangaId -> { bytes, estimated }
+    let poidsTotal = null;           // null tant que rien n'a ete mesure
+
     async function mesurerPoids() {
         if (!window.Downloads?.sizeByManga) return;
         let tailles;
         try { tailles = await window.Downloads.sizeByManga(); } catch (e) { return; }
         const total = tailles.reduce((n, t) => n + t.bytes, 0);
+        poidsTotal = total;
+        tailles.forEach(t => poidsConnus.set(t.mangaId, { bytes: t.bytes, estimated: t.estimated }));
         tailles.forEach(t => {
             const el = document.querySelector(`[data-poids="${CSS.escape(t.mangaId)}"]`);
             if (!el) return;
@@ -157,7 +174,15 @@
         }).join('');
 
         body.querySelectorAll('[data-delmanga]').forEach(b => b.addEventListener('click', async () => {
-            if (!await MH.confirm('Supprimer tous les chapitres de cette série ?', { danger: true, okText: 'Supprimer' })) return;
+            // On dit CE QUE ÇA REPREND avant de détruire : sans le chiffre,
+            // « faire de la place » revient à supprimer au hasard — et à
+            // recommencer parce qu'on n'en a pas repris assez.
+            const p = poidsConnus.get(b.dataset.delmanga);
+            const combien = p
+                ? `Cela libérera ${p.estimated ? 'environ ' : ''}${fmtSize(p.bytes)}.`
+                : 'Les chapitres devront être retéléchargés.';
+            if (!await MH.confirm('Supprimer tous les chapitres de cette série ?', {
+                danger: true, okText: 'Supprimer', message: combien })) return;
             await window.Downloads.removeManga(b.dataset.delmanga);
             MH.toast?.('Série supprimée des téléchargements'); render();
         }));
