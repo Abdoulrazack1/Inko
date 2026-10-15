@@ -1911,8 +1911,43 @@
         }
         if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour suivre ta lecture'); return; }
         if (!items.length) return;
-        try { await API.me.markChaptersBulk(manga.id, items); MH.toast?.(msg); }
-        catch (e) { MH.toast?.('Erreur : ' + e.message); }
+
+        // ── L'annulation ne doit défaire QUE ce que ce geste a fait ──
+        //
+        // « Marquer jusqu'ici » envoie tous les chapitres précédents, y
+        // compris ceux qu'on avait déjà lus il y a des mois. Démarquer
+        // l'ensemble effacerait la frontière entre lu et non lu — la donnée
+        // la plus longue à reconstituer, et précisément celle qu'une
+        // annulation est censée protéger.
+        //
+        // On relève donc l'état avant d'écrire, et le bandeau ne propose de
+        // défaire que les chapitres réellement ajoutés.
+        let dejaLus = null;
+        try {
+            const tout = await API.me.readChapters();
+            dejaLus = new Set((tout?.[manga.id] || []).map(c => c.chapterId));
+        } catch (e) { dejaLus = null; }
+        const nouveaux = dejaLus ? items.filter(i => !dejaLus.has(i.chapterId)) : [];
+
+        try { await API.me.markChaptersBulk(manga.id, items); }
+        catch (e) { MH.toast?.('Erreur : ' + e.message); return; }
+
+        // Sans cet état, pas d'annulation proposée : mieux vaut ne rien
+        // offrir qu'un bouton qui démarquerait d'anciennes lectures.
+        if (!dejaLus || !nouveaux.length) { MH.toast?.(msg); return; }
+
+        // Le bandeau (audit IX.6) plutôt que le toast : lui seul peut porter
+        // une action, et il s'ancre au-dessus de la barre d'onglets.
+        MH.bandeau?.(msg, {
+            action: 'Annuler',
+            duree: 5000,        // IX.6 : cinq secondes, le temps de réaliser
+            onAction: async () => {
+                try {
+                    await API.me.unmarkChaptersBulk(manga.id, nouveaux.map(c => c.chapterId));
+                    MH.bandeau?.(`${nouveaux.length} chapitre(s) remis en non-lu.`);
+                } catch (e) { MH.bandeau?.('Annulation impossible : ' + e.message); }
+            },
+        });
     }
     function markUpToHere() {
         const cur = parseFloat(currentChap.chapter);

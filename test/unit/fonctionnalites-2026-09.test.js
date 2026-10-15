@@ -310,6 +310,41 @@ test('le chapitre suivant est préparé à l’approche de la fin, pas au charge
     assert.match(pre[1], /MH\.proxify/, 'les planches préchargées passent par le proxy');
 });
 
+// ── Une annulation qui détruit est pire que pas d'annulation ──
+//
+// « Marquer jusqu'ici » touchait des centaines de chapitres sans retour
+// arrière. Le serveur offrait pourtant `unmark-bulk` depuis l'audit AMEL-40,
+// et le bandeau avec action depuis l'audit IX.6 : les deux briques
+// existaient, le lecteur ne s'en servait pas.
+//
+// Le piège est dans le détail. Le geste envoie TOUS les chapitres
+// précédents, y compris ceux lus il y a des mois. Défaire l'ensemble
+// effacerait la frontière entre lu et non lu — la donnée la plus longue à
+// reconstituer, et précisément celle qu'une annulation est censée protéger.
+test('l’annulation d’un marquage ne défait que ce que le geste a ajouté', () => {
+    const src = lire('chapitre.js');
+    const bloc = /async function bulkMark\(items, msg\)([\s\S]*?)\n    \}\n/.exec(src);
+    assert.ok(bloc, 'bulkMark doit rester lisible');
+
+    // L'état AVANT écriture : sans lui, impossible de distinguer l'ajout de
+    // l'existant.
+    assert.match(bloc[1], /API\.me\.readChapters\(\)/,
+        'l’état lu doit être relevé avant d’écrire');
+    assert.match(bloc[1], /items\.filter\(i => !dejaLus\.has\(i\.chapterId\)\)/,
+        'seuls les chapitres réellement nouveaux sont annulables');
+    assert.match(bloc[1], /unmarkChaptersBulk\(manga\.id, nouveaux\.map/,
+        'l’annulation doit porter sur les nouveaux, jamais sur `items`');
+
+    // Et si l'état n'a pas pu être relevé, on n'offre RIEN — un bouton qui
+    // démarquerait d'anciennes lectures serait pire que son absence.
+    assert.match(bloc[1], /if \(!dejaLus \|\| !nouveaux\.length\)/,
+        'sans état fiable, aucune annulation ne doit être proposée');
+
+    // Le bandeau, pas le toast : lui seul peut porter une action.
+    assert.match(bloc[1], /MH\.bandeau\?\.\(msg, \{/, 'l’annulation passe par le bandeau');
+    assert.match(bloc[1], /action: 'Annuler'/, 'l’action doit être nommée');
+});
+
 // ── Une série de lecture à zéro est un reproche, pas un chiffre ──
 //
 // Vu sur l'accueil : « 0 jour d'affilée » occupait le même poids visuel que
