@@ -300,3 +300,42 @@ test('l’accueil n’affiche une série de lecture que si elle existe', () => {
     assert.match(ctl, /AS chapters_this_month/,
         'le serveur doit réellement fournir ce champ');
 });
+
+// ── Chercher un réglage parmi vingt-sept ────────────────────
+//
+// Au-delà d'une dizaine, on ne parcourt plus une page de réglages : on y
+// cherche quelque chose qu'on sait exister et qu'on ne retrouve pas.
+//
+// Vérifié dans le navigateur : « theme » comme « thème » ramènent la même
+// ligne unique, « zzzz » rend l'état vide annoncé, et Échap relâche tout —
+// 260 lignes revenues.
+test('la page Réglages se cherche, sans révéler ce que l’app masque', () => {
+    const src = lire('parametres.js');
+    const bloc = /function brancherRechercheReglages\(\)([\s\S]*?)\n    \}\n/.exec(src);
+    assert.ok(bloc, 'brancherRechercheReglages doit rester lisible');
+
+    // Les accents sont pliés : on ne sait jamais lequel des deux l'utilisateur
+    // tapera, et les deux doivent trouver.
+    assert.match(src, /normalize\('NFD'\)/, 'la comparaison doit plier les accents');
+
+    // LE point qui compte : `hidden` appartient à l'application, qui s'en sert
+    // pour les réglages propres au tactile. Un filtre qui le manipulerait
+    // ferait apparaître, au premier mot cherché, des réglages sans effet sur
+    // cet appareil.
+    assert.match(bloc[1], /if \(ligne\.hidden\)/,
+        'une ligne masquée par l’app doit être ignorée du filtre');
+    assert.ok(!/ligne\.hidden\s*=/.test(bloc[1]),
+        'le filtre ne doit JAMAIS écrire dans `hidden`');
+    assert.match(bloc[1], /classList\.toggle\('sr-filtre'/,
+        'le masquage par recherche passe par sa propre classe');
+
+    // Le titre de carte compte aussi : chercher « compte » doit ramener la
+    // carte entière, même si aucune ligne ne porte le mot.
+    assert.match(bloc[1], /parLeTitre/, 'le titre de carte doit être cherchable');
+
+    // Un filtrage silencieux ne dit rien à qui ne voit pas la liste rétrécir.
+    const html = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'parametres.html'), 'utf8').replace(/\r\n/g, '\n');
+    assert.match(html, /id="setSearchEmpty"[^>]*role="status"/,
+        'l’absence de résultat doit être annoncée');
+});
