@@ -263,3 +263,45 @@ test('l’audit des contrôles rend les réglages qu’il a modifiés', () => {
     assert.match(src, /patch\[k\] = null/,
         'les clés ajoutées par l’audit doivent être effacées, pas laissées');
 });
+
+// ── Le chapitre suivant, préparé au bon moment ──────────────
+//
+// Le préchargement existait, et ne servait presque à rien :
+//
+//   · il ne tirait qu'UNE planche. La source met de 3,7 à 9 secondes par
+//     page selon le moment — la deuxième arrivait donc aussi tard que si
+//     rien n'avait été fait ;
+//   · il n'avait lieu qu'au CHARGEMENT de la page, c'est-à-dire à la planche
+//     1 sur 17. Dix minutes avant d'en avoir besoin, largement de quoi se
+//     faire évincer du cache mémoire.
+//
+// Vérifié par contraste dans le navigateur, même manipulation sur deux
+// serveurs : l'ancien code demandait `1191-001`, le corrigé demande `001`,
+// `002` et `003`.
+test('le chapitre suivant est préparé à l’approche de la fin, pas au chargement', () => {
+    const src = lire('chapitre.js');
+
+    // Le déclencheur doit vivre dans la mise à jour de page : c'est le seul
+    // endroit qui sait qu'on arrive au bout.
+    const maj = /function updateUIPage\(p\)([\s\S]{0,700})/.exec(src);
+    assert.ok(maj, 'updateUIPage doit rester lisible');
+    assert.match(maj[1], /p >= totalPages - 2/,
+        'sans ce seuil, le préchargement reste calé sur le chargement de la page');
+    assert.match(maj[1], /preloadNextChapter\(\{ profond: true \}\)/,
+        'l’approche de la fin doit demander un préchargement PROFOND');
+
+    // Et la profondeur suit la latence mesurée : une liaison poussive ne doit
+    // pas être encombrée pour un chapitre qu'on n'ouvrira peut-être pas.
+    const pre = /function preloadNextChapter\(([\s\S]*?)\n    \}/.exec(src);
+    assert.ok(pre, 'preloadNextChapter doit rester lisible');
+    assert.match(pre[1], /fenetrePrechargement\(\)/,
+        'la profondeur doit dériver de la fenêtre calculée sur la latence réelle');
+
+    // Le passage superficiel du chargement ne doit pas bloquer le profond :
+    // c'est pour ça que le garde retient l'id ET la profondeur.
+    assert.match(pre[1], /chapSuivantPrepare\.profond \|\| !profond/,
+        'le garde doit laisser passer un second passage plus profond');
+
+    // Audit PERF-08 : jamais l'URL brute, qui révélerait l'adresse IP.
+    assert.match(pre[1], /MH\.proxify/, 'les planches préchargées passent par le proxy');
+});
