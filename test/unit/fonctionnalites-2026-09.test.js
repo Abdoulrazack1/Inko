@@ -25,7 +25,10 @@ const fs = require('fs');
 const path = require('path');
 
 const JS = path.join(__dirname, '..', '..', 'assets', 'js');
-const lire = (f) => fs.readFileSync(path.join(JS, f), 'utf8');
+// Normalise les fins de ligne : git reecrit la copie de travail en CRLF
+// sous Windows, et toutes les expressions ci-dessous attendent « \n ».
+const normal = (s) => s.replace(/\r\n/g, '\n');
+const lire = (f) => normal(fs.readFileSync(path.join(JS, f), 'utf8'));
 
 // ── Chercher dans le chapitre ───────────────────────────────
 
@@ -242,8 +245,9 @@ test('une pastille de couleur s’annonce par son nom, pas par son code', () => 
 // qu'aucun choix humain n'explique et qu'un parcours de gauche à droite
 // explique entièrement.
 test('l’audit des contrôles rend les réglages qu’il a modifiés', () => {
-    const src = fs.readFileSync(
-        path.join(__dirname, '..', 'e2e', 'audit-controles.spec.js'), 'utf8');
+    const src = normal(fs.readFileSync(
+
+        path.join(__dirname, '..', 'e2e', 'audit-controles.spec.js'), 'utf8'));
     assert.match(src, /async function lireReglages\(browser\)/,
         'les réglages doivent être relevés avant la première page');
     assert.match(src, /async function rendreReglages\(browser, avant\)/,
@@ -304,4 +308,37 @@ test('le chapitre suivant est préparé à l’approche de la fin, pas au charge
 
     // Audit PERF-08 : jamais l'URL brute, qui révélerait l'adresse IP.
     assert.match(pre[1], /MH\.proxify/, 'les planches préchargées passent par le proxy');
+});
+
+// ── Une série de lecture à zéro est un reproche, pas un chiffre ──
+//
+// Vu sur l'accueil : « 0 jour d'affilée » occupait le même poids visuel que
+// « 495 séries suivies », en tête de page. Une série à zéro ne mesure rien —
+// elle constate qu'on a laissé tomber, et c'est la première chose qu'on lit
+// en ouvrant l'application.
+//
+// `chapters_this_month` est déjà calculé par le serveur et énonce un fait.
+// La série ne s'affiche donc que lorsqu'elle existe, c'est-à-dire quand elle
+// encourage au lieu d'accuser.
+//
+// Vérifié en direct pour la branche NON NULLE (série à 1 → « 1 jour
+// d'affilée »). La branche zéro n'a pas pu être observée sans effacer un
+// historique de lecture réel : c'est ce test qui la tient.
+test('l’accueil n’affiche une série de lecture que si elle existe', () => {
+    const src = lire('accueil.js');
+    const bloc = /async function rendreStats\(\)([\s\S]*?)\n    \}/.exec(src);
+    assert.ok(bloc, 'rendreStats doit rester lisible');
+
+    assert.match(bloc[1], /serie > 0\s*\n?\s*\?/,
+        'la série ne doit être rendue que lorsqu’elle est supérieure à zéro');
+    assert.match(bloc[1], /chapters_this_month/,
+        'le repli doit être un fait déjà calculé, pas une valeur inventée');
+    assert.match(bloc[1], /chapitres ce mois/, 'le libellé de repli doit être lisible');
+
+    // Le champ doit exister côté serveur, sinon le repli affiche un vide.
+    const ctl = normal(fs.readFileSync(
+
+        path.join(__dirname, '..', '..', 'server', 'controllers', 'user.controller.js'), 'utf8'));
+    assert.match(ctl, /AS chapters_this_month/,
+        'le serveur doit réellement fournir ce champ');
 });

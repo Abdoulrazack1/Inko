@@ -54,8 +54,20 @@
             const t = st.totals || {};
             const serie = st.streak?.current || 0;
             const bloc = (n, l, href) => `<a class="home-stat" href="${href}"><strong>${MH.fmt(n || 0)}</strong><span>${l}</span></a>`;
+            // Une série de lecture à ZÉRO n'est pas une statistique, c'est un
+            // reproche. Elle occupait le même poids visuel que « 495 séries
+            // suivies », en tête de l'accueil, et ne disait qu'une chose : tu
+            // as laissé tomber.
+            //
+            // « Chapitres ce mois » est un fait, pas un constat d'échec — et
+            // le serveur le calcule déjà (`chapters_this_month`). La série ne
+            // s'affiche donc que lorsqu'elle existe vraiment, c'est-à-dire
+            // quand elle encourage au lieu d'accuser.
+            const milieu = serie > 0
+                ? bloc(serie, serie > 1 ? 'jours d’affilée' : 'jour d’affilée', 'stats.html')
+                : bloc(t.chapters_this_month, 'chapitres ce mois', 'stats.html');
             el.innerHTML = bloc(t.chapters_read, 'chapitres lus', 'stats.html')
-                + bloc(serie, serie > 1 ? 'jours d’affilée' : 'jour d’affilée', 'stats.html')
+                + milieu
                 + bloc(favoris.length, 'séries suivies', 'bibliotheque.html');
         } catch (e) { el.innerHTML = ''; }
     }
