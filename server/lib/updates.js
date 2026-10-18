@@ -322,7 +322,46 @@ async function backgroundScan() {
 // du client (« serveur trop long »), sans aucune progression visible.
 // Désormais le scan tourne ici ; le client relit l'état toutes les secondes
 // et affiche « 142 / 491 ». Un second clic rejoint le scan en cours.
+// ── Les scans termines ne doivent pas s'accumuler ────────
+//
+// `jobs` etait une Map jamais purgee. Chaque scan termine y gardait son
+// resultat COMPLET — la liste des mises a jour et celle des echecs pour les
+// 495 series de la bibliotheque, avec titres et couvertures — et l'y gardait
+// pour la duree de vie du processus.
+//
+// Sur un hub a un seul compte, cela fait une entree qui ne se libere jamais.
+// Sur un hub partage, une par compte ayant lance un scan, et rien ne les
+// enleve.
+//
+// ── La regle qui compte ──
+//
+// On ne retire JAMAIS un job en cours. Le client interroge l'avancement
+// jusqu'a ce que l'etat change ; si le job disparaissait entre deux appels,
+// `scanUpdates` verrait `null`, sortirait de sa boucle et rendrait un
+// resultat VIDE — un scan qui a bien tourne, presente comme n'ayant rien
+// trouve. C'est pire que de garder la memoire.
 const jobs = new Map();   // uid -> job
+
+// Dix minutes : le client finit d'interroger en quelques dizaines de
+// secondes au plus, et peut relire le resultat apres coup. Au-dela, il le
+// redemandera.
+const RETENTION_JOB_MS = 10 * 60 * 1000;
+const MAX_JOBS = 50;
+
+function purgerJobs() {
+    const maintenant = Date.now();
+    for (const [uid, j] of jobs) {
+        if (j.etat === 'en_cours') continue;                 // jamais un scan vivant
+        if (maintenant - (j.finishedAt || 0) > RETENTION_JOB_MS) jobs.delete(uid);
+    }
+    // Filet : si beaucoup de comptes scannent dans la meme fenetre, on retire
+    // les plus anciens TERMINES plutot que de laisser la Map grossir.
+    if (jobs.size <= MAX_JOBS) return;
+    const finis = [...jobs.entries()]
+        .filter(([, j]) => j.etat !== 'en_cours')
+        .sort((a, b) => (a[1].finishedAt || 0) - (b[1].finishedAt || 0));
+    for (const [uid] of finis.slice(0, jobs.size - MAX_JOBS)) jobs.delete(uid);
+}
 
 function vueJob(j) {
     if (!j) return null;
@@ -335,6 +374,7 @@ function vueJob(j) {
 }
 
 function lancerScan(uid, opts = {}) {
+    purgerJobs();
     const courant = jobs.get(uid);
     if (courant && courant.etat === 'en_cours') return vueJob(courant);
     const j = { id: Date.now().toString(36), etat: 'en_cours', faits: 0, total: 0, startedAt: Date.now() };
@@ -346,6 +386,12 @@ function lancerScan(uid, opts = {}) {
     return vueJob(j);
 }
 
-function etatScan(uid) { return vueJob(jobs.get(uid)); }
+// La purge tourne aussi ICI, et pas seulement au lancement : sur un hub a un
+// seul compte, le scan suivant peut n'arriver que des jours plus tard, et le
+// resultat precedent occuperait la memoire jusque-la. Le client interroge cet
+// endroit a chaque consultation, ce qui en fait le bon endroit pour balayer.
+// Pas de minuteur : il faudrait l'`unref` pour ne pas retenir le processus,
+// et deux points d'appel suffisent.
+function etatScan(uid) { purgerJobs(); return vueJob(jobs.get(uid)); }
 
 module.exports = { scanUserUpdates, fullScanCooldown, markFullScan, dernierScan, backgroundScan, lancerScan, etatScan };
