@@ -32,6 +32,55 @@
   --bg2:         #e7e4da;
   --bg3:         #ddd9cd;
   --bg4:         #d1ccbe;
+
+  /* Couleurs des graphiques (repartition par source, barre par statut,
+     barres de genre). Elles etaient ecrites en dur dans stats.js et
+     profil.js — huit teintes Tailwind, identiques dans les quatre themes.
+     Mesure du plus faible aplat contre le fond de carte :
+
+         clair      1,69     contraste  1,92     sombre  4,52
+
+     La WCAG 1.4.11 demande 3:1 pour un objet graphique porteur de sens.
+     L'edition sombre passait, les deux editions claires non — un jaune a
+     1,69 sur du washi est un aplat qu'on devine.
+
+     Les valeurs sombres sont celles d'avant, verifiees et inchangees : il
+     n'y avait rien a y corriger. Les editions claires gardent la TEINTE de
+     chaque serie (un vert reste vert) et n'en changent que la clarte,
+     jusqu'a 3,9:1 en clair et 7,5:1 en contraste renforce — le meme
+     traitement que --green/--red y recoivent deja.
+
+     Le compte reste huit parce que le graphe par source en affiche autant.
+     Huit aplats ne se distinguent pas les uns des autres par la seule
+     clarte, et ce jeu ne pretend pas le faire : la legende et l'infobulle
+     nomment chaque serie. */
+  --graph-1:     #bf4b00;
+  --graph-2:     #0f66f4;
+  --graph-3:     #16813d;
+  --graph-4:     #9937f6;
+  --graph-5:     #9b6406;
+  --graph-6:     #df1313;
+  --graph-7:     #0e7e71;
+  --graph-8:     #d61675;
+  /* Echelle de la heatmap de lecture (§13). Elle existait en quatre copies —
+     cases de stats.html, legende de stats.js, cases et legende de profil —
+     et aucune ne progressait regulierement. Pas WCAG entre paliers voisins
+     AVANT, mesures :
+
+         sombre  1,11  1,78  2,10  1,57   « rien lu » et « un peu » a 1,11
+         clair   8,44  1,78  2,10  1,57   falaise au premier palier
+         profil  1,06  1,19  1,28  2,00   (clair, alpha compose sur la carte)
+
+     Un degrade sequentiel se lit par la REGULARITE de ses pas : a 1,11 deux
+     paliers ne se distinguent pas, a 8,44 ils passent pour deux categories.
+     Les valeurs ci-dessous sont calculees pour un pas constant par theme
+     (r = ((L_sommet+0,05)/(L_fond+0,05))^(1/4)), soit 1,6 a 1,7 partout.
+     Le palier 0 reste --bg4 : « rien lu » garde le fond des surfaces. */
+  --hm0:         var(--bg4);
+  --hm1:         #d49469;
+  --hm2:         #be672d;
+  --hm3:         #934a1a;
+  --hm4:         #6b2f08;
   --border:      rgba(28,27,25,0.13);
   --border2:     rgba(28,27,25,0.22);
   --text:        #1c1b19;   /* Encre sur Washi */
@@ -139,6 +188,21 @@ html[data-theme="dark"] {
   --bg2:         #17171b;
   --bg3:         #1e1e23;
   --bg4:         #26262c;
+  /* Graphiques — valeurs d'origine, le plus faible a 4,52 sur --bg2. */
+  --graph-1:     #ff8c42;
+  --graph-2:     #3b82f6;
+  --graph-3:     #22c55e;
+  --graph-4:     #a855f7;
+  --graph-5:     #f59e0b;
+  --graph-6:     #ef4444;
+  --graph-7:     #14b8a6;
+  --graph-8:     #ec4899;
+  /* Heatmap — pas constant 1,64 (voir :root). Sur fond sombre on eclaircit. */
+  --hm0:         var(--bg4);
+  --hm1:         #6d3b1a;
+  --hm2:         #a1521c;
+  --hm3:         #dd691b;
+  --hm4:         #ff9a4d;
   --border:      rgba(233,231,224,0.09);
   --border2:     rgba(233,231,224,0.17);
   --text:        #e9e7e0;   /* Encre sur Sumi */
@@ -165,6 +229,21 @@ html[data-theme="amoled"] {
   --bg2:     #070708;
   --bg3:     #0e0e11;
   --bg4:     #17171b;
+  /* Graphiques — memes teintes qu'en sombre, le plus faible a 5,09. */
+  --graph-1: #ff8c42;
+  --graph-2: #3b82f6;
+  --graph-3: #22c55e;
+  --graph-4: #a855f7;
+  --graph-5: #f59e0b;
+  --graph-6: #ef4444;
+  --graph-7: #14b8a6;
+  --graph-8: #ec4899;
+  /* Heatmap — pas constant 1,71 (fond plus noir, donc plus de place). */
+  --hm0:     var(--bg4);
+  --hm1:     #603417;
+  --hm2:     #984d1b;
+  --hm3:     #d8661b;
+  --hm4:     #ff9a4d;
   --border:  rgba(233,231,224,0.07);
   --border2: rgba(233,231,224,0.13);
   --text:    #e9e7e0;
@@ -198,6 +277,21 @@ html[data-theme="contrast"] {
   --bg2:         #f2f2f2;
   --bg3:         #e4e4e4;
   --bg4:         #d2d2d2;
+  /* Graphiques — assombris a 7,5:1, comme les couleurs fonctionnelles. */
+  --graph-1:     #863400;
+  --graph-2:     #0846ad;
+  --graph-3:     #0f5a2b;
+  --graph-4:     #6b09c8;
+  --graph-5:     #6c4504;
+  --graph-6:     #9d0d0d;
+  --graph-7:     #0a574f;
+  --graph-8:     #971052;
+  /* Heatmap — pas constant 1,68, aplats assombris comme le reste du theme. */
+  --hm0:         var(--bg4);
+  --hm1:         #d4946a;
+  --hm2:         #b8642b;
+  --hm3:         #884518;
+  --hm4:         #5a2606;
   --border:      rgba(0,0,0,0.45);
   --border2:     rgba(0,0,0,0.65);
   --text:        #000000;   /* 21:1 sur --bg */
@@ -530,6 +624,11 @@ body.incognito-on::before {
   background: var(--orange); display: flex; align-items: center;
   justify-content: center; font-size: 11px; font-weight: 700;
   flex-shrink: 0; overflow: hidden;
+  /* Aucune couleur de texte n'etait posee : l'initiale heritait de l'encre de
+     la page. Sur le remplissage accent, cela donne 3,7:1 — sous le seuil AA,
+     et dans les DEUX themes, puisque le fond ne change pas. Le blanc y donne
+     4,65:1. Mesure sur l'avatar reel, pas deduite. */
+  color: #fff;
 }
 .header-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .user-label { line-height: 1; }
@@ -1076,7 +1175,13 @@ a[data-nsfw] .manga-card-cover::after,
     color: var(--text3); font-size: 10px; font-weight: 600;
     transition: color var(--transition);
   }
-  .mnav-item.active { color: var(--orange); }
+  /* Meme defaut, et meme correctif que `.tag.active` plus haut : l'accent est
+     une couleur de REMPLISSAGE (elle porte du texte blanc), pas une couleur de
+     texte sur fond de page. En libelle de 10 px il donne 3,79:1 en clair et
+     3,96:1 en sombre — sous AA des deux cotes. Le raisonnement etait deja
+     ecrit pour les etiquettes ; la barre de navigation mobile avait ete
+     oubliee. */
+  .mnav-item.active { color: color-mix(in srgb, var(--accent) 62%, var(--text)); }
   .mnav-icon { position: relative; display: flex; }
   .mnav-icon svg { width: 21px; height: 21px; }
   .mnav-icon .nav-badge { top: -5px; right: -10px; }

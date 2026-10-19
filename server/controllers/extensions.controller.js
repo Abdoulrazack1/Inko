@@ -191,7 +191,14 @@ async function testSource(req, res, next) {
 async function healthStatus(_req, res, next) {
     try {
         const byId = Object.fromEntries(extensions.manifest().map(s => [s.id, s]));
-        const rows = health.snapshot().map(h => ({ ...h, name: byId[h.id]?.name || h.id }));
+        const couverture = require('../lib/couverture-champs');
+        // « Pourquoi cette source n'affiche pas de date ? » se repondait
+        // jusqu'ici en lisant le code de l'extension. Le rapport dit ce qui
+        // n'a JAMAIS ete fourni, et sur combien d'elements — de quoi
+        // distinguer un site avare d'une lecture oubliee.
+        const rows = health.snapshot().map(h => ({
+            ...h, name: byId[h.id]?.name || h.id, champs: couverture.rapport(h.id),
+        }));
         // Inclut aussi les sources jamais appelées (aucune donnée de santé encore)
         for (const s of extensions.manifest()) {
             if (!rows.find(r => r.id === s.id))

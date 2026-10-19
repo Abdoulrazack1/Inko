@@ -412,7 +412,7 @@
                     </a>
                     <div style="min-width:0">
                         <a href="serie.html?id=${encodeURIComponent(r.mangaId)}" style="font-weight:600;font-size:13.5px;color:var(--text);text-decoration:none">${MH.esc(m?.title || r.mangaId)}</a>
-                        <div style="color:#f59e0b;font-size:13px;margin:2px 0">${stars}</div>
+                        <div style="color:var(--amber-text);font-size:13px;margin:2px 0">${stars}</div>
                         ${r.review ? `<div style="font-size:12.5px;color:var(--text2);font-style:italic">« ${MH.esc(r.review)} »</div>` : ''}
                         <div style="font-size:11px;color:var(--text3);margin-top:3px">${r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('fr-FR') : ''}</div>
                     </div>
@@ -451,7 +451,7 @@
             }));
             const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4);
             if (!top.length) return;
-            const colors = ['var(--orange)', '#ef4444', '#22c55e', '#3b82f6'];
+            const colors = ['var(--orange)', 'var(--graph-6)', 'var(--graph-3)', 'var(--graph-2)'];
             const max = top[0][1];
             el.innerHTML = top.map(([name, n], i) => {
                 const pct = Math.round((n / max) * 100);
@@ -475,7 +475,7 @@
             const m = await loadManga(r.mangaId);
             el.innerHTML = `
                 <div class="review-preview-manga">${MH.esc(m?.title || r.mangaId)}</div>
-                <div style="color:#f59e0b;font-size:13px;margin:4px 0">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+                <div style="color:var(--amber-text);font-size:13px;margin:4px 0">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
                 ${r.review ? `<div class="review-preview-text">«&nbsp;${MH.esc(r.review)}&nbsp;»</div>` : ''}`;
         } catch (e) { window.MH?.err?.('profil.js', e); }
     }
@@ -535,7 +535,7 @@
         try {
             const stats = await fetchStats();
             const buckets = stats.heatmap || {};
-            const colors = ['var(--bg4)', 'rgba(255,107,26,.2)', 'rgba(255,107,26,.4)', 'rgba(255,107,26,.7)', 'var(--orange)'];
+            const colors = ['var(--hm0)', 'var(--hm1)', 'var(--hm2)', 'var(--hm3)', 'var(--hm4)'];
             const today = new Date();
             let html = '';
             for (let i = 52 * 7 - 1; i >= 0; i--) {
@@ -557,7 +557,7 @@
             try {
                 const stats = await fetchStats();
                 const buckets = stats.heatmap || {};
-                const colors = ['var(--bg4)', 'rgba(255,107,26,.2)', 'rgba(255,107,26,.45)', 'rgba(255,107,26,.75)', 'var(--orange)'];
+                const colors = ['var(--hm0)', 'var(--hm1)', 'var(--hm2)', 'var(--hm3)', 'var(--hm4)'];
                 const today = new Date();
                 let html = '';
                 for (let i = 27; i >= 0; i--) {
@@ -593,7 +593,7 @@
                 </a>
             `).join('') + `<div class="fav-add" onclick="window.location.href='catalogue.html'">+</div>`;
         } catch(e) {
-            el.innerHTML = `<div style="padding:14px;color:#ef4444;font-size:12px">Erreur de chargement</div>`;
+            el.innerHTML = `<div style="padding:14px;color:var(--red-text);font-size:12px">Erreur de chargement</div>`;
         }
     }
 
@@ -667,7 +667,7 @@
                 if (empty) empty.style.display = '';
             }
         } catch(e) {
-            el.innerHTML = `<div style="padding:14px;color:#ef4444;font-size:12px">Erreur</div>`;
+            el.innerHTML = `<div style="padding:14px;color:var(--red-text);font-size:12px">Erreur</div>`;
         }
     }
 
@@ -933,7 +933,7 @@
                 });
             }
         } catch(e) {
-            el.innerHTML = `<div style="padding:14px;color:#ef4444">Erreur</div>`;
+            el.innerHTML = `<div style="padding:14px;color:var(--red-text)">Erreur</div>`;
         }
     }
 
@@ -1130,7 +1130,7 @@
                 </div>`;
             }).join('');
         } catch(e) {
-            grid.innerHTML = `<div style="padding:14px;color:#ef4444">Erreur de chargement</div>`;
+            grid.innerHTML = `<div style="padding:14px;color:var(--red-text)">Erreur de chargement</div>`;
         }
     }
 

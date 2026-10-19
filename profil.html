@@ -75,10 +75,10 @@
   <div class="profil-layout">
 
     <!-- Sidebar gauche -->
-    <aside class="profil-sidebar">
+    <aside class="profil-sidebar" aria-label="Sections du profil">
       <div class="sidebar-section">
-        <div class="sidebar-section-label">MENU PRINCIPAL</div>
-        <nav class="sidebar-nav">
+        <div class="sidebar-section-label" id="sb-menu">MENU PRINCIPAL</div>
+        <nav class="sidebar-nav" aria-labelledby="sb-menu">
           <a href="#" class="sidebar-nav-item" data-tab="overview">
             <span class="sidebar-nav-icon">⊞</span> Vue d'ensemble
           </a>
@@ -96,16 +96,16 @@
         </nav>
       </div>
       <div class="sidebar-section">
-        <div class="sidebar-section-label">AVIS</div>
-        <nav class="sidebar-nav">
+        <div class="sidebar-section-label" id="sb-avis">AVIS</div>
+        <nav class="sidebar-nav" aria-labelledby="sb-avis">
           <a href="#" class="sidebar-nav-item" data-tab="reviews">
             <span class="sidebar-nav-icon">★</span> Mes avis
           </a>
         </nav>
       </div>
       <div class="sidebar-section">
-        <div class="sidebar-section-label">SUCCÈS</div>
-        <nav class="sidebar-nav">
+        <div class="sidebar-section-label" id="sb-succes">SUCCÈS</div>
+        <nav class="sidebar-nav" aria-labelledby="sb-succes">
           <a href="#" class="sidebar-nav-item" data-tab="badges">
             <span class="sidebar-nav-icon"></span> Badges
           </a>
@@ -115,7 +115,7 @@
         </nav>
       </div>
       <div class="sidebar-section sidebar-bottom">
-        <nav class="sidebar-nav">
+        <nav class="sidebar-nav" aria-label="Réglages et compte">
           <a href="parametres.html" class="sidebar-nav-item">
             <span class="sidebar-nav-icon"></span> Paramètres
           </a>
@@ -224,11 +224,11 @@
           <div class="heatmap-legend">
             <span style="color:var(--text3);font-size:11px">Moins</span>
             <div class="heatmap-legend-boxes">
-              <div style="background:var(--bg4)"></div>
-              <div style="background:rgba(255,107,26,.2)"></div>
-              <div style="background:rgba(255,107,26,.4)"></div>
-              <div style="background:rgba(255,107,26,.7)"></div>
-              <div style="background:var(--orange)"></div>
+              <div style="background:var(--hm0)"></div>
+              <div style="background:var(--hm1)"></div>
+              <div style="background:var(--hm2)"></div>
+              <div style="background:var(--hm3)"></div>
+              <div style="background:var(--hm4)"></div>
             </div>
             <span style="color:var(--text3);font-size:11px">Plus</span>
           </div>
