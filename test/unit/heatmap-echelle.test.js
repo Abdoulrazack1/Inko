@@ -122,6 +122,37 @@ for (const [selecteur, nom] of THEMES) {
     });
 }
 
+// ── Les seuils ont-ils des dents ? ──
+// Sans ce test, les trois précédents prouvent seulement que les jetons
+// existent : lancés contre l'ancien code ils échouent sur « --hm0 absent »,
+// ce qui ne dit rien de la régularité. Ici on repasse les échelles
+// REMPLACÉES dans les mêmes critères, et on exige qu'elles soient rejetées.
+const AVANT = [
+    ['stats, sombre', ['#26262c', '#4a2410', '#8a3d12', '#d2691e', '#ff8c42']],
+    ['stats, clair', ['#d1ccbe', '#4a2410', '#8a3d12', '#d2691e', '#ff8c42']],
+    // profil : rgba(255,107,26,α) composé sur la carte (--bg2), déjà aplati.
+    ['profil, clair', ['#d1ccbe', '#ecccb4', '#f1b48d', '#f88f54', '#c1531b']],
+    ['profil, sombre', ['#26262c', '#45281b', '#74391b', '#b9521a', '#c1531b']],
+];
+
+for (const [nom, pal] of AVANT) {
+    test('les critères rejettent bien l’échelle « ' + nom + ' »', () => {
+        const c = pal.map(hex);
+        const pas = [];
+        for (let i = 1; i < c.length; i++) pas.push(rapport(c[i - 1], c[i]));
+        const rejets = [];
+        pas.forEach((r, i) => {
+            if (r < PAS_MIN) rejets.push('pas ' + i + '→' + (i + 1) + ' à ' + r.toFixed(2) + ' (invisible)');
+            if (r > PAS_MAX) rejets.push('pas ' + i + '→' + (i + 1) + ' à ' + r.toFixed(2) + ' (rupture)');
+        });
+        const ecart = Math.max(...pas) / Math.min(...pas);
+        if (ecart > IRREGULARITE_MAX) rejets.push('écart ' + ecart.toFixed(2));
+        assert.ok(rejets.length > 0,
+            nom + ' passerait les critères — ils ne protègent rien : '
+            + JSON.stringify(pas.map((p) => +p.toFixed(2))));
+    });
+}
+
 // ── Une seule échelle, pas quatre ──
 const CONSOMMATEURS = [
     ['stats.html', ['stats.html'], 4],
