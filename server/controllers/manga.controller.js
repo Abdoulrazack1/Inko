@@ -16,8 +16,15 @@ const { planifier, prioDe } = require('../lib/ordonnanceur');
 // le seul endroit ou la verifier. Une forme inconnue laisse passer, pour que
 // ce garde-fou ne devienne jamais un obstacle a l'ajout d'une capacite.
 const { valider } = require('../lib/formes-extensions');
+const couverture = require('../lib/couverture-champs');
 const viaFile = (src, prio, fn, forme) =>
-    planifier(src.id, prio, fn).then(r => valider(forme, src.id, r));
+    planifier(src.id, prio, fn).then((r) => {
+        const valide = valider(forme, src.id, r);
+        // Echantillonne APRES validation : on ne tire aucune statistique
+        // d'une reponse dont on vient de dire qu'elle est mal formee.
+        couverture.noter(src.id, forme, valide);
+        return valide;
+    });
 
 // ── Cache de relais (audit AMEL-64 / PERF-03) ────────────────
 // getOne() et getChapters() étaient de purs relais : chaque appel déclenchait
