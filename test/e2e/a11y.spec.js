@@ -125,6 +125,81 @@ for (const p of PAGES) {
     });
 }
 
+// ── Le theme clair n'etait exerce par AUCUN test ──────────
+//
+// La suite analysait le theme par defaut (sombre) et le theme « contraste ».
+// Le theme CLAIR — celui dont ce fichier dit lui-meme qu'il a deja derive, a
+// 58 echecs (A11Y-02) — n'etait garde par rien.
+//
+// Mesure qui a motive ce test, avant correction, sur l'accueil :
+//
+//     .mnav-item.active   3,79:1 en clair, 3,96:1 en sombre
+//     .header-avatar      3,70:1 dans les deux
+//
+// Les deux sont sous le seuil AA, et le second n'avait aucune couleur de
+// texte posee : l'initiale heritait de l'encre de la page sur un remplissage
+// accent. Le meme defaut avait deja ete corrige pour `.tag.active`, avec son
+// raisonnement ecrit — la barre de navigation mobile avait ete oubliee.
+//
+// Trois pages et non sept : `parametres.html` demande a elle seule ~80 s
+// d'analyse, et ce test DOUBLE le cout de chaque page qu'il couvre. Ces trois
+// portent l'essentiel des composants partages (cartes, barre d'outils,
+// navigation, en-tete).
+const PAGES_CLAIR = ['/accueil.html', '/bibliotheque.html', '/profil.html'];
+
+for (const p of PAGES_CLAIR) {
+    test(`aucune violation critique ou sérieuse en thème clair sur ${p}`, async ({ page }) => {
+        test.setTimeout(180_000);
+        await ouvrir(page, p);
+        await page.evaluate(() => window.Theme.apply('light'));
+        await page.waitForTimeout(600);
+        const attribut = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+        expect(attribut, 'le thème clair doit être réellement appliqué').toBe('light');
+
+        const violations = await analyser(page);
+        const bloquantes = violations.filter(v => v.impact === 'critical' || v.impact === 'serious');
+        const SAUT = String.fromCharCode(10);
+        const rapport = bloquantes
+            .map(v => `  ${v.impact.toUpperCase()} ${v.id} (${v.nb}) — ${v.aide}`
+                + SAUT + '    ' + v.exemples.join(SAUT + '    '))
+            .join(SAUT);
+        expect(bloquantes, SAUT + rapport).toEqual([]);
+    });
+}
+
+// ── Et en largeur telephone, sinon la moitie de l'interface est hors champ ──
+//
+// La passe ci-dessus, ecrite d'abord seule, PASSAIT alors que le defaut
+// qu'elle devait attraper etait toujours la : `.mnav-item` vit dans une media
+// query mobile, et a la largeur par defaut de Playwright la barre de
+// navigation n'est jamais rendue. axe ne peut pas juger ce qui n'existe pas.
+//
+// Un test qui ne peut pas echouer ne vaut rien. Verifie en remettant le CSS
+// d'avant : celui-ci devient rouge, l'autre reste vert.
+test('aucune violation critique ou sérieuse en thème clair, largeur téléphone', async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrir(page, '/accueil.html');
+    await page.evaluate(() => window.Theme.apply('light'));
+    await page.waitForTimeout(600);
+    // La barre de navigation mobile doit etre REELLEMENT visible, sinon ce
+    // test retombe dans le piege qu'il existe pour eviter.
+    const navVisible = await page.evaluate(() => {
+        const el = document.querySelector('.mnav-item');
+        return !!el && getComputedStyle(el).display !== 'none';
+    });
+    expect(navVisible, 'la barre de navigation mobile doit être rendue').toBe(true);
+
+    const violations = await analyser(page);
+    const bloquantes = violations.filter(v => v.impact === 'critical' || v.impact === 'serious');
+    const SAUT = String.fromCharCode(10);
+    const rapport = bloquantes
+        .map(v => `  ${v.impact.toUpperCase()} ${v.id} (${v.nb}) — ${v.aide}`
+            + SAUT + '    ' + v.exemples.join(SAUT + '    '))
+        .join(SAUT);
+    expect(bloquantes, SAUT + rapport).toEqual([]);
+});
+
 // Recensement non bloquant : donne l'état réel sans transformer chaque
 // imperfection mineure en échec de CI.
 test('recensement des violations modérées et mineures', async ({ page }) => {

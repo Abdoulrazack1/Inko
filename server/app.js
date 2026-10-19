@@ -197,8 +197,28 @@ app.use(errorHandler);
         setTimeout(() => process.exit(code), 2500).unref();
         void signal;
     };
-    process.on('SIGINT', () => fermer('SIGINT'));
-    process.on('SIGTERM', () => fermer('SIGTERM'));
+    // Quatre signaux, et les deux derniers sont la raison de ce bloc.
+    //
+    // SIGINT et SIGTERM sont les signaux POSIX. Sous Windows, SIGTERM n'est
+    // JAMAIS delivre — Node le documente — et SIGINT ne l'est qu'au Ctrl+C
+    // dans une console. Fermer la fenetre, ou recevoir un Ctrl+Break d'un
+    // processus parent, ne declenchait donc aucune fermeture propre.
+    //
+    // La consequence est celle que le commentaire ci-dessus decrit deja :
+    // l'annonce mDNS reste publiee, et les telephones sont envoyes vers une
+    // adresse morte pendant les minutes que dure l'expiration. L'app de
+    // bureau relance son serveur a chaque ouverture : le cas est frequent,
+    // pas exotique.
+    //
+    // SIGBREAK est specifique a Windows (Ctrl+Break). SIGHUP y est emis a la
+    // fermeture de la console, et le processus est tue environ dix secondes
+    // plus tard : largement de quoi retirer l'annonce et fermer les
+    // connexions.
+    ['SIGINT', 'SIGTERM', 'SIGBREAK', 'SIGHUP'].forEach((sig) => {
+        // Un signal inconnu de la plateforme fait lever `process.on` : on
+        // enregistre ce qu'elle accepte, et on ignore le reste en silence.
+        try { process.on(sig, () => fermer(sig)); } catch (e) { /* absent ici */ }
+    });
 
     // ── Ce qui n'a pas ete rattrape ailleurs ─────────────────
     //
