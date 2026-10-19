@@ -1244,6 +1244,9 @@
         const nav = document.createElement('nav');
         nav.id = 'inkoMobileNav';
         nav.className = 'mobile-nav';
+        // Meme raison que le <nav> de l'en-tete : deux reperes « navigation »
+        // sans nom sont deux reperes qu'on ne peut pas distinguer.
+        nav.setAttribute('aria-label', 'Navigation du bas');
         // Audit NAV1/M2 : « Plus » = déclencheur tactile de la palette de
         // commandes — sans lui, Journal, Sources, Statistiques et Collections
         // étaient injoignables sur mobile/tablette (la palette n'était
@@ -1679,7 +1682,12 @@
             <img src="/assets/img/icon.svg" alt="Inko" class="logo-icon" style="width:28px;height:28px;border-radius:7px">
             <span class="logo-text">Inko</span>
           </a>
-          <nav class="header-nav">
+          <!-- Nomme : une page porte plusieurs reperes de navigation — celui-ci,
+               la barre du telephone, et jusqu'a quatre dans la colonne du profil.
+               Sans nom, un lecteur d'ecran les annonce tous « navigation », et la
+               navigation par reperes ne sert plus a rien : on ne peut pas choisir
+               ou aller. -->
+          <nav class="header-nav" aria-label="Navigation principale">
             <a href="accueil.html" class="${activePage === 'accueil' ? 'active' : ''}" data-i18n="nav.home">Accueil</a>
             <a href="catalogue.html" class="${['catalogue','serie','chapitre'].includes(activePage) ? 'active' : ''}" data-i18n="nav.catalog">Catalogue</a>
             <a href="bibliotheque.html" class="${activePage === 'bibliotheque' ? 'active' : ''}" style="position:relative"><span data-i18n="nav.library">Bibliothèque</span><span class="nav-badge" id="navLibBadge" style="display:none"></span></a>
