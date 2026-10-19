@@ -328,6 +328,12 @@ router.post  ('/me/backups/:file/restore', auth.authRequired, writeLimiter, User
 router.delete('/me/history/:mangaId',     auth.authRequired, User.deleteHistoryEntry);
 
 router.get   ('/me/events',               auth.authRequired, User.getEvents);
+// Le lecteur mesure le temps par tranches de 30 s et verse ici. La route
+// manquait : les mesures partaient en 404 depuis toujours.
+// `writeLimiter` : une tranche toutes les 30 s par appareil, le plafond
+// d'ecriture habituel est largement au-dessus.
+router.post  ('/me/temps-lecture',        auth.authRequired, writeLimiter, User.ajouterTempsLecture);
+router.get   ('/me/temps-lecture',        auth.authRequired, User.getTempsLecture);
 router.get   ('/me/stats',                auth.authRequired, User.getStats);
 router.get   ('/me/stats/distribution',       auth.authRequired, User.getStatsDistribution);   // audit AMEL-57
 router.get   ('/me/updates',              auth.authRequired, User.checkUpdates);
