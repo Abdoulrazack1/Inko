@@ -53,6 +53,24 @@ const path = require('path');
 const os   = require('os');
 const crypto = require('crypto');
 
+// ── Combien de telechargements simultanes vers la source ──
+//
+// La protection n'existait que cote client, sous forme de constantes qui
+// supposent chacune etre seule : le lecteur s'autorise trois pages en
+// parallele, la file de telechargement une de plus, un second onglet
+// recommence le compte a zero. Le hub est le point par lequel tout passe —
+// la seule place ou une borne veut dire quelque chose.
+//
+// Quatre plutot que trois : un lecteur seul (trois pages en vol) ne doit
+// jamais attendre a cause de cette borne. Elle ne sert qu'a empecher le
+// cumul — plusieurs onglets, ou une file de telechargement qui tourne pendant
+// qu'on lit.
+//
+// Le cache ne passe PAS par ici : une page deja lue ne touche pas la source,
+// et la faire attendre un jeton serait punir le cas rapide.
+const { creerJetons } = require('../lib/jetons');
+const AMONT = creerJetons(process.env.IMG_UPSTREAM_MAX || 4);
+
 const DISQUE_MAX_MO = parseInt(process.env.IMG_DISK_CACHE_MB || '512', 10);
 const DISQUE_ACTIF  = DISQUE_MAX_MO > 0 && process.env.IMG_DISK_CACHE !== '0';
 
@@ -277,15 +295,22 @@ function fetchImage(url, pinnedIp) {
         '-H', 'Accept: image/avif,image/webp,image/*,*/*;q=0.8'];
     if (pinnedIp && host && port) args.push('--resolve', `${host}:${port}:${pinnedIp}`);
     args.push(url);
-    const p = new Promise((resolve, reject) => {
-        // 10 Mo suffisent largement pour une couverture/page (audit S6 : 25 Mo
-        // × 500 entrées = pire cas mémoire intenable sur NAS/Raspberry Pi).
-        execFile('curl', args, { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
-            if (err) return reject(err);
-            if (!stdout || stdout.length < 64) return reject(new Error('image vide'));
-            resolve({ buf: stdout, type: contentTypeFor(url), expires: Date.now() + TTL });
+    // Le jeton est pris AVANT de lancer curl, et rendu quoi qu'il arrive.
+    // `inflight` dedoublonne deja les URL identiques en amont : ce qui attend
+    // ici, ce sont des images reellement differentes.
+    let rendreJeton = null;
+    const p = AMONT.prendre().then((rendre) => {
+        rendreJeton = rendre;
+        return new Promise((resolve, reject) => {
+            // 10 Mo suffisent largement pour une couverture/page (audit S6 : 25 Mo
+            // × 500 entrées = pire cas mémoire intenable sur NAS/Raspberry Pi).
+            execFile('curl', args, { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
+                if (err) return reject(err);
+                if (!stdout || stdout.length < 64) return reject(new Error('image vide'));
+                resolve({ buf: stdout, type: contentTypeFor(url), expires: Date.now() + TTL });
+            });
         });
-    }).finally(() => inflight.delete(url));
+    }).finally(() => { if (rendreJeton) rendreJeton(); inflight.delete(url); });
     inflight.set(url, p);
     return p;
 }
