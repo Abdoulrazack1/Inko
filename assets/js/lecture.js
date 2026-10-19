@@ -422,7 +422,10 @@
         return {
             mangaId: manga.id, source: API.sources.current,
             mangaTitle: manga.title, cover: manga.cover || manga.coverThumb,
-            chapterId: currentChap.id, chapterNum: currentChap.chapter, page: null,
+            // `page: null` renvoyait chaque note en haut du chapitre. Ici la
+            // « page » est le pourcentage de défilement, comme pour la
+            // progression et pour « citer un passage » juste en dessous.
+            chapterId: currentChap.id, chapterNum: currentChap.chapter, page: scrollPct(),
         };
     }
     function openNotes() { window.NotesUI?.open(notesContext()); }

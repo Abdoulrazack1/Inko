@@ -373,6 +373,22 @@
         return o.short ? 'Chap.' : (o.plural ? 'Chapitres' : 'Chapitre');
     };
 
+    /**
+     * Où une note a été prise, dit dans l'unité de son lecteur.
+     *
+     * Le champ `page` d'une note ne veut pas dire la même chose des deux
+     * côtés : un NUMÉRO de planche pour le lecteur d'images, un POURCENTAGE
+     * de défilement pour celui de romans — c'est déjà ce que la progression
+     * et `?page=` y transportent. Trois endroits l'écrivaient « page 53 »
+     * sans distinction : sur un roman, ça désigne une page qui n'existe pas.
+     */
+    window.MH.notePosLabel = function (source, page, opts) {
+        if (page == null || page === '') return '';
+        const o = opts || {};
+        if (window.MH.isNovelSource(source)) return `${Math.round(Number(page))} %`;
+        return (o.short ? 'p.' : 'page') + ' ' + page;
+    };
+
     // ── Sources désactivées (audit §7.2/§9) ──────────────────
     // Préférence locale (comme la source « courante ») : une source désactivée
     // est exclue des résultats de recherche multi-sources et ne peut pas être

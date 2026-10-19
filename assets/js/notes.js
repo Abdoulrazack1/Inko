@@ -141,7 +141,8 @@
             notes.slice().sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).forEach(n => {
                 const d = new Date(n.createdAt).toLocaleDateString('fr-FR');
                 const contexte = [n.chapterNum != null ? `Ch. ${n.chapterNum}` : null,
-                    n.page ? `p. ${n.page}` : null].filter(Boolean).join(' · ');
+                    MH.notePosLabel?.(n.source, n.page, { short: true }) || null]
+                    .filter(Boolean).join(' · ');
                 lignes.push(`### ${d}${contexte ? ' — ' + contexte : ''}`);
                 if (n.mood) lignes.push(`*Humeur : ${MOOD_LABEL[n.mood] || n.mood}*`, '');
                 // `>` : le corps est cité, ce qui le distingue des en-têtes
@@ -399,9 +400,12 @@
 
     function renderNote(n) {
         const unit = MH.unitLabel ? MH.unitLabel(n.source, { short: true }) : 'Chap.';
-        const loc = [n.chapterNum != null ? `${unit} ${n.chapterNum}` : null, n.page != null ? `page ${n.page}` : null].filter(Boolean).join(' · ');
+        const pos = MH.notePosLabel ? MH.notePosLabel(n.source, n.page) : '';
+        const loc = [n.chapterNum != null ? `${unit} ${n.chapterNum}` : null, pos || null].filter(Boolean).join(' · ');
+        // La note porte sa page depuis toujours ; le lien l'oubliait, et
+        // rouvrait le chapitre au début.
         const read = (n.chapterId)
-            ? (MH.readerHref ? MH.readerHref(n.mangaId, n.chapterId, n.source) : '#')
+            ? (MH.readerHref ? MH.readerHref(n.mangaId, n.chapterId, n.source, n.page) : '#')
             : `serie.html?id=${encodeURIComponent(n.mangaId)}&source=${encodeURIComponent(n.source || '')}`;
         const when = MH.fullDate ? MH.fullDate(n.createdAt) : new Date(n.createdAt).toLocaleString('fr-FR');
         return `
