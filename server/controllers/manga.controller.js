@@ -12,7 +12,19 @@ const { planifier, prioDe } = require('../lib/ordonnanceur');
 
 // Tout appel à une source passe par l'ordonnanceur (voir lib/ordonnanceur.js) :
 // le lecteur n'attend plus derrière une rafale de recherches de fond.
-const viaFile = (src, prio, fn) => planifier(src.id, prio, fn);
+// Toute reponse d'extension passe par ici, et par ici SEULEMENT : c'est donc
+// le seul endroit ou la verifier. Une forme inconnue laisse passer, pour que
+// ce garde-fou ne devienne jamais un obstacle a l'ajout d'une capacite.
+const { valider } = require('../lib/formes-extensions');
+const couverture = require('../lib/couverture-champs');
+const viaFile = (src, prio, fn, forme) =>
+    planifier(src.id, prio, fn).then((r) => {
+        const valide = valider(forme, src.id, r);
+        // Echantillonne APRES validation : on ne tire aucune statistique
+        // d'une reponse dont on vient de dire qu'elle est mal formee.
+        couverture.noter(src.id, forme, valide);
+        return valide;
+    });
 
 // ── Cache de relais (audit AMEL-64 / PERF-03) ────────────────
 // getOne() et getChapters() étaient de purs relais : chaque appel déclenchait
@@ -138,7 +150,7 @@ async function popular(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'popular')) return notSupported(res, src, 'popular');
-        res.json(noterSiVide(src.id, await health.track(src.id, () => viaFile(src, prioDe(req), () => src.popular(req.query)), 'populaires')));
+        res.json(noterSiVide(src.id, await health.track(src.id, () => viaFile(src, prioDe(req), () => src.popular(req.query), 'liste'), 'populaires')));
     } catch (e) { next(e); }
 }
 
@@ -146,7 +158,7 @@ async function latest(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'latest')) return notSupported(res, src, 'latest');
-        res.json(noterSiVide(src.id, await health.track(src.id, () => viaFile(src, prioDe(req), () => src.latest(req.query)), 'nouveautes')));
+        res.json(noterSiVide(src.id, await health.track(src.id, () => viaFile(src, prioDe(req), () => src.latest(req.query), 'liste'), 'nouveautes')));
     } catch (e) { next(e); }
 }
 
@@ -187,7 +199,7 @@ async function search(req, res, next) {
         const offset = bornerOffset(offsetBrut);
         const k = `s:${src.id}:${JSON.stringify({ q, limit, offset, rest })}`;
         const r = await cached(searchCache, k,
-            () => health.track(src.id, () => viaFile(src, prioDe(req), () => src.search({ q, limit, offset, filters: rest })), 'recherche'),
+            () => health.track(src.id, () => viaFile(src, prioDe(req), () => src.search({ q, limit, offset, filters: rest }), 'liste'), 'recherche'),
             SEARCH_TTL);
         res.json(appliquerExclusions(r, exclus));
     } catch (e) { next(e); }
@@ -209,7 +221,7 @@ async function searchAll(req, res, next) {
                 const prio = prioDe(req);
                 const r = await Promise.race([
                     cached(searchCache, `s:${s.id}:${JSON.stringify({ q: q.trim(), limit: String(limit) })}`,
-                        () => viaFile(s, prio, () => s.search({ q: q.trim(), limit: +limit })), SEARCH_TTL),
+                        () => viaFile(s, prio, () => s.search({ q: q.trim(), limit: +limit }), 'liste'), SEARCH_TTL),
                     new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('délai dépassé')), 15000); }),
                 ]);
                 health.recordOk(s.id);
@@ -230,7 +242,7 @@ async function getOne(req, res, next) {
         const src = resolveSource(req);
         if (!supports(src, 'manga')) return notSupported(res, src, 'manga');
         const out = await cached(metaCache, `m:${src.id}:${req.params.id}`,
-            () => health.track(src.id, () => viaFile(src, prioDe(req, 'haute'), () => src.getManga(req.params.id)), 'fiche'),
+            () => health.track(src.id, () => viaFile(src, prioDe(req, 'haute'), () => src.getManga(req.params.id), 'fiche'), 'fiche'),
             ttlDe(src, META_TTL));
         res.json(out);
     } catch (e) { next(e); }
@@ -250,7 +262,7 @@ async function chapters(req, res, next) {
         if (limit !== undefined) demande.limit = limit;
         const k = `c:${src.id}:${req.params.id}:${req.query.lang || ''}:${limit ?? ''}:${offset}`;
         const out = await cached(chapCache, k,
-            () => health.track(src.id, () => viaFile(src, prioDe(req, 'haute'), () => src.getChapters(req.params.id, demande)), 'chapitres'),
+            () => health.track(src.id, () => viaFile(src, prioDe(req, 'haute'), () => src.getChapters(req.params.id, demande), 'chapitres'), 'chapitres'),
             ttlDe(src, CHAP_TTL));
         res.json(out);
     } catch (e) { next(e); }
@@ -260,7 +272,7 @@ async function pages(req, res, next) {
     try {
         const src = resolveSource(req);
         if (!supports(src, 'pages')) return notSupported(res, src, 'pages');
-        res.json(await health.track(src.id, () => viaFile(src, 'haute', () => src.getPages(req.params.id)), 'pages'));
+        res.json(await health.track(src.id, () => viaFile(src, 'haute', () => src.getPages(req.params.id), 'pages'), 'pages'));
     } catch (e) { next(e); }
 }
 
@@ -270,7 +282,7 @@ async function text(req, res, next) {
         const src = resolveSource(req);
         if (!supports(src, 'text') || typeof src.getText !== 'function')
             return notSupported(res, src, 'text');
-        res.json(await health.track(src.id, () => viaFile(src, 'haute', () => src.getText(req.params.id)), 'texte'));
+        res.json(await health.track(src.id, () => viaFile(src, 'haute', () => src.getText(req.params.id), 'texte'), 'texte'));
     } catch (e) { next(e); }
 }
 
