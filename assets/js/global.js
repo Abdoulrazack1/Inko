@@ -389,6 +389,48 @@
         return (o.short ? 'p.' : 'page') + ' ' + page;
     };
 
+
+    /**
+     * Distance de Damerau-Levenshtein, bornee.
+     *
+     * Bornee parce qu'on ne s'en sert que pour « c'est a une faute pres » :
+     * calculer la distance exacte entre « blulok » et un titre de quarante
+     * caracteres ne sert a rien, et 496 series x plusieurs mots chacune, a
+     * chaque frappe, se paie. Des qu'une ligne du tableau depasse le plafond,
+     * on sort : la distance reelle ne peut plus redescendre.
+     *
+     * Damerau et non Levenshtein simple : la faute la plus courante au clavier
+     * est l'inversion de deux lettres (« bleu » pour « blue »), et Levenshtein
+     * la compte pour deux.
+     */
+    window.MH.distanceMots = function (a, b, max) {
+        a = String(a || ''); b = String(b || '');
+        const plafond = Number.isFinite(max) ? max : Math.max(a.length, b.length);
+        if (Math.abs(a.length - b.length) > plafond) return plafond + 1;
+        if (!a.length) return b.length;
+        if (!b.length) return a.length;
+        let avantPrec = null;
+        let prec = new Array(b.length + 1);
+        for (let j = 0; j <= b.length; j++) prec[j] = j;
+        for (let i = 1; i <= a.length; i++) {
+            const cour = new Array(b.length + 1);
+            cour[0] = i;
+            let mini = i;
+            for (let j = 1; j <= b.length; j++) {
+                const cout = a[i - 1] === b[j - 1] ? 0 : 1;
+                let v = Math.min(cour[j - 1] + 1, prec[j] + 1, prec[j - 1] + cout);
+                if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+                    v = Math.min(v, avantPrec[j - 2] + 1);   // transposition
+                }
+                cour[j] = v;
+                if (v < mini) mini = v;
+            }
+            if (mini > plafond) return plafond + 1;
+            avantPrec = prec; prec = cour;
+        }
+        return prec[b.length];
+    };
+
     // ── Sources désactivées (audit §7.2/§9) ──────────────────
     // Préférence locale (comme la source « courante ») : une source désactivée
     // est exclue des résultats de recherche multi-sources et ne peut pas être

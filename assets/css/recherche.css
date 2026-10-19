@@ -23,6 +23,16 @@
 .se-card:hover .se-cover img { transform: scale(1.06); }
 .se-title { font-size: 12.5px; font-weight: 500; margin-top: 7px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .se-empty { color: var(--text3); font-size: 13px; padding: 6px 0; }
+/* « Voulais-tu dire … ? ». Le titre propose est un BOUTON : c'est une
+   action (relancer la recherche), pas un lien vers une page. */
+.se-corr { font-size: 13.5px; color: var(--text2); padding: 2px 0 8px; }
+.se-corr-btn {
+  background: none; border: none; padding: 0; font: inherit; cursor: pointer;
+  color: var(--accent-text); font-weight: 600; text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.se-corr-btn:hover { text-decoration-thickness: 2px; }
+.se-corr-btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; border-radius: 3px; }
 .se-err { color: #ef4444; font-size: 12.5px; }
 .se-loading { text-align: center; padding: 60px; color: var(--text3); }
 .se-hist { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:22px; }
