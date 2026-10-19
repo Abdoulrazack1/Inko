@@ -126,7 +126,9 @@
 
     function noteCard(n) {
         const unit = window.MH?.unitLabel ? MH.unitLabel(n.source, { short: true }) : 'Chap.';
-        const loc = [n.chapterNum != null ? `${unit} ${n.chapterNum}` : null, n.page != null ? `p.${n.page}` : null].filter(Boolean).join(' · ');
+        const loc = [n.chapterNum != null ? `${unit} ${n.chapterNum}` : null,
+            window.MH?.notePosLabel?.(n.source, n.page, { short: true }) || null]
+            .filter(Boolean).join(' · ');
         const when = window.MH?.relTime ? MH.relTime(n.createdAt) : '';
         return `
         <article class="note-item" data-id="${n.id}">
