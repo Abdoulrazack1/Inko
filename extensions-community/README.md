@@ -51,6 +51,16 @@ Voir [`../server/lib/source-interface.js`](../server/lib/source-interface.js)
 pour le contrat complet, et [`../server/extensions/README.md`](../server/extensions/README.md)
 pour un modèle.
 
+**Les formes de réponse attendues sont données en exemples exécutables** dans
+[`../server/extensions/exemples.js`](../server/extensions/exemples.js) : copie
+celui de la capacité que tu implémentes, c'est exactement ce que le hub
+attend. Le fichier porte aussi des contre-exemples — ce qui sera refusé, et
+pourquoi.
+
+Ces exemples ne sont pas de la prose : la suite de tests les fait passer par
+le validateur réel (`server/lib/formes-extensions.js`). Si le contrat change,
+ils échouent. La documentation ne peut donc pas dériver du code.
+
 ## Dépendances optionnelles
 
 Certaines extensions (ex : sushiscan) ont besoin de modules npm

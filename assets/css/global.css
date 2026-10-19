@@ -568,6 +568,11 @@ body.incognito-on::before {
   background: var(--orange); display: flex; align-items: center;
   justify-content: center; font-size: 11px; font-weight: 700;
   flex-shrink: 0; overflow: hidden;
+  /* Aucune couleur de texte n'etait posee : l'initiale heritait de l'encre de
+     la page. Sur le remplissage accent, cela donne 3,7:1 — sous le seuil AA,
+     et dans les DEUX themes, puisque le fond ne change pas. Le blanc y donne
+     4,65:1. Mesure sur l'avatar reel, pas deduite. */
+  color: #fff;
 }
 .header-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .user-label { line-height: 1; }
@@ -1114,7 +1119,13 @@ a[data-nsfw] .manga-card-cover::after,
     color: var(--text3); font-size: 10px; font-weight: 600;
     transition: color var(--transition);
   }
-  .mnav-item.active { color: var(--orange); }
+  /* Meme defaut, et meme correctif que `.tag.active` plus haut : l'accent est
+     une couleur de REMPLISSAGE (elle porte du texte blanc), pas une couleur de
+     texte sur fond de page. En libelle de 10 px il donne 3,79:1 en clair et
+     3,96:1 en sombre — sous AA des deux cotes. Le raisonnement etait deja
+     ecrit pour les etiquettes ; la barre de navigation mobile avait ete
+     oubliee. */
+  .mnav-item.active { color: color-mix(in srgb, var(--accent) 62%, var(--text)); }
   .mnav-icon { position: relative; display: flex; }
   .mnav-icon svg { width: 21px; height: 21px; }
   .mnav-icon .nav-badge { top: -5px; right: -10px; }

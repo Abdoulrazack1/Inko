@@ -958,6 +958,11 @@
         list.sort((a, b) => pinned(a) - pinned(b));
 
         if (!list.length) {
+            // La branche vide sortait AVANT l'annonce : le cas qui merite le
+            // plus d'etre dit — « il n'y a plus rien » — etait le seul a ne
+            // rien dire. Vu en cherchant « zzzqqq » : la grille se vidait et
+            // la region live gardait « 496 series ».
+            annoncerResultats(0, q);
             // Une bibliothèque vide et un filtre trop étroit ne se soignent
             // pas pareil : le premier s'emplit depuis le catalogue, le second
             // en relâchant le filtre. Les confondre laisse sans issue.
@@ -988,6 +993,7 @@
         renderList = list;
         renderBmSet = bmSet;
         renderedCount = 0;
+        annoncerResultats(list.length, q);
         // Le rendu repart de zéro : l'observateur pointe sur une sentinelle qui
         // va disparaître, et des tranches du rendu précédent peuvent encore être
         // en attente dans la file d'inactivité. Le jeton les neutralise, sans
@@ -996,6 +1002,35 @@
         const token = ++renderToken;
         grid.innerHTML = '';
         appendChunk(token);
+    }
+
+    // ── Dire combien il reste (audit : annoncer les changements de liste) ──
+    //
+    // Filtrer ne disait RIEN a un lecteur d'ecran : la grille se vidait ou se
+    // remplissait en silence, et le seul retour — « 37 series » quelque part
+    // dans l'en-tete — n'est pas annonce puisque rien ne signale qu'il a
+    // change. Le catalogue et la recherche le font deja ; la bibliotheque,
+    // qui est la plus grande liste de l'application, ne le faisait pas.
+    //
+    // Deux precautions, et chacune evite un defaut precis :
+    //
+    //   · on ne repete pas une annonce identique. `render()` est appele a
+    //     tout bout de champ — chaque epingle, chaque retrait, chaque tranche
+    //     de rendu — et reannoncer « 495 series » sans cesse rendrait la page
+    //     inutilisable a la voix ;
+    //   · on attend une demi-seconde. La recherche filtre a chaque touche :
+    //     annoncer lettre par lettre noierait le resultat sous le bruit de la
+    //     frappe. On annonce ce qu'on a trouve, une fois la frappe posee.
+    let derniereAnnonce = '';
+    let annonceTimer = null;
+    function annoncerResultats(n, q) {
+        const texte = n === 0
+            ? (q ? `Aucune série pour « ${q} »` : 'Aucune série')
+            : `${n} série${n > 1 ? 's' : ''}` + (q ? ` pour « ${q} »` : '');
+        if (texte === derniereAnnonce) return;
+        derniereAnnonce = texte;
+        clearTimeout(annonceTimer);
+        annonceTimer = setTimeout(() => window.MH?.announce?.(texte), 500);
     }
 
     // ── Rendu progressif (audit PERF-05) ─────────────────────

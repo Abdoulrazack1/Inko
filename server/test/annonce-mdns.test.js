@@ -63,7 +63,15 @@ test('l’annonce est retirée à l’arrêt', () => {
     // éteint.
     assert.match(SRC, /unpublishAll/);
     const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-    assert.match(app, /process\.on\('SIGINT'/);
+    // Ce test epinglait l'ECRITURE `process.on('SIGINT'`. Les signaux sont
+    // desormais enregistres par une boucle, pour couvrir SIGBREAK et SIGHUP
+    // que Windows envoie a la fermeture d'une console — et le test tombait
+    // sur la tournure, pas sur le comportement. On verifie donc que SIGINT
+    // est bien parmi les signaux ecoutes, quelle que soit la facon de
+    // l'enregistrer.
+    const signaux = /\[([^\]]*)\]\.forEach\(\(sig\) => \{/.exec(app);
+    assert.ok(signaux, 'la liste des signaux d’arrêt doit rester repérable');
+    assert.match(signaux[1], /'SIGINT'/, 'SIGINT doit déclencher la fermeture');
     assert.match(app, /annonce-mdns'\)\.arreter\(\)/);
 });
 

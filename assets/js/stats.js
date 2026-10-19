@@ -218,9 +218,33 @@
     async function chargerRepartition() {
         const hote = document.getElementById('stDistrib');
         if (!hote) return;
+        // ── Trois sorties, et elles ne se ressemblent pas ──
+        //
+        // Ce bloc sortait en silence dans les deux cas : requete echouee et
+        // absence de donnees laissaient la meme zone vide. On ne pouvait donc
+        // pas savoir si la page etait cassee ou si on n'avait rien lu — c'est
+        // la confusion que l'audit SRC-02 avait deja relevee pour la
+        // recherche, ou « aucun resultat » et « la source est tombee » se
+        // ressemblaient trait pour trait.
         let d;
-        try { d = await API.me.distribution(12); } catch (e) { return; }
-        if (!d || !d.total) return;   // rien lu sur la fenêtre : un graphique vide n'apprend rien
+        try {
+            d = await API.me.distribution(12);
+        } catch (e) {
+            // Une erreur dit quoi faire : relancer, ici, suffit souvent.
+            window.MH?.poserEtatErreur?.(hote, e, { onRetry: chargerRepartition });
+            return;
+        }
+        if (!d || !d.total) {
+            // Et une absence de donnees dit POURQUOI elle est vide, plutot
+            // que de laisser croire a une panne.
+            window.MH?.poserEtatVide?.(hote, {
+                icone: '📊',
+                titre: 'Rien de lu sur les douze derniers mois',
+                texte: 'La répartition par source apparaîtra dès le premier chapitre lu.',
+                actions: [{ libelle: 'Ouvrir ma bibliothèque', href: 'bibliotheque.html' }],
+            });
+            return;
+        }
 
         const sources = Object.keys(d.bySource)
             .sort((a, b) => somme(d.bySource[b]) - somme(d.bySource[a]));
