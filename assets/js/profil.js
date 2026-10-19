@@ -14,8 +14,16 @@
         }
 
         initTabs();
-        // Lance tout en parallèle, chaque section gère ses propres erreurs
-        await Promise.all([
+        // Les filtres de l'historique ne dépendent que du balisage : ils
+        // étaient câblés APRÈS l'attente ci-dessous, donc une seule des treize
+        // sections qui traînait suffisait à les laisser morts. Observé en vrai :
+        // un 504 sur un panneau, la frise affichée, et les quatre pastilles
+        // inertes. Câblés d'abord.
+        initHistoryFilters();
+        // Lance tout en parallèle, chaque section gère ses propres erreurs.
+        // `allSettled` et non `all` : une section qui rejette ne doit pas
+        // emporter le câblage qui suit.
+        await Promise.allSettled([
             renderHeroAndStats(),
             renderFavs(),
             renderHistoryMini(),
@@ -32,7 +40,6 @@
         ]);
         initToggles();
         initPrefBtns();
-        initHistoryFilters();
         bindDangerActions();
         wireExtraButtons();
     });
@@ -706,6 +713,10 @@
     let histType    = 'tous';   // 'tous' | 'manga' | 'novel'
     let histGenre   = '';
     let histMoment  = '';       // '' | 'matin' | 'apresmidi' | 'soir' | 'nuit'
+    let histSource  = '';       // identifiant de source, '' = toutes
+    // Les lectures de la periode courante, gardees pour construire la liste
+    // des sources : on ne propose que celles qui ont quelque chose a montrer.
+    let _histLues = [];
 
     const MOMENTS = [
         ['matin', 'Matin (5 h – 12 h)', (h) => h >= 5 && h < 12],
@@ -764,6 +775,20 @@
         menu.querySelector('.histo-menu-item')?.focus();
     }
 
+    /** Les sources réellement présentes dans l'historique, avec leur compte.
+     *  Une source sans lecture sur la période n'est pas proposée : un filtre
+     *  qui ne peut que vider la liste n'apprend rien. */
+    function sourcesDisponibles() {
+        const compte = new Map();
+        for (const e of _histLues) {
+            const s = sourceDe(e.mangaId, e.source);
+            if (s) compte.set(s, (compte.get(s) || 0) + 1);
+        }
+        return [...compte.entries()]
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr'))
+            .map(([id, n]) => [id, `${MH.sourceName?.(id) || id} · ${n}`]);
+    }
+
     /** Les genres réellement présents dans l'historique, et eux seuls. */
     function genresDisponibles() {
         const compte = new Map();
@@ -783,12 +808,14 @@
             histType === 'tous' ? 'Type de contenu' : (histType === 'novel' ? 'Romans' : 'Mangas'),
             histGenre ? `Genre : ${histGenre}` : 'Genres',
             histMoment ? (MOMENTS.find(([v]) => v === histMoment) || [, 'Moment'])[1] : 'Moment de lecture',
+            histSource ? `Source : ${MH.sourceName?.(histSource) || histSource}` : 'Source',
         ];
         pills.forEach((p, i) => {
             if (libelles[i] === undefined) return;
             p.textContent = libelles[i];
             const actif = (i === 0 && histType !== 'tous')
-                || (i === 1 && !!histGenre) || (i === 2 && !!histMoment);
+                || (i === 1 && !!histGenre) || (i === 2 && !!histMoment)
+                || (i === 3 && !!histSource);
             p.classList.toggle('on', actif);
             p.setAttribute('aria-pressed', String(actif));
         });
@@ -817,6 +844,7 @@
             // nombre d'œuvres à charger pour les trois suivants.
             const depuis = Date.now() - histPeriode * 86400000;
             let candidats = readEvents.filter(e => new Date(e.at).getTime() >= depuis);
+            _histLues = candidats;
             if (histMoment) candidats = candidats.filter(e => momentDe(new Date(e.at)) === histMoment);
 
             // Le titre, les tags et le type exigent l'œuvre. `loadMangas` passe
@@ -833,6 +861,11 @@
             if (histGenre) {
                 candidats = candidats.filter(e =>
                     (cacheMangas.get(e.mangaId)?.tags || []).includes(histGenre));
+            }
+            // La source ne se lit pas sur l'événement seul : `sourceDe` la
+            // cherche dans la progression, les favoris, puis l'œuvre.
+            if (histSource) {
+                candidats = candidats.filter(e => sourceDe(e.mangaId, e.source) === histSource);
             }
             if (histTexte) {
                 const q = plierHisto(histTexte);
@@ -853,7 +886,8 @@
                         style="background:none;border:none;padding:0;font:inherit;cursor:pointer;text-decoration:underline">Tout afficher</button>
                 </div>`;
                 document.getElementById('histReset')?.addEventListener('click', () => {
-                    histPeriode = 365; histTexte = ''; histType = 'tous'; histGenre = ''; histMoment = '';
+                    histPeriode = 365; histTexte = ''; histType = 'tous';
+                    histGenre = ''; histMoment = ''; histSource = '';
                     const champ = document.querySelector('.history-search-bar input');
                     if (champ) champ.value = '';
                     document.querySelectorAll('.hqf-btn').forEach((b, i) => b.classList.toggle('active', i === 2));
@@ -1331,6 +1365,12 @@
             },
             () => menuPastille(pills[2], [['', 'À toute heure'], ...MOMENTS.map(([v, l]) => [v, l])],
                 histMoment, (v) => { histMoment = v; histShown = 30; renderHistoryTimeline(); }),
+            () => {
+                const s = sourcesDisponibles();
+                if (!s.length) { MH.toast?.('Aucune source connue sur cette période'); return; }
+                menuPastille(pills[3], [['', 'Toutes les sources'], ...s], histSource,
+                    (v) => { histSource = v; histShown = 30; renderHistoryTimeline(); });
+            },
         ];
         pills.forEach((p, i) => {
             if (p.dataset.wired || !ouvreurs[i]) return;
