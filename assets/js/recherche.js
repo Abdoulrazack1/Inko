@@ -265,6 +265,53 @@
                 </a>`).join('')}</div>`;
     }
 
+    // ── « Voulais-tu dire … ? » (corrections) ───────────
+    //
+    // Une recherche sans résultat ne disait que « essaie un autre titre ».
+    // Or la faute de frappe est le cas le plus courant, et on a de quoi la
+    // rattraper SANS réseau : la bibliothèque est en cache local.
+    //
+    // La correction ne vient donc QUE de ce qu'on possède déjà. Proposer un
+    // titre qu'on n'a pas serait deviner à la place de la source, et une
+    // suggestion fausse coûte plus qu'une absence de suggestion.
+    const SEUIL_FAUTE = (n) => (n <= 3 ? 0 : n <= 6 ? 1 : 2);
+
+    function titresConnus() {
+        try { return (window.Storage?.getCachedLibrary?.()?.favs) || []; }
+        catch (e) { return []; }
+    }
+
+    /** Le titre connu le plus proche de `q`, ou null si rien n'est assez proche. */
+    function corrigerRequete(q) {
+        const qn = normMots(q);
+        if (qn.length < 4 || !window.MH?.distanceMots) return null;
+        let meilleur = null;
+        for (const f of titresConnus()) {
+            const titre = f.title || '';
+            const tn = normMots(titre);
+            // `continue` et non `return` : cinq favoris de cette
+            // bibliothèque ont un titre vide, et sortir sur le premier
+            // d'entre eux annulait tout le balayage — la correction ne
+            // s'affichait jamais, sans erreur nulle part.
+            if (!tn) continue;
+            if (tn === qn) return null;                   // déjà exact : rien à corriger
+            for (const cand of [tn, ...tn.split(' ')]) {
+                const seuil = SEUIL_FAUTE(Math.min(qn.length, cand.length));
+                if (!seuil) continue;
+                const d = MH.distanceMots(qn, cand, seuil);
+                if (d <= seuil && (!meilleur || d < meilleur.d)) meilleur = { d, titre };
+            }
+        }
+        return meilleur ? meilleur.titre : null;
+    }
+
+    // Minuscules, sans accents, ponctuation ramenée à des espaces : la forme
+    // sur laquelle on compare des MOTS (normTitle, lui, colle tout).
+    function normMots(t) {
+        return (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+
     // Normalise un titre pour le rapprochement (minuscules, sans accents ni ponctuation).
     function normTitle(t) {
         return (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
@@ -424,8 +471,18 @@
         sub.textContent = `${works.length} œuvre(s) pour « ${q} »${opts.enCours ? ' (recherche en cours)' : ''}.`;
         if (!opts.enCours) MH.announce?.(`${works.length} résultat(s) pour ${q}`);   // audit A11Y-06
         if (!works.length) {
+            // Une correction n'a de sens qu'une fois la recherche finie : la
+            // proposer pendant qu'une source répond encore ferait renoncer
+            // pour rien.
+            const correction = opts.enCours ? null : corrigerRequete(q);
+            const filtres = typeFilter !== 'all' || statutFiltre !== 'all';
+            const htmlCorr = correction
+                ? `<div class="se-corr">Voulais-tu dire
+                       <button type="button" class="se-corr-btn" data-corr="${MH.esc(correction)}">${MH.esc(correction)}</button> ?
+                   </div>`
+                : '';
             out.innerHTML = chips + bandeauEchec + bandeauEnCours
-                + (opts.enCours ? '' : `<div class="se-empty">Aucun résultat ${typeFilter !== 'all' || statutFiltre !== 'all' ? 'avec ces filtres' : '. Essaie un autre titre ou vérifie tes sources'}.</div>`);
+                + (opts.enCours ? '' : `<div class="se-empty">Aucun résultat ${filtres ? 'avec ces filtres' : '. Essaie un autre titre ou vérifie tes sources'}.</div>${htmlCorr}`);
         } else {
             out.innerHTML = chips + bandeauEchec
                 + `<div class="se-grid">${works.map(renderWorkCard).join('')}</div>` + bandeauEnCours;
@@ -455,6 +512,13 @@
                 renderResults(q, opts);
             }
         }));
+
+        out.querySelector('.se-corr-btn')?.addEventListener('click', (e) => {
+            const t = e.currentTarget.dataset.corr;
+            const champ = document.getElementById('seInput');
+            if (champ) champ.value = t;
+            run(t);
+        });
 
         out.querySelectorAll('.se-chip[data-type]').forEach(b => b.addEventListener('click', () => {
             typeFilter = b.dataset.type; renderResults(q, opts);
