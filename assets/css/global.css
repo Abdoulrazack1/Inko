@@ -32,6 +32,36 @@
   --bg2:         #e7e4da;
   --bg3:         #ddd9cd;
   --bg4:         #d1ccbe;
+
+  /* Couleurs des graphiques (repartition par source, barre par statut,
+     barres de genre). Elles etaient ecrites en dur dans stats.js et
+     profil.js — huit teintes Tailwind, identiques dans les quatre themes.
+     Mesure du plus faible aplat contre le fond de carte :
+
+         clair      1,69     contraste  1,92     sombre  4,52
+
+     La WCAG 1.4.11 demande 3:1 pour un objet graphique porteur de sens.
+     L'edition sombre passait, les deux editions claires non — un jaune a
+     1,69 sur du washi est un aplat qu'on devine.
+
+     Les valeurs sombres sont celles d'avant, verifiees et inchangees : il
+     n'y avait rien a y corriger. Les editions claires gardent la TEINTE de
+     chaque serie (un vert reste vert) et n'en changent que la clarte,
+     jusqu'a 3,9:1 en clair et 7,5:1 en contraste renforce — le meme
+     traitement que --green/--red y recoivent deja.
+
+     Le compte reste huit parce que le graphe par source en affiche autant.
+     Huit aplats ne se distinguent pas les uns des autres par la seule
+     clarte, et ce jeu ne pretend pas le faire : la legende et l'infobulle
+     nomment chaque serie. */
+  --graph-1:     #bf4b00;
+  --graph-2:     #0f66f4;
+  --graph-3:     #16813d;
+  --graph-4:     #9937f6;
+  --graph-5:     #9b6406;
+  --graph-6:     #df1313;
+  --graph-7:     #0e7e71;
+  --graph-8:     #d61675;
   --border:      rgba(28,27,25,0.13);
   --border2:     rgba(28,27,25,0.22);
   --text:        #1c1b19;   /* Encre sur Washi */
@@ -139,6 +169,15 @@ html[data-theme="dark"] {
   --bg2:         #17171b;
   --bg3:         #1e1e23;
   --bg4:         #26262c;
+  /* Graphiques — valeurs d'origine, le plus faible a 4,52 sur --bg2. */
+  --graph-1:     #ff8c42;
+  --graph-2:     #3b82f6;
+  --graph-3:     #22c55e;
+  --graph-4:     #a855f7;
+  --graph-5:     #f59e0b;
+  --graph-6:     #ef4444;
+  --graph-7:     #14b8a6;
+  --graph-8:     #ec4899;
   --border:      rgba(233,231,224,0.09);
   --border2:     rgba(233,231,224,0.17);
   --text:        #e9e7e0;   /* Encre sur Sumi */
@@ -165,6 +204,15 @@ html[data-theme="amoled"] {
   --bg2:     #070708;
   --bg3:     #0e0e11;
   --bg4:     #17171b;
+  /* Graphiques — memes teintes qu'en sombre, le plus faible a 5,09. */
+  --graph-1: #ff8c42;
+  --graph-2: #3b82f6;
+  --graph-3: #22c55e;
+  --graph-4: #a855f7;
+  --graph-5: #f59e0b;
+  --graph-6: #ef4444;
+  --graph-7: #14b8a6;
+  --graph-8: #ec4899;
   --border:  rgba(233,231,224,0.07);
   --border2: rgba(233,231,224,0.13);
   --text:    #e9e7e0;
@@ -198,6 +246,15 @@ html[data-theme="contrast"] {
   --bg2:         #f2f2f2;
   --bg3:         #e4e4e4;
   --bg4:         #d2d2d2;
+  /* Graphiques — assombris a 7,5:1, comme les couleurs fonctionnelles. */
+  --graph-1:     #863400;
+  --graph-2:     #0846ad;
+  --graph-3:     #0f5a2b;
+  --graph-4:     #6b09c8;
+  --graph-5:     #6c4504;
+  --graph-6:     #9d0d0d;
+  --graph-7:     #0a574f;
+  --graph-8:     #971052;
   --border:      rgba(0,0,0,0.45);
   --border2:     rgba(0,0,0,0.65);
   --text:        #000000;   /* 21:1 sur --bg */

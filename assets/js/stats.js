@@ -90,7 +90,7 @@
                                 style="background:none;border:none;padding:0;color:var(--orange);font:inherit;cursor:pointer;text-decoration:underline">Viser ${suggestion.propose}/semaine</button>`}
                     </div>` : ''}
                     <div style="height:9px;border-radius:6px;background:var(--bg4);overflow:hidden;margin-top:10px">
-                        <div id="goalFill" style="height:100%;width:${pct}%;background:linear-gradient(90deg,#ff8c42,var(--orange));transition:width .3s"></div>
+                        <div id="goalFill" style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--graph-1),var(--orange));transition:width .3s"></div>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
@@ -107,7 +107,7 @@
                         ? `${readThisYear} / ${yGoal} chapitre(s) cette année · ${yPct}%${yPct >= 100 ? ' — défi relevé 🏆' : ''}`
                         : 'Lance-toi un défi annuel (façon Goodreads) : combien de chapitres veux-tu lire cette année ?'}</div>
                     <div style="height:9px;border-radius:6px;background:var(--bg4);overflow:hidden;margin-top:10px">
-                        <div id="yearFill" style="height:100%;width:${yPct}%;background:linear-gradient(90deg,#a855f7,#6366f1);transition:width .3s"></div>
+                        <div id="yearFill" style="height:100%;width:${yPct}%;background:linear-gradient(90deg,var(--graph-4),var(--graph-2));transition:width .3s"></div>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
@@ -214,7 +214,7 @@
     //
     // Chargée après le rendu : la page ne doit pas attendre une requête de
     // plus pour s'afficher. Un échec laisse simplement le bloc absent.
-    const PALETTE = ['#ff8c42', '#3b82f6', '#22c55e', '#a855f7', '#f59e0b', '#ef4444', '#14b8a6', '#ec4899'];
+    const PALETTE = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => 'var(--graph-' + n + ')');
     async function chargerRepartition() {
         const hote = document.getElementById('stDistrib');
         if (!hote) return;
@@ -458,8 +458,8 @@
 
     // Répartition de la bibliothèque par statut (barre empilée)
     const ST_LABELS = {
-        reading: ['En cours', '#22c55e'], completed: ['Terminé', '#3b82f6'],
-        planned: ['À lire', '#a855f7'], paused: ['En pause', '#f59e0b'], dropped: ['Abandonné', '#ef4444'],
+        reading: ['En cours', 'var(--graph-3)'], completed: ['Terminé', 'var(--graph-2)'],
+        planned: ['À lire', 'var(--graph-4)'], paused: ['En pause', 'var(--graph-5)'], dropped: ['Abandonné', 'var(--graph-6)'],
     };
     function statusPanel(favs) {
         favs = favs || [];
