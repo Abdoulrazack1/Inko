@@ -421,7 +421,14 @@ async function markChapter(req, res, next) {
                 [req.user.id, mangaId, chapterId, chapter || null]
             );
             if (r.affectedRows) {
-                await pushEvent(req.user.id, 'read', { mangaId, chapterId, chapter }, req);
+                // `pushEvent` ne lit que `mangaId`, `chapterId`, `source` et
+                // `metadata`. `chapter` pose a cote partait donc a la poubelle,
+                // en silence : tout chapitre coche depuis la liste produisait un
+                // evenement sans son numero, et l'historique affichait
+                // « Chapitre ? » pour toujours. Mesure sur un compte reel :
+                // 14 entrees sur 437.
+                await pushEvent(req.user.id, 'read',
+                    { mangaId, chapterId, metadata: { chapter } }, req);
                 await ajusterNonLus(req.user.id, mangaId, -r.affectedRows);
             }
         } else {
@@ -930,22 +937,38 @@ async function deleteComment(req, res, next) {
 async function getEvents(req, res, next) {
     try {
         const limit = Math.min(parseInt(req.query.limit || '200', 10), 500);
+        // Les evenements deja ecrits sans numero ne sont pas perdus : le
+        // meme chapitre est dans `read_chapters` avec le sien. On le joint
+        // plutot que de reecrire la table — la donnee est deja juste, c'est
+        // sa copie dans l'evenement qui manquait.
         const [rows] = await pool.query(
-            `SELECT id, type, manga_id, source, chapter_id, metadata, created_at
-             FROM events WHERE user_id = ?
-             ORDER BY created_at DESC LIMIT ?`,
+            `SELECT e.id, e.type, e.manga_id, e.source, e.chapter_id, e.metadata,
+                    e.created_at, rc.chapter_number AS rc_chapter
+             FROM events e
+             LEFT JOIN read_chapters rc
+                    ON rc.user_id = e.user_id AND rc.chapter_id = e.chapter_id
+             WHERE e.user_id = ?
+             ORDER BY e.created_at DESC LIMIT ?`,
             [req.user.id, limit]
         );
         // BUG-01 : `source` manquait ici, donc chaque entrée d'historique
         // arrivait au client sans elle — et le client la remplaçait par la
         // source courante. C'est le bout de la chaîne que la migration 19
         // rend enfin lisible.
-        res.json(rows.map(r => ({
-            id: r.id, type: r.type,
-            mangaId: r.manga_id, source: r.source || null, chapterId: r.chapter_id,
-            metadata: r.metadata ? (typeof r.metadata === 'string' ? JSON.parse(r.metadata) : r.metadata) : null,
-            at: r.created_at,
-        })));
+        res.json(rows.map(r => {
+            const meta = r.metadata
+                ? (typeof r.metadata === 'string' ? JSON.parse(r.metadata) : r.metadata)
+                : null;
+            // Le numero joint ne SERT que si l'evenement n'en a pas : ce que
+            // l'evenement dit de lui-meme reste prioritaire.
+            const chapitre = meta && meta.chapter != null ? null : r.rc_chapter;
+            return {
+                id: r.id, type: r.type,
+                mangaId: r.manga_id, source: r.source || null, chapterId: r.chapter_id,
+                metadata: chapitre != null ? { ...(meta || {}), chapter: chapitre } : meta,
+                at: r.created_at,
+            };
+        }));
     } catch (e) { next(e); }
 }
 
