@@ -72,12 +72,29 @@
 
 /* ── Sources en échec (audit AMEL-11) ── */
 .se-fail {
-  display: flex; gap: 9px; align-items: flex-start;
+  display: flex; gap: 9px; align-items: flex-start; flex-wrap: wrap;
   margin: 10px 0 14px; padding: 10px 13px;
   border: 1px solid rgba(181,118,27,.32); border-radius: 10px;
   background: rgba(181,118,27,.08);
   font-size: 12.5px; color: var(--amber-text); line-height: 1.45;
 }
+/* Relancer UNE source tombee. Refaire toute la recherche pour une
+   source sur quatre ferait reattendre les trois qui avaient repondu. */
+.se-fail-retry {
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 3px 11px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  cursor: pointer;
+  min-height: 24px;
+}
+.se-fail-retry:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+.se-fail-retry[disabled] { opacity: .55; cursor: default; }
+.se-fail-retry:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
 /* ── Recherche encore en cours (audit AMEL-10) ── */
 .se-partiel { margin-top: 16px; font-size: 12.5px; color: var(--text3); }
 /* Deuxième rangée de puces (statut) : légèrement en retrait de la première. */
