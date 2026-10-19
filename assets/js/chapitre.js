@@ -463,6 +463,7 @@
         el.addEventListener('click', e => {
             const btn = e.target.closest('[data-mode]');
             if (!btn) return;
+            const pageAvant = currentPage;   // le rendu va la remettre a 1
             readMode = btn.dataset.mode;
             // Choix EXPLICITE de l'utilisateur : la bascule automatique
             // paysage/portrait se tait pour cette session. Sans ce desarmement,
@@ -478,7 +479,17 @@
             // étiquette « 150 % ». On renormalise avant de redessiner.
             appliquerZoom(zoom);
             renderPage(currentPage);
-            resetPagedScroll(1);
+            // Changer de mode ramenait en haut du chapitre. Mesure sur
+            // Blue Lock, 73 pages : page 20 en mode page, bascule en
+            // defilement, scrollY = 0 et « 1 % lu » — dix-neuf pages en
+            // arriere, sans un mot. Le sens inverse marchait deja, parce
+            // que l'observateur de defilement tient `currentPage`.
+            //
+            // `applyInitialScroll` fait exactement ce travail a l'ouverture
+            // d'un chapitre repris : on l'appelle plutot que d'en ecrire une
+            // seconde version qui derivera.
+            if (readMode === 'scroll') applyInitialScroll(pageAvant);
+            else resetPagedScroll(1);
         });
     }
 
@@ -567,11 +578,40 @@
 
     function ratioOf(idx) { return pageRatios.get(idx) || RATIO_DEFAUT; }
 
+    // La place qu'une planche occupera vraiment, en pixels.
+    //
+    // `width:100%` + `aspect-ratio` ne reservait presque rien. Dans une colonne
+    // flex en `align-items:center`, la largeur de la ligne est INDEFINIE : un
+    // pourcentage n'a rien contre quoi se resoudre, la largeur repasse en auto,
+    // et c'est alors le `min-height:120px` de la feuille qui pilote la boite —
+    // par l'aspect-ratio, en sens inverse. Mesure sur Blue Lock, 73 pages,
+    // fenetre 1100x900 :
+    //
+    //     marque-place    84 x 120 px
+    //     planche chargee 559 x 796 px
+    //
+    // La barre de defilement annoncait donc 20 000 px pour un chapitre qui en
+    // fait trois fois plus, et toute reprise de position visait a cote.
+    //
+    // La hauteur reelle est bornee par `max-height: 88vh` (feuille), et
+    // `object-fit: contain` ramene la largeur a hauteur/ratio : c'est
+    // exactement ce que la planche chargee mesure.
+    const PLAFOND_VH = 0.88;            // .reader-page-img { max-height: 88vh }
+    function boiteReservee(idx) {
+        const area = document.getElementById('readerPagesArea');
+        const pct = Math.max(20, Math.min(100, zoom)) / 100;
+        const largeurColonne = (area ? area.clientWidth : window.innerWidth) * pct;
+        const ratio = ratioOf(idx);
+        const h = Math.min(largeurColonne * ratio, window.innerHeight * PLAFOND_VH);
+        return { w: Math.round(h / ratio), h: Math.round(h) };
+    }
+
     // Marque-place : une image SANS src mais avec sa hauteur réservée
     function placeholderImg(idx) {
+        const b = boiteReservee(idx);
         return `<img class="reader-page-img" data-idx="${idx}" data-page="${idx + 1}"
                  alt="Page ${idx + 1}" decoding="async"
-                 style="width:100%;aspect-ratio:1/${ratioOf(idx)};background:var(--bg2,#141414)"
+                 style="width:${b.w}px;height:${b.h}px;background:var(--bg2,#141414)"
                  >`;
     }
 
@@ -598,6 +638,11 @@
                     const r = img.naturalHeight / img.naturalWidth;
                     pageRatios.set(idx, r);
                     img.style.aspectRatio = `1/${r}`;
+                    // La boite reservee suit le ratio reel : au dechargement,
+                    // la page gardera exactement la place qu'elle occupait.
+                    const b = boiteReservee(idx);
+                    img.style.width = b.w + 'px';
+                    img.style.height = b.h + 'px';
                 }
                 done();
             };
@@ -1014,17 +1059,46 @@
     }
 
     // Positionne la fenêtre au bon endroit à l'ouverture (corrige « ne démarre pas à la 1re page »)
-    function applyInitialScroll() {
-        if (readMode === 'scroll' && currentPage > 1) {
-            // Reprise : on attend un court instant que les 1res images aient une hauteur
-            setTimeout(() => {
-                const img = document.querySelector(`.reader-page-img[data-page="${currentPage}"]`);
-                if (img) img.scrollIntoView({ block: 'start' });
-                else window.scrollTo(0, 0);
-            }, 250);
-        } else {
+    // `page` explicite : au changement de mode, l'observateur de
+    // defilement repose `currentPage` a 1 des que les premieres planches
+    // entrent dans la fenetre — avant que ce minuteur ne parte. Lire
+    // `currentPage` ici ramenait donc en haut, ce qui etait precisement le
+    // defaut qu'on corrige.
+    function applyInitialScroll(page) {
+        const cible = page || currentPage;
+        if (readMode !== 'scroll' || !(cible > 1)) {
             window.scrollTo(0, 0);   // démarre toujours en haut (page 1 visible)
+            return;
         }
+        // Viser UNE fois ne suffit pas : la hauteur des planches bouge pendant
+        // que les premieres images arrivent, et la cible glisse sous le
+        // curseur. Mesure sur Blue Lock, 73 pages : un seul `scrollIntoView`
+        // a 250 ms posait le defilement a 10 815 px sur un chapitre qui n'en
+        // fait que 11 109 — le bas du chapitre, pas la page 20.
+        //
+        // On rectifie donc pendant une seconde et demie, et on s'arrete des
+        // que le lecteur defile lui-meme : reprendre la main sur son propre
+        // defilement serait pire que de rater la page.
+        // On s'arrete au premier geste du lecteur, pas au premier mouvement
+        // du defilement : les images qui arrivent au-dessus font bouger
+        // `scrollY` toutes seules, et prendre ca pour un geste faisait
+        // abandonner l'ancrage des la premiere planche chargee.
+        let essais = 0, rendu = false;
+        const lacher = () => { rendu = true; };
+        const GESTES = ['wheel', 'touchstart', 'keydown', 'mousedown'];
+        GESTES.forEach(g => window.addEventListener(g, lacher, { once: true, passive: true }));
+        const arreter = () => GESTES.forEach(g => window.removeEventListener(g, lacher));
+        const viser = () => {
+            if (rendu || readMode !== 'scroll') { arreter(); return; }
+            const img = document.querySelector(`.reader-page-img[data-page="${cible}"]`);
+            if (img) {
+                const haut = img.getBoundingClientRect().top;
+                if (Math.abs(haut) > 8) img.scrollIntoView({ block: 'start' });
+            }
+            if (++essais < 14) setTimeout(viser, 130);
+            else arreter();
+        };
+        setTimeout(viser, 120);
     }
 
     let saveTimer;
