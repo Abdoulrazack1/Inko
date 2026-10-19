@@ -1530,6 +1530,10 @@
                 const fails = data.failures || [];
                 status.textContent = `${data.scanned ?? ups.length} vérifiée(s)`
                     + (data.skipped ? ` · ${data.skipped} ignorée(s) (terminé/abandonné)` : '')
+                    // Le dire : « 412 vérifiées » après une interruption, sans
+                    // expliquer pourquoi c'est allé si vite, ressemble à un scan
+                    // bâclé.
+                    + (data.repris ? ` · ${data.repris} reprise(s) du scan interrompu` : '')
                     + ` · ${ups.filter(u => u.unreadCount > 0).length} avec du non-lu`
                     + (fails.length ? ` · ${fails.length} échec(s)` : '');
                 render(); // rafraîchit aussi les badges de l'onglet Bibliothèque

@@ -60,6 +60,51 @@ function fullScanCooldown(uid) {
     const left = last + FULL_SCAN_COOLDOWN_MS - Date.now();
     return left > 0 ? left : 0;
 }
+// ── Reprendre un scan interrompu ───────────────────────
+//
+// Un scan de 496 series tient plusieurs minutes et parle a des sources
+// lentes. S'il est coupe — fermeture de l'app, redemarrage, coupure
+// reseau — tout etait a refaire : `jobs`, `lastFullScan` et `derniersScans`
+// vivent en memoire et disparaissent avec le processus.
+//
+// Ce qui survit, en revanche, c'est `favorites.checked_at` : chaque serie
+// examinee le pose. Il suffit donc de savoir QUAND le scan interrompu avait
+// commence pour reconnaitre ce qu'il avait deja fait.
+//
+// Le marqueur est donc une date de depart, ecrite en base au lancement et
+// effacee a l'arrivee. S'il est encore la au scan suivant, le precedent n'a
+// pas fini : on reprend. Pas de fenetre glissante arbitraire — la regle est
+// exacte, « deja examine PENDANT le scan interrompu ».
+const CLE_SCAN = (uid) => `scan_en_cours:${uid}`;
+// Au-dela, le marqueur est tenu pour perime : une serie examinee il y a huit
+// heures merite d'etre revue, meme si le scan de l'epoque n'a jamais fini.
+const REPRISE_MAX_MS = 6 * 60 * 60 * 1000;
+
+async function marquerDebutScan(uid, quand) {
+    try {
+        await pool.query(
+            'INSERT INTO app_settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)',
+            [CLE_SCAN(uid), String(quand)]
+        );
+    } catch (e) { /* table absente : la reprise est un confort, pas un pre-requis */ }
+}
+
+async function effacerDebutScan(uid) {
+    try { await pool.query('DELETE FROM app_settings WHERE k = ?', [CLE_SCAN(uid)]); }
+    catch (e) { /* idem */ }
+}
+
+/** Date de depart du scan interrompu, ou null s'il n'y en a pas d'exploitable. */
+async function debutScanInterrompu(uid) {
+    try {
+        const [[row]] = await pool.query('SELECT v FROM app_settings WHERE k = ?', [CLE_SCAN(uid)]);
+        const t = row && Number(row.v);
+        if (!t || !Number.isFinite(t)) return null;
+        if (Date.now() - t > REPRISE_MAX_MS) return null;
+        return t;
+    } catch (e) { return null; }
+}
+
 function markFullScan(uid, resultat) {
     lastFullScan.set(uid, Date.now());
     if (resultat) derniersScans.set(`u:${uid}`, { ...resultat, checkedAt: Date.now() });
@@ -118,6 +163,7 @@ const withTimeout = (p, ms) => {
 };
 
 async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = 'fr,en', notifyOnly = false, force = false, onProgress = null } = {}) {
+    const debutDeCeScan = Date.now();
     const params = [uid];
     let where = 'f.user_id = ?';
     if (mangaId) { where += ' AND f.manga_id = ?'; params.push(mangaId); }
@@ -129,19 +175,38 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
         // Audit DB-02 : le statut est une colonne de `favorites` depuis la
         // migration 7 — plus de LEFT JOIN sur cette requête, qui tourne pour
         // chaque compte à chaque scan de mises à jour.
-        `SELECT f.manga_id, f.source, f.title, f.cover, f.last_chapter, f.status
+        `SELECT f.manga_id, f.source, f.title, f.cover, f.last_chapter, f.status, f.checked_at
          FROM favorites f
          WHERE ${where}`,
         params
     );
-    if (!favs.length) return { updates: [], failures: [], scanned: 0, skipped: 0 };
+    if (!favs.length) { await effacerDebutScan(uid); return { updates: [], failures: [], scanned: 0, skipped: 0, repris: 0 }; }
 
     // §15.2 : ne pas re-scanner les séries Terminé/Abandonné par défaut
     const SKIP_STATUS = new Set(['completed', 'dropped']);
-    const targets = (mangaId || scope === 'all')
+    let targets = (mangaId || scope === 'all')
         ? favs
         : favs.filter(f => !SKIP_STATUS.has(f.status));
     const skipped = favs.length - targets.length;
+
+    // Reprise. Une demande portant sur UNE serie ne reprend pas : on
+    // designe precisement ce qu'on veut revoir.
+    //
+    // `force` NON PLUS n'annule la reprise, et c'est délibéré : il veut
+    // dire « ne te sers pas du cache de chapitres », pas « refais ce que
+    // tu viens de faire ». Les series sautees ici ont ete examinees il y
+    // a quelques minutes, pendant le scan qui a ete coupe — les revoir
+    // ne rendrait rien de plus, et c'est justement le bouton de
+    // rafraichissement de la bibliotheque qui force, donc celui qu'on
+    // reclique apres une interruption.
+    let repris = 0;
+    const depuis = mangaId ? null : await debutScanInterrompu(uid);
+    if (depuis) {
+        const avant = targets.length;
+        targets = targets.filter(f => !(f.checked_at && new Date(f.checked_at).getTime() >= depuis));
+        repris = avant - targets.length;
+    }
+    await marquerDebutScan(uid, debutDeCeScan);
 
     const [readRows] = await pool.query(
         'SELECT manga_id, chapter_number FROM read_chapters WHERE user_id = ?', [uid]
@@ -235,7 +300,10 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
 
     const updates = results.filter(Boolean)
         .sort((a, b) => (b.hasNew - a.hasNew) || (b.unreadCount - a.unreadCount));
-    return { updates, failures, scanned: targets.length, skipped };
+    // Arrive au bout : le marqueur s'efface. S'il reste, c'est que le scan
+    // n'est pas alle jusqu'ici — et c'est exactement ce qu'on veut savoir.
+    await effacerDebutScan(uid);
+    return { updates, failures, scanned: targets.length, skipped, repris };
 }
 
 // ── §15.3/15.4-6/7 : tâche de fond → notification « nouveau chapitre » ──
