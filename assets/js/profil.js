@@ -235,13 +235,40 @@
 
             const statCards = document.querySelectorAll('.stat-mini-card');
             if (statCards[0]) statCards[0].querySelector('.stat-mini-num').textContent = t.chapters_this_month || 0;
-            // Temps de lecture estimé (~8 min / chapitre)
+            // ── Temps de lecture : le MESURE quand il existe ──
+            //
+            // Le lecteur compte le temps par tranches de 30 s, en ne creditant
+            // que l'onglet visible. Cette mesure partait jusqu'ici dans le vide
+            // — la route serveur n'existait pas — et cette carte affichait
+            // `chapitres_lus x 8`.
+            //
+            // Le libelle disait bien « estime », ce qui etait honnete. Mais
+            // montrer une estimation quand on dispose d'un fait ne l'est plus.
+            // On bascule donc des qu'il y a quelque chose a montrer, et le
+            // libelle suit : « Temps de lecture » sans qualificatif pour du
+            // mesure, « estime » tant qu'il n'y a rien.
             if (statCards[1]) {
-                const mins = (t.chapters_read || 0) * 8;
-                const txt = mins < 60 ? mins + ' min'
-                    : mins < 60 * 48 ? Math.round(mins / 60) + ' h'
-                    : Math.round(mins / 60 / 24) + ' j';
-                statCards[1].querySelector('.stat-mini-num').textContent = txt;
+                const duree = (secondes) => {
+                    const mins = Math.round(secondes / 60);
+                    return mins < 60 ? mins + ' min'
+                        : mins < 60 * 48 ? Math.round(mins / 60) + ' h'
+                        : Math.round(mins / 60 / 24) + ' j';
+                };
+                const num = statCards[1].querySelector('.stat-mini-num');
+                const lib = statCards[1].querySelector('.stat-mini-label');
+                // L'estimation reste affichee tant que la mesure n'a rien :
+                // une carte vide n'apprendrait rien de plus qu'un ordre de
+                // grandeur annonce comme tel.
+                num.textContent = duree((t.chapters_read || 0) * 8 * 60);
+                if (lib) lib.textContent = 'Temps de lecture estimé';
+                statCards[1].title = 'Estimation : 8 minutes par chapitre lu.';
+                API.me.tempsLecture?.(365).then((r) => {
+                    if (!r || !r.mesure || !r.totalSecondes) return;
+                    num.textContent = duree(r.totalSecondes);
+                    if (lib) lib.textContent = 'Temps de lecture';
+                    statCards[1].title = 'Mesuré dans le lecteur, par tranches de 30 secondes,'
+                        + ' et seulement quand l’onglet est visible.';
+                }).catch(() => { /* mesure indisponible : l'estimation reste */ });
             }
             if (statCards[2]) statCards[2].querySelector('.stat-mini-num').textContent = t.favorites || 0;
             if (statCards[3]) statCards[3].querySelector('.stat-mini-num').textContent = Object.keys(heat).length;

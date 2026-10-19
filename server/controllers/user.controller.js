@@ -1665,6 +1665,57 @@ async function getUpdatesScan(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ── Temps de lecture REELLEMENT mesure ───────────────────
+//
+// Le lecteur compte par tranches de 30 s, en ne creditant que l'onglet
+// VISIBLE (un telephone pose ecran allume sur une planche n'est pas de la
+// lecture), et verse a `POST /me/temps-lecture`.
+//
+// Cette route n'existait pas. Les mesures partaient donc en 404, avalees par
+// le `.catch(() => {})` de l'appelant, pendant que le profil affichait
+// `chapitres_lus x 8` — une multiplication presentee comme une statistique.
+async function ajouterTempsLecture(req, res, next) {
+    try {
+        const brut = Number(req.body && req.body.secondes);
+        // Borne haute : une tranche fait 30 s. On accepte large pour un
+        // rattrapage apres veille, mais pas n'importe quoi — un client
+        // fautif ne doit pas pouvoir inscrire des annees de lecture.
+        const secondes = Number.isFinite(brut) ? Math.min(Math.max(Math.round(brut), 0), 3600) : 0;
+        if (!secondes) return res.status(204).end();
+        await pool.query(
+            `INSERT INTO reading_time (user_id, day, seconds) VALUES (?, CURDATE(), ?)
+             ON DUPLICATE KEY UPDATE seconds = seconds + VALUES(seconds)`,
+            [req.user.id, secondes]);
+        res.status(204).end();
+    } catch (e) { next(e); }
+}
+
+// GET /me/temps-lecture?jours=30
+//
+// Rend le total ET le detail par jour. `mesure: false` quand rien n'a encore
+// ete releve : l'interface doit pouvoir DIRE qu'elle ne sait pas, plutot que
+// de presenter un zero comme une mesure.
+async function getTempsLecture(req, res, next) {
+    try {
+        const jours = Math.min(Math.max(parseInt(req.query.jours, 10) || 30, 1), 365);
+        const [lignes] = await pool.query(
+            `SELECT DATE_FORMAT(day, '%Y-%m-%d') AS jour, seconds
+             FROM reading_time
+             WHERE user_id = ? AND day >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+             ORDER BY day`,
+            [req.user.id, jours]);
+        const [[tout]] = await pool.query(
+            'SELECT COALESCE(SUM(seconds), 0) AS total FROM reading_time WHERE user_id = ?',
+            [req.user.id]);
+        res.json({
+            mesure: Number(tout.total) > 0,
+            totalSecondes: Number(tout.total) || 0,
+            fenetre: jours,
+            parJour: lignes.map(l => ({ jour: l.jour, secondes: Number(l.seconds) })),
+        });
+    } catch (e) { next(e); }
+}
+
 module.exports = {
     startUpdatesScan, getUpdatesScan, renameCategory, deleteCategory, setCategoryBulk,
     getFavorites, addFavorite, removeFavorite, setFavoriteCategory,
@@ -1681,4 +1732,5 @@ module.exports = {
     exportData, importData, clearHistory, deleteHistoryEntry, exportHistory,
     listBackups, previewBackup, restoreBackup,
     checkUpdates,
+    ajouterTempsLecture, getTempsLecture,
 };

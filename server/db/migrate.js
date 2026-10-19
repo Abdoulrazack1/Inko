@@ -609,6 +609,25 @@ const MIGRATIONS = [
             await run('ALTER TABLE reading_notes ADD COLUMN pinned TINYINT(1) NOT NULL DEFAULT 0');
         }
     } },
+
+    // Le lecteur MESURE deja le temps de lecture, par tranches de 30 s, et
+    // l'envoie a `POST /me/temps-lecture`. Cette route n'existait pas : les
+    // mesures partaient en 404, avalees par un `.catch(() => {})`, pendant
+    // que le profil affichait `chapitres_lus x 8` presente comme un fait.
+    //
+    // Grain au JOUR, et non par evenement : c'est ce qu'on affiche (un total,
+    // une carte de chaleur), et une ligne par tranche de 30 s ferait des
+    // milliers d'enregistrements pour la meme information.
+    { version: 24, name: 'temps de lecture reellement mesure (jour par jour)', apply: async () => {
+        await run(`CREATE TABLE IF NOT EXISTS reading_time (
+            user_id INT NOT NULL,
+            day DATE NOT NULL,
+            seconds INT UNSIGNED NOT NULL DEFAULT 0,
+            PRIMARY KEY (user_id, day),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_user_day (user_id, day)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──
