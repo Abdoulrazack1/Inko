@@ -187,6 +187,7 @@
             <a href="serie.html?id=${encodeURIComponent(manga.id)}&source=${encodeURIComponent(API.sources.current)}" class="toolbar-back">← ${MH.esc(manga.title)}</a>
             <span class="toolbar-sep">/</span>
             <span class="toolbar-chap">${MH.esc(currentChap.title || ('Chapitre ' + currentChap.chapter))}</span>
+            <span class="toolbar-source" title="Source de ce chapitre">${MH.esc(MH.sourceName?.(API.sources.current) || API.sources.current || '')}</span>
         </div>
         <div class="toolbar-center">
             <button class="reader-icon-btn" id="btnPrevChap" ${!prev ? 'disabled' : ''} title="Chapitre précédent (←)">‹</button>

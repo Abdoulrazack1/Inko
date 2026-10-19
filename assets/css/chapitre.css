@@ -89,6 +89,20 @@
     font-weight: 500;
 }
 
+/* La source du chapitre. Deux sources peuvent porter la meme serie avec
+   des traductions differentes : sans ce reperage, on ne sait pas laquelle
+   on est en train de lire. Pastille sobre, a cote du numero de chapitre,
+   et non une icone de plus dans la barre de droite. */
+.toolbar-source {
+    font-size: 11px;
+    color: var(--text3);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 1px 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .toolbar-center {
     display: flex;
     align-items: center;
@@ -791,6 +805,7 @@
   .toolbar-back { padding: 3px 8px; font-size: 11px; }
   .toolbar-sep { display: none; }
   .toolbar-chap { display: none; }
+  .toolbar-source { display: none; }
   .reader-chap-select { max-width: 130px; font-size: 11px; }
   .reader-zoom-label { display: none; }
   .reader-modebar { height: 34px; padding: 0 12px; }
