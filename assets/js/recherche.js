@@ -205,6 +205,12 @@
         // ce soit, alors que la première répond souvent en moins d'une seconde.
         // Chaque source est désormais interrogée séparément et ses résultats
         // rejoignent l'affichage dès qu'ils arrivent.
+        // Qui n'a pas encore repondu. « D'autres sources repondent encore »
+        // ne disait pas LESQUELLES : devant une page a moitie vide, on ne
+        // savait ni combien de temps attendre, ni si le catalogue qu'on
+        // visait etait deja passe. Nommer la source qui traine permet de
+        // decider — attendre, ou chercher ailleurs.
+        let enAttente = actives.map(s => s.name || s.id);
         let repondues = 0;
         await Promise.all(actives.map(async (s) => {
             try {
@@ -220,8 +226,10 @@
             } finally {
                 if (my !== reqSeq) return;
                 repondues++;
+                const nom = s.name || s.id;
+                enAttente = enAttente.filter(n => n !== nom);
                 lastMerged = mergeByTitle(groupesRecus, q);
-                renderResults(q, { enCours: repondues < actives.length });
+                renderResults(q, { enCours: repondues < actives.length, attendues: enAttente });
             }
         }));
     }
@@ -394,8 +402,16 @@
                </div>`
             : '';
         // Audit AMEL-10 : etat d'avancement, les resultats arrivant source par source.
+        // Nommer ce qu'on attend. Une liste de noms vaut mieux qu'un compte :
+        // « WeebCentral répond encore » dit s'il reste une chance de trouver
+        // ce qu'on cherche, la ou « 1 source sur 4 » ne dit rien.
+        const quiManque = (opts.attendues || []).map(n => MH.esc(n));
+        const phraseAttente = quiManque.length === 0 ? 'D’autres sources répondent encore'
+            : quiManque.length === 1 ? `<strong>${quiManque[0]}</strong> répond encore`
+            : `<strong>${quiManque.slice(0, -1).join('</strong>, <strong>')}</strong>`
+              + ` et <strong>${quiManque[quiManque.length - 1]}</strong> répondent encore`;
         const bandeauEnCours = opts.enCours
-            ? `<div class="se-loading se-partiel"><div class="spinner-inline"></div> D’autres sources répondent encore…</div>`
+            ? `<div class="se-loading se-partiel"><div class="spinner-inline"></div> ${phraseAttente}…</div>`
             : '';
 
         sub.textContent = `${works.length} œuvre(s) pour « ${q} »${opts.enCours ? ' (recherche en cours)' : ''}.`;

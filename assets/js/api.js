@@ -828,10 +828,25 @@
                 const corps = { lang: opts.lang || 'fr,en', scope: opts.scope || 'active', force: !!opts.force };
                 let job = await request('POST', '/me/updates/scan', corps);
                 const debut = Date.now();
+                // ── L'attente recule au lieu de marteler ──
+                //
+                // L'intervalle etait fixe a une seconde. Mesure sur un
+                // chargement d'accueil : le scan dure 26 s, et ces 26
+                // interrogations representaient 26 des 63 requetes de la page
+                // — presque la moitie, pour une seule barre de progression.
+                //
+                // Les premieres restent rapprochees : un scan court doit
+                // rendre la main tout de suite. Au-dela, l'attente croit
+                // jusqu'a cinq secondes, parce qu'une barre qui avance par
+                // paliers de cinq secondes sur une minute de travail se lit
+                // exactement aussi bien, et coute trois fois moins.
+                const ATTENTE_MIN = 1000, ATTENTE_MAX = 5000, CROISSANCE = 1.4;
+                let attente = ATTENTE_MIN;
                 while (job && job.etat === 'en_cours') {
                     try { onProgress?.({ faits: job.faits || 0, total: job.total || 0 }); } catch (e) { /* UI fautive */ }
                     if (Date.now() - debut > 15 * 60 * 1000) throw new Error('La vérification prend trop de temps');
-                    await new Promise(r => setTimeout(r, 1000));
+                    await new Promise(r => setTimeout(r, attente));
+                    attente = Math.min(ATTENTE_MAX, Math.round(attente * CROISSANCE));
                     job = await request('GET', '/me/updates/scan');
                 }
                 if (job?.erreur) throw new Error(job.erreur);
