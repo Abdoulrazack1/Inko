@@ -237,6 +237,16 @@
   background: transparent; border: none; outline: none;
   color: var(--text, #eee); font: inherit; font-size: 13.5px;
 }
+/* Le « outline: none » ci-dessus porte sur l'etat de BASE : il retire donc
+   aussi le contour au clavier, et sa specificite (0,2,0) l'emporte sur la
+   regle generale « :focus-visible » (0,1,0) de global.css. Le champ de
+   recherche du lecteur de romans n'avait alors AUCUN indicateur de focus.
+   On le rend, et seulement au clavier — « :focus-visible » ne se declenche
+   pas sur un clic de souris, donc l'aspect au pointeur ne bouge pas. */
+.novel-find .nf-champ:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
 .novel-find .nf-champ::placeholder { color: var(--text3, #8a8a90); }
 .novel-find .nf-compteur {
   flex: 0 0 auto; min-width: 62px; text-align: right;

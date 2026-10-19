@@ -168,6 +168,32 @@
     // Réserve la place du dock sous le contenu (audit A15 : le dock fixe
     // cachait le bas de page, surtout en mobile).
     function setBodyPad(on) { try { document.body.style.paddingBottom = on ? '84px' : ''; } catch (e) { window.MH?.err?.('music.js', e); } }
+    // ══════════════════════ Construction a la demande ══════════════════
+    //
+    // `music.js` est injecte sur TOUTES les pages par `global.js`, et
+    // construisait son dock complet a chaque chargement — puis le masquait
+    // quand le lecteur n'avait jamais ete ouvert. Une feuille de style
+    // demandee et un panneau entier bati, sur chaque page, pour quelqu'un qui
+    // n'ecoute pas de musique.
+    //
+    // Le report est CONDITIONNEL, et il doit l'etre : le lecteur porte la
+    // reprise inter-pages. Si de la musique jouait, le dock doit revenir tout
+    // seul sur la page suivante — `init()` construit alors immediatement.
+    // Ce n'est que lorsque rien n'est visible qu'on ne batit rien.
+    let construit = false;
+    function assurerConstruit() {
+        if (construit) return;
+        construit = true;
+        injectCSS(); build(); brancherSession();
+        // `init()` posait l'affichage juste apres `build()`. Une construction
+        // tardive doit laisser le dock dans le MEME etat, sinon
+        // `root.style.display` vaut '' au lieu de 'none' : `toggle()` ne voit
+        // pas « ferme », expose le panneau sans jamais poser `S.visible`, et
+        // le lecteur disparait au changement de page. Defaut introduit par ce
+        // commit, vu en naviguant, corrige ici.
+        if (!S.visible) root.style.display = 'none';
+    }
+
     function open()  { S.visible = true; S.min = false; root.classList.remove('min'); root.style.display = 'flex'; setExpanded(true); setBodyPad(true); save(); }
     function show()  { S.visible = true; if (!S.min) root.style.display = 'flex'; save(); }
     function close() { stopAll(); S.visible = false; S.min = false; root.classList.remove('min'); root.style.display = 'none'; setBodyPad(false); save(); }
@@ -742,12 +768,15 @@
     }
 
     function init() {
-        injectCSS(); build();
-        brancherSession();
-        root.style.display = S.visible ? 'flex' : 'none';
-        if (S.visible && S.min) root.classList.add('min');
+        // Ne depend pas du DOM du lecteur : pose avant toute construction.
         window.addEventListener('pagehide', memoriserPosition);
-        if (!S.visible || S.enPause) return;
+        // Lecteur jamais ouvert, ou ferme : rien a construire. L'etat est
+        // conserve, et la premiere ouverture batira le dock.
+        if (!S.visible) return;
+        assurerConstruit();
+        root.style.display = 'flex';
+        if (S.min) root.classList.add('min');
+        if (S.enPause) return;
         // Reprise inter-pages : station YouTube ou flux radio.
         if (S.mode === 'yt' && S.ytId) playYouTube(S.ytId, S.label, S.sub);
         else if (S.mode === 'radio' && S.radio) playRadio(S.radio);
@@ -835,9 +864,14 @@
         return null;
     }
 
+    // Chaque entree publique qui touche le DOM le fait exister d'abord.
+    // Enrober ici plutot qu'au debut de chaque fonction : les appels INTERNES
+    // n'ont lieu qu'apres construction, et une garde par fonction se serait
+    // fait oublier au prochain ajout.
+    const avecDOM = (fn) => function () { assurerConstruit(); return fn.apply(null, arguments); };
     window.Music = {
-        open, close, toggle, show,
-        playStationId: id => playStation(STATIONS.find(x => x.id === id)),
+        open: avecDOM(open), close: avecDOM(close), toggle: avecDOM(toggle), show: avecDOM(show),
+        playStationId: avecDOM(id => playStation(STATIONS.find(x => x.id === id))),
         // Renvoie la station suggeree sans rien lancer : c'est a l'appelant de
         // proposer, jamais a la musique de demarrer toute seule.
         suggestionPourTags: (tags) => {
