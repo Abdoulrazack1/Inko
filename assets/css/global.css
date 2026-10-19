@@ -32,6 +32,26 @@
   --bg2:         #e7e4da;
   --bg3:         #ddd9cd;
   --bg4:         #d1ccbe;
+
+  /* Echelle de la heatmap de lecture (§13). Elle existait en quatre copies —
+     cases de stats.html, legende de stats.js, cases et legende de profil —
+     et aucune ne progressait regulierement. Pas WCAG entre paliers voisins
+     AVANT, mesures :
+
+         sombre  1,11  1,78  2,10  1,57   « rien lu » et « un peu » a 1,11
+         clair   8,44  1,78  2,10  1,57   falaise au premier palier
+         profil  1,06  1,19  1,28  2,00   (clair, alpha compose sur la carte)
+
+     Un degrade sequentiel se lit par la REGULARITE de ses pas : a 1,11 deux
+     paliers ne se distinguent pas, a 8,44 ils passent pour deux categories.
+     Les valeurs ci-dessous sont calculees pour un pas constant par theme
+     (r = ((L_sommet+0,05)/(L_fond+0,05))^(1/4)), soit 1,6 a 1,7 partout.
+     Le palier 0 reste --bg4 : « rien lu » garde le fond des surfaces. */
+  --hm0:         var(--bg4);
+  --hm1:         #d49469;
+  --hm2:         #be672d;
+  --hm3:         #934a1a;
+  --hm4:         #6b2f08;
   --border:      rgba(28,27,25,0.13);
   --border2:     rgba(28,27,25,0.22);
   --text:        #1c1b19;   /* Encre sur Washi */
@@ -139,6 +159,12 @@ html[data-theme="dark"] {
   --bg2:         #17171b;
   --bg3:         #1e1e23;
   --bg4:         #26262c;
+  /* Heatmap — pas constant 1,64 (voir :root). Sur fond sombre on eclaircit. */
+  --hm0:         var(--bg4);
+  --hm1:         #6d3b1a;
+  --hm2:         #a1521c;
+  --hm3:         #dd691b;
+  --hm4:         #ff9a4d;
   --border:      rgba(233,231,224,0.09);
   --border2:     rgba(233,231,224,0.17);
   --text:        #e9e7e0;   /* Encre sur Sumi */
@@ -165,6 +191,12 @@ html[data-theme="amoled"] {
   --bg2:     #070708;
   --bg3:     #0e0e11;
   --bg4:     #17171b;
+  /* Heatmap — pas constant 1,71 (fond plus noir, donc plus de place). */
+  --hm0:     var(--bg4);
+  --hm1:     #603417;
+  --hm2:     #984d1b;
+  --hm3:     #d8661b;
+  --hm4:     #ff9a4d;
   --border:  rgba(233,231,224,0.07);
   --border2: rgba(233,231,224,0.13);
   --text:    #e9e7e0;
@@ -198,6 +230,12 @@ html[data-theme="contrast"] {
   --bg2:         #f2f2f2;
   --bg3:         #e4e4e4;
   --bg4:         #d2d2d2;
+  /* Heatmap — pas constant 1,68, aplats assombris comme le reste du theme. */
+  --hm0:         var(--bg4);
+  --hm1:         #d4946a;
+  --hm2:         #b8642b;
+  --hm3:         #884518;
+  --hm4:         #5a2606;
   --border:      rgba(0,0,0,0.45);
   --border2:     rgba(0,0,0,0.65);
   --text:        #000000;   /* 21:1 sur --bg */

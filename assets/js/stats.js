@@ -129,7 +129,7 @@
             <div class="st-panel">
                 <h2>Activité sur l'année</h2>
                 ${heatmap(stats.heatmap || {})}
-                <div class="hm-legend">Moins <i style="background:var(--bg4)"></i><i style="background:#4a2410"></i><i style="background:#8a3d12"></i><i style="background:#d2691e"></i><i style="background:#ff8c42"></i> Plus</div>
+                <div class="hm-legend">Moins <i style="background:var(--hm0)"></i><i style="background:var(--hm1)"></i><i style="background:var(--hm2)"></i><i style="background:var(--hm3)"></i><i style="background:var(--hm4)"></i> Plus</div>
             </div>
             <div class="st-panel">
                 <h2>Activité récente</h2>
