@@ -265,7 +265,7 @@
 .heatmap-cell {
   aspect-ratio: 1;
   border-radius: 2px;
-  background: var(--bg4);
+  background: var(--hm0);
   cursor: pointer;
   transition: opacity .15s;
 }

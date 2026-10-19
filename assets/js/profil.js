@@ -508,7 +508,7 @@
         try {
             const stats = await fetchStats();
             const buckets = stats.heatmap || {};
-            const colors = ['var(--bg4)', 'rgba(255,107,26,.2)', 'rgba(255,107,26,.4)', 'rgba(255,107,26,.7)', 'var(--orange)'];
+            const colors = ['var(--hm0)', 'var(--hm1)', 'var(--hm2)', 'var(--hm3)', 'var(--hm4)'];
             const today = new Date();
             let html = '';
             for (let i = 52 * 7 - 1; i >= 0; i--) {
@@ -530,7 +530,7 @@
             try {
                 const stats = await fetchStats();
                 const buckets = stats.heatmap || {};
-                const colors = ['var(--bg4)', 'rgba(255,107,26,.2)', 'rgba(255,107,26,.45)', 'rgba(255,107,26,.75)', 'var(--orange)'];
+                const colors = ['var(--hm0)', 'var(--hm1)', 'var(--hm2)', 'var(--hm3)', 'var(--hm4)'];
                 const today = new Date();
                 let html = '';
                 for (let i = 27; i >= 0; i--) {
