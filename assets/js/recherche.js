@@ -185,7 +185,7 @@
                 if (my !== reqSeq) return;
                 groupesRecus = data.groups || [];
                 sourcesEnEchec = groupesRecus.filter(g => g.error)
-                    .map(g => ({ nom: g.sourceName || g.source, raison: g.error }));
+                    .map(g => ({ id: g.source, nom: g.sourceName || g.source, raison: g.error }));
                 lastMerged = mergeByTitle(groupesRecus, q);
                 renderResults(q);
             } catch (e) {
@@ -222,7 +222,7 @@
                 // Audit AMEL-11 : une source en échec était simplement ignorée.
                 // La recherche paraissait juste incomplète, sans jamais dire
                 // qu'il manquait un catalogue entier.
-                sourcesEnEchec.push({ nom: s.name || s.id, raison: e.message || 'indisponible' });
+                sourcesEnEchec.push({ id: s.id, nom: s.name || s.id, raison: e.message || 'indisponible' });
             } finally {
                 if (my !== reqSeq) return;
                 repondues++;
@@ -446,6 +446,13 @@
                  <span>${sourcesEnEchec.length === 1 ? 'Une source n’a pas répondu' : `${sourcesEnEchec.length} sources n’ont pas répondu`} :
                  ${sourcesEnEchec.map(s => `<strong>${MH.esc(s.nom)}</strong> (${MH.esc(s.raison)})`).join(', ')}.
                  Les résultats ci-dessous sont donc incomplets.</span>
+                 <!-- Une source tombe surtout pour des raisons passageres :
+                      delai depasse, 502, reseau coupe une seconde. Relancer
+                      TOUTE la recherche pour une source sur quatre refait
+                      attendre les trois qui avaient repondu. -->
+                 ${sourcesEnEchec.filter(s => s.id).map(s => `
+                    <button type="button" class="se-fail-retry" data-retry-src="${MH.esc(s.id)}"
+                            data-retry-nom="${MH.esc(s.nom)}">Réessayer ${MH.esc(s.nom)}</button>`).join('')}
                </div>`
             : '';
         // Audit AMEL-10 : etat d'avancement, les resultats arrivant source par source.
@@ -480,6 +487,31 @@
             out.innerHTML = chips + bandeauEchec
                 + `<div class="se-grid">${works.map(renderWorkCard).join('')}</div>` + bandeauEnCours;
         }
+
+        out.querySelectorAll('.se-fail-retry').forEach(b => b.addEventListener('click', async () => {
+            const id = b.dataset.retrySrc;
+            const nom = b.dataset.retryNom || id;
+            const my = reqSeq;                       // la recherche en cours, pas une autre
+            b.disabled = true;
+            b.textContent = `${nom}…`;
+            try {
+                const r = await API.mangas.searchFor(id, { q, limit: 36 });
+                if (my !== reqSeq) return;           // une nouvelle recherche a pris la main
+                groupesRecus = groupesRecus.filter(g => g.source !== id);
+                groupesRecus.push({ source: id, sourceName: nom, items: r.results || [] });
+                sourcesEnEchec = sourcesEnEchec.filter(x => x.id !== id);
+                lastMerged = mergeByTitle(groupesRecus, q);
+                MH.announce?.(`${nom} a répondu`);
+                renderResults(q, opts);
+            } catch (e) {
+                if (my !== reqSeq) return;
+                // On REMPLACE la raison : « 502 » puis « délai dépassé » en dit
+                // plus que deux fois la première.
+                const ligne = sourcesEnEchec.find(x => x.id === id);
+                if (ligne) ligne.raison = e.message || 'indisponible';
+                renderResults(q, opts);
+            }
+        }));
 
         out.querySelector('.se-corr-btn')?.addEventListener('click', (e) => {
             const t = e.currentTarget.dataset.corr;
