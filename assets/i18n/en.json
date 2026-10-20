@@ -1293,6 +1293,10 @@
   },
   "patterns": [
     [
+      "^(\\d+) notes · moyenne (.+) · médiane (.+) · la plus donnée : (\\d+)/10$",
+      "$1 ratings · average $2 · median $3 · most given: $4/10"
+    ],
+    [
       "^il y a (\\d+) min$",
       "$1 min ago"
     ],
