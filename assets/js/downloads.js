@@ -329,6 +329,38 @@
             await delMeta(chapterId);
         },
 
+        /**
+         * Vérifie qu'un chapitre téléchargé a encore toutes ses planches.
+         *
+         * « Complet » n'était constaté qu'au téléchargement. Or le Cache API
+         * peut être évincé ensuite par le système (la page des téléchargements
+         * le dit elle-même) : un chapitre complet hier pouvait perdre des
+         * planches sans que rien ne le signale — et l'on ne le découvrait
+         * qu'en le lisant, hors ligne, c'est-à-dire trop tard pour réparer.
+         *
+         * Une planche copiée dans le stockage privé de l'APK (`fichiers`)
+         * compte comme présente : ce stockage-là n'est jamais évincé.
+         * Le constat est écrit dans les métadonnées, pour que l'avertissement
+         * et le bouton « Relancer » existants le reprennent.
+         *
+         * @returns {Promise<{ total: number, manquantes: number } | null>}
+         */
+        async verifier(chapterId) {
+            const meta = await getMeta(chapterId);
+            if (!meta || meta.kind === 'novel' || !(meta.pages || []).length || !('caches' in window)) return null;
+            const cache = await caches.open(CACHE);
+            let manquantes = 0;
+            for (let i = 0; i < meta.pages.length; i++) {
+                if (meta.fichiers && meta.fichiers[i]) continue;
+                if (!(await cache.match(meta.pages[i]))) manquantes++;
+            }
+            const avant = meta.incomplete ? (meta.failed || 0) : 0;
+            if (manquantes !== avant) {
+                await putMeta({ ...meta, incomplete: manquantes > 0, failed: manquantes, verifieAt: Date.now() });
+            }
+            return { total: meta.pages.length, manquantes };
+        },
+
         async get(chapterId) { return getMeta(chapterId); },
         async list() { return (await allMeta()).sort((a, b) => b.savedAt - a.savedAt); },
 
