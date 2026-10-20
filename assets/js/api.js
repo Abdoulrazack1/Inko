@@ -901,6 +901,12 @@
             removeNote:       (id)         => del('/me/notes/' + encodeURIComponent(id)),
 
             lists:            ()           => get('/me/lists').then(a => { (a || []).forEach(l => {
+                // Règle « source active » : les sources désactivées sont un
+                // réglage de CET appareil, que le serveur ignore. Appliquée ici,
+                // elle vaut pour toutes les pages qui affichent la liste.
+                if (l.rules?.sourceActive && Array.isArray(l.items) && window.MH?.isSourceEnabled) {
+                    l.items = l.items.filter(it => !it.source || window.MH.isSourceEnabled(it.source));
+                }
                 if (Array.isArray(l.covers)) l.covers = l.covers.map(proxyCover);
                 if (Array.isArray(l.items))  l.items.forEach(it => { if (it.cover) it.cover = proxyCover(it.cover); });
             }); return a; }),

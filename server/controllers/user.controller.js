@@ -509,6 +509,13 @@ function lireRegles(brut) {
     if (typeof r.category === 'string' && r.category.trim()) out.category = r.category.trim().slice(0, 64);
     if (typeof r.source === 'string' && r.source.trim()) out.source = r.source.trim().slice(0, 64);
     if (Number.isFinite(+r.minRating) && +r.minRating >= 1 && +r.minRating <= 5) out.minRating = +r.minRating;
+    // « Non lu depuis N jours » : la règle qui fait d'une liste un rappel —
+    // ce qu'on a commencé puis laissé filer. Bornée à dix ans.
+    if (Number.isInteger(+r.inactifJours) && +r.inactifJours >= 1 && +r.inactifJours <= 3650) out.inactifJours = +r.inactifJours;
+    // « Source active » : le serveur ne sait pas quelles sources sont
+    // désactivées (réglage local à l'appareil). Le drapeau est gardé tel quel
+    // et appliqué par le client à l'affichage.
+    if (r.sourceActive === true) out.sourceActive = true;
     return Object.keys(out).length ? out : null;
 }
 
@@ -523,9 +530,18 @@ async function itemsDeRegles(userId, regles) {
     if (regles.source)   { where.push('f.source = ?');   params.push(regles.source); }
     let jointure = '';
     if (regles.minRating) {
+        // Les règles parlent en ÉTOILES (1 à 5, c'est ce que propose le
+        // formulaire) ; les notes sont stockées sur 10 depuis AMEL-47. La
+        // comparaison brute rendait « 5 étoiles » = « 2,5 étoiles et plus ».
         jointure = 'JOIN ratings r ON r.user_id = f.user_id AND r.manga_id = f.manga_id';
         where.push('r.rating >= ?');
-        params.push(regles.minRating);
+        params.push(regles.minRating * 2);
+    }
+    if (regles.inactifJours) {
+        // Jamais ouverte, ou pas depuis N jours.
+        jointure += ' LEFT JOIN progress p ON p.user_id = f.user_id AND p.manga_id = f.manga_id';
+        where.push('(p.updated_at IS NULL OR p.updated_at < NOW() - INTERVAL ? DAY)');
+        params.push(regles.inactifJours);
     }
     const [rows] = await pool.query(
         `SELECT f.manga_id, f.source, f.title, f.cover

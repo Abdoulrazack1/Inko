@@ -1416,3 +1416,37 @@ test('appairage : on ne révoque pas l’appareil d’un autre compte', async (t
     await Devices.revoquer(req, res, nextThrow);
     assert.equal(res.statusCode, 404, 'B ne doit pas pouvoir déconnecter l’appareil de A');
 });
+
+test('listes intelligentes : « pas ouverte depuis N jours » et note minimale en étoiles', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('Regles Liste', 'regleslist@test.local');
+    await pool.query(
+        `INSERT INTO favorites (user_id, manga_id, source, title, status) VALUES
+            (?, 'oubliee', 'weebcentral', 'Oubliée', 'reading'),
+            (?, 'recente', 'weebcentral', 'Récente', 'reading'),
+            (?, 'jamais',  'weebcentral', 'Jamais ouverte', 'reading')`, [u.id, u.id, u.id]);
+    await pool.query(
+        `INSERT INTO progress (user_id, manga_id, chapter_id, page, updated_at) VALUES
+            (?, 'oubliee', 'c1', 3, NOW() - INTERVAL 45 DAY),
+            (?, 'recente', 'c1', 3, NOW() - INTERVAL 2 DAY)`, [u.id, u.id]);
+    // Notes sur 10 (AMEL-47) : 10 = 5 étoiles, 6 = 3 étoiles.
+    await pool.query(`INSERT INTO ratings (user_id, manga_id, rating) VALUES (?, 'oubliee', 10), (?, 'recente', 6)`, [u.id, u.id]);
+
+    const creer = async (name, rules) => {
+        const r = rr({ user: u, body: { name, rules } });
+        await User.createList(r.req, r.res, nextThrow);
+        assert.equal(r.res.statusCode, 200, JSON.stringify(r.res.body));
+    };
+    await creer('Laissées filer', { status: ['reading'], inactifJours: 30 });
+    await creer('Cinq étoiles', { minRating: 5 });
+    await creer('Actives', { status: ['reading'], sourceActive: true });
+
+    const g = rr({ user: u });
+    await User.getLists(g.req, g.res, nextThrow);
+    const par = Object.fromEntries(g.res.body.map(l => [l.name, l]));
+    assert.deepStrictEqual(par['Laissées filer'].items.map(i => i.id).sort(), ['jamais', 'oubliee'],
+        'ouverte il y a 45 jours, ou jamais — pas celle d’avant-hier');
+    assert.deepStrictEqual(par['Cinq étoiles'].items.map(i => i.id), ['oubliee'],
+        '« 5 étoiles » ne ramène plus une série notée 3 étoiles');
+    assert.equal(par['Actives'].rules.sourceActive, true, 'le drapeau est rendu au client, qui l’applique');
+});
