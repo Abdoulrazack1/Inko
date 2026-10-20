@@ -928,11 +928,33 @@
             const quand = r.derniere ? 'Dernière synchro ' + MH.relTime(new Date(r.derniere).toISOString()) : 'Jamais synchronisé';
             detail.textContent = quand
                 + (r.enAttente ? ` · ${r.enAttente} modification${r.enAttente > 1 ? 's' : ''} en attente` : '')
+                + (r.conflits ? ` · ${r.conflits} à trancher` : '')
                 + (r.erreur && !window.INKO_HORS_LIGNE ? ' · ' + r.erreur : '')
                 + (window.INKO_HUB ? ' · ' + window.INKO_HUB : '');
         };
+        const peindreConflits = () => {
+            const zone = document.getElementById('pcConflits');
+            const ul = document.getElementById('pcConflitsListe');
+            const liste = window.INKO_SYNCHRO?.conflits?.() || [];
+            if (!zone || !ul) return;
+            zone.hidden = !liste.length;
+            const quand = (t) => (t ? MH.relTime(new Date(t).toISOString()) : '');
+            ul.innerHTML = liste.map(c => `<li class="pc-conflit">
+                <strong>${MH.esc(c.titre)}</strong> — ${c.type === 'statut' ? 'statut' : 'position'} changé des deux côtés
+                <div class="pc-conflit-choix">
+                    <button type="button" class="btn btn-secondary btn-sm" data-conflit="${MH.esc(c.id)}" data-garder="telephone">Garder « ${MH.esc(c.telephone)} »<small>ce téléphone${c.telephoneAt ? ' · ' + MH.esc(quand(c.telephoneAt)) : ''}</small></button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-conflit="${MH.esc(c.id)}" data-garder="pc">Garder « ${MH.esc(c.pc)} »<small>ton PC${c.pcAt ? ' · ' + MH.esc(quand(c.pcAt)) : ''}</small></button>
+                </div></li>`).join('');
+            ul.querySelectorAll('[data-conflit]').forEach(b => b.addEventListener('click', async () => {
+                ul.querySelectorAll('button').forEach(x => { x.disabled = true; });
+                await window.INKO_SYNCHRO.resoudre(b.dataset.conflit, b.dataset.garder);
+                peindreConflits();
+            }));
+        };
         peindre();
+        peindreConflits();
         window.addEventListener('inko:synchro-etat', peindre);
+        window.addEventListener('inko:synchro-etat', peindreConflits);
         document.getElementById('pcSync')?.addEventListener('click', async (e) => {
             const b = e.currentTarget;
             b.disabled = true; b.textContent = 'Synchronisation…';

@@ -47,6 +47,13 @@
        reste la propriete de l'application, qui s'en sert pour les reglages
        propres au tactile. Les confondre revelerait des reglages sans effet. */
     .sr-filtre { display: none !important; }
+    .pc-conflits { display: block; }
+    .pc-conflits[hidden] { display: none; }
+    .pc-conflits-liste { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    .pc-conflit { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+    .pc-conflit-choix { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .pc-conflit-choix button { text-align: left; white-space: normal; height: auto; padding: 8px 10px; }
+    .pc-conflit-choix small { display: block; color: var(--text3); font-weight: 400; }
     .set-card {
       background: var(--bg2); border: 1px solid var(--border);
       border-radius: 12px; padding: 22px 24px; margin-bottom: 18px;
@@ -165,6 +172,12 @@
           <div class="set-row-desc" id="pcDetail"></div>
         </div>
         <button class="btn btn-primary btn-sm" id="pcSync" hidden>Synchroniser maintenant</button>
+      </div>
+      <!-- Le PC et le téléphone ont changé la même chose chacun de leur côté :
+           on montre les deux, on laisse choisir. -->
+      <div class="set-row pc-conflits" id="pcConflits" hidden>
+        <div class="set-row-label">À trancher</div>
+        <ul class="pc-conflits-liste" id="pcConflitsListe"></ul>
       </div>
       <div class="set-row">
         <div>
