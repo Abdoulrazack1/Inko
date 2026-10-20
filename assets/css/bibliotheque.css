@@ -253,3 +253,6 @@
   .lib-pop { position: fixed; left: 12px; right: 12px; top: auto; bottom: 76px; max-width: none; min-width: 0; }
   .lib-catmgr-list li { flex-wrap: wrap; }
 }
+
+/* Une série qui reprend après une longue pause. */
+.upd-retour { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }

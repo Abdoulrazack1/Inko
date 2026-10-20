@@ -1293,6 +1293,10 @@
   },
   "patterns": [
     [
+      "^De retour après (\\d+) mois$",
+      "Back after $1 months"
+    ],
+    [
       "^il y a (\\d+) min$",
       "$1 min ago"
     ],
