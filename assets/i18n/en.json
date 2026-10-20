@@ -1293,6 +1293,10 @@
   },
   "patterns": [
     [
+      "^(.+) \\+ (.+), d’après tes (\\d+) dernières lectures$",
+      "$1 + $2, based on your last $3 reads"
+    ],
+    [
       "^il y a (\\d+) min$",
       "$1 min ago"
     ],
