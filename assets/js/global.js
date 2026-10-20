@@ -51,6 +51,17 @@
     // MH.t / MH.loadI18n / MH.setLang sur window.MH (audit N40 v2).
     window.MH = Object.assign(window.MH || {}, { $, $$, fmt, esc, cover, proxify, BLANK_IMG });
 
+    // Une touche de lecteur ne doit agir que seule. Les lecteurs testaient
+    // la cible mais pas les modificateurs : Ctrl+P (imprimer) changeait de
+    // chapitre, Ctrl+F lançait le plein écran au lieu de la recherche du
+    // navigateur, Ctrl+A le défilement automatique. Les raccourcis globaux
+    // filtraient déjà les modificateurs ; les lecteurs non.
+    window.MH.toucheIgnoree = function (e) {
+        if (e.ctrlKey || e.metaKey || e.altKey) return true;
+        const t = e.target;
+        return !!(t && (['INPUT', 'TEXTAREA', 'SELECT'].includes((t.tagName || '').toUpperCase()) || t.isContentEditable));
+    };
+
     // Journal d'erreurs non fatales (audit B-3) : les nombreux catch qui
     // avalaient silencieusement une erreur passent désormais par ici. Rien
     // d'intrusif pour l'utilisateur (pas de toast), mais l'erreur est visible
