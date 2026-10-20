@@ -1592,5 +1592,8 @@
       "^(d+) filtre(s) actif(s) : (.+)$",
       "$1 active filter(s): $2"
     ]
-  ]
+  ],
+  "Chapitres lus par mois et par source": "Chapters read per month and per source",
+  "Mois": "Month",
+  "Total": "Total"
 }
