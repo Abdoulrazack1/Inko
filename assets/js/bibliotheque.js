@@ -682,6 +682,8 @@
         renderCatTabs();
         renderFilters();
         render();
+        // La même œuvre suivie sur deux sources : signalée, fusion proposée.
+        window.MH?.doublons?.signaler(document.getElementById('libDoublons'), favs, progressByManga);
 
         const missing = favs.filter(f => !f.title || !f.cover);
         if (missing.length) {
