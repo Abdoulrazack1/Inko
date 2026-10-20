@@ -1592,5 +1592,6 @@
       "^(d+) filtre(s) actif(s) : (.+)$",
       "$1 active filter(s): $2"
     ]
-  ]
+  ],
+  "Journal de synchronisation": "Sync log"
 }
