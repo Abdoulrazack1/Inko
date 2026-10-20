@@ -1293,6 +1293,14 @@
   },
   "patterns": [
     [
+      "^(\\d+) % d’échecs$",
+      "$1% failures"
+    ],
+    [
+      "^sur (\\d+) requêtes$",
+      "over $1 requests"
+    ],
+    [
       "^il y a (\\d+) min$",
       "$1 min ago"
     ],

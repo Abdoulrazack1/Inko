@@ -94,9 +94,10 @@ async function test(src) {
     if (caps.includes('popular') || typeof src.popular === 'function') { method = 'popular'; args = { limit: 1 }; }
     else if (caps.includes('latest') || typeof src.latest === 'function') { method = 'latest'; args = { limit: 1 }; }
     else { method = 'search'; args = { q: 'a', limit: 1 }; }
+    const t0 = Date.now();
     const r = await track(src.id, () => src[method](args));
     const count = (r && (r.total ?? (Array.isArray(r.results) ? r.results.length : 0))) || 0;
-    return { method, count };
+    return { method, count, ms: Date.now() - t0 };
 }
 
 // ── Journal par source (audit AMEL-68) ──────────────────────
@@ -125,8 +126,22 @@ function journalDe(id, limite = JOURNAL_MAX) {
     return (journal.get(id) || []).slice(0, limite);
 }
 
+// Latence et taux d'échec, mesurés sur les dernières requêtes réelles (le
+// journal) : l'état « Opérationnelle » ne dit pas qu'une source met quatre
+// secondes à répondre, ni qu'une requête sur cinq échoue sans faire tomber
+// la série d'échecs consécutifs à trois.
+function mesures(id) {
+    const l = journal.get(id) || [];
+    if (!l.length) return { requetes: 0, latenceMs: null, tauxEchec: null };
+    const ok = l.filter(x => x.ok).map(x => x.ms).sort((a, b) => a - b);
+    return {
+        requetes: l.length,
+        latenceMs: ok.length ? ok[Math.floor(ok.length / 2)] : null,   // médiane : un appel bloqué ne fausse pas tout
+        tauxEchec: Math.round((l.filter(x => !x.ok).length / l.length) * 100),
+    };
+}
 function snapshot() {
-    return [...health.entries()].map(([id, h]) => ({ id, ...h }));
+    return [...health.entries()].map(([id, h]) => ({ id, ...h, ...mesures(id) }));
 }
 
-module.exports = { recordOk, recordFail, recordVide, track, test, snapshot, journalDe, JOURNAL_MAX };
+module.exports = { recordOk, recordFail, recordVide, track, test, snapshot, journalDe, mesures, JOURNAL_MAX };
