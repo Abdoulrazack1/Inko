@@ -106,6 +106,42 @@
         return ops;
     }
 
+    // ── Conflits ───────────────────────────────────────────
+    // Hors ligne, le téléphone passe une série en « Terminé » ; pendant ce
+    // temps, sur le PC, on la passe en « Abandonné ». Au retour du réseau, la
+    // boîte d'envoi rejouait « Terminé » et écrasait en silence le choix fait
+    // sur le PC — le statut n'a pas d'arbitre de date. Même chose, en moins
+    // grave, pour la position (arbitrée par date, mais sans rien dire).
+    //
+    // On compare à TROIS : ce que le PC disait au dernier rapatriement (la
+    // base), ce que le téléphone veut écrire, ce que le PC dit maintenant. Le
+    // PC a changé depuis la base ET ne dit pas la même chose que le
+    // téléphone : c'est un conflit. Il n'est pas envoyé ; il attend qu'on
+    // choisisse, avec les deux valeurs sous les yeux.
+    const CLE_BASE = 'inko_sync_base';
+    const CLE_CONFLITS = 'inko_sync_conflits';
+    const STATUTS = { reading: 'En cours', completed: 'Terminé', planned: 'À lire', paused: 'En pause', dropped: 'Abandonné' };
+    function conflitDe(op, base, pc) {
+        const mStat = /^\/me\/library\/(.+)$/.exec(op.c);
+        const mProg = /^\/me\/progress\/(.+)$/.exec(op.c);
+        if (op.m !== 'PUT' || op.force || (!mStat && !mProg)) return null;
+        const mangaId = decodeURIComponent((mStat || mProg)[1]);
+        if (mStat) {
+            if (!(mangaId in (base.statut || {}))) return null;
+            const b = base.statut[mangaId] ?? null, s = pc.statut[mangaId] ?? null, l = op.b?.status ?? null;
+            return s !== b && s !== l ? { type: 'statut', mangaId, telephone: l, pc: s } : null;
+        }
+        if (!(mangaId in (base.progres || {}))) return null;
+        const n = (v) => (v == null ? null : Number(v));
+        const b = n(base.progres[mangaId]), s = n(pc.progres[mangaId]?.chapter), l = n(op.b?.chapter);
+        return s !== b && s !== l ? { type: 'progression', mangaId, telephone: l, pc: s, pcAt: pc.progres[mangaId]?.updatedAt || null } : null;
+    }
+    function libelleValeur(c, cote) {
+        const v = c[cote];
+        if (c.type === 'statut') return v ? (STATUTS[v] || v) : 'sans statut';
+        return v == null ? 'pas commencé' : `chapitre ${v}`;
+    }
+
     // ── 2. Pousser ─────────────────────────────────────────
     async function pousser() {
         let boite = lireJson(CLE_BOITE, []);
@@ -116,8 +152,30 @@
         }
         const correspondances = lireJson('inko_sync_ids', {});
         let envoyees = 0;
+        // L'état du PC, une fois, et seulement s'il y a de quoi comparer.
+        const base = lireJson(CLE_BASE, null);
+        let pc = null;
+        if (base && boite.some(o => o.m === 'PUT' && /^\/me\/(library|progress)\//.test(o.c))) {
+            const [biblio, progres] = await Promise.all([appel('GET', '/me/library').catch(() => null), appel('GET', '/me/progress').catch(() => null)]);
+            if (biblio && progres) {
+                pc = { statut: {}, progres };
+                for (const b of (Array.isArray(biblio) ? biblio : biblio.items || [])) pc.statut[b.mangaId] = b.status ?? null;
+            }
+        }
+        const conflits = lireJson(CLE_CONFLITS, []);
         while (boite.length) {
             const op = boite[0];
+            const c = pc && conflitDe(op, base, pc);
+            if (c) {
+                const titre = (ML._etat().favorites || []).find(f => f.mangaId === c.mangaId)?.title || c.mangaId;
+                const autres = conflits.filter(x => !(x.type === c.type && x.mangaId === c.mangaId));
+                conflits.length = 0;
+                conflits.push(...autres, { ...c, id: `${c.type}:${c.mangaId}`, titre, telephoneAt: op.b?.clientAt || Date.now(), op });
+                ecrireJson(CLE_CONFLITS, conflits);
+                boite.shift();
+                ecrireJson(CLE_BOITE, boite);
+                continue;
+            }
             let chemin = op.c;
             for (const [loc, srv] of Object.entries(correspondances)) chemin = chemin.split(loc).join(String(srv));
             try {
@@ -159,6 +217,11 @@
             for (const b of liste(biblio)) s.library[b.mangaId] = { status: b.status, rating: null };
         }
         ML._ecrire();
+        // La base des prochaines comparaisons : ce que dit le PC, maintenant.
+        const base = { statut: {}, progres: {} };
+        if (biblio) for (const b of liste(biblio)) base.statut[b.mangaId] = b.status ?? null;
+        for (const [m, p] of Object.entries(progres || {})) base.progres[m] = p?.chapter ?? null;
+        ecrireJson(CLE_BASE, base);
         return true;
     }
 
@@ -201,13 +264,37 @@
         return {
             appaire: !!window.INKO_HUB,
             enAttente: lireJson(CLE_BOITE, []).length,
+            conflits: lireJson(CLE_CONFLITS, []).length,
             derniere: e.derniere,
             erreur: e.erreur,
         };
     }
     function annoncer() { window.dispatchEvent(new CustomEvent('inko:synchro-etat', { detail: resume() })); }
 
-    window.INKO_SYNCHRO = { synchroniser: () => synchroniser({ manuel: true }), resume };
+    /** Les conflits en attente, avec des libellés lisibles. */
+    function conflits() {
+        return lireJson(CLE_CONFLITS, []).map(c => ({
+            id: c.id, type: c.type, titre: c.titre,
+            telephone: libelleValeur(c, 'telephone'), telephoneAt: c.telephoneAt,
+            pc: libelleValeur(c, 'pc'), pcAt: c.pcAt || null,
+        }));
+    }
+    /** `garder` : 'telephone' (on renvoie, sans comparer) ou 'pc' (on oublie). */
+    async function resoudre(id, garder) {
+        const liste = lireJson(CLE_CONFLITS, []);
+        const c = liste.find(x => x.id === id);
+        if (!c) return false;
+        ecrireJson(CLE_CONFLITS, liste.filter(x => x.id !== id));
+        if (garder === 'telephone') {
+            const op = { ...c.op, force: true, b: { ...c.op.b, ...(c.type === 'progression' ? { clientAt: new Date().toISOString() } : {}) } };
+            ecrireJson(CLE_BOITE, [...lireJson(CLE_BOITE, []), op]);
+        }
+        annoncer();
+        await synchroniser();
+        return true;
+    }
+
+    window.INKO_SYNCHRO = { synchroniser: () => synchroniser({ manuel: true }), resume, conflits, resoudre };
 
     // Démarrage et rattrapages.
     if (window.INKO_HUB) {

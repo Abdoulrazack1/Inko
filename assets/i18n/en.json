@@ -427,6 +427,9 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "À trancher": "To decide",
+    "ce téléphone": "this phone",
+    "ton PC": "your PC",
     "Double page automatique en paysage": "Automatic double page in landscape",
     "Droite → Gauche": "Right → Left",
     "Droite→gauche pour les mangas japonais": "Right-to-left for Japanese manga",
@@ -1292,6 +1295,10 @@
     "Commencer": "Start"
   },
   "patterns": [
+    [
+      "^Garder « (.+) »$",
+      "Keep “$1”"
+    ],
     [
       "^il y a (\\d+) min$",
       "$1 min ago"
