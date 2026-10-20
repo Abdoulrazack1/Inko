@@ -427,6 +427,11 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "À finir en": "Can finish in",
+    "Une soirée": "An evening",
+    "Un week-end": "A weekend",
+    "Une semaine": "A week",
+    "Estimé à 6 min par chapitre, le temps que ton rythme soit mesuré": "Estimated at 6 min per chapter until your pace is measured",
     "Double page automatique en paysage": "Automatic double page in landscape",
     "Droite → Gauche": "Right → Left",
     "Droite→gauche pour les mangas japonais": "Right-to-left for Japanese manga",
@@ -1292,6 +1297,10 @@
     "Commencer": "Start"
   },
   "patterns": [
+    [
+      "^D'après ton rythme mesuré : (\\d+) min par chapitre$",
+      "Based on your measured pace: $1 min per chapter"
+    ],
     [
       "^il y a (\\d+) min$",
       "$1 min ago"

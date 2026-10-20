@@ -9,6 +9,25 @@
     let filter = { type: 'all', value: null };
     let kindFilter = 'all';    // 'all' | 'manga' | 'novel' (sépare romans et mangas)
     let unreadOnly = false;    // n'afficher que les séries avec des chapitres non lus
+    // « Ce que je peux finir ce week-end » : un budget de temps, en minutes.
+    // Le temps restant d'une série = ses chapitres non lus × le temps qu'on
+    // met RÉELLEMENT à lire un chapitre (temps mesuré ÷ chapitres lus), pas
+    // une constante. Tant que rien n'est mesuré, 6 min par chapitre.
+    let budget = null;
+    let minutesParChapitre = 6, tempsMesure = false;
+    const BUDGETS = [
+        { min: 60,  libelle: 'Une soirée', detail: '≤ 1 h' },
+        { min: 300, libelle: 'Un week-end', detail: '≤ 5 h' },
+        { min: 900, libelle: 'Une semaine', detail: '≤ 15 h' },
+    ];
+    /** Minutes pour finir, ou null si la série n'a rien à lire. */
+    function minutesPourFinir(nonLus, mpc) {
+        return nonLus > 0 ? Math.round(nonLus * mpc) : null;
+    }
+    function tientDans(nonLus, mpc, budgetMin) {
+        const m = minutesPourFinir(nonLus, mpc);
+        return m !== null && m <= budgetMin;
+    }
     let sourceFilter = null;   // filtrer par source d'origine
 
     // ── Les filtres survivent à la page ─────────────────────
@@ -31,6 +50,7 @@
             if (s.filtre && s.filtre.type === 'status' && s.filtre.value) filter = s.filtre;
             if (typeof s.source === 'string' && s.source) sourceFilter = s.source;
             if (s.nonLus === true) unreadOnly = true;
+            if (BUDGETS.some(b => b.min === s.budget)) budget = s.budget;
             if (typeof s.tri === 'string' && s.tri) tri = s.tri;
         } catch (e) { /* stockage indisponible ou illisible : on part à neuf */ }
     }
@@ -38,7 +58,7 @@
         try {
             window.Storage?.setPref?.(CLE_FILTRES, JSON.stringify({
                 kind: kindFilter, filtre: filter, source: sourceFilter, nonLus: unreadOnly,
-                tri,
+                budget, tri,
             }));
         } catch (e) { /* stockage refusé : les filtres restent valables pour la session */ }
     }
@@ -91,6 +111,7 @@
         filter = { type: 'all', value: null };
         kindFilter = 'all';
         unreadOnly = false;
+        budget = null;
         sourceFilter = null;
         tri = 'recent';
         const genre = q.get('genre');
@@ -99,6 +120,7 @@
         if (statut) filter = { type: 'status', value: statut };
         if (q.get('source')) sourceFilter = q.get('source');
         if (q.has('nonlus')) unreadOnly = q.get('nonlus') === '1';
+        if (BUDGETS.some(b => String(b.min) === q.get('finir'))) budget = +q.get('finir');
         if (q.get('tri')) tri = q.get('tri');
     }
 
@@ -124,6 +146,7 @@
         if (filter.type === 'status' && filter.value) q.set('statut', filter.value);
         if (sourceFilter) q.set('source', sourceFilter);
         if (unreadOnly) q.set('nonlus', '1');
+        if (budget) q.set('finir', String(budget));
         if (tri && tri !== 'recent') q.set('tri', tri);
         const cible = location.pathname + (q.toString() ? '?' + q : '');
         // Ne réécrire que si l'adresse change VRAIMENT : `render()` est appelé
@@ -682,6 +705,7 @@
         renderCatTabs();
         renderFilters();
         render();
+        mesurerRythme();
 
         const missing = favs.filter(f => !f.title || !f.cover);
         if (missing.length) {
@@ -727,6 +751,20 @@
     // « Filtres actifs » avec des puces qu'on retire une à une. On reprend le
     // même geste ici : deux pages qui filtrent doivent se filtrer de la même
     // façon, sinon on réapprend à chaque écran.
+    // Le rythme RÉEL : temps de lecture mesuré ÷ chapitres lus. En dessous de
+    // dix chapitres, la moyenne ne veut rien dire : on garde l'estimation.
+    async function mesurerRythme() {
+        try {
+            const t = await API.me.tempsLecture(1);
+            const lus = Object.values(readByManga || {}).reduce((n, l) => n + (Array.isArray(l) ? l.length : 0), 0);
+            if (!t?.mesure || lus < 10) return;
+            minutesParChapitre = Math.min(60, Math.max(1, Math.round(t.totalSecondes / 60 / lus)));
+            tempsMesure = true;
+            renderFilters();
+            if (budget) render();
+        } catch (e) { /* hors ligne ou ancien serveur : l'estimation reste */ }
+    }
+
     function filtresActifs() {
         const out = [];
         if (kindFilter && kindFilter !== 'all') {
@@ -737,6 +775,7 @@
         }
         if (sourceFilter) out.push({ l: sourceFilter, off: () => { sourceFilter = null; } });
         if (unreadOnly) out.push({ l: 'Non lus', off: () => { unreadOnly = false; } });
+        if (budget) out.push({ l: `À finir : ${BUDGETS.find(b => b.min === budget)?.libelle.toLowerCase()}`, off: () => { budget = null; } });
         const q = (document.getElementById('libSearch')?.value || '').trim();
         if (q) {
             out.push({ l: `« ${q} »`, off: () => {
@@ -820,8 +859,12 @@
         // Bascule « Non lus uniquement »
         const unreadHtml = `<div class="lib-filter-group"><div class="lib-filter-label">Lecture</div><div class="lib-filter-chips">
             <button class="lib2-chip ${unreadOnly ? 'on' : ''}" aria-pressed="${!!unreadOnly}" id="chipUnread" title="N'afficher que les séries avec des chapitres non lus">Avec des non-lus</button></div></div>`;
+        const budgetHtml = `<div class="lib-filter-group"><div class="lib-filter-label">À finir en</div><div class="lib-filter-chips">
+            ${BUDGETS.map(b => `<button class="lib2-chip ${budget === b.min ? 'on' : ''}" aria-pressed="${budget === b.min}" data-budget="${b.min}"
+                title="${tempsMesure ? `D'après ton rythme mesuré : ${minutesParChapitre} min par chapitre` : 'Estimé à 6 min par chapitre, le temps que ton rythme soit mesuré'}">${b.libelle}<span class="cnt">${b.detail}</span></button>`).join('')}
+            </div></div>`;
         const kindGroup = kindHtml ? `<div class="lib-filter-group"><div class="lib-filter-label">Type</div>${kindHtml}</div>` : '';
-        el.innerHTML = kindGroup + html + srcHtml + unreadHtml
+        el.innerHTML = kindGroup + html + srcHtml + unreadHtml + budgetHtml
             + (filtresActifs().length ? '<button type="button" class="lib-filter-reset" id="libFilterReset">Tout effacer</button>' : '');
         el.querySelector('#libFilterReset')?.addEventListener('click', () => { effacerFiltres(); renderFilters(); });
         const nb = filtresActifs().filter(f => !f.l.startsWith('«')).length;
@@ -841,7 +884,11 @@
         el.querySelector('#chipUnread')?.addEventListener('click', () => {
             unreadOnly = !unreadOnly; renderFilters(); render();
         });
-        el.querySelectorAll('.lib2-chip:not(#chipUnread)').forEach(ch => ch.addEventListener('click', () => {
+        el.querySelectorAll('[data-budget]').forEach(ch => ch.addEventListener('click', () => {
+            budget = budget === +ch.dataset.budget ? null : +ch.dataset.budget;
+            renderFilters(); render();
+        }));
+        el.querySelectorAll('.lib2-chip:not(#chipUnread):not([data-budget])').forEach(ch => ch.addEventListener('click', () => {
             filter = { type: ch.dataset.ftype, value: ch.dataset.fval || null };
             renderFilters(); render();
         }));
@@ -854,7 +901,7 @@
         const box = document.getElementById('libResume');
         if (!box) return;
         // En mode sélection ou avec un filtre actif, on masque la rangée pour ne pas gêner.
-        const active = selectMode || filter.type !== 'all' || unreadOnly || sourceFilter || catTab !== '__all';
+        const active = selectMode || filter.type !== 'all' || unreadOnly || budget || sourceFilter || catTab !== '__all';
         const inProgress = favsOfKind()
             .filter(f => progressByManga[f.mangaId]?.chapterId)
             .sort((a, b) => new Date(progressByManga[b.mangaId]?.updatedAt || 0) - new Date(progressByManga[a.mangaId]?.updatedAt || 0))
@@ -925,6 +972,7 @@
         else if (catTab !== '__all') list = list.filter(f => f.category === catTab);
         if (sourceFilter)               list = list.filter(f => (f.source || 'mangadex') === sourceFilter);
         if (unreadOnly)                 list = list.filter(f => unreadCount(f) > 0);
+        if (budget)                     list = list.filter(f => tientDans(unreadCount(f), minutesParChapitre, budget));
 
         if (sort === 'title')    list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
         if (sort === 'unread')   list.sort((a, b) => unreadCount(b) - unreadCount(a));
