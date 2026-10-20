@@ -1178,3 +1178,15 @@ body.page-body { padding-top: 0; padding-bottom: 0; }
 .reader-pop-item kbd { font: 600 10.5px/1 var(--font-body, inherit); padding: 3px 6px; border-radius: 5px; border: 1px solid rgba(255,255,255,.14); color: var(--text3); }
 .reader-pop-zoom { display: flex; align-items: center; gap: 8px; padding: 8px 10px 6px; margin-top: 4px; border-top: 1px solid rgba(255,255,255,.08); font-size: 13px; color: var(--text2); }
 .reader-pop-zoom > span:first-child { flex: 1; }
+
+/* Planche paysage pivotée d'un quart de tour sur un écran en portrait.
+   La boîte de mise en page reste celle de l'image NON pivotée (l × h) ; les
+   marges négatives/positives la ramènent à son empreinte pivotée (h × l),
+   pour qu'elle se centre sans déborder. Après les règles d'ajustement, qui
+   posent leurs tailles en !important. */
+.reader-page-img.pivotee {
+  width: var(--pivot-l) !important; height: var(--pivot-h) !important;
+  max-width: none !important; max-height: none !important;
+  transform: rotate(var(--pivot-sens, 90deg));
+  margin: calc((var(--pivot-l) - var(--pivot-h)) / 2) calc((var(--pivot-h) - var(--pivot-l)) / 2);
+}

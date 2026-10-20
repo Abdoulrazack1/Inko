@@ -37,6 +37,7 @@
         rs.gap = +rs.gap; if (isNaN(rs.gap)) rs.gap = 8;
         rs.autospeed = +rs.autospeed || 1.4;
         rs.warm = +rs.warm; if (isNaN(rs.warm)) rs.warm = 0;
+        rs.pivoter = window.Storage?.getPref('reader_pivoter') === '1' ? '1' : '0';
     }
     let autoTimer = null;
     let sleepMins = 0;       // minuteur de lecture (0 = off)
@@ -171,7 +172,7 @@
         // rotation avec l'ouverture du clavier virtuel. Les deux, débruités
         // ensemble : la bascule ne coûte rien quand le mode est déjà le bon.
         let _tempoRot = null;
-        const rotation = () => { clearTimeout(_tempoRot); _tempoRot = setTimeout(surRotation, 150); };
+        const rotation = () => { clearTimeout(_tempoRot); _tempoRot = setTimeout(() => { surRotation(); appliquerPivot(); }, 150); };
         window.addEventListener('orientationchange', rotation);
         window.addEventListener('resize', rotation);
         surRotation();
@@ -885,9 +886,42 @@
         // Apres chargement : c'est l'image qui dit si la planche est double.
         const img = el.querySelector('.reader-page-img');
         if (img) {
-            if (img.complete) appliquerDecoupe();
-            else img.addEventListener('load', appliquerDecoupe, { once: true });
+            const apresChargement = () => { appliquerDecoupe(); appliquerPivot(); };
+            if (img.complete) apresChargement();
+            else img.addEventListener('load', apresChargement, { once: true });
         }
+    }
+
+    // ── Planche paysage sur un écran en portrait ─────────────
+    // Une planche panoramique dans un chapitre en portrait, lue sur un
+    // téléphone tenu droit, s'affiche sur un tiers de l'écran : 390 px de
+    // large pour 269 de haut, le reste vide. Retourner le téléphone pour UNE
+    // planche, puis le remettre, c'est précisément le geste qu'on évite.
+    // Avec l'option, la planche pivote d'un quart de tour pour occuper
+    // l'écran — dans le sens de lecture : en japonais (droite à gauche) on
+    // tourne vers la gauche, pour que la moitié lue en premier arrive EN HAUT.
+    // La découpe en deux moitiés, si elle est active, garde la priorité.
+    function taillePivot(largeurDispo, hauteurDispo, ratioLH) {
+        // Une fois pivotée, la LARGEUR affichée de l'image devient sa hauteur
+        // à l'écran : elle est bornée par la hauteur disponible, et sa
+        // hauteur affichée par la largeur disponible.
+        const l = Math.min(hauteurDispo, largeurDispo * ratioLH);
+        return { l: Math.round(l), h: Math.round(l / ratioLH) };
+    }
+    function appliquerPivot() {
+        const img = document.querySelector('#readerPagesArea .reader-page-wrapper .reader-page-img');
+        if (!img) return;
+        const zone = document.getElementById('readerPagesArea');
+        const portrait = window.innerHeight > window.innerWidth;
+        const voulu = rs.pivoter === '1' && readMode === 'page' && portrait && estDouble(img)
+            && !(rs.decouper === '1');
+        img.classList.toggle('pivotee', voulu);
+        if (!voulu) { img.style.removeProperty('--pivot-l'); img.style.removeProperty('--pivot-h'); return; }
+        const hauteurDispo = window.innerHeight - Math.max(0, zone.getBoundingClientRect().top) - 16;
+        const t = taillePivot(zone.clientWidth - 8, hauteurDispo, img.naturalWidth / img.naturalHeight);
+        img.style.setProperty('--pivot-l', t.l + 'px');
+        img.style.setProperty('--pivot-h', t.h + 'px');
+        img.style.setProperty('--pivot-sens', rs.direction === 'rtl' ? '-90deg' : '90deg');
     }
 
     function renderScroll() {
@@ -1922,6 +1956,10 @@
                 <input type="checkbox" id="rsDecouper" ${rs.decouper === '1' ? 'checked' : ''}>
                 <span>Découper les planches doubles en deux pages</span>
             </label>
+            <label class="rs-check">
+                <input type="checkbox" id="rsPivoter" ${rs.pivoter === '1' ? 'checked' : ''}>
+                <span>Pivoter les planches paysage sur un écran en portrait</span>
+            </label>
             <label class="rs-label">Qualité des images</label>
             ${seg('quality', [{v:'high',l:'Haute'},{v:'saver',l:'Éco'}], q)}
             <label class="rs-label">Minuteur de lecture</label>
@@ -1975,6 +2013,10 @@
         panel.querySelector('#rsWarm').addEventListener('input', e => {
             document.getElementById('rsWarmVal').textContent = e.target.value + '%';
             saveReaderSetting('warm', +e.target.value, false);
+        });
+        panel.querySelector('#rsPivoter')?.addEventListener('change', e => {
+            saveReaderSetting('pivoter', e.target.checked ? '1' : '0', false);
+            appliquerPivot();
         });
         panel.querySelector('#rsGap').addEventListener('input', e => {
             document.getElementById('rsGapVal').textContent = e.target.value + 'px';
