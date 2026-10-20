@@ -427,6 +427,10 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "Préparer les prochains chapitres sur secteur et en Wi-Fi": "Prepare upcoming chapters when charging and on Wi-Fi",
+    "Les deux chapitres qui suivent ta position, pour tes cinq séries en cours. Jamais sur le réseau mobile.": "The two chapters after your position, for your five current series. Never on mobile data.",
+    "Tes séries en cours sont déjà prêtes": "Your current series are already ready",
+    "Activé — les chapitres seront préparés la prochaine fois que l’appareil sera branché, en Wi-Fi": "Enabled — chapters will be prepared next time the device is charging on Wi-Fi",
     "Double page automatique en paysage": "Automatic double page in landscape",
     "Droite → Gauche": "Right → Left",
     "Droite→gauche pour les mangas japonais": "Right-to-left for Japanese manga",
@@ -1292,6 +1296,10 @@
     "Commencer": "Start"
   },
   "patterns": [
+    [
+      "^(\\d+) chapitre\\(s\\) mis en file$",
+      "$1 chapter(s) queued"
+    ],
     [
       "^il y a (\\d+) min$",
       "$1 min ago"

@@ -21,6 +21,8 @@
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
   <link rel="stylesheet" href="assets/css/global.css">
   <style>
+    .dl-prechauffe { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text2); margin: 6px 0 10px; cursor: pointer; }
+    .dl-prechauffe-note { display: block; font-size: 12px; color: var(--text3); }
     .dl-wrap { max-width: 880px; margin: 0 auto; padding: 26px 20px 80px; }
     .dl-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
     .dl-head h1 { font-family: var(--font-head); font-size: 27px; font-weight: 700; }
@@ -48,6 +50,10 @@
       <button class="btn btn-sm" id="dlClearAll" style="display:none;color:#ef4444">Tout supprimer</button>
     </div>
     <div class="dl-sub" id="dlStorage">Chapitres disponibles hors-ligne (stockés sur cet appareil).</div>
+    <label class="dl-prechauffe"><input type="checkbox" id="dlPrechauffe">
+      <span>Préparer les prochains chapitres sur secteur et en Wi-Fi
+        <span class="dl-prechauffe-note">Les deux chapitres qui suivent ta position, pour tes cinq séries en cours. Jamais sur le réseau mobile.</span></span>
+    </label>
     <div class="dl-bar" id="dlBar" style="display:none"><div></div></div>
     <div id="dlQueue"></div>
     <div id="dlBody"><div class="dl-empty"><div class="spinner-inline"></div></div></div>
@@ -64,6 +70,7 @@
   <script src="assets/js/tirer-rafraichir.js"></script>
   <script src="assets/js/downloads.js"></script>
   <script src="assets/js/dl-file.js"></script>
+  <script src="assets/js/prechauffe.js"></script>
   <script src="assets/js/downloads-page.js"></script>
   <script src="assets/js/eula.js"></script>
   <script src="assets/js/pwa.js"></script>
