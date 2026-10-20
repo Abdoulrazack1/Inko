@@ -817,7 +817,10 @@
     "Pas encore interrogée depuis le démarrage": "Not queried since startup",
     "Pause": "On hold",
     "PAUSE": "ON HOLD",
-    "Pause lecture": "Pause reading",
+    "Encore 10 min": "10 more min",
+    "Fin de chapitre : un bon moment pour t'arrêter.": "End of chapter: a good moment to stop.",
+    "Entre deux chapitres : un bon moment pour t'arrêter.": "Between two chapters: a good moment to stop.",
+    "Le temps prévu est passé.": "Your planned time is up.",
     "PDF illisible ou protégé.": "Unreadable or protected PDF.",
     "Période": "Period",
     "Permet de reprendre précisément là où tu t'es arrêté sur chaque série.": "Lets you resume exactly where you left off in each series.",
@@ -1292,6 +1295,14 @@
     "Commencer": "Start"
   },
   "patterns": [
+    [
+      "^Tes (\\d+) minutes sont passées\\.$",
+      "Your $1 minutes are up."
+    ],
+    [
+      "^Minuteur réglé : rappel à la fin du chapitre après (\\d+) min$",
+      "Timer set: reminder at the end of the chapter after $1 min"
+    ],
     [
       "^il y a (\\d+) min$",
       "$1 min ago"
