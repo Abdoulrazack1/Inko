@@ -1713,12 +1713,14 @@
         const asc = chapitresTries();
         const idx = asc.findIndex(c => c.id === currentChap.id);
         if (idx < 0) return null;
-        // Les entrées connues pour être vides sont sautées : la source les
-        // annonce (pages: 0), ou on les a déjà ouvertes pour rien.
+        // Seules les entrées CONSTATÉES vides dans la session sont sautées.
+        // Pas `pages === 0` : WeebCentral, SushiScan et les sources de romans
+        // écrivent 0 pour « inconnu » — le prendre pour « vide » sauterait
+        // tous leurs chapitres.
         const vides = chapitresVides();
         for (let t = idx + delta; t >= 0 && t < asc.length; t += delta) {
             const c = asc[t];
-            if (c.pages === 0 || vides.has(String(c.id))) continue;
+            if (vides.has(String(c.id))) continue;
             return c;
         }
         return null;

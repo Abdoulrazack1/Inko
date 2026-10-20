@@ -10,7 +10,9 @@
 // chapitres différents.
 //
 // Et une entrée sans page (la source la liste, ne fournit rien) arrêtait la
-// lecture sur un écran d'erreur, sans issue vers la suite.
+// lecture sur un écran d'erreur, sans issue vers la suite. On ne peut le
+// savoir qu'en l'ouvrant : le champ `pages` des listes vaut 0 pour
+// « inconnu » chez la plupart des extensions.
 'use strict';
 
 const { test } = require('node:test');
@@ -60,10 +62,14 @@ test('voisins dans les deux sens, null aux extrémités', () => {
     assert.equal(lecteur(LISTE, 'x').neighborChapter(1), null);
 });
 
-test('une entrée annoncée vide par la source est sautée', () => {
-    const liste = [{ id: 'a', chapter: '1' }, { id: 'b', chapter: '2', pages: 0 }, { id: 'c', chapter: '3', pages: 12 }];
-    assert.equal(lecteur(liste, 'a').neighborChapter(1).id, 'c');
-    assert.equal(lecteur(liste, 'c').neighborChapter(-1).id, 'a');
+test('« pages: 0 » ne veut pas dire vide : les extensions l\'écrivent pour « inconnu »', () => {
+    // weebcentral, sushiscan, chireads, novelbin… posent `pages: 0` sur
+    // TOUS leurs chapitres. Les sauter rendrait la lecture impossible.
+    const liste = [{ id: 'a', chapter: '1', pages: 0 }, { id: 'b', chapter: '2', pages: 0 }, { id: 'c', chapter: '3', pages: 0 }];
+    assert.equal(lecteur(liste, 'a').neighborChapter(1).id, 'b');
+    assert.equal(lecteur(liste, 'c').neighborChapter(-1).id, 'b');
+    const ext = fs.readFileSync(path.join(__dirname, '..', '..', 'extensions-community', 'weebcentral', 'index.js'), 'utf8');
+    assert.match(ext, /pages: 0,/, 'si weebcentral cesse d\'écrire pages: 0, ce test peut être revu');
 });
 
 test('une entrée déjà ouverte pour rien dans la session est sautée', () => {
