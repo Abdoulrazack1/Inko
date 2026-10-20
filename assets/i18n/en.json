@@ -432,6 +432,11 @@
     "Ce qui reste à lire est gardé.": "What's left to read is kept.",
     "Aucun chapitre déjà lu à supprimer": "No read chapters to remove",
     "Impossible de savoir ce qui a été lu sans connexion : rien n’a été supprimé.": "Can't tell what was read without a connection: nothing was removed.",
+    "Plafond de stockage": "Storage limit",
+    "Aucun": "None",
+    "Au-delà, les plus anciens chapitres déjà lus partent d’eux-mêmes. Jamais ce qui reste à lire.": "Beyond it, the oldest chapters you've read are removed automatically. Never what's left to read.",
+    "Plafond enregistré": "Limit saved",
+    "Plafond enregistré — il s’appliquera au prochain téléchargement en ligne": "Limit saved — it will apply on the next online download",
     "Double page automatique en paysage": "Automatic double page in landscape",
     "Droite → Gauche": "Right → Left",
     "Droite→gauche pour les mangas japonais": "Right-to-left for Japanese manga",
@@ -1297,6 +1302,10 @@
     "Commencer": "Start"
   },
   "patterns": [
+    [
+      "^Plafond de stockage : (\\d+) ancien\\(s\\) chapitre\\(s\\) retiré\\(s\\)$",
+      "Storage limit: $1 old chapter(s) removed"
+    ],
     [
       "^Supprimer (\\d+) chapitres? déjà lus? \\?$",
       "Remove $1 already read chapter(s)?"

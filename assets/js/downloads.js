@@ -273,6 +273,9 @@
                     // ou un tableau vide fait simplement retomber sur l'URL.
                     fichiers: fichiersActifs ? fichiers : undefined,
                 });
+                // Plafond de stockage : ce qui dépasse s'évince maintenant, en
+                // arrière-plan — le chapitre qu'on vient d'obtenir est lisible.
+                this.appliquerBudget({ garder: info.chapterId }).catch(() => { /* sans contexte : rien n'est évincé */ });
                 return { count: urls.length, failed };
             } finally {
                 this._active.delete(info.chapterId);
@@ -436,6 +439,41 @@
                 libere += poidsDe(c);
             }
             return { aSupprimer: retenus, octets: libere, proteges: chapitres.filter(c => classe(c) === 'protege').length };
+        },
+
+        // ── Budget de stockage ──────────────────────────────────
+        // Un plafond, en octets (réglage `dlBudget`, 0 ou absent : aucun). Quand
+        // les téléchargements le dépassent, l'excédent s'évince tout seul, selon
+        // `planPurge` : le déjà lu d'abord, puis les séries jamais commencées ;
+        // jamais le chapitre en cours ni la suite d'une série commencée. Si ce
+        // qui reste protégé dépasse encore le plafond, on le laisse dépasser —
+        // supprimer ce qu'on s'apprête à lire serait pire que le dépassement.
+        budget() {
+            const v = Number(window.Storage?.getPref?.('dlBudget'));
+            return Number.isFinite(v) && v > 0 ? v : 0;
+        },
+        async appliquerBudget({ garder = null } = {}) {
+            const plafond = this.budget();
+            if (!plafond || !window.API?.me) return { evinces: 0 };
+            const tailles = await this.sizeByManga();
+            const total = tailles.reduce((n, t) => n + t.bytes, 0);
+            if (total <= plafond) return { evinces: 0, total };
+            // Ce qui a été lu vient du serveur ; sans lui, on ne devine pas.
+            const [lus, prog] = await Promise.all([window.API.me.readChapters(), window.API.me.progress()]);
+            const set = new Set();
+            Object.values(lus || {}).forEach(l => (l || []).forEach(c => set.add(c.chapterId)));
+            const position = {};
+            Object.entries(prog || {}).forEach(([id, p]) => { const n = parseFloat(p.chapter); if (Number.isFinite(n)) position[id] = n; });
+            const moyennes = new Map(tailles.map(t => [t.mangaId, t.chapters ? t.bytes / t.chapters : 0]));
+            const chapitres = (await this.list()).filter(c => c.chapterId !== garder);
+            const plan = this.planPurge(chapitres, { lus: set, position }, {
+                octets: total - plafond, poidsDe: (c) => moyennes.get(c.mangaId) || 0, inclureNonCommencees: true,
+            });
+            for (const c of plan.aSupprimer) await this.remove(c.chapterId);
+            if (plan.aSupprimer.length) {
+                window.MH?.toast?.(`Plafond de stockage : ${plan.aSupprimer.length} ancien(s) chapitre(s) retiré(s)`);
+            }
+            return { evinces: plan.aSupprimer.length, total, libere: plan.octets };
         },
 
         async sizeByManga() {

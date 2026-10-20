@@ -22,6 +22,21 @@
             render();
         });
         document.getElementById('dlPurge')?.addEventListener('click', purgerLus);
+        const budget = document.getElementById('dlBudget');
+        if (budget) {
+            budget.value = String(window.Downloads.budget() || 0);
+            if (!budget.value) budget.value = '0';
+            budget.addEventListener('change', async () => {
+                window.Storage?.setPref?.('dlBudget', budget.value);
+                try {
+                    const r = await window.Downloads.appliquerBudget();
+                    if (r.evinces) render();
+                    else if (+budget.value) MH.toast?.('Plafond enregistré');
+                } catch (e) {
+                    MH.toast?.('Plafond enregistré — il s’appliquera au prochain téléchargement en ligne');
+                }
+            });
+        }
         // La file se redessine toute seule : elle avance sans que la page
         // soit touchee, et un ecran fige pendant un telechargement est
         // exactement ce qu'on vient verifier ici.
