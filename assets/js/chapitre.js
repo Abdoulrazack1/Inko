@@ -949,15 +949,43 @@
         updateUIPage(currentPage);
     }
 
-    function renderDouble(num) {
+    // ── Pages doubles en mode double ─────────────────────────
+    // Une planche panoramique (deux pages imprimées d'un seul tenant) était
+    // collée à sa voisine. Mesuré sur 1600 px : panoramique 1114 px + page
+    // 557 px = 1671 px, la planche déborde et la voisine n'a rien à voir avec
+    // le dessin d'un seul tenant qu'on regarde. Une panoramique
+    // s'affiche donc SEULE, et la page qui la précède aussi — sinon on
+    // l'apparierait à une page qui n'est pas sa vraie voisine d'impression.
+    // Le format vient de `pageRatios`, rempli au chargement et au
+    // préchargement : en général connu avant qu'on arrive sur la page.
+    function pageLarge(n) {
+        const r = pageRatios.get(n - 1);   // hauteur / largeur
+        return !!r && r < 1 / 1.2;         // même seuil que estDouble()
+    }
+    /** Combien de pages afficher à partir de `num` : 1 ou 2. */
+    function uniteDouble(num, total, large) {
+        if (num >= total || large(num) || large(num + 1)) return 1;
+        return 2;
+    }
+    /** Début de l'unité qui précède `num`, sans jamais réafficher `num`. */
+    function uniteAvant(num, large) {
+        const s = num - 1;
+        if (s < 1) return null;
+        if (large(s) || s - 1 < 1 || large(s - 1)) return { base: s, n: 1 };
+        return { base: s - 1, n: 2 };
+    }
+    let doubleCount = 2;   // pages affichées par la planche courante
+
+    function renderDouble(num, n) {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
         if (num < 1) num = 1;
-        doubleBase = num;              // ancre de la planche (navigation par 2)
+        doubleBase = num;              // ancre de la planche
+        doubleCount = n || uniteDouble(num, totalPages, pageLarge);
         el.classList.remove('reader-scrollmode');
         el.classList.add('paged');     // défilement interne si la planche dépasse l'écran
         const cur  = pages[num - 1];   // page courante (num)
-        const next = pages[num];       // page suivante (num+1)
+        const next = doubleCount === 2 ? pages[num] : null;   // page suivante (num+1)
         if (!cur) return;
         const rtl = rs.direction === 'rtl';
         // Planche collée : en RTL la page la plus récente est à GAUCHE
@@ -975,6 +1003,14 @@
         </div>
         <div class="page-counter-badge">Pages <strong>${num}${next ? '–' + (num+1) : ''}</strong> / ${totalPages}${rtl && next ? ' · sens →←' : ''}</div>`;
         armImages(el);
+        // Une planche affichée se révèle panoramique au chargement : on refait
+        // l'appariement (une seule fois, l'unité ne change plus ensuite).
+        el.querySelectorAll('.reader-page-img').forEach(im => im.addEventListener('load', () => {
+            if (!im.naturalWidth) return;
+            pageRatios.set(+im.dataset.idx, im.naturalHeight / im.naturalWidth);
+            if (readMode === 'double' && doubleBase === num && n !== 1
+                && uniteDouble(num, totalPages, pageLarge) !== doubleCount) renderDouble(num);
+        }, { once: true }));
         updateUIPage(next ? num + 1 : num);
     }
 
@@ -1376,10 +1412,11 @@
     window.navStep = function (dir) {   // dir : +1 = suivant, -1 = précédent
         if (readMode === 'scroll') { window.goToPage(currentPage + dir); return; }
         if (readMode === 'double') {
-            const target = doubleBase + dir * 2;
+            const avant = dir < 0 ? uniteAvant(doubleBase, pageLarge) : null;
+            const target = dir > 0 ? doubleBase + doubleCount : (avant ? avant.base : 0);
             if (target < 1) { if (neighborChapter(-1)) showChapterTransition(-1); return; }
             if (target > totalPages) { showChapterTransition(1); return; }
-            renderDouble(target);
+            renderDouble(target, avant?.n);
             resetPagedScroll(dir);
             return;
         }
@@ -2192,7 +2229,12 @@
         if (!p) return;
         const t0 = performance.now();
         const im = new Image();
-        im.onload = () => noterDureePage(performance.now() - t0);
+        im.onload = () => {
+            noterDureePage(performance.now() - t0);
+            // Le format des planches à venir, connu AVANT qu'on les affiche :
+            // le mode double sait d'avance qu'une panoramique doit rester seule.
+            if (im.naturalWidth) pageRatios.set(num - 1, im.naturalHeight / im.naturalWidth);
+        };
         im.src = pageSrc(p);
     }
     // ── Le chapitre suivant, préparé pour de bon ────────────────
