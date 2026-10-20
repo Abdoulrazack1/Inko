@@ -232,6 +232,7 @@
                     <div class="dl-gtitle">${MH.esc(g.mangaTitle || g.mangaId)}
                         <div class="dl-gcount">${chaps.length} chapitre(s)<span data-poids="${MH.esc(g.mangaId)}"></span></div>
                     </div>
+                    ${chaps.some(c => c.kind !== 'novel') ? `<button class="btn btn-sm" data-cbz="${MH.esc(g.mangaId)}" title="Une archive CBZ, lisible par toutes les liseuses de BD">Exporter en CBZ</button>` : ''}
                     <button class="btn btn-sm" data-delmanga="${MH.esc(g.mangaId)}" style="color:#ef4444">Supprimer la série</button>
                 </div>
                 ${chaps.map(c => {
@@ -268,6 +269,24 @@
                 danger: true, okText: 'Supprimer', message: combien })) return;
             await window.Downloads.removeManga(b.dataset.delmanga);
             MH.toast?.('Série supprimée des téléchargements'); render();
+        }));
+        body.querySelectorAll('[data-cbz]').forEach(b => b.addEventListener('click', async () => {
+            const libelle = b.textContent;
+            b.disabled = true;
+            try {
+                const r = await window.Downloads.exporterCbz(b.dataset.cbz, {
+                    onProgress: (fait, total) => { b.textContent = `Archive… ${Math.round(fait / total * 100)} %`; },
+                });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(r.blob);
+                a.download = r.nom;
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+                MH.toast?.(`${r.nom} : ${r.chapitres} chapitre(s), ${r.pages} page(s)`
+                    + (r.manquantes ? ` — ${r.manquantes} page(s) absente(s) du cache, non incluses` : ''));
+            } catch (e) {
+                MH.toast?.(e.message || 'Export impossible');
+            } finally { b.disabled = false; b.textContent = libelle; }
         }));
         body.querySelectorAll('[data-delchap]').forEach(b => b.addEventListener('click', async () => {
             await window.Downloads.remove(b.dataset.delchap);
