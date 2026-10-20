@@ -47,6 +47,9 @@
        reste la propriete de l'application, qui s'en sert pour les reglages
        propres au tactile. Les confondre revelerait des reglages sans effet. */
     .sr-filtre { display: none !important; }
+    .import-liste-zone { display: block; }
+    .import-liste-zone[hidden] { display: none; }
+    .import-liste-source select { margin-left: 6px; }
     .set-card {
       background: var(--bg2); border: 1px solid var(--border);
       border-radius: 12px; padding: 22px 24px; margin-bottom: 18px;
@@ -422,6 +425,16 @@
       </div>
       <div class="set-row">
         <div>
+          <div class="set-row-label">Importer depuis MyAnimeList ou AniList</div>
+          <div class="set-row-desc">Export « Manga List » de MyAnimeList (.xml ou .xml.gz) ou collection AniList (.json)</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnImportListe">Choisir le fichier</button>
+        <input type="file" id="importListeFichier" accept=".xml,.gz,.json,application/xml,application/json,application/gzip" style="display:none"
+               aria-label="Export MyAnimeList ou AniList à importer">
+      </div>
+      <div class="set-row import-liste-zone" id="importListeZone" hidden></div>
+      <div class="set-row">
+        <div>
           <div class="set-row-label">Effacer l'historique de lecture</div>
           <div class="set-row-desc">Progression et activité (favoris conservés)</div>
         </div>
@@ -545,6 +558,7 @@
   <script src="assets/js/tirer-rafraichir.js"></script>
   <script src="assets/js/anilist.js"></script>
   <script src="assets/js/parametres.js"></script>
+  <script src="assets/js/import-listes.js"></script>
   <script src="assets/js/appairage.js"></script>
   <script src="assets/js/eula.js"></script>
   <script src="assets/js/pwa.js"></script>
