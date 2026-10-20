@@ -616,7 +616,7 @@
         const b = boiteReservee(idx);
         return `<img class="reader-page-img" data-idx="${idx}" data-page="${idx + 1}"
                  alt="Page ${idx + 1}" decoding="async"
-                 style="width:${b.w}px;height:${b.h}px;background:var(--bg2,#141414)"
+                 style="width:${b.w}px;height:${b.h}px"
                  >`;
     }
 
