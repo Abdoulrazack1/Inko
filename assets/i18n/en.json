@@ -427,6 +427,8 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "Nuit progressive selon l'heure": "Progressive night mode by time of day",
+    "En ce moment : rien (de jour)": "Right now: nothing (daytime)",
     "Double page automatique en paysage": "Automatic double page in landscape",
     "Droite → Gauche": "Right → Left",
     "Droite→gauche pour les mangas japonais": "Right-to-left for Japanese manga",
@@ -1292,6 +1294,10 @@
     "Commencer": "Start"
   },
   "patterns": [
+    [
+      "^En ce moment : chaleur (\\d+) %, luminosité −(\\d+) %$",
+      "Right now: warmth $1 %, brightness −$2 %"
+    ],
     [
       "^il y a (\\d+) min$",
       "$1 min ago"
