@@ -895,6 +895,8 @@
 
     // ── Raccourcis clavier ──
     function bindKeyboard() {
+        // Les touches du lecteur sont les siennes (voir global.js).
+        window.MH?.reserverTouches?.(['n', 'N', 'p', 'P', 's', 'S', 'j', 'J', 'f', 'F']);
         document.addEventListener('keydown', e => {
             if (['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName)) return;
             switch (e.key) {
