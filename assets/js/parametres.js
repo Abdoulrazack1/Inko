@@ -561,6 +561,22 @@
             } catch (e) { MH.toastErreur(e); }
         });
 
+        document.getElementById('btnExportChiffre')?.addEventListener('click', async () => {
+            if (!API.isLoggedIn()) { toast('Connecte-toi pour exporter'); return; }
+            const SC = window.MH?.sauvegardeChiffree;
+            if (!SC) return;
+            const phrase = await SC.demanderPhrase({ titre: 'Sauvegarde chiffrée', confirmer: true });
+            if (!phrase) return;
+            try {
+                const enveloppe = await SC.chiffrer(await API.me.exportData(), phrase);
+                const url = URL.createObjectURL(new Blob([JSON.stringify(enveloppe)], { type: 'application/json' }));
+                const a = document.createElement('a');
+                a.href = url; a.download = `inko-sauvegarde-chiffree-${new Date().toISOString().slice(0,10)}.json`;
+                a.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+                toast('Sauvegarde chiffrée téléchargée ✓ — garde ta phrase de passe');
+            } catch (e) { MH.toastErreur(e); }
+        });
+
         // Import d'une sauvegarde JSON
         const importFile = document.getElementById('importFile');
         document.getElementById('btnImport')?.addEventListener('click', () => {
@@ -571,7 +587,13 @@
             const file = importFile.files?.[0];
             if (!file) return;
             try {
-                const data = JSON.parse(await file.text());
+                let data = JSON.parse(await file.text());
+                // Sauvegarde chiffrée : on la déchiffre ici, la phrase ne part pas.
+                if (window.MH?.sauvegardeChiffree?.estChiffree(data)) {
+                    const phrase = await window.MH.sauvegardeChiffree.demanderPhrase({ titre: 'Restaurer une sauvegarde chiffrée', confirmer: false });
+                    if (phrase === null) return;
+                    data = await window.MH.sauvegardeChiffree.dechiffrer(data, phrase);
+                }
                 if (!data || (!data.favorites && !data.library && !data.progress)) {
                     toast('Fichier invalide'); return;
                 }
