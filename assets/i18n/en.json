@@ -427,6 +427,11 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "Libérer de la place": "Free up space",
+    "Supprimer d'abord ce qui est déjà lu, jamais ce qui reste à lire": "Remove what you've already read first, never what's left to read",
+    "Ce qui reste à lire est gardé.": "What's left to read is kept.",
+    "Aucun chapitre déjà lu à supprimer": "No read chapters to remove",
+    "Impossible de savoir ce qui a été lu sans connexion : rien n’a été supprimé.": "Can't tell what was read without a connection: nothing was removed.",
     "Double page automatique en paysage": "Automatic double page in landscape",
     "Droite → Gauche": "Right → Left",
     "Droite→gauche pour les mangas japonais": "Right-to-left for Japanese manga",
@@ -1292,6 +1297,10 @@
     "Commencer": "Start"
   },
   "patterns": [
+    [
+      "^Supprimer (\\d+) chapitres? déjà lus? \\?$",
+      "Remove $1 already read chapter(s)?"
+    ],
     [
       "^il y a (\\d+) min$",
       "$1 min ago"
