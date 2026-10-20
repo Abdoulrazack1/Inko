@@ -427,6 +427,18 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "Comparer deux traductions": "Compare two translations",
+    "Comparer avec": "Compare with",
+    "Recherche des autres sources…": "Looking for other sources…",
+    "Défilement synchronisé": "Synchronized scrolling",
+    "Retour au lecteur": "Back to reader",
+    "Première source": "First source",
+    "Seconde source": "Second source",
+    "Comparer avec une autre source": "Compare with another source",
+    "Aucune autre source": "No other source",
+    "Aucune autre source activée ne propose cette série.": "No other enabled source has this series.",
+    "Ouvre cette page depuis le lecteur : il manque la série ou le chapitre.": "Open this page from the reader: the series or chapter is missing.",
+    "Impossible de charger ce chapitre pour l'instant.": "This chapter can't be loaded right now.",
     "Double page automatique en paysage": "Automatic double page in landscape",
     "Droite → Gauche": "Right → Left",
     "Droite→gauche pour les mangas japonais": "Right-to-left for Japanese manga",
@@ -1292,6 +1304,14 @@
     "Commencer": "Start"
   },
   "patterns": [
+    [
+      "^(.+) ne propose pas le chapitre (.+)\\.$",
+      "$1 doesn't have chapter $2."
+    ],
+    [
+      "^(.+) ne répond pas pour l'instant\\.$",
+      "$1 isn't responding right now."
+    ],
     [
       "^il y a (\\d+) min$",
       "$1 min ago"
