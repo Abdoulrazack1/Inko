@@ -267,6 +267,7 @@
             bindWheel();
             bindTouch();
             applyInitialScroll();
+            proposerAutreAppareil();   // AVANT d'écrire notre propre position
             saveProgress();
             preloadNextChapter();
             requestWakeLock();
@@ -1104,6 +1105,44 @@
             else arreter();
         };
         setTimeout(viser, 120);
+    }
+
+    // ── Reprendre là où l'autre appareil s'est arrêté ────────
+    // La progression commune garde la lecture la plus récente, tous appareils
+    // confondus — juste pour la fiche. Mais un onglet resté ouvert sur le
+    // téléphone, une ligne d'historique, un lien de notification ouvrent un
+    // chapitre précis, souvent EN RETARD sur ce qu'on a lu depuis sur le PC,
+    // et rien ne le disait. Si un autre appareil est allé plus loin dans
+    // cette série, on le propose : une ligne, un bouton, rien d'imposé.
+    function autreAppareilEnAvance(positions, ici) {
+        const n = (v) => { const x = parseFloat(v); return Number.isFinite(x) ? x : null; };
+        const chapIci = n(ici.chapter);
+        const recent = Date.now() - 30 * 86400000;
+        return positions
+            .filter(o => !o.courant && o.at > recent && o.chapterId)
+            .filter(o => {
+                const c = n(o.chapter);
+                if (c === null || chapIci === null) return false;
+                return c > chapIci || (o.chapterId === ici.chapterId && o.page > ici.page + 1);
+            })
+            .sort((a, b) => b.at - a.at)[0] || null;
+    }
+    async function proposerAutreAppareil() {
+        if (!API.isLoggedIn() || !API.me.progressAppareils || window.MH?.isIncognito?.(manga?.id)) return;
+        let positions;
+        try { positions = await API.me.progressAppareils(manga.id); } catch (e) { return; }
+        const o = autreAppareilEnAvance(positions || [], { chapter: currentChap.chapter, chapterId: currentChap.id, page: currentPage });
+        if (!o || document.getElementById('autreAppareil')) return;
+        const el = document.createElement('div');
+        el.id = 'autreAppareil';
+        el.className = 'autre-appareil';
+        el.setAttribute('role', 'status');
+        const quand = MH.relTime ? MH.relTime(new Date(o.at).toISOString()) : '';
+        el.innerHTML = `<span class="autre-appareil-texte">Sur <strong>${MH.esc(o.nom || 'un autre appareil')}</strong> : ${MH.esc(MH.unitLabel(o.source || API.sources.current, { short: true }))} ${MH.esc(String(+o.chapter))}, page ${o.page}${quand ? ` · ${MH.esc(quand)}` : ''}</span>
+            <a class="btn btn-primary btn-sm" href="${MH.esc(MH.readerHref(manga.id, o.chapterId, o.source || API.sources.current, o.page))}">Reprendre là</a>
+            <button type="button" class="autre-appareil-fermer" aria-label="Ignorer">✕</button>`;
+        el.querySelector('.autre-appareil-fermer').addEventListener('click', () => el.remove());
+        document.body.appendChild(el);
     }
 
     let saveTimer;
