@@ -727,6 +727,16 @@
     // « Filtres actifs » avec des puces qu'on retire une à une. On reprend le
     // même geste ici : deux pages qui filtrent doivent se filtrer de la même
     // façon, sinon on réapprend à chaque écran.
+    const RYTHMES = { hebdo: [0, 'Chaque semaine'], mensuel: [1, 'Chaque mois'], irregulier: [2, 'Irrégulier'], arret: [3, 'À l’arrêt'] };
+    function ordreRythme(f) { return RYTHMES[f.rythme]?.[0] ?? 4; }
+    /** « Chaque semaine (tous les 7 j) » — pour l'infobulle et la vue liste. */
+    function libelleRythme(f) {
+        const r = RYTHMES[f.rythme];
+        if (!r) return '';
+        if (f.rythme === 'hebdo' && f.rythmeJours && f.rythmeJours < 5) return `Plusieurs fois par semaine (tous les ${f.rythmeJours} j)`;
+        return f.rythmeJours && f.rythme !== 'arret' ? `${r[1]} (tous les ${f.rythmeJours} j)` : r[1];
+    }
+
     function filtresActifs() {
         const out = [];
         if (kindFilter && kindFilter !== 'all') {
@@ -953,6 +963,12 @@
         }
         // 'recent' = ordre par défaut (added_at desc)
 
+        // Rythme de parution : ce qui sort chaque semaine d'abord, puis chaque
+        // mois, l'irrégulier, l'arrêté ; ce qu'on ne sait pas encore derrière.
+        // À rythme égal, la cadence la plus serrée devant.
+        if (sort === 'rythme') list.sort((a, b) => ordreRythme(a) - ordreRythme(b)
+            || (a.rythmeJours ?? 999) - (b.rythmeJours ?? 999));
+
         // Épingles toujours en tête (stable vis-à-vis du tri choisi)
         const pinned = (f) => window.UserData?.isPinned?.(f.mangaId, f.source) ? 0 : 1;
         list.sort((a, b) => pinned(a) - pinned(b));
@@ -1126,6 +1142,7 @@
                     <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
                     <div class="lib2-sub">${prog ? unit + ' ' + MH.chapNum(prog.chapter) : 'Pas commencé'} · ${f.source || 'mangadex'}</div>
                     ${f.category ? `<div class="lib2-cat">${MH.esc(f.category)}</div>` : ''}
+                    ${tri === 'rythme' ? `<div class="lib2-cat lib2-rythme">${MH.esc(libelleRythme(f) || 'Rythme pas encore connu')}</div>` : ''}
                 </div>
             </a>`;
     }

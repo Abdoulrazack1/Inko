@@ -628,6 +628,17 @@ const MIGRATIONS = [
             INDEX idx_user_day (user_id, day)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
     } },
+
+    // Le rythme de parution d'une série (hebdomadaire, mensuel, irrégulier, à
+    // l'arrêt), calculé par le scan sur les dates des derniers chapitres.
+    { version: 27, name: 'favoris : rythme de parution', apply: async () => {
+        if (!(await columnExists('favorites', 'rythme'))) {
+            await run('ALTER TABLE favorites ADD COLUMN rythme VARCHAR(16) DEFAULT NULL');
+        }
+        if (!(await columnExists('favorites', 'rythme_jours'))) {
+            await run('ALTER TABLE favorites ADD COLUMN rythme_jours SMALLINT DEFAULT NULL');
+        }
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──
@@ -846,13 +857,18 @@ async function ensureSchema() {
         name       VARCHAR(255) DEFAULT NULL,
         applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB`);
-    let current = 0;
+    // Les versions DÉJÀ appliquées, pas seulement la plus haute. Avec
+    // `MAX(version)`, deux branches développées en parallèle — l'une ajoute la
+    // 25, l'autre la 26 — se fusionnaient en silence dans le mauvais ordre :
+    // une base passée à 26 sautait la 25 pour toujours. Toutes les migrations
+    // sont rejouables (en-tête du fichier), appliquer un trou est donc sûr.
+    let appliquees = new Set();
     try {
-        const [[row]] = await pool.query('SELECT MAX(version) AS v FROM schema_migrations');
-        current = row?.v || 0;
+        const [rows] = await pool.query('SELECT version FROM schema_migrations');
+        appliquees = new Set(rows.map(r => Number(r.version)));
     } catch (e) { /* table toute neuve */ }
     for (const m of MIGRATIONS) {
-        if (m.version <= current) continue;
+        if (appliquees.has(m.version)) continue;
         // Audit DB-05 : la version n'est enregistrée QUE si la migration a
         // réellement abouti. Avant, `run()` avalait l'échec et l'INSERT suivait
         // quand même : la migration était marquée comme appliquée et n'était

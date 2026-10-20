@@ -162,6 +162,40 @@ const withTimeout = (p, ms) => {
     ]).finally(() => clearTimeout(t));
 };
 
+// ── Rythme de parution ─────────────────────────────────────
+// À partir des dates des derniers chapitres (au plus dix) :
+//   · « arret »      : rien depuis quatre mois ;
+//   · « irregulier » : moins de 70 % des écarts autour de l'écart médian
+//                      (entre sa moitié et son double), ou un trou de plus
+//                      de six fois la médiane — une série qui sort par
+//                      rafales (deux chapitres, puis deux mois de silence)
+//                      a une médiane courte, mais pas de cadence ;
+//   · « hebdo »      : écart médian ≤ 10 jours ;
+//   · « mensuel »    : ≤ 45 jours ; au-delà, irrégulier.
+// Moins de trois écarts datés : on ne sait pas, on ne dit rien.
+const ARRET_JOURS = 120;
+function rythmeDe(chapitres, maintenant = Date.now()) {
+    const JOUR = 86400000;
+    const dates = (chapitres || [])
+        .map(c => (c?.publishedAt ? new Date(c.publishedAt).getTime() : NaN))
+        .filter(Number.isFinite)
+        .sort((a, b) => b - a)
+        .slice(0, 10);
+    if (!dates.length) return null;
+    if ((maintenant - dates[0]) / JOUR > ARRET_JOURS) return { rythme: 'arret', jours: null };
+    // Plusieurs chapitres le même jour (sortie groupée) : un seul écart.
+    const jours = [...new Set(dates.map(d => Math.floor(d / JOUR)))];
+    const ecarts = jours.slice(1).map((j, i) => jours[i] - j);
+    if (ecarts.length < 3) return null;
+    const tries = [...ecarts].sort((a, b) => a - b);
+    const mediane = tries[Math.floor(tries.length / 2)];
+    const reguliers = ecarts.filter(e => e >= mediane / 2 && e <= mediane * 2).length;
+    if (reguliers / ecarts.length < 0.7 || tries[tries.length - 1] > mediane * 6) return { rythme: 'irregulier', jours: mediane };
+    if (mediane <= 10) return { rythme: 'hebdo', jours: mediane };
+    if (mediane <= 45) return { rythme: 'mensuel', jours: mediane };
+    return { rythme: 'irregulier', jours: mediane };
+}
+
 async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = 'fr,en', notifyOnly = false, force = false, onProgress = null } = {}) {
     const debutDeCeScan = Date.now();
     const params = [uid];
@@ -285,6 +319,13 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
             [latest?.chapter ?? null, unread.length,
              parution && !Number.isNaN(parution.getTime()) ? parution : null, uid, f.manga_id]
         ).catch(() => { /* colonne absente (migration 22 pas encore passée) : sans gravité */ });
+        // Rythme de parution, à part : une base sans la migration 27 ne doit
+        // pas perdre la mise à jour ci-dessus.
+        const r = rythmeDe(chaps);
+        if (r) {
+            pool.query('UPDATE favorites SET rythme = ?, rythme_jours = ? WHERE user_id = ? AND manga_id = ?',
+                [r.rythme, r.jours, uid, f.manga_id]).catch(() => { /* migration 27 pas encore passée */ });
+        }
 
         return {
             mangaId:    f.manga_id,
@@ -462,4 +503,4 @@ function lancerScan(uid, opts = {}) {
 // et deux points d'appel suffisent.
 function etatScan(uid) { purgerJobs(); return vueJob(jobs.get(uid)); }
 
-module.exports = { scanUserUpdates, fullScanCooldown, markFullScan, dernierScan, backgroundScan, lancerScan, etatScan };
+module.exports = { rythmeDe, scanUserUpdates, fullScanCooldown, markFullScan, dernierScan, backgroundScan, lancerScan, etatScan };
