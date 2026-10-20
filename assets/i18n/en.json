@@ -427,6 +427,7 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "La source ne répond pas — recherche du chapitre ailleurs…": "The source isn't responding — looking for the chapter elsewhere…",
     "Double page automatique en paysage": "Automatic double page in landscape",
     "Droite → Gauche": "Right → Left",
     "Droite→gauche pour les mangas japonais": "Right-to-left for Japanese manga",
@@ -1292,6 +1293,10 @@
     "Commencer": "Start"
   },
   "patterns": [
+    [
+      "^(.+) ne répond pas : ce chapitre est lu sur (.+)\\. Ta progression reste sur la série d’origine\\.$",
+      "$1 isn't responding: this chapter is read from $2. Your progress stays on the original series."
+    ],
     [
       "^il y a (\\d+) min$",
       "$1 min ago"

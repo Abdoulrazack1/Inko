@@ -195,7 +195,15 @@
                 ]);
             } catch (netErr) {
                 const dl = window.Downloads ? await window.Downloads.get(chapterId) : null;
-                if (!dl) throw netErr;
+                if (!dl) {
+                    // Ni réseau vers cette source, ni copie hors ligne : le même
+                    // chapitre, ailleurs (source-secours.js). Rattaché à la série
+                    // d'ORIGINE — la progression continue au même endroit.
+                    showLoader('La source ne répond pas — recherche du chapitre ailleurs…');
+                    const s = await lireAilleurs(mangaId, chapterId);
+                    if (!s) throw netErr;
+                    ({ m, chapsData, pagesData } = s);
+                } else {
                 m = { id: mangaId, title: dl.mangaTitle || 'Chapitre', cover: dl.cover, coverThumb: dl.cover, tags: [], description: '', status: null, langs: [] };
                 chapsData = { results: [{ id: chapterId, chapter: dl.chapterNum }] };
                 // P2.3 : la copie de sûreté PASSE AVANT l'URL d'origine.
@@ -208,6 +216,7 @@
                     url: (window.Downloads?.srcPage ? window.Downloads.srcPage(dl, i) : null) || u,
                 })) };
                 MH.toast?.('Lecture hors-ligne');
+                }
             }
             window.removeEventListener('api:retry', surReessai);
             manga    = m;
@@ -274,6 +283,43 @@
             showError(e);
         }
     });
+
+    // ── Source de secours ──────────────────────────────────
+    // Le titre et le numéro du chapitre, depuis ce qui répond encore : la fiche
+    // et la liste de la source (une panne d'images les laisse souvent
+    // passer), sinon le miroir local de la bibliothèque et la progression.
+    async function lireAilleurs(mangaId, chapterId) {
+        const SS = window.MH?.sourceSecours;
+        if (!SS) return null;
+        const source = API.sources.current;
+        let fiche = null, liste = null, numero = null;
+        try { fiche = await API.mangas.get(mangaId); } catch (e) { /* source muette */ }
+        try { liste = (await API.mangas.chapters(mangaId, { lang: window.Storage?.getPref('readingLang') || 'fr,en' })).results || null; } catch (e) { /* idem */ }
+        numero = liste?.find(c => c.id === chapterId)?.chapter ?? null;
+        if (numero == null && API.isLoggedIn()) {
+            try { const p = (await API.me.progress())[mangaId]; if (p?.chapterId === chapterId) numero = p.chapter; } catch (e) { /* hors ligne */ }
+        }
+        const titre = fiche?.title || window.Storage?.getCachedLibrary?.()?.favs?.find(f => f.mangaId === mangaId)?.title || null;
+        const trouve = await SS.chercher({ titre, numero, enPanne: source, API, MH });
+        if (!trouve) return null;
+        // Le bandeau est posé APRÈS le rendu (il survit au remplacement du contenu).
+        setTimeout(() => {
+            if (document.getElementById('bandeauSecours')) return;
+            const b = document.createElement('div');
+            b.id = 'bandeauSecours';
+            b.className = 'bandeau-secours';
+            b.setAttribute('role', 'status');
+            b.innerHTML = `<span>${MH.esc(MH.sourceName?.(source) || source)} ne répond pas : ce chapitre est lu sur <strong>${MH.esc(trouve.nomSource)}</strong>. Ta progression reste sur la série d’origine.</span>
+                <button type="button" aria-label="Fermer">✕</button>`;
+            b.querySelector('button').addEventListener('click', () => b.remove());
+            document.body.appendChild(b);
+        }, 0);
+        return {
+            m: fiche || { id: mangaId, title: titre, cover: '', coverThumb: '', tags: [], description: '', status: null, langs: [] },
+            chapsData: { results: liste || [{ id: chapterId, chapter: numero }] },
+            pagesData: { pages: trouve.pages },
+        };
+    }
 
     // ── UI Loaders / Errors ──
     function showLoader(msg) {
