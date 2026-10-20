@@ -1070,8 +1070,15 @@
     // `currentPage` ici ramenait donc en haut, ce qui etait precisement le
     // defaut qu'on corrige.
     function applyInitialScroll(page) {
-        const cible = page || currentPage;
-        if (readMode !== 'scroll' || !(cible > 1)) {
+        // À l'ouverture (pas au changement de mode, où `page` est donné) :
+        // la position fine notée sur cet appareil, si elle désigne la même
+        // planche à une près — l'observateur compte une planche comme « vue »
+        // dès 30 % visible, la page sauvegardée peut donc précéder l'ancre.
+        let cible = page || currentPage;
+        const fine = page ? null : lirePositionFine();
+        if (fine && Math.abs(fine.p - cible) <= 1) cible = fine.p;
+        const frac = fine && fine.p === cible ? fine.f : 0;
+        if (readMode !== 'scroll' || !(cible > 1 || frac > 0)) {
             window.scrollTo(0, 0);   // démarre toujours en haut (page 1 visible)
             return;
         }
@@ -1097,14 +1104,57 @@
             if (rendu || readMode !== 'scroll') { arreter(); return; }
             const img = document.querySelector(`.reader-page-img[data-page="${cible}"]`);
             if (img) {
-                const haut = img.getBoundingClientRect().top;
-                if (Math.abs(haut) > 8) img.scrollIntoView({ block: 'start' });
+                const r = img.getBoundingClientRect();
+                const ecart = r.top + frac * r.height;   // 0 : la ligne lue est en haut de l'écran
+                if (Math.abs(ecart) > 8) window.scrollBy(0, ecart);
             }
             if (++essais < 14) setTimeout(viser, 130);
             else arreter();
         };
         setTimeout(viser, 120);
     }
+
+    // ── Reprise au pixel près en mode défilement ─────────────
+    // La progression ne retient qu'un numéro de page : rouvrir un chapitre
+    // en défilement reposait le HAUT de la planche en haut de l'écran. Sur un
+    // webtoon, une « planche » fait souvent trois ou quatre écrans — on
+    // reprenait jusqu'à trois écrans en arrière. On note donc, sur cet
+    // appareil, quelle part de la planche est déjà passée au-dessus de l'écran.
+    // Local seulement : la fraction n'a de sens qu'avec la page, et la
+    // progression serveur garde son format.
+    const CLE_POS_FINE = 'inko_pos_fine', MAX_POS_FINE = 60;
+    const clePosFine = () => `${manga?.id}|${currentChap?.id}`;
+    function lirePositionFine() {
+        try {
+            const v = JSON.parse(localStorage.getItem(CLE_POS_FINE) || '{}')[clePosFine()];
+            return v && v.p >= 1 && v.f >= 0 && v.f < 1 ? v : null;
+        } catch (e) { return null; }
+    }
+    function noterPositionFine() {
+        if (readMode !== 'scroll' || !manga || !currentChap) return;
+        if (window.MH?.isIncognito?.(manga.id)) return;   // lecture privée : rien ne reste
+        const imgs = document.querySelectorAll('.reader-page-img[data-page]');
+        for (const im of imgs) {
+            const r = im.getBoundingClientRect();
+            if (r.top <= 0 && r.bottom > 0 && r.height > 0) {
+                try {
+                    const toutes = JSON.parse(localStorage.getItem(CLE_POS_FINE) || '{}');
+                    delete toutes[clePosFine()];   // réinsérée en dernier : la plus récente
+                    toutes[clePosFine()] = { p: +im.dataset.page, f: Math.round((-r.top / r.height) * 1e4) / 1e4 };
+                    const cles = Object.keys(toutes);
+                    cles.slice(0, Math.max(0, cles.length - MAX_POS_FINE)).forEach(k => delete toutes[k]);
+                    localStorage.setItem(CLE_POS_FINE, JSON.stringify(toutes));
+                } catch (e) { /* stockage plein ou bloqué : la reprise à la page suffit */ }
+                return;
+            }
+        }
+    }
+    let posFineTimer = null;
+    window.addEventListener('scroll', () => {
+        if (posFineTimer) return;
+        posFineTimer = setTimeout(() => { posFineTimer = null; noterPositionFine(); }, 300);
+    }, { passive: true });
+    window.addEventListener('pagehide', noterPositionFine);
 
     let saveTimer;
     function debouncedSave() {
