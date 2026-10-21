@@ -1,0 +1,83 @@
+{
+  "chireads": [
+    {
+      "version": "1.2.2",
+      "date": "2026-10-20",
+      "notes": [
+        "État de référence : premier changelog tenu pour cette extension. Les versions suivantes y décriront ce qui change."
+      ]
+    }
+  ],
+  "gutenberg": [
+    {
+      "version": "1.2.3",
+      "date": "2026-10-20",
+      "notes": [
+        "État de référence : premier changelog tenu pour cette extension. Les versions suivantes y décriront ce qui change."
+      ]
+    }
+  ],
+  "gutenberg-fr": [
+    {
+      "version": "1.0.3",
+      "date": "2026-10-20",
+      "notes": [
+        "État de référence : premier changelog tenu pour cette extension. Les versions suivantes y décriront ce qui change."
+      ]
+    }
+  ],
+  "mangadex": [
+    {
+      "version": "1.3.0",
+      "date": "2026-10-20",
+      "notes": [
+        "État de référence : premier changelog tenu pour cette extension. Les versions suivantes y décriront ce qui change."
+      ]
+    }
+  ],
+  "novelbin": [
+    {
+      "version": "1.3.0",
+      "date": "2026-10-20",
+      "notes": [
+        "État de référence : premier changelog tenu pour cette extension. Les versions suivantes y décriront ce qui change."
+      ]
+    }
+  ],
+  "novelfull": [
+    {
+      "version": "1.2.2",
+      "date": "2026-10-20",
+      "notes": [
+        "État de référence : premier changelog tenu pour cette extension. Les versions suivantes y décriront ce qui change."
+      ]
+    }
+  ],
+  "royalroad": [
+    {
+      "version": "1.2.2",
+      "date": "2026-10-20",
+      "notes": [
+        "État de référence : premier changelog tenu pour cette extension. Les versions suivantes y décriront ce qui change."
+      ]
+    }
+  ],
+  "sushiscan": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-20",
+      "notes": [
+        "État de référence : premier changelog tenu pour cette extension. Les versions suivantes y décriront ce qui change."
+      ]
+    }
+  ],
+  "weebcentral": [
+    {
+      "version": "1.4.1",
+      "date": "2026-10-20",
+      "notes": [
+        "État de référence : premier changelog tenu pour cette extension. Les versions suivantes y décriront ce qui change."
+      ]
+    }
+  ]
+}

@@ -80,6 +80,26 @@ async function getExpectedHashes() {
     } catch (e) { return {}; }
 }
 
+// Notes de version (changelog.json), depuis le même endroit que les empreintes.
+async function getChangelog() {
+    const local = path.join(COMMUNITY_DIR, 'changelog.json');
+    if (fs.existsSync(local)) {
+        try { return JSON.parse(fs.readFileSync(local, 'utf8')); } catch (e) {}
+    }
+    try {
+        const ref = await resolveRef();
+        const r = await axios.get(rawUrl(ref, 'extensions-community/changelog.json'), { timeout: 10000 });
+        return typeof r.data === 'object' ? r.data : JSON.parse(r.data);
+    } catch (e) { return {}; }
+}
+/** Les notes des versions entre l'installée (exclue) et la dernière (incluse), la plus récente d'abord. */
+function notesEntre(entrees, actuelle, derniere) {
+    return (entrees || [])
+        .filter(e => e && e.version && (!actuelle || cmpVer(e.version, actuelle) > 0) && cmpVer(e.version, derniere) <= 0)
+        .sort((a, b) => cmpVer(b.version, a.version))
+        .map(e => ({ version: e.version, date: e.date || null, notes: Array.isArray(e.notes) ? e.notes.map(String) : [] }));
+}
+
 // Audit SEC-07 : la vérification était annoncée « fail-closed » mais ne l'était
 // qu'à moitié. getExpectedHashes() renvoie {} quand le réseau échoue, et la
 // vérification ne se déclenchait que `if (expectedHash)` — donc un hash absent
@@ -117,18 +137,28 @@ async function getLatestSource(id, expectedHash) {
 // GET /api/extensions/updates — état des MAJ disponibles
 async function checkUpdates(_req, res, next) {
     try {
-        const latest = await getLatestManifest();
+        const [latest, hashes, changelog] = await Promise.all([getLatestManifest(), getExpectedHashes(), getChangelog()]);
         const installed = extensions.manifest();
         const installedIds = new Set(installed.map(s => s.id));
-        const list = installed.map(s => ({
-            id: s.id, name: s.name, type: s.type || 'manga',
-            current: s.version, latest: latest[s.id] || s.version,
-            hasUpdate: latest[s.id] ? cmpVer(latest[s.id], s.version) > 0 : false,
-        }));
+        // Avant d'installer : ce qui change (notes) et ce qui sera vérifié
+        // (l'empreinte attendue). Sans empreinte, l'installation sera refusée
+        // (SEC-07) : on le dit ici plutôt qu'après le clic.
+        const details = (id, actuelle, derniere) => ({
+            notes: notesEntre(changelog[id], actuelle, derniere),
+            empreinte: hashes[id] || null,
+        });
+        const list = installed.map(s => {
+            const hasUpdate = latest[s.id] ? cmpVer(latest[s.id], s.version) > 0 : false;
+            return {
+                id: s.id, name: s.name, type: s.type || 'manga',
+                current: s.version, latest: latest[s.id] || s.version, hasUpdate,
+                ...(hasUpdate ? details(s.id, s.version, latest[s.id]) : {}),
+            };
+        });
         // Nouvelles sources publiées mais pas encore installées
         const available = Object.keys(latest)
             .filter(id => !installedIds.has(id))
-            .map(id => ({ id, latest: latest[id], isNew: true }));
+            .map(id => ({ id, latest: latest[id], isNew: true, ...details(id, null, latest[id]) }));
         const count = list.filter(x => x.hasUpdate).length + available.length;
         res.json({ installed: list, available, count, source: fs.existsSync(path.join(COMMUNITY_DIR, 'versions.json')) ? 'local' : 'github' });
     } catch (e) { next(e); }
@@ -148,7 +178,7 @@ async function applyUpdates(req, res, next) {
             const cur = byId[id];
             return !cur || (latest[id] && cmpVer(latest[id], cur.version) > 0);
         });
-        const updated = [], failed = [];
+        const updated = [], failed = [], verifiees = {};
         for (const id of targets) {
             try {
                 if (!VALID_ID.test(id)) throw new Error('identifiant invalide');
@@ -158,10 +188,11 @@ async function applyUpdates(req, res, next) {
                 fs.mkdirSync(dir, { recursive: true });
                 fs.writeFileSync(path.join(dir, 'index.js'), src);
                 updated.push(id);
+                verifiees[id] = hashes[id] || null;   // l'empreinte contrôlée par getLatestSource
             } catch (e) { failed.push({ id, error: e.message }); }
         }
         extensions.reload();
-        res.json({ ok: true, updated, failed });
+        res.json({ ok: true, updated, failed, verifiees });
     } catch (e) { next(e); }
 }
 
@@ -325,4 +356,5 @@ function reinstall(req, res, next) {
 }
 
 module.exports = {
-    sourceLog, instanceStatus, checkUpdates, applyUpdates, testSource, healthStatus, uninstall, reinstall };
+    sourceLog, instanceStatus, checkUpdates, applyUpdates, testSource, healthStatus, uninstall, reinstall,
+    _internes: { notesEntre } };
