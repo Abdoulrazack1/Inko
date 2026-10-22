@@ -36,7 +36,15 @@ test('la suite se prépare à l\'avant-dernière planche, en défilement seuleme
 });
 
 test('le compte à rebours « chapitre suivant » ne double pas la lecture continue', () => {
-    assert.match(SRC, /autoNextActif\(\) && !\(readMode === 'scroll' && rs\.continu === '1'\)\) armerEnchainement/);
+    // On vise la GARDE, pas sa place dans la condition. La minuterie de
+    // lecture en pose une autre sur la même ligne (`!sleepEchu`), et exiger
+    // que la nôtre soit la dernière rendait les deux tests incompatibles —
+    // alors que les deux gardes sont justes et doivent coexister.
+    const ligne = SRC.split('\n').find(l => /armerEnchainement\(chapitreSuivant\(\)\)/.test(l));
+    assert.ok(ligne, 'la ligne qui arme l’enchaînement doit rester repérable');
+    assert.match(ligne, /autoNextActif\(\)/);
+    assert.match(ligne, /!\(readMode === 'scroll' && rs\.continu === '1'\)/,
+        'en lecture continue, la suite s’enchaîne déjà : un compte à rebours ferait doublon');
 });
 
 test('la bascule garde la planche lue au même pixel', () => {
