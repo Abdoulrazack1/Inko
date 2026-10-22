@@ -427,6 +427,11 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "Voir et fusionner": "Review and merge",
+    "Séries suivies en double": "Series followed twice",
+    "Garder celle-ci": "Keep this one",
+    "Fusion…": "Merging…",
+    "Garder une source reporte la progression, les chapitres lus, les notes et les signets de l'autre, par numéro de chapitre. La progression la plus avancée gagne. Annulable pendant sept jours.": "Keeping one source carries over the other's progress, read chapters, notes and bookmarks, by chapter number. The furthest progress wins. Can be undone for seven days.",
     "Pas ouverte depuis": "Not opened for",
     "7 jours": "7 days",
     "30 jours": "30 days",
@@ -1326,6 +1331,8 @@
   },
   "patterns": [
     [
+      "^(\\d+) séries? suivies? sur deux sources à la fois\\.$",
+      "$1 series followed on two sources at once.",
       "^(.+) ne propose pas le chapitre (.+)\\.$",
       "$1 doesn't have chapter $2."
     ],

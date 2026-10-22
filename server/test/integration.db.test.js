@@ -1417,6 +1417,45 @@ test('appairage : on ne révoque pas l’appareil d’un autre compte', async (t
     assert.equal(res.statusCode, 404, 'B ne doit pas pouvoir déconnecter l’appareil de A');
 });
 
+test('fusion de doublons : la cible déjà suivie garde sa progression, et l’annulation la rend intacte', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('MigrFusion', 'migrfusion@test.local');
+    await poserOeuvre(u, 'nb-fus', 'novelbin');                 // lue jusqu'au 143
+    // La même œuvre, déjà suivie ailleurs ET plus avancée : 300, page 9.
+    await pool.query('INSERT INTO favorites (user_id, manga_id, source, title, status) VALUES (?,?,?,?,?)',
+        [u.id, 'ss-fus', 'sushiscan', 'Solo Leveling', 'reading']);
+    await pool.query('INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, source) VALUES (?,?,?,?,?,?)',
+        [u.id, 'ss-fus', 'ss-fus-300', 300, 9, 'sushiscan']);
+    await pool.query('INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?,?,?,?)',
+        [u.id, 'ss-fus', 'ss-fus-300', 300]);
+    await pool.query('INSERT INTO reading_notes (user_id, manga_id, source, body) VALUES (?,?,?,?)',
+        [u.id, 'ss-fus', 'sushiscan', 'ma note côté cible']);
+
+    const r = await Migr.migrer(u.id, { source: 'novelbin', mangaId: 'nb-fus' },
+        { source: 'sushiscan', mangaId: 'ss-fus', titre: 'Solo Leveling' }, TOUT,
+        [{ id: 'ss-fus-1', number: '1' }, { id: 'ss-fus-2', number: '2' }, { id: 'ss-fus-143', number: '143' }, { id: 'ss-fus-300', number: '300' }]);
+    const [[prog]] = await pool.query('SELECT * FROM progress WHERE user_id=? AND manga_id=?', [u.id, 'ss-fus']);
+    assert.equal(Number(prog.chapter_number), 300, 'la plus avancée gagne : pas de retour au 143');
+    assert.equal(prog.page, 9, 'même chapitre conservé : la page aussi');
+    const [lus] = await pool.query('SELECT chapter_id FROM read_chapters WHERE user_id=? AND manga_id=? ORDER BY chapter_number', [u.id, 'ss-fus']);
+    assert.deepEqual(lus.map(x => x.chapter_id), ['ss-fus-1', 'ss-fus-2', 'ss-fus-143', 'ss-fus-300'], 'les lectures s’additionnent');
+
+    // Annuler : la source revient, et la cible retrouve EXACTEMENT ce qu'elle avait.
+    const [[ligne]] = await pool.query('SELECT id FROM source_migrations WHERE user_id = ? ORDER BY id DESC LIMIT 1', [u.id]);
+    assert.ok(r.migre);
+    await Migr.annuler(u.id, ligne.id);
+    const [[favCible]] = await pool.query('SELECT * FROM favorites WHERE user_id=? AND manga_id=?', [u.id, 'ss-fus']);
+    assert.ok(favCible, 'le favori que la cible avait AVANT n’est pas supprimé');
+    const [[progCible]] = await pool.query('SELECT * FROM progress WHERE user_id=? AND manga_id=?', [u.id, 'ss-fus']);
+    assert.deepEqual([Number(progCible.chapter_number), progCible.page], [300, 9]);
+    const [lusCible] = await pool.query('SELECT chapter_id FROM read_chapters WHERE user_id=? AND manga_id=?', [u.id, 'ss-fus']);
+    assert.deepEqual(lusCible.map(x => x.chapter_id), ['ss-fus-300'], 'seulement ce qu’elle avait lu elle-même');
+    const [notesCible] = await pool.query('SELECT body FROM reading_notes WHERE user_id=? AND manga_id=?', [u.id, 'ss-fus']);
+    assert.deepEqual(notesCible.map(n => n.body), ['ma note côté cible'], 'sa note n’est pas partie avec l’annulation');
+    const [[favSource]] = await pool.query('SELECT * FROM favorites WHERE user_id=? AND manga_id=?', [u.id, 'nb-fus']);
+    assert.ok(favSource, 'la source est restaurée');
+});
+
 test('listes intelligentes : « pas ouverte depuis N jours » et note minimale en étoiles', async (t) => {
     if (!available) return t.skip('MySQL indisponible');
     const u = await createUser('Regles Liste', 'regleslist@test.local');

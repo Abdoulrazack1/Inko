@@ -102,6 +102,12 @@ async function migrer(userId, de, vers, conserver, chapitresCible) {
     const { reportes, absents } = appariement.apparierChapitres(lus, chapitresCible);
     const parAncienId = new Map(reportes.map(r => [r.ancienId, r]));
 
+    // La CIBLE aussi est photographiée. Migrer vers une série déjà suivie
+    // (fusion de deux doublons) écrit par-dessus ce qu'elle avait ; sans sa
+    // photographie, l'annulation supprimait tout côté arrivée — favori,
+    // progression, chapitres lus, note, signets qui existaient AVANT.
+    const cible = de.mangaId === vers.mangaId ? null : await etatDe(userId, vers.mangaId);
+
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
@@ -113,7 +119,7 @@ async function migrer(userId, de, vers, conserver, chapitresCible) {
                 (user_id, manga_id, source_avant, id_avant, source_apres, id_apres, etat_avant, reportes, absents)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [userId, de.mangaId, de.source, de.mangaId, vers.source, vers.mangaId,
-                JSON.stringify(avant), reportes.length, absents.length]);
+                JSON.stringify({ ...avant, cible }), reportes.length, absents.length]);
 
         const memeId = de.mangaId === vers.mangaId;
 
@@ -160,12 +166,21 @@ async function migrer(userId, de, vers, conserver, chapitresCible) {
             const meilleur = courant || reportes.reduce(
                 (acc, r) => (!acc || r.numero > acc.numero ? r : acc), null);
             if (meilleur) {
+                // La cible peut déjà avoir une progression (fusion de
+                // doublons) : la plus AVANCÉE gagne. Écraser ramenait une
+                // série lue jusqu'au 1120 au chapitre 30 de l'autre source.
+                // L'ordre des affectations compte : MySQL les applique de
+                // gauche à droite, `chapter_number` est donc mis à jour EN
+                // DERNIER, après les colonnes qui le comparent.
                 await conn.query(
                     `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, total_pages, source, updated_at)
                      VALUES (?, ?, ?, ?, 1, NULL, ?, NOW())
-                     ON DUPLICATE KEY UPDATE chapter_id = VALUES(chapter_id),
-                         chapter_number = VALUES(chapter_number), page = 1,
-                         total_pages = NULL, source = VALUES(source), updated_at = NOW()`,
+                     ON DUPLICATE KEY UPDATE
+                         chapter_id  = IF(VALUES(chapter_number) > COALESCE(chapter_number, -1), VALUES(chapter_id), chapter_id),
+                         page        = IF(VALUES(chapter_number) > COALESCE(chapter_number, -1), 1, page),
+                         total_pages = IF(VALUES(chapter_number) > COALESCE(chapter_number, -1), NULL, total_pages),
+                         source      = VALUES(source), updated_at = NOW(),
+                         chapter_number = GREATEST(COALESCE(chapter_number, -1), VALUES(chapter_number))`,
                     [userId, vers.mangaId, meilleur.nouvelId, meilleur.numero, vers.source]);
             }
             if (!memeId) {
@@ -264,50 +279,21 @@ async function annuler(userId, migrationId) {
             await conn.query('DELETE FROM favorites     WHERE user_id = ? AND manga_id = ?', [userId, m.id_apres]);
             await conn.query('DELETE FROM progress      WHERE user_id = ? AND manga_id = ?', [userId, m.id_apres]);
             await conn.query('DELETE FROM read_chapters WHERE user_id = ? AND manga_id = ?', [userId, m.id_apres]);
-            await conn.query('UPDATE reading_notes SET manga_id = ?, source = ? WHERE user_id = ? AND manga_id = ?',
-                [m.id_avant, m.source_avant, userId, m.id_apres]);
+            // Seules les notes DÉPLACÉES repartent : la cible peut avoir les
+            // siennes, écrites avant la migration.
+            const deplacees = (avant.notes || []).map(n => n.id).filter(id => id != null);
+            if (deplacees.length) {
+                await conn.query(
+                    `UPDATE reading_notes SET manga_id = ?, source = ? WHERE user_id = ? AND manga_id = ? AND id IN (${deplacees.map(() => '?').join(',')})`,
+                    [m.id_avant, m.source_avant, userId, m.id_apres, ...deplacees]);
+            }
             await conn.query('DELETE FROM ratings WHERE user_id = ? AND manga_id = ?', [userId, m.id_apres]);
             await conn.query('DELETE FROM bookmarks WHERE user_id = ? AND manga_id = ?', [userId, m.id_apres]);
         }
 
-        if (avant.favori) {
-            const f = avant.favori;
-            await conn.query(
-                `INSERT INTO favorites (user_id, manga_id, source, title, cover, category, status, status_updated_at, last_chapter)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE source = VALUES(source), title = VALUES(title), cover = VALUES(cover),
-                     category = VALUES(category), status = VALUES(status)`,
-                [userId, f.manga_id, f.source, f.title, f.cover, f.category, f.status,
-                    dateOuNull(f.status_updated_at), f.last_chapter]);
-        }
-        if (avant.progression) {
-            const p = avant.progression;
-            await conn.query(
-                `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, total_pages, source, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE chapter_id = VALUES(chapter_id), chapter_number = VALUES(chapter_number),
-                     page = VALUES(page), total_pages = VALUES(total_pages), source = VALUES(source), updated_at = VALUES(updated_at)`,
-                [userId, p.manga_id, p.chapter_id, p.chapter_number, p.page, p.total_pages, p.source,
-                    dateOuNull(p.updated_at) || new Date()]);
-        }
-        if (avant.notation) {
-            await conn.query(
-                `INSERT INTO ratings (user_id, manga_id, rating, review) VALUES (?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE rating = VALUES(rating), review = VALUES(review)`,
-                [userId, avant.notation.manga_id, avant.notation.rating, avant.notation.review]);
-        }
-        for (const c of avant.chapitresLus || []) {
-            await conn.query(
-                'INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?, ?, ?, ?)',
-                [userId, c.manga_id, c.chapter_id, c.chapter_number]);
-        }
-        for (const s of avant.signets || []) {
-            await conn.query(
-                `INSERT IGNORE INTO bookmarks
-                    (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [userId, s.manga_id, s.chapter_id, s.source, s.title, s.cover, s.chapter_num, s.page, s.label]);
-        }
+        await restaurerEtat(conn, userId, avant);
+        // Ce que la cible avait avant la migration (fusion de doublons).
+        if (avant.cible && m.id_apres !== m.id_avant) await restaurerEtat(conn, userId, avant.cible);
 
         await conn.query('UPDATE source_migrations SET annulee_at = NOW() WHERE id = ?', [migrationId]);
         await conn.commit();
@@ -317,6 +303,51 @@ async function annuler(userId, migrationId) {
         throw e;
     } finally {
         conn.release();
+    }
+}
+
+/**
+ * Réécrit une photographie prise par `etatDe` (favori, progression, note,
+ * chapitres lus, signets). Sert à l'annulation, pour la source ET la cible.
+ */
+async function restaurerEtat(conn, userId, etat) {
+    if (etat.favori) {
+        const f = etat.favori;
+        await conn.query(
+            `INSERT INTO favorites (user_id, manga_id, source, title, cover, category, status, status_updated_at, last_chapter)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE source = VALUES(source), title = VALUES(title), cover = VALUES(cover),
+                 category = VALUES(category), status = VALUES(status)`,
+            [userId, f.manga_id, f.source, f.title, f.cover, f.category, f.status,
+                dateOuNull(f.status_updated_at), f.last_chapter]);
+    }
+    if (etat.progression) {
+        const p = etat.progression;
+        await conn.query(
+            `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, total_pages, source, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE chapter_id = VALUES(chapter_id), chapter_number = VALUES(chapter_number),
+                 page = VALUES(page), total_pages = VALUES(total_pages), source = VALUES(source), updated_at = VALUES(updated_at)`,
+            [userId, p.manga_id, p.chapter_id, p.chapter_number, p.page, p.total_pages, p.source,
+                dateOuNull(p.updated_at) || new Date()]);
+    }
+    if (etat.notation) {
+        await conn.query(
+            `INSERT INTO ratings (user_id, manga_id, rating, review) VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE rating = VALUES(rating), review = VALUES(review)`,
+            [userId, etat.notation.manga_id, etat.notation.rating, etat.notation.review]);
+    }
+    for (const c of etat.chapitresLus || []) {
+        await conn.query(
+            'INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?, ?, ?, ?)',
+            [userId, c.manga_id, c.chapter_id, c.chapter_number]);
+    }
+    for (const s of etat.signets || []) {
+        await conn.query(
+            `INSERT IGNORE INTO bookmarks
+                (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [userId, s.manga_id, s.chapter_id, s.source, s.title, s.cover, s.chapter_num, s.page, s.label]);
     }
 }
 
