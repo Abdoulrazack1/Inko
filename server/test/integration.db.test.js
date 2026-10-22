@@ -1444,3 +1444,30 @@ test('progression par appareil : chaque appareil garde sa position, sans reculer
     await User.getProgressAppareils(r2.req, r2.res, nextThrow);
     assert.equal(r2.res.body.length, 2);
 });
+
+test('signets : la note et la page sont gardées, la note est bornée et effaçable', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('Signet Note', 'signetnote@test.local');
+    const base = { mangaId: 'serie-sig', chapterId: 'ch-4', source: 'weebcentral', title: 'Série', chapterNum: 4 };
+    let r = rr({ user: u, body: { ...base, page: 12, label: 'Page 12', note: '  la case à montrer  ' } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    assert.equal(r.res.statusCode, 200);
+
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].page, 12, 'la page marquée, pas 1');
+    assert.equal(r.res.body[0].note, 'la case à montrer');
+
+    // Réécriture du même signet : une note trop longue est bornée, une note vide l'efface.
+    r = rr({ user: u, body: { ...base, page: 12, note: 'x'.repeat(800) } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].note.length, 500);
+
+    r = rr({ user: u, body: { ...base, page: 12, note: '   ' } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].note, '');
+});

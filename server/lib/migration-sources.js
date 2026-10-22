@@ -207,10 +207,10 @@ async function migrer(userId, de, vers, conserver, chapitresCible) {
                 if (!r) { signetsPerdus++; continue; }
                 await conn.query(
                     `INSERT IGNORE INTO bookmarks
-                        (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label, note)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [userId, vers.mangaId, r.nouvelId, vers.source,
-                        vers.titre || s.title, vers.cover || s.cover, r.numero, s.page, s.label]);
+                        vers.titre || s.title, vers.cover || s.cover, r.numero, s.page, s.label, s.note ?? null]);
             }
             if (!memeId) {
                 await conn.query('DELETE FROM bookmarks WHERE user_id = ? AND manga_id = ?', [userId, de.mangaId]);

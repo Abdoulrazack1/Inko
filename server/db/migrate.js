@@ -649,6 +649,15 @@ const MIGRATIONS = [
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
     } },
+
+    // Un signet ne retenait qu'une position. Ce qu'on veut retrouver, c'est
+    // souvent POURQUOI on l'a posé (« la révélation », « la case à montrer ») :
+    // une phrase, à côté de la position.
+    { version: 25, name: 'signets : une note (une phrase) en plus de la position', apply: async () => {
+        if (!(await columnExists('bookmarks', 'note'))) {
+            await run('ALTER TABLE bookmarks ADD COLUMN note VARCHAR(500) DEFAULT NULL');
+        }
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──
