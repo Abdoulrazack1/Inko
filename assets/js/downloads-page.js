@@ -21,6 +21,19 @@
             MH.toast?.('Téléchargements supprimés');
             render();
         });
+        const pre = document.getElementById('dlPrechauffe');
+        if (pre) {
+            pre.checked = window.Storage?.getPref?.('prechauffe') === '1';
+            pre.addEventListener('change', async () => {
+                window.Storage?.setPref?.('prechauffe', pre.checked ? '1' : '0');
+                if (!pre.checked) return;
+                const r = await window.MH?.prechauffe?.lancer({ force: true }).catch(() => null);
+                MH.toast?.(r?.lance
+                    ? (r.ajoutes ? `${r.ajoutes} chapitre(s) mis en file` : 'Tes séries en cours sont déjà prêtes')
+                    : 'Activé — les chapitres seront préparés la prochaine fois que l’appareil sera branché, en Wi-Fi');
+            });
+        }
+
         document.getElementById('dlPurge')?.addEventListener('click', purgerLus);
         const budget = document.getElementById('dlBudget');
         if (budget) {

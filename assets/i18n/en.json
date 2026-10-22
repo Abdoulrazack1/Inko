@@ -427,6 +427,10 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "Préparer les prochains chapitres sur secteur et en Wi-Fi": "Prepare upcoming chapters when charging and on Wi-Fi",
+    "Les deux chapitres qui suivent ta position, pour tes cinq séries en cours. Jamais sur le réseau mobile.": "The two chapters after your position, for your five current series. Never on mobile data.",
+    "Tes séries en cours sont déjà prêtes": "Your current series are already ready",
+    "Activé — les chapitres seront préparés la prochaine fois que l’appareil sera branché, en Wi-Fi": "Enabled — chapters will be prepared next time the device is charging on Wi-Fi",
     "Libérer de la place": "Free up space",
     "Supprimer d'abord ce qui est déjà lu, jamais ce qui reste à lire": "Remove what you've already read first, never what's left to read",
     "Ce qui reste à lire est gardé.": "What's left to read is kept.",
@@ -1365,6 +1369,8 @@
   },
   "patterns": [
     [
+      "^(\\d+) chapitre\\(s\\) mis en file$",
+      "$1 chapter(s) queued",
       "^Plafond de stockage : (\\d+) ancien\\(s\\) chapitre\\(s\\) retiré\\(s\\)$",
       "Storage limit: $1 old chapter(s) removed"
     ],
