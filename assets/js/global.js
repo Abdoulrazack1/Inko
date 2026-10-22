@@ -51,6 +51,17 @@
     // MH.t / MH.loadI18n / MH.setLang sur window.MH (audit N40 v2).
     window.MH = Object.assign(window.MH || {}, { $, $$, fmt, esc, cover, proxify, BLANK_IMG });
 
+    // Une touche de lecteur ne doit agir que seule. Les lecteurs testaient
+    // la cible mais pas les modificateurs : Ctrl+P (imprimer) changeait de
+    // chapitre, Ctrl+F lançait le plein écran au lieu de la recherche du
+    // navigateur, Ctrl+A le défilement automatique. Les raccourcis globaux
+    // filtraient déjà les modificateurs ; les lecteurs non.
+    window.MH.toucheIgnoree = function (e) {
+        if (e.ctrlKey || e.metaKey || e.altKey) return true;
+        const t = e.target;
+        return !!(t && (['INPUT', 'TEXTAREA', 'SELECT'].includes((t.tagName || '').toUpperCase()) || t.isContentEditable));
+    };
+
     // Journal d'erreurs non fatales (audit B-3) : les nombreux catch qui
     // avalaient silencieusement une erreur passent désormais par ici. Rien
     // d'intrusif pour l'utilisateur (pas de toast), mais l'erreur est visible
@@ -1647,6 +1658,27 @@
     // n'afficherait que des identifiants n'aiderait pas à choisir.
     function fermerMenuReprise() { document.getElementById('mhContinueMenu')?.remove(); }
 
+    // Un menu ouvert au clavier (Maj+F10, touche Menu : Chromium émet alors
+    // `contextmenu` sur l'élément qui a le focus) doit se parcourir au clavier.
+    // Celui de la reprise s'ouvrait bien, mais laissait le focus sur le bouton :
+    // ajouté en fin de <body>, il n'était atteint par Tab qu'après TOUT le
+    // reste de la page, sans flèches malgré son `role="menu"`, et Échap
+    // perdait le focus au lieu de le rendre au bouton.
+    window.MH.menuClavier = function (menu, declencheur, fermer) {
+        const items = () => [...menu.querySelectorAll('[role="menuitem"]')];
+        const aller = (i) => { const l = items(); if (l.length) l[(i + l.length) % l.length].focus(); };
+        menu.addEventListener('keydown', (e) => {
+            const l = items(), i = l.indexOf(document.activeElement);
+            if (e.key === 'ArrowDown') { e.preventDefault(); aller(i + 1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); aller(i < 0 ? -1 : i - 1); }
+            else if (e.key === 'Home') { e.preventDefault(); aller(0); }
+            else if (e.key === 'End') { e.preventDefault(); aller(-1); }
+            else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermer(); declencheur?.focus(); }
+            else if (e.key === 'Tab') { fermer(); declencheur?.focus(); }
+        });
+        aller(0);
+    };
+
     async function ouvrirMenuReprise(btn) {
         fermerMenuReprise();
         if (!window.API?.isLoggedIn?.()) { MH.toast('Connecte-toi pour retrouver tes lectures'); return; }
@@ -1699,6 +1731,7 @@
         // un menu ancré à gauche déborderait hors de l'écran.
         menu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
         document.body.appendChild(menu);
+        window.MH.menuClavier(menu, btn, fermerMenuReprise);
 
         // Fermeture au clic extérieur ou à Échap — enregistrées APRÈS coup pour
         // que le clic qui vient d'ouvrir le menu ne le referme pas aussitôt.
@@ -1760,7 +1793,7 @@
           </div>
           <div class="header-actions">
             <button class="header-icon-btn" id="btnIncognito" title="Mode incognito (lecture privée)">${window.MH.icon('incognito', 17)}</button>
-            <button class="header-icon-btn" id="btnContinue" title="Reprendre ma dernière lecture" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:middle"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg></button>
+            <button class="header-icon-btn" id="btnContinue" title="Reprendre ma dernière lecture" aria-haspopup="menu" aria-keyshortcuts="Shift+F10" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:middle"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg></button>
             <button class="header-icon-btn" id="btnRefresh" title="Actualiser mes séries (nouveaux chapitres)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:middle"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></button>
             <button class="header-icon-btn" id="btnMusic" title="Musique (s'ouvre dans une fenêtre qui reste en lecture)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:middle"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
             ${bell}
@@ -2741,6 +2774,9 @@
 
     /* ── Raccourcis clavier globaux ──────────────────────── */
     let shortcutsBound = false;
+    const touchesReservees = new Set();
+    /** Une page déclare les touches qu'elle traite elle-même. */
+    window.MH.reserverTouches = (touches) => { for (const t of touches) touchesReservees.add(t); };
     function bindGlobalShortcuts() {
         if (shortcutsBound) return;
         shortcutsBound = true;
@@ -2764,6 +2800,11 @@
             // sur un clavier non-AZERTY, ou qui entre en conflit avec une
             // habitude, ne pouvait pas etre changee.
             if (e.key === 'Escape') { document.getElementById('mhShortcuts')?.remove(); return; }
+            // Une page qui a ses propres touches (les lecteurs) les garde :
+            // dans le lecteur, B posait le signet ET partait vers la
+            // bibliothèque, H ouvrait les réglages ET renvoyait à l'accueil.
+            // Les deux écouteurs recevaient la même touche, le global d'abord.
+            if (touchesReservees.has(e.key)) return;
             const action = MH.actionRaccourci(e.key);
             if (!action) return;
             e.preventDefault();
