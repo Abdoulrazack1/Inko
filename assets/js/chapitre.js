@@ -29,7 +29,10 @@
         // moment ou deux planches tiennent sans devenir illisibles.
         autoDouble: '0' };
     function loadReaderSettings() {
-        ['bg', 'brightness', 'gap', 'fit', 'direction', 'autospeed', 'warm'].forEach(k => {
+        // `orientation`, `decouper` et `autoDouble` étaient enregistrés mais
+        // jamais relus : cochés, ils retombaient à leur défaut à l'ouverture
+        // du chapitre suivant.
+        ['bg', 'brightness', 'gap', 'fit', 'direction', 'autospeed', 'warm', 'orientation', 'decouper', 'autoDouble'].forEach(k => {
             const v = window.Storage?.getPref('reader_' + k);
             if (v !== undefined && v !== null && v !== '') rs[k] = v;
         });
@@ -175,6 +178,17 @@
         window.addEventListener('orientationchange', rotation);
         window.addEventListener('resize', rotation);
         surRotation();
+        // La décision dépend du format RÉEL des planches : on la reprend dès
+        // que la première est mesurée (avant, on ne connaît que la fenêtre).
+        document.addEventListener('load', (e) => {
+            const im = e.target;
+            if (!im.classList?.contains('reader-page-img') || !im.naturalWidth) return;
+            const idx = +im.dataset.idx;
+            if (!Number.isInteger(idx) || pageRatios.has(idx)) return;
+            const premiere = !ratiosConnus();
+            pageRatios.set(idx, im.naturalHeight / im.naturalWidth);
+            if (premiere) rotation();
+        }, true);
 
         showLoader('Chargement…');
         // Source momentanément saturée : api.js réessaie seul ; on le dit.
@@ -2068,12 +2082,36 @@
     //     session. Sans ça, on remettrait « page » en paysage et l'automatisme
     //     le rebasculerait aussitôt : l'utilisateur perdrait la main sur son
     //     propre lecteur.
+    //
+    // Le critère est le format RÉEL des planches, pas l'orientation de la
+    // fenêtre. « Paysage » n'en était qu'une approximation, fausse dans les
+    // deux sens. Mesuré : une fenêtre de bureau de 1100 × 1000 est en
+    // paysage, mais deux planches de manga (0,7 de large pour 1 de haut) y
+    // s'affichent à 627 + 627 px dans 1100 : la planche double déborde. On
+    // passe donc en double quand deux planches côte à côte tiennent dans la
+    // largeur à pleine hauteur (2 % de tolérance). Tant qu'aucune planche
+    // n'est mesurée, on suppose le format typique (RATIO_DEFAUT) plutôt que
+    // l'orientation : basculer en double puis revenir aussitôt clignoterait.
     let autoDoubleDesarme = false;
+    const DOUBLE_HAUTEUR_MIN = 0.98;
+    /** Largeur / hauteur typique (médiane) des planches simples mesurées, ou null. */
+    function formatPlanches(ratios) {
+        const lh = ratios.map(r => 1 / r).filter(x => x > 0 && x <= 1.2).sort((a, b) => a - b);
+        return lh.length ? lh[Math.floor(lh.length / 2)] : null;
+    }
+    function doubleTient(largeur, hauteur, ratios) {
+        if (!largeur || !hauteur) return false;
+        const f = formatPlanches(ratios) || 1 / RATIO_DEFAUT;
+        return largeur / (2 * f * hauteur) >= DOUBLE_HAUTEUR_MIN;
+    }
+    function ratiosConnus() { return formatPlanches([...pageRatios.values()]) !== null; }
     function surRotation() {
         if (rs.autoDouble !== '1' || autoDoubleDesarme) return;
         if (readMode === 'scroll') return;
-        const paysage = window.innerWidth > window.innerHeight;
-        const voulu = paysage ? 'double' : 'page';
+        const zone = document.getElementById('readerPagesArea');
+        const largeur = zone?.clientWidth || window.innerWidth;
+        const hauteur = window.innerHeight - Math.max(0, zone?.getBoundingClientRect().top || 0);
+        const voulu = doubleTient(largeur, hauteur, [...pageRatios.values()]) ? 'double' : 'page';
         if (readMode === voulu) return;
         readMode = voulu;
         if (voulu === 'double') doubleBase = currentPage;
@@ -2115,7 +2153,7 @@
             ${seg('orientation', [{v:'libre',l:'Libre'},{v:'portrait',l:'Portrait'},{v:'landscape',l:'Paysage'}], rs.orientation)}
             <label class="rs-check">
                 <input type="checkbox" id="rsAutoDouble" ${rs.autoDouble === '1' ? 'checked' : ''}>
-                <span>Double page automatique en paysage</span>
+                <span>Double page automatique quand deux planches tiennent</span>
             </label>
             <label class="rs-check">
                 <input type="checkbox" id="rsDecouper" ${rs.decouper === '1' ? 'checked' : ''}>
