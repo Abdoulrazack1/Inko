@@ -98,3 +98,25 @@ test('le cache disque ne sert jamais une entree perimee', () => {
     assert.match(bloc[0], /Date\.now\(\) - st\.mtimeMs > TTL/,
         'l’age du fichier doit etre compare au TTL');
 });
+
+// ── `cache=seul` : les téléchargements profitent du cache ─────
+//
+// Les téléchargements hors ligne passent en direct par choix (le volume ne
+// transite pas par le hub). Une planche déjà lue était donc retéléchargée à
+// la source — 4 à 20 s au lieu de 46 ms — alors qu'elle dormait sur le disque
+// du hub. `cache=seul` sert depuis le cache ou répond 404, sans jamais
+// ouvrir de connexion vers la source. Vérifié contre le serveur réel :
+// absente → 404 « ABSENT », posée sur disque → 200 « DISK », hôte non
+// autorisé → 403 comme avant.
+test('cache=seul sert depuis le cache ou rend 404, sans jamais toucher la source', () => {
+    const i = SRC.indexOf("const seulCache = req.query.cache === 'seul';");
+    assert.notEqual(i, -1, 'le mode cache=seul doit exister');
+    const bloc = SRC.slice(i, SRC.indexOf('\n    }\n', i));
+    assert.match(bloc, /servirDepuisCache\(url, res\)/);
+    assert.match(bloc, /status\(404\)[\s\S]*no-store/, 'une absence ne doit pas être mise en cache par le navigateur');
+    assert.ok(!/fetchImage/.test(bloc), 'aucun téléchargement dans ce mode');
+    // La liste des domaines autorisés s'applique toujours, avant.
+    assert.ok(SRC.indexOf('if (!hostAllowed(host))') < i, 'le contrôle de domaine reste en tête');
+    // Et la résolution DNS anti-SSRF n'a lieu que pour un vrai téléchargement.
+    assert.ok(SRC.indexOf('const safe = await resolveSafeHost(host);') > i);
+});

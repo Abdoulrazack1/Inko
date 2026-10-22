@@ -138,3 +138,45 @@ test('les réglages de l’appareil ne voyagent pas', () => {
     ML.repondre('PUT', '/me/settings', { theme: 'dark' });
     assert.equal(S.resume().enAttente, 0);
 });
+
+// ── Journal de synchronisation ─────────────────────────────
+//
+// Ce qui est parti, ce qui est arrivé, ce qui a échoué. Le cas qui le rend
+// nécessaire : une opération que le PC refuse (4xx) est RETIRÉE de la boîte
+// pour ne pas bloquer la file — sans le journal, cette modification
+// disparaissait sans autre trace qu'une ligne de console.
+
+test('journal : un envoi accepté, un envoi refusé, puis le rapatriement', async () => {
+    const tel = telephone();
+    // Le PC refuse la note (400), accepte le favori.
+    tel.w.fetch = async (url, opts) => (/\/me\/notes$/.test(url) && opts?.method === 'POST'
+        ? { ok: false, status: 400, json: async () => ({ error: 'note trop longue' }) } : tel.pc.fetch(url, opts));
+    tel.ML.repondre('POST', '/me/favorites', { mangaId: 'tel-1', title: 'Berserk', source: 'mangadex' });
+    tel.ML.repondre('POST', '/me/notes', { mangaId: 'tel-1', text: 'x' });
+    await tel.S.synchroniser();
+    const j = JSON.parse(JSON.stringify(tel.S.journal()));
+    const types = j.map(e => e.type);
+    assert.ok(j.some(e => e.type === 'envoi' && e.libelle === 'Favori ajouté — Berserk'), JSON.stringify(j));
+    const refus = j.find(e => e.type === 'refus');
+    assert.ok(refus, 'le refus est écrit');
+    assert.equal(refus.libelle, 'Note');
+    assert.equal(refus.detail, 'note trop longue');
+    assert.equal(types[0], 'rapatriement', 'le plus récent en tête');
+    assert.equal(tel.S.resume().enAttente, 0, 'la note refusée a bien quitté la boîte — d\'où le journal');
+});
+
+test('journal : un PC éteint ne remplit pas le journal de la même ligne', async () => {
+    const { S, pc } = telephone();
+    pc.joignable = false;
+    await S.synchroniser(); await S.synchroniser(); await S.synchroniser();
+    const j = JSON.parse(JSON.stringify(S.journal()));
+    assert.equal(j.length, 1);
+    assert.equal(j[0].type, 'injoignable');
+    assert.equal(j[0].n, 3);
+});
+
+test('journal : borné, pour ne pas faire enfler le stockage', () => {
+    const src = lire('synchro.js');
+    assert.match(src, /const MAX_JOURNAL = 200;/);
+    assert.match(src, /j\.slice\(0, MAX_JOURNAL\)/);
+});
