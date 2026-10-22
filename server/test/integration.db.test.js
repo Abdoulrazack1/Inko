@@ -1417,6 +1417,34 @@ test('appairage : on ne révoque pas l’appareil d’un autre compte', async (t
     assert.equal(res.statusCode, 404, 'B ne doit pas pouvoir déconnecter l’appareil de A');
 });
 
+test('progression par appareil : chaque appareil garde sa position, sans reculer', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('Deux Ecrans', 'deuxecrans@test.local');
+    const ecrire = async (appareil, ua, corps) => {
+        const r = rr({ user: u, params: { mangaId: 'serie-app' }, body: { source: 'weebcentral', appareil, ...corps } });
+        r.req.headers['user-agent'] = ua;
+        await User.setProgress(r.req, r.res, nextThrow);
+        assert.equal(r.res.statusCode, 200);
+    };
+    const PC = 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0', TEL = 'Mozilla/5.0 (Linux; Android 14) Chrome/120.0 Mobile';
+    await ecrire('pc-0000-aaaa', PC, { chapterId: 'c12', chapter: 12, page: 8, clientAt: '2026-10-20T20:00:00Z' });
+    await ecrire('tel-0000-bbbb', TEL, { chapterId: 'c10', chapter: 10, page: 3, clientAt: '2026-10-20T18:00:00Z' });
+    // Le téléphone rejoue une vieille écriture : sa position ne recule pas.
+    await ecrire('tel-0000-bbbb', TEL, { chapterId: 'c9', chapter: 9, page: 1, clientAt: '2026-10-20T17:00:00Z' });
+
+    const r = rr({ user: u, params: { mangaId: 'serie-app' }, query: { appareil: 'tel-0000-bbbb' } });
+    await User.getProgressAppareils(r.req, r.res, nextThrow);
+    const [pc, tel] = r.res.body;
+    assert.deepStrictEqual([pc.nom, pc.chapterId, pc.page, pc.courant], ['Chrome sur Windows', 'c12', 8, false]);
+    assert.deepStrictEqual([tel.nom, tel.chapterId, tel.page, tel.courant], ['Chrome sur Android', 'c10', 3, true]);
+
+    // Identifiant douteux : ignoré, la progression commune s'enregistre quand même.
+    await ecrire('<script>', PC, { chapterId: 'c13', chapter: 13, page: 1, clientAt: '2026-10-20T21:00:00Z' });
+    const r2 = rr({ user: u, params: { mangaId: 'serie-app' } });
+    await User.getProgressAppareils(r2.req, r2.res, nextThrow);
+    assert.equal(r2.res.body.length, 2);
+});
+
 test('signets : la note et la page sont gardées, la note est bornée et effaçable', async (t) => {
     if (!available) return t.skip('MySQL indisponible');
     const u = await createUser('Signet Note', 'signetnote@test.local');

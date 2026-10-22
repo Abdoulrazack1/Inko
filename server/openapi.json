@@ -1708,6 +1708,42 @@
         }
       }
     },
+    "/me/progress/{mangaId}/appareils": {
+      "get": {
+        "summary": "User.getProgressAppareils",
+        "operationId": "User_getProgressAppareils",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
     "/me/read-chapters": {
       "get": {
         "summary": "User.getReadChapters",

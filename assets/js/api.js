@@ -520,6 +520,21 @@
             return PROXY_HOSTS.some(d => h === d || h.endsWith('.' + d));
         } catch (e) { return false; }
     }
+    // Identifiant de CET appareil (navigateur ou application), tiré une fois
+    // et gardé : le serveur range la position de lecture par appareil. Un
+    // téléphone appairé est déjà reconnu par son jeton ; l'identifiant sert
+    // aux navigateurs.
+    function idAppareil() {
+        try {
+            let id = localStorage.getItem('inko_appareil');
+            if (!id) {
+                id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12));
+                localStorage.setItem('inko_appareil', id);
+            }
+            return id;
+        } catch (e) { return null; }
+    }
+
     function proxyCover(u) {
         if (!u || typeof u !== 'string') return u;
         // Mode autonome : `API_BASE` désigne un hub qui n'existe pas. Une
@@ -876,8 +891,10 @@
             // récente faite entre-temps sur un autre appareil.
             setProgress:      (mangaId, payload) =>
                 request('PUT', '/me/progress/' + encodeURIComponent(mangaId),
-                    { source: API.sources.current, clientAt: new Date().toISOString(), ...payload },
+                    { source: API.sources.current, clientAt: new Date().toISOString(), appareil: idAppareil(), ...payload },
                     { keepalive: true }),
+            // Où en est chaque appareil sur cette série (le PC, le téléphone…).
+            progressAppareils: (mangaId)   => get('/me/progress/' + encodeURIComponent(mangaId) + '/appareils?appareil=' + encodeURIComponent(idAppareil() || '')),
             removeProgress:   (mangaId)    => del('/me/progress/' + encodeURIComponent(mangaId)),
             // Audit AMEL-28 : positions precedentes d'une serie.
             progressHistory:  (mangaId)    => get('/me/progress/' + encodeURIComponent(mangaId) + '/history'),
