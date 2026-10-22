@@ -1591,8 +1591,21 @@
     [
       "^(d+) filtre(s) actif(s) : (.+)$",
       "$1 active filter(s): $2"
+    ],
+    [
+      "^Voir ([\\d   ]+) résultats$",
+      "Show $1 results"
+    ],
+    [
+      "^Voir les résultats \\(([\\d   ]+)\\+\\)$",
+      "Show results ($1+)"
     ]
   ],
+  "Aucun résultat": "No results",
+  "Voir les résultats": "Show results",
+  "Recherche…": "Searching…",
+  "Voir 1 résultat": "Show 1 result",
+  "Aucune série": "No series",
   "Série terminée": "Series completed",
   "Série arrêtée": "Series cancelled",
   "Série en pause": "Series on hiatus",
