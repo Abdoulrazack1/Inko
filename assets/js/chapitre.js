@@ -2282,6 +2282,8 @@
                     `<button data-sleep="${v}" class="${String(sleepMins)===v?'on':''}">${l}</button>`).join('')}
             </div>
             <div class="rs-foot">
+                <a class="btn btn-ghost btn-sm" id="rsComparer" style="width:100%;margin-bottom:6px"
+                   href="comparer.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(currentChap.id)}&source=${encodeURIComponent(API.sources.current)}">Comparer avec une autre source</a>
                 <button class="btn btn-secondary btn-sm" id="rsMarkAll" style="width:100%">Marquer tout le manga comme lu</button>
                 <div class="rs-shortcuts">← → pages · ↑ ↓ / molette défile puis tourne · Début/Fin première/dernière · N/P chapitre · F plein écran · I immersif · B signet · A défilement auto · [ ] vitesse · S réglages</div>
             </div>`;
