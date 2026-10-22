@@ -445,6 +445,41 @@
         // page de texte). On lit `content-length` quand il est la, sinon on
         // mesure le blob. Borne a 24 chapitres par serie : au-dela l'estimation
         // est deja bonne et lire 500 blobs figerait l'onglet.
+        // ── Purge intelligente ──────────────────────────────────
+        // « Tout supprimer » ou série par série : rien entre les deux. Or ce
+        // qu'on veut supprimer en premier, c'est ce qu'on a DÉJÀ LU, et
+        // jamais ce qu'on s'apprête à lire. Règles :
+        //   · protégé : le chapitre où l'on en est, et tout ce qui le suit
+        //     dans une série en cours — c'est pour ça qu'on a téléchargé ;
+        //   · d'abord : les chapitres lus (marqués lus, ou avant la position),
+        //     le plus anciennement téléchargé en premier ;
+        //   · ensuite, seulement si on demande plus de place : les chapitres
+        //     de séries jamais commencées, du plus ancien au plus récent.
+        // `contexte` : { lus: Set(chapterId), position: { mangaId: numéro } }.
+        planPurge(chapitres, contexte, { octets = Infinity, poidsDe = () => 0, inclureNonCommencees = false } = {}) {
+            const lus = contexte?.lus || new Set();
+            const position = contexte?.position || {};
+            const num = (c) => { const n = parseFloat(c.chapterNum); return Number.isFinite(n) ? n : null; };
+            const classe = (c) => {
+                const pos = position[c.mangaId];
+                if (lus.has(c.chapterId)) return 'lu';
+                if (pos != null && num(c) != null && num(c) < pos) return 'lu';
+                if (pos != null) return 'protege';          // série en cours : la suite reste
+                return 'non-commencee';
+            };
+            const parAge = (a, b) => (a.savedAt || 0) - (b.savedAt || 0);
+            const candidats = chapitres.filter(c => classe(c) === 'lu').sort(parAge)
+                .concat(inclureNonCommencees ? chapitres.filter(c => classe(c) === 'non-commencee').sort(parAge) : []);
+            const retenus = [];
+            let libere = 0;
+            for (const c of candidats) {
+                if (libere >= octets) break;
+                retenus.push(c);
+                libere += poidsDe(c);
+            }
+            return { aSupprimer: retenus, octets: libere, proteges: chapitres.filter(c => classe(c) === 'protege').length };
+        },
+
         // ── Poids d'un chapitre, AVANT de télécharger ──────────
         // Lancer « toute la série » sans savoir si c'est 80 Mo ou 4 Go, c'est
         // découvrir la réponse quand le téléphone est plein. On estime d'après
