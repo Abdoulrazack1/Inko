@@ -836,6 +836,19 @@
   font-family: var(--font-body, -apple-system, sans-serif);
   animation: rsPop .16s ease;
 }
+/* Note d'un signet : même habillage que les réglages, ancrée sous la barre. */
+.signet-pop {
+  position: fixed; top: 64px; right: 16px; z-index: 1000;
+  width: 320px; max-width: calc(100vw - 32px);
+  background: var(--bg2, #141417); border: 1px solid var(--border2, rgba(255,255,255,.12));
+  border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  padding: 14px 16px; color: var(--text, #f0f0f2);
+  animation: rsPop .16s ease;
+}
+.signet-pop-label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 8px; }
+.signet-pop-label span { font-weight: 400; color: var(--text3, #9a9aa6); }
+.signet-pop .input { width: 100%; box-sizing: border-box; }
+.signet-pop-actions { display: flex; gap: 8px; margin-top: 10px; }
 @keyframes rsPop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 .rs-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 14.5px; margin-bottom: 10px; }
 .rs-close { background: none; border: none; color: var(--text3, #9a9aa6); font-size: 15px; cursor: pointer; padding: 4px 6px; border-radius: 6px; }

@@ -427,6 +427,11 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "Une phrase pour ce signet": "A sentence for this bookmark",
+    "ex. : la révélation, la case à montrer": "e.g. the reveal, the panel to show",
+    "Retirer le signet": "Remove bookmark",
+    "Signet enregistré": "Bookmark saved",
+    "Note du signet": "Bookmark note",
     "Nuit progressive selon l'heure": "Progressive night mode by time of day",
     "En ce moment : rien (de jour)": "Right now: nothing (daytime)",
     "Double page automatique en paysage": "Automatic double page in landscape",
@@ -1299,6 +1304,8 @@
   },
   "patterns": [
     [
+      "^\\(page (\\d+), facultatif\\)$",
+      "(page $1, optional)",
       "^En ce moment : chaleur (\\d+) %, luminosité −(\\d+) %$",
       "Right now: warmth $1 %, brightness −$2 %",
       "^Tes (\\d+) minutes sont passées\\.$",

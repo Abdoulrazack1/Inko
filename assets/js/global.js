@@ -2774,6 +2774,9 @@
 
     /* ── Raccourcis clavier globaux ──────────────────────── */
     let shortcutsBound = false;
+    const touchesReservees = new Set();
+    /** Une page déclare les touches qu'elle traite elle-même. */
+    window.MH.reserverTouches = (touches) => { for (const t of touches) touchesReservees.add(t); };
     function bindGlobalShortcuts() {
         if (shortcutsBound) return;
         shortcutsBound = true;
@@ -2797,6 +2800,11 @@
             // sur un clavier non-AZERTY, ou qui entre en conflit avec une
             // habitude, ne pouvait pas etre changee.
             if (e.key === 'Escape') { document.getElementById('mhShortcuts')?.remove(); return; }
+            // Une page qui a ses propres touches (les lecteurs) les garde :
+            // dans le lecteur, B posait le signet ET partait vers la
+            // bibliothèque, H ouvrait les réglages ET renvoyait à l'accueil.
+            // Les deux écouteurs recevaient la même touche, le global d'abord.
+            if (touchesReservees.has(e.key)) return;
             const action = MH.actionRaccourci(e.key);
             if (!action) return;
             e.preventDefault();

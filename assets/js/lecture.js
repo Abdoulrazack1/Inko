@@ -895,6 +895,8 @@
 
     // ── Raccourcis clavier ──
     function bindKeyboard() {
+        // Les touches du lecteur sont les siennes (voir global.js).
+        window.MH?.reserverTouches?.(['n', 'N', 'p', 'P', 's', 'S', 'j', 'J', 'f', 'F']);
         document.addEventListener('keydown', e => {
             // Ctrl/Cmd+F reste à nous, et c'est voulu : la recherche du
             // navigateur ne voit pas les colonnes hors écran du mode pages.

@@ -253,3 +253,6 @@
   .lib-pop { position: fixed; left: 12px; right: 12px; top: auto; bottom: 76px; max-width: none; min-width: 0; }
   .lib-catmgr-list li { flex-wrap: wrap; }
 }
+
+/* Note d’un signet : la phrase qu’on a voulu retenir. */
+.bm-note { display: block; margin-top: 4px; font-size: 12.5px; font-style: italic; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

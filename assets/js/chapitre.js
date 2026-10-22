@@ -1952,6 +1952,10 @@
             e.preventDefault();
             zoomerSurCase({ x: e.clientX, y: e.clientY }, img);
         });
+        // Les touches du lecteur sont les siennes : les raccourcis globaux
+        // (B bibliothèque, H accueil, ? aide…) ne doivent pas partir en même temps.
+        window.MH?.reserverTouches?.(['n', 'N', 'p', 'P', 'b', 'B', 'h', 'H', 's', 'S', '?', 'a', 'A',
+            'j', 'J', 'i', 'I', 'f', 'F', '+', '-', '=', '[', ']', ' ']);
         document.addEventListener('keydown', e => {
             if (MH.toucheIgnoree(e)) return;
             const rtl = rs.direction === 'rtl';
@@ -1964,7 +1968,7 @@
                 case '-': window.changeZoom(-10); return;
                 case 's': case 'S': case '?': case 'h': case 'H': toggleReaderSettings(); return;
                 case 'a': case 'A': toggleAutoScroll(); return;
-                case 'b': case 'B': toggleBookmark(); return;
+                case 'b': case 'B': e.preventDefault(); toggleBookmark(); return;   // sinon le « b » s'écrit dans le champ de la note
                 case 'j': case 'J': openNotes(); return;
                 case 'i': case 'I': toggleImmersive(); return;
                 case '[': bumpAutoSpeed(-0.2); return;
@@ -2416,21 +2420,76 @@
         btn.classList.toggle('on', on);
         btn.title = on ? 'Signet posé sur ce chapitre (B)' : 'Ajouter un signet sur cette page (B)';
     }
+    // Un signet porte une PHRASE, pas seulement une position : ce qu'on veut
+    // retrouver, c'est souvent pourquoi on l'a posé. B (ou le bouton) pose
+    // le signet tout de suite — rien n'est perdu si on ne tape rien — et
+    // ouvre un champ pour la phrase. Sur un signet existant, le même geste
+    // rouvre ce champ, avec de quoi le retirer.
+    //
+    // La page est envoyée pour de bon : seul le libellé « Page N » partait,
+    // le serveur enregistrait donc page = 1 et « Lire » depuis la
+    // bibliothèque rouvrait la progression, pas la page marquée.
+    function signetCourant() {
+        return (UserData.getBookmarks?.() || []).find(b => b.mangaId === manga.id && b.chapterId === currentChap.id) || null;
+    }
+    function poserSignet(page, note) {
+        UserData.addBookmark({
+            mangaId: manga.id, source: API.sources.current,
+            title: manga.title, cover: manga.cover || manga.coverThumb,
+            chapterId: currentChap.id, chapterNum: currentChap.chapter,
+            page, label: 'Page ' + page, note: (note || '').trim().slice(0, 500),
+        });
+    }
     function toggleBookmark() {
         if (!window.UserData) return;
-        if (UserData.hasBookmark(manga.id, currentChap.id)) {
-            UserData.removeBookmark(manga.id, currentChap.id);
-            MH.toast?.('Signet retiré');
-        } else {
-            UserData.addBookmark({
-                mangaId: manga.id, source: API.sources.current,
-                title: manga.title, cover: manga.cover || manga.coverThumb,
-                chapterId: currentChap.id, chapterNum: currentChap.chapter,
-                label: 'Page ' + currentPage,
-            });
+        const ouvert = document.getElementById('signetPop');
+        if (ouvert) { ouvert.remove(); return; }
+        let signet = signetCourant();
+        const nouveau = !signet;
+        if (nouveau) {
+            poserSignet(currentPage, '');
+            signet = signetCourant() || { page: currentPage, note: '' };
             MH.toast?.('Signet ajouté — retrouvé dans ta bibliothèque');
         }
         refreshBookmarkBtn();
+        ouvrirNoteSignet(signet, nouveau);
+    }
+    function ouvrirNoteSignet(signet, nouveau) {
+        const pop = document.createElement('form');
+        pop.id = 'signetPop';
+        pop.className = 'signet-pop';
+        pop.setAttribute('role', 'dialog');
+        pop.setAttribute('aria-label', 'Note du signet');
+        const page = signet.page || currentPage;
+        pop.innerHTML = `
+            <label class="signet-pop-label" for="signetNote">Une phrase pour ce signet <span>(page ${page}, facultatif)</span></label>
+            <input id="signetNote" class="input" maxlength="500" autocomplete="off" placeholder="ex. : la révélation, la case à montrer">
+            <div class="signet-pop-actions">
+                <button type="submit" class="btn btn-primary btn-sm">Enregistrer</button>
+                ${nouveau ? '' : '<button type="button" class="btn btn-ghost btn-sm" id="signetRetirer">Retirer le signet</button>'}
+            </div>`;
+        pop.querySelector('#signetNote').value = signet.note || '';
+        document.body.appendChild(pop);
+        const fermer = () => { pop.remove(); document.removeEventListener('pointerdown', dehors, true); };
+        const dehors = (e) => { if (!pop.contains(e.target) && !e.target.closest?.('#btnBookmark')) fermer(); };
+        document.addEventListener('pointerdown', dehors, true);
+        pop.addEventListener('keydown', (e) => {
+            e.stopPropagation();   // les raccourcis du lecteur ne s'appliquent pas en tapant
+            if (e.key === 'Escape') fermer();
+        });
+        pop.addEventListener('submit', (e) => {
+            e.preventDefault();
+            poserSignet(page, pop.querySelector('#signetNote').value);
+            fermer();
+            MH.toast?.('Signet enregistré');
+        });
+        pop.querySelector('#signetRetirer')?.addEventListener('click', () => {
+            UserData.removeBookmark(manga.id, currentChap.id);
+            fermer();
+            refreshBookmarkBtn();
+            MH.toast?.('Signet retiré');
+        });
+        pop.querySelector('#signetNote').focus();
     }
 
     // ── Mode immersif (masque l'interface pour une lecture sans distraction) ──
