@@ -160,6 +160,16 @@
             // aussi). null = échec réel détecté.
             const base = (window.API && API.base) || '';
             async function fetchPage(url) {
+                // Une planche déjà lue est en cache sur le hub : on la lui
+                // demande d'abord, sans qu'il interroge la source (`cache=seul`
+                // rend 404 sinon). Le direct reste la voie par défaut pour le
+                // reste, et c'est voulu — voir `corsRefuse`.
+                if (base) {
+                    try {
+                        const enCache = await fetch(base + '/img?u=' + encodeURIComponent(url) + '&cache=seul');
+                        if (enCache.ok) return enCache;
+                    } catch (e) { /* hub injoignable : le direct tranchera */ }
+                }
                 const origine = origineDe(url);
                 // Sans proxy, on tente le direct quoi qu'il arrive : c'est la
                 // seule voie.
