@@ -628,6 +628,47 @@ const MIGRATIONS = [
             INDEX idx_user_day (user_id, day)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
     } },
+
+    // Le rythme de parution d'une série (hebdomadaire, mensuel, irrégulier, à
+    // l'arrêt), calculé par le scan sur les dates des derniers chapitres.
+    { version: 27, name: 'favoris : rythme de parution', apply: async () => {
+        if (!(await columnExists('favorites', 'rythme'))) {
+            await run('ALTER TABLE favorites ADD COLUMN rythme VARCHAR(16) DEFAULT NULL');
+        }
+        if (!(await columnExists('favorites', 'rythme_jours'))) {
+            await run('ALTER TABLE favorites ADD COLUMN rythme_jours SMALLINT DEFAULT NULL');
+        }
+    } },
+
+    // La progression est UNE ligne par série : la plus récente, tous
+    // appareils confondus (AMEL-29). Juste pour « reprendre », mais muet sur
+    // la question qu'on se pose en changeant d'appareil : où en était l'AUTRE ?
+    // Une ligne par appareil, en plus — la ligne commune ne change pas.
+    { version: 26, name: 'progression par appareil (reprendre là où l’autre appareil s’est arrêté)', apply: async () => {
+        await run(`CREATE TABLE IF NOT EXISTS progress_devices (
+            user_id        INT NOT NULL,
+            manga_id       VARCHAR(191) NOT NULL,
+            appareil_id    VARCHAR(64)  NOT NULL,
+            appareil_nom   VARCHAR(80)  DEFAULT NULL,
+            chapter_id     VARCHAR(191) DEFAULT NULL,
+            chapter_number DECIMAL(10,2) DEFAULT NULL,
+            page           INT DEFAULT 1,
+            total_pages    INT DEFAULT NULL,
+            source         VARCHAR(64)  DEFAULT NULL,
+            updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, manga_id, appareil_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    } },
+
+    // Un signet ne retenait qu'une position. Ce qu'on veut retrouver, c'est
+    // souvent POURQUOI on l'a posé (« la révélation », « la case à montrer ») :
+    // une phrase, à côté de la position.
+    { version: 25, name: 'signets : une note (une phrase) en plus de la position', apply: async () => {
+        if (!(await columnExists('bookmarks', 'note'))) {
+            await run('ALTER TABLE bookmarks ADD COLUMN note VARCHAR(500) DEFAULT NULL');
+        }
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──
@@ -846,13 +887,18 @@ async function ensureSchema() {
         name       VARCHAR(255) DEFAULT NULL,
         applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB`);
-    let current = 0;
+    // Les versions DÉJÀ appliquées, pas seulement la plus haute. Avec
+    // `MAX(version)`, deux branches développées en parallèle — l'une ajoute la
+    // 25, l'autre la 26 — se fusionnaient en silence dans le mauvais ordre :
+    // une base passée à 26 sautait la 25 pour toujours. Toutes les migrations
+    // sont rejouables (en-tête du fichier), appliquer un trou est donc sûr.
+    let appliquees = new Set();
     try {
-        const [[row]] = await pool.query('SELECT MAX(version) AS v FROM schema_migrations');
-        current = row?.v || 0;
+        const [rows] = await pool.query('SELECT version FROM schema_migrations');
+        appliquees = new Set(rows.map(r => Number(r.version)));
     } catch (e) { /* table toute neuve */ }
     for (const m of MIGRATIONS) {
-        if (m.version <= current) continue;
+        if (appliquees.has(m.version)) continue;
         // Audit DB-05 : la version n'est enregistrée QUE si la migration a
         // réellement abouti. Avant, `run()` avalait l'échec et l'INSERT suivait
         // quand même : la migration était marquée comme appliquée et n'était
