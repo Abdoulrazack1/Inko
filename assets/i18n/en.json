@@ -432,6 +432,11 @@
     "Ce qui reste à lire est gardé.": "What's left to read is kept.",
     "Aucun chapitre déjà lu à supprimer": "No read chapters to remove",
     "Impossible de savoir ce qui a été lu sans connexion : rien n’a été supprimé.": "Can't tell what was read without a connection: nothing was removed.",
+    "Plafond de stockage": "Storage limit",
+    "Aucun": "None",
+    "Au-delà, les plus anciens chapitres déjà lus partent d’eux-mêmes. Jamais ce qui reste à lire.": "Beyond it, the oldest chapters you've read are removed automatically. Never what's left to read.",
+    "Plafond enregistré": "Limit saved",
+    "Plafond enregistré — il s’appliquera au prochain téléchargement en ligne": "Limit saved — it will apply on the next online download",
     "Télécharger pour lire hors ligne": "Download to read offline",
     "C’est plus que l’espace libre de l’appareil : la file s’arrêtera quand il sera plein.": "That's more than the free space on this device: the queue will stop when it's full.",
     "Importer depuis MyAnimeList ou AniList": "Import from MyAnimeList or AniList",
@@ -1360,6 +1365,12 @@
   },
   "patterns": [
     [
+      "^Plafond de stockage : (\\d+) ancien\\(s\\) chapitre\\(s\\) retiré\\(s\\)$",
+      "Storage limit: $1 old chapter(s) removed"
+    ],
+    [
+      "^Supprimer (\\d+) chapitres? déjà lus? \\?$",
+      "Remove $1 already read chapter(s)?",
       "^Supprimer (\\d+) chapitres? déjà lus? \\?$",
       "Remove $1 already read chapter(s)?",
       "^Les (\\d+) prochains$",
