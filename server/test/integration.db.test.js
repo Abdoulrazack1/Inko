@@ -1417,6 +1417,31 @@ test('appairage : on ne révoque pas l’appareil d’un autre compte', async (t
     assert.equal(res.statusCode, 404, 'B ne doit pas pouvoir déconnecter l’appareil de A');
 });
 
+test('rythme de parution : le scan l’enregistre sur le favori', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const loader = require('../extensions/loader');
+    const updates = require('../lib/updates');
+    const u = await createUser('rythme_scan', 'rythme_scan@test.local');
+    await pool.query(
+        `INSERT INTO favorites (user_id, manga_id, source, title) VALUES (?, 'hebdo', 'fauxry', 'Hebdo'), (?, 'arret', 'fauxry', 'Arrêt')`,
+        [u.id, u.id]);
+    const il_y_a = (j) => new Date(Date.now() - j * 86400000).toISOString();
+    const vrai = loader.get;
+    loader.get = (id) => (id === 'fauxry' ? {
+        getChapters: async (mangaId) => ({ results: mangaId === 'hebdo'
+            ? [0, 7, 14, 21, 28].map((j, i) => ({ id: `h${i}`, chapter: 50 - i, publishedAt: il_y_a(j + 1) }))
+            : [200, 230, 260, 290].map((j, i) => ({ id: `a${i}`, chapter: 9 - i, publishedAt: il_y_a(j) })) }),
+    } : vrai(id));
+    try {
+        await updates.scanUserUpdates(u.id, { scope: 'all' });
+        await new Promise(r => setTimeout(r, 200));   // écritures non attendues par le scan
+        const g = rr({ user: u });
+        await User.getFavorites(g.req, g.res, nextThrow);
+        const par = Object.fromEntries((g.res.body.items || g.res.body).map(f => [f.mangaId, f]));
+        assert.deepEqual([par.hebdo.rythme, par.hebdo.rythmeJours], ['hebdo', 7]);
+        assert.equal(par.arret.rythme, 'arret');
+    } finally { loader.get = vrai; }
+});
 test('reprise des séries mises de côté : un retour après une longue pause est signalé comme tel', async (t) => {
     if (!available) return t.skip('MySQL indisponible');
     const loader = require('../extensions/loader');

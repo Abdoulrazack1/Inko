@@ -126,6 +126,7 @@ async function getFavorites(req, res, next) {
             addedAt: r.added_at,
             // Migration 22 : null tant que la série n'a pas été vérifiée.
             unreadCount: r.unread_count ?? null,
+            rythme: r.rythme ?? null, rythmeJours: r.rythme_jours ?? null,
             latestAt: r.latest_at || null,
             checkedAt: r.checked_at || null,
         }));

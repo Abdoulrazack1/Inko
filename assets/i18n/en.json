@@ -427,6 +427,12 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "Rythme de parution": "Release pace",
+    "Rythme pas encore connu": "Pace not known yet",
+    "Chaque semaine": "Every week",
+    "Chaque mois": "Every month",
+    "Irrégulier": "Irregular",
+    "À l’arrêt": "On hold",
     "À finir en": "Can finish in",
     "Une soirée": "An evening",
     "Un week-end": "A weekend",
@@ -1336,6 +1342,20 @@
   },
   "patterns": [
     [
+      "^Chaque semaine \\(tous les (\\d+) j\\)$",
+      "Every week (every $1 days)"
+    ],
+    [
+      "^Chaque mois \\(tous les (\\d+) j\\)$",
+      "Every month (every $1 days)"
+    ],
+    [
+      "^Irrégulier \\(tous les (\\d+) j\\)$",
+      "Irregular (about every $1 days)"
+    ],
+    [
+      "^Plusieurs fois par semaine \\(tous les (\\d+) j\\)$",
+      "Several times a week (every $1 days)",
       "^D'après ton rythme mesuré : (\\d+) min par chapitre$",
       "Based on your measured pace: $1 min per chapter",
       "^De retour après (\\d+) mois$",

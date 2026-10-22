@@ -629,6 +629,17 @@ const MIGRATIONS = [
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
     } },
 
+    // Le rythme de parution d'une série (hebdomadaire, mensuel, irrégulier, à
+    // l'arrêt), calculé par le scan sur les dates des derniers chapitres.
+    { version: 27, name: 'favoris : rythme de parution', apply: async () => {
+        if (!(await columnExists('favorites', 'rythme'))) {
+            await run('ALTER TABLE favorites ADD COLUMN rythme VARCHAR(16) DEFAULT NULL');
+        }
+        if (!(await columnExists('favorites', 'rythme_jours'))) {
+            await run('ALTER TABLE favorites ADD COLUMN rythme_jours SMALLINT DEFAULT NULL');
+        }
+    } },
+
     // La progression est UNE ligne par série : la plus récente, tous
     // appareils confondus (AMEL-29). Juste pour « reprendre », mais muet sur
     // la question qu'on se pose en changeant d'appareil : où en était l'AUTRE ?
