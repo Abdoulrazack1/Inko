@@ -1416,3 +1416,181 @@ test('appairage : on ne révoque pas l’appareil d’un autre compte', async (t
     await Devices.revoquer(req, res, nextThrow);
     assert.equal(res.statusCode, 404, 'B ne doit pas pouvoir déconnecter l’appareil de A');
 });
+
+test('reprise des séries mises de côté : un retour après une longue pause est signalé comme tel', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const loader = require('../extensions/loader');
+    const updates = require('../lib/updates');
+    const u = await createUser('notif_retour', 'notif_retour@test.local');
+    const jours = (n) => new Date(Date.now() - n * 86400000);
+    // En pause depuis le hiatus (dernière parution il y a 200 j), abandonnée
+    // pareil, abandonnée qui paraît normalement, et une série en cours ordinaire.
+    await pool.query(
+        `INSERT INTO favorites (user_id, manga_id, source, title, status, last_chapter, latest_at) VALUES
+            (?, 'pause',  'fauxr', 'En Pause',  'paused',  100, ?),
+            (?, 'aband',  'fauxr', 'Abandonnée', 'dropped', 50, ?),
+            (?, 'aband2', 'fauxr', 'Abandonnée Active', 'dropped', 70, ?),
+            (?, 'cours',  'fauxr', 'En Cours',  'reading', 20, ?)`,
+        [u.id, jours(200), u.id, jours(200), u.id, jours(10), u.id, jours(10)]);
+    await pool.query('UPDATE users SET notif_every_hours = 4, last_notif_scan = NULL WHERE id = ?', [u.id]);
+
+    const chapitres = { pause: 101, aband: 51, aband2: 71, cours: 21 };
+    const vrai = loader.get;
+    loader.get = (id) => (id === 'fauxr' ? {
+        getChapters: async (mangaId) => ({ results: [
+            { id: `${mangaId}-n`, chapter: chapitres[mangaId], publishedAt: new Date().toISOString() },
+        ] }),
+    } : vrai(id));
+    try {
+        const manuel = await updates.scanUserUpdates(u.id, { scope: 'active' });
+        assert.deepEqual(manuel.updates.map(x => x.mangaId).sort(), ['cours', 'pause'],
+            'le bouton « Mettre à jour » ignore toujours les abandonnées');
+        assert.ok(manuel.updates.find(x => x.mangaId === 'pause').retour.jours >= 199);
+        assert.equal(manuel.updates.find(x => x.mangaId === 'cours').retour, null);
+
+        // Le scan manuel a enregistré ces parutions (comme en vrai : un
+        // chapitre vu n'est plus « nouveau »). On repart de l'état initial
+        // pour la tâche de fond.
+        await pool.query(
+            `UPDATE favorites SET checked_at = NULL,
+                last_chapter = CASE manga_id WHEN 'pause' THEN 100 WHEN 'aband' THEN 50 WHEN 'aband2' THEN 70 ELSE 20 END,
+                latest_at = CASE WHEN manga_id IN ('pause', 'aband') THEN ? ELSE ? END
+             WHERE user_id = ?`, [jours(200), jours(10), u.id]);
+        await updates.backgroundScan();
+        const [notifs] = await pool.query('SELECT title, body FROM notifications WHERE user_id = ? ORDER BY id', [u.id]);
+        assert.equal(notifs.length, 3, JSON.stringify(notifs));
+        assert.equal(notifs.find(n => n.body.startsWith('En Pause')).title, 'De retour après 7 mois');
+        assert.match(notifs.find(n => n.body.startsWith('En Pause')).body, /reprend : chap\. 101 — tu l’avais mise de côté/);
+        assert.ok(notifs.find(n => n.body.startsWith('Abandonnée reprend')), 'l’abandonnée qui REVIENT est signalée');
+        assert.ok(!notifs.find(n => n.body.includes('Abandonnée Active')), 'l’abandonnée qui paraît normalement reste muette');
+        assert.equal(notifs.find(n => n.body.startsWith('En Cours')).title, 'Nouveau chapitre');
+    } finally { loader.get = vrai; }
+});
+
+test('fusion de doublons : la cible déjà suivie garde sa progression, et l’annulation la rend intacte', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('MigrFusion', 'migrfusion@test.local');
+    await poserOeuvre(u, 'nb-fus', 'novelbin');                 // lue jusqu'au 143
+    // La même œuvre, déjà suivie ailleurs ET plus avancée : 300, page 9.
+    await pool.query('INSERT INTO favorites (user_id, manga_id, source, title, status) VALUES (?,?,?,?,?)',
+        [u.id, 'ss-fus', 'sushiscan', 'Solo Leveling', 'reading']);
+    await pool.query('INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, source) VALUES (?,?,?,?,?,?)',
+        [u.id, 'ss-fus', 'ss-fus-300', 300, 9, 'sushiscan']);
+    await pool.query('INSERT INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?,?,?,?)',
+        [u.id, 'ss-fus', 'ss-fus-300', 300]);
+    await pool.query('INSERT INTO reading_notes (user_id, manga_id, source, body) VALUES (?,?,?,?)',
+        [u.id, 'ss-fus', 'sushiscan', 'ma note côté cible']);
+
+    const r = await Migr.migrer(u.id, { source: 'novelbin', mangaId: 'nb-fus' },
+        { source: 'sushiscan', mangaId: 'ss-fus', titre: 'Solo Leveling' }, TOUT,
+        [{ id: 'ss-fus-1', number: '1' }, { id: 'ss-fus-2', number: '2' }, { id: 'ss-fus-143', number: '143' }, { id: 'ss-fus-300', number: '300' }]);
+    const [[prog]] = await pool.query('SELECT * FROM progress WHERE user_id=? AND manga_id=?', [u.id, 'ss-fus']);
+    assert.equal(Number(prog.chapter_number), 300, 'la plus avancée gagne : pas de retour au 143');
+    assert.equal(prog.page, 9, 'même chapitre conservé : la page aussi');
+    const [lus] = await pool.query('SELECT chapter_id FROM read_chapters WHERE user_id=? AND manga_id=? ORDER BY chapter_number', [u.id, 'ss-fus']);
+    assert.deepEqual(lus.map(x => x.chapter_id), ['ss-fus-1', 'ss-fus-2', 'ss-fus-143', 'ss-fus-300'], 'les lectures s’additionnent');
+
+    // Annuler : la source revient, et la cible retrouve EXACTEMENT ce qu'elle avait.
+    const [[ligne]] = await pool.query('SELECT id FROM source_migrations WHERE user_id = ? ORDER BY id DESC LIMIT 1', [u.id]);
+    assert.ok(r.migre);
+    await Migr.annuler(u.id, ligne.id);
+    const [[favCible]] = await pool.query('SELECT * FROM favorites WHERE user_id=? AND manga_id=?', [u.id, 'ss-fus']);
+    assert.ok(favCible, 'le favori que la cible avait AVANT n’est pas supprimé');
+    const [[progCible]] = await pool.query('SELECT * FROM progress WHERE user_id=? AND manga_id=?', [u.id, 'ss-fus']);
+    assert.deepEqual([Number(progCible.chapter_number), progCible.page], [300, 9]);
+    const [lusCible] = await pool.query('SELECT chapter_id FROM read_chapters WHERE user_id=? AND manga_id=?', [u.id, 'ss-fus']);
+    assert.deepEqual(lusCible.map(x => x.chapter_id), ['ss-fus-300'], 'seulement ce qu’elle avait lu elle-même');
+    const [notesCible] = await pool.query('SELECT body FROM reading_notes WHERE user_id=? AND manga_id=?', [u.id, 'ss-fus']);
+    assert.deepEqual(notesCible.map(n => n.body), ['ma note côté cible'], 'sa note n’est pas partie avec l’annulation');
+    const [[favSource]] = await pool.query('SELECT * FROM favorites WHERE user_id=? AND manga_id=?', [u.id, 'nb-fus']);
+    assert.ok(favSource, 'la source est restaurée');
+});
+
+test('listes intelligentes : « pas ouverte depuis N jours » et note minimale en étoiles', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('Regles Liste', 'regleslist@test.local');
+    await pool.query(
+        `INSERT INTO favorites (user_id, manga_id, source, title, status) VALUES
+            (?, 'oubliee', 'weebcentral', 'Oubliée', 'reading'),
+            (?, 'recente', 'weebcentral', 'Récente', 'reading'),
+            (?, 'jamais',  'weebcentral', 'Jamais ouverte', 'reading')`, [u.id, u.id, u.id]);
+    await pool.query(
+        `INSERT INTO progress (user_id, manga_id, chapter_id, page, updated_at) VALUES
+            (?, 'oubliee', 'c1', 3, NOW() - INTERVAL 45 DAY),
+            (?, 'recente', 'c1', 3, NOW() - INTERVAL 2 DAY)`, [u.id, u.id]);
+    // Notes sur 10 (AMEL-47) : 10 = 5 étoiles, 6 = 3 étoiles.
+    await pool.query(`INSERT INTO ratings (user_id, manga_id, rating) VALUES (?, 'oubliee', 10), (?, 'recente', 6)`, [u.id, u.id]);
+
+    const creer = async (name, rules) => {
+        const r = rr({ user: u, body: { name, rules } });
+        await User.createList(r.req, r.res, nextThrow);
+        assert.equal(r.res.statusCode, 200, JSON.stringify(r.res.body));
+    };
+    await creer('Laissées filer', { status: ['reading'], inactifJours: 30 });
+    await creer('Cinq étoiles', { minRating: 5 });
+    await creer('Actives', { status: ['reading'], sourceActive: true });
+
+    const g = rr({ user: u });
+    await User.getLists(g.req, g.res, nextThrow);
+    const par = Object.fromEntries(g.res.body.map(l => [l.name, l]));
+    assert.deepStrictEqual(par['Laissées filer'].items.map(i => i.id).sort(), ['jamais', 'oubliee'],
+        'ouverte il y a 45 jours, ou jamais — pas celle d’avant-hier');
+    assert.deepStrictEqual(par['Cinq étoiles'].items.map(i => i.id), ['oubliee'],
+        '« 5 étoiles » ne ramène plus une série notée 3 étoiles');
+    assert.equal(par['Actives'].rules.sourceActive, true, 'le drapeau est rendu au client, qui l’applique');
+});
+
+test('progression par appareil : chaque appareil garde sa position, sans reculer', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('Deux Ecrans', 'deuxecrans@test.local');
+    const ecrire = async (appareil, ua, corps) => {
+        const r = rr({ user: u, params: { mangaId: 'serie-app' }, body: { source: 'weebcentral', appareil, ...corps } });
+        r.req.headers['user-agent'] = ua;
+        await User.setProgress(r.req, r.res, nextThrow);
+        assert.equal(r.res.statusCode, 200);
+    };
+    const PC = 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0', TEL = 'Mozilla/5.0 (Linux; Android 14) Chrome/120.0 Mobile';
+    await ecrire('pc-0000-aaaa', PC, { chapterId: 'c12', chapter: 12, page: 8, clientAt: '2026-10-20T20:00:00Z' });
+    await ecrire('tel-0000-bbbb', TEL, { chapterId: 'c10', chapter: 10, page: 3, clientAt: '2026-10-20T18:00:00Z' });
+    // Le téléphone rejoue une vieille écriture : sa position ne recule pas.
+    await ecrire('tel-0000-bbbb', TEL, { chapterId: 'c9', chapter: 9, page: 1, clientAt: '2026-10-20T17:00:00Z' });
+
+    const r = rr({ user: u, params: { mangaId: 'serie-app' }, query: { appareil: 'tel-0000-bbbb' } });
+    await User.getProgressAppareils(r.req, r.res, nextThrow);
+    const [pc, tel] = r.res.body;
+    assert.deepStrictEqual([pc.nom, pc.chapterId, pc.page, pc.courant], ['Chrome sur Windows', 'c12', 8, false]);
+    assert.deepStrictEqual([tel.nom, tel.chapterId, tel.page, tel.courant], ['Chrome sur Android', 'c10', 3, true]);
+
+    // Identifiant douteux : ignoré, la progression commune s'enregistre quand même.
+    await ecrire('<script>', PC, { chapterId: 'c13', chapter: 13, page: 1, clientAt: '2026-10-20T21:00:00Z' });
+    const r2 = rr({ user: u, params: { mangaId: 'serie-app' } });
+    await User.getProgressAppareils(r2.req, r2.res, nextThrow);
+    assert.equal(r2.res.body.length, 2);
+});
+
+test('signets : la note et la page sont gardées, la note est bornée et effaçable', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('Signet Note', 'signetnote@test.local');
+    const base = { mangaId: 'serie-sig', chapterId: 'ch-4', source: 'weebcentral', title: 'Série', chapterNum: 4 };
+    let r = rr({ user: u, body: { ...base, page: 12, label: 'Page 12', note: '  la case à montrer  ' } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    assert.equal(r.res.statusCode, 200);
+
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].page, 12, 'la page marquée, pas 1');
+    assert.equal(r.res.body[0].note, 'la case à montrer');
+
+    // Réécriture du même signet : une note trop longue est bornée, une note vide l'efface.
+    r = rr({ user: u, body: { ...base, page: 12, note: 'x'.repeat(800) } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].note.length, 500);
+
+    r = rr({ user: u, body: { ...base, page: 12, note: '   ' } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].note, '');
+});

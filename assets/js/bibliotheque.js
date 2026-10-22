@@ -595,7 +595,8 @@
             return;
         }
         el.innerHTML = items.map(b => {
-            const href = MH.readerHref(b.mangaId, b.chapterId, b.source);
+            // La page marquée, pas la progression : c'est elle qu'on a voulu retenir.
+            const href = MH.readerHref(b.mangaId, b.chapterId, b.source, b.page);
             return `
             <div class="upd-row">
                 <a class="upd-cover" href="${href}">
@@ -604,6 +605,7 @@
                 <div class="upd-info">
                     <a class="upd-name" href="${href}" style="color:inherit;text-decoration:none">${MH.esc(b.title || b.mangaId)}</a>
                     <div class="upd-meta">${MH.unitLabel(b.source, { short: true })} ${MH.esc(String(b.chapterNum || '?'))}${b.label ? ' · ' + MH.esc(b.label) : ''}${b.source ? ' · ' + MH.esc(b.source) : ''}</div>
+                    ${b.note ? `<q class="bm-note">${MH.esc(b.note)}</q>` : ''}
                 </div>
                 <div style="display:flex;gap:6px;flex-shrink:0">
                     <a class="btn btn-primary btn-sm" href="${href}">Lire</a>
@@ -706,6 +708,8 @@
         renderFilters();
         render();
         mesurerRythme();
+        // La même œuvre suivie sur deux sources : signalée, fusion proposée.
+        window.MH?.doublons?.signaler(document.getElementById('libDoublons'), favs, progressByManga);
 
         const missing = favs.filter(f => !f.title || !f.cover);
         if (missing.length) {
@@ -1615,7 +1619,7 @@
                                  onerror="this.src='${MH.placeholderCover(u.mangaId)}'">
                         </a>
                         <div class="upd-info">
-                            <div class="upd-name">${MH.esc(u.title)} ${u.hasNew ? '<span class="upd-new">NOUVEAU</span>' : ''}</div>
+                            <div class="upd-name">${MH.esc(u.title)} ${u.hasNew ? '<span class="upd-new">NOUVEAU</span>' : ''}${u.retour ? ` <span class="upd-retour">De retour après ${Math.max(2, Math.round(u.retour.jours / 30))} mois</span>` : ''}</div>
                             <div class="upd-meta">
                                 ${u.latest ? `Dernier : Ch. ${u.latest.chapter}` : ''}
                                 ${u.unreadCount > 0 ? ` · <strong style="color:var(--orange)">${u.unreadCount} non lu(s)</strong>` : ' · à jour'}
