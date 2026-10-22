@@ -396,6 +396,42 @@
     }
 
     // ── Mes avis ──
+    // Les notes sont sur 10 depuis AMEL-47 (cinq étoiles avec demis). Le
+    // profil, lui, était resté sur 5 : `'☆'.repeat(5 - 8)` lève une
+    // RangeError, et l'onglet « Mes avis » ne s'affichait plus dès qu'une
+    // série avait reçu plus de 5.
+    function etoilesSurDix(n) {
+        const v = Math.max(0, Math.min(10, Number(n) || 0));
+        return `${MH.stars(v / 2)} <span class="note-sur-dix">${v}/10</span>`;
+    }
+    /** Répartition des notes 1 à 10, moyenne, médiane. */
+    function distributionNotes(notes) {
+        const valeurs = (notes || []).map(r => Math.round(Number(r.rating))).filter(v => v >= 1 && v <= 10);
+        const comptes = Array(10).fill(0);
+        valeurs.forEach(v => { comptes[v - 1]++; });
+        const tries = [...valeurs].sort((a, b) => a - b);
+        const n = tries.length;
+        const mediane = !n ? null : (n % 2 ? tries[(n - 1) / 2] : (tries[n / 2 - 1] + tries[n / 2]) / 2);
+        const moyenne = n ? Math.round((valeurs.reduce((a, b) => a + b, 0) / n) * 10) / 10 : null;
+        const max = Math.max(0, ...comptes);
+        return { comptes, total: n, moyenne, mediane, mode: n ? comptes.indexOf(max) + 1 : null };
+    }
+    function rendreDistribution(d) {
+        if (d.total < 2) return '';
+        const max = Math.max(...d.comptes);
+        const fmt = (x) => String(x).replace('.', ',');
+        return `<figure class="notes-distribution" aria-label="Répartition de tes ${d.total} notes : moyenne ${fmt(d.moyenne)} sur 10, médiane ${fmt(d.mediane)}">
+            <div class="notes-barres" aria-hidden="true">${d.comptes.map((c, i) => `
+                <div class="notes-col" title="${i + 1}/10 : ${c} série${c > 1 ? 's' : ''}">
+                    <span class="notes-cnt">${c || ''}</span>
+                    <span class="notes-barre${i + 1 === d.mode ? ' mode' : ''}" style="height:${max ? Math.round((c / max) * 100) : 0}%"></span>
+                    <span class="notes-val">${i + 1}</span>
+                </div>`).join('')}
+            </div>
+            <figcaption>${d.total} notes · moyenne <strong>${fmt(d.moyenne)}</strong> · médiane ${fmt(d.mediane)} · la plus donnée : ${d.mode}/10</figcaption>
+        </figure>`;
+    }
+
     async function renderMyReviews() {
         const el = document.getElementById('myReviewsList');
         if (!el) return;
@@ -408,9 +444,9 @@
             }
             const mangas = await loadMangas(ratings.slice(0, 30).map(r => r.mangaId));
             const byId = new Map(mangas.filter(Boolean).map(m => [m.id, m]));
-            el.innerHTML = ratings.slice(0, 30).map(r => {
+            el.innerHTML = rendreDistribution(distributionNotes(ratings)) + ratings.slice(0, 30).map(r => {
                 const m = byId.get(r.mangaId);
-                const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+                const stars = etoilesSurDix(r.rating);
                 return `
                 <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
                     <a href="serie.html?id=${encodeURIComponent(r.mangaId)}" style="flex-shrink:0">
@@ -482,7 +518,7 @@
             const m = await loadManga(r.mangaId);
             el.innerHTML = `
                 <div class="review-preview-manga">${MH.esc(m?.title || r.mangaId)}</div>
-                <div style="color:var(--amber-text);font-size:13px;margin:4px 0">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+                <div style="color:var(--amber-text);font-size:13px;margin:4px 0">${etoilesSurDix(r.rating)}</div>
                 ${r.review ? `<div class="review-preview-text">«&nbsp;${MH.esc(r.review)}&nbsp;»</div>` : ''}`;
         } catch (e) { window.MH?.err?.('profil.js', e); }
     }

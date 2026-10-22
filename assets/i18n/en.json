@@ -1353,6 +1353,8 @@
   },
   "patterns": [
     [
+      "^(\\d+) notes · moyenne (.+) · médiane (.+) · la plus donnée : (\\d+)/10$",
+      "$1 ratings · average $2 · median $3 · most given: $4/10",
       "^(\\d+) séries dans l’export (MyAnimeList|AniList)\\.$",
       "$1 series in the $2 export."
     ],
