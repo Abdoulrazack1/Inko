@@ -1766,7 +1766,7 @@
             window.changeZoom(zoom === 100 ? 50 : 100 - zoom);
         });
         document.addEventListener('keydown', e => {
-            if (['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName)) return;
+            if (MH.toucheIgnoree(e)) return;
             const rtl = rs.direction === 'rtl';
             // Touches globales (tous modes)
             switch (e.key) {
