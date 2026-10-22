@@ -25,6 +25,10 @@
     let activeRatings = new Set();   // safe | suggestive | erotica
     let viewMode      = 'grid';       // grid | list
     let inFlight      = 0;
+    // Prévenu à chaque changement d'état de la recherche (départ, résultat,
+    // échec). La feuille de filtres mobile s'y abonne pour dire, sur son
+    // bouton, ce que donnent les filtres AVANT qu'on la referme.
+    let surEtatRecherche = () => {};
     let sourceInfo    = null;         // { id, name, lang } de la source active
     let allSources    = false;        // mode « Toutes les sources » (agrégé)
     // Posee par bindEvents : l'etat vide en a besoin, et elle est definie
@@ -236,6 +240,7 @@
         aggOffset += per;
         lastResults = [...aggSeen.values()];
         lastTotal = lastResults.length;
+        surEtatRecherche('pret');
         const okCount = settled.filter(r => r.status === 'fulfilled').length;
         if (count) count.innerHTML = `<strong>${lastResults.length}</strong> séries · ${okCount}/${srcs.length} sources`;
         // Audit A11Y-06 : annonce le résultat aux lecteurs d'écran
@@ -442,6 +447,7 @@
 
         inFlight++;
         const myReq = inFlight;
+        surEtatRecherche('enCours');
         grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text3)">
             <div class="spinner-inline"></div>
             <div style="margin-top:8px;font-size:12.5px">Recherche…</div>
@@ -456,6 +462,7 @@
             try { await runSearchAggregate(myReq); }
             catch (err) {
                 if (myReq !== inFlight) return;
+                surEtatRecherche('echec');
                 MH.poserEtatErreur(grid, err, { onRetry: () => runSearch() });
                 grid.firstChild.style.gridColumn = '1/-1';
             }
@@ -479,6 +486,7 @@
             if (myReq !== inFlight) return; // requête plus récente en cours
             lastResults = data.results || [];
             lastTotal   = data.total || 0;
+            surEtatRecherche('pret');
             saveCtx();   // mémorise le contexte courant pour la prochaine visite
             syncURL();   // audit AMEL-06 : l'URL décrit ce qui est affiché
 
@@ -536,6 +544,7 @@
             renderPagination();
         } catch(err) {
             if (myReq !== inFlight) return;
+            surEtatRecherche('echec');
             // `source` sert à nommer le coupable : « WeebCentral ne répond
             // pas » situe la panne EN AMONT, là où « Erreur : HTTP 504 »
             // laissait croire à un défaut d'Inko ou de la connexion.
@@ -658,11 +667,32 @@
     // On ne peut pas deviner le vrai total. On peut, en revanche, ne pas
     // affirmer ce qu'on ne sait pas : quand le total porte cette signature, on
     // dit ce qui est charge et qu'il y en a d'autres.
+    // Quand tout est chargé, le total est exact : « 1 sur 1 » tombait dans
+    // la signature de la borne basse et s'affichait « d'autres sont
+    // disponibles » sous un résultat unique.
+    function estBorneBasse(charges, total) {
+        return charges < total && total <= charges + PER_PAGE;
+    }
+
+    // Le même constat, en libellé de bouton : on ne promet un nombre que
+    // quand on le connaît.
+    function libelleVoirResultats(etat) {
+        if (etat === 'enCours') return 'Recherche…';
+        if (etat === 'echec') return 'Voir les résultats';
+        // Nombre entier, pas `MH.fmt` : « Voir 1k résultats » sur un bouton
+        // qui doit dire ce qu'on va trouver est trop vague.
+        const n = (v) => Number(v).toLocaleString('fr-FR');
+        const charges = lastResults.length;
+        if (!charges) return 'Aucun résultat';
+        if (estBorneBasse(charges, lastTotal) && !allSources) return `Voir les résultats (${n(charges)}+)`;
+        const total = Math.max(lastTotal, charges);
+        return total === 1 ? 'Voir 1 résultat' : `Voir ${n(total)} résultats`;
+    }
+
     function texteCompteur(charges, total) {
         const n = (v) => (MH.fmt ? MH.fmt(v) : String(v));
         if (!charges) return 'Aucune série';
-        const borneBasse = total <= charges + PER_PAGE;
-        if (borneBasse) {
+        if (estBorneBasse(charges, total)) {
             return `Affichage de <strong>${n(charges)}</strong> séries<span style="color:var(--text3)"> — d’autres sont disponibles</span>`;
         }
         return `Affichage de <strong>${n(charges)}</strong> sur <strong>${n(total)}</strong> séries`;
@@ -1220,6 +1250,15 @@
         };
 
         let ouverte = null;
+        // « Voir les résultats » ne disait pas CE QU'on allait voir : on
+        // réglait trois filtres à l'aveugle, on refermait, et l'on découvrait
+        // une grille vide. Les filtres s'appliquent déjà en direct derrière la
+        // feuille ; le bouton en rapporte maintenant le compte.
+        let etatRecherche = 'pret';
+        surEtatRecherche = (etat) => {
+            etatRecherche = etat;
+            ouverte?.majPied(0, libelleVoirResultats(etat));
+        };
         const placer = () => {
             if (surTelephone()) {
                 bouton.style.display = '';
@@ -1248,7 +1287,7 @@
                     document.getElementById('btnClearFilters')?.click();
                     majBouton();
                 } },
-                actions: [{ libelle: 'Voir les résultats', principal: true, onClick: ({ fermer }) => fermer() }],
+                actions: [{ libelle: libelleVoirResultats(etatRecherche), principal: true, onClick: ({ fermer }) => fermer() }],
                 onFermeture: () => {
                     // Le nœud RETOURNE à sa place : la feuille ne le possède
                     // pas, elle l'emprunte. Sans ça, revenir en mode bureau
