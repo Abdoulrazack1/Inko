@@ -230,7 +230,19 @@
             // C'est le pire des états — l'utilisateur attend quelque chose qui
             // n'arrivera jamais, et rien ne lui dit d'abandonner.
             if (!totalPages) {
-                showError('Ce chapitre ne contient aucune page');
+                // Une entrée vide ne doit pas devenir un cul-de-sac. On la
+                // retient pour la session (neighborChapter la sautera), et si
+                // l'on arrive en tournant les chapitres, on poursuit dans le
+                // même sens au lieu d'arrêter la lecture sur un écran d'erreur.
+                retenirChapitreVide(chapterId);
+                const saut = +params.get('saut');
+                const suite = (saut === 1 || saut === -1) ? neighborChapter(saut) : null;
+                if (suite) {
+                    MH.toast?.(`Chapitre ${currentChap.chapter} vide à la source — on passe au ${saut > 0 ? 'suivant' : 'précédent'}`);
+                    location.replace(urlChapitre(suite, saut));
+                    return;
+                }
+                showError('Ce chapitre ne contient aucune page', neighborChapter(1));
                 return;
             }
 
@@ -298,10 +310,11 @@
      * un lien pareil ne s'ouvre pas dans un onglet, ne se copie pas, et va
      * contre le retrait annoncé de `script-src-attr 'unsafe-inline'`.
      */
-    function showError(err) {
+    function showError(err, suivant) {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
         const retour = { libelle: '↩ Retour', onClick: () => history.back() };
+        const versSuivant = suivant ? [{ libelle: `Chapitre ${suivant.chapter} →`, href: urlChapitre(suivant, 1) }] : [];
         const accueil = { libelle: 'Accueil', href: 'accueil.html' };
 
         if (err instanceof Error) {
@@ -318,8 +331,8 @@
         MH.poserEtatVide(el, {
             icone: '\u{1F517}',
             titre: String(err || 'Chapitre indisponible'),
-            texte: 'Le lien est peut-être incomplet.',
-            actions: [retour, accueil],
+            texte: suivant ? 'La source liste ce chapitre sans en fournir les pages.' : 'Le lien est peut-être incomplet.',
+            actions: [...versSuivant, retour, accueil],
         });
     }
 
@@ -341,10 +354,9 @@
     function renderToolbar() {
         const el = document.getElementById('readerToolbar');
         if (!el) return;
-        const asc      = [...chapters].sort((a, b) => a.chapter - b.chapter);
-        const curIdx   = asc.findIndex(c => c.id === currentChap.id);
-        const prevChap = curIdx > 0 ? asc[curIdx - 1] : null;
-        const nextChap = curIdx < asc.length - 1 ? asc[curIdx + 1] : null;
+        const asc      = chapitresTries();
+        const prevChap = neighborChapter(-1);
+        const nextChap = neighborChapter(1);
 
         el.innerHTML = `
         <div class="toolbar-left">
@@ -417,8 +429,8 @@
         updateAutoBtn();
         const chapURL = (id) => `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(id)}&source=${encodeURIComponent(API.sources.current)}`;
         document.getElementById('chapSelect')?.addEventListener('change', e => { window.location.href = chapURL(e.target.value); });
-        document.getElementById('btnPrevChap')?.addEventListener('click', () => { if (prevChap) window.location.href = chapURL(prevChap.id); });
-        document.getElementById('btnNextChap')?.addEventListener('click', () => { if (nextChap) window.location.href = chapURL(nextChap.id); });
+        document.getElementById('btnPrevChap')?.addEventListener('click', () => { if (prevChap) window.location.href = urlChapitre(prevChap, -1); });
+        document.getElementById('btnNextChap')?.addEventListener('click', () => { if (nextChap) window.location.href = urlChapitre(nextChap, 1); });
     }
 
     // Menu « ⋯ » du lecteur : fermé au clic ailleurs, par Échap, ou après
@@ -616,7 +628,7 @@
         const b = boiteReservee(idx);
         return `<img class="reader-page-img" data-idx="${idx}" data-page="${idx + 1}"
                  alt="Page ${idx + 1}" decoding="async"
-                 style="width:${b.w}px;height:${b.h}px;background:var(--bg2,#141414)"
+                 style="width:${b.w}px;height:${b.h}px"
                  >`;
     }
 
@@ -1276,10 +1288,12 @@
     function renderNextChapter() {
         const el = document.getElementById('readerNextChapter');
         if (!el) return;
-        const asc = [...chapters].sort((a, b) => a.chapter - b.chapter);
-        const idx = asc.findIndex(c => c.id === currentChap.id);
-        const next = idx >= 0 && idx < asc.length - 1 ? asc[idx + 1] : null;
-        if (!next) { el.innerHTML = ''; return; }
+        // Même voisin que les touches N et la transition de fin : ce bloc
+        // triait par `a.chapter - b.chapter`, qui rend NaN sur « Extra » ou
+        // « Bonus 1 » — il pouvait annoncer un autre chapitre que celui où
+        // menait la flèche.
+        const next = neighborChapter(1);
+        if (!next) { el.innerHTML = finDeSerie(); return; }
         el.innerHTML = `
         <div class="reader-next-chapter">
             <div class="next-chapter-cover">
@@ -1301,6 +1315,31 @@
             else annulerEnchainement();
         });
         if (autoNextActif()) armerEnchainement(next);
+    }
+
+    // Au dernier chapitre, le bloc « À suivre » disparaissait et la flèche
+    // suivante restait grisée sans un mot : on ne savait pas si la série
+    // était finie, en pause, ou si le suivant manquait.
+    function finDeSerie() {
+        const statut = manga?.status;
+        const titre = statut === 'completed' ? 'Série terminée'
+            : statut === 'cancelled' ? 'Série arrêtée'
+            : statut === 'hiatus' ? 'Série en pause'
+            : 'Tu es à jour';
+        const texte = statut === 'completed' ? `Tu as lu le dernier chapitre de ${MH.esc(manga.title)}.`
+            : statut === 'cancelled' ? "La publication a été arrêtée : il n'y aura pas de suite."
+            : `C'est le dernier chapitre paru pour l'instant.`;
+        return `
+        <div class="reader-next-chapter reader-fin-serie" role="status">
+            <div class="next-chapter-cover">
+                <img src="${MH.cover(manga.coverThumb, manga.cover)}" alt="" loading="lazy">
+            </div>
+            <div class="next-chapter-info">
+                <div class="next-chapter-label">${titre}</div>
+                <div class="next-chapter-title">${texte}</div>
+            </div>
+            <a href="serie.html?id=${encodeURIComponent(manga.id)}&source=${encodeURIComponent(API.sources.current)}" class="btn btn-ghost">Voir la fiche</a>
+        </div>`;
     }
 
     // ── Enchaînement automatique (audit AMEL-15) ─────────────
@@ -1328,9 +1367,7 @@
     // mais ne se déclenchait pour personne.
     function chapitreSuivant() {
         if (!chapters || !currentChap) return null;
-        const asc = [...chapters].sort((a, b) => a.chapter - b.chapter);
-        const idx = asc.findIndex(c => c.id === currentChap.id);
-        return idx >= 0 && idx < asc.length - 1 ? asc[idx + 1] : null;
+        return neighborChapter(1);
     }
     function annulerEnchainement() {
         clearTimeout(minuterieEnchainement);
@@ -1713,21 +1750,52 @@
         // N54) : a.chapter - b.chapter donnait NaN → ordre imprévisible et
         // « chapitre suivant » pouvant sauter au mauvais endroit. Les entrées non
         // numériques sont classées en fin de liste, entre elles par texte.
+        const asc = chapitresTries();
+        const idx = asc.findIndex(c => c.id === currentChap.id);
+        if (idx < 0) return null;
+        // Seules les entrées CONSTATÉES vides dans la session sont sautées.
+        // Pas `pages === 0` : WeebCentral, SushiScan et les sources de romans
+        // écrivent 0 pour « inconnu » — le prendre pour « vide » sauterait
+        // tous leurs chapitres.
+        const vides = chapitresVides();
+        for (let t = idx + delta; t >= 0 && t < asc.length; t += delta) {
+            const c = asc[t];
+            if (vides.has(String(c.id))) continue;
+            return c;
+        }
+        return null;
+    }
+    // Un seul ordre de chapitres pour tout le lecteur. La barre d'outils, le
+    // bloc « À suivre » et l'enchaînement triaient chacun par
+    // `a.chapter - b.chapter`, qui rend NaN dès qu'un numéro n'est pas un
+    // nombre : trois voisins possibles pour un même chapitre.
+    function chapitresTries() {
         const num = c => { const n = parseFloat(c.chapter); return isNaN(n) ? null : n; };
-        const asc = [...chapters].sort((a, b) => {
+        return [...chapters].sort((a, b) => {
             const na = num(a), nb = num(b);
             if (na !== null && nb !== null) return na - nb;
             if (na !== null) return -1;
             if (nb !== null) return 1;
             return String(a.chapter).localeCompare(String(b.chapter), 'fr');
         });
-        const idx = asc.findIndex(c => c.id === currentChap.id);
-        const t = idx + delta;
-        return (t >= 0 && t < asc.length) ? asc[t] : null;
+    }
+    function urlChapitre(c, saut) {
+        return `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(c.id)}&source=${encodeURIComponent(API.sources.current)}`
+            + (saut ? `&saut=${saut}` : '');
     }
     function goChapter(delta) {
         const c = neighborChapter(delta);
-        if (c) window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(c.id)}&source=${encodeURIComponent(API.sources.current)}`;
+        if (c) window.location.href = urlChapitre(c, delta);
+    }
+    const CLE_VIDES = 'inko_chapitres_vides';
+    function chapitresVides() {
+        try { return new Set(JSON.parse(sessionStorage.getItem(CLE_VIDES) || '[]')); }
+        catch (e) { return new Set(); }   // stockage refusé (navigation privée) : rien à sauter
+    }
+    function retenirChapitreVide(id) {
+        const v = chapitresVides(); v.add(String(id));
+        try { sessionStorage.setItem(CLE_VIDES, JSON.stringify([...v].slice(-200))); }
+        catch (e) { window.MH?.err?.('chapitre.js', e); }
     }
 
     function bindKeyboard() {
@@ -1738,7 +1806,7 @@
             window.changeZoom(zoom === 100 ? 50 : 100 - zoom);
         });
         document.addEventListener('keydown', e => {
-            if (['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName)) return;
+            if (MH.toucheIgnoree(e)) return;
             const rtl = rs.direction === 'rtl';
             // Touches globales (tous modes)
             switch (e.key) {

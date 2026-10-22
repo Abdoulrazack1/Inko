@@ -421,7 +421,10 @@
         // Navigation clavier (aligné sur chapitre.js/lecture.js) : ← / → changent
         // de chapitre. On ignore quand le focus est dans un champ.
         document.addEventListener('keydown', (e) => {
-            if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+            // Cette page ne charge pas global.js (MH.toucheIgnoree) : même
+            // règle écrite ici — une flèche avec Alt est le « retour » du
+            // navigateur, pas un changement de chapitre.
+            if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
             if (e.key === 'ArrowRight') { e.preventDefault(); showChapter(current + 1); }
             else if (e.key === 'ArrowLeft') { e.preventDefault(); showChapter(current - 1); }
         });
