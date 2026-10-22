@@ -40,6 +40,7 @@
         rs.gap = +rs.gap; if (isNaN(rs.gap)) rs.gap = 8;
         rs.autospeed = +rs.autospeed || 1.4;
         rs.warm = +rs.warm; if (isNaN(rs.warm)) rs.warm = 0;
+        rs.continu = window.Storage?.getPref('reader_continu') === '0' ? '0' : '1';
         rs.nuitAuto = window.Storage?.getPref('reader_nuitAuto') === '1' ? '1' : '0';
     }
     let autoTimer = null;
@@ -633,11 +634,11 @@
     // `object-fit: contain` ramene la largeur a hauteur/ratio : c'est
     // exactement ce que la planche chargee mesure.
     const PLAFOND_VH = 0.88;            // .reader-page-img { max-height: 88vh }
-    function boiteReservee(idx) {
+    function boiteReservee(idx) { return boitePour(ratioOf(idx)); }
+    function boitePour(ratio) {
         const area = document.getElementById('readerPagesArea');
         const pct = Math.max(20, Math.min(100, zoom)) / 100;
         const largeurColonne = (area ? area.clientWidth : window.innerWidth) * pct;
-        const ratio = ratioOf(idx);
         const h = Math.min(largeurColonne * ratio, window.innerHeight * PLAFOND_VH);
         return { w: Math.round(h / ratio), h: Math.round(h) };
     }
@@ -936,6 +937,7 @@
         scrollObservers.forEach(o => { try { o.disconnect(); } catch (e) { /* déjà libéré */ } });
         scrollObservers = [];
         loadQueue = []; loadActive = 0;
+        suite = null;   // la suite accrochée vivait dans le contenu qu'on remplace
         el.innerHTML = `
         <div class="reader-page-wrapper reader-scroll-wrapper" style="display:flex;flex-direction:column;align-items:center;gap:${rs.gap}px;width:${widthPct}%;margin:0 auto">
             ${pages.map((p, i) => placeholderImg(i)).join('')}
@@ -1117,7 +1119,8 @@
         // Quitter la dernière page (retour en arrière) annule l'enchaînement —
         // sinon on serait emmené au chapitre suivant après avoir explicitement
         // fait demi-tour.
-        if (p >= totalPages && autoNextActif() && !sleepEchu) armerEnchainement(chapitreSuivant());
+        if (readMode === 'scroll' && rs.continu === '1' && p >= totalPages - 1) preparerSuite();
+        if (p >= totalPages && autoNextActif() && !sleepEchu && !(readMode === 'scroll' && rs.continu === '1')) armerEnchainement(chapitreSuivant());
         else if (p < totalPages) annulerEnchainement();
     }
 
@@ -1475,6 +1478,108 @@
         if (!chapters || !currentChap) return null;
         return neighborChapter(1);
     }
+    // ── Lecture continue en défilement ───────────────────────
+    // En défilement, la fin d'un chapitre était un mur : un bloc « Chapitre
+    // suivant », un clic, un rechargement complet du lecteur, et on
+    // repartait en haut d'une page vide le temps que la première planche
+    // arrive. Sur un webtoon, c'est une coupure toutes les trois minutes.
+    //
+    // À l'avant-dernière planche, on va chercher les pages du chapitre suivant
+    // et on les accroche SOUS le chapitre courant, avec son titre. Quand ce
+    // titre passe au-dessus de l'écran, le lecteur bascule sur place : le
+    // chapitre suivant devient le chapitre courant (adresse, titre,
+    // progression, barre), sans rechargement. La planche sous les yeux reste
+    // au même pixel : les marque-places reçoivent les formats déjà mesurés.
+    let suite = null;   // { chap, pages, ratios, el } une fois accrochée
+    let suiteEcoute = false;
+    async function preparerSuite() {
+        if (suite || readMode !== 'scroll') return;
+        const chap = chapitreSuivant();
+        if (!chap) return;
+        const pourChap = currentChap.id;
+        suite = { chap, pages: null, ratios: [], el: null };
+        let data;
+        try { data = await API.mangas.pages(chap.id); } catch (e) { suite = null; return; }
+        // Entre-temps : mode changé, chapitre changé, ou rendu refait.
+        if (readMode !== 'scroll' || currentChap.id !== pourChap || !suite || suite.chap !== chap) return;
+        const liste = data?.pages || [];
+        if (!liste.length) { suite = null; return; }
+        suite.pages = liste;
+        const zone = document.getElementById('readerPagesArea');
+        const colonne = zone?.querySelector('.reader-scroll-wrapper');
+        if (!colonne) { suite = null; return; }
+        const widthPct = Math.max(20, Math.min(100, zoom));
+        const el = document.createElement('section');
+        el.className = 'reader-suite';
+        el.setAttribute('aria-label', `Suite : chapitre ${chap.chapter}`);
+        el.innerHTML = `<div class="reader-suite-tete">${MH.esc(MH.unitLabel(API.sources.current, { short: true }))} ${MH.esc(String(chap.chapter))}${chap.title ? ' · ' + MH.esc(chap.title) : ''}</div>
+            <div class="reader-scroll-wrapper" style="display:flex;flex-direction:column;align-items:center;gap:${rs.gap}px;width:${widthPct}%;margin:0 auto">
+            ${liste.map((p, i) => { const b = boitePour(RATIO_DEFAUT); return `<img class="reader-page-img reader-suite-img" data-i="${i}" alt="Page ${i + 1}" loading="lazy" decoding="async"
+                style="width:${b.w}px;height:${b.h}px;background:var(--bg2,#141414)" src="${MH.esc(pageSrc(p))}">`; }).join('')}
+            </div>`;
+        el.querySelectorAll('.reader-suite-img').forEach(im => im.addEventListener('load', () => {
+            if (!im.naturalWidth) return;
+            im.classList.add('loaded');   // même fondu que les planches du chapitre
+            const r = im.naturalHeight / im.naturalWidth;
+            suite && (suite.ratios[+im.dataset.i] = r);
+            const b = boitePour(r);
+            im.style.width = b.w + 'px'; im.style.height = b.h + 'px';
+        }, { once: true }));
+        colonne.after(el);
+        suite.el = el;
+        if (!suiteEcoute) {
+            suiteEcoute = true;
+            let prevu = false;
+            window.addEventListener('scroll', () => {
+                if (prevu) return;
+                prevu = true;
+                requestAnimationFrame(() => { prevu = false; surveillerSuite(); });
+            }, { passive: true });
+        }
+    }
+    function surveillerSuite() {
+        if (!suite?.el || readMode !== 'scroll') return;
+        const tete = suite.el.querySelector('.reader-suite-tete');
+        if (tete && tete.getBoundingClientRect().bottom <= 0) basculerSurSuite();
+    }
+    function basculerSurSuite() {
+        const s = suite;
+        // La planche sous le haut de l'écran : c'est elle qui ne doit pas bouger.
+        // (Les images de la suite portent aussi `reader-page-img` : même CSS,
+        // donc même boîte que les marque-places qui vont les remplacer.)
+        const imgs = [...s.el.querySelectorAll('.reader-suite-img')];
+        const ancre = imgs.find(im => im.getBoundingClientRect().bottom > 0) || imgs[0];
+        const k = +ancre.dataset.i, haut = ancre.getBoundingClientRect().top;
+
+        currentChap = s.chap;
+        pages = s.pages;
+        totalPages = pages.length;
+        pageRatios.clear();
+        s.ratios.forEach((r, i) => { if (r) pageRatios.set(i, r); });
+        currentPage = k + 1;
+        suite = null;
+        annulerEnchainement();
+        history.replaceState(null, '', `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(currentChap.id)}&source=${encodeURIComponent(API.sources.current)}`);
+        document.getElementById('pageTitle').textContent =
+            `${manga.title} — ${MH.unitLabel(API.sources.current, { short: true })} ${currentChap.chapter}`;
+        renderToolbar();
+        renderModebar();
+        renderPage(currentPage);
+        renderThumbnails();
+        renderNavigation();
+        renderNextChapter();
+        renderDetails();
+        const img = document.querySelector(`.reader-page-img[data-page="${k + 1}"]`);
+        // `instant` : le document défile en douceur (scroll-behavior: smooth),
+        // et une compensation animée se verrait glisser.
+        if (img) window.scrollBy({ top: img.getBoundingClientRect().top - haut, behavior: 'instant' });
+        saveProgress();
+        preloadNextChapter();
+        const hA11y = document.getElementById('readerTitreA11y');
+        if (hA11y) hA11y.textContent = `${manga.title} — chapitre ${currentChap.chapter}`;
+        MH.announce?.(`Chapitre ${currentChap.chapter}`);
+    }
+
     function annulerEnchainement() {
         clearTimeout(minuterieEnchainement);
         minuterieEnchainement = null;
@@ -2274,6 +2379,10 @@
                 <input type="checkbox" id="rsDecouper" ${rs.decouper === '1' ? 'checked' : ''}>
                 <span>Découper les planches doubles en deux pages</span>
             </label>
+            <label class="rs-check">
+                <input type="checkbox" id="rsContinu" ${rs.continu === '1' ? 'checked' : ''}>
+                <span>Enchaîner les chapitres en défilement</span>
+            </label>
             <label class="rs-label">Qualité des images</label>
             ${seg('quality', [{v:'high',l:'Haute'},{v:'saver',l:'Éco'}], q)}
             <label class="rs-label">Minuteur de lecture</label>
@@ -2330,6 +2439,9 @@
         panel.querySelector('#rsWarm').addEventListener('input', e => {
             document.getElementById('rsWarmVal').textContent = e.target.value + '%';
             saveReaderSetting('warm', +e.target.value, false);
+        });
+        panel.querySelector('#rsContinu')?.addEventListener('change', e => {
+            saveReaderSetting('continu', e.target.checked ? '1' : '0', false);
         });
         panel.querySelector('#rsNuitAuto')?.addEventListener('change', e => {
             saveReaderSetting('nuitAuto', e.target.checked ? '1' : '0', false);

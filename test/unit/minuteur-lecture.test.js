@@ -81,6 +81,12 @@ test('« Encore 10 min » relance un minuteur, Off l\'efface', () => {
 test('le lecteur branche le minuteur au chargement, à la dernière page et sur l\'enchaînement', () => {
     assert.match(SRC, /armerMinuteur\(lireMinuteur\(\), true\);/);
     assert.match(SRC, /if \(sleepEchu && p >= totalPages\) afficherRappelMinuteur\(\);/);
-    assert.match(SRC, /autoNextActif\(\) && !sleepEchu\) armerEnchainement/);
+    // La garde, pas sa place : la lecture continue en pose une autre sur la
+    // même ligne, et les deux doivent tenir ensemble.
+    const ligne = SRC.split('\n').find(l => /armerEnchainement\(chapitreSuivant\(\)\)/.test(l));
+    assert.ok(ligne, 'la ligne qui arme l’enchaînement doit rester repérable');
+    assert.match(ligne, /autoNextActif\(\)/);
+    assert.match(ligne, /!sleepEchu/,
+        'minuterie échue : on ne lance pas le chapitre suivant tout seul');
     assert.ok(!/sleepOverlay/.test(SRC), 'plus de voile plein écran');
 });

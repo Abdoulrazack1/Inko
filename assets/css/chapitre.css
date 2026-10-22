@@ -1201,3 +1201,11 @@ body.page-body { padding-top: 0; padding-bottom: 0; }
 .reader-pop-item kbd { font: 600 10.5px/1 var(--font-body, inherit); padding: 3px 6px; border-radius: 5px; border: 1px solid rgba(255,255,255,.14); color: var(--text3); }
 .reader-pop-zoom { display: flex; align-items: center; gap: 8px; padding: 8px 10px 6px; margin-top: 4px; border-top: 1px solid rgba(255,255,255,.08); font-size: 13px; color: var(--text2); }
 .reader-pop-zoom > span:first-child { flex: 1; }
+
+/* Lecture continue : le chapitre suivant accroché sous le courant. */
+.reader-suite { margin-top: 28px; }
+.reader-suite-tete {
+  margin: 0 auto 14px; width: fit-content; padding: 8px 16px; border-radius: 999px;
+  background: var(--bg3, #1f1f26); color: var(--text, #f0f0f2); font-size: 13px; font-weight: 600;
+}
+.reader-suite-img { display: block; }
