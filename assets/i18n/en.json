@@ -427,6 +427,12 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "Importer depuis MyAnimeList ou AniList": "Import from MyAnimeList or AniList",
+    "Export « Manga List » de MyAnimeList (.xml ou .xml.gz) ou collection AniList (.json)": "MyAnimeList “Manga List” export (.xml or .xml.gz) or AniList collection (.json)",
+    "Choisir le fichier": "Choose file",
+    "Les retrouver sur": "Find them on",
+    "Une série n’est ajoutée que si son titre correspond exactement. Statut, note et chapitres lus suivent.": "A series is only added if its title matches exactly. Status, rating and read chapters come along.",
+    "Importer": "Import",
     "Sorti récemment": "Recently released",
     "Aujourd’hui": "Today",
     "Hier": "Yesterday",
@@ -1347,6 +1353,16 @@
   },
   "patterns": [
     [
+      "^(\\d+) séries dans l’export (MyAnimeList|AniList)\\.$",
+      "$1 series in the $2 export."
+    ],
+    [
+      "^(\\d+) série\\(s\\) ajoutée\\(s\\) à ta bibliothèque\\.$",
+      "$1 series added to your library."
+    ],
+    [
+      "^(\\d+) introuvable\\(s\\) sur cette source$",
+      "$1 not found on this source",
       "^(.+) \\+ (.+), d’après tes (\\d+) dernières lectures$",
       "$1 + $2, based on your last $3 reads",
       "^Chaque semaine \\(tous les (\\d+) j\\)$",
