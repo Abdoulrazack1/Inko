@@ -942,20 +942,60 @@
             imgs.forEach(im => near.observe(im));
             scrollObservers.push(near);
 
-            // Suit la page visible (avance ET retours arrière) + pilote la fenêtre
-            const io = new IntersectionObserver(entries => {
-                entries.forEach(en => {
-                    if (!en.isIntersecting) return;
-                    const p = +en.target.dataset.page;
-                    if (p !== currentPage) { currentPage = p; updateUIPage(p); }
-                    refreshWindow(p - 1);
-                });
-            }, { threshold: 0.3 });
-            imgs.forEach(im => io.observe(im));
-            scrollObservers.push(io);
         } else {
             imgs.forEach(im => enqueueLoad(im));   // repli : navigateurs sans IO
         }
+
+        // Suit la planche sous le MILIEU de l'écran (avance ET retours) et
+        // pilote la fenêtre. C'était un IntersectionObserver au seuil 0,3 :
+        // la dernière entrée traitée gagnait, quelle que soit la planche
+        // réellement lue. Mesuré dans Chromium, 20 planches, fenêtre 900 px :
+        //     planches de 796 px    30 positions fausses sur 111
+        //     planches de 4000 px  551 sur 579 — « page 20/20 » dès l'ouverture
+        // Un webtoon a justement des planches plus hautes que l'écran. Les
+        // boîtes sont réservées d'emblée et dans l'ordre vertical : une
+        // recherche dichotomique par image d'animation suffit.
+        let rafSuivi = 0;
+        const suivrePage = () => {
+            rafSuivi = 0;
+            if (!imgs.length || !imgs[0].isConnected) return;
+            const milieu = window.innerHeight / 2;
+            let lo = 0, hi = imgs.length - 1, idx = imgs.length - 1;
+            while (lo <= hi) {
+                const m = (lo + hi) >> 1;
+                if (imgs[m].getBoundingClientRect().bottom < milieu) lo = m + 1;
+                else { idx = m; hi = m - 1; }
+            }
+            // En bas du document, la dernière planche est lue même si elle
+            // est trop courte pour atteindre le milieu de l'écran.
+            const enBas = window.innerHeight + Math.ceil(window.scrollY) >= document.documentElement.scrollHeight - 2;
+            if (enBas) idx = imgs.length - 1;
+            const p = idx + 1;
+            if (p !== currentPage) { currentPage = p; updateUIPage(p); }
+            refreshWindow(idx);
+            // La barre avance DANS la planche : sur une bande de webtoon de
+            // 4000 px, elle restait figée le temps de dix écrans.
+            const r = imgs[idx].getBoundingClientRect();
+            const dans = enBas ? 1 : Math.max(0, Math.min(1, (milieu - r.top) / (r.height || 1)));
+            const fill = document.getElementById('readerProgressFill');
+            if (fill) fill.style.width = `${((idx + dans) / totalPages) * 100}%`;
+        };
+        const surDefilement = () => { if (!rafSuivi) rafSuivi = requestAnimationFrame(suivrePage); };
+        window.addEventListener('scroll', surDefilement, { passive: true });
+        window.addEventListener('resize', surDefilement, { passive: true });
+        // Une planche qui arrive prend sa vraie hauteur et décale tout ce qui
+        // suit, sans qu'aucun `scroll` ne parte : la page annoncée restait
+        // celle d'avant le décalage.
+        if ('ResizeObserver' in window) {
+            const ro = new ResizeObserver(surDefilement);
+            ro.observe(el.querySelector('.reader-scroll-wrapper'));
+            scrollObservers.push(ro);
+        }
+        scrollObservers.push({ disconnect() {
+            window.removeEventListener('scroll', surDefilement);
+            window.removeEventListener('resize', surDefilement);
+            if (rafSuivi) cancelAnimationFrame(rafSuivi);
+        } });
 
         refreshWindow(Math.max(0, currentPage - 1));   // amorce autour de la position courante
         updateUIPage(currentPage);
