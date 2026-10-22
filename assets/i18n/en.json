@@ -427,6 +427,8 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "Télécharger pour lire hors ligne": "Download to read offline",
+    "C’est plus que l’espace libre de l’appareil : la file s’arrêtera quand il sera plein.": "That's more than the free space on this device: the queue will stop when it's full.",
     "Importer depuis MyAnimeList ou AniList": "Import from MyAnimeList or AniList",
     "Export « Manga List » de MyAnimeList (.xml ou .xml.gz) ou collection AniList (.json)": "MyAnimeList “Manga List” export (.xml or .xml.gz) or AniList collection (.json)",
     "Choisir le fichier": "Choose file",
@@ -1353,6 +1355,12 @@
   },
   "patterns": [
     [
+      "^Les (\\d+) prochains$",
+      "The next $1"
+    ],
+    [
+      "^Toute la série \\((\\d+) chapitres?\\)$",
+      "The whole series ($1 chapters)",
       "^(\\d+) notes · moyenne (.+) · médiane (.+) · la plus donnée : (\\d+)/10$",
       "$1 ratings · average $2 · median $3 · most given: $4/10",
       "^(\\d+) séries dans l’export (MyAnimeList|AniList)\\.$",

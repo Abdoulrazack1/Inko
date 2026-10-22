@@ -445,6 +445,23 @@
         // page de texte). On lit `content-length` quand il est la, sinon on
         // mesure le blob. Borne a 24 chapitres par serie : au-dela l'estimation
         // est deja bonne et lire 500 blobs figerait l'onglet.
+        // ── Poids d'un chapitre, AVANT de télécharger ──────────
+        // Lancer « toute la série » sans savoir si c'est 80 Mo ou 4 Go, c'est
+        // découvrir la réponse quand le téléphone est plein. On estime d'après
+        // ce qui est DÉJÀ en cache : les chapitres de cette série d'abord (même
+        // source, même qualité d'image), sinon la moyenne de tous les
+        // téléchargements, sinon une valeur prudente, annoncée comme telle.
+        async poidsChapitre(mangaId) {
+            const DEFAUT = 6 * 1048576;
+            let tailles = [];
+            try { tailles = await this.sizeByManga(); } catch (e) { /* cache illisible */ }
+            const ici = tailles.find(t => t.mangaId === mangaId && t.chapters && t.bytes);
+            if (ici) return { octets: Math.round(ici.bytes / ici.chapters), base: 'serie' };
+            const tot = tailles.reduce((a, t) => ({ o: a.o + (t.bytes || 0), c: a.c + (t.bytes ? t.chapters : 0) }), { o: 0, c: 0 });
+            if (tot.c >= 3) return { octets: Math.round(tot.o / tot.c), base: 'moyenne' };
+            return { octets: DEFAUT, base: 'defaut' };
+        },
+
         async sizeByManga() {
             if (!('caches' in window)) return [];
             const cache = await caches.open(CACHE);
