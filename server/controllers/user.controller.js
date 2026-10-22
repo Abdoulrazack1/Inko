@@ -625,12 +625,12 @@ async function deleteList(req, res, next) {
 async function getBookmarks(req, res, next) {
     try {
         const [rows] = await pool.query(
-            `SELECT manga_id, chapter_id, source, title, cover, chapter_num, page, label, created_at
+            `SELECT manga_id, chapter_id, source, title, cover, chapter_num, page, label, note, created_at
              FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC`, [req.user.id]);
         res.json(rows.map(r => ({
             mangaId: r.manga_id, chapterId: r.chapter_id, source: r.source,
             title: r.title, cover: r.cover, chapterNum: r.chapter_num,
-            page: r.page, label: r.label, at: new Date(r.created_at).getTime(),
+            page: r.page, label: r.label, note: r.note || '', at: new Date(r.created_at).getTime(),
         })));
     } catch (e) { next(e); }
 }
@@ -638,20 +638,22 @@ async function getBookmarks(req, res, next) {
 async function addBookmark(req, res, next) {
     try {
         const { mangaId, chapterId, source, title, cover, chapterNum, page, label } = req.body || {};
+        // La note est une phrase : bornée, sans espaces parasites, vide = aucune.
+        const note = typeof req.body?.note === 'string' ? req.body.note.trim().slice(0, 500) : '';
         if (!idOeuvreValide(mangaId) || !idOeuvreValide(chapterId)) {
             return res.status(400).json({ error: 'mangaId et chapterId requis' });
         }
         await pool.query(
             `INSERT INTO bookmarks
-             (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label, note)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 source = VALUES(source), title = VALUES(title), cover = VALUES(cover),
                 chapter_num = VALUES(chapter_num), page = VALUES(page), label = VALUES(label),
-                created_at = CURRENT_TIMESTAMP`,
+                note = VALUES(note), created_at = CURRENT_TIMESTAMP`,
             [req.user.id, mangaId, chapterId, source || null, title || null, cover || null,
                 Number.isFinite(+chapterNum) ? +chapterNum : null,
-                Number.isFinite(+page) ? +page : 1, label || null]);
+                Number.isFinite(+page) ? +page : 1, label || null, note || null]);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
