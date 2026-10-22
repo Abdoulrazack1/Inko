@@ -1562,7 +1562,7 @@
             // Double-tap → bascule le zoom (immobile + tap rapide)
             if (!moved && dt < 250) {
                 const now = Date.now();
-                if (now - lastTap < 300) { lastTap = 0; toggleTapZoom({ x: t.clientX, y: t.clientY }); }
+                if (now - lastTap < 300) { lastTap = 0; zoomerSurCase({ x: t.clientX, y: t.clientY }, e.target.closest?.('.reader-page-img')); }
                 else lastTap = now;
                 return;
             }
@@ -1650,6 +1650,43 @@
     function toggleTapZoom(point) {
         if (readMode === 'scroll') return;
         appliquerZoom(zoom > 110 ? 100 : 170, point);
+    }
+
+    // ── Zoom sur la case désignée ────────────────────────────
+    // Double-clic ou double appui sur une planche : on cadre la CASE sous le
+    // pointeur (zoom-case.js trouve ses gouttières) et on la centre. Sans
+    // case reconnaissable, on retombe sur le zoom ancré ci-dessus. Le même
+    // geste, ou Échap, ramène la planche entière.
+    function zoomCaseActif() {
+        return !!document.querySelector('.reader-page-wrapper[data-zoom-case]');
+    }
+    function quitterZoomCase() {
+        document.querySelectorAll('.reader-page-wrapper[data-zoom-case]').forEach(w => delete w.dataset.zoomCase);
+        appliquerZoom(100);
+    }
+    function zoomerSurCase(point, img) {
+        if (readMode === 'scroll') return;
+        if (zoomCaseActif() || zoom > 110) { quitterZoomCase(); return; }
+        const wrapper = img?.closest('.reader-page-wrapper');
+        const zone = document.getElementById('readerPagesArea');
+        const v = window.MH?.zoomCase?.vignette(img);
+        if (!wrapper || !zone || !v) { toggleTapZoom(point); return; }
+        const r0 = img.getBoundingClientRect();
+        const kase = window.MH.zoomCase.detecterCase(v.px, v.w, v.h,
+            ((point.x - r0.left) / r0.width) * v.w, ((point.y - r0.top) / r0.height) * v.h);
+        if (!kase) { toggleTapZoom(point); return; }
+        appliquerZoom(100);                        // mesurer à l'échelle 1
+        const r = img.getBoundingClientRect(), W = wrapper.getBoundingClientRect(), V = zone.getBoundingClientRect();
+        const cw = kase.w * r.width, ch = kase.h * r.height;
+        const s = Math.min(4, Math.max(1.2, Math.min(V.width / cw, V.height / ch) * 0.94));
+        const cx = r.left + (kase.x + kase.w / 2) * r.width, cy = r.top + (kase.y + kase.h / 2) * r.height;
+        const tx = (V.left + V.width / 2) - W.left - s * (cx - W.left);
+        const ty = (V.top + V.height / 2) - W.top - s * (cy - W.top);
+        wrapper.dataset.zoomCase = '1';
+        wrapper.style.transformOrigin = '0 0';
+        wrapper.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s.toFixed(3)})`;
+        const label = document.getElementById('zoomLabel');
+        if (label) label.textContent = Math.round(s * 100) + '%';
     }
 
     // ── Partager ce chapitre (audit §9) ──
@@ -1799,11 +1836,14 @@
     }
 
     function bindKeyboard() {
-        // Double-clic sur la page = zoom rapide 100 % ↔ 150 %
+        // Double-clic sur une planche : cadrer la case désignée (ou dézoomer).
+        // C'était un 100 % ↔ 150 % partant du haut de la planche, qui ne
+        // gardait même pas le point cliqué sous le curseur.
         document.getElementById('readerPagesArea')?.addEventListener('dblclick', e => {
-            if (!e.target.closest('.reader-page-img')) return;
+            const img = e.target.closest('.reader-page-img');
+            if (!img) return;
             e.preventDefault();
-            window.changeZoom(zoom === 100 ? 50 : 100 - zoom);
+            zoomerSurCase({ x: e.clientX, y: e.clientY }, img);
         });
         document.addEventListener('keydown', e => {
             if (MH.toucheIgnoree(e)) return;
@@ -1823,6 +1863,7 @@
                 case '[': bumpAutoSpeed(-0.2); return;
                 case ']': bumpAutoSpeed(0.2); return;
                 case 'Escape':
+                    if (zoomCaseActif()) { quitterZoomCase(); return; }
                     if (document.body.classList.contains('reader-immersive')) { toggleImmersive(); return; }
                     if (document.getElementById('chapTransition')) { document.getElementById('chapTransition').remove(); return; }
                     if (autoTimer) { stopAutoScroll(); return; }

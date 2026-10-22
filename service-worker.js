@@ -8,7 +8,7 @@
 // l'« écran noir après mise à jour » qui a motivé le bouton « Vider le cache ».
 // Bump obligatoire à chaque changement d'asset ; la liste STATIC_ASSETS est
 // désormais générée (npm run gen-precache) et vérifiée en CI.
-const CACHE_VERSION = 'inko-2.8.2-5b7007';
+const CACHE_VERSION = 'inko-2.8.2-246014';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -89,6 +89,7 @@ const STATIC_ASSETS = [
     '/assets/js/u.js',
     '/assets/js/une-main.js',
     '/assets/js/userdata.js',
+    '/assets/js/zoom-case.js',
     '/assets/vendor/jszip.min.js',
     '/bibliotheque.html',
     '/catalogue.html',
