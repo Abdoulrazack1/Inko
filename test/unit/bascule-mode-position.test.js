@@ -79,8 +79,11 @@ test('le mode page garde sa remise à zéro', () => {
 // ── 2. L'ancrage ──
 test('la page visée est un argument, pas une variable relue', () => {
     const f = corps('function applyInitialScroll(page)');
-    assert.match(f, /const cible = page \|\| currentPage;/,
+    assert.match(f, /let cible = page \|\| currentPage;/,
         'l’appelant doit pouvoir imposer la page');
+    // La position fine (reprise au pixel près) n'est lue qu'à l'ouverture :
+    // une page imposée par l'appelant n'est jamais déplacée.
+    assert.match(f, /const fine = page \? null : lirePositionFine\(\);/);
     assert.match(f, /data-page="\$\{cible\}"/,
         'et c’est elle qu’on cherche dans le DOM');
 });

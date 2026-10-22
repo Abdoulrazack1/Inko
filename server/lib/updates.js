@@ -196,7 +196,7 @@ function rythmeDe(chapitres, maintenant = Date.now()) {
     return { rythme: 'irregulier', jours: mediane };
 }
 
-async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = 'fr,en', notifyOnly = false, force = false, onProgress = null } = {}) {
+async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = 'fr,en', notifyOnly = false, force = false, onProgress = null, abandonnees = false } = {}) {
     const debutDeCeScan = Date.now();
     const params = [uid];
     let where = 'f.user_id = ?';
@@ -209,7 +209,7 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
         // Audit DB-02 : le statut est une colonne de `favorites` depuis la
         // migration 7 — plus de LEFT JOIN sur cette requête, qui tourne pour
         // chaque compte à chaque scan de mises à jour.
-        `SELECT f.manga_id, f.source, f.title, f.cover, f.last_chapter, f.status, f.checked_at
+        `SELECT f.manga_id, f.source, f.title, f.cover, f.last_chapter, f.status, f.checked_at, f.latest_at
          FROM favorites f
          WHERE ${where}`,
         params
@@ -218,9 +218,16 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
 
     // §15.2 : ne pas re-scanner les séries Terminé/Abandonné par défaut
     const SKIP_STATUS = new Set(['completed', 'dropped']);
+    // Exception : la tâche de fond (`abandonnees`) jette encore un œil aux
+    // séries ABANDONNÉES, une fois par semaine au plus. Beaucoup ont été
+    // laissées parce qu'elles ne paraissaient plus ; c'est leur RETOUR qu'on
+    // veut pouvoir signaler — et seulement lui (voir backgroundScan).
+    const SEMAINE = 7 * 86400000;
+    const revoirAbandonnee = (f) => abandonnees && f.status === 'dropped'
+        && (!f.checked_at || Date.now() - new Date(f.checked_at).getTime() > SEMAINE);
     let targets = (mangaId || scope === 'all')
         ? favs
-        : favs.filter(f => !SKIP_STATUS.has(f.status));
+        : favs.filter(f => !SKIP_STATUS.has(f.status) || revoirAbandonnee(f));
     const skipped = favs.length - targets.length;
 
     // Reprise. Une demande portant sur UNE serie ne reprend pas : on
@@ -327,8 +334,16 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
                 [r.rythme, r.jours, uid, f.manga_id]).catch(() => { /* migration 27 pas encore passée */ });
         }
 
+        // Retour après une longue pause : la parution précédente connue date
+        // d'au moins RETOUR_JOURS avant celle-ci.
+        const avant = f.latest_at ? new Date(f.latest_at).getTime() : NaN;
+        const ecart = parution ? (parution.getTime() - avant) / 86400000 : NaN;
+        const retour = Number.isFinite(ecart) && ecart >= RETOUR_JOURS ? { jours: Math.round(ecart) } : null;
+
         return {
             mangaId:    f.manga_id,
+            status:     f.status || null,
+            retour,
             source:     f.source || 'mangadex',
             title:      f.title || f.manga_id,
             cover:      f.cover || null,
@@ -353,6 +368,28 @@ async function scanUserUpdates(uid, { scope = 'active', mangaId = null, lang = '
 // in-app (cloche du header) ET tente le Web Push si un abonnement existe.
 // (Avant : seuls les abonnés push étaient scannés — dans l'app desktop
 // personne ne s'abonne au push, donc la cloche restait vide à jamais.)
+// Au-delà de deux mois sans chapitre, une parution est un RETOUR : c'est
+// souvent ce qui a fait mettre la série en pause, ou l'abandonner.
+const RETOUR_JOURS = 60;
+
+/** Titre et corps de la notification d'une série qui a du nouveau. */
+function contenuNotification(f, cible) {
+    if (f.retour) {
+        const mois = Math.max(2, Math.round(f.retour.jours / 30));
+        return {
+            title: `De retour après ${mois} mois`,
+            body: `${f.title} reprend : chap. ${cible.chapter}`
+                + (f.status === 'paused' || f.status === 'dropped' ? ' — tu l’avais mise de côté' : ''),
+        };
+    }
+    // Audit AMEL-53 : le compte de chapitres en retard est la seule
+    // information utile quand on en a plusieurs — « Chap. 14 » ne dit pas
+    // qu'il en reste trois à lire avant.
+    return f.unreadCount > 1
+        ? { title: `${f.unreadCount} nouveaux chapitres`, body: `${f.title} · ${f.unreadCount} chapitres à lire (reprends au ${cible.chapter})` }
+        : { title: 'Nouveau chapitre', body: `${f.title} · Chap. ${cible.chapter}` };
+}
+
 let scanRunning = false;
 async function backgroundScan() {
     if (scanRunning) return;   // jamais deux scans en parallèle
@@ -378,8 +415,10 @@ async function backgroundScan() {
                 const dernier = u.last_notif_scan ? new Date(u.last_notif_scan).getTime() : 0;
                 if (Date.now() - dernier < u.notif_every_hours * 3600 * 1000) continue;
                 await pool.query('UPDATE users SET last_notif_scan = NOW() WHERE id = ?', [u.user_id]);
-                const { updates } = await scanUserUpdates(u.user_id, { scope: 'active', notifyOnly: true });
-                const fresh = updates.filter(x => x.hasNew && x.latest);
+                const { updates } = await scanUserUpdates(u.user_id, { scope: 'active', notifyOnly: true, abandonnees: true });
+                // Une série abandonnée ne se signale QUE si elle revient d'une
+                // longue pause : un chapitre ordinaire, on l'a choisi de ne plus le suivre.
+                const fresh = updates.filter(x => x.hasNew && x.latest && (x.status !== 'dropped' || x.retour));
                 // Audit N46 : l'ancien `fresh.slice(0, 5)` budgétisait AVANT le
                 // garde anti-doublon — des séries déjà notifiées consommaient le
                 // quota, et tout ce qui dépassait la 5e place était abandonné
@@ -403,16 +442,9 @@ async function backgroundScan() {
                         );
                         if (dup) continue;
                     } catch (e) { /* table absente : createNotification l'ignorera aussi */ }
-                    // Audit AMEL-53 : le compte de chapitres en retard est la
-                    // seule information utile quand on en a plusieurs — « Chap.
-                    // 14 » ne dit pas qu'il en reste trois à lire avant.
-                    const corps = f.unreadCount > 1
-                        ? `${f.title} · ${f.unreadCount} chapitres à lire (reprends au ${cible.chapter})`
-                        : `${f.title} · Chap. ${cible.chapter}`;
                     await createNotification(u.user_id, {
                         type: 'new_chapter',
-                        title: f.unreadCount > 1 ? `${f.unreadCount} nouveaux chapitres` : 'Nouveau chapitre',
-                        body: corps,
+                        ...contenuNotification(f, cible),
                         link,
                         image: f.cover || null,
                         groupKey: f.mangaId,
@@ -503,4 +535,4 @@ function lancerScan(uid, opts = {}) {
 // et deux points d'appel suffisent.
 function etatScan(uid) { purgerJobs(); return vueJob(jobs.get(uid)); }
 
-module.exports = { rythmeDe, scanUserUpdates, fullScanCooldown, markFullScan, dernierScan, backgroundScan, lancerScan, etatScan };
+module.exports = { rythmeDe, scanUserUpdates, fullScanCooldown, markFullScan, dernierScan, backgroundScan, lancerScan, etatScan, contenuNotification };

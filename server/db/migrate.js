@@ -639,6 +639,36 @@ const MIGRATIONS = [
             await run('ALTER TABLE favorites ADD COLUMN rythme_jours SMALLINT DEFAULT NULL');
         }
     } },
+
+    // La progression est UNE ligne par série : la plus récente, tous
+    // appareils confondus (AMEL-29). Juste pour « reprendre », mais muet sur
+    // la question qu'on se pose en changeant d'appareil : où en était l'AUTRE ?
+    // Une ligne par appareil, en plus — la ligne commune ne change pas.
+    { version: 26, name: 'progression par appareil (reprendre là où l’autre appareil s’est arrêté)', apply: async () => {
+        await run(`CREATE TABLE IF NOT EXISTS progress_devices (
+            user_id        INT NOT NULL,
+            manga_id       VARCHAR(191) NOT NULL,
+            appareil_id    VARCHAR(64)  NOT NULL,
+            appareil_nom   VARCHAR(80)  DEFAULT NULL,
+            chapter_id     VARCHAR(191) DEFAULT NULL,
+            chapter_number DECIMAL(10,2) DEFAULT NULL,
+            page           INT DEFAULT 1,
+            total_pages    INT DEFAULT NULL,
+            source         VARCHAR(64)  DEFAULT NULL,
+            updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, manga_id, appareil_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    } },
+
+    // Un signet ne retenait qu'une position. Ce qu'on veut retrouver, c'est
+    // souvent POURQUOI on l'a posé (« la révélation », « la case à montrer ») :
+    // une phrase, à côté de la position.
+    { version: 25, name: 'signets : une note (une phrase) en plus de la position', apply: async () => {
+        if (!(await columnExists('bookmarks', 'note'))) {
+            await run('ALTER TABLE bookmarks ADD COLUMN note VARCHAR(500) DEFAULT NULL');
+        }
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──
