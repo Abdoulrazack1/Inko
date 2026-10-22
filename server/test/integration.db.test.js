@@ -1450,3 +1450,58 @@ test('listes intelligentes : « pas ouverte depuis N jours » et note minimale e
         '« 5 étoiles » ne ramène plus une série notée 3 étoiles');
     assert.equal(par['Actives'].rules.sourceActive, true, 'le drapeau est rendu au client, qui l’applique');
 });
+
+test('progression par appareil : chaque appareil garde sa position, sans reculer', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('Deux Ecrans', 'deuxecrans@test.local');
+    const ecrire = async (appareil, ua, corps) => {
+        const r = rr({ user: u, params: { mangaId: 'serie-app' }, body: { source: 'weebcentral', appareil, ...corps } });
+        r.req.headers['user-agent'] = ua;
+        await User.setProgress(r.req, r.res, nextThrow);
+        assert.equal(r.res.statusCode, 200);
+    };
+    const PC = 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0', TEL = 'Mozilla/5.0 (Linux; Android 14) Chrome/120.0 Mobile';
+    await ecrire('pc-0000-aaaa', PC, { chapterId: 'c12', chapter: 12, page: 8, clientAt: '2026-10-20T20:00:00Z' });
+    await ecrire('tel-0000-bbbb', TEL, { chapterId: 'c10', chapter: 10, page: 3, clientAt: '2026-10-20T18:00:00Z' });
+    // Le téléphone rejoue une vieille écriture : sa position ne recule pas.
+    await ecrire('tel-0000-bbbb', TEL, { chapterId: 'c9', chapter: 9, page: 1, clientAt: '2026-10-20T17:00:00Z' });
+
+    const r = rr({ user: u, params: { mangaId: 'serie-app' }, query: { appareil: 'tel-0000-bbbb' } });
+    await User.getProgressAppareils(r.req, r.res, nextThrow);
+    const [pc, tel] = r.res.body;
+    assert.deepStrictEqual([pc.nom, pc.chapterId, pc.page, pc.courant], ['Chrome sur Windows', 'c12', 8, false]);
+    assert.deepStrictEqual([tel.nom, tel.chapterId, tel.page, tel.courant], ['Chrome sur Android', 'c10', 3, true]);
+
+    // Identifiant douteux : ignoré, la progression commune s'enregistre quand même.
+    await ecrire('<script>', PC, { chapterId: 'c13', chapter: 13, page: 1, clientAt: '2026-10-20T21:00:00Z' });
+    const r2 = rr({ user: u, params: { mangaId: 'serie-app' } });
+    await User.getProgressAppareils(r2.req, r2.res, nextThrow);
+    assert.equal(r2.res.body.length, 2);
+});
+
+test('signets : la note et la page sont gardées, la note est bornée et effaçable', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('Signet Note', 'signetnote@test.local');
+    const base = { mangaId: 'serie-sig', chapterId: 'ch-4', source: 'weebcentral', title: 'Série', chapterNum: 4 };
+    let r = rr({ user: u, body: { ...base, page: 12, label: 'Page 12', note: '  la case à montrer  ' } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    assert.equal(r.res.statusCode, 200);
+
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].page, 12, 'la page marquée, pas 1');
+    assert.equal(r.res.body[0].note, 'la case à montrer');
+
+    // Réécriture du même signet : une note trop longue est bornée, une note vide l'efface.
+    r = rr({ user: u, body: { ...base, page: 12, note: 'x'.repeat(800) } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].note.length, 500);
+
+    r = rr({ user: u, body: { ...base, page: 12, note: '   ' } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].note, '');
+});

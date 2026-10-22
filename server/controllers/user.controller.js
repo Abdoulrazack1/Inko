@@ -2,6 +2,7 @@
 const { pool } = require('../config/db');
 const { notifyMentions, createNotification } = require('../lib/notify');
 const couverture = require('../lib/couverture');
+const Auth = require('./auth.controller');   // decrireAppareil : le nom lisible d'un navigateur
 
 // Identifiant d'œuvre plausible. Les routes se contentaient d'un `if
 // (!mangaId)` : une valeur non-chaîne passait donc au travers et arrivait en
@@ -304,6 +305,7 @@ async function setProgress(req, res, next) {
                 updated_at     = GREATEST(updated_at, VALUES(updated_at))`,
             [req.user.id, mangaId, chapterId || null, chapter || null, page || 1, tp, source || null, clientAt]
         );
+        await noterPositionAppareil(req, mangaId, { chapterId, chapter, page, tp, source, clientAt });
         await enregistrerHistorique(req.user.id, mangaId, chapterId, chapter, page, source);
         if (!avant || avant.chapter_id !== (chapterId || null)) {
             await pushEvent(req.user.id, 'read',
@@ -358,6 +360,55 @@ async function enregistrerHistorique(userId, mangaId, chapterId, chapter, page, 
 }
 
 // GET /api/me/progress/:mangaId/history — positions précédentes
+// ── Position par appareil ──────────────────────────────────
+// L'appareil : un téléphone appairé a son identifiant (VIII.5.1) ; un
+// navigateur envoie le sien (un uuid tiré une fois et gardé en local). Le nom
+// vient de l'appairage, sinon du navigateur (« Chrome sur Windows ») : c'est
+// ce que l'utilisateur reconnaît dans la liste de ses sessions.
+async function appareilDe(req) {
+    if (req.deviceId) {
+        const [[d]] = await pool.query('SELECT nom FROM devices WHERE id = ?', [req.deviceId]);
+        return { id: 'dev:' + req.deviceId, nom: d?.nom || 'Appareil appairé' };
+    }
+    const brut = String(req.body?.appareil || '');
+    if (!/^[A-Za-z0-9-]{8,60}$/.test(brut)) return null;
+    return { id: 'nav:' + brut, nom: Auth.decrireAppareil(req.headers?.['user-agent']) };
+}
+async function noterPositionAppareil(req, mangaId, { chapterId, chapter, page, tp, source, clientAt }) {
+    const a = await appareilDe(req);
+    if (!a) return;
+    // Même arbitre que la ligne commune : une écriture plus ancienne (file
+    // hors-ligne rejouée) ne fait pas reculer la position de CET appareil.
+    await pool.query(
+        `INSERT INTO progress_devices (user_id, manga_id, appareil_id, appareil_nom, chapter_id, chapter_number, page, total_pages, source, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+         ON DUPLICATE KEY UPDATE
+            appareil_nom   = VALUES(appareil_nom),
+            chapter_id     = IF(VALUES(updated_at) >= updated_at, VALUES(chapter_id),     chapter_id),
+            chapter_number = IF(VALUES(updated_at) >= updated_at, VALUES(chapter_number), chapter_number),
+            page           = IF(VALUES(updated_at) >= updated_at, VALUES(page),           page),
+            total_pages    = IF(VALUES(updated_at) >= updated_at, VALUES(total_pages),    total_pages),
+            source         = IF(VALUES(updated_at) >= updated_at, COALESCE(VALUES(source), source), source),
+            updated_at     = GREATEST(updated_at, VALUES(updated_at))`,
+        [req.user.id, mangaId, a.id, a.nom, chapterId || null, chapter || null, page || 1, tp, source || null, clientAt]);
+}
+
+// GET /me/progress/:mangaId/appareils — où en est chaque appareil sur cette série.
+async function getProgressAppareils(req, res, next) {
+    try {
+        const moi = await appareilDe({ ...req, body: { appareil: req.query?.appareil } });
+        const [rows] = await pool.query(
+            `SELECT appareil_id, appareil_nom, chapter_id, chapter_number, page, total_pages, source, updated_at
+             FROM progress_devices WHERE user_id = ? AND manga_id = ?
+             ORDER BY updated_at DESC LIMIT 8`, [req.user.id, req.params.mangaId]);
+        res.json(rows.map(r => ({
+            nom: r.appareil_nom, chapterId: r.chapter_id, chapter: r.chapter_number,
+            page: r.page, totalPages: r.total_pages, source: r.source,
+            at: new Date(r.updated_at).getTime(), courant: !!moi && r.appareil_id === moi.id,
+        })));
+    } catch (e) { next(e); }
+}
+
 async function getProgressHistory(req, res, next) {
     try {
         const [rows] = await pool.query(
@@ -641,12 +692,12 @@ async function deleteList(req, res, next) {
 async function getBookmarks(req, res, next) {
     try {
         const [rows] = await pool.query(
-            `SELECT manga_id, chapter_id, source, title, cover, chapter_num, page, label, created_at
+            `SELECT manga_id, chapter_id, source, title, cover, chapter_num, page, label, note, created_at
              FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC`, [req.user.id]);
         res.json(rows.map(r => ({
             mangaId: r.manga_id, chapterId: r.chapter_id, source: r.source,
             title: r.title, cover: r.cover, chapterNum: r.chapter_num,
-            page: r.page, label: r.label, at: new Date(r.created_at).getTime(),
+            page: r.page, label: r.label, note: r.note || '', at: new Date(r.created_at).getTime(),
         })));
     } catch (e) { next(e); }
 }
@@ -654,20 +705,22 @@ async function getBookmarks(req, res, next) {
 async function addBookmark(req, res, next) {
     try {
         const { mangaId, chapterId, source, title, cover, chapterNum, page, label } = req.body || {};
+        // La note est une phrase : bornée, sans espaces parasites, vide = aucune.
+        const note = typeof req.body?.note === 'string' ? req.body.note.trim().slice(0, 500) : '';
         if (!idOeuvreValide(mangaId) || !idOeuvreValide(chapterId)) {
             return res.status(400).json({ error: 'mangaId et chapterId requis' });
         }
         await pool.query(
             `INSERT INTO bookmarks
-             (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label, note)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 source = VALUES(source), title = VALUES(title), cover = VALUES(cover),
                 chapter_num = VALUES(chapter_num), page = VALUES(page), label = VALUES(label),
-                created_at = CURRENT_TIMESTAMP`,
+                note = VALUES(note), created_at = CURRENT_TIMESTAMP`,
             [req.user.id, mangaId, chapterId, source || null, title || null, cover || null,
                 Number.isFinite(+chapterNum) ? +chapterNum : null,
-                Number.isFinite(+page) ? +page : 1, label || null]);
+                Number.isFinite(+page) ? +page : 1, label || null, note || null]);
         res.json({ ok: true });
     } catch (e) { next(e); }
 }
@@ -1763,6 +1816,7 @@ module.exports = {
     getAllProgress, setProgress, deleteProgress, getProgressHistory,
     getReadChapters, markChapter, markChaptersBulk, unmarkChaptersBulk,
     getLists, createList, updateList, deleteList, addToList, removeFromList, reorderList,
+    getProgressAppareils,
     getBookmarks, addBookmark, removeBookmark,
     getComments, addComment, getRecentComments, reportComment, deleteComment,
     getEvents, getStats, getStatsDistribution,

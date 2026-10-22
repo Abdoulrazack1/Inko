@@ -9,7 +9,7 @@ const R = 'C:/laragon/www/Inko';
 
 const COMMUNS = new Set(['global', 'i18n', 'pwa', 'eula', 'api', 'hub', 'natif',
     'theme', 'feuille', 'une-main', 'tirer-rafraichir', 'storage', 'userdata',
-    'sources-embarquees', 'telecommande', 'lecteur-gestes', 'lecteur-curseur',
+    'sources-embarquees', 'telecommande', 'lecteur-gestes', 'lecteur-curseur', 'zoom-case',
     'cartes-gestes', 'card-hover']);
 
 // Ce que le moteur embarqué sait servir (lu dans api.js, pas supposé).

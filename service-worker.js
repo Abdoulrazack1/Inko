@@ -8,7 +8,7 @@
 // l'« écran noir après mise à jour » qui a motivé le bouton « Vider le cache ».
 // Bump obligatoire à chaque changement d'asset ; la liste STATIC_ASSETS est
 // désormais générée (npm run gen-precache) et vérifiée en CI.
-const CACHE_VERSION = 'inko-2.8.2-9f89cc';
+const CACHE_VERSION = 'inko-2.8.2-5b96b8';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -33,6 +33,7 @@ const STATIC_ASSETS = [
     '/assets/css/chapitre.css',
     '/assets/css/collection-detail.css',
     '/assets/css/collections.css',
+    '/assets/css/comparer.css',
     '/assets/css/fonts.css',
     '/assets/css/global.css',
     '/assets/css/lecture.css',
@@ -56,6 +57,7 @@ const STATIC_ASSETS = [
     '/assets/js/chapitre.js',
     '/assets/js/collection-detail.js',
     '/assets/js/collections.js',
+    '/assets/js/comparer.js',
     '/assets/js/dl-file.js',
     '/assets/js/downloads-page.js',
     '/assets/js/downloads.js',
@@ -89,12 +91,14 @@ const STATIC_ASSETS = [
     '/assets/js/u.js',
     '/assets/js/une-main.js',
     '/assets/js/userdata.js',
+    '/assets/js/zoom-case.js',
     '/assets/vendor/jszip.min.js',
     '/bibliotheque.html',
     '/catalogue.html',
     '/chapitre.html',
     '/collection-detail.html',
     '/collections.html',
+    '/comparer.html',
     '/confidentialite.html',
     '/downloads.html',
     '/import.html',
