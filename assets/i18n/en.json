@@ -1592,5 +1592,13 @@
       "^(d+) filtre(s) actif(s) : (.+)$",
       "$1 active filter(s): $2"
     ]
-  ]
+  ],
+  "Série terminée": "Series completed",
+  "Série arrêtée": "Series cancelled",
+  "Série en pause": "Series on hiatus",
+  "Tu es à jour": "You're all caught up",
+  "C'est le dernier chapitre paru pour l'instant.": "This is the latest chapter released so far.",
+  "La publication a été arrêtée : il n'y aura pas de suite.": "Publication was cancelled: there won't be a continuation.",
+  "La source liste ce chapitre sans en fournir les pages.": "The source lists this chapter but provides no pages.",
+  "Voir la fiche": "View details"
 }
