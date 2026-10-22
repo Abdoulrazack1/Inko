@@ -898,7 +898,10 @@
         // Les touches du lecteur sont les siennes (voir global.js).
         window.MH?.reserverTouches?.(['n', 'N', 'p', 'P', 's', 'S', 'j', 'J', 'f', 'F']);
         document.addEventListener('keydown', e => {
-            if (['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName)) return;
+            // Ctrl/Cmd+F reste à nous, et c'est voulu : la recherche du
+            // navigateur ne voit pas les colonnes hors écran du mode pages.
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); basculerRecherche(); return; }
+            if (MH.toucheIgnoree(e)) return;
             switch (e.key) {
                 // Audit AMEL-21 : en mode pages, les flèches tournent la PAGE.
                 // Les faire changer de chapitre y serait déroutant — c'est le

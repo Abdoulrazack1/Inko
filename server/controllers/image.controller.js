@@ -315,31 +315,15 @@ function fetchImage(url, pinnedIp) {
     return p;
 }
 
-async function proxy(req, res) {
-    const url = req.query.u || req.query.url;
-    if (!url || !/^https?:\/\//i.test(url)) return res.status(400).end();
-    let host;
-    try { host = new URL(url).hostname; } catch (e) { return res.status(400).end(); }
-    // Audit S6 : domaine hors des sources connues → refus (log une fois par
-    // hôte pour permettre d'étendre IMG_PROXY_ALLOW si un CDN légitime manque).
-    if (!hostAllowed(host)) {
-        if (!proxy._warned) proxy._warned = new Set();
-        if (!proxy._warned.has(host)) {
-            proxy._warned.add(host);
-            console.warn(`[img] domaine refusé : ${host} — ajouter à IMG_PROXY_ALLOW si légitime`);
-        }
-        return res.status(403).set('X-Inko-Proxy', 'domain-blocked').end();
-    }
-    const safe = await resolveSafeHost(host);
-    if (!safe.ok) return res.status(403).end();
-
-    // Cache hit
+/** Sert l'image depuis la mémoire puis le disque. Rend `true` si servie. */
+async function servirDepuisCache(url, res) {
     const hit = cache.get(url);
     if (hit && hit.expires > Date.now()) {
         res.set('Content-Type', hit.type);
         res.set('Cache-Control', 'public, max-age=604800, immutable');
         res.set('X-Inko-Cache', 'HIT');
-        return res.end(hit.buf);
+        res.end(hit.buf);
+        return true;
     }
 
     // Deuxième niveau : le disque. Il survit au redémarrage, là où le `Map`
@@ -357,9 +341,46 @@ async function proxy(req, res) {
                 cache.set(url, { buf, type: surD.type, expires: Date.now() + TTL });
                 cacheBytes += buf.length;
             }
-            return res.end(buf);
+            res.end(buf);
+            return true;
         } catch (e) { /* fichier disparu ou illisible : on retéléchargera */ }
     }
+    return false;
+}
+
+async function proxy(req, res) {
+    const url = req.query.u || req.query.url;
+    if (!url || !/^https?:\/\//i.test(url)) return res.status(400).end();
+    let host;
+    try { host = new URL(url).hostname; } catch (e) { return res.status(400).end(); }
+    // Audit S6 : domaine hors des sources connues → refus (log une fois par
+    // hôte pour permettre d'étendre IMG_PROXY_ALLOW si un CDN légitime manque).
+    if (!hostAllowed(host)) {
+        if (!proxy._warned) proxy._warned = new Set();
+        if (!proxy._warned.has(host)) {
+            proxy._warned.add(host);
+            console.warn(`[img] domaine refusé : ${host} — ajouter à IMG_PROXY_ALLOW si légitime`);
+        }
+        return res.status(403).set('X-Inko-Proxy', 'domain-blocked').end();
+    }
+
+    // `cache=seul` : servir depuis le cache, ou dire qu'on ne l'a pas — sans
+    // jamais interroger la source. Les téléchargements hors ligne passent en
+    // direct par choix (le volume ne transite pas par le hub) ; ils
+    // demandent d'abord ici si la planche, déjà lue, est en cache — 46 ms au
+    // lieu de 4 à 20 s, et sans exposer l'adresse à la source. Servir un
+    // octet déjà en cache n'ouvre aucune connexion : la résolution DNS
+    // anti-SSRF ci-dessous n'a pas lieu d'être.
+    const seulCache = req.query.cache === 'seul';
+    if (seulCache) {
+        if (await servirDepuisCache(url, res)) return;
+        return res.status(404).set('Cache-Control', 'no-store').set('X-Inko-Cache', 'ABSENT').end();
+    }
+
+    const safe = await resolveSafeHost(host);
+    if (!safe.ok) return res.status(403).end();
+
+    if (await servirDepuisCache(url, res)) return;
 
     try {
         const img = await fetchImage(url, safe.ip);

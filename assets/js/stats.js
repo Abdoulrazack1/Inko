@@ -89,7 +89,7 @@
         : `<button type="button" id="goalSuggest" data-v="${suggestion.propose}"
                                 style="background:none;border:none;padding:0;color:var(--orange);font:inherit;cursor:pointer;text-decoration:underline">Viser ${suggestion.propose}/semaine</button>`}
                     </div>` : ''}
-                    <div style="height:9px;border-radius:6px;background:var(--bg4);overflow:hidden;margin-top:10px">
+                    <div style="height:9px;border-radius:6px;background:var(--bg4);overflow:hidden;margin-top:10px" aria-hidden="true">
                         <div id="goalFill" style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--graph-1),var(--orange));transition:width .3s"></div>
                     </div>
                 </div>
@@ -106,7 +106,7 @@
                     <div style="font-size:12.5px;color:var(--text3)" id="yearLabel">${yGoal > 0
                         ? `${readThisYear} / ${yGoal} chapitre(s) cette année · ${yPct}%${yPct >= 100 ? ' — défi relevé 🏆' : ''}`
                         : 'Lance-toi un défi annuel (façon Goodreads) : combien de chapitres veux-tu lire cette année ?'}</div>
-                    <div style="height:9px;border-radius:6px;background:var(--bg4);overflow:hidden;margin-top:10px">
+                    <div style="height:9px;border-radius:6px;background:var(--bg4);overflow:hidden;margin-top:10px" aria-hidden="true">
                         <div id="yearFill" style="height:100%;width:${yPct}%;background:linear-gradient(90deg,var(--graph-4),var(--graph-2));transition:width .3s"></div>
                     </div>
                 </div>
@@ -129,7 +129,7 @@
             <div class="st-panel">
                 <h2>Activité sur l'année</h2>
                 ${heatmap(stats.heatmap || {})}
-                <div class="hm-legend">Moins <i style="background:var(--hm0)"></i><i style="background:var(--hm1)"></i><i style="background:var(--hm2)"></i><i style="background:var(--hm3)"></i><i style="background:var(--hm4)"></i> Plus</div>
+                <div class="hm-legend" aria-hidden="true">Moins <i style="background:var(--hm0)"></i><i style="background:var(--hm1)"></i><i style="background:var(--hm2)"></i><i style="background:var(--hm3)"></i><i style="background:var(--hm4)"></i> Plus</div>
             </div>
             <div class="st-panel">
                 <h2>Activité récente</h2>
@@ -280,7 +280,8 @@
 
         hote.innerHTML = `<div class="st-panel">
             <h2>Répartition sur 12 mois <span style="font-size:12px;color:var(--text3);font-weight:400">${MH.fmt(d.total)} chapitres</span></h2>
-            <div style="display:flex;align-items:flex-end;gap:4px;height:132px;margin:14px 0 4px">${colonnes}</div>
+            <div style="display:flex;align-items:flex-end;gap:4px;height:132px;margin:14px 0 4px" aria-hidden="true">${colonnes}</div>
+            ${tableauRepartition(d, sources)}
             <div style="display:flex;flex-wrap:wrap;gap:4px 0;margin-top:8px">${legende}</div>
             ${totalFormat ? `<div style="margin-top:14px;font-size:12px;color:var(--text2)">
                 Format : ${Math.round((parFormat.Scans / totalFormat) * 100)} % de scans, ${Math.round((parFormat.Romans / totalFormat) * 100)} % de romans</div>` : ''}
@@ -291,6 +292,31 @@
         </div>`;
     }
     const somme = (a) => a.reduce((n, v) => n + v, 0);
+
+    // Les colonnes ne portaient leurs valeurs que dans un `title` : à la voix,
+    // douze <div> sans nom. Le même contenu, en vrai tableau, invisible à
+    // l'écran et lu par les lecteurs d'écran (une ligne par mois).
+    function tableauRepartition(d, sources) {
+        const lignes = d.months.map((m, i) => `<tr><th scope="row">${MH.esc(m)}</th>`
+            + `<td>${sources.reduce((n, s) => n + d.bySource[s][i], 0)}</td>`
+            + sources.map(s => `<td>${d.bySource[s][i]}</td>`).join('') + '</tr>').join('');
+        return `<table class="a11y-invisible"><caption>Chapitres lus par mois et par source</caption>
+            <thead><tr><th scope="col">Mois</th><th scope="col">Total</th>${sources.map(s => `<th scope="col">${MH.esc(s)}</th>`).join('')}</tr></thead>
+            <tbody>${lignes}</tbody></table>`;
+    }
+
+    // La carte de l'année : 365 cases dont la valeur n'était que dans un
+    // `title`, qu'aucun lecteur d'écran ne lit sur un <i> vide. On la résume
+    // en une phrase — ce qu'on voit d'un coup d'œil, dit d'une traite.
+    function resumeHeatmap(map) {
+        const jours = Object.keys(map).filter(k => map[k] > 0);
+        if (!jours.length) return 'Activité sur l’année : aucun chapitre lu pour l’instant.';
+        const total = jours.reduce((n, k) => n + map[k], 0);
+        const meilleur = jours.reduce((a, k) => (map[k] > map[a] ? k : a), jours[0]);
+        const date = new Date(meilleur + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+        return `Activité sur l’année : ${total} chapitre(s) lu(s) en ${jours.length} jour(s) de lecture. `
+            + `Meilleur jour : ${date}, ${map[meilleur]} chapitre(s).`;
+    }
 
     // ── Rétrospective annuelle (audit AMEL-58) ──────────────
     // Tout le matériau existait — heatmap, séries, sources, records — mais
@@ -496,7 +522,7 @@
         const legend = keys.map(k => `<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin-right:14px"><i style="width:10px;height:10px;border-radius:3px;background:${ST_LABELS[k][1]};display:inline-block"></i>${ST_LABELS[k][0]} · ${counts[k]}</span>`).join('');
         return `<div class="st-panel">
             <h2>Ma bibliothèque par statut</h2>
-            <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:12px 0">${bar}</div>
+            <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:12px 0" aria-hidden="true">${bar}</div>
             <div style="display:flex;flex-wrap:wrap;gap:4px 0">${legend}</div>
         </div>`;
     }
@@ -521,7 +547,7 @@
             cells.push(`<i class="${lvl ? 'l' + lvl : ''}" title="${key} : ${c} chapitre(s)"></i>`);
             d.setDate(d.getDate() + 1);
         }
-        return `<div class="hm">${cells.join('')}</div>`;
+        return `<div class="hm" role="img" aria-label="${MH.esc(resumeHeatmap(map))}">${cells.join('')}</div>`;
     }
 
     function renderActivity(el, events) {

@@ -887,9 +887,17 @@
   transition: width .25s ease;
 }
 
-/* Fade-in des pages au chargement */
-.reader-page-img { opacity: 0; transition: opacity .25s ease; background: var(--bg3); min-height: 120px; }
-.reader-page-img.loaded { opacity: 1; min-height: 0; }
+/* Une planche en route se voit en route. Avant, elle restait à opacité 0
+   jusqu'à son arrivée : sur une source qui met 4 à 20 s par page, un cadre
+   vide — rien ne distinguait « ça arrive » de « c'est cassé ». Un reflet qui
+   passe dit « ça arrive » ; l'échec a son propre bloc (.reader-img-fail).
+   `color: transparent` masque le texte alternatif pendant l'attente. */
+.reader-page-img { min-height: 120px; color: transparent;
+  background: linear-gradient(100deg, var(--bg3) 35%, var(--bg2) 50%, var(--bg3) 65%) var(--bg3);
+  background-size: 300% 100%; animation: plancheEnRoute 1.4s ease-in-out infinite; }
+.reader-page-img.loaded { min-height: 0; background: none; color: inherit; animation: pageIn .25s ease; }
+@keyframes plancheEnRoute { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .reader-page-img:not(.loaded) { animation: none; } }
 
 /* Échec de chargement d'une page */
 .reader-img-fail {
@@ -1101,6 +1109,8 @@ body.reader-immersive .reader-pages-area.paged {
   font-size: 12.5px; color: var(--text2); cursor: pointer; margin-bottom: 10px;
 }
 .rs-check input { cursor: pointer; }
+.rs-note { font-size: 11.5px; color: var(--text3, var(--text2)); margin: -4px 0 8px 26px; min-height: 0; }
+.rs-note:empty { display: none; }
 
 /* ── P3.3 : planche double découpée en deux pages ────────────
    Une planche double est UNE image contenant DEUX pages. Sur un écran de
