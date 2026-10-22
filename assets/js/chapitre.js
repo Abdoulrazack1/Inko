@@ -296,6 +296,7 @@
             saveProgress();
             preloadNextChapter();
             requestWakeLock();
+            armerMinuteur(lireMinuteur(), true);   // le minuteur survit au changement de chapitre
         } catch (e) {
             showError(e);
         }
@@ -1103,6 +1104,7 @@
         armerBarreProgression();
         renderNavigation();
 
+        if (sleepEchu && p >= totalPages) afficherRappelMinuteur();
         // Sauvegarde progression (debounce)
         if (p === totalPages && API.isLoggedIn()) markChapterRead();
         debouncedSave();
@@ -1111,7 +1113,7 @@
         // Quitter la dernière page (retour en arrière) annule l'enchaînement —
         // sinon on serait emmené au chapitre suivant après avoir explicitement
         // fait demi-tour.
-        if (p >= totalPages && autoNextActif()) armerEnchainement(chapitreSuivant());
+        if (p >= totalPages && autoNextActif() && !sleepEchu) armerEnchainement(chapitreSuivant());
         else if (p < totalPages) annulerEnchainement();
     }
 
@@ -2028,34 +2030,71 @@
         if (autoTimer) MH.toast?.('Vitesse : ' + v.toFixed(1) + '×');
     }
 
-    // ── Minuteur de lecture (sleep timer) ──
-    function setSleepTimer(mins) {
-        sleepMins = mins || 0;
+    // ── Minuteur de lecture (« encore 20 minutes ») ──
+    // Deux défauts dans la première version :
+    //   · le minuteur vivait dans la page. Changer de chapitre recharge le
+    //     lecteur : il était perdu. « Encore 20 minutes » sur des chapitres de
+    //     8 minutes ne se déclenchait donc JAMAIS ;
+    //   · à l'échéance, un voile plein écran tombait au milieu d'une planche,
+    //     parfois au milieu d'une bulle.
+    // L'échéance est désormais notée pour la session (sessionStorage : un
+    // nouvel onglet demain n'hérite pas d'un minuteur d'hier), et le rappel
+    // attend la FIN DU CHAPITRE — le moment naturel pour s'arrêter. Il est
+    // discret (un encart, pas un voile) et l'enchaînement automatique vers le
+    // chapitre suivant est suspendu : c'est lui qui faisait « encore un ».
+    const CLE_MINUTEUR = 'inko_minuteur';
+    let sleepEchu = false;
+    function lireMinuteur() {
+        try { const m = JSON.parse(sessionStorage.getItem(CLE_MINUTEUR) || 'null'); return m && m.fin > 0 ? m : null; }
+        catch (e) { return null; }
+    }
+    function ecrireMinuteur(m) {
+        try { m ? sessionStorage.setItem(CLE_MINUTEUR, JSON.stringify(m)) : sessionStorage.removeItem(CLE_MINUTEUR); }
+        catch (e) { /* stockage bloqué : le minuteur vit au moins jusqu'au chapitre suivant */ }
+    }
+    function armerMinuteur(m, auChargement) {
         if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
-        if (sleepMins > 0) {
-            sleepTimerId = setTimeout(triggerSleep, sleepMins * 60 * 1000);
-            MH.toast?.(`Minuteur réglé : pause dans ${sleepMins} min`);
-        } else {
-            MH.toast?.('Minuteur désactivé');
-        }
+        sleepEchu = false;
+        if (!m) { sleepMins = 0; return; }
+        sleepMins = m.mins;
+        const reste = m.fin - Date.now();
+        if (reste > 0) { sleepTimerId = setTimeout(triggerSleep, reste); return; }
+        // Échu pendant qu'on changeait de chapitre : on est au début d'un
+        // chapitre, c'est déjà un bon moment pour le dire.
+        if (auChargement) { sleepEchu = true; afficherRappelMinuteur(true); }
+        else triggerSleep();
+    }
+    function setSleepTimer(mins) {
+        mins = +mins || 0;
+        const m = mins > 0 ? { mins, fin: Date.now() + mins * 60 * 1000 } : null;
+        ecrireMinuteur(m);
+        armerMinuteur(m);
+        document.getElementById('sleepRappel')?.remove();
+        MH.toast?.(m ? `Minuteur réglé : rappel à la fin du chapitre après ${mins} min` : 'Minuteur désactivé');
     }
     function triggerSleep() {
-        if (autoTimer) stopAutoScroll();
         sleepTimerId = null;
-        if (document.getElementById('sleepOverlay')) return;
-        const ov = document.createElement('div');
-        ov.id = 'sleepOverlay';
-        ov.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:130;background:rgba(0,0,0,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center';
-        ov.innerHTML = `<div style="text-align:center;max-width:340px;padding:30px">
-            <div style="margin-bottom:12px;color:var(--accent)">${MH.icon('moon', 40)}</div>
-            <div style="font-family:var(--font-head);font-size:20px;font-weight:800;margin-bottom:8px;color:#fff">Pause lecture</div>
-            <div style="font-size:13.5px;color:rgba(255,255,255,.7);margin-bottom:20px">Tu lis depuis ${sleepMins} min. Le temps de souffler un peu ?</div>
-            <div style="display:flex;gap:10px;justify-content:center">
-                <button class="btn btn-primary" id="sleepResume">Continuer</button>
-                <a class="btn btn-ghost" href="accueil.html">Arrêter</a>
-            </div></div>`;
-        document.body.appendChild(ov);
-        ov.querySelector('#sleepResume').onclick = () => { ov.remove(); if (sleepMins) setSleepTimer(sleepMins); };
+        sleepEchu = true;
+        annulerEnchainement();   // pas de « chapitre suivant » automatique une fois l'heure passée
+        if (totalPages && currentPage >= totalPages) afficherRappelMinuteur();
+        // Sinon : updateUIPage l'affichera en arrivant à la dernière page.
+    }
+    function afficherRappelMinuteur(entreDeux) {
+        if (document.getElementById('sleepRappel')) return;
+        const mins = sleepMins;
+        ecrireMinuteur(null);
+        sleepMins = 0;
+        if (autoTimer) stopAutoScroll();
+        const el = document.createElement('div');
+        el.id = 'sleepRappel';
+        el.setAttribute('role', 'status');
+        el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:130;max-width:min(420px,calc(100vw - 32px));padding:14px 16px;border-radius:14px;background:rgba(20,20,24,.94);color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;gap:12px;align-items:center;font-size:13.5px';
+        el.innerHTML = `<span style="color:var(--accent);flex:none">${MH.icon('moon', 22)}</span>
+            <span style="flex:1"><span>${mins ? `Tes ${mins} minutes sont passées.` : 'Le temps prévu est passé.'}</span> <span>${entreDeux ? 'Entre deux chapitres' : 'Fin de chapitre'} : un bon moment pour t'arrêter.</span></span>
+            <button class="btn btn-ghost btn-sm" id="sleepEncore">Encore 10 min</button>
+            <a class="btn btn-primary btn-sm" href="accueil.html">Arrêter</a>`;
+        document.body.appendChild(el);
+        el.querySelector('#sleepEncore').onclick = () => { el.remove(); setSleepTimer(10); };
     }
 
     // ── Réglages lecteur : application + panneau ──
@@ -2200,7 +2239,7 @@
             ${seg('quality', [{v:'high',l:'Haute'},{v:'saver',l:'Éco'}], q)}
             <label class="rs-label">Minuteur de lecture</label>
             <div class="rs-seg" id="rsSleep">
-                ${[['0','Off'],['15','15m'],['30','30m'],['45','45m'],['60','60m']].map(([v,l]) =>
+                ${[['0','Off'],['10','10m'],['20','20m'],['30','30m'],['45','45m'],['60','60m']].map(([v,l]) =>
                     `<button data-sleep="${v}" class="${String(sleepMins)===v?'on':''}">${l}</button>`).join('')}
             </div>
             <div class="rs-foot">
