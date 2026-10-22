@@ -18,7 +18,14 @@ const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'js', 'downloads.js'), 'utf8');
+// Fins de ligne normalisées : git réécrit la copie de travail en CRLF sous
+// Windows, et les repères utilisés plus bas pour découper la méthode attendent
+// des sauts de ligne simples. Sans cette normalisation, `indexOf` rend -1 dès
+// qu'une fusion retouche le fichier, la découpe part de travers, et les cinq
+// tests tombent sur « verifier is not defined » — une panne de l'outil prise
+// pour une panne du code. Tous les autres tests du dépôt le font déjà.
+const SRC = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'js', 'downloads.js'), 'utf8')
+    .replace(/\r\n/g, '\n');
 
 // Extrait `verifier` et l'exécute contre un magasin et un cache simulés.
 function verifierAvec(meta, presentes) {
@@ -67,7 +74,10 @@ test('un chapitre réparé redevient complet', async () => {
 });
 
 test('la page des téléchargements vérifie après affichage, un chapitre à la fois', () => {
-    const page = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'js', 'downloads-page.js'), 'utf8');
+    // Même raison qu'en tête de fichier : les motifs ci-dessous contiennent
+    // des sauts de ligne, et la copie de travail est en CRLF sous Windows.
+    const page = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'js', 'downloads-page.js'), 'utf8')
+        .replace(/\r\n/g, '\n');
     assert.match(page, /mesurerPoids\(\);\n\s+verifierIntegrite\(groups\);/);
     assert.match(page, /for \(const c of g\.chapters \|\| \[\]\) \{[\s\S]*?await window\.Downloads\.verifier\(c\.chapterId\)/);
 });
