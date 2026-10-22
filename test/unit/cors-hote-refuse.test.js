@@ -56,6 +56,10 @@ function monter({ directRefuse = true } = {}) {
     });
     w.fetch = async (url) => {
         const u = String(url);
+        // Sonde de cache du hub (`cache=seul`) : ces tests portent sur des
+        // planches jamais lues, que le hub n'a donc pas — il répond 404,
+        // comme le vrai. Elle n'est comptée ni en direct ni en proxy.
+        if (u.includes('cache=seul')) { appels.push('sonde-cache'); return { ok: false, status: 404 }; }
         const proxy = u.includes('/img?u=');
         appels.push(proxy ? 'proxy' : 'direct');
         if (!proxy && directRefuse) throw new TypeError('Failed to fetch');
@@ -123,7 +127,8 @@ test('une coupure réseau ne doit pas être prise pour un refus d’hôte', asyn
     // alors que l'hôte, lui, acceptait peut-être très bien le direct.
     const m = monter({ directRefuse: true });
     m.w.fetch = async (url) => {
-        m.appels.push(String(url).includes('/img?u=') ? 'proxy' : 'direct');
+        const u = String(url);
+        m.appels.push(u.includes('cache=seul') ? 'sonde-cache' : u.includes('/img?u=') ? 'proxy' : 'direct');
         throw new TypeError('Failed to fetch');
     };
     await m.w.Downloads.download(info, pagesDe(3)).catch(() => {});

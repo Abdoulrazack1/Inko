@@ -230,7 +230,19 @@
             // C'est le pire des états — l'utilisateur attend quelque chose qui
             // n'arrivera jamais, et rien ne lui dit d'abandonner.
             if (!totalPages) {
-                showError('Ce chapitre ne contient aucune page');
+                // Une entrée vide ne doit pas devenir un cul-de-sac. On la
+                // retient pour la session (neighborChapter la sautera), et si
+                // l'on arrive en tournant les chapitres, on poursuit dans le
+                // même sens au lieu d'arrêter la lecture sur un écran d'erreur.
+                retenirChapitreVide(chapterId);
+                const saut = +params.get('saut');
+                const suite = (saut === 1 || saut === -1) ? neighborChapter(saut) : null;
+                if (suite) {
+                    MH.toast?.(`Chapitre ${currentChap.chapter} vide à la source — on passe au ${saut > 0 ? 'suivant' : 'précédent'}`);
+                    location.replace(urlChapitre(suite, saut));
+                    return;
+                }
+                showError('Ce chapitre ne contient aucune page', neighborChapter(1));
                 return;
             }
 
@@ -298,10 +310,11 @@
      * un lien pareil ne s'ouvre pas dans un onglet, ne se copie pas, et va
      * contre le retrait annoncé de `script-src-attr 'unsafe-inline'`.
      */
-    function showError(err) {
+    function showError(err, suivant) {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
         const retour = { libelle: '↩ Retour', onClick: () => history.back() };
+        const versSuivant = suivant ? [{ libelle: `Chapitre ${suivant.chapter} →`, href: urlChapitre(suivant, 1) }] : [];
         const accueil = { libelle: 'Accueil', href: 'accueil.html' };
 
         if (err instanceof Error) {
@@ -318,8 +331,8 @@
         MH.poserEtatVide(el, {
             icone: '\u{1F517}',
             titre: String(err || 'Chapitre indisponible'),
-            texte: 'Le lien est peut-être incomplet.',
-            actions: [retour, accueil],
+            texte: suivant ? 'La source liste ce chapitre sans en fournir les pages.' : 'Le lien est peut-être incomplet.',
+            actions: [...versSuivant, retour, accueil],
         });
     }
 
@@ -341,10 +354,9 @@
     function renderToolbar() {
         const el = document.getElementById('readerToolbar');
         if (!el) return;
-        const asc      = [...chapters].sort((a, b) => a.chapter - b.chapter);
-        const curIdx   = asc.findIndex(c => c.id === currentChap.id);
-        const prevChap = curIdx > 0 ? asc[curIdx - 1] : null;
-        const nextChap = curIdx < asc.length - 1 ? asc[curIdx + 1] : null;
+        const asc      = chapitresTries();
+        const prevChap = neighborChapter(-1);
+        const nextChap = neighborChapter(1);
 
         el.innerHTML = `
         <div class="toolbar-left">
@@ -417,8 +429,8 @@
         updateAutoBtn();
         const chapURL = (id) => `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(id)}&source=${encodeURIComponent(API.sources.current)}`;
         document.getElementById('chapSelect')?.addEventListener('change', e => { window.location.href = chapURL(e.target.value); });
-        document.getElementById('btnPrevChap')?.addEventListener('click', () => { if (prevChap) window.location.href = chapURL(prevChap.id); });
-        document.getElementById('btnNextChap')?.addEventListener('click', () => { if (nextChap) window.location.href = chapURL(nextChap.id); });
+        document.getElementById('btnPrevChap')?.addEventListener('click', () => { if (prevChap) window.location.href = urlChapitre(prevChap, -1); });
+        document.getElementById('btnNextChap')?.addEventListener('click', () => { if (nextChap) window.location.href = urlChapitre(nextChap, 1); });
     }
 
     // Menu « ⋯ » du lecteur : fermé au clic ailleurs, par Échap, ou après
@@ -616,7 +628,7 @@
         const b = boiteReservee(idx);
         return `<img class="reader-page-img" data-idx="${idx}" data-page="${idx + 1}"
                  alt="Page ${idx + 1}" decoding="async"
-                 style="width:${b.w}px;height:${b.h}px;background:var(--bg2,#141414)"
+                 style="width:${b.w}px;height:${b.h}px"
                  >`;
     }
 
@@ -930,20 +942,60 @@
             imgs.forEach(im => near.observe(im));
             scrollObservers.push(near);
 
-            // Suit la page visible (avance ET retours arrière) + pilote la fenêtre
-            const io = new IntersectionObserver(entries => {
-                entries.forEach(en => {
-                    if (!en.isIntersecting) return;
-                    const p = +en.target.dataset.page;
-                    if (p !== currentPage) { currentPage = p; updateUIPage(p); }
-                    refreshWindow(p - 1);
-                });
-            }, { threshold: 0.3 });
-            imgs.forEach(im => io.observe(im));
-            scrollObservers.push(io);
         } else {
             imgs.forEach(im => enqueueLoad(im));   // repli : navigateurs sans IO
         }
+
+        // Suit la planche sous le MILIEU de l'écran (avance ET retours) et
+        // pilote la fenêtre. C'était un IntersectionObserver au seuil 0,3 :
+        // la dernière entrée traitée gagnait, quelle que soit la planche
+        // réellement lue. Mesuré dans Chromium, 20 planches, fenêtre 900 px :
+        //     planches de 796 px    30 positions fausses sur 111
+        //     planches de 4000 px  551 sur 579 — « page 20/20 » dès l'ouverture
+        // Un webtoon a justement des planches plus hautes que l'écran. Les
+        // boîtes sont réservées d'emblée et dans l'ordre vertical : une
+        // recherche dichotomique par image d'animation suffit.
+        let rafSuivi = 0;
+        const suivrePage = () => {
+            rafSuivi = 0;
+            if (!imgs.length || !imgs[0].isConnected) return;
+            const milieu = window.innerHeight / 2;
+            let lo = 0, hi = imgs.length - 1, idx = imgs.length - 1;
+            while (lo <= hi) {
+                const m = (lo + hi) >> 1;
+                if (imgs[m].getBoundingClientRect().bottom < milieu) lo = m + 1;
+                else { idx = m; hi = m - 1; }
+            }
+            // En bas du document, la dernière planche est lue même si elle
+            // est trop courte pour atteindre le milieu de l'écran.
+            const enBas = window.innerHeight + Math.ceil(window.scrollY) >= document.documentElement.scrollHeight - 2;
+            if (enBas) idx = imgs.length - 1;
+            const p = idx + 1;
+            if (p !== currentPage) { currentPage = p; updateUIPage(p); }
+            refreshWindow(idx);
+            // La barre avance DANS la planche : sur une bande de webtoon de
+            // 4000 px, elle restait figée le temps de dix écrans.
+            const r = imgs[idx].getBoundingClientRect();
+            const dans = enBas ? 1 : Math.max(0, Math.min(1, (milieu - r.top) / (r.height || 1)));
+            const fill = document.getElementById('readerProgressFill');
+            if (fill) fill.style.width = `${((idx + dans) / totalPages) * 100}%`;
+        };
+        const surDefilement = () => { if (!rafSuivi) rafSuivi = requestAnimationFrame(suivrePage); };
+        window.addEventListener('scroll', surDefilement, { passive: true });
+        window.addEventListener('resize', surDefilement, { passive: true });
+        // Une planche qui arrive prend sa vraie hauteur et décale tout ce qui
+        // suit, sans qu'aucun `scroll` ne parte : la page annoncée restait
+        // celle d'avant le décalage.
+        if ('ResizeObserver' in window) {
+            const ro = new ResizeObserver(surDefilement);
+            ro.observe(el.querySelector('.reader-scroll-wrapper'));
+            scrollObservers.push(ro);
+        }
+        scrollObservers.push({ disconnect() {
+            window.removeEventListener('scroll', surDefilement);
+            window.removeEventListener('resize', surDefilement);
+            if (rafSuivi) cancelAnimationFrame(rafSuivi);
+        } });
 
         refreshWindow(Math.max(0, currentPage - 1));   // amorce autour de la position courante
         updateUIPage(currentPage);
@@ -1286,10 +1338,12 @@
     function renderNextChapter() {
         const el = document.getElementById('readerNextChapter');
         if (!el) return;
-        const asc = [...chapters].sort((a, b) => a.chapter - b.chapter);
-        const idx = asc.findIndex(c => c.id === currentChap.id);
-        const next = idx >= 0 && idx < asc.length - 1 ? asc[idx + 1] : null;
-        if (!next) { el.innerHTML = ''; return; }
+        // Même voisin que les touches N et la transition de fin : ce bloc
+        // triait par `a.chapter - b.chapter`, qui rend NaN sur « Extra » ou
+        // « Bonus 1 » — il pouvait annoncer un autre chapitre que celui où
+        // menait la flèche.
+        const next = neighborChapter(1);
+        if (!next) { el.innerHTML = finDeSerie(); return; }
         el.innerHTML = `
         <div class="reader-next-chapter">
             <div class="next-chapter-cover">
@@ -1311,6 +1365,31 @@
             else annulerEnchainement();
         });
         if (autoNextActif()) armerEnchainement(next);
+    }
+
+    // Au dernier chapitre, le bloc « À suivre » disparaissait et la flèche
+    // suivante restait grisée sans un mot : on ne savait pas si la série
+    // était finie, en pause, ou si le suivant manquait.
+    function finDeSerie() {
+        const statut = manga?.status;
+        const titre = statut === 'completed' ? 'Série terminée'
+            : statut === 'cancelled' ? 'Série arrêtée'
+            : statut === 'hiatus' ? 'Série en pause'
+            : 'Tu es à jour';
+        const texte = statut === 'completed' ? `Tu as lu le dernier chapitre de ${MH.esc(manga.title)}.`
+            : statut === 'cancelled' ? "La publication a été arrêtée : il n'y aura pas de suite."
+            : `C'est le dernier chapitre paru pour l'instant.`;
+        return `
+        <div class="reader-next-chapter reader-fin-serie" role="status">
+            <div class="next-chapter-cover">
+                <img src="${MH.cover(manga.coverThumb, manga.cover)}" alt="" loading="lazy">
+            </div>
+            <div class="next-chapter-info">
+                <div class="next-chapter-label">${titre}</div>
+                <div class="next-chapter-title">${texte}</div>
+            </div>
+            <a href="serie.html?id=${encodeURIComponent(manga.id)}&source=${encodeURIComponent(API.sources.current)}" class="btn btn-ghost">Voir la fiche</a>
+        </div>`;
     }
 
     // ── Enchaînement automatique (audit AMEL-15) ─────────────
@@ -1338,9 +1417,7 @@
     // mais ne se déclenchait pour personne.
     function chapitreSuivant() {
         if (!chapters || !currentChap) return null;
-        const asc = [...chapters].sort((a, b) => a.chapter - b.chapter);
-        const idx = asc.findIndex(c => c.id === currentChap.id);
-        return idx >= 0 && idx < asc.length - 1 ? asc[idx + 1] : null;
+        return neighborChapter(1);
     }
     function annulerEnchainement() {
         clearTimeout(minuterieEnchainement);
@@ -1535,7 +1612,7 @@
             // Double-tap → bascule le zoom (immobile + tap rapide)
             if (!moved && dt < 250) {
                 const now = Date.now();
-                if (now - lastTap < 300) { lastTap = 0; toggleTapZoom({ x: t.clientX, y: t.clientY }); }
+                if (now - lastTap < 300) { lastTap = 0; zoomerSurCase({ x: t.clientX, y: t.clientY }, e.target.closest?.('.reader-page-img')); }
                 else lastTap = now;
                 return;
             }
@@ -1623,6 +1700,43 @@
     function toggleTapZoom(point) {
         if (readMode === 'scroll') return;
         appliquerZoom(zoom > 110 ? 100 : 170, point);
+    }
+
+    // ── Zoom sur la case désignée ────────────────────────────
+    // Double-clic ou double appui sur une planche : on cadre la CASE sous le
+    // pointeur (zoom-case.js trouve ses gouttières) et on la centre. Sans
+    // case reconnaissable, on retombe sur le zoom ancré ci-dessus. Le même
+    // geste, ou Échap, ramène la planche entière.
+    function zoomCaseActif() {
+        return !!document.querySelector('.reader-page-wrapper[data-zoom-case]');
+    }
+    function quitterZoomCase() {
+        document.querySelectorAll('.reader-page-wrapper[data-zoom-case]').forEach(w => delete w.dataset.zoomCase);
+        appliquerZoom(100);
+    }
+    function zoomerSurCase(point, img) {
+        if (readMode === 'scroll') return;
+        if (zoomCaseActif() || zoom > 110) { quitterZoomCase(); return; }
+        const wrapper = img?.closest('.reader-page-wrapper');
+        const zone = document.getElementById('readerPagesArea');
+        const v = window.MH?.zoomCase?.vignette(img);
+        if (!wrapper || !zone || !v) { toggleTapZoom(point); return; }
+        const r0 = img.getBoundingClientRect();
+        const kase = window.MH.zoomCase.detecterCase(v.px, v.w, v.h,
+            ((point.x - r0.left) / r0.width) * v.w, ((point.y - r0.top) / r0.height) * v.h);
+        if (!kase) { toggleTapZoom(point); return; }
+        appliquerZoom(100);                        // mesurer à l'échelle 1
+        const r = img.getBoundingClientRect(), W = wrapper.getBoundingClientRect(), V = zone.getBoundingClientRect();
+        const cw = kase.w * r.width, ch = kase.h * r.height;
+        const s = Math.min(4, Math.max(1.2, Math.min(V.width / cw, V.height / ch) * 0.94));
+        const cx = r.left + (kase.x + kase.w / 2) * r.width, cy = r.top + (kase.y + kase.h / 2) * r.height;
+        const tx = (V.left + V.width / 2) - W.left - s * (cx - W.left);
+        const ty = (V.top + V.height / 2) - W.top - s * (cy - W.top);
+        wrapper.dataset.zoomCase = '1';
+        wrapper.style.transformOrigin = '0 0';
+        wrapper.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s.toFixed(3)})`;
+        const label = document.getElementById('zoomLabel');
+        if (label) label.textContent = Math.round(s * 100) + '%';
     }
 
     // ── Partager ce chapitre (audit §9) ──
@@ -1723,32 +1837,66 @@
         // N54) : a.chapter - b.chapter donnait NaN → ordre imprévisible et
         // « chapitre suivant » pouvant sauter au mauvais endroit. Les entrées non
         // numériques sont classées en fin de liste, entre elles par texte.
+        const asc = chapitresTries();
+        const idx = asc.findIndex(c => c.id === currentChap.id);
+        if (idx < 0) return null;
+        // Seules les entrées CONSTATÉES vides dans la session sont sautées.
+        // Pas `pages === 0` : WeebCentral, SushiScan et les sources de romans
+        // écrivent 0 pour « inconnu » — le prendre pour « vide » sauterait
+        // tous leurs chapitres.
+        const vides = chapitresVides();
+        for (let t = idx + delta; t >= 0 && t < asc.length; t += delta) {
+            const c = asc[t];
+            if (vides.has(String(c.id))) continue;
+            return c;
+        }
+        return null;
+    }
+    // Un seul ordre de chapitres pour tout le lecteur. La barre d'outils, le
+    // bloc « À suivre » et l'enchaînement triaient chacun par
+    // `a.chapter - b.chapter`, qui rend NaN dès qu'un numéro n'est pas un
+    // nombre : trois voisins possibles pour un même chapitre.
+    function chapitresTries() {
         const num = c => { const n = parseFloat(c.chapter); return isNaN(n) ? null : n; };
-        const asc = [...chapters].sort((a, b) => {
+        return [...chapters].sort((a, b) => {
             const na = num(a), nb = num(b);
             if (na !== null && nb !== null) return na - nb;
             if (na !== null) return -1;
             if (nb !== null) return 1;
             return String(a.chapter).localeCompare(String(b.chapter), 'fr');
         });
-        const idx = asc.findIndex(c => c.id === currentChap.id);
-        const t = idx + delta;
-        return (t >= 0 && t < asc.length) ? asc[t] : null;
+    }
+    function urlChapitre(c, saut) {
+        return `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(c.id)}&source=${encodeURIComponent(API.sources.current)}`
+            + (saut ? `&saut=${saut}` : '');
     }
     function goChapter(delta) {
         const c = neighborChapter(delta);
-        if (c) window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(c.id)}&source=${encodeURIComponent(API.sources.current)}`;
+        if (c) window.location.href = urlChapitre(c, delta);
+    }
+    const CLE_VIDES = 'inko_chapitres_vides';
+    function chapitresVides() {
+        try { return new Set(JSON.parse(sessionStorage.getItem(CLE_VIDES) || '[]')); }
+        catch (e) { return new Set(); }   // stockage refusé (navigation privée) : rien à sauter
+    }
+    function retenirChapitreVide(id) {
+        const v = chapitresVides(); v.add(String(id));
+        try { sessionStorage.setItem(CLE_VIDES, JSON.stringify([...v].slice(-200))); }
+        catch (e) { window.MH?.err?.('chapitre.js', e); }
     }
 
     function bindKeyboard() {
-        // Double-clic sur la page = zoom rapide 100 % ↔ 150 %
+        // Double-clic sur une planche : cadrer la case désignée (ou dézoomer).
+        // C'était un 100 % ↔ 150 % partant du haut de la planche, qui ne
+        // gardait même pas le point cliqué sous le curseur.
         document.getElementById('readerPagesArea')?.addEventListener('dblclick', e => {
-            if (!e.target.closest('.reader-page-img')) return;
+            const img = e.target.closest('.reader-page-img');
+            if (!img) return;
             e.preventDefault();
-            window.changeZoom(zoom === 100 ? 50 : 100 - zoom);
+            zoomerSurCase({ x: e.clientX, y: e.clientY }, img);
         });
         document.addEventListener('keydown', e => {
-            if (['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName)) return;
+            if (MH.toucheIgnoree(e)) return;
             const rtl = rs.direction === 'rtl';
             // Touches globales (tous modes)
             switch (e.key) {
@@ -1765,6 +1913,7 @@
                 case '[': bumpAutoSpeed(-0.2); return;
                 case ']': bumpAutoSpeed(0.2); return;
                 case 'Escape':
+                    if (zoomCaseActif()) { quitterZoomCase(); return; }
                     if (document.body.classList.contains('reader-immersive')) { toggleImmersive(); return; }
                     if (document.getElementById('chapTransition')) { document.getElementById('chapTransition').remove(); return; }
                     if (autoTimer) { stopAutoScroll(); return; }
