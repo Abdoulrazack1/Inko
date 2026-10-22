@@ -160,6 +160,16 @@
             // aussi). null = échec réel détecté.
             const base = (window.API && API.base) || '';
             async function fetchPage(url) {
+                // Une planche déjà lue est en cache sur le hub : on la lui
+                // demande d'abord, sans qu'il interroge la source (`cache=seul`
+                // rend 404 sinon). Le direct reste la voie par défaut pour le
+                // reste, et c'est voulu — voir `corsRefuse`.
+                if (base) {
+                    try {
+                        const enCache = await fetch(base + '/img?u=' + encodeURIComponent(url) + '&cache=seul');
+                        if (enCache.ok) return enCache;
+                    } catch (e) { /* hub injoignable : le direct tranchera */ }
+                }
                 const origine = origineDe(url);
                 // Sans proxy, on tente le direct quoi qu'il arrive : c'est la
                 // seule voie.
@@ -332,6 +342,38 @@
             await delMeta(chapterId);
         },
 
+        /**
+         * Vérifie qu'un chapitre téléchargé a encore toutes ses planches.
+         *
+         * « Complet » n'était constaté qu'au téléchargement. Or le Cache API
+         * peut être évincé ensuite par le système (la page des téléchargements
+         * le dit elle-même) : un chapitre complet hier pouvait perdre des
+         * planches sans que rien ne le signale — et l'on ne le découvrait
+         * qu'en le lisant, hors ligne, c'est-à-dire trop tard pour réparer.
+         *
+         * Une planche copiée dans le stockage privé de l'APK (`fichiers`)
+         * compte comme présente : ce stockage-là n'est jamais évincé.
+         * Le constat est écrit dans les métadonnées, pour que l'avertissement
+         * et le bouton « Relancer » existants le reprennent.
+         *
+         * @returns {Promise<{ total: number, manquantes: number } | null>}
+         */
+        async verifier(chapterId) {
+            const meta = await getMeta(chapterId);
+            if (!meta || meta.kind === 'novel' || !(meta.pages || []).length || !('caches' in window)) return null;
+            const cache = await caches.open(CACHE);
+            let manquantes = 0;
+            for (let i = 0; i < meta.pages.length; i++) {
+                if (meta.fichiers && meta.fichiers[i]) continue;
+                if (!(await cache.match(meta.pages[i]))) manquantes++;
+            }
+            const avant = meta.incomplete ? (meta.failed || 0) : 0;
+            if (manquantes !== avant) {
+                await putMeta({ ...meta, incomplete: manquantes > 0, failed: manquantes, verifieAt: Date.now() });
+            }
+            return { total: meta.pages.length, manquantes };
+        },
+
         async get(chapterId) { return getMeta(chapterId); },
         async list() { return (await allMeta()).sort((a, b) => b.savedAt - a.savedAt); },
 
@@ -474,6 +516,23 @@
                 window.MH?.toast?.(`Plafond de stockage : ${plan.aSupprimer.length} ancien(s) chapitre(s) retiré(s)`);
             }
             return { evinces: plan.aSupprimer.length, total, libere: plan.octets };
+        },
+
+        // ── Poids d'un chapitre, AVANT de télécharger ──────────
+        // Lancer « toute la série » sans savoir si c'est 80 Mo ou 4 Go, c'est
+        // découvrir la réponse quand le téléphone est plein. On estime d'après
+        // ce qui est DÉJÀ en cache : les chapitres de cette série d'abord (même
+        // source, même qualité d'image), sinon la moyenne de tous les
+        // téléchargements, sinon une valeur prudente, annoncée comme telle.
+        async poidsChapitre(mangaId) {
+            const DEFAUT = 6 * 1048576;
+            let tailles = [];
+            try { tailles = await this.sizeByManga(); } catch (e) { /* cache illisible */ }
+            const ici = tailles.find(t => t.mangaId === mangaId && t.chapters && t.bytes);
+            if (ici) return { octets: Math.round(ici.bytes / ici.chapters), base: 'serie' };
+            const tot = tailles.reduce((a, t) => ({ o: a.o + (t.bytes || 0), c: a.c + (t.bytes ? t.chapters : 0) }), { o: 0, c: 0 });
+            if (tot.c >= 3) return { octets: Math.round(tot.o / tot.c), base: 'moyenne' };
+            return { octets: DEFAUT, base: 'defaut' };
         },
 
         async sizeByManga() {
