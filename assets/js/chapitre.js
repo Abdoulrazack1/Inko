@@ -40,6 +40,7 @@
         rs.gap = +rs.gap; if (isNaN(rs.gap)) rs.gap = 8;
         rs.autospeed = +rs.autospeed || 1.4;
         rs.warm = +rs.warm; if (isNaN(rs.warm)) rs.warm = 0;
+        rs.nuitAuto = window.Storage?.getPref('reader_nuitAuto') === '1' ? '1' : '0';
     }
     let autoTimer = null;
     let sleepMins = 0;       // minuteur de lecture (0 = off)
@@ -80,6 +81,9 @@
         if (prefs['zoom_' + mangaId]) zoom = prefs['zoom_' + mangaId];
         loadReaderSettings();
         if (prefs.readingDir) rs.direction = prefs.readingDir;
+        // Nuit progressive : réévaluée chaque minute (armée ici, à l'entrée du
+        // lecteur, et non au chargement du module).
+        setInterval(() => { if (rs.nuitAuto === '1') applyReaderSettings(); }, 60 * 1000);
 
         // IX.8 : orientation et double page automatique. Le verrou est posé
         // ICI, à l'entrée du lecteur, et relâché en le quittant — verrouiller
@@ -2113,7 +2117,12 @@
             dim.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:#000;pointer-events:none;z-index:75;transition:opacity .2s';
             document.body.appendChild(dim);
         }
-        dim.style.opacity = String(Math.max(0, (100 - rs.brightness) / 100 * 0.72));
+        // La nuit progressive ne remplace pas les curseurs : elle ne peut que
+        // les renforcer. Un réglage manuel plus fort qu'elle reste gagnant.
+        const nuit = rs.nuitAuto === '1' ? nuitProgressive(new Date()) : { chaleur: 0, assombri: 0 };
+        const luminosite = Math.min(rs.brightness, 100 - nuit.assombri);
+        const chaleur = Math.max(+rs.warm || 0, nuit.chaleur);
+        dim.style.opacity = String(Math.max(0, (100 - luminosite) / 100 * 0.72));
 
         // Filtre confort des yeux (lumière chaude type f.lux)
         let warm = document.getElementById('readerWarm');
@@ -2123,7 +2132,28 @@
             warm.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:#ff8a1e;pointer-events:none;z-index:76;mix-blend-mode:multiply;transition:opacity .2s';
             document.body.appendChild(warm);
         }
-        warm.style.opacity = String(Math.max(0, Math.min(0.6, (+rs.warm || 0) / 100 * 0.6)));
+        warm.style.opacity = String(Math.max(0, Math.min(0.6, chaleur / 100 * 0.6)));
+        const note = document.getElementById('rsNuitNote');
+        if (note) note.textContent = rs.nuitAuto !== '1' ? ''
+            : (nuit.chaleur ? `En ce moment : chaleur ${nuit.chaleur} %, luminosité −${nuit.assombri} %` : 'En ce moment : rien (de jour)');
+    }
+
+    // ── Nuit progressive ─────────────────────────────────────
+    // Les curseurs « luminosité » et « lumière chaude » sont réglés une fois,
+    // de jour ou de nuit, et restent faux le reste du temps : trop sombres à
+    // midi, trop blancs à minuit. La nuit progressive suit l'heure locale :
+    // rien jusqu'à 20 h, une montée douce jusqu'à 23 h, le plein la nuit, puis
+    // une redescente de 5 h à 7 h. Linéaire et réévaluée chaque minute : le
+    // changement ne se voit jamais d'un coup.
+    const NUIT_CHALEUR_MAX = 50, NUIT_ASSOMBRI_MAX = 20;   // en %
+    function nuitProgressive(date) {
+        const h = date.getHours() + date.getMinutes() / 60;
+        let t;
+        if (h >= 23 || h < 5) t = 1;
+        else if (h >= 20) t = (h - 20) / 3;
+        else if (h >= 5 && h < 7) t = 1 - (h - 5) / 2;
+        else t = 0;
+        return { chaleur: Math.round(NUIT_CHALEUR_MAX * t), assombri: Math.round(NUIT_ASSOMBRI_MAX * t) };
     }
 
     function saveReaderSetting(key, val, doRerender) {
@@ -2221,6 +2251,11 @@
             <input type="range" id="rsBright" min="40" max="100" value="${rs.brightness}" class="rs-range">
             <label class="rs-label">Confort des yeux (lumière chaude) <span id="rsWarmVal">${rs.warm || 0}%</span></label>
             <input type="range" id="rsWarm" min="0" max="100" value="${rs.warm || 0}" class="rs-range">
+            <label class="rs-check">
+                <input type="checkbox" id="rsNuitAuto" ${rs.nuitAuto === '1' ? 'checked' : ''}>
+                <span>Nuit progressive selon l'heure</span>
+            </label>
+            <div class="rs-note" id="rsNuitNote" aria-live="polite"></div>
             <label class="rs-label">Écart entre pages <span id="rsGapVal">${rs.gap}px</span></label>
             <input type="range" id="rsGap" min="0" max="40" value="${rs.gap}" class="rs-range">
             <label class="rs-label">Vitesse défilement auto <span id="rsAutoVal">${(+rs.autospeed || 1.4).toFixed(1)}×</span></label>
@@ -2247,6 +2282,7 @@
                 <div class="rs-shortcuts">← → pages · ↑ ↓ / molette défile puis tourne · Début/Fin première/dernière · N/P chapitre · F plein écran · I immersif · B signet · A défilement auto · [ ] vitesse · S réglages</div>
             </div>`;
         document.body.appendChild(panel);
+        applyReaderSettings();   // remplit la note de la nuit progressive
 
         panel.querySelectorAll('.rs-seg').forEach(sg => {
             const key = sg.dataset.key;
@@ -2288,6 +2324,9 @@
         panel.querySelector('#rsWarm').addEventListener('input', e => {
             document.getElementById('rsWarmVal').textContent = e.target.value + '%';
             saveReaderSetting('warm', +e.target.value, false);
+        });
+        panel.querySelector('#rsNuitAuto')?.addEventListener('change', e => {
+            saveReaderSetting('nuitAuto', e.target.checked ? '1' : '0', false);
         });
         panel.querySelector('#rsGap').addEventListener('input', e => {
             document.getElementById('rsGapVal').textContent = e.target.value + 'px';
