@@ -81,6 +81,17 @@
           <option value="4">4 étoiles et plus</option>
           <option value="5">5 étoiles</option>
         </select>
+        <label class="list-modal-label" for="listRuleInactif">Pas ouverte depuis <span style="color:var(--text3)">(optionnel)</span></label>
+        <select id="listRuleInactif" class="list-modal-input">
+          <option value="">Peu importe</option>
+          <option value="7">7 jours</option>
+          <option value="30">30 jours</option>
+          <option value="90">3 mois</option>
+          <option value="365">1 an</option>
+        </select>
+        <label class="list-modal-check">
+          <input type="checkbox" id="listRuleSourceActive"> <span>Seulement les sources activées</span>
+        </label>
         <div class="list-rule-note">
           Les genres ne sont pas proposés : ils vivent chez les sources distantes,
           et les évaluer demanderait de les interroger à chaque affichage.

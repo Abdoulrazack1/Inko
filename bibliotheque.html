@@ -63,6 +63,7 @@
           <option value="unread">Non-lus d'abord</option>
           <option value="backlog">À rattraper (plus de retard)</option>
           <option value="activity">Dernière sortie</option>
+          <option value="rythme">Rythme de parution</option>
           <option value="progress">Progression</option>
         </select>
         <div class="lib2-view" id="libViewToggle" role="group" aria-label="Vue">
@@ -94,6 +95,7 @@
            rien ne disait lesquels — ni comment tout relâcher. Le catalogue a
            ce bloc depuis l'audit ; deux pages qui filtrent doivent se filtrer
            de la même façon. -->
+      <div class="lib2-resume lib2-doublons" id="libDoublons" hidden></div>
       <div class="lib2-resume" id="libFilterSummary" hidden></div>
       <div class="lib2-grid" id="libGrid">
         <div class="lib2-empty" style="grid-column:1/-1"><div class="spinner-inline"></div></div>
@@ -107,6 +109,8 @@
         <button class="btn btn-secondary btn-sm" id="btnNotify" title="Recevoir une notification du navigateur quand une série suivie a un nouveau chapitre">Notifications</button>
         <span id="updStatus" style="font-size:12.5px;color:var(--text3)"></span>
       </div>
+      <!-- Ce qui est sorti, tous titres confondus, dans l'ordre des sorties. -->
+      <section id="updChrono" class="upd-chrono" aria-labelledby="updChronoTitre" hidden></section>
       <div id="updList"></div>
     </div>
 
@@ -160,6 +164,7 @@
   <script src="assets/js/bibliotheque.js"></script>
   <script src="assets/js/card-hover.js"></script>
   <script src="assets/js/migration.js"></script>
+  <script src="assets/js/doublons.js"></script>
   <script src="assets/js/eula.js"></script>
   <script src="assets/js/pwa.js"></script>
 </body>

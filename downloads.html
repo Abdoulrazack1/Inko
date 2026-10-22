@@ -23,6 +23,9 @@
   <style>
     .dl-prechauffe { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text2); margin: 6px 0 10px; cursor: pointer; }
     .dl-prechauffe-note { display: block; font-size: 12px; color: var(--text3); }
+    .dl-budget { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: var(--text2); margin: 6px 0 14px; }
+    .dl-budget select { background: var(--bg3); color: var(--text); border: 1px solid var(--border2); border-radius: 8px; padding: 4px 8px; }
+    .dl-budget-note { flex-basis: 100%; font-size: 12px; color: var(--text3); }
     .dl-wrap { max-width: 880px; margin: 0 auto; padding: 26px 20px 80px; }
     .dl-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
     .dl-head h1 { font-family: var(--font-head); font-size: 27px; font-weight: 700; }
@@ -47,12 +50,23 @@
   <div class="dl-wrap">
     <div class="dl-head">
       <h1>Téléchargements</h1>
+      <button class="btn btn-secondary btn-sm" id="dlPurge" hidden title="Supprimer d'abord ce qui est déjà lu, jamais ce qui reste à lire">Libérer de la place</button>
       <button class="btn btn-sm" id="dlClearAll" style="display:none;color:#ef4444">Tout supprimer</button>
     </div>
     <div class="dl-sub" id="dlStorage">Chapitres disponibles hors-ligne (stockés sur cet appareil).</div>
     <label class="dl-prechauffe"><input type="checkbox" id="dlPrechauffe">
       <span>Préparer les prochains chapitres sur secteur et en Wi-Fi
         <span class="dl-prechauffe-note">Les deux chapitres qui suivent ta position, pour tes cinq séries en cours. Jamais sur le réseau mobile.</span></span>
+    </label>
+    <label class="dl-budget">Plafond de stockage
+      <select id="dlBudget" aria-describedby="dlBudgetNote">
+        <option value="0">Aucun</option>
+        <option value="524288000">500 Mo</option>
+        <option value="1073741824">1 Go</option>
+        <option value="2147483648">2 Go</option>
+        <option value="5368709120">5 Go</option>
+      </select>
+      <span class="dl-budget-note" id="dlBudgetNote">Au-delà, les plus anciens chapitres déjà lus partent d’eux-mêmes. Jamais ce qui reste à lire.</span>
     </label>
     <div class="dl-bar" id="dlBar" style="display:none"><div></div></div>
     <div id="dlQueue"></div>

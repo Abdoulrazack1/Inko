@@ -33,6 +33,23 @@
                     : 'Activé — les chapitres seront préparés la prochaine fois que l’appareil sera branché, en Wi-Fi');
             });
         }
+
+        document.getElementById('dlPurge')?.addEventListener('click', purgerLus);
+        const budget = document.getElementById('dlBudget');
+        if (budget) {
+            budget.value = String(window.Downloads.budget() || 0);
+            if (!budget.value) budget.value = '0';
+            budget.addEventListener('change', async () => {
+                window.Storage?.setPref?.('dlBudget', budget.value);
+                try {
+                    const r = await window.Downloads.appliquerBudget();
+                    if (r.evinces) render();
+                    else if (+budget.value) MH.toast?.('Plafond enregistré');
+                } catch (e) {
+                    MH.toast?.('Plafond enregistré — il s’appliquera au prochain téléchargement en ligne');
+                }
+            });
+        }
         // La file se redessine toute seule : elle avance sans que la page
         // soit touchee, et un ecran fige pendant un telechargement est
         // exactement ce qu'on vient verifier ici.
@@ -40,6 +57,43 @@
         rendreFile();
         render();
     });
+
+    // ── Libérer de la place : le déjà lu d'abord ─────────────
+    // Le contexte vient du serveur (chapitres lus, position par série). Sans
+    // lui — hors ligne — on ne sait pas ce qui a été lu : on ne supprime rien
+    // plutôt que de risquer le chapitre qu'on gardait pour le train.
+    async function contextePurge() {
+        const [lus, prog] = await Promise.all([API.me.readChapters(), API.me.progress()]);
+        const set = new Set();
+        Object.values(lus || {}).forEach(l => (l || []).forEach(c => set.add(c.chapterId)));
+        const position = {};
+        Object.entries(prog || {}).forEach(([id, p]) => { const n = parseFloat(p.chapter); if (Number.isFinite(n)) position[id] = n; });
+        return { lus: set, position };
+    }
+    async function purgerLus() {
+        let contexte;
+        try { contexte = await contextePurge(); } catch (e) {
+            MH.toast?.('Impossible de savoir ce qui a été lu sans connexion : rien n’a été supprimé.');
+            return;
+        }
+        const chapitres = await window.Downloads.list();
+        const moyennes = new Map();
+        try { (await window.Downloads.sizeByManga()).forEach(t => moyennes.set(t.mangaId, t.chapters ? t.bytes / t.chapters : 0)); } catch (e) { /* poids inconnus */ }
+        const plan = window.Downloads.planPurge(chapitres, contexte, { poidsDe: (c) => moyennes.get(c.mangaId) || 0 });
+        if (!plan.aSupprimer.length) {
+            MH.toast?.('Aucun chapitre déjà lu à supprimer' + (plan.proteges ? ` — ${plan.proteges} chapitre(s) à lire gardé(s)` : ''));
+            return;
+        }
+        const n = plan.aSupprimer.length;
+        if (!await MH.confirm(`Supprimer ${n} chapitre${n > 1 ? 's' : ''} déjà lu${n > 1 ? 's' : ''} ?`, {
+            okText: 'Supprimer',
+            message: (plan.octets ? `Cela libérera environ ${fmtSize(plan.octets)}. ` : '')
+                + (plan.proteges ? `Les ${plan.proteges} chapitre(s) qui te restent à lire sont gardés.` : 'Ce qui reste à lire est gardé.'),
+        })) return;
+        for (const c of plan.aSupprimer) await window.Downloads.remove(c.chapterId);
+        MH.toast?.(`${n} chapitre(s) supprimé(s)`);
+        render();
+    }
 
     // ── La file d'attente (voir dl-file.js) ─────────────────
     //
@@ -185,6 +239,8 @@
         const groups = await window.Downloads.byManga();
         const total = await window.Downloads.count();
         document.getElementById('dlClearAll').style.display = total ? '' : 'none';
+        const purge = document.getElementById('dlPurge');
+        if (purge) purge.hidden = !total;
 
         // Estimation de l'espace (quota navigateur)
         try {
@@ -308,5 +364,32 @@
         }));
 
         mesurerPoids();
+        verifierIntegrite(groups);
+    }
+
+    // Après l'affichage, et un chapitre à la fois : la vérification lit le
+    // cache planche par planche, elle ne doit ni retarder la page ni la
+    // saturer. Si elle trouve un écart avec ce qui est affiché, on redessine
+    // — l'avertissement et « Relancer » sont alors ceux qui existaient déjà.
+    let verificationEnCours = false;
+    async function verifierIntegrite(groups) {
+        if (verificationEnCours || !window.Downloads?.verifier) return;
+        verificationEnCours = true;
+        let ecart = false;
+        try {
+            for (const g of groups) {
+                for (const c of g.chapters || []) {
+                    if (c.kind === 'novel') continue;
+                    const r = await window.Downloads.verifier(c.chapterId);
+                    const affiche = c.incomplete ? (c.failed || 0) : 0;
+                    if (r && r.manquantes !== affiche) ecart = true;
+                }
+            }
+        } catch (e) { window.MH?.err?.('downloads-page.js', e); }
+        verificationEnCours = false;
+        if (ecart) {
+            window.MH?.toast?.('Des planches ont disparu du stockage : relance les chapitres signalés.');
+            render();
+        }
     }
 })();
