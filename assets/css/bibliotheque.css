@@ -261,3 +261,6 @@
 .doublons-groupe { border-top: 1px solid var(--border); padding: 10px 0; }
 .doublons-titre { font-weight: 600; margin-bottom: 6px; }
 .doublons-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 13px; color: var(--text2); }
+
+/* Note d’un signet : la phrase qu’on a voulu retenir. */
+.bm-note { display: block; margin-top: 4px; font-size: 12.5px; font-style: italic; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1455,3 +1455,92 @@ test('fusion de doublons : la cible déjà suivie garde sa progression, et l’a
     const [[favSource]] = await pool.query('SELECT * FROM favorites WHERE user_id=? AND manga_id=?', [u.id, 'nb-fus']);
     assert.ok(favSource, 'la source est restaurée');
 });
+
+test('listes intelligentes : « pas ouverte depuis N jours » et note minimale en étoiles', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('Regles Liste', 'regleslist@test.local');
+    await pool.query(
+        `INSERT INTO favorites (user_id, manga_id, source, title, status) VALUES
+            (?, 'oubliee', 'weebcentral', 'Oubliée', 'reading'),
+            (?, 'recente', 'weebcentral', 'Récente', 'reading'),
+            (?, 'jamais',  'weebcentral', 'Jamais ouverte', 'reading')`, [u.id, u.id, u.id]);
+    await pool.query(
+        `INSERT INTO progress (user_id, manga_id, chapter_id, page, updated_at) VALUES
+            (?, 'oubliee', 'c1', 3, NOW() - INTERVAL 45 DAY),
+            (?, 'recente', 'c1', 3, NOW() - INTERVAL 2 DAY)`, [u.id, u.id]);
+    // Notes sur 10 (AMEL-47) : 10 = 5 étoiles, 6 = 3 étoiles.
+    await pool.query(`INSERT INTO ratings (user_id, manga_id, rating) VALUES (?, 'oubliee', 10), (?, 'recente', 6)`, [u.id, u.id]);
+
+    const creer = async (name, rules) => {
+        const r = rr({ user: u, body: { name, rules } });
+        await User.createList(r.req, r.res, nextThrow);
+        assert.equal(r.res.statusCode, 200, JSON.stringify(r.res.body));
+    };
+    await creer('Laissées filer', { status: ['reading'], inactifJours: 30 });
+    await creer('Cinq étoiles', { minRating: 5 });
+    await creer('Actives', { status: ['reading'], sourceActive: true });
+
+    const g = rr({ user: u });
+    await User.getLists(g.req, g.res, nextThrow);
+    const par = Object.fromEntries(g.res.body.map(l => [l.name, l]));
+    assert.deepStrictEqual(par['Laissées filer'].items.map(i => i.id).sort(), ['jamais', 'oubliee'],
+        'ouverte il y a 45 jours, ou jamais — pas celle d’avant-hier');
+    assert.deepStrictEqual(par['Cinq étoiles'].items.map(i => i.id), ['oubliee'],
+        '« 5 étoiles » ne ramène plus une série notée 3 étoiles');
+    assert.equal(par['Actives'].rules.sourceActive, true, 'le drapeau est rendu au client, qui l’applique');
+});
+
+test('progression par appareil : chaque appareil garde sa position, sans reculer', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('Deux Ecrans', 'deuxecrans@test.local');
+    const ecrire = async (appareil, ua, corps) => {
+        const r = rr({ user: u, params: { mangaId: 'serie-app' }, body: { source: 'weebcentral', appareil, ...corps } });
+        r.req.headers['user-agent'] = ua;
+        await User.setProgress(r.req, r.res, nextThrow);
+        assert.equal(r.res.statusCode, 200);
+    };
+    const PC = 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0', TEL = 'Mozilla/5.0 (Linux; Android 14) Chrome/120.0 Mobile';
+    await ecrire('pc-0000-aaaa', PC, { chapterId: 'c12', chapter: 12, page: 8, clientAt: '2026-10-20T20:00:00Z' });
+    await ecrire('tel-0000-bbbb', TEL, { chapterId: 'c10', chapter: 10, page: 3, clientAt: '2026-10-20T18:00:00Z' });
+    // Le téléphone rejoue une vieille écriture : sa position ne recule pas.
+    await ecrire('tel-0000-bbbb', TEL, { chapterId: 'c9', chapter: 9, page: 1, clientAt: '2026-10-20T17:00:00Z' });
+
+    const r = rr({ user: u, params: { mangaId: 'serie-app' }, query: { appareil: 'tel-0000-bbbb' } });
+    await User.getProgressAppareils(r.req, r.res, nextThrow);
+    const [pc, tel] = r.res.body;
+    assert.deepStrictEqual([pc.nom, pc.chapterId, pc.page, pc.courant], ['Chrome sur Windows', 'c12', 8, false]);
+    assert.deepStrictEqual([tel.nom, tel.chapterId, tel.page, tel.courant], ['Chrome sur Android', 'c10', 3, true]);
+
+    // Identifiant douteux : ignoré, la progression commune s'enregistre quand même.
+    await ecrire('<script>', PC, { chapterId: 'c13', chapter: 13, page: 1, clientAt: '2026-10-20T21:00:00Z' });
+    const r2 = rr({ user: u, params: { mangaId: 'serie-app' } });
+    await User.getProgressAppareils(r2.req, r2.res, nextThrow);
+    assert.equal(r2.res.body.length, 2);
+});
+
+test('signets : la note et la page sont gardées, la note est bornée et effaçable', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const u = await createUser('Signet Note', 'signetnote@test.local');
+    const base = { mangaId: 'serie-sig', chapterId: 'ch-4', source: 'weebcentral', title: 'Série', chapterNum: 4 };
+    let r = rr({ user: u, body: { ...base, page: 12, label: 'Page 12', note: '  la case à montrer  ' } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    assert.equal(r.res.statusCode, 200);
+
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].page, 12, 'la page marquée, pas 1');
+    assert.equal(r.res.body[0].note, 'la case à montrer');
+
+    // Réécriture du même signet : une note trop longue est bornée, une note vide l'efface.
+    r = rr({ user: u, body: { ...base, page: 12, note: 'x'.repeat(800) } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].note.length, 500);
+
+    r = rr({ user: u, body: { ...base, page: 12, note: '   ' } });
+    await User.addBookmark(r.req, r.res, nextThrow);
+    r = rr({ user: u });
+    await User.getBookmarks(r.req, r.res, nextThrow);
+    assert.equal(r.res.body[0].note, '');
+});
