@@ -97,11 +97,14 @@ test('le contrat des extensions est traduit vers celui d’api.js', () => {
     }
     return Promise.all([
         a.get('x').then((r) => assert.equal(r.id, 'x')),
-        // Un tableau nu doit devenir `{ total, chapters }` : c'est la forme
-        // que `serie.js` lit, et rendre un tableau afficherait zéro chapitre.
+        // Un tableau nu doit devenir `{ total, results }`. Ce test exigeait
+        // `{ total, chapters }` en affirmant que c'était la forme lue par
+        // `serie.js` — qui lit `data.results`, comme chapitre.js et lecture.js
+        // (voir formes-moteur-embarque.test.js). `chapters` donnait zéro
+        // chapitre.
         a.chapters('x').then((r) => {
             assert.equal(r.total, 1);
-            assert.deepEqual(r.chapters, [{ id: 'c1' }]);
+            assert.deepEqual(JSON.parse(JSON.stringify(r.results)), [{ id: 'c1' }]);
         }),
         // `latest` absente retombe sur `popular` plutôt que d'échouer.
         a.latest({}).then((r) => assert.deepEqual(r.results, ['p'])),
