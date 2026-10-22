@@ -291,6 +291,59 @@
         rendreReco(populaires);
     }
 
+    // Recommandation par tags croisés (reco-tags.js) : un profil tiré de TOUT
+    // l'historique, des candidats qui croisent deux genres forts. Rend false
+    // quand l'historique est trop mince — on retombe alors sur « Parce que tu
+    // as lu X », qui n'a besoin que d'une série.
+    async function rendreRecoCroisee(prog, section, track, sub) {
+        const R = window.MH?.recoTags;
+        if (!R) return false;
+        const lectures = Object.entries(prog || {}).map(([id, p]) => ({ mangaId: id, ...p }))
+            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+            .slice(0, 60);
+        if (lectures.length < 3) return false;
+        // Les genres des dix lectures les plus récentes qu'on ne connaît pas
+        // encore : une fiche chacune, en fond, mise en cache par api.js.
+        await Promise.allSettled(lectures.filter(l => l.source && !R.tagsDe(l.source, l.mangaId)).slice(0, 10)
+            .map(l => API.mangas.getFrom(l.source, l.mangaId)));
+        const notes = {};
+        try { (await API.me.myRatings() || []).forEach(n => { notes[n.mangaId] = Number(n.rating); }); } catch (e) { /* sans notes */ }
+        const maintenant = Date.now();
+        const avecTags = lectures.map(l => ({
+            tags: R.tagsDe(l.source, l.mangaId),
+            note: Number.isFinite(notes[l.mangaId]) ? notes[l.mangaId] : null,
+            chapitre: parseFloat(l.chapter) || 0,
+            joursDepuis: l.updatedAt ? (maintenant - new Date(l.updatedAt)) / 86400000 : 0,
+        })).filter(l => l.tags);
+        const profil = R.profilTags(avecTags);
+        if (avecTags.length < 3 || profil.length < 3) return false;
+
+        const source = API.sources.current;
+        const dejaLus = new Set(lectures.map(l => String(l.mangaId)));
+        const reponses = await Promise.allSettled(R.pairesCroisees(profil)
+            .map(paire => API.mangas.searchFor(source, { includedTags: paire, limit: 24, sort: 'popularity' })));
+        const vus = new Map();
+        for (const r of reponses) {
+            if (r.status !== 'fulfilled') continue;
+            for (const m of r.value.results || []) {
+                const id = String(m.id);
+                if (vus.has(id) || favSet.has(id) || dejaLus.has(id) || !visible(m)) continue;
+                const a = R.affinite(m.tags, profil);
+                if (a.score > 0) vus.set(id, { m, ...a });
+            }
+        }
+        const picks = [...vus.values()].sort((x, y) => y.score - x.score).slice(0, 16);
+        if (picks.length < 4) return false;
+        section.hidden = false;
+        if (sub) sub.textContent = `${profil[0].tag} + ${profil[1].tag}, d’après tes ${avecTags.length} dernières lectures`;
+        track.innerHTML = picks.map(({ m, communs }) => carte({
+            id: m.id, source, title: m.title, cover: m.cover || m.coverThumb, manga: m,
+            sous: communs.slice(0, 2).join(' · '),
+        })).join('');
+        MH.markFavorites?.(track);
+        return true;
+    }
+
     // Recommandation nommée : « Parce que tu as lu X ». Même source que X,
     // pour que la recherche par genre porte sur le bon catalogue.
     async function rendreReco(populaires) {
@@ -300,6 +353,7 @@
         if (!section || !track || !API.isLoggedIn()) return;
         try {
             const prog = await API.me.progress();
+            if (await rendreRecoCroisee(prog, section, track, sub)) return;
             const derniere = Object.entries(prog).map(([id, p]) => ({ mangaId: id, ...p }))
                 .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
             let origine = null, source = API.sources.current;

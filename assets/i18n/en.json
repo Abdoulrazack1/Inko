@@ -1347,6 +1347,8 @@
   },
   "patterns": [
     [
+      "^(.+) \\+ (.+), d’après tes (\\d+) dernières lectures$",
+      "$1 + $2, based on your last $3 reads",
       "^Chaque semaine \\(tous les (\\d+) j\\)$",
       "Every week (every $1 days)"
     ],

@@ -555,6 +555,22 @@
         }
         return m;
     }
+    // Les genres d'une fiche chargée, gardés pour le profil de recommandation
+    // (reco-tags.js). Une fiche seulement — pas les listes de résultats : on
+    // veut les genres de ce qu'on a OUVERT, et pas cent écritures par page.
+    function noterTagsSerie(m, source) {
+        if (!m?.id || !Array.isArray(m.tags) || !m.tags.length) return m;
+        try {
+            const c = JSON.parse(localStorage.getItem('inko_tags_series') || '{}') || {};
+            const k = `${source || ''}|${m.id}`;
+            delete c[k];
+            c[k] = m.tags.slice(0, 12).map(String);
+            const cles = Object.keys(c);
+            cles.slice(0, Math.max(0, cles.length - 400)).forEach(x => delete c[x]);
+            localStorage.setItem('inko_tags_series', JSON.stringify(c));
+        } catch (e) { /* stockage plein ou bloqué : le profil sera plus maigre */ }
+        return m;
+    }
     function mapMangaPage(d) {
         if (d && Array.isArray(d.results)) d.results.forEach(mapManga);
         if (d && Array.isArray(d.groups))  d.groups.forEach(g => (g.items || []).forEach(mapManga));
@@ -775,7 +791,7 @@
             // qui est faux dès qu'on résout une œuvre lue ailleurs (stats,
             // historique). Omis, le comportement d'origine est conservé.
             get:      (id, source)  => get((source ? '/sources/' + encodeURIComponent(source) : API.mangas._prefix())
-                + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
+                + `/mangas/${encodeURIComponent(id)}`).then(mapManga).then(m => noterTagsSerie(m, source || API.sources.current)),
             // BUG-01 : sans `source`, l'URL partait SANS préfixe et le serveur
             // appliquait la source courante. Mesuré pendant l'audit : 14
             // requêtes avec un identifiant étranger à la source appelée, dont
@@ -788,7 +804,7 @@
             // honnête ; afficher l'œuvre d'un autre catalogue ne l'est pas.
             // Les six appelants passent tous par `allSettled` ou un `catch`.
             getFrom:  (source, id)  => (source
-                ? get(`/sources/${encodeURIComponent(source)}/mangas/${encodeURIComponent(id)}`).then(mapManga)
+                ? get(`/sources/${encodeURIComponent(source)}/mangas/${encodeURIComponent(id)}`).then(mapManga).then(m => noterTagsSerie(m, source))
                 : Promise.reject(new Error(`source inconnue pour « ${id} » — requête non envoyée (BUG-01)`))),
             chapters: (id, params={}) => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
             // Même défaut que `getFrom`, mêmes conséquences : demander les
