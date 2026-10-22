@@ -31,6 +31,7 @@ const DESCRIPTIONS = {
     'bibliotheque.html':      'Ta bibliothèque : séries suivies, mises à jour, signets et téléchargements.',
     'collections.html':       'Tes listes de lecture : organise tes séries comme tu veux.',
     'collection-detail.html': 'Une liste de lecture et les œuvres qu\'elle contient.',
+    'comparer.html':          'Le même chapitre chez deux sources, côte à côte, pour comparer les traductions.',
     'profil.html':            'Ton profil : statistiques de lecture, historique, listes, avis et badges.',
     'u.html':                 'Profil public de lecture : séries lues, statistiques et badges.',
     'stats.html':             'Tes statistiques de lecture : rythme, objectifs, séries et accomplissements.',
