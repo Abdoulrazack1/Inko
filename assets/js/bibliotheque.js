@@ -576,6 +576,7 @@
                 Object.entries(panels).forEach(([k, id]) => {
                     const el = document.getElementById(id); if (el) el.style.display = (k === t) ? '' : 'none';
                 });
+                if (t === 'updates') renderChronologie();
                 if (t === 'downloads') renderDownloads();
                 if (t === 'bookmarks') renderBookmarks();
             });
@@ -755,6 +756,54 @@
     // « Filtres actifs » avec des puces qu'on retire une à une. On reprend le
     // même geste ici : deux pages qui filtrent doivent se filtrer de la même
     // façon, sinon on réapprend à chaque écran.
+    // ── Vue chronologique : ce qui est sorti, tous titres confondus ──
+    // L'onglet « Mises à jour » rangeait par retard de lecture, et restait vide
+    // tant qu'on n'avait pas lancé de vérification. Or la date de la dernière
+    // sortie est déjà gardée sur chaque favori (migration 22) : on peut dire
+    // tout de suite ce qui est sorti aujourd'hui, hier, cette semaine.
+    const TRANCHES = [
+        { libelle: 'Aujourd’hui', jusqua: 0 },
+        { libelle: 'Hier', jusqua: 1 },
+        { libelle: 'Cette semaine', jusqua: 7 },
+        { libelle: 'Ce mois-ci', jusqua: 30 },
+    ];
+    /** Favoris sortis depuis 30 jours, par tranche, du plus récent au plus ancien. */
+    function grouperParSortie(liste, maintenant = new Date()) {
+        const minuit = new Date(maintenant); minuit.setHours(0, 0, 0, 0);
+        const joursDepuis = (d) => Math.max(0, Math.ceil((minuit - new Date(d)) / 86400000));
+        const datees = liste
+            .filter(f => f.latestAt && !Number.isNaN(new Date(f.latestAt).getTime()))
+            .filter(f => new Date(f.latestAt) <= maintenant)
+            .sort((a, b) => new Date(b.latestAt) - new Date(a.latestAt));
+        const groupes = TRANCHES.map(t => ({ libelle: t.libelle, items: [] }));
+        for (const f of datees) {
+            const j = joursDepuis(f.latestAt);
+            const i = TRANCHES.findIndex(t => j <= t.jusqua);
+            if (i >= 0) groupes[i].items.push(f);
+        }
+        return groupes.filter(g => g.items.length);
+    }
+    function renderChronologie() {
+        const el = document.getElementById('updChrono');
+        if (!el) return;
+        const groupes = grouperParSortie(favsOfKind());
+        if (!groupes.length) { el.hidden = true; el.innerHTML = ''; return; }
+        el.hidden = false;
+        el.innerHTML = `<h2 class="upd-chrono-titre" id="updChronoTitre">Sorti récemment</h2>`
+            + groupes.map(g => `<div class="upd-chrono-groupe">
+                <h3 class="upd-chrono-tranche">${MH.esc(g.libelle)} <span class="cnt">${g.items.length}</span></h3>
+                ${g.items.map(f => {
+                    const u = unreadCount(f);
+                    const unit = MH.unitLabel(f.source, { short: true });
+                    return `<a class="upd-chrono-ligne" href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}">
+                        <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="" loading="lazy">
+                        <span class="upd-chrono-nom">${MH.esc(f.title || f.mangaId)}</span>
+                        <span class="upd-chrono-meta">${f.lastChapter != null ? `${MH.esc(unit)} ${MH.esc(String(f.lastChapter))}` : ''}${u > 0 ? ` · <strong>${u} non lu${u > 1 ? 's' : ''}</strong>` : ''} · ${MH.esc(MH.relTime(f.latestAt))}</span>
+                    </a>`;
+                }).join('')}
+            </div>`).join('');
+    }
+
     const RYTHMES = { hebdo: [0, 'Chaque semaine'], mensuel: [1, 'Chaque mois'], irregulier: [2, 'Irrégulier'], arret: [3, 'À l’arrêt'] };
     function ordreRythme(f) { return RYTHMES[f.rythme]?.[0] ?? 4; }
     /** « Chaque semaine (tous les 7 j) » — pour l'infobulle et la vue liste. */
@@ -1606,6 +1655,12 @@
                     + ` · ${ups.filter(u => u.unreadCount > 0).length} avec du non-lu`
                     + (fails.length ? ` · ${fails.length} échec(s)` : '');
                 render(); // rafraîchit aussi les badges de l'onglet Bibliothèque
+                // Les sorties découvertes par la vérification entrent dans la chronologie.
+                ups.forEach(u => {
+                    const f = favs.find(x => x.mangaId === u.mangaId);
+                    if (f && u.latest?.publishedAt) { f.latestAt = u.latest.publishedAt; f.lastChapter = u.latest.chapter; }
+                });
+                renderChronologie();
 
                 if (!ups.length && !fails.length) {
                     MH.poserEtatVide(listEl, {
