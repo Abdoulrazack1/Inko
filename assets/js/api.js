@@ -782,6 +782,11 @@
                 ? get(`/sources/${encodeURIComponent(source)}/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params))
                 : Promise.reject(new Error(`source inconnue pour « ${id} » — requête non envoyée (BUG-01)`))),
             pages:    (chapterId)   => get(API.mangas._prefix() + `/chapters/${encodeURIComponent(chapterId)}/pages`),
+            // Les pages d'un chapitre chez une source PRÉCISE (comparaison de
+            // traductions : deux sources ouvertes en même temps).
+            pagesFor: (source, chapterId) => (source
+                ? get(`/sources/${encodeURIComponent(source)}/chapters/${encodeURIComponent(chapterId)}/pages`)
+                : Promise.reject(new Error(`source inconnue pour « ${chapterId} » — requête non envoyée (BUG-01)`))),
             text:     (chapterId)   => get(API.mangas._prefix() + `/chapters/${encodeURIComponent(chapterId)}/text`),
         },
 

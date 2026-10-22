@@ -224,7 +224,10 @@
                 offset += 500;
                 if (out.length >= (d.total || 0) || !lot.length) break;
             }
-            return { total: out.length, chapters: out };
+            // `results`, comme le hub et les neuf extensions de référence :
+            // c'est la seule clé que lisent serie.js, chapitre.js et lecture.js.
+            // `{ chapters }` ouvrait une série MangaDex sans aucun chapitre.
+            return { total: out.length, results: out };
         },
 
         async pages(chapterId) {
@@ -245,7 +248,9 @@
 
         async tags() {
             const d = await appel('/manga/tag', {}, 24 * 3600000);
-            return { tags: (d.data || []).map((t) => ({ id: t.id, name: titre(t.attributes?.name) })) };
+            // Un tableau, comme le hub : catalogue.js traite la réponse en
+            // tableau, et `{ tags }` empêchait ses filtres de se dessiner.
+            return (d.data || []).map((t) => ({ id: t.id, name: titre(t.attributes?.name) }));
         },
     };
 
@@ -277,9 +282,10 @@
             search: (p) => ext.search({ ...p, q: p.q || p.title || '' }),
             get: (id) => ext.getManga(id),
             chapters: (id, p) => ext.getChapters(id, p).then(
-                (r) => (Array.isArray(r) ? { total: r.length, chapters: r } : r)),
+                (r) => (Array.isArray(r) ? { total: r.length, results: r } : r)),
             pages: (id) => ext.getPages(id),
-            tags: () => (ext.getTags ? ext.getTags() : Promise.resolve({ tags: [] })),
+            // Le hub rend [] pour une source sans getTags : même chose ici.
+            tags: () => (ext.getTags ? ext.getTags() : Promise.resolve([])),
         };
     }
 

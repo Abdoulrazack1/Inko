@@ -296,5 +296,32 @@
         }));
 
         mesurerPoids();
+        verifierIntegrite(groups);
+    }
+
+    // Après l'affichage, et un chapitre à la fois : la vérification lit le
+    // cache planche par planche, elle ne doit ni retarder la page ni la
+    // saturer. Si elle trouve un écart avec ce qui est affiché, on redessine
+    // — l'avertissement et « Relancer » sont alors ceux qui existaient déjà.
+    let verificationEnCours = false;
+    async function verifierIntegrite(groups) {
+        if (verificationEnCours || !window.Downloads?.verifier) return;
+        verificationEnCours = true;
+        let ecart = false;
+        try {
+            for (const g of groups) {
+                for (const c of g.chapters || []) {
+                    if (c.kind === 'novel') continue;
+                    const r = await window.Downloads.verifier(c.chapterId);
+                    const affiche = c.incomplete ? (c.failed || 0) : 0;
+                    if (r && r.manquantes !== affiche) ecart = true;
+                }
+            }
+        } catch (e) { window.MH?.err?.('downloads-page.js', e); }
+        verificationEnCours = false;
+        if (ecart) {
+            window.MH?.toast?.('Des planches ont disparu du stockage : relance les chapitres signalés.');
+            render();
+        }
     }
 })();
