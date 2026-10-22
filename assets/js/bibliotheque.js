@@ -1571,7 +1571,7 @@
                                  onerror="this.src='${MH.placeholderCover(u.mangaId)}'">
                         </a>
                         <div class="upd-info">
-                            <div class="upd-name">${MH.esc(u.title)} ${u.hasNew ? '<span class="upd-new">NOUVEAU</span>' : ''}</div>
+                            <div class="upd-name">${MH.esc(u.title)} ${u.hasNew ? '<span class="upd-new">NOUVEAU</span>' : ''}${u.retour ? ` <span class="upd-retour">De retour après ${Math.max(2, Math.round(u.retour.jours / 30))} mois</span>` : ''}</div>
                             <div class="upd-meta">
                                 ${u.latest ? `Dernier : Ch. ${u.latest.chapter}` : ''}
                                 ${u.unreadCount > 0 ? ` · <strong style="color:var(--orange)">${u.unreadCount} non lu(s)</strong>` : ' · à jour'}

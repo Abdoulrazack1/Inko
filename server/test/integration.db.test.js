@@ -1417,6 +1417,56 @@ test('appairage : on ne révoque pas l’appareil d’un autre compte', async (t
     assert.equal(res.statusCode, 404, 'B ne doit pas pouvoir déconnecter l’appareil de A');
 });
 
+test('reprise des séries mises de côté : un retour après une longue pause est signalé comme tel', async (t) => {
+    if (!available) return t.skip('MySQL indisponible');
+    const loader = require('../extensions/loader');
+    const updates = require('../lib/updates');
+    const u = await createUser('notif_retour', 'notif_retour@test.local');
+    const jours = (n) => new Date(Date.now() - n * 86400000);
+    // En pause depuis le hiatus (dernière parution il y a 200 j), abandonnée
+    // pareil, abandonnée qui paraît normalement, et une série en cours ordinaire.
+    await pool.query(
+        `INSERT INTO favorites (user_id, manga_id, source, title, status, last_chapter, latest_at) VALUES
+            (?, 'pause',  'fauxr', 'En Pause',  'paused',  100, ?),
+            (?, 'aband',  'fauxr', 'Abandonnée', 'dropped', 50, ?),
+            (?, 'aband2', 'fauxr', 'Abandonnée Active', 'dropped', 70, ?),
+            (?, 'cours',  'fauxr', 'En Cours',  'reading', 20, ?)`,
+        [u.id, jours(200), u.id, jours(200), u.id, jours(10), u.id, jours(10)]);
+    await pool.query('UPDATE users SET notif_every_hours = 4, last_notif_scan = NULL WHERE id = ?', [u.id]);
+
+    const chapitres = { pause: 101, aband: 51, aband2: 71, cours: 21 };
+    const vrai = loader.get;
+    loader.get = (id) => (id === 'fauxr' ? {
+        getChapters: async (mangaId) => ({ results: [
+            { id: `${mangaId}-n`, chapter: chapitres[mangaId], publishedAt: new Date().toISOString() },
+        ] }),
+    } : vrai(id));
+    try {
+        const manuel = await updates.scanUserUpdates(u.id, { scope: 'active' });
+        assert.deepEqual(manuel.updates.map(x => x.mangaId).sort(), ['cours', 'pause'],
+            'le bouton « Mettre à jour » ignore toujours les abandonnées');
+        assert.ok(manuel.updates.find(x => x.mangaId === 'pause').retour.jours >= 199);
+        assert.equal(manuel.updates.find(x => x.mangaId === 'cours').retour, null);
+
+        // Le scan manuel a enregistré ces parutions (comme en vrai : un
+        // chapitre vu n'est plus « nouveau »). On repart de l'état initial
+        // pour la tâche de fond.
+        await pool.query(
+            `UPDATE favorites SET checked_at = NULL,
+                last_chapter = CASE manga_id WHEN 'pause' THEN 100 WHEN 'aband' THEN 50 WHEN 'aband2' THEN 70 ELSE 20 END,
+                latest_at = CASE WHEN manga_id IN ('pause', 'aband') THEN ? ELSE ? END
+             WHERE user_id = ?`, [jours(200), jours(10), u.id]);
+        await updates.backgroundScan();
+        const [notifs] = await pool.query('SELECT title, body FROM notifications WHERE user_id = ? ORDER BY id', [u.id]);
+        assert.equal(notifs.length, 3, JSON.stringify(notifs));
+        assert.equal(notifs.find(n => n.body.startsWith('En Pause')).title, 'De retour après 7 mois');
+        assert.match(notifs.find(n => n.body.startsWith('En Pause')).body, /reprend : chap\. 101 — tu l’avais mise de côté/);
+        assert.ok(notifs.find(n => n.body.startsWith('Abandonnée reprend')), 'l’abandonnée qui REVIENT est signalée');
+        assert.ok(!notifs.find(n => n.body.includes('Abandonnée Active')), 'l’abandonnée qui paraît normalement reste muette');
+        assert.equal(notifs.find(n => n.body.startsWith('En Cours')).title, 'Nouveau chapitre');
+    } finally { loader.get = vrai; }
+});
+
 test('fusion de doublons : la cible déjà suivie garde sa progression, et l’annulation la rend intacte', async (t) => {
     if (!available) return t.skip('MySQL indisponible');
     const u = await createUser('MigrFusion', 'migrfusion@test.local');

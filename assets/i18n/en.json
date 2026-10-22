@@ -1331,6 +1331,8 @@
   },
   "patterns": [
     [
+      "^De retour après (\\d+) mois$",
+      "Back after $1 months",
       "^(\\d+) séries? suivies? sur deux sources à la fois\\.$",
       "$1 series followed on two sources at once.",
       "^(.+) ne propose pas le chapitre (.+)\\.$",
