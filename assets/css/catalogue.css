@@ -4,7 +4,7 @@
   display: grid;
   grid-template-columns: 220px 1fr;
   gap: 28px;
-  padding-top: 24px;
+  padding-top: var(--sp-5);
   align-items: start;
 }
 
@@ -12,13 +12,13 @@
 .filters-sidebar {
   position: sticky; top: 70px;
   background: var(--bg2); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 16px;
+  border-radius: var(--radius); padding: var(--sp-4);
   max-height: calc(100vh - 90px); overflow-y: auto;
   scrollbar-width: thin;
 }
 .filters-header {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: var(--sp-4);
 }
 .filters-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; }
 .filters-reset {
@@ -36,17 +36,17 @@
 /* Recherche de genre : des dizaines de tags, sans quoi trouver
    « Psychological » demande de parcourir toute la liste. */
 .filter-search {
-  width: 100%; margin-bottom: 8px; padding: 7px 10px;
+  width: 100%; margin-bottom: var(--sp-2); padding: var(--sp-2) 10px;
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
   border-radius: 8px; font-size: 12.5px; font-family: inherit;
 }
 .filter-search::placeholder { color: var(--text3); }
 .filter-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.filter-empty { font-size: 12px; color: var(--text3); padding: 4px 2px; }
+.filter-empty { font-size: 12px; color: var(--text3); padding: var(--sp-1) var(--sp-0); }
 
 /* Annee : liste deroulante, alignee sur les autres champs de la barre. */
 .filter-select {
-  width: 100%; padding: 7px 10px;
+  width: 100%; padding: var(--sp-2) 10px;
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
   border-radius: 8px; font-size: 12.5px; font-family: inherit; cursor: pointer;
 }
@@ -55,8 +55,8 @@
    dans le bouton, pas a cote — c'est toute la pastille qui est cliquable. */
 .filter-active-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-active-chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 9px; border-radius: 999px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2); border-radius: 999px; cursor: pointer;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   border: 1px solid var(--accent); color: var(--accent-text);
   font-size: 11.5px; font-family: inherit;
@@ -66,11 +66,11 @@
 .filter-active-chip span { font-size: 13px; line-height: 1; }
 .filter-label {
   font-size: 11px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .06em; color: var(--text2); margin-bottom: 8px;
+  letter-spacing: .06em; color: var(--text2); margin-bottom: var(--sp-2);
 }
-.filter-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.filter-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 .filter-tag {
-  padding: 3px 9px; background: var(--bg3); border: 1px solid var(--border);
+  padding: var(--sp-1) var(--sp-2); background: var(--bg3); border: 1px solid var(--border);
   border-radius: 30px; font-size: 11px; color: var(--text2);
   transition: all var(--transition); cursor: pointer;
 }
@@ -92,7 +92,7 @@
 
 .filter-status { display: flex; gap: 6px; flex-wrap: wrap; }
 .filter-status-btn {
-  padding: 4px 12px; border-radius: 20px;
+  padding: var(--sp-1) var(--sp-3); border-radius: 20px;
   border: 1px solid var(--border); background: var(--bg3);
   font-size: 11.5px; color: var(--text2); transition: all var(--transition);
   cursor: pointer;
@@ -100,25 +100,25 @@
 .filter-status-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
 .filter-status-btn[data-status="termine"].active { background: var(--bg4); color: var(--text); }
 
-.filter-rating { padding: 0 2px; }
+.filter-rating { padding: 0 var(--sp-0); }
 .filter-rating input[type="range"] {
   width: 100%; accent-color: var(--orange); cursor: pointer;
 }
 .rating-vals {
   display: flex; justify-content: space-between;
-  font-size: 11px; color: var(--text2); margin-top: 4px;
+  font-size: 11px; color: var(--text2); margin-top: var(--sp-1);
 }
 
 .filter-checkboxes { display: flex; flex-direction: column; gap: 6px; }
 .filter-checkbox {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: var(--sp-2);
   font-size: 12.5px; cursor: pointer;
 }
 .filter-checkbox input { accent-color: var(--orange); width: 14px; height: 14px; }
 
 .filter-langs { display: flex; gap: 6px; }
 .lang-btn {
-  padding: 4px 12px; border-radius: 20px;
+  padding: var(--sp-1) var(--sp-3); border-radius: 20px;
   border: 1px solid var(--border); background: var(--bg3);
   font-size: 11.5px; font-weight: 600; color: var(--text2);
   transition: all var(--transition); cursor: pointer;
@@ -126,11 +126,11 @@
 .lang-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
 
 /* ── Dernières sorties (sidebar) ─────────────────────────────── */
-.latest-mini { display: flex; flex-direction: column; gap: 2px; }
+.latest-mini { display: flex; flex-direction: column; gap: var(--sp-0); }
 .latest-mini-loading { display: flex; justify-content: center; padding: 14px 0; }
 .latest-mini-empty { font-size: 11.5px; color: var(--text3); padding: 6px 0; }
 .latest-mini-row {
-  display: flex; align-items: center; gap: 9px;
+  display: flex; align-items: center; gap: var(--sp-2);
   padding: 6px 6px; margin: 0 -6px; border-radius: 8px;
   text-decoration: none; transition: background var(--transition);
 }
@@ -147,7 +147,7 @@
 }
 .latest-mini-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .latest-mini-cover.noimg img { display: none; }
-.latest-mini-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.latest-mini-info { display: flex; flex-direction: column; gap: var(--sp-0); min-width: 0; }
 .latest-mini-title {
   font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.25;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
@@ -158,23 +158,23 @@
 /* ── Catalogue header ───────────────────────────────────────── */
 .catalogue-header {
   display: grid; grid-template-columns: 1fr auto;
-  gap: 20px; margin-bottom: 24px;
+  gap: 20px; margin-bottom: var(--sp-5);
 }
 .catalogue-title {
   font-family: var(--font-head); font-size: 28px; font-weight: 800;
   margin-bottom: 6px;
 }
-.catalogue-desc { font-size: 13px; color: var(--text2); max-width: 520px; line-height: 1.5; margin-bottom: 12px; }
+.catalogue-desc { font-size: 13px; color: var(--text2); max-width: 520px; line-height: 1.5; margin-bottom: var(--sp-3); }
 .catalogue-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .catalogue-chip {
   display: flex; align-items: center; gap: 6px;
-  padding: 4px 10px; background: var(--bg3); border: 1px solid var(--border);
+  padding: var(--sp-1) 10px; background: var(--bg3); border: 1px solid var(--border);
   border-radius: 20px; font-size: 11.5px; color: var(--text2);
 }
 .catalogue-chip svg, .catalogue-chip-icon { color: var(--orange); font-size: 12px; }
 .catalogue-quick-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .quick-filter-btn {
-  padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border);
+  padding: var(--sp-1) var(--sp-3); border-radius: 20px; border: 1px solid var(--border);
   background: var(--bg3); font-size: 12px; color: var(--text2);
   transition: all var(--transition); cursor: pointer;
 }
@@ -191,14 +191,14 @@
   font-size: 10px; font-weight: 700; text-transform: uppercase;
   color: var(--text2); letter-spacing: .06em; margin-bottom: 6px;
 }
-.focus-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+.focus-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; margin-bottom: var(--sp-2); }
 .focus-cover {
   width: 100%; aspect-ratio: 16/9; border-radius: 6px;
   overflow: hidden; margin-bottom: 10px;
 }
 .focus-cover img { width: 100%; height: 100%; object-fit: cover; }
 .focus-stats {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2);
 }
 .focus-stat { }
 .focus-stat-label { font-size: 10px; color: var(--text3); }
@@ -210,7 +210,7 @@
 /* ── Team picks ─────────────────────────────────────────────── */
 .team-picks-section { margin-bottom: 28px; }
 .team-picks-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3);
 }
 .team-pick-card {
   background: var(--bg3); border: 1px solid var(--border);
@@ -226,13 +226,13 @@
 }
 .team-pick-content { position: relative; padding: 14px; }
 .team-pick-badge { margin-bottom: 6px; }
-.team-pick-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.team-pick-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; margin-bottom: var(--sp-0); }
 .team-pick-subtitle { font-size: 11.5px; color: var(--text2); }
 
 /* ── Results ────────────────────────────────────────────────── */
 .results-header {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 16px; padding: 0;
+  margin-bottom: var(--sp-4); padding: 0;
 }
 .results-count { font-size: 13px; color: var(--text2); }
 .results-count strong { color: var(--text); font-weight: 600; }
@@ -261,10 +261,10 @@
 .results-grid.list-view { grid-template-columns: 1fr; }
 .results-grid.list-view .manga-card { display: flex; flex-direction: row; }
 .results-grid.list-view .manga-card-cover { width: 80px; flex-shrink: 0; aspect-ratio: auto; height: 110px; }
-.results-grid.list-view .manga-card-info { flex: 1; padding: 12px; }
+.results-grid.list-view .manga-card-info { flex: 1; padding: var(--sp-3); }
 
 /* Catalogue card extra info */
-.manga-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.manga-card-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
 .manga-card-tag {
   font-size: 10px; padding: 1px 6px;
   background: var(--bg4); border-radius: 3px; color: var(--text2);
@@ -282,11 +282,11 @@
 .page-sep { color: var(--text3); }
 
 /* Collections mini */
-.collections-mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.collections-mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
 .collection-mini-card {
   background: var(--bg3); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 14px;
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: var(--sp-3);
   transition: all var(--transition); cursor: pointer;
 }
 .collection-mini-card:hover { border-color: var(--border2); }
@@ -294,15 +294,15 @@
   width: 56px; height: 56px; border-radius: 6px;
   overflow: hidden; flex-shrink: 0;
   background: var(--bg4);
-  display: grid; grid-template-columns: 1fr 1fr; gap: 2px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-0);
 }
 .collection-mini-cover img { width: 100%; height: 100%; object-fit: cover; }
 .collection-mini-info {}
-.collection-mini-title { font-size: 12.5px; font-weight: 600; margin-bottom: 2px; line-height: 1.3; }
+.collection-mini-title { font-size: 12.5px; font-weight: 600; margin-bottom: var(--sp-0); line-height: 1.3; }
 .collection-mini-meta { font-size: 11px; color: var(--text2); }
 
 /* Reviews grid */
-.reviews-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.reviews-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
 .review-card {
   background: var(--bg3); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 14px;
@@ -310,7 +310,7 @@
 .review-card-manga { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; letter-spacing: .04em; }
 .review-card-stars { margin-bottom: 6px; }
 .review-card-text { font-size: 12.5px; color: var(--text2); line-height: 1.5; font-style: italic; }
-.review-card-user { font-size: 11.5px; color: var(--text3); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+.review-card-user { font-size: 11.5px; color: var(--text3); margin-top: var(--sp-2); display: flex; align-items: center; gap: 6px; }
 .review-avatar {
   width: 22px; height: 22px; border-radius: 50%;
   background: var(--bg4); display: flex; align-items: center;
@@ -342,27 +342,27 @@
 /* ── Mobile landscape (≤ 768px) ─────────────────────────── */
 @media (max-width: 768px) {
   .results-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .team-picks-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .team-picks-grid { grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
   .collections-mini-grid { grid-template-columns: 1fr; }
   .reviews-grid { grid-template-columns: 1fr; }
   .results-header { flex-wrap: wrap; gap: 10px; }
-  .catalogue-quick-filters { gap: 4px; }
+  .catalogue-quick-filters { gap: var(--sp-1); }
   .catalogue-actions-bar { flex-wrap: wrap; }
   .catalogue-title { font-size: 22px; }
-  .filter-section { margin-bottom: 12px; }
+  .filter-section { margin-bottom: var(--sp-3); }
 }
 
 /* ── Mobile portrait (≤ 480px) ──────────────────────────── */
 @media (max-width: 480px) {
-  .results-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .results-grid { grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
   .results-grid.list-view { grid-template-columns: 1fr; }
   .team-picks-grid { grid-template-columns: 1fr; }
-  .pagination { gap: 4px; }
+  .pagination { gap: var(--sp-1); }
   .page-btn { width: 30px; height: 30px; font-size: 12px; }
   .catalogue-title { font-size: 20px; }
   .catalogue-desc { font-size: 12px; }
-  .filter-tags { gap: 4px; }
-  .filter-tag { font-size: 10.5px; padding: 2px 7px; }
+  .filter-tags { gap: var(--sp-1); }
+  .filter-tag { font-size: 10.5px; padding: var(--sp-0) var(--sp-2); }
 }
 
 /* ══ Échelle de colonnes TACTILE (audit IX.5) ═══════════
@@ -378,17 +378,17 @@
 
    Chrome 41 connaît `hover` — le WebView d'Android 8 (Chrome 61) aussi. */
 @media (hover: none) and (max-width: 420px) {
-  .results-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .results-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
   .results-grid.list-view { grid-template-columns: minmax(0, 1fr); }
 }
 @media (hover: none) and (min-width: 421px) and (max-width: 767px) {
-  .results-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .results-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); }
   .results-grid.list-view { grid-template-columns: minmax(0, 1fr); }
 }
 /* Tablette. Plus de colonnes qu'un bureau de même largeur, et c'est voulu :
    une tablette se tient à 40 cm, un écran de bureau à 70. */
 @media (hover: none) and (min-width: 768px) and (max-width: 1024px) {
-  .results-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .results-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--sp-3); }
   .results-grid.list-view { grid-template-columns: minmax(0, 1fr); }
 }
 /* Téléphone en paysage : large mais BAS. Garder quatre colonnes y gaspillerait
@@ -399,7 +399,7 @@
 }
 
 /* Recherche dans le catalogue affiché */
-.cat-search { position: relative; max-width: 560px; margin: 4px 0 14px; }
+.cat-search { position: relative; max-width: 560px; margin: var(--sp-1) 0 14px; }
 .cat-search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text3); pointer-events: none; }
 .cat-search input { width: 100%; height: 42px; padding: 0 14px 0 38px; border-radius: 11px; border: 1px solid var(--border2);
   background: var(--bg2); color: var(--text); font-size: 14px; }
