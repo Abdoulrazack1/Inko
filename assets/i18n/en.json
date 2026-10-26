@@ -1391,6 +1391,12 @@
   },
   "patterns": [
     [
+      "^(\\d+) % d’échecs$",
+      "$1% failures"
+    ],
+    [
+      "^sur (\\d+) requêtes$",
+      "over $1 requests",
       "^Garder « (.+) »$",
       "Keep “$1”",
       "^(\\d+) chapitre\\(s\\) mis en file$",
