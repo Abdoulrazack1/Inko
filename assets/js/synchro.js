@@ -40,6 +40,42 @@
     const ecrireJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { window.MH?.err?.('synchro.js', e); } };
 
     const etat = () => lireJson(CLE_ETAT, { premiere: false, derniere: null, erreur: null });
+
+    // ── Le journal ─────────────────────────────────────────
+    // Ce qui est parti, ce qui est arrivé, ce qui a échoué. Sans lui, une
+    // opération que le PC refusait (4xx) était RETIRÉE de la boîte sans
+    // laisser d'autre trace qu'une ligne de console : une modification faite
+    // sur le téléphone pouvait disparaître sans que personne ne le sache.
+    const CLE_JOURNAL = 'inko_sync_journal';
+    const MAX_JOURNAL = 200;
+    function noter(type, libelle, detail) {
+        const j = lireJson(CLE_JOURNAL, []);
+        const dernier = j[0];
+        // Un PC éteint toute la nuit ne doit pas remplir le journal de la même ligne.
+        if (dernier && dernier.type === type && dernier.libelle === libelle && type === 'injoignable') {
+            dernier.t = Date.now(); dernier.n = (dernier.n || 1) + 1;
+        } else {
+            j.unshift({ t: Date.now(), type, libelle, ...(detail ? { detail: String(detail).slice(0, 200) } : {}) });
+        }
+        ecrireJson(CLE_JOURNAL, j.slice(0, MAX_JOURNAL));
+    }
+    const LIBELLES = [
+        [/^POST \/me\/favorites$/, 'Favori ajouté'],
+        [/^DELETE \/me\/favorites\//, 'Favori retiré'],
+        [/^PUT \/me\/progress\//, 'Progression'],
+        [/^\w+ \/me\/read-chapters\/bulk/, 'Chapitres marqués lus'],
+        [/^\w+ \/me\/read-chapters/, 'Chapitre lu'],
+        [/^\w+ \/me\/notes/, 'Note'],
+        [/^\w+ \/me\/library\//, 'Statut de lecture'],
+        [/^\w+ \/me\/lists/, 'Liste'],
+    ];
+    function libelleDe(op) {
+        const cle = op.m + ' ' + op.c;
+        const titre = op.b?.title ? ` — ${op.b.title}` : '';
+        const n = Array.isArray(op.b?.chapters) ? ` (${op.b.chapters.length})` : '';
+        for (const [re, l] of LIBELLES) if (re.test(cle)) return l + n + titre;
+        return cle;
+    }
     const poserEtat = (patch) => ecrireJson(CLE_ETAT, { ...etat(), ...patch });
 
     // Ce qui voyage. Les réglages de l'appareil (thème, lecteur), les
@@ -183,10 +219,13 @@
                 const idServeur = r?.note?.id ?? r?.id ?? null;
                 if (op.idLocal && idServeur != null) { correspondances[op.idLocal] = idServeur; ecrireJson('inko_sync_ids', correspondances); }
                 envoyees++;
+                noter('envoi', libelleDe(op));
             } catch (e) {
-                if (e.reseau) break;                 // le PC ne répond plus : on garde la suite
+                if (e.reseau) { noter('interrompu', `Envoi interrompu, ${boite.length} en attente`, e.message); break; }   // le PC ne répond plus : on garde la suite
                 // Refus applicatif (4xx) : l'opération ne passera jamais, on
                 // la retire plutôt que de bloquer toute la file derrière elle.
+                // Mais on le DIT : c'est une modification perdue pour le PC.
+                noter('refus', libelleDe(op), e.message);
                 window.MH?.err?.('synchro.js', e);
             }
             boite.shift();
@@ -222,6 +261,7 @@
         if (biblio) for (const b of liste(biblio)) base.statut[b.mangaId] = b.status ?? null;
         for (const [m, p] of Object.entries(progres || {})) base.progres[m] = p?.chapter ?? null;
         ecrireJson(CLE_BASE, base);
+        noter('rapatriement', `Reçu du PC : ${s.favorites.length} favori(s), ${Object.keys(s.progress).length} progression(s), ${s.notes.length} note(s)`);
         return true;
     }
 
@@ -232,6 +272,7 @@
         enCours = (async () => {
             if (!(await joignable())) {
                 poserEtat({ erreur: window.INKO_HUB ? 'PC injoignable' : 'Aucun PC appairé' });
+                if (window.INKO_HUB) noter('injoignable', 'PC injoignable');
                 annoncer();
                 if (manuel) window.MH?.toast?.(window.INKO_HUB ? 'PC injoignable — tes modifications partiront à la prochaine connexion' : 'Aucun PC appairé');
                 return { ok: false };
@@ -247,6 +288,7 @@
                 return { ok: true, ...p };
             } catch (e) {
                 poserEtat({ erreur: e.message });
+                noter('echec', 'Synchronisation impossible', e.message);
                 annoncer();
                 if (manuel) window.MH?.toast?.('Synchronisation impossible : ' + e.message);
                 return { ok: false };
@@ -294,7 +336,7 @@
         return true;
     }
 
-    window.INKO_SYNCHRO = { synchroniser: () => synchroniser({ manuel: true }), resume, conflits, resoudre };
+    window.INKO_SYNCHRO = { synchroniser: () => synchroniser({ manuel: true }), resume, conflits, resoudre, journal: () => lireJson(CLE_JOURNAL, []) };
 
     // Démarrage et rattrapages.
     if (window.INKO_HUB) {

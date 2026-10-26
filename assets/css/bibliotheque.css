@@ -253,3 +253,32 @@
   .lib-pop { position: fixed; left: 12px; right: 12px; top: auto; bottom: 76px; max-width: none; min-width: 0; }
   .lib-catmgr-list li { flex-wrap: wrap; }
 }
+
+/* Vue chronologique des sorties (onglet « Mises à jour »). */
+.upd-chrono { margin: 4px 0 22px; }
+.upd-chrono-titre { font-size: 15px; font-weight: 700; margin: 0 0 8px; }
+.upd-chrono-tranche { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text3); margin: 14px 0 6px; }
+.upd-chrono-tranche .cnt { font-weight: 500; margin-left: 4px; }
+.upd-chrono-ligne { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 10px; color: inherit; text-decoration: none; }
+.upd-chrono-ligne:hover { background: var(--bg2); }
+.upd-chrono-ligne img { width: 32px; height: 44px; object-fit: cover; border-radius: 4px; background: var(--bg3); }
+.upd-chrono-nom { font-size: 13.5px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upd-chrono-meta { font-size: 12px; color: var(--text2); white-space: nowrap; }
+@media (max-width: 560px) {
+  .upd-chrono-ligne { grid-template-columns: 32px 1fr; }
+  .upd-chrono-meta { grid-column: 2; white-space: normal; }
+}
+
+/* Une série qui reprend après une longue pause. */
+.upd-retour { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+
+/* Doublons : la même œuvre suivie sur deux sources. */
+.lib2-doublons { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mh-modal.doublons-modal { width: min(520px, 94vw); }
+.doublons-intro { font-size: 13px; color: var(--text2); margin: 0 0 12px; }
+.doublons-groupe { border-top: 1px solid var(--border); padding: 10px 0; }
+.doublons-titre { font-weight: 600; margin-bottom: 6px; }
+.doublons-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 13px; color: var(--text2); }
+
+/* Note d’un signet : la phrase qu’on a voulu retenir. */
+.bm-note { display: block; margin-top: 4px; font-size: 12.5px; font-style: italic; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

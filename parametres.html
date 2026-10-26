@@ -54,6 +54,10 @@
     .pc-conflit-choix { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
     .pc-conflit-choix button { text-align: left; white-space: normal; height: auto; padding: 8px 10px; }
     .pc-conflit-choix small { display: block; color: var(--text3); font-weight: 400; }
+
+    .import-liste-zone { display: block; }
+    .import-liste-zone[hidden] { display: none; }
+    .import-liste-source select { margin-left: 6px; }
     .set-card {
       background: var(--bg2); border: 1px solid var(--border);
       border-radius: 12px; padding: 22px 24px; margin-bottom: 18px;
@@ -70,6 +74,13 @@
     .set-row:first-of-type { border-top: none; }
     .set-row-label { font-size: 13.5px; font-weight: 500; }
     .set-row-desc  { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+    #pcJournal { display: block; }
+    #pcJournal summary { cursor: pointer; }
+    .pc-journal { list-style: none; margin: 8px 0 0; padding: 0; max-height: 260px; overflow: auto; font-size: 12px; }
+    .pc-journal li { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; padding: 5px 0; border-top: 1px solid var(--border); }
+    .pc-journal time { color: var(--text3); white-space: nowrap; }
+    .pc-journal small { color: var(--text3); }
+    .pc-journal .pc-j-refus, .pc-journal .pc-j-echec { color: var(--accent); }
     .set-input {
       background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
       padding: 9px 12px; border-radius: 8px; font-size: 13px; width: 100%;
@@ -179,6 +190,11 @@
         <div class="set-row-label">À trancher</div>
         <ul class="pc-conflits-liste" id="pcConflitsListe"></ul>
       </div>
+
+      <details class="set-row" id="pcJournal" hidden>
+        <summary class="set-row-label">Journal de synchronisation</summary>
+        <ol class="pc-journal" id="pcJournalListe"></ol>
+      </details>
       <div class="set-row">
         <div>
           <div class="set-row-label" id="pcLierLabel">Connecter un PC</div>
@@ -435,6 +451,16 @@
       </div>
       <div class="set-row">
         <div>
+          <div class="set-row-label">Importer depuis MyAnimeList ou AniList</div>
+          <div class="set-row-desc">Export « Manga List » de MyAnimeList (.xml ou .xml.gz) ou collection AniList (.json)</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnImportListe">Choisir le fichier</button>
+        <input type="file" id="importListeFichier" accept=".xml,.gz,.json,application/xml,application/json,application/gzip" style="display:none"
+               aria-label="Export MyAnimeList ou AniList à importer">
+      </div>
+      <div class="set-row import-liste-zone" id="importListeZone" hidden></div>
+      <div class="set-row">
+        <div>
           <div class="set-row-label">Effacer l'historique de lecture</div>
           <div class="set-row-desc">Progression et activité (favoris conservés)</div>
         </div>
@@ -558,6 +584,7 @@
   <script src="assets/js/tirer-rafraichir.js"></script>
   <script src="assets/js/anilist.js"></script>
   <script src="assets/js/parametres.js"></script>
+  <script src="assets/js/import-listes.js"></script>
   <script src="assets/js/appairage.js"></script>
   <script src="assets/js/eula.js"></script>
   <script src="assets/js/pwa.js"></script>

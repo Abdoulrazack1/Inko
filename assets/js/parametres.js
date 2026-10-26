@@ -955,6 +955,23 @@
         peindreConflits();
         window.addEventListener('inko:synchro-etat', peindre);
         window.addEventListener('inko:synchro-etat', peindreConflits);
+
+        // Le journal : ce qui est parti, arrivé, refusé. Un refus est une
+        // modification que le PC n'aura jamais — on la montre en premier plan.
+        const ICONES = { envoi: '↑', rapatriement: '↓', refus: '⚠', interrompu: '⏸', injoignable: '○', echec: '⚠' };
+        const peindreJournal = () => {
+            const j = window.INKO_SYNCHRO?.journal?.() || [];
+            const bloc = document.getElementById('pcJournal');
+            const liste = document.getElementById('pcJournalListe');
+            if (!bloc || !liste) return;
+            bloc.hidden = !j.length;
+            liste.innerHTML = j.slice(0, 50).map(e => `<li class="pc-j-${MH.esc(e.type)}">
+                <span aria-hidden="true">${ICONES[e.type] || '·'}</span>
+                <span>${MH.esc(e.libelle)}${e.n > 1 ? ` (×${e.n})` : ''}${e.type === 'refus' ? ' — refusé par le PC, non appliqué' : ''}${e.detail ? `<small> · ${MH.esc(e.detail)}</small>` : ''}</span>
+                <time datetime="${new Date(e.t).toISOString()}">${MH.relTime(new Date(e.t).toISOString())}</time></li>`).join('');
+        };
+        peindreJournal();
+        window.addEventListener('inko:synchro-etat', peindreJournal);
         document.getElementById('pcSync')?.addEventListener('click', async (e) => {
             const b = e.currentTarget;
             b.disabled = true; b.textContent = 'Synchronisation…';
