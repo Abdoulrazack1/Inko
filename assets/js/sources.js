@@ -284,7 +284,7 @@
                     const r = await API.sources.test(id);
                     if (out) {
                         out.style.color = r.ok ? '#22c55e' : '#ef4444';
-                        out.textContent = r.ok ? `✓ répond (${r.count} résultat${r.count > 1 ? 's' : ''})` : `✗ ${r.error || 'échec'}`;
+                        out.textContent = r.ok ? `✓ répond${Number.isFinite(r.ms) ? ` en ${formaterMs(r.ms)}` : ''} (${r.count} résultat${r.count > 1 ? 's' : ''})` : `✗ ${r.error || 'échec'}`;
                     }
                 } catch (e) {
                     if (out) { out.style.color = '#ef4444'; out.textContent = '✗ ' + (e.message || 'échec'); }
@@ -386,6 +386,19 @@
         const quand = h.okAt ? ` · dernier succes ${ilYA(h.okAt)}` : '';
         return `<div class="src-sante" style="color:${couleur}">
             <span class="src-sante-point" style="background:${couleur}"></span>${MH.esc(etat)}${MH.esc(detail)}
-            <span style="color:var(--text3)">${MH.esc(quand)}</span></div>`;
+            <span style="color:var(--text3)">${MH.esc(quand)}</span>${mesuresSante(h)}</div>`;
+    }
+
+    // Ce que l'état ne dit pas : la vitesse, et la part de requêtes perdues.
+    // Mesuré sur les dernières requêtes réelles (au plus 40) ; en dessous de
+    // trois, une moyenne ne voudrait rien dire.
+    function formaterMs(ms) { return ms >= 1000 ? `${(ms / 1000).toFixed(1).replace('.', ',')} s` : `${ms} ms`; }
+    function mesuresSante(h) {
+        if (!h || !(h.requetes >= 3)) return '';
+        const lente = h.latenceMs >= 3000, perdue = h.tauxEchec >= 20;
+        const parts = [];
+        if (h.latenceMs != null) parts.push(`<span${lente ? ' class="src-mesure-alerte"' : ''}>${MH.esc(formaterMs(h.latenceMs))}</span>`);
+        parts.push(`<span${perdue ? ' class="src-mesure-alerte"' : ''}>${h.tauxEchec} % d’échecs</span>`);
+        return `<div class="src-mesures" title="Médiane des temps de réponse et part des requêtes échouées, sur les ${h.requetes} dernières">${parts.join(' · ')} <span class="src-mesures-base">sur ${h.requetes} requêtes</span></div>`;
     }
 })();

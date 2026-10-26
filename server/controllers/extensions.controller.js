@@ -203,7 +203,7 @@ async function testSource(req, res, next) {
         if (!src) return res.status(404).json({ ok: false, error: 'Source inconnue' });
         try {
             const r = await health.test(src);
-            res.json({ ok: true, method: r.method, count: r.count });
+            res.json({ ok: true, method: r.method, count: r.count, ms: r.ms });
         } catch (e) {
             // Échec attendu (source cassée) : 200 avec ok:false + message brut,
             // pas une 5xx — le front affiche l'erreur telle quelle.

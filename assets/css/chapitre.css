@@ -836,6 +836,19 @@
   font-family: var(--font-body, -apple-system, sans-serif);
   animation: rsPop .16s ease;
 }
+/* Note d'un signet : même habillage que les réglages, ancrée sous la barre. */
+.signet-pop {
+  position: fixed; top: 64px; right: 16px; z-index: 1000;
+  width: 320px; max-width: calc(100vw - 32px);
+  background: var(--bg2, #141417); border: 1px solid var(--border2, rgba(255,255,255,.12));
+  border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  padding: 14px 16px; color: var(--text, #f0f0f2);
+  animation: rsPop .16s ease;
+}
+.signet-pop-label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 8px; }
+.signet-pop-label span { font-weight: 400; color: var(--text3, #9a9aa6); }
+.signet-pop .input { width: 100%; box-sizing: border-box; }
+.signet-pop-actions { display: flex; gap: 8px; margin-top: 10px; }
 @keyframes rsPop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 .rs-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 14.5px; margin-bottom: 10px; }
 .rs-close { background: none; border: none; color: var(--text3, #9a9aa6); font-size: 15px; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
@@ -874,9 +887,17 @@
   transition: width .25s ease;
 }
 
-/* Fade-in des pages au chargement */
-.reader-page-img { opacity: 0; transition: opacity .25s ease; background: var(--bg3); min-height: 120px; }
-.reader-page-img.loaded { opacity: 1; min-height: 0; }
+/* Une planche en route se voit en route. Avant, elle restait à opacité 0
+   jusqu'à son arrivée : sur une source qui met 4 à 20 s par page, un cadre
+   vide — rien ne distinguait « ça arrive » de « c'est cassé ». Un reflet qui
+   passe dit « ça arrive » ; l'échec a son propre bloc (.reader-img-fail).
+   `color: transparent` masque le texte alternatif pendant l'attente. */
+.reader-page-img { min-height: 120px; color: transparent;
+  background: linear-gradient(100deg, var(--bg3) 35%, var(--bg2) 50%, var(--bg3) 65%) var(--bg3);
+  background-size: 300% 100%; animation: plancheEnRoute 1.4s ease-in-out infinite; }
+.reader-page-img.loaded { min-height: 0; background: none; color: inherit; animation: pageIn .25s ease; }
+@keyframes plancheEnRoute { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .reader-page-img:not(.loaded) { animation: none; } }
 
 /* Échec de chargement d'une page */
 .reader-img-fail {
@@ -1088,6 +1109,8 @@ body.reader-immersive .reader-pages-area.paged {
   font-size: 12.5px; color: var(--text2); cursor: pointer; margin-bottom: 10px;
 }
 .rs-check input { cursor: pointer; }
+.rs-note { font-size: 11.5px; color: var(--text3, var(--text2)); margin: -4px 0 8px 26px; min-height: 0; }
+.rs-note:empty { display: none; }
 
 /* ── P3.3 : planche double découpée en deux pages ────────────
    Une planche double est UNE image contenant DEUX pages. Sur un écran de
@@ -1178,3 +1201,44 @@ body.page-body { padding-top: 0; padding-bottom: 0; }
 .reader-pop-item kbd { font: 600 10.5px/1 var(--font-body, inherit); padding: 3px 6px; border-radius: 5px; border: 1px solid rgba(255,255,255,.14); color: var(--text3); }
 .reader-pop-zoom { display: flex; align-items: center; gap: 8px; padding: 8px 10px 6px; margin-top: 4px; border-top: 1px solid rgba(255,255,255,.08); font-size: 13px; color: var(--text2); }
 .reader-pop-zoom > span:first-child { flex: 1; }
+
+/* Chapitre lu sur une source de secours : on le dit, une ligne. */
+.bandeau-secours {
+  position: fixed; left: 50%; top: 66px; transform: translateX(-50%); z-index: 120;
+  display: flex; gap: 10px; align-items: center; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box;
+  padding: 10px 12px 10px 16px; border-radius: 12px; font-size: 13px;
+  background: var(--bg2, #141417); color: var(--text, #f0f0f2);
+  border: 1px solid #f59e0b; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+.bandeau-secours button { background: none; border: none; color: var(--text3, #9a9aa6); cursor: pointer; padding: 4px 6px; }
+
+/* Un autre appareil est allé plus loin dans la série : une ligne, pas un voile. */
+.autre-appareil {
+  position: fixed; left: 50%; top: 66px; transform: translateX(-50%); z-index: 120;
+  display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center;
+  width: max-content; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box;
+  padding: 10px 36px 10px 16px; border-radius: 12px; font-size: 13px;
+  background: var(--bg2, #141417); color: var(--text, #f0f0f2);
+  border: 1px solid var(--border2, rgba(255,255,255,.12)); box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+.autre-appareil-texte { flex: 1 1 220px; min-width: 0; }
+.autre-appareil-fermer { position: absolute; top: 6px; right: 6px; background: none; border: none; color: var(--text3, #9a9aa6); cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+/* Planche paysage pivotée d'un quart de tour sur un écran en portrait.
+   La boîte de mise en page reste celle de l'image NON pivotée (l × h) ; les
+   marges négatives/positives la ramènent à son empreinte pivotée (h × l),
+   pour qu'elle se centre sans déborder. Après les règles d'ajustement, qui
+   posent leurs tailles en !important. */
+.reader-page-img.pivotee {
+  width: var(--pivot-l) !important; height: var(--pivot-h) !important;
+  max-width: none !important; max-height: none !important;
+  transform: rotate(var(--pivot-sens, 90deg));
+  margin: calc((var(--pivot-l) - var(--pivot-h)) / 2) calc((var(--pivot-h) - var(--pivot-l)) / 2);
+}
+
+/* Lecture continue : le chapitre suivant accroché sous le courant. */
+.reader-suite { margin-top: 28px; }
+.reader-suite-tete {
+  margin: 0 auto 14px; width: fit-content; padding: 8px 16px; border-radius: 999px;
+  background: var(--bg3, #1f1f26); color: var(--text, #f0f0f2); font-size: 13px; font-weight: 600;
+}
+.reader-suite-img { display: block; }

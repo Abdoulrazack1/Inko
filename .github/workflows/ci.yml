@@ -210,6 +210,10 @@ jobs:
       - name: Parcours utilisateur (e2e)
         run: npx playwright test test/e2e/parcours.spec.js
 
+      # Sources simulées (page.route) : ce test ne dépend d'aucun site tiers.
+      - name: Lecteur en défilement — la page annoncée est celle qu'on lit
+        run: npx playwright test test/e2e/defilement-page.spec.js
+
       - name: Accessibilité (axe-core, WCAG 2.1 AA)
         run: npx playwright test test/e2e/a11y.spec.js
 
