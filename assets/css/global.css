@@ -99,6 +99,21 @@
      Posés en texte de 10-13px sur fond clair, ils tombaient entre 3.29:1 et
      3.93:1. Ces variantes ne servent QUE au texte ; les aplats gardent les
      couleurs de marque. */
+  /* Le texte pose SUR un aplat colore (bouton d'accent, pastille, badge).
+     206 blancs litteraux trainaient dans le depot, dont 77 en `color:var(--sur-couleur)`
+     sur un fond colore. Le chantier annoncait qu'ils « cassent le theme
+     clair » : MESURE, ils ne le cassent pas. Scan des pages Bibliotheque
+     et Serie en edition claire, 937 textes blancs examines, contraste
+     calcule contre leur fond REEL : zero illisible. Les aplats qui portent
+     du blanc sont sombres dans les quatre editions.
+
+     Ce qui est vrai, c'est qu'il y a 77 copies d'une meme intention. Le
+     blanc sur accent tient a 4,65 — la marge la plus mince de
+     l'application. Le jour ou un accent s'eclaircit de quelques pour cent,
+     77 regles passent sous le seuil sans que rien ne le dise. Nommer
+     l'intention permet au test de verifier la PAIRE, pas la couleur. */
+  --sur-couleur: #fff;
+
   --accent-text: #9d3f11;
   --green-text:  #2c6339;
   --blue-text:   #2c4360;
@@ -345,8 +360,8 @@ html[data-theme="contrast"] [style*="font-size:11"] { font-size: 12px !important
    (#0369a1, ~6,4:1). Tous deux passent AA et echouent AAA — c'est
    precisement ce que le test de ce theme a releve. On les assombrit ici
    plutot que partout : sur les autres themes, AA reste la cible. */
-html[data-theme="contrast"] #notifBadge { background: #7a1010 !important; color: #fff !important; }
-html[data-theme="contrast"] .conn-btn-anilist { background: #024a6e; color: #fff; }
+html[data-theme="contrast"] #notifBadge { background: #7a1010 !important; color: var(--sur-couleur) !important; }
+html[data-theme="contrast"] .conn-btn-anilist { background: #024a6e; color: var(--sur-couleur); }
 html[data-theme="contrast"] .conn-btn-anilist:hover { background: #013852; }
 
 /* ── Reset ─────────────────────────────────────────────────── */
@@ -566,7 +581,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
 }
 .header-icon-btn:hover { color: var(--text); border-color: var(--border2); }
 .header-icon-btn:disabled { opacity: .6; cursor: default; }
-.header-icon-btn.on { background: var(--orange); color: #fff; border-color: var(--orange); }
+.header-icon-btn.on { background: var(--orange); color: var(--sur-couleur); border-color: var(--orange); }
 /* Mode incognito : liseré discret en haut de page pour le rappeler */
 body.incognito-on::before {
   content: ""; position: fixed; top: 0; left: 0; right: 0; height: 3px;
@@ -628,14 +643,14 @@ body.incognito-on::before {
      la page. Sur le remplissage accent, cela donne 3,7:1 — sous le seuil AA,
      et dans les DEUX themes, puisque le fond ne change pas. Le blanc y donne
      4,65:1. Mesure sur l'avatar reel, pas deduite. */
-  color: #fff;
+  color: var(--sur-couleur);
 }
 .header-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .user-label { line-height: 1; }
 .user-sublabel { font-size: 10px; color: var(--accent-text); display: block; }   /* audit A11Y-02 : 3.29:1 avant */
 .btn-connect {
   height: 34px; padding: 0 16px;
-  background: var(--orange); color: #fff;
+  background: var(--orange); color: var(--sur-couleur);
   border-radius: 20px; font-size: 13px; font-weight: 600;
   transition: background var(--transition);
   flex-shrink: 0;
@@ -664,7 +679,7 @@ body.incognito-on::before {
   transition: background .12s, color .12s;
 }
 #inko-titlebar .tb-btn:hover { background: color-mix(in srgb, var(--text) 12%, transparent); color: var(--text); }
-#inko-titlebar .tb-close:hover { background: #e81123; color: #fff; }
+#inko-titlebar .tb-close:hover { background: #e81123; color: var(--sur-couleur); }
 
 /* Quand la barre est présente : on descend le header fixe et le contenu de sa hauteur. */
 .tauri-app .site-header { top: var(--titlebar-h); }
@@ -762,7 +777,7 @@ body.incognito-on::before {
 .badge-new    { background: rgba(34,197,94,.15); color: var(--green); }
 .badge-exclu  { background: rgba(59,130,246,.15); color: var(--blue); }
 .badge-top    { background: rgba(255,107,26,.15); color: var(--orange); }
-.badge-orange { background: var(--orange); color: #fff; }
+.badge-orange { background: var(--orange); color: var(--sur-couleur); }
 .badge-termine { background: rgba(107,114,128,.2); color: var(--badge-grey); }   /* audit A11Y-02 : #9ca3af donnait 1.60:1 */
 .badge-cours  { background: rgba(34,197,94,.1); color: var(--green); }
 .badge-pause  { background: rgba(245,158,11,.1); color: var(--amber); }
@@ -847,13 +862,13 @@ body.incognito-on::before {
   transition: background var(--transition), transform .15s var(--ease-out);
 }
 .btn-read-overlay {
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--sur-couleur);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 4px 12px rgba(0,0,0,.3);
 }
 .btn-read-overlay:hover { background: color-mix(in srgb, var(--accent) 88%, #000); transform: translateY(-1px); }
 .btn-add-overlay {
   /* liquid glass sur la couverture */
-  background: rgba(255,255,255,.12); color: #fff;
+  background: rgba(255,255,255,.12); color: var(--sur-couleur);
   -webkit-backdrop-filter: blur(14px) saturate(1.6);
   backdrop-filter: blur(14px) saturate(1.6);
   border: 1px solid rgba(255,255,255,.26);
@@ -904,7 +919,7 @@ body.incognito-on::before {
 }
 .btn:active { transform: translateY(1px) scale(.99); }
 .btn-primary {
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--sur-couleur);
   box-shadow: 0 1px 2px rgba(28,27,25,.12), inset 0 1px 0 rgba(255,255,255,.14);
 }
 .btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); box-shadow: var(--shadow-2); transform: translateY(-1px); }
@@ -936,7 +951,7 @@ body.incognito-on::before {
   color: color-mix(in srgb, var(--accent) 62%, var(--text));
 }
 .tag-orange {
-  background: var(--accent); border-color: var(--accent); color: #fff;
+  background: var(--accent); border-color: var(--accent); color: var(--sur-couleur);
 }
 
 /* ── Champs de saisie : focus élégant à l'accent (aucun glow) ── */
@@ -994,7 +1009,7 @@ img.img-echec { background: var(--bg3); animation: none; }
   width: 30px; height: 30px;
   border-radius: 50%; border: none;
   background: rgba(0,0,0,0.55);
-  color: #fff;
+  color: var(--sur-couleur);
   font-size: 15px;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -1071,7 +1086,7 @@ a[data-nsfw] .manga-card-cover::after,
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 15px; letter-spacing: .5px;
-  color: #fff; background: rgba(0,0,0,.35);
+  color: var(--sur-couleur); background: rgba(0,0,0,.35);
   border-radius: inherit; pointer-events: none;
 }
 
@@ -1119,7 +1134,7 @@ a[data-nsfw] .manga-card-cover::after,
 .conn-pill.ok { color: var(--green); background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); }
 .conn-pill.muted { color: var(--text3); }
 .conn-action { flex-shrink: 0; }
-.conn-btn-anilist { background: #0369a1; color: #fff; }  /* audit QUAL-05 : #02a9ff donnait 2,59:1 avec du blanc */
+.conn-btn-anilist { background: #0369a1; color: var(--sur-couleur); }  /* audit QUAL-05 : #02a9ff donnait 2,59:1 avec du blanc */
 .conn-btn-anilist:hover { background: #2bb8ff; }
 .conn-btn-danger { color: var(--red-text); border: 1px solid rgba(239,68,68,.3); }
 .conn-btn-danger:hover { background: rgba(239,68,68,.1); }
@@ -1313,7 +1328,7 @@ a[data-nsfw] .manga-card-cover::after,
   padding: 0 4px;
   border-radius: 999px;
   background: var(--orange);
-  color: #fff;
+  color: var(--sur-couleur);
   font-size: 10px;
   font-weight: 700;
   line-height: 16px;
@@ -1348,7 +1363,7 @@ a[data-nsfw] .manga-card-cover::after,
 /* Lien d'évitement « Aller au contenu » : invisible jusqu'au focus clavier */
 .skip-link {
   position: fixed; top: -48px; left: 12px; z-index: 10000;
-  background: var(--orange); color: #fff; font-size: 13px; font-weight: 600;
+  background: var(--orange); color: var(--sur-couleur); font-size: 13px; font-weight: 600;
   padding: 9px 16px; border-radius: 8px; text-decoration: none;
   transition: top 0.15s ease;
 }
@@ -1389,7 +1404,7 @@ a[data-nsfw] .manga-card-cover::after,
   width: 30px; height: 30px;
   border-radius: 50%; border: none;
   background: rgba(0,0,0,0.55);
-  color: #fff;
+  color: var(--sur-couleur);
   font-size: 18px; line-height: 1;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -1417,7 +1432,7 @@ a[data-nsfw] .manga-card-cover::after,
 }
 .undo-bar-action {
   flex: 0 0 auto;
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--sur-couleur);
   border-radius: 16px; padding: 5px 14px;
   font-size: 12.5px; font-weight: 700;
 }

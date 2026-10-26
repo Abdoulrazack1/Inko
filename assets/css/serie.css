@@ -432,7 +432,7 @@
   cursor: pointer; transition: all 0.12s;
 }
 .chap-filter:hover { color: var(--text); border-color: var(--border); }
-.chap-filter.on { background: var(--orange); border-color: var(--orange); color: #fff; }
+.chap-filter.on { background: var(--orange); border-color: var(--orange); color: var(--sur-couleur); }
 
 .chapters-list { }
 .chapters-empty {
@@ -611,7 +611,7 @@
 .manga-card:hover .manga-card-overlay { opacity: 1; }
 .btn-read-overlay {
   background: var(--orange);
-  color: #fff;
+  color: var(--sur-couleur);
   font-size: 12px;
   font-weight: 700;
   padding: 7px 16px;
@@ -949,7 +949,7 @@
   height: 36px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--orange), #e5354f);
-  color: #fff;
+  color: var(--sur-couleur);
   display: flex;
   align-items: center;
   justify-content: center;

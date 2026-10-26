@@ -6,10 +6,10 @@
 .lib2-tabs { display:flex; gap:4px; background:var(--glass-bg); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); box-shadow:var(--glass-inner); border-radius:12px; padding:4px; }
 .lib2-tab { padding:8px 16px; border-radius:8px; font-size:13px; color:var(--text2); font-weight:500; position:relative; transition:color var(--transition), background var(--transition); }
 .lib2-tab:hover { color:var(--text); }
-.lib2-tab.active { background:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+.lib2-tab.active { background:var(--accent); color:var(--sur-couleur); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
 /* Compteur discret sur un onglet (Téléchargements) */
 .lib2-tab .tab-count { display:inline-block; margin-left:6px; font-size:11px; font-weight:700; background:var(--bg4); color:var(--text2); padding:1px 6px; border-radius:9px; }
-.lib2-tab.active .tab-count { background:rgba(255,255,255,.25); color:#fff; }
+.lib2-tab.active .tab-count { background:rgba(255,255,255,.25); color:var(--sur-couleur); }
 .lib2-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
 .lib2-search { flex:1; min-width:200px; background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:9px 14px; border-radius:9px; font-size:13px; }
 .lib2-search:focus { outline:none; border-color:var(--orange); }
@@ -19,7 +19,7 @@
 .lib2-view { display:inline-flex; background:var(--bg3); border:1px solid var(--border2); border-radius:9px; padding:2px; gap:2px; }
 .lib2-view button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:30px; border:none; background:none; color:var(--text2); border-radius:7px; cursor:pointer; transition:color var(--transition), background var(--transition); }
 .lib2-view button:hover { color:var(--text); }
-.lib2-view button.on { background:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+.lib2-view button.on { background:var(--accent); color:var(--sur-couleur); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
 
 .lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:16px; }
 .lib2-grid.lib2-grid--compact { grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:10px; }
@@ -31,14 +31,14 @@
 .lib2-grid .lib2-card:hover { transform:translateY(-4px); }
 .lib2-grid .lib2-card:hover .lib2-cover { box-shadow:var(--shadow-3); }
 .lib2-grid .lib2-card:hover .lib2-cover img { transform:scale(1.06); }
-.lib2-badge { position:absolute; top:8px; left:8px; background:var(--hanko); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.4); z-index:4; }
+.lib2-badge { position:absolute; top:8px; left:8px; background:var(--hanko); color:var(--sur-couleur); font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.4); z-index:4; }
 /* si un badge de statut occupe déjà le coin haut-gauche, on descend le compteur */
 .lib2-status + .lib2-badge, .lib2-status ~ .lib2-badge { top:34px; }
-.lib2-pin { position:absolute; bottom:8px; right:8px; width:30px; height:30px; border-radius:9px; border:none; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; opacity:0; transform:translateY(4px); transition:opacity .14s, transform .14s, background .14s; backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; }
+.lib2-pin { position:absolute; bottom:8px; right:8px; width:30px; height:30px; border-radius:9px; border:none; background:rgba(0,0,0,.55); color:var(--sur-couleur); cursor:pointer; opacity:0; transform:translateY(4px); transition:opacity .14s, transform .14s, background .14s; backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; }
 .lib2-card:hover .lib2-pin { opacity:.9; transform:translateY(0); }
 .lib2-pin:hover { background:rgba(0,0,0,.8); }
 .lib2-pin.on { opacity:1; transform:translateY(0); background:var(--orange); box-shadow:0 2px 8px rgba(0,0,0,.4); }
-.lib2-del { position:absolute; bottom:8px; right:44px; width:30px; height:30px; border-radius:9px; border:none; background:rgba(0,0,0,.55); color:#fff; font-size:13px; line-height:1; cursor:pointer; opacity:0; transform:translateY(4px); transition:opacity .14s, transform .14s, background .14s; backdrop-filter:blur(2px); }
+.lib2-del { position:absolute; bottom:8px; right:44px; width:30px; height:30px; border-radius:9px; border:none; background:rgba(0,0,0,.55); color:var(--sur-couleur); font-size:13px; line-height:1; cursor:pointer; opacity:0; transform:translateY(4px); transition:opacity .14s, transform .14s, background .14s; backdrop-filter:blur(2px); }
 .lib2-card:hover .lib2-del { opacity:.9; transform:translateY(0); }
 .lib2-del:hover { background:#ef4444; opacity:1; }
 /* Signet : indicateur qu'un passage est marqué (audit §10.3) */
@@ -57,22 +57,22 @@
 .lib2-filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; width:100%; }
 .lib2-chip { padding:6px 13px; border-radius:20px; font-size:12.5px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; font-weight:500; transition:all .12s; }
 .lib2-chip:hover { color:var(--text); border-color:var(--text3); }
-.lib2-chip.on { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
+.lib2-chip.on { background:var(--accent); border-color:var(--accent); color:var(--sur-couleur); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
 .lib2-chip .cnt { opacity:.85; margin-left:5px; font-size:11px; }
 /* Audit QUAL-05 : sur une pastille active le fond devient l'accent ; l'opacité
    ramenait le compteur à 3,79:1. Sur ce fond-là, le blanc plein (4,65:1). */
 .lib2-chip.on .cnt, .lib2-chip.active .cnt,
-.lib2-kind.on .cnt, .lib2-kind.active .cnt { opacity:1; color:#fff; }
+.lib2-kind.on .cnt, .lib2-kind.active .cnt { opacity:1; color:var(--sur-couleur); }
 .lib2-chip-add { color:var(--text3); border-style:dashed; }
-.lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; color:#fff; }
-.lib2-kind-badge { position:absolute; bottom:8px; left:8px; font-size:8.5px; font-weight:800; padding:2px 6px; border-radius:5px; letter-spacing:.04em; color:#fff; background:var(--ai); box-shadow:0 2px 6px rgba(0,0,0,.4); }
+.lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; color:var(--sur-couleur); }
+.lib2-kind-badge { position:absolute; bottom:8px; left:8px; font-size:8.5px; font-weight:800; padding:2px 6px; border-radius:5px; letter-spacing:.04em; color:var(--sur-couleur); background:var(--ai); box-shadow:0 2px 6px rgba(0,0,0,.4); }
 .lib2-cat { font-size:10px; color:var(--text3); margin-top:1px; }
 
 /* Segment Mangas / Romans */
 .lib2-kinds { display:inline-flex; background:var(--bg3); border:1px solid var(--border2); border-radius:20px; padding:3px; gap:2px; margin-right:6px; }
 .lib2-kind { padding:5px 14px; border-radius:18px; font-size:12.5px; font-weight:600; color:var(--text2); background:none; border:none; cursor:pointer; transition:all .12s; }
 .lib2-kind:hover { color:var(--text); }
-.lib2-kind.on { background:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
+.lib2-kind.on { background:var(--accent); color:var(--sur-couleur); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
 .lib2-kind .cnt { opacity:.85; margin-left:5px; font-size:11px; }
 
 /* Rangée « Reprendre où j'en étais » (audit §10.3) */
@@ -97,7 +97,7 @@
 
 /* Mode sélection multiple + barre d'actions groupées (audit §10.3) */
 .lib2-card.selectable { cursor:pointer; }
-.lib2-check { position:absolute; top:8px; left:8px; width:22px; height:22px; border-radius:6px; border:2px solid #fff; background:rgba(0,0,0,.45); z-index:2; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; }
+.lib2-check { position:absolute; top:8px; left:8px; width:22px; height:22px; border-radius:6px; border:2px solid #fff; background:rgba(0,0,0,.45); z-index:2; display:flex; align-items:center; justify-content:center; color:var(--sur-couleur); font-size:14px; }
 .lib2-card.selected .lib2-cover { outline:3px solid var(--orange); outline-offset:-1px; }
 .lib2-card.selected .lib2-check { background:var(--orange); border-color:var(--orange); }
 .lib2-bulkbar { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:50; display:flex; align-items:center; gap:10px; background:var(--glass-bg); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); box-shadow:var(--glass-inner), var(--shadow-3); border-radius:16px; padding:10px 14px; }
@@ -176,7 +176,7 @@
   border: 1px solid var(--orange); border-radius: 999px;
   color: var(--orange); font: inherit; font-size: 12px; cursor: pointer;
 }
-.lib2-resume-chip:hover { background: var(--orange); color: #fff; }
+.lib2-resume-chip:hover { background: var(--orange); color: var(--sur-couleur); }
 .lib2-resume-tout {
   background: none; border: none; padding: 4px 6px;
   color: var(--text3); font: inherit; font-size: 12px;
@@ -221,7 +221,7 @@
 .lib-filter-reset { margin-top: 14px; border: 0; background: none; color: var(--accent-text, var(--accent)); font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; }
 .lib-filter-count[hidden] { display: none; }
 .lib-filter-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px;
-    margin-left: 6px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; }
+    margin-left: 6px; border-radius: 9px; background: var(--accent); color: var(--sur-couleur); font-size: 11px; font-weight: 700; }
 #btnLibFilters.is-active { border-color: var(--accent); }
 .lib-more-btn { min-width: 34px; font-size: 17px; line-height: 1; letter-spacing: 1px; }
 .lib-menu { min-width: 280px; padding: 6px; }
