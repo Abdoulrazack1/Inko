@@ -3,7 +3,7 @@
 .cmp-bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); }
 .cmp-titre { font-size: 15px; font-weight: 700; margin: 0; }
 .cmp-reglages { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; font-size: 13px; color: var(--text2); }
-.cmp-choix select { margin-left: 6px; background: var(--bg3); color: var(--text); border: 1px solid var(--border2); border-radius: 8px; padding: 5px 8px; }
+.cmp-choix select { margin-left: 6px; background: var(--bg3); color: var(--text); border: 1px solid var(--border2); border-radius:  var(--r-controle); padding: 5px 8px; }
 .cmp-sync { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .cmp-colonnes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--border); }
 .cmp-col { overflow-y: auto; background: var(--bg); min-width: 0; }
