@@ -565,7 +565,7 @@
     border-radius: 6px;
     overflow: hidden;
     flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    box-shadow: var(--e-souleve);
 }
 .next-chapter-cover img { width: 100%; height: 100%; object-fit: cover; }
 .next-chapter-info { flex: 1; min-width: 0; }
@@ -831,7 +831,7 @@
   width: 300px; max-width: calc(100vw - 32px); max-height: calc(100vh - 90px);
   overflow-y: auto;
   background: var(--bg2, #141417); border: 1px solid var(--border2, rgba(255,255,255,.12));
-  border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  border-radius: 14px; box-shadow: var(--e-modal);
   padding: 14px 16px 16px; color: var(--text, #f0f0f2);
   font-family: var(--font-body, -apple-system, sans-serif);
   animation: rsPop .16s ease;
@@ -841,7 +841,7 @@
   position: fixed; top: 64px; right: 16px; z-index: 1000;
   width: 320px; max-width: calc(100vw - 32px);
   background: var(--bg2, #141417); border: 1px solid var(--border2, rgba(255,255,255,.12));
-  border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  border-radius: 14px; box-shadow: var(--e-modal);
   padding: 14px 16px; color: var(--text, #f0f0f2);
   animation: rsPop .16s ease;
 }
@@ -927,7 +927,7 @@
   background: var(--bg2); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 28px 32px;
   text-align: center; max-width: 420px; width: calc(100% - 40px);
-  box-shadow: 0 18px 60px rgba(0,0,0,.5);
+  box-shadow: var(--e-modal);
 }
 .chap-transition-label {
   font-family: var(--font-head); font-size: 19px; font-weight: 800;
@@ -1188,7 +1188,7 @@ body.page-body { padding-top: 0; padding-bottom: 0; }
 .reader-pop {
     position: absolute; right: 0; top: calc(100% + 8px); z-index: 120; min-width: 250px; padding: 6px;
     background: rgba(18,18,22,.96); border: 1px solid rgba(255,255,255,.1); border-radius: 12px;
-    box-shadow: 0 16px 40px rgba(0,0,0,.5);
+    box-shadow: var(--e-flottant);
     -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
 }
 .reader-pop-item {
@@ -1208,7 +1208,7 @@ body.page-body { padding-top: 0; padding-bottom: 0; }
   display: flex; gap: 10px; align-items: center; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box;
   padding: 10px 12px 10px 16px; border-radius: 12px; font-size: 13px;
   background: var(--bg2, #141417); color: var(--text, #f0f0f2);
-  border: 1px solid #f59e0b; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+  border: 1px solid #f59e0b; box-shadow: var(--e-flottant);
 }
 .bandeau-secours button { background: none; border: none; color: var(--text3, #9a9aa6); cursor: pointer; padding: 4px 6px; }
 
@@ -1219,7 +1219,7 @@ body.page-body { padding-top: 0; padding-bottom: 0; }
   width: max-content; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box;
   padding: 10px 36px 10px 16px; border-radius: 12px; font-size: 13px;
   background: var(--bg2, #141417); color: var(--text, #f0f0f2);
-  border: 1px solid var(--border2, rgba(255,255,255,.12)); box-shadow: 0 10px 30px rgba(0,0,0,.45);
+  border: 1px solid var(--border2, rgba(255,255,255,.12)); box-shadow: var(--e-flottant);
 }
 .autre-appareil-texte { flex: 1 1 220px; min-width: 0; }
 .autre-appareil-fermer { position: absolute; top: 6px; right: 6px; background: none; border: none; color: var(--text3, #9a9aa6); cursor: pointer; padding: 4px 6px; border-radius: 6px; }

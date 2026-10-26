@@ -848,7 +848,7 @@
   background: var(--bg2);
   border: 1px solid var(--border2);
   border-radius: 12px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, .5);
+  box-shadow: var(--e-flottant);
 }
 .histo-menu-item {
   display: block; width: 100%;

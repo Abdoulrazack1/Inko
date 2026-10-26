@@ -52,7 +52,7 @@
 
 /* ── §11 : carte fusionnée par titre (dédup multi-sources) ── */
 .se-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; color:#fff; }
-.se-lib-badge { position:absolute; top:8px; right:8px; background:#22c55e; color:#fff; font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.4); display:inline-flex; align-items:center; gap:3px; }
+.se-lib-badge { position:absolute; top:8px; right:8px; background:#22c55e; color:#fff; font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:20px; box-shadow:var(--e-detache); display:inline-flex; align-items:center; gap:3px; }
 .se-multi { position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,.6); color:#fff; font-size:9.5px; font-weight:700; padding:2px 7px; border-radius:20px; backdrop-filter:blur(2px); }
 .se-meta { font-size:10.5px; color:var(--text3); margin-top:2px; }
 .se-sources { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }

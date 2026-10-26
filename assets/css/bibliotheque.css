@@ -31,13 +31,13 @@
 .lib2-grid .lib2-card:hover { transform:translateY(-4px); }
 .lib2-grid .lib2-card:hover .lib2-cover { box-shadow:var(--shadow-3); }
 .lib2-grid .lib2-card:hover .lib2-cover img { transform:scale(1.06); }
-.lib2-badge { position:absolute; top:8px; left:8px; background:var(--hanko); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.4); z-index:4; }
+.lib2-badge { position:absolute; top:8px; left:8px; background:var(--hanko); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; box-shadow:var(--e-detache); z-index:4; }
 /* si un badge de statut occupe déjà le coin haut-gauche, on descend le compteur */
 .lib2-status + .lib2-badge, .lib2-status ~ .lib2-badge { top:34px; }
 .lib2-pin { position:absolute; bottom:8px; right:8px; width:30px; height:30px; border-radius:9px; border:none; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; opacity:0; transform:translateY(4px); transition:opacity .14s, transform .14s, background .14s; backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; }
 .lib2-card:hover .lib2-pin { opacity:.9; transform:translateY(0); }
 .lib2-pin:hover { background:rgba(0,0,0,.8); }
-.lib2-pin.on { opacity:1; transform:translateY(0); background:var(--orange); box-shadow:0 2px 8px rgba(0,0,0,.4); }
+.lib2-pin.on { opacity:1; transform:translateY(0); background:var(--orange); box-shadow:var(--e-detache); }
 .lib2-del { position:absolute; bottom:8px; right:44px; width:30px; height:30px; border-radius:9px; border:none; background:rgba(0,0,0,.55); color:#fff; font-size:13px; line-height:1; cursor:pointer; opacity:0; transform:translateY(4px); transition:opacity .14s, transform .14s, background .14s; backdrop-filter:blur(2px); }
 .lib2-card:hover .lib2-del { opacity:.9; transform:translateY(0); }
 .lib2-del:hover { background:#ef4444; opacity:1; }
@@ -65,7 +65,7 @@
 .lib2-kind.on .cnt, .lib2-kind.active .cnt { opacity:1; color:#fff; }
 .lib2-chip-add { color:var(--text3); border-style:dashed; }
 .lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; color:#fff; }
-.lib2-kind-badge { position:absolute; bottom:8px; left:8px; font-size:8.5px; font-weight:800; padding:2px 6px; border-radius:5px; letter-spacing:.04em; color:#fff; background:var(--ai); box-shadow:0 2px 6px rgba(0,0,0,.4); }
+.lib2-kind-badge { position:absolute; bottom:8px; left:8px; font-size:8.5px; font-weight:800; padding:2px 6px; border-radius:5px; letter-spacing:.04em; color:#fff; background:var(--ai); box-shadow:var(--e-detache); }
 .lib2-cat { font-size:10px; color:var(--text3); margin-top:1px; }
 
 /* Segment Mangas / Romans */
@@ -212,7 +212,7 @@
 /* ── Panneau de filtres et menu « ⋯ » ───────────────────────────────── */
 .lib-pop-wrap { position: relative; }
 .lib-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 70; min-width: 400px; max-width: min(520px, 92vw);
-    padding: 12px; background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,.35); }
+    padding: 12px; background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px; box-shadow: var(--e-flottant); }
 .lib-pop--right { left: auto; right: 0; }
 .lib-pop .lib2-filters { display: block; margin: 0; padding: 0; border: 0; background: none; }
 .lib-filter-group + .lib-filter-group { margin-top: 12px; }
