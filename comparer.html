@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Comparer deux traductions</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Le même chapitre chez deux sources, côte à côte, pour comparer les traductions.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Comparer deux traductions">
+    <meta property="og:description" content="Le même chapitre chez deux sources, côte à côte, pour comparer les traductions.">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Comparer deux traductions">
+    <meta name="twitter:description" content="Le même chapitre chez deux sources, côte à côte, pour comparer les traductions.">
+    <!-- meta:auto -->
+  <link rel="stylesheet" href="assets/css/global.css">
+  <link rel="stylesheet" href="assets/css/comparer.css">
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
+    <div class="cmp" id="cmpRoot">
+      <div class="cmp-bar">
+        <h1 class="cmp-titre" id="cmpTitre">Comparer deux traductions</h1>
+        <div class="cmp-reglages">
+          <label class="cmp-choix">Comparer avec
+            <select id="cmpSourceB" disabled><option>Recherche des autres sources…</option></select>
+          </label>
+          <label class="cmp-sync"><input type="checkbox" id="cmpSync" checked> Défilement synchronisé</label>
+          <a class="btn btn-ghost btn-sm" id="cmpRetour" href="#">Retour au lecteur</a>
+        </div>
+      </div>
+      <div class="cmp-colonnes">
+        <section class="cmp-col" id="cmpA" aria-label="Première source"></section>
+        <section class="cmp-col" id="cmpB" aria-label="Seconde source"></section>
+      </div>
+    </div>
+  </main>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/theme.js"></script>
+  
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/comparer.js"></script>
+</body>
+</html>

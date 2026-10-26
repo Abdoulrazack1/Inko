@@ -47,6 +47,17 @@
        reste la propriete de l'application, qui s'en sert pour les reglages
        propres au tactile. Les confondre revelerait des reglages sans effet. */
     .sr-filtre { display: none !important; }
+    .pc-conflits { display: block; }
+    .pc-conflits[hidden] { display: none; }
+    .pc-conflits-liste { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    .pc-conflit { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+    .pc-conflit-choix { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .pc-conflit-choix button { text-align: left; white-space: normal; height: auto; padding: 8px 10px; }
+    .pc-conflit-choix small { display: block; color: var(--text3); font-weight: 400; }
+
+    .import-liste-zone { display: block; }
+    .import-liste-zone[hidden] { display: none; }
+    .import-liste-source select { margin-left: 6px; }
     .set-card {
       background: var(--bg2); border: 1px solid var(--border);
       border-radius: 12px; padding: 22px 24px; margin-bottom: 18px;
@@ -63,6 +74,13 @@
     .set-row:first-of-type { border-top: none; }
     .set-row-label { font-size: 13.5px; font-weight: 500; }
     .set-row-desc  { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+    #pcJournal { display: block; }
+    #pcJournal summary { cursor: pointer; }
+    .pc-journal { list-style: none; margin: 8px 0 0; padding: 0; max-height: 260px; overflow: auto; font-size: 12px; }
+    .pc-journal li { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; padding: 5px 0; border-top: 1px solid var(--border); }
+    .pc-journal time { color: var(--text3); white-space: nowrap; }
+    .pc-journal small { color: var(--text3); }
+    .pc-journal .pc-j-refus, .pc-journal .pc-j-echec { color: var(--accent); }
     .set-input {
       background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
       padding: 9px 12px; border-radius: 8px; font-size: 13px; width: 100%;
@@ -166,6 +184,17 @@
         </div>
         <button class="btn btn-primary btn-sm" id="pcSync" hidden>Synchroniser maintenant</button>
       </div>
+      <!-- Le PC et le téléphone ont changé la même chose chacun de leur côté :
+           on montre les deux, on laisse choisir. -->
+      <div class="set-row pc-conflits" id="pcConflits" hidden>
+        <div class="set-row-label">À trancher</div>
+        <ul class="pc-conflits-liste" id="pcConflitsListe"></ul>
+      </div>
+
+      <details class="set-row" id="pcJournal" hidden>
+        <summary class="set-row-label">Journal de synchronisation</summary>
+        <ol class="pc-journal" id="pcJournalListe"></ol>
+      </details>
       <div class="set-row">
         <div>
           <div class="set-row-label" id="pcLierLabel">Connecter un PC</div>
@@ -413,13 +442,30 @@
       </div>
       <div class="set-row">
         <div>
+          <div class="set-row-label">Exporter une sauvegarde chiffrée</div>
+          <div class="set-row-desc">Le même contenu, illisible sans ta phrase de passe (AES-256). Pour une clé USB ou un nuage.</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnExportChiffre">Chiffrer et exporter</button>
+      </div>
+      <div class="set-row">
+        <div>
           <div class="set-row-label">Importer une sauvegarde</div>
-          <div class="set-row-desc">Restaure un fichier JSON exporté (fusion, sans écraser)</div>
+          <div class="set-row-desc">Restaure un fichier JSON exporté, chiffré ou non (fusion, sans écraser)</div>
         </div>
         <button class="btn btn-secondary btn-sm" id="btnImport">Importer</button>
         <input type="file" id="importFile" accept="application/json,.json" style="display:none"
                aria-label="Fichier de sauvegarde à importer">
       </div>
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Importer depuis MyAnimeList ou AniList</div>
+          <div class="set-row-desc">Export « Manga List » de MyAnimeList (.xml ou .xml.gz) ou collection AniList (.json)</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnImportListe">Choisir le fichier</button>
+        <input type="file" id="importListeFichier" accept=".xml,.gz,.json,application/xml,application/json,application/gzip" style="display:none"
+               aria-label="Export MyAnimeList ou AniList à importer">
+      </div>
+      <div class="set-row import-liste-zone" id="importListeZone" hidden></div>
       <div class="set-row">
         <div>
           <div class="set-row-label">Effacer l'historique de lecture</div>
@@ -544,7 +590,9 @@
   <script src="assets/js/une-main.js"></script>
   <script src="assets/js/tirer-rafraichir.js"></script>
   <script src="assets/js/anilist.js"></script>
+  <script src="assets/js/sauvegarde-chiffree.js"></script>
   <script src="assets/js/parametres.js"></script>
+  <script src="assets/js/import-listes.js"></script>
   <script src="assets/js/appairage.js"></script>
   <script src="assets/js/eula.js"></script>
   <script src="assets/js/pwa.js"></script>

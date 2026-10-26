@@ -920,6 +920,58 @@
     // c'est exactement ce qui fait bannir une adresse IP. La progression est
     // affichée et l'opération interruptible, parce qu'une plage un peu large
     // peut durer plusieurs minutes.
+    // Combien, et combien ça pèse. Avant : une invite « combien de
+    // chapitres ? » avec un nombre à taper, sans « toute la série », et sans
+    // la moindre idée du poids — on découvrait que la série pesait 3 Go quand
+    // l'appareil était plein.
+    async function choisirQuantite(nonTelecharges) {
+        const total = nonTelecharges.length;
+        const [poids, st] = await Promise.all([
+            window.Downloads.poidsChapitre?.(manga.id) || { octets: 6 * 1048576, base: 'defaut' },
+            window.Downloads.storage?.() || { usage: 0, quota: 0 },
+        ]);
+        return new Promise((resolve) => {
+            const libre = st.quota ? Math.max(0, st.quota - st.usage) : null;
+            const fmt = (o) => o >= 1073741824 ? `${(o / 1073741824).toFixed(1).replace('.', ',')} Go` : `${Math.max(1, Math.round(o / 1048576))} Mo`;
+            const base = { serie: 'd’après tes chapitres déjà téléchargés de cette série', moyenne: 'd’après la moyenne de tes téléchargements', defaut: 'estimation prudente : aucun téléchargement pour comparer' }[poids.base];
+            const options = [...new Set([5, 20].filter(x => x < total).concat(total))];
+            const veil = document.createElement('div');
+            veil.className = 'mh-modal-veil';
+            veil.innerHTML = `<form class="mh-modal dl-choix" role="dialog" aria-modal="true" aria-labelledby="dlChoixTitre">
+                <div class="mh-modal-title" id="dlChoixTitre">Télécharger pour lire hors ligne</div>
+                <p class="mh-modal-msg">À partir du plus ancien non téléchargé (Ch. ${MH.esc(String(MH.chapNum(nonTelecharges[0].chapter)))}).</p>
+                <div class="dl-choix-options" role="radiogroup">
+                    ${options.map((v, i) => `<label class="dl-choix-option"><input type="radio" name="dlN" value="${v}" ${i === 0 ? 'checked' : ''}>
+                        <span>${v === total ? `Toute la série (${total} chapitre${total > 1 ? 's' : ''})` : `Les ${v} prochains`}</span>
+                        <span class="dl-choix-poids" data-poids="${v}">≈ ${fmt(v * poids.octets)}</span></label>`).join('')}
+                </div>
+                <p class="dl-choix-note">${MH.esc(base)}${libre != null ? ` · espace libre : ${fmt(libre)}` : ''}</p>
+                <p class="dl-choix-alerte" hidden></p>
+                <div class="mh-modal-actions">
+                    <button type="button" class="mh-modal-btn ghost" data-annuler>Annuler</button>
+                    <button type="submit" class="mh-modal-btn primary">Télécharger</button>
+                </div></form>`;
+            document.body.appendChild(veil);
+            const form = veil.querySelector('form');
+            const alerte = veil.querySelector('.dl-choix-alerte');
+            const valeur = () => +form.querySelector('input[name="dlN"]:checked').value;
+            const verifier = () => {
+                const trop = libre != null && valeur() * poids.octets > libre * 0.9;
+                alerte.hidden = !trop;
+                alerte.textContent = trop ? `C’est plus que l’espace libre de l’appareil : la file s’arrêtera quand il sera plein.` : '';
+            };
+            const fin = (n) => { veil.remove(); document.removeEventListener('keydown', echap); resolve(n); };
+            const echap = (e) => { if (e.key === 'Escape') fin(0); };
+            document.addEventListener('keydown', echap);
+            form.addEventListener('change', verifier);
+            form.addEventListener('submit', (e) => { e.preventDefault(); fin(valeur()); });
+            veil.querySelector('[data-annuler]').addEventListener('click', () => fin(0));
+            veil.addEventListener('click', (e) => { if (e.target === veil) fin(0); });
+            verifier();
+            form.querySelector('input[name="dlN"]')?.focus();
+        });
+    }
+
     async function telechargerPlage() {
         if (!window.Downloads) { MH.toast?.('Téléchargement hors-ligne indisponible'); return; }
         if (MH.isNovelSource(API.sources.current)) {
@@ -935,11 +987,7 @@
         for (const c of asc) if (!(await window.Downloads.has(c.id))) nonTelecharges.push(c);
         if (!nonTelecharges.length) { MH.toast?.('Tous les chapitres sont déjà téléchargés'); return; }
 
-        const combien = await MH.prompt(
-            `Combien de chapitres télécharger, à partir du plus ancien non téléchargé `
-            + `(Ch. ${MH.chapNum(nonTelecharges[0].chapter)}) ? ${nonTelecharges.length} disponibles.`,
-            { value: String(Math.min(5, nonTelecharges.length)), okText: 'Télécharger' });
-        const n = Math.max(0, Math.min(nonTelecharges.length, parseInt(combien, 10) || 0));
+        const n = await choisirQuantite(nonTelecharges);
         if (!n) return;
 
         const lot = nonTelecharges.slice(0, n);
