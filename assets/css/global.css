@@ -115,9 +115,31 @@
   --orange2:     var(--accent);
   --orange-glow: transparent;
 
-  --radius:      12px;
-  --radius2:     8px;
-  --radius3:     18px;   /* pills / grands blocs */
+
+  /* Rayons (§13). AVANT : 22 valeurs distinctes pour 374 declarations en
+     dur, pendant que --radius, --radius2 et --radius3 existaient et se
+     faisaient contourner 374 fois contre 72 usages.
+
+         2 · 3 · 4                       93 declarations
+         5 · 6 · 7 · 8 · 9              135
+         10 · 11 · 12 · 13 · 14         106
+         16 · 18 · 20 · 22 · 24 · 28 · 30  40
+         99 · 999                        15   (gelules)
+
+     Cinq pas, et non quatre comme le chantier le prevoyait : rien dans
+     « pastille, controle, carte, feuille » ne couvre une barre de 4 px de
+     haut. Il y en a 93 — jauges, squelettes, ascenseurs, vignettes — et
+     leur imposer le rayon d'un bouton en ferait des losanges. Le cinquieme
+     pas porte ce cas, et c'est la mesure qui l'a impose. */
+  --r-trait:     3px;     /* barres, squelettes : quelques pixels de haut */
+  --r-controle:  8px;     /* boutons, champs, puces */
+  --r-carte:     12px;    /* cartes, panneaux */
+  --r-feuille:   20px;    /* modales, grandes surfaces */
+  --r-pastille:  999px;   /* gelules */
+
+  --radius:      var(--r-carte);
+  --radius2:     var(--r-controle);
+  --radius3:     var(--r-feuille);   /* alias historique */
   --header-h:    58px;
   --font-head:   'Archivo Narrow', system-ui, sans-serif;   /* Display */
   --font-body:   'IBM Plex Sans', system-ui, sans-serif;    /* Utilitaire */
@@ -456,7 +478,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
 /* ── Scrollbar ─────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg2); }
-::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius:  var(--r-trait); }
 ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 
 /* ╔══════════════════════════════════════════════════════════╗
@@ -486,7 +508,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
 .logo-icon {
   width: 28px; height: 28px;
   background: var(--orange);
-  border-radius: 7px;
+  border-radius:  var(--r-controle);
   display: flex; align-items: center; justify-content: center;
   font-size: 14px;
 }
@@ -518,7 +540,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
 .header-search input {
   width: 100%; height: 34px;
   background: var(--bg3); border: 1px solid var(--border);
-  border-radius: 20px; color: var(--text);
+  border-radius:  var(--r-feuille); color: var(--text);
   padding: 0 14px 0 36px; font-size: 13px;
   transition: border-color var(--transition);
 }
@@ -545,7 +567,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
 .search-result-item:hover { background: var(--bg3); }
 .search-result-item img {
   width: 34px; height: 48px; object-fit: cover;
-  border-radius: 5px; flex-shrink: 0;
+  border-radius:  var(--r-controle); flex-shrink: 0;
   background: var(--bg4);
 }
 .search-result-info { flex: 1; min-width: 0; }
@@ -584,7 +606,7 @@ body.incognito-on::before {
   max-width: min(680px, calc(100vw - 24px));
   padding: 9px 14px;
   background: var(--bg2); border: 1px solid var(--orange);
-  border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.4);
+  border-radius:  var(--r-pastille); box-shadow: 0 6px 24px rgba(0,0,0,.4);
   font-size: 12.5px; color: var(--text2);
 }
 #incognitoBar .inco-pastille {
@@ -595,27 +617,27 @@ body.incognito-on::before {
 #incognitoBar .inco-detail { color: var(--text3); font-size: 11.5px; }
 #incognitoBar .inco-off {
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
-  border-radius: 999px; padding: 4px 11px; font-size: 11.5px; font-family: inherit; cursor: pointer;
+  border-radius:  var(--r-pastille); padding: 4px 11px; font-size: 11.5px; font-family: inherit; cursor: pointer;
 }
 #incognitoBar .inco-off:hover { border-color: var(--orange); }
 #incognitoBar .inco-off:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Sous 560 px le détail passe à la ligne plutôt que d'écraser le bouton. */
 @media (max-width: 560px) {
-  #incognitoBar { bottom: 84px; border-radius: 14px; }
+  #incognitoBar { bottom: 84px; border-radius:  var(--r-carte); }
   #incognitoBar .inco-detail { flex-basis: 100%; }
 }
 
 #btnRefresh.spinning svg { animation: inko-spin .8s linear infinite; }
 /* Avancement du scan : fine barre sous le bouton (largeur = % de séries vérifiées) */
 #btnRefresh { position: relative; }
-#btnRefresh.spinning::after { content: ""; position: absolute; left: 6px; bottom: 3px; height: 2px; border-radius: 2px;
+#btnRefresh.spinning::after { content: ""; position: absolute; left: 6px; bottom: 3px; height: 2px; border-radius:  var(--r-trait);
     width: calc((100% - 12px) * var(--refresh-pct-n, 0)); background: var(--accent); transition: width .4s ease; }
 @keyframes inko-spin { to { transform: rotate(360deg); } }
 .header-user {
   display: flex; align-items: center; gap: 8px;
   padding: 5px 10px 5px 6px;
   background: var(--bg3); border: 1px solid var(--border);
-  border-radius: 20px; font-size: 13px; font-weight: 500;
+  border-radius:  var(--r-feuille); font-size: 13px; font-weight: 500;
   transition: border-color var(--transition);
 }
 .header-user:hover { border-color: var(--border2); }
@@ -636,7 +658,7 @@ body.incognito-on::before {
 .btn-connect {
   height: 34px; padding: 0 16px;
   background: var(--orange); color: #fff;
-  border-radius: 20px; font-size: 13px; font-weight: 600;
+  border-radius:  var(--r-feuille); font-size: 13px; font-weight: 600;
   transition: background var(--transition);
   flex-shrink: 0;
 }
@@ -655,7 +677,7 @@ body.incognito-on::before {
   user-select: none; -webkit-user-select: none;
 }
 #inko-titlebar .tb-brand { display: flex; align-items: center; gap: 8px; padding-left: 12px; height: 100%; flex: 1; }
-#inko-titlebar .tb-logo { width: 16px; height: 16px; border-radius: 4px; pointer-events: none; }
+#inko-titlebar .tb-logo { width: 16px; height: 16px; border-radius:  var(--r-trait); pointer-events: none; }
 #inko-titlebar .tb-title { font-family: var(--font-head, inherit); font-size: 12.5px; font-weight: 600; color: var(--text2); letter-spacing: .2px; }
 #inko-titlebar .tb-controls { display: flex; height: 100%; }
 #inko-titlebar .tb-btn {
@@ -754,7 +776,7 @@ body.incognito-on::before {
 /* Badge statut */
 .badge {
   display: inline-flex; align-items: center;
-  padding: 2px 8px; border-radius: 4px;
+  padding: 2px 8px; border-radius:  var(--r-trait);
   font-size: 10px; font-weight: 700; letter-spacing: .04em;
   text-transform: uppercase; line-height: 1.6;
 }
@@ -877,11 +899,11 @@ body.incognito-on::before {
 
 /* Progress bar */
 .progress-bar {
-  height: 3px; background: var(--bg4); border-radius: 2px;
+  height: 3px; background: var(--bg4); border-radius:  var(--r-trait);
   overflow: hidden; margin-top: 6px;
 }
 .progress-fill {
-  height: 100%; background: var(--orange); border-radius: 2px;
+  height: 100%; background: var(--orange); border-radius:  var(--r-trait);
   transition: width 0.3s ease;
 }
 
@@ -916,15 +938,15 @@ body.incognito-on::before {
 .btn-secondary:hover { background: var(--bg3); border-color: var(--text3); transform: translateY(-1px); }
 .btn-ghost { color: var(--text2); border: 1px solid var(--border); }
 .btn-ghost:hover { color: var(--text); border-color: var(--border2); background: var(--bg2); }
-.btn-sm { height: 32px; padding: 0 13px; font-size: 12px; border-radius: 16px; }
-.btn-xs { height: 27px; padding: 0 11px; font-size: 11px; border-radius: 14px; }
+.btn-sm { height: 32px; padding: 0 13px; font-size: 12px; border-radius:  var(--r-feuille); }
+.btn-xs { height: 27px; padding: 0 11px; font-size: 11px; border-radius:  var(--r-carte); }
 
 /* Tag / genre pill */
 .tag {
   display: inline-flex; align-items: center;
   padding: 3px 10px;
   background: var(--bg4); border: 1px solid var(--border);
-  border-radius: 30px; font-size: 11.5px; color: var(--text2);
+  border-radius:  var(--r-feuille); font-size: 11.5px; color: var(--text2);
   transition: all var(--transition);
 }
 .tag:hover, .tag.active {
@@ -1080,10 +1102,10 @@ a[data-nsfw] .manga-card-cover::after,
 .manga-card-meta .mc-year { font-size: 11px; color: var(--text3); }
 .manga-card-meta .mc-demo {
   font-size: 10px; color: var(--text2); background: var(--bg4);
-  padding: 1px 6px; border-radius: 4px; text-transform: capitalize;
+  padding: 1px 6px; border-radius:  var(--r-trait); text-transform: capitalize;
 }
 .manga-card-meta .mc-status {
-  font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 20px;
+  font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius:  var(--r-feuille);
   display: inline-flex; align-items: center; gap: 4px;
 }
 .manga-card-meta .mc-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
@@ -1100,20 +1122,20 @@ a[data-nsfw] .manga-card-cover::after,
 .conn-card {
   display: flex; align-items: center; gap: 14px;
   padding: 14px 16px; background: var(--bg2);
-  border: 1px solid var(--border); border-radius: 12px;
+  border: 1px solid var(--border); border-radius:  var(--r-carte);
 }
 .conn-logo {
-  width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
+  width: 42px; height: 42px; border-radius:  var(--r-carte); flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   background: var(--bg3); border: 1px solid var(--border);
 }
 .conn-body { flex: 1; min-width: 0; }
 .conn-name { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .conn-desc { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
-.conn-desc code { background: var(--bg4); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+.conn-desc code { background: var(--bg4); padding: 1px 5px; border-radius:  var(--r-trait); font-size: 11px; }
 .conn-pill {
   font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
-  padding: 2px 8px; border-radius: 20px; color: var(--text2);
+  padding: 2px 8px; border-radius:  var(--r-feuille); color: var(--text2);
   background: var(--bg4); border: 1px solid var(--border);
 }
 .conn-pill.ok { color: var(--green); background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); }
@@ -1239,7 +1261,7 @@ a[data-nsfw] .manga-card-cover::after,
 .list-icon-btn {
   width: 30px; height: 30px;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 8px;
+  border-radius:  var(--r-controle);
   background: var(--bg3);
   border: 1px solid var(--border);
   color: var(--text2);
@@ -1297,7 +1319,7 @@ a[data-nsfw] .manga-card-cover::after,
 .lp-row:hover { background: var(--bg3); }
 .lp-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--orange); cursor: pointer; }
 .lp-name { flex: 1; font-size: 14px; }
-.lp-count { font-size: 12px; color: var(--text3); background: var(--bg3); padding: 1px 8px; border-radius: 999px; }
+.lp-count { font-size: 12px; color: var(--text3); background: var(--bg3); padding: 1px 8px; border-radius:  var(--r-pastille); }
 .lp-empty { font-size: 13px; color: var(--text3); padding: 16px 4px; text-align: center; }
 .lp-new { display: flex; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .lp-new .list-modal-input { flex: 1; }
@@ -1311,7 +1333,7 @@ a[data-nsfw] .manga-card-cover::after,
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius:  var(--r-pastille);
   background: var(--orange);
   color: #fff;
   font-size: 10px;
@@ -1349,7 +1371,7 @@ a[data-nsfw] .manga-card-cover::after,
 .skip-link {
   position: fixed; top: -48px; left: 12px; z-index: 10000;
   background: var(--orange); color: #fff; font-size: 13px; font-weight: 600;
-  padding: 9px 16px; border-radius: 8px; text-decoration: none;
+  padding: 9px 16px; border-radius:  var(--r-controle); text-decoration: none;
   transition: top 0.15s ease;
 }
 .skip-link:focus { top: 12px; }
@@ -1372,7 +1394,7 @@ a[data-nsfw] .manga-card-cover::after,
 .mh-cm-item:hover, .mh-cm-item:focus-visible { background: var(--bg3); }
 .mh-cm-item img {
   width: 34px; height: 46px; flex: 0 0 auto;
-  object-fit: cover; border-radius: 5px; background: var(--bg4);
+  object-fit: cover; border-radius:  var(--r-controle); background: var(--bg4);
 }
 .mh-cm-txt { min-width: 0; }
 .mh-cm-title {
@@ -1418,7 +1440,7 @@ a[data-nsfw] .manga-card-cover::after,
 .undo-bar-action {
   flex: 0 0 auto;
   background: var(--accent); color: #fff;
-  border-radius: 16px; padding: 5px 14px;
+  border-radius:  var(--r-feuille); padding: 5px 14px;
   font-size: 12.5px; font-weight: 700;
 }
 .undo-bar-action:disabled { opacity: .6; cursor: default; }
@@ -1519,18 +1541,18 @@ a[data-nsfw] .manga-card-cover::after,
   pointer-events: none;
 }
 .mh-sq:hover { transform: none; box-shadow: none; border-color: var(--border); }
-.mh-sq .manga-card-title span { display: block; height: 11px; border-radius: 4px; }
+.mh-sq .manga-card-title span { display: block; height: 11px; border-radius:  var(--r-trait); }
 .mh-sq .manga-card-title span + span { margin-top: 8px; width: 58%; }
 /* Deux pastilles qui DEBORDENT la ligne (62 % + 45 %) : elles passent donc
    sur deux rangs, comme les badges reels d'annee, de demographie et de statut.
    Ajuste au millimetre sur la carte tactile — c'est elle que P1.6 vise. */
-.mh-sq .manga-card-meta span { display: block; height: 16px; border-radius: 4px; }
+.mh-sq .manga-card-meta span { display: block; height: 16px; border-radius:  var(--r-trait); }
 .mh-sq .manga-card-meta span:first-child { width: 62%; }
 .mh-sq .manga-card-meta span:last-child { width: 45%; }
-.mh-sq-t1 { height: 11px; width: 92%; border-radius: 4px; }
-.mh-sq-t2 { height: 11px; width: 58%; border-radius: 4px; }
+.mh-sq-t1 { height: 11px; width: 92%; border-radius:  var(--r-trait); }
+.mh-sq-t2 { height: 11px; width: 58%; border-radius:  var(--r-trait); }
 .mh-sq-ligne { display: flex; gap: 12px; align-items: center; padding: 10px 0; }
-.mh-sq-vignette { width: 52px; height: 70px; border-radius: 6px; flex: 0 0 auto; }
+.mh-sq-vignette { width: 52px; height: 70px; border-radius:  var(--r-controle); flex: 0 0 auto; }
 .mh-sq-lignes { flex: 1 1 auto; display: flex; flex-direction: column; gap: 7px; }
 @media (hover: none) {
   .mh-sq-t1, .mh-sq-t2 { height: 10px; }
