@@ -427,6 +427,7 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "La source ne répond pas — recherche du chapitre ailleurs…": "The source isn't responding — looking for the chapter elsewhere…",
     "Exporter une sauvegarde chiffrée": "Export an encrypted backup",
     "Le même contenu, illisible sans ta phrase de passe (AES-256). Pour une clé USB ou un nuage.": "The same content, unreadable without your passphrase (AES-256). For a USB stick or the cloud.",
     "Chiffrer et exporter": "Encrypt and export",
@@ -1391,6 +1392,8 @@
   },
   "patterns": [
     [
+      "^(.+) ne répond pas : ce chapitre est lu sur (.+)\\. Ta progression reste sur la série d’origine\\.$",
+      "$1 isn't responding: this chapter is read from $2. Your progress stays on the original series.",
       "^(\\d+) % d’échecs$",
       "$1% failures"
     ],
