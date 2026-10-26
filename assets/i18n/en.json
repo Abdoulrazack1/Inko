@@ -427,6 +427,9 @@
     "Donne un nom à ta liste": "Name your list",
     "Données": "Data",
     "Double": "Double",
+    "À trancher": "To decide",
+    "ce téléphone": "this phone",
+    "ton PC": "your PC",
     "Exporter en CBZ": "Export as CBZ",
     "Une archive CBZ, lisible par toutes les liseuses de BD": "A CBZ archive, readable by any comic reader",
     "Aucun chapitre en images à exporter": "No image chapters to export",
@@ -1373,6 +1376,8 @@
   },
   "patterns": [
     [
+      "^Garder « (.+) »$",
+      "Keep “$1”",
       "^(\\d+) chapitre\\(s\\) mis en file$",
       "$1 chapter(s) queued",
       "^Plafond de stockage : (\\d+) ancien\\(s\\) chapitre\\(s\\) retiré\\(s\\)$",

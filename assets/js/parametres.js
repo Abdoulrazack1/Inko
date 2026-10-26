@@ -928,9 +928,34 @@
             const quand = r.derniere ? 'Dernière synchro ' + MH.relTime(new Date(r.derniere).toISOString()) : 'Jamais synchronisé';
             detail.textContent = quand
                 + (r.enAttente ? ` · ${r.enAttente} modification${r.enAttente > 1 ? 's' : ''} en attente` : '')
+                + (r.conflits ? ` · ${r.conflits} à trancher` : '')
                 + (r.erreur && !window.INKO_HORS_LIGNE ? ' · ' + r.erreur : '')
                 + (window.INKO_HUB ? ' · ' + window.INKO_HUB : '');
         };
+        const peindreConflits = () => {
+            const zone = document.getElementById('pcConflits');
+            const ul = document.getElementById('pcConflitsListe');
+            const liste = window.INKO_SYNCHRO?.conflits?.() || [];
+            if (!zone || !ul) return;
+            zone.hidden = !liste.length;
+            const quand = (t) => (t ? MH.relTime(new Date(t).toISOString()) : '');
+            ul.innerHTML = liste.map(c => `<li class="pc-conflit">
+                <strong>${MH.esc(c.titre)}</strong> — ${c.type === 'statut' ? 'statut' : 'position'} changé des deux côtés
+                <div class="pc-conflit-choix">
+                    <button type="button" class="btn btn-secondary btn-sm" data-conflit="${MH.esc(c.id)}" data-garder="telephone">Garder « ${MH.esc(c.telephone)} »<small>ce téléphone${c.telephoneAt ? ' · ' + MH.esc(quand(c.telephoneAt)) : ''}</small></button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-conflit="${MH.esc(c.id)}" data-garder="pc">Garder « ${MH.esc(c.pc)} »<small>ton PC${c.pcAt ? ' · ' + MH.esc(quand(c.pcAt)) : ''}</small></button>
+                </div></li>`).join('');
+            ul.querySelectorAll('[data-conflit]').forEach(b => b.addEventListener('click', async () => {
+                ul.querySelectorAll('button').forEach(x => { x.disabled = true; });
+                await window.INKO_SYNCHRO.resoudre(b.dataset.conflit, b.dataset.garder);
+                peindreConflits();
+            }));
+        };
+        peindre();
+        peindreConflits();
+        window.addEventListener('inko:synchro-etat', peindre);
+        window.addEventListener('inko:synchro-etat', peindreConflits);
+
         // Le journal : ce qui est parti, arrivé, refusé. Un refus est une
         // modification que le PC n'aura jamais — on la montre en premier plan.
         const ICONES = { envoi: '↑', rapatriement: '↓', refus: '⚠', interrompu: '⏸', injoignable: '○', echec: '⚠' };
@@ -945,9 +970,7 @@
                 <span>${MH.esc(e.libelle)}${e.n > 1 ? ` (×${e.n})` : ''}${e.type === 'refus' ? ' — refusé par le PC, non appliqué' : ''}${e.detail ? `<small> · ${MH.esc(e.detail)}</small>` : ''}</span>
                 <time datetime="${new Date(e.t).toISOString()}">${MH.relTime(new Date(e.t).toISOString())}</time></li>`).join('');
         };
-        peindre();
         peindreJournal();
-        window.addEventListener('inko:synchro-etat', peindre);
         window.addEventListener('inko:synchro-etat', peindreJournal);
         document.getElementById('pcSync')?.addEventListener('click', async (e) => {
             const b = e.currentTarget;
