@@ -160,6 +160,16 @@
             // aussi). null = échec réel détecté.
             const base = (window.API && API.base) || '';
             async function fetchPage(url) {
+                // Une planche déjà lue est en cache sur le hub : on la lui
+                // demande d'abord, sans qu'il interroge la source (`cache=seul`
+                // rend 404 sinon). Le direct reste la voie par défaut pour le
+                // reste, et c'est voulu — voir `corsRefuse`.
+                if (base) {
+                    try {
+                        const enCache = await fetch(base + '/img?u=' + encodeURIComponent(url) + '&cache=seul');
+                        if (enCache.ok) return enCache;
+                    } catch (e) { /* hub injoignable : le direct tranchera */ }
+                }
                 const origine = origineDe(url);
                 // Sans proxy, on tente le direct quoi qu'il arrive : c'est la
                 // seule voie.
@@ -273,6 +283,9 @@
                     // ou un tableau vide fait simplement retomber sur l'URL.
                     fichiers: fichiersActifs ? fichiers : undefined,
                 });
+                // Plafond de stockage : ce qui dépasse s'évince maintenant, en
+                // arrière-plan — le chapitre qu'on vient d'obtenir est lisible.
+                this.appliquerBudget({ garder: info.chapterId }).catch(() => { /* sans contexte : rien n'est évincé */ });
                 return { count: urls.length, failed };
             } finally {
                 this._active.delete(info.chapterId);
@@ -327,6 +340,38 @@
                 await window.INKO_NATIF.supprimerDossier(dossierChapitre(chapterId));
             }
             await delMeta(chapterId);
+        },
+
+        /**
+         * Vérifie qu'un chapitre téléchargé a encore toutes ses planches.
+         *
+         * « Complet » n'était constaté qu'au téléchargement. Or le Cache API
+         * peut être évincé ensuite par le système (la page des téléchargements
+         * le dit elle-même) : un chapitre complet hier pouvait perdre des
+         * planches sans que rien ne le signale — et l'on ne le découvrait
+         * qu'en le lisant, hors ligne, c'est-à-dire trop tard pour réparer.
+         *
+         * Une planche copiée dans le stockage privé de l'APK (`fichiers`)
+         * compte comme présente : ce stockage-là n'est jamais évincé.
+         * Le constat est écrit dans les métadonnées, pour que l'avertissement
+         * et le bouton « Relancer » existants le reprennent.
+         *
+         * @returns {Promise<{ total: number, manquantes: number } | null>}
+         */
+        async verifier(chapterId) {
+            const meta = await getMeta(chapterId);
+            if (!meta || meta.kind === 'novel' || !(meta.pages || []).length || !('caches' in window)) return null;
+            const cache = await caches.open(CACHE);
+            let manquantes = 0;
+            for (let i = 0; i < meta.pages.length; i++) {
+                if (meta.fichiers && meta.fichiers[i]) continue;
+                if (!(await cache.match(meta.pages[i]))) manquantes++;
+            }
+            const avant = meta.incomplete ? (meta.failed || 0) : 0;
+            if (manquantes !== avant) {
+                await putMeta({ ...meta, incomplete: manquantes > 0, failed: manquantes, verifieAt: Date.now() });
+            }
+            return { total: meta.pages.length, manquantes };
         },
 
         async get(chapterId) { return getMeta(chapterId); },
@@ -453,6 +498,93 @@
             // Les images sont déjà compressées : les recompresser ne gagne rien.
             const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE', mimeType: 'application/vnd.comicbook+zip' });
             return { blob, nom: `${titre.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || 'serie'}.cbz`, chapitres: chapitres.length, pages, manquantes };
+        },
+
+        // ── Purge intelligente ──────────────────────────────────
+        // « Tout supprimer » ou série par série : rien entre les deux. Or ce
+        // qu'on veut supprimer en premier, c'est ce qu'on a DÉJÀ LU, et
+        // jamais ce qu'on s'apprête à lire. Règles :
+        //   · protégé : le chapitre où l'on en est, et tout ce qui le suit
+        //     dans une série en cours — c'est pour ça qu'on a téléchargé ;
+        //   · d'abord : les chapitres lus (marqués lus, ou avant la position),
+        //     le plus anciennement téléchargé en premier ;
+        //   · ensuite, seulement si on demande plus de place : les chapitres
+        //     de séries jamais commencées, du plus ancien au plus récent.
+        // `contexte` : { lus: Set(chapterId), position: { mangaId: numéro } }.
+        planPurge(chapitres, contexte, { octets = Infinity, poidsDe = () => 0, inclureNonCommencees = false } = {}) {
+            const lus = contexte?.lus || new Set();
+            const position = contexte?.position || {};
+            const num = (c) => { const n = parseFloat(c.chapterNum); return Number.isFinite(n) ? n : null; };
+            const classe = (c) => {
+                const pos = position[c.mangaId];
+                if (lus.has(c.chapterId)) return 'lu';
+                if (pos != null && num(c) != null && num(c) < pos) return 'lu';
+                if (pos != null) return 'protege';          // série en cours : la suite reste
+                return 'non-commencee';
+            };
+            const parAge = (a, b) => (a.savedAt || 0) - (b.savedAt || 0);
+            const candidats = chapitres.filter(c => classe(c) === 'lu').sort(parAge)
+                .concat(inclureNonCommencees ? chapitres.filter(c => classe(c) === 'non-commencee').sort(parAge) : []);
+            const retenus = [];
+            let libere = 0;
+            for (const c of candidats) {
+                if (libere >= octets) break;
+                retenus.push(c);
+                libere += poidsDe(c);
+            }
+            return { aSupprimer: retenus, octets: libere, proteges: chapitres.filter(c => classe(c) === 'protege').length };
+        },
+
+        // ── Budget de stockage ──────────────────────────────────
+        // Un plafond, en octets (réglage `dlBudget`, 0 ou absent : aucun). Quand
+        // les téléchargements le dépassent, l'excédent s'évince tout seul, selon
+        // `planPurge` : le déjà lu d'abord, puis les séries jamais commencées ;
+        // jamais le chapitre en cours ni la suite d'une série commencée. Si ce
+        // qui reste protégé dépasse encore le plafond, on le laisse dépasser —
+        // supprimer ce qu'on s'apprête à lire serait pire que le dépassement.
+        budget() {
+            const v = Number(window.Storage?.getPref?.('dlBudget'));
+            return Number.isFinite(v) && v > 0 ? v : 0;
+        },
+        async appliquerBudget({ garder = null } = {}) {
+            const plafond = this.budget();
+            if (!plafond || !window.API?.me) return { evinces: 0 };
+            const tailles = await this.sizeByManga();
+            const total = tailles.reduce((n, t) => n + t.bytes, 0);
+            if (total <= plafond) return { evinces: 0, total };
+            // Ce qui a été lu vient du serveur ; sans lui, on ne devine pas.
+            const [lus, prog] = await Promise.all([window.API.me.readChapters(), window.API.me.progress()]);
+            const set = new Set();
+            Object.values(lus || {}).forEach(l => (l || []).forEach(c => set.add(c.chapterId)));
+            const position = {};
+            Object.entries(prog || {}).forEach(([id, p]) => { const n = parseFloat(p.chapter); if (Number.isFinite(n)) position[id] = n; });
+            const moyennes = new Map(tailles.map(t => [t.mangaId, t.chapters ? t.bytes / t.chapters : 0]));
+            const chapitres = (await this.list()).filter(c => c.chapterId !== garder);
+            const plan = this.planPurge(chapitres, { lus: set, position }, {
+                octets: total - plafond, poidsDe: (c) => moyennes.get(c.mangaId) || 0, inclureNonCommencees: true,
+            });
+            for (const c of plan.aSupprimer) await this.remove(c.chapterId);
+            if (plan.aSupprimer.length) {
+                window.MH?.toast?.(`Plafond de stockage : ${plan.aSupprimer.length} ancien(s) chapitre(s) retiré(s)`);
+            }
+            return { evinces: plan.aSupprimer.length, total, libere: plan.octets };
+        },
+
+        // ── Poids d'un chapitre, AVANT de télécharger ──────────
+        // Lancer « toute la série » sans savoir si c'est 80 Mo ou 4 Go, c'est
+        // découvrir la réponse quand le téléphone est plein. On estime d'après
+        // ce qui est DÉJÀ en cache : les chapitres de cette série d'abord (même
+        // source, même qualité d'image), sinon la moyenne de tous les
+        // téléchargements, sinon une valeur prudente, annoncée comme telle.
+        async poidsChapitre(mangaId) {
+            const DEFAUT = 6 * 1048576;
+            let tailles = [];
+            try { tailles = await this.sizeByManga(); } catch (e) { /* cache illisible */ }
+            const ici = tailles.find(t => t.mangaId === mangaId && t.chapters && t.bytes);
+            if (ici) return { octets: Math.round(ici.bytes / ici.chapters), base: 'serie' };
+            const tot = tailles.reduce((a, t) => ({ o: a.o + (t.bytes || 0), c: a.c + (t.bytes ? t.chapters : 0) }), { o: 0, c: 0 });
+            if (tot.c >= 3) return { octets: Math.round(tot.o / tot.c), base: 'moyenne' };
+            return { octets: DEFAUT, base: 'defaut' };
         },
 
         async sizeByManga() {
