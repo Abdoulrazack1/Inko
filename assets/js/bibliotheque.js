@@ -9,6 +9,25 @@
     let filter = { type: 'all', value: null };
     let kindFilter = 'all';    // 'all' | 'manga' | 'novel' (sépare romans et mangas)
     let unreadOnly = false;    // n'afficher que les séries avec des chapitres non lus
+    // « Ce que je peux finir ce week-end » : un budget de temps, en minutes.
+    // Le temps restant d'une série = ses chapitres non lus × le temps qu'on
+    // met RÉELLEMENT à lire un chapitre (temps mesuré ÷ chapitres lus), pas
+    // une constante. Tant que rien n'est mesuré, 6 min par chapitre.
+    let budget = null;
+    let minutesParChapitre = 6, tempsMesure = false;
+    const BUDGETS = [
+        { min: 60,  libelle: 'Une soirée', detail: '≤ 1 h' },
+        { min: 300, libelle: 'Un week-end', detail: '≤ 5 h' },
+        { min: 900, libelle: 'Une semaine', detail: '≤ 15 h' },
+    ];
+    /** Minutes pour finir, ou null si la série n'a rien à lire. */
+    function minutesPourFinir(nonLus, mpc) {
+        return nonLus > 0 ? Math.round(nonLus * mpc) : null;
+    }
+    function tientDans(nonLus, mpc, budgetMin) {
+        const m = minutesPourFinir(nonLus, mpc);
+        return m !== null && m <= budgetMin;
+    }
     let sourceFilter = null;   // filtrer par source d'origine
 
     // ── Les filtres survivent à la page ─────────────────────
@@ -31,6 +50,7 @@
             if (s.filtre && s.filtre.type === 'status' && s.filtre.value) filter = s.filtre;
             if (typeof s.source === 'string' && s.source) sourceFilter = s.source;
             if (s.nonLus === true) unreadOnly = true;
+            if (BUDGETS.some(b => b.min === s.budget)) budget = s.budget;
             if (typeof s.tri === 'string' && s.tri) tri = s.tri;
         } catch (e) { /* stockage indisponible ou illisible : on part à neuf */ }
     }
@@ -38,7 +58,7 @@
         try {
             window.Storage?.setPref?.(CLE_FILTRES, JSON.stringify({
                 kind: kindFilter, filtre: filter, source: sourceFilter, nonLus: unreadOnly,
-                tri,
+                budget, tri,
             }));
         } catch (e) { /* stockage refusé : les filtres restent valables pour la session */ }
     }
@@ -91,6 +111,7 @@
         filter = { type: 'all', value: null };
         kindFilter = 'all';
         unreadOnly = false;
+        budget = null;
         sourceFilter = null;
         tri = 'recent';
         const genre = q.get('genre');
@@ -99,6 +120,7 @@
         if (statut) filter = { type: 'status', value: statut };
         if (q.get('source')) sourceFilter = q.get('source');
         if (q.has('nonlus')) unreadOnly = q.get('nonlus') === '1';
+        if (BUDGETS.some(b => String(b.min) === q.get('finir'))) budget = +q.get('finir');
         if (q.get('tri')) tri = q.get('tri');
     }
 
@@ -124,6 +146,7 @@
         if (filter.type === 'status' && filter.value) q.set('statut', filter.value);
         if (sourceFilter) q.set('source', sourceFilter);
         if (unreadOnly) q.set('nonlus', '1');
+        if (budget) q.set('finir', String(budget));
         if (tri && tri !== 'recent') q.set('tri', tri);
         const cible = location.pathname + (q.toString() ? '?' + q : '');
         // Ne réécrire que si l'adresse change VRAIMENT : `render()` est appelé
@@ -553,6 +576,7 @@
                 Object.entries(panels).forEach(([k, id]) => {
                     const el = document.getElementById(id); if (el) el.style.display = (k === t) ? '' : 'none';
                 });
+                if (t === 'updates') renderChronologie();
                 if (t === 'downloads') renderDownloads();
                 if (t === 'bookmarks') renderBookmarks();
             });
@@ -572,7 +596,8 @@
             return;
         }
         el.innerHTML = items.map(b => {
-            const href = MH.readerHref(b.mangaId, b.chapterId, b.source);
+            // La page marquée, pas la progression : c'est elle qu'on a voulu retenir.
+            const href = MH.readerHref(b.mangaId, b.chapterId, b.source, b.page);
             return `
             <div class="upd-row">
                 <a class="upd-cover" href="${href}">
@@ -581,6 +606,7 @@
                 <div class="upd-info">
                     <a class="upd-name" href="${href}" style="color:inherit;text-decoration:none">${MH.esc(b.title || b.mangaId)}</a>
                     <div class="upd-meta">${MH.unitLabel(b.source, { short: true })} ${MH.esc(String(b.chapterNum || '?'))}${b.label ? ' · ' + MH.esc(b.label) : ''}${b.source ? ' · ' + MH.esc(b.source) : ''}</div>
+                    ${b.note ? `<q class="bm-note">${MH.esc(b.note)}</q>` : ''}
                 </div>
                 <div style="display:flex;gap:6px;flex-shrink:0">
                     <a class="btn btn-primary btn-sm" href="${href}">Lire</a>
@@ -682,6 +708,9 @@
         renderCatTabs();
         renderFilters();
         render();
+        mesurerRythme();
+        // La même œuvre suivie sur deux sources : signalée, fusion proposée.
+        window.MH?.doublons?.signaler(document.getElementById('libDoublons'), favs, progressByManga);
 
         const missing = favs.filter(f => !f.title || !f.cover);
         if (missing.length) {
@@ -727,6 +756,78 @@
     // « Filtres actifs » avec des puces qu'on retire une à une. On reprend le
     // même geste ici : deux pages qui filtrent doivent se filtrer de la même
     // façon, sinon on réapprend à chaque écran.
+    // ── Vue chronologique : ce qui est sorti, tous titres confondus ──
+    // L'onglet « Mises à jour » rangeait par retard de lecture, et restait vide
+    // tant qu'on n'avait pas lancé de vérification. Or la date de la dernière
+    // sortie est déjà gardée sur chaque favori (migration 22) : on peut dire
+    // tout de suite ce qui est sorti aujourd'hui, hier, cette semaine.
+    const TRANCHES = [
+        { libelle: 'Aujourd’hui', jusqua: 0 },
+        { libelle: 'Hier', jusqua: 1 },
+        { libelle: 'Cette semaine', jusqua: 7 },
+        { libelle: 'Ce mois-ci', jusqua: 30 },
+    ];
+    /** Favoris sortis depuis 30 jours, par tranche, du plus récent au plus ancien. */
+    function grouperParSortie(liste, maintenant = new Date()) {
+        const minuit = new Date(maintenant); minuit.setHours(0, 0, 0, 0);
+        const joursDepuis = (d) => Math.max(0, Math.ceil((minuit - new Date(d)) / 86400000));
+        const datees = liste
+            .filter(f => f.latestAt && !Number.isNaN(new Date(f.latestAt).getTime()))
+            .filter(f => new Date(f.latestAt) <= maintenant)
+            .sort((a, b) => new Date(b.latestAt) - new Date(a.latestAt));
+        const groupes = TRANCHES.map(t => ({ libelle: t.libelle, items: [] }));
+        for (const f of datees) {
+            const j = joursDepuis(f.latestAt);
+            const i = TRANCHES.findIndex(t => j <= t.jusqua);
+            if (i >= 0) groupes[i].items.push(f);
+        }
+        return groupes.filter(g => g.items.length);
+    }
+    function renderChronologie() {
+        const el = document.getElementById('updChrono');
+        if (!el) return;
+        const groupes = grouperParSortie(favsOfKind());
+        if (!groupes.length) { el.hidden = true; el.innerHTML = ''; return; }
+        el.hidden = false;
+        el.innerHTML = `<h2 class="upd-chrono-titre" id="updChronoTitre">Sorti récemment</h2>`
+            + groupes.map(g => `<div class="upd-chrono-groupe">
+                <h3 class="upd-chrono-tranche">${MH.esc(g.libelle)} <span class="cnt">${g.items.length}</span></h3>
+                ${g.items.map(f => {
+                    const u = unreadCount(f);
+                    const unit = MH.unitLabel(f.source, { short: true });
+                    return `<a class="upd-chrono-ligne" href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}">
+                        <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="" loading="lazy">
+                        <span class="upd-chrono-nom">${MH.esc(f.title || f.mangaId)}</span>
+                        <span class="upd-chrono-meta">${f.lastChapter != null ? `${MH.esc(unit)} ${MH.esc(String(f.lastChapter))}` : ''}${u > 0 ? ` · <strong>${u} non lu${u > 1 ? 's' : ''}</strong>` : ''} · ${MH.esc(MH.relTime(f.latestAt))}</span>
+                    </a>`;
+                }).join('')}
+            </div>`).join('');
+    }
+
+    const RYTHMES = { hebdo: [0, 'Chaque semaine'], mensuel: [1, 'Chaque mois'], irregulier: [2, 'Irrégulier'], arret: [3, 'À l’arrêt'] };
+    function ordreRythme(f) { return RYTHMES[f.rythme]?.[0] ?? 4; }
+    /** « Chaque semaine (tous les 7 j) » — pour l'infobulle et la vue liste. */
+    function libelleRythme(f) {
+        const r = RYTHMES[f.rythme];
+        if (!r) return '';
+        if (f.rythme === 'hebdo' && f.rythmeJours && f.rythmeJours < 5) return `Plusieurs fois par semaine (tous les ${f.rythmeJours} j)`;
+        return f.rythmeJours && f.rythme !== 'arret' ? `${r[1]} (tous les ${f.rythmeJours} j)` : r[1];
+    }
+
+    // Le rythme RÉEL : temps de lecture mesuré ÷ chapitres lus. En dessous de
+    // dix chapitres, la moyenne ne veut rien dire : on garde l'estimation.
+    async function mesurerRythme() {
+        try {
+            const t = await API.me.tempsLecture(1);
+            const lus = Object.values(readByManga || {}).reduce((n, l) => n + (Array.isArray(l) ? l.length : 0), 0);
+            if (!t?.mesure || lus < 10) return;
+            minutesParChapitre = Math.min(60, Math.max(1, Math.round(t.totalSecondes / 60 / lus)));
+            tempsMesure = true;
+            renderFilters();
+            if (budget) render();
+        } catch (e) { /* hors ligne ou ancien serveur : l'estimation reste */ }
+    }
+
     function filtresActifs() {
         const out = [];
         if (kindFilter && kindFilter !== 'all') {
@@ -737,6 +838,7 @@
         }
         if (sourceFilter) out.push({ l: sourceFilter, off: () => { sourceFilter = null; } });
         if (unreadOnly) out.push({ l: 'Non lus', off: () => { unreadOnly = false; } });
+        if (budget) out.push({ l: `À finir : ${BUDGETS.find(b => b.min === budget)?.libelle.toLowerCase()}`, off: () => { budget = null; } });
         const q = (document.getElementById('libSearch')?.value || '').trim();
         if (q) {
             out.push({ l: `« ${q} »`, off: () => {
@@ -820,8 +922,12 @@
         // Bascule « Non lus uniquement »
         const unreadHtml = `<div class="lib-filter-group"><div class="lib-filter-label">Lecture</div><div class="lib-filter-chips">
             <button class="lib2-chip ${unreadOnly ? 'on' : ''}" aria-pressed="${!!unreadOnly}" id="chipUnread" title="N'afficher que les séries avec des chapitres non lus">Avec des non-lus</button></div></div>`;
+        const budgetHtml = `<div class="lib-filter-group"><div class="lib-filter-label">À finir en</div><div class="lib-filter-chips">
+            ${BUDGETS.map(b => `<button class="lib2-chip ${budget === b.min ? 'on' : ''}" aria-pressed="${budget === b.min}" data-budget="${b.min}"
+                title="${tempsMesure ? `D'après ton rythme mesuré : ${minutesParChapitre} min par chapitre` : 'Estimé à 6 min par chapitre, le temps que ton rythme soit mesuré'}">${b.libelle}<span class="cnt">${b.detail}</span></button>`).join('')}
+            </div></div>`;
         const kindGroup = kindHtml ? `<div class="lib-filter-group"><div class="lib-filter-label">Type</div>${kindHtml}</div>` : '';
-        el.innerHTML = kindGroup + html + srcHtml + unreadHtml
+        el.innerHTML = kindGroup + html + srcHtml + unreadHtml + budgetHtml
             + (filtresActifs().length ? '<button type="button" class="lib-filter-reset" id="libFilterReset">Tout effacer</button>' : '');
         el.querySelector('#libFilterReset')?.addEventListener('click', () => { effacerFiltres(); renderFilters(); });
         const nb = filtresActifs().filter(f => !f.l.startsWith('«')).length;
@@ -841,7 +947,11 @@
         el.querySelector('#chipUnread')?.addEventListener('click', () => {
             unreadOnly = !unreadOnly; renderFilters(); render();
         });
-        el.querySelectorAll('.lib2-chip:not(#chipUnread)').forEach(ch => ch.addEventListener('click', () => {
+        el.querySelectorAll('[data-budget]').forEach(ch => ch.addEventListener('click', () => {
+            budget = budget === +ch.dataset.budget ? null : +ch.dataset.budget;
+            renderFilters(); render();
+        }));
+        el.querySelectorAll('.lib2-chip:not(#chipUnread):not([data-budget])').forEach(ch => ch.addEventListener('click', () => {
             filter = { type: ch.dataset.ftype, value: ch.dataset.fval || null };
             renderFilters(); render();
         }));
@@ -854,7 +964,7 @@
         const box = document.getElementById('libResume');
         if (!box) return;
         // En mode sélection ou avec un filtre actif, on masque la rangée pour ne pas gêner.
-        const active = selectMode || filter.type !== 'all' || unreadOnly || sourceFilter || catTab !== '__all';
+        const active = selectMode || filter.type !== 'all' || unreadOnly || budget || sourceFilter || catTab !== '__all';
         const inProgress = favsOfKind()
             .filter(f => progressByManga[f.mangaId]?.chapterId)
             .sort((a, b) => new Date(progressByManga[b.mangaId]?.updatedAt || 0) - new Date(progressByManga[a.mangaId]?.updatedAt || 0))
@@ -925,6 +1035,7 @@
         else if (catTab !== '__all') list = list.filter(f => f.category === catTab);
         if (sourceFilter)               list = list.filter(f => (f.source || 'mangadex') === sourceFilter);
         if (unreadOnly)                 list = list.filter(f => unreadCount(f) > 0);
+        if (budget)                     list = list.filter(f => tientDans(unreadCount(f), minutesParChapitre, budget));
 
         if (sort === 'title')    list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
         if (sort === 'unread')   list.sort((a, b) => unreadCount(b) - unreadCount(a));
@@ -952,6 +1063,12 @@
             list.sort((a, b) => quand(b) - quand(a));
         }
         // 'recent' = ordre par défaut (added_at desc)
+
+        // Rythme de parution : ce qui sort chaque semaine d'abord, puis chaque
+        // mois, l'irrégulier, l'arrêté ; ce qu'on ne sait pas encore derrière.
+        // À rythme égal, la cadence la plus serrée devant.
+        if (sort === 'rythme') list.sort((a, b) => ordreRythme(a) - ordreRythme(b)
+            || (a.rythmeJours ?? 999) - (b.rythmeJours ?? 999));
 
         // Épingles toujours en tête (stable vis-à-vis du tri choisi)
         const pinned = (f) => window.UserData?.isPinned?.(f.mangaId, f.source) ? 0 : 1;
@@ -1126,6 +1243,7 @@
                     <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
                     <div class="lib2-sub">${prog ? unit + ' ' + MH.chapNum(prog.chapter) : 'Pas commencé'} · ${f.source || 'mangadex'}</div>
                     ${f.category ? `<div class="lib2-cat">${MH.esc(f.category)}</div>` : ''}
+                    ${tri === 'rythme' ? `<div class="lib2-cat lib2-rythme">${MH.esc(libelleRythme(f) || 'Rythme pas encore connu')}</div>` : ''}
                 </div>
             </a>`;
     }
@@ -1537,6 +1655,12 @@
                     + ` · ${ups.filter(u => u.unreadCount > 0).length} avec du non-lu`
                     + (fails.length ? ` · ${fails.length} échec(s)` : '');
                 render(); // rafraîchit aussi les badges de l'onglet Bibliothèque
+                // Les sorties découvertes par la vérification entrent dans la chronologie.
+                ups.forEach(u => {
+                    const f = favs.find(x => x.mangaId === u.mangaId);
+                    if (f && u.latest?.publishedAt) { f.latestAt = u.latest.publishedAt; f.lastChapter = u.latest.chapter; }
+                });
+                renderChronologie();
 
                 if (!ups.length && !fails.length) {
                     MH.poserEtatVide(listEl, {
@@ -1567,7 +1691,7 @@
                                  onerror="this.src='${MH.placeholderCover(u.mangaId)}'">
                         </a>
                         <div class="upd-info">
-                            <div class="upd-name">${MH.esc(u.title)} ${u.hasNew ? '<span class="upd-new">NOUVEAU</span>' : ''}</div>
+                            <div class="upd-name">${MH.esc(u.title)} ${u.hasNew ? '<span class="upd-new">NOUVEAU</span>' : ''}${u.retour ? ` <span class="upd-retour">De retour après ${Math.max(2, Math.round(u.retour.jours / 30))} mois</span>` : ''}</div>
                             <div class="upd-meta">
                                 ${u.latest ? `Dernier : Ch. ${u.latest.chapter}` : ''}
                                 ${u.unreadCount > 0 ? ` · <strong style="color:var(--orange)">${u.unreadCount} non lu(s)</strong>` : ' · à jour'}

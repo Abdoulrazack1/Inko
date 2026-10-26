@@ -581,4 +581,5 @@ module.exports = {
     changePassword, updateProfile, deleteAccount,
     providers, googleAuth, getGoogleConfig, setGoogleConfig,
     localAuth,
+    decrireAppareil,
 };

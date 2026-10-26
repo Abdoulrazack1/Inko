@@ -520,6 +520,21 @@
             return PROXY_HOSTS.some(d => h === d || h.endsWith('.' + d));
         } catch (e) { return false; }
     }
+    // Identifiant de CET appareil (navigateur ou application), tiré une fois
+    // et gardé : le serveur range la position de lecture par appareil. Un
+    // téléphone appairé est déjà reconnu par son jeton ; l'identifiant sert
+    // aux navigateurs.
+    function idAppareil() {
+        try {
+            let id = localStorage.getItem('inko_appareil');
+            if (!id) {
+                id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12));
+                localStorage.setItem('inko_appareil', id);
+            }
+            return id;
+        } catch (e) { return null; }
+    }
+
     function proxyCover(u) {
         if (!u || typeof u !== 'string') return u;
         // Mode autonome : `API_BASE` désigne un hub qui n'existe pas. Une
@@ -538,6 +553,22 @@
         if (m && typeof m === 'object') {
             ['cover', 'coverLarge', 'coverThumb'].forEach(k => { if (m[k]) m[k] = proxyCover(m[k]); });
         }
+        return m;
+    }
+    // Les genres d'une fiche chargée, gardés pour le profil de recommandation
+    // (reco-tags.js). Une fiche seulement — pas les listes de résultats : on
+    // veut les genres de ce qu'on a OUVERT, et pas cent écritures par page.
+    function noterTagsSerie(m, source) {
+        if (!m?.id || !Array.isArray(m.tags) || !m.tags.length) return m;
+        try {
+            const c = JSON.parse(localStorage.getItem('inko_tags_series') || '{}') || {};
+            const k = `${source || ''}|${m.id}`;
+            delete c[k];
+            c[k] = m.tags.slice(0, 12).map(String);
+            const cles = Object.keys(c);
+            cles.slice(0, Math.max(0, cles.length - 400)).forEach(x => delete c[x]);
+            localStorage.setItem('inko_tags_series', JSON.stringify(c));
+        } catch (e) { /* stockage plein ou bloqué : le profil sera plus maigre */ }
         return m;
     }
     function mapMangaPage(d) {
@@ -760,7 +791,7 @@
             // qui est faux dès qu'on résout une œuvre lue ailleurs (stats,
             // historique). Omis, le comportement d'origine est conservé.
             get:      (id, source)  => get((source ? '/sources/' + encodeURIComponent(source) : API.mangas._prefix())
-                + `/mangas/${encodeURIComponent(id)}`).then(mapManga),
+                + `/mangas/${encodeURIComponent(id)}`).then(mapManga).then(m => noterTagsSerie(m, source || API.sources.current)),
             // BUG-01 : sans `source`, l'URL partait SANS préfixe et le serveur
             // appliquait la source courante. Mesuré pendant l'audit : 14
             // requêtes avec un identifiant étranger à la source appelée, dont
@@ -773,7 +804,7 @@
             // honnête ; afficher l'œuvre d'un autre catalogue ne l'est pas.
             // Les six appelants passent tous par `allSettled` ou un `catch`.
             getFrom:  (source, id)  => (source
-                ? get(`/sources/${encodeURIComponent(source)}/mangas/${encodeURIComponent(id)}`).then(mapManga)
+                ? get(`/sources/${encodeURIComponent(source)}/mangas/${encodeURIComponent(id)}`).then(mapManga).then(m => noterTagsSerie(m, source))
                 : Promise.reject(new Error(`source inconnue pour « ${id} » — requête non envoyée (BUG-01)`))),
             chapters: (id, params={}) => get(API.mangas._prefix() + `/mangas/${encodeURIComponent(id)}/chapters` + API.mangas._qs(params)),
             // Même défaut que `getFrom`, mêmes conséquences : demander les
@@ -876,8 +907,10 @@
             // récente faite entre-temps sur un autre appareil.
             setProgress:      (mangaId, payload) =>
                 request('PUT', '/me/progress/' + encodeURIComponent(mangaId),
-                    { source: API.sources.current, clientAt: new Date().toISOString(), ...payload },
+                    { source: API.sources.current, clientAt: new Date().toISOString(), appareil: idAppareil(), ...payload },
                     { keepalive: true }),
+            // Où en est chaque appareil sur cette série (le PC, le téléphone…).
+            progressAppareils: (mangaId)   => get('/me/progress/' + encodeURIComponent(mangaId) + '/appareils?appareil=' + encodeURIComponent(idAppareil() || '')),
             removeProgress:   (mangaId)    => del('/me/progress/' + encodeURIComponent(mangaId)),
             // Audit AMEL-28 : positions precedentes d'une serie.
             progressHistory:  (mangaId)    => get('/me/progress/' + encodeURIComponent(mangaId) + '/history'),
@@ -906,6 +939,12 @@
             removeNote:       (id)         => del('/me/notes/' + encodeURIComponent(id)),
 
             lists:            ()           => get('/me/lists').then(a => { (a || []).forEach(l => {
+                // Règle « source active » : les sources désactivées sont un
+                // réglage de CET appareil, que le serveur ignore. Appliquée ici,
+                // elle vaut pour toutes les pages qui affichent la liste.
+                if (l.rules?.sourceActive && Array.isArray(l.items) && window.MH?.isSourceEnabled) {
+                    l.items = l.items.filter(it => !it.source || window.MH.isSourceEnabled(it.source));
+                }
                 if (Array.isArray(l.covers)) l.covers = l.covers.map(proxyCover);
                 if (Array.isArray(l.items))  l.items.forEach(it => { if (it.cover) it.cover = proxyCover(it.cover); });
             }); return a; }),

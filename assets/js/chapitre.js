@@ -29,7 +29,10 @@
         // moment ou deux planches tiennent sans devenir illisibles.
         autoDouble: '0' };
     function loadReaderSettings() {
-        ['bg', 'brightness', 'gap', 'fit', 'direction', 'autospeed', 'warm'].forEach(k => {
+        // `orientation`, `decouper` et `autoDouble` étaient enregistrés mais
+        // jamais relus : cochés, ils retombaient à leur défaut à l'ouverture
+        // du chapitre suivant.
+        ['bg', 'brightness', 'gap', 'fit', 'direction', 'autospeed', 'warm', 'orientation', 'decouper', 'autoDouble'].forEach(k => {
             const v = window.Storage?.getPref('reader_' + k);
             if (v !== undefined && v !== null && v !== '') rs[k] = v;
         });
@@ -37,6 +40,9 @@
         rs.gap = +rs.gap; if (isNaN(rs.gap)) rs.gap = 8;
         rs.autospeed = +rs.autospeed || 1.4;
         rs.warm = +rs.warm; if (isNaN(rs.warm)) rs.warm = 0;
+        rs.pivoter = window.Storage?.getPref('reader_pivoter') === '1' ? '1' : '0';
+        rs.continu = window.Storage?.getPref('reader_continu') === '0' ? '0' : '1';
+        rs.nuitAuto = window.Storage?.getPref('reader_nuitAuto') === '1' ? '1' : '0';
     }
     let autoTimer = null;
     let sleepMins = 0;       // minuteur de lecture (0 = off)
@@ -77,6 +83,9 @@
         if (prefs['zoom_' + mangaId]) zoom = prefs['zoom_' + mangaId];
         loadReaderSettings();
         if (prefs.readingDir) rs.direction = prefs.readingDir;
+        // Nuit progressive : réévaluée chaque minute (armée ici, à l'entrée du
+        // lecteur, et non au chargement du module).
+        setInterval(() => { if (rs.nuitAuto === '1') applyReaderSettings(); }, 60 * 1000);
 
         // IX.8 : orientation et double page automatique. Le verrou est posé
         // ICI, à l'entrée du lecteur, et relâché en le quittant — verrouiller
@@ -171,10 +180,21 @@
         // rotation avec l'ouverture du clavier virtuel. Les deux, débruités
         // ensemble : la bascule ne coûte rien quand le mode est déjà le bon.
         let _tempoRot = null;
-        const rotation = () => { clearTimeout(_tempoRot); _tempoRot = setTimeout(surRotation, 150); };
+        const rotation = () => { clearTimeout(_tempoRot); _tempoRot = setTimeout(() => { surRotation(); appliquerPivot(); }, 150); };
         window.addEventListener('orientationchange', rotation);
         window.addEventListener('resize', rotation);
         surRotation();
+        // La décision dépend du format RÉEL des planches : on la reprend dès
+        // que la première est mesurée (avant, on ne connaît que la fenêtre).
+        document.addEventListener('load', (e) => {
+            const im = e.target;
+            if (!im.classList?.contains('reader-page-img') || !im.naturalWidth) return;
+            const idx = +im.dataset.idx;
+            if (!Number.isInteger(idx) || pageRatios.has(idx)) return;
+            const premiere = !ratiosConnus();
+            pageRatios.set(idx, im.naturalHeight / im.naturalWidth);
+            if (premiere) rotation();
+        }, true);
 
         showLoader('Chargement…');
         // Source momentanément saturée : api.js réessaie seul ; on le dit.
@@ -239,7 +259,19 @@
             // C'est le pire des états — l'utilisateur attend quelque chose qui
             // n'arrivera jamais, et rien ne lui dit d'abandonner.
             if (!totalPages) {
-                showError('Ce chapitre ne contient aucune page');
+                // Une entrée vide ne doit pas devenir un cul-de-sac. On la
+                // retient pour la session (neighborChapter la sautera), et si
+                // l'on arrive en tournant les chapitres, on poursuit dans le
+                // même sens au lieu d'arrêter la lecture sur un écran d'erreur.
+                retenirChapitreVide(chapterId);
+                const saut = +params.get('saut');
+                const suite = (saut === 1 || saut === -1) ? neighborChapter(saut) : null;
+                if (suite) {
+                    MH.toast?.(`Chapitre ${currentChap.chapter} vide à la source — on passe au ${saut > 0 ? 'suivant' : 'précédent'}`);
+                    location.replace(urlChapitre(suite, saut));
+                    return;
+                }
+                showError('Ce chapitre ne contient aucune page', neighborChapter(1));
                 return;
             }
 
@@ -276,9 +308,11 @@
             bindWheel();
             bindTouch();
             applyInitialScroll();
+            proposerAutreAppareil();   // AVANT d'écrire notre propre position
             saveProgress();
             preloadNextChapter();
             requestWakeLock();
+            armerMinuteur(lireMinuteur(), true);   // le minuteur survit au changement de chapitre
         } catch (e) {
             showError(e);
         }
@@ -344,10 +378,11 @@
      * un lien pareil ne s'ouvre pas dans un onglet, ne se copie pas, et va
      * contre le retrait annoncé de `script-src-attr 'unsafe-inline'`.
      */
-    function showError(err) {
+    function showError(err, suivant) {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
         const retour = { libelle: '↩ Retour', onClick: () => history.back() };
+        const versSuivant = suivant ? [{ libelle: `Chapitre ${suivant.chapter} →`, href: urlChapitre(suivant, 1) }] : [];
         const accueil = { libelle: 'Accueil', href: 'accueil.html' };
 
         if (err instanceof Error) {
@@ -364,8 +399,8 @@
         MH.poserEtatVide(el, {
             icone: '\u{1F517}',
             titre: String(err || 'Chapitre indisponible'),
-            texte: 'Le lien est peut-être incomplet.',
-            actions: [retour, accueil],
+            texte: suivant ? 'La source liste ce chapitre sans en fournir les pages.' : 'Le lien est peut-être incomplet.',
+            actions: [...versSuivant, retour, accueil],
         });
     }
 
@@ -387,10 +422,9 @@
     function renderToolbar() {
         const el = document.getElementById('readerToolbar');
         if (!el) return;
-        const asc      = [...chapters].sort((a, b) => a.chapter - b.chapter);
-        const curIdx   = asc.findIndex(c => c.id === currentChap.id);
-        const prevChap = curIdx > 0 ? asc[curIdx - 1] : null;
-        const nextChap = curIdx < asc.length - 1 ? asc[curIdx + 1] : null;
+        const asc      = chapitresTries();
+        const prevChap = neighborChapter(-1);
+        const nextChap = neighborChapter(1);
 
         el.innerHTML = `
         <div class="toolbar-left">
@@ -463,8 +497,8 @@
         updateAutoBtn();
         const chapURL = (id) => `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(id)}&source=${encodeURIComponent(API.sources.current)}`;
         document.getElementById('chapSelect')?.addEventListener('change', e => { window.location.href = chapURL(e.target.value); });
-        document.getElementById('btnPrevChap')?.addEventListener('click', () => { if (prevChap) window.location.href = chapURL(prevChap.id); });
-        document.getElementById('btnNextChap')?.addEventListener('click', () => { if (nextChap) window.location.href = chapURL(nextChap.id); });
+        document.getElementById('btnPrevChap')?.addEventListener('click', () => { if (prevChap) window.location.href = urlChapitre(prevChap, -1); });
+        document.getElementById('btnNextChap')?.addEventListener('click', () => { if (nextChap) window.location.href = urlChapitre(nextChap, 1); });
     }
 
     // Menu « ⋯ » du lecteur : fermé au clic ailleurs, par Échap, ou après
@@ -648,11 +682,11 @@
     // `object-fit: contain` ramene la largeur a hauteur/ratio : c'est
     // exactement ce que la planche chargee mesure.
     const PLAFOND_VH = 0.88;            // .reader-page-img { max-height: 88vh }
-    function boiteReservee(idx) {
+    function boiteReservee(idx) { return boitePour(ratioOf(idx)); }
+    function boitePour(ratio) {
         const area = document.getElementById('readerPagesArea');
         const pct = Math.max(20, Math.min(100, zoom)) / 100;
         const largeurColonne = (area ? area.clientWidth : window.innerWidth) * pct;
-        const ratio = ratioOf(idx);
         const h = Math.min(largeurColonne * ratio, window.innerHeight * PLAFOND_VH);
         return { w: Math.round(h / ratio), h: Math.round(h) };
     }
@@ -662,7 +696,7 @@
         const b = boiteReservee(idx);
         return `<img class="reader-page-img" data-idx="${idx}" data-page="${idx + 1}"
                  alt="Page ${idx + 1}" decoding="async"
-                 style="width:${b.w}px;height:${b.h}px;background:var(--bg2,#141414)"
+                 style="width:${b.w}px;height:${b.h}px"
                  >`;
     }
 
@@ -931,9 +965,42 @@
         // Apres chargement : c'est l'image qui dit si la planche est double.
         const img = el.querySelector('.reader-page-img');
         if (img) {
-            if (img.complete) appliquerDecoupe();
-            else img.addEventListener('load', appliquerDecoupe, { once: true });
+            const apresChargement = () => { appliquerDecoupe(); appliquerPivot(); };
+            if (img.complete) apresChargement();
+            else img.addEventListener('load', apresChargement, { once: true });
         }
+    }
+
+    // ── Planche paysage sur un écran en portrait ─────────────
+    // Une planche panoramique dans un chapitre en portrait, lue sur un
+    // téléphone tenu droit, s'affiche sur un tiers de l'écran : 390 px de
+    // large pour 269 de haut, le reste vide. Retourner le téléphone pour UNE
+    // planche, puis le remettre, c'est précisément le geste qu'on évite.
+    // Avec l'option, la planche pivote d'un quart de tour pour occuper
+    // l'écran — dans le sens de lecture : en japonais (droite à gauche) on
+    // tourne vers la gauche, pour que la moitié lue en premier arrive EN HAUT.
+    // La découpe en deux moitiés, si elle est active, garde la priorité.
+    function taillePivot(largeurDispo, hauteurDispo, ratioLH) {
+        // Une fois pivotée, la LARGEUR affichée de l'image devient sa hauteur
+        // à l'écran : elle est bornée par la hauteur disponible, et sa
+        // hauteur affichée par la largeur disponible.
+        const l = Math.min(hauteurDispo, largeurDispo * ratioLH);
+        return { l: Math.round(l), h: Math.round(l / ratioLH) };
+    }
+    function appliquerPivot() {
+        const img = document.querySelector('#readerPagesArea .reader-page-wrapper .reader-page-img');
+        if (!img) return;
+        const zone = document.getElementById('readerPagesArea');
+        const portrait = window.innerHeight > window.innerWidth;
+        const voulu = rs.pivoter === '1' && readMode === 'page' && portrait && estDouble(img)
+            && !(rs.decouper === '1');
+        img.classList.toggle('pivotee', voulu);
+        if (!voulu) { img.style.removeProperty('--pivot-l'); img.style.removeProperty('--pivot-h'); return; }
+        const hauteurDispo = window.innerHeight - Math.max(0, zone.getBoundingClientRect().top) - 16;
+        const t = taillePivot(zone.clientWidth - 8, hauteurDispo, img.naturalWidth / img.naturalHeight);
+        img.style.setProperty('--pivot-l', t.l + 'px');
+        img.style.setProperty('--pivot-h', t.h + 'px');
+        img.style.setProperty('--pivot-sens', rs.direction === 'rtl' ? '-90deg' : '90deg');
     }
 
     function renderScroll() {
@@ -951,6 +1018,7 @@
         scrollObservers.forEach(o => { try { o.disconnect(); } catch (e) { /* déjà libéré */ } });
         scrollObservers = [];
         loadQueue = []; loadActive = 0;
+        suite = null;   // la suite accrochée vivait dans le contenu qu'on remplace
         el.innerHTML = `
         <div class="reader-page-wrapper reader-scroll-wrapper" style="display:flex;flex-direction:column;align-items:center;gap:${rs.gap}px;width:${widthPct}%;margin:0 auto">
             ${pages.map((p, i) => placeholderImg(i)).join('')}
@@ -976,34 +1044,102 @@
             imgs.forEach(im => near.observe(im));
             scrollObservers.push(near);
 
-            // Suit la page visible (avance ET retours arrière) + pilote la fenêtre
-            const io = new IntersectionObserver(entries => {
-                entries.forEach(en => {
-                    if (!en.isIntersecting) return;
-                    const p = +en.target.dataset.page;
-                    if (p !== currentPage) { currentPage = p; updateUIPage(p); }
-                    refreshWindow(p - 1);
-                });
-            }, { threshold: 0.3 });
-            imgs.forEach(im => io.observe(im));
-            scrollObservers.push(io);
         } else {
             imgs.forEach(im => enqueueLoad(im));   // repli : navigateurs sans IO
         }
+
+        // Suit la planche sous le MILIEU de l'écran (avance ET retours) et
+        // pilote la fenêtre. C'était un IntersectionObserver au seuil 0,3 :
+        // la dernière entrée traitée gagnait, quelle que soit la planche
+        // réellement lue. Mesuré dans Chromium, 20 planches, fenêtre 900 px :
+        //     planches de 796 px    30 positions fausses sur 111
+        //     planches de 4000 px  551 sur 579 — « page 20/20 » dès l'ouverture
+        // Un webtoon a justement des planches plus hautes que l'écran. Les
+        // boîtes sont réservées d'emblée et dans l'ordre vertical : une
+        // recherche dichotomique par image d'animation suffit.
+        let rafSuivi = 0;
+        const suivrePage = () => {
+            rafSuivi = 0;
+            if (!imgs.length || !imgs[0].isConnected) return;
+            const milieu = window.innerHeight / 2;
+            let lo = 0, hi = imgs.length - 1, idx = imgs.length - 1;
+            while (lo <= hi) {
+                const m = (lo + hi) >> 1;
+                if (imgs[m].getBoundingClientRect().bottom < milieu) lo = m + 1;
+                else { idx = m; hi = m - 1; }
+            }
+            // En bas du document, la dernière planche est lue même si elle
+            // est trop courte pour atteindre le milieu de l'écran.
+            const enBas = window.innerHeight + Math.ceil(window.scrollY) >= document.documentElement.scrollHeight - 2;
+            if (enBas) idx = imgs.length - 1;
+            const p = idx + 1;
+            if (p !== currentPage) { currentPage = p; updateUIPage(p); }
+            refreshWindow(idx);
+            // La barre avance DANS la planche : sur une bande de webtoon de
+            // 4000 px, elle restait figée le temps de dix écrans.
+            const r = imgs[idx].getBoundingClientRect();
+            const dans = enBas ? 1 : Math.max(0, Math.min(1, (milieu - r.top) / (r.height || 1)));
+            const fill = document.getElementById('readerProgressFill');
+            if (fill) fill.style.width = `${((idx + dans) / totalPages) * 100}%`;
+        };
+        const surDefilement = () => { if (!rafSuivi) rafSuivi = requestAnimationFrame(suivrePage); };
+        window.addEventListener('scroll', surDefilement, { passive: true });
+        window.addEventListener('resize', surDefilement, { passive: true });
+        // Une planche qui arrive prend sa vraie hauteur et décale tout ce qui
+        // suit, sans qu'aucun `scroll` ne parte : la page annoncée restait
+        // celle d'avant le décalage.
+        if ('ResizeObserver' in window) {
+            const ro = new ResizeObserver(surDefilement);
+            ro.observe(el.querySelector('.reader-scroll-wrapper'));
+            scrollObservers.push(ro);
+        }
+        scrollObservers.push({ disconnect() {
+            window.removeEventListener('scroll', surDefilement);
+            window.removeEventListener('resize', surDefilement);
+            if (rafSuivi) cancelAnimationFrame(rafSuivi);
+        } });
 
         refreshWindow(Math.max(0, currentPage - 1));   // amorce autour de la position courante
         updateUIPage(currentPage);
     }
 
-    function renderDouble(num) {
+    // ── Pages doubles en mode double ─────────────────────────
+    // Une planche panoramique (deux pages imprimées d'un seul tenant) était
+    // collée à sa voisine. Mesuré sur 1600 px : panoramique 1114 px + page
+    // 557 px = 1671 px, la planche déborde et la voisine n'a rien à voir avec
+    // le dessin d'un seul tenant qu'on regarde. Une panoramique
+    // s'affiche donc SEULE, et la page qui la précède aussi — sinon on
+    // l'apparierait à une page qui n'est pas sa vraie voisine d'impression.
+    // Le format vient de `pageRatios`, rempli au chargement et au
+    // préchargement : en général connu avant qu'on arrive sur la page.
+    function pageLarge(n) {
+        const r = pageRatios.get(n - 1);   // hauteur / largeur
+        return !!r && r < 1 / 1.2;         // même seuil que estDouble()
+    }
+    /** Combien de pages afficher à partir de `num` : 1 ou 2. */
+    function uniteDouble(num, total, large) {
+        if (num >= total || large(num) || large(num + 1)) return 1;
+        return 2;
+    }
+    /** Début de l'unité qui précède `num`, sans jamais réafficher `num`. */
+    function uniteAvant(num, large) {
+        const s = num - 1;
+        if (s < 1) return null;
+        if (large(s) || s - 1 < 1 || large(s - 1)) return { base: s, n: 1 };
+        return { base: s - 1, n: 2 };
+    }
+    let doubleCount = 2;   // pages affichées par la planche courante
+
+    function renderDouble(num, n) {
         const el = document.getElementById('readerPagesArea');
         if (!el) return;
         if (num < 1) num = 1;
-        doubleBase = num;              // ancre de la planche (navigation par 2)
+        doubleBase = num;              // ancre de la planche
+        doubleCount = n || uniteDouble(num, totalPages, pageLarge);
         el.classList.remove('reader-scrollmode');
         el.classList.add('paged');     // défilement interne si la planche dépasse l'écran
         const cur  = pages[num - 1];   // page courante (num)
-        const next = pages[num];       // page suivante (num+1)
+        const next = doubleCount === 2 ? pages[num] : null;   // page suivante (num+1)
         if (!cur) return;
         const rtl = rs.direction === 'rtl';
         // Planche collée : en RTL la page la plus récente est à GAUCHE
@@ -1021,6 +1157,14 @@
         </div>
         <div class="page-counter-badge">Pages <strong>${num}${next ? '–' + (num+1) : ''}</strong> / ${totalPages}${rtl && next ? ' · sens →←' : ''}</div>`;
         armImages(el);
+        // Une planche affichée se révèle panoramique au chargement : on refait
+        // l'appariement (une seule fois, l'unité ne change plus ensuite).
+        el.querySelectorAll('.reader-page-img').forEach(im => im.addEventListener('load', () => {
+            if (!im.naturalWidth) return;
+            pageRatios.set(+im.dataset.idx, im.naturalHeight / im.naturalWidth);
+            if (readMode === 'double' && doubleBase === num && n !== 1
+                && uniteDouble(num, totalPages, pageLarge) !== doubleCount) renderDouble(num);
+        }, { once: true }));
         updateUIPage(next ? num + 1 : num);
     }
 
@@ -1047,6 +1191,7 @@
         armerBarreProgression();
         renderNavigation();
 
+        if (sleepEchu && p >= totalPages) afficherRappelMinuteur();
         // Sauvegarde progression (debounce)
         if (p === totalPages && API.isLoggedIn()) markChapterRead();
         debouncedSave();
@@ -1055,7 +1200,8 @@
         // Quitter la dernière page (retour en arrière) annule l'enchaînement —
         // sinon on serait emmené au chapitre suivant après avoir explicitement
         // fait demi-tour.
-        if (p >= totalPages && autoNextActif()) armerEnchainement(chapitreSuivant());
+        if (readMode === 'scroll' && rs.continu === '1' && p >= totalPages - 1) preparerSuite();
+        if (p >= totalPages && autoNextActif() && !sleepEchu && !(readMode === 'scroll' && rs.continu === '1')) armerEnchainement(chapitreSuivant());
         else if (p < totalPages) annulerEnchainement();
     }
 
@@ -1116,8 +1262,15 @@
     // `currentPage` ici ramenait donc en haut, ce qui etait precisement le
     // defaut qu'on corrige.
     function applyInitialScroll(page) {
-        const cible = page || currentPage;
-        if (readMode !== 'scroll' || !(cible > 1)) {
+        // À l'ouverture (pas au changement de mode, où `page` est donné) :
+        // la position fine notée sur cet appareil, si elle désigne la même
+        // planche à une près — l'observateur compte une planche comme « vue »
+        // dès 30 % visible, la page sauvegardée peut donc précéder l'ancre.
+        let cible = page || currentPage;
+        const fine = page ? null : lirePositionFine();
+        if (fine && Math.abs(fine.p - cible) <= 1) cible = fine.p;
+        const frac = fine && fine.p === cible ? fine.f : 0;
+        if (readMode !== 'scroll' || !(cible > 1 || frac > 0)) {
             window.scrollTo(0, 0);   // démarre toujours en haut (page 1 visible)
             return;
         }
@@ -1143,14 +1296,94 @@
             if (rendu || readMode !== 'scroll') { arreter(); return; }
             const img = document.querySelector(`.reader-page-img[data-page="${cible}"]`);
             if (img) {
-                const haut = img.getBoundingClientRect().top;
-                if (Math.abs(haut) > 8) img.scrollIntoView({ block: 'start' });
+                const r = img.getBoundingClientRect();
+                const ecart = r.top + frac * r.height;   // 0 : la ligne lue est en haut de l'écran
+                if (Math.abs(ecart) > 8) window.scrollBy(0, ecart);
             }
             if (++essais < 14) setTimeout(viser, 130);
             else arreter();
         };
         setTimeout(viser, 120);
     }
+
+    // ── Reprendre là où l'autre appareil s'est arrêté ────────
+    // La progression commune garde la lecture la plus récente, tous appareils
+    // confondus — juste pour la fiche. Mais un onglet resté ouvert sur le
+    // téléphone, une ligne d'historique, un lien de notification ouvrent un
+    // chapitre précis, souvent EN RETARD sur ce qu'on a lu depuis sur le PC,
+    // et rien ne le disait. Si un autre appareil est allé plus loin dans
+    // cette série, on le propose : une ligne, un bouton, rien d'imposé.
+    function autreAppareilEnAvance(positions, ici) {
+        const n = (v) => { const x = parseFloat(v); return Number.isFinite(x) ? x : null; };
+        const chapIci = n(ici.chapter);
+        const recent = Date.now() - 30 * 86400000;
+        return positions
+            .filter(o => !o.courant && o.at > recent && o.chapterId)
+            .filter(o => {
+                const c = n(o.chapter);
+                if (c === null || chapIci === null) return false;
+                return c > chapIci || (o.chapterId === ici.chapterId && o.page > ici.page + 1);
+            })
+            .sort((a, b) => b.at - a.at)[0] || null;
+    }
+    async function proposerAutreAppareil() {
+        if (!API.isLoggedIn() || !API.me.progressAppareils || window.MH?.isIncognito?.(manga?.id)) return;
+        let positions;
+        try { positions = await API.me.progressAppareils(manga.id); } catch (e) { return; }
+        const o = autreAppareilEnAvance(positions || [], { chapter: currentChap.chapter, chapterId: currentChap.id, page: currentPage });
+        if (!o || document.getElementById('autreAppareil')) return;
+        const el = document.createElement('div');
+        el.id = 'autreAppareil';
+        el.className = 'autre-appareil';
+        el.setAttribute('role', 'status');
+        const quand = MH.relTime ? MH.relTime(new Date(o.at).toISOString()) : '';
+        el.innerHTML = `<span class="autre-appareil-texte">Sur <strong>${MH.esc(o.nom || 'un autre appareil')}</strong> : ${MH.esc(MH.unitLabel(o.source || API.sources.current, { short: true }))} ${MH.esc(String(+o.chapter))}, page ${o.page}${quand ? ` · ${MH.esc(quand)}` : ''}</span>
+            <a class="btn btn-primary btn-sm" href="${MH.esc(MH.readerHref(manga.id, o.chapterId, o.source || API.sources.current, o.page))}">Reprendre là</a>
+            <button type="button" class="autre-appareil-fermer" aria-label="Ignorer">✕</button>`;
+        el.querySelector('.autre-appareil-fermer').addEventListener('click', () => el.remove());
+        document.body.appendChild(el);
+    }
+    // ── Reprise au pixel près en mode défilement ─────────────
+    // La progression ne retient qu'un numéro de page : rouvrir un chapitre
+    // en défilement reposait le HAUT de la planche en haut de l'écran. Sur un
+    // webtoon, une « planche » fait souvent trois ou quatre écrans — on
+    // reprenait jusqu'à trois écrans en arrière. On note donc, sur cet
+    // appareil, quelle part de la planche est déjà passée au-dessus de l'écran.
+    // Local seulement : la fraction n'a de sens qu'avec la page, et la
+    // progression serveur garde son format.
+    const CLE_POS_FINE = 'inko_pos_fine', MAX_POS_FINE = 60;
+    const clePosFine = () => `${manga?.id}|${currentChap?.id}`;
+    function lirePositionFine() {
+        try {
+            const v = JSON.parse(localStorage.getItem(CLE_POS_FINE) || '{}')[clePosFine()];
+            return v && v.p >= 1 && v.f >= 0 && v.f < 1 ? v : null;
+        } catch (e) { return null; }
+    }
+    function noterPositionFine() {
+        if (readMode !== 'scroll' || !manga || !currentChap) return;
+        if (window.MH?.isIncognito?.(manga.id)) return;   // lecture privée : rien ne reste
+        const imgs = document.querySelectorAll('.reader-page-img[data-page]');
+        for (const im of imgs) {
+            const r = im.getBoundingClientRect();
+            if (r.top <= 0 && r.bottom > 0 && r.height > 0) {
+                try {
+                    const toutes = JSON.parse(localStorage.getItem(CLE_POS_FINE) || '{}');
+                    delete toutes[clePosFine()];   // réinsérée en dernier : la plus récente
+                    toutes[clePosFine()] = { p: +im.dataset.page, f: Math.round((-r.top / r.height) * 1e4) / 1e4 };
+                    const cles = Object.keys(toutes);
+                    cles.slice(0, Math.max(0, cles.length - MAX_POS_FINE)).forEach(k => delete toutes[k]);
+                    localStorage.setItem(CLE_POS_FINE, JSON.stringify(toutes));
+                } catch (e) { /* stockage plein ou bloqué : la reprise à la page suffit */ }
+                return;
+            }
+        }
+    }
+    let posFineTimer = null;
+    window.addEventListener('scroll', () => {
+        if (posFineTimer) return;
+        posFineTimer = setTimeout(() => { posFineTimer = null; noterPositionFine(); }, 300);
+    }, { passive: true });
+    window.addEventListener('pagehide', noterPositionFine);
 
     let saveTimer;
     function debouncedSave() {
@@ -1282,10 +1515,12 @@
     function renderNextChapter() {
         const el = document.getElementById('readerNextChapter');
         if (!el) return;
-        const asc = [...chapters].sort((a, b) => a.chapter - b.chapter);
-        const idx = asc.findIndex(c => c.id === currentChap.id);
-        const next = idx >= 0 && idx < asc.length - 1 ? asc[idx + 1] : null;
-        if (!next) { el.innerHTML = ''; return; }
+        // Même voisin que les touches N et la transition de fin : ce bloc
+        // triait par `a.chapter - b.chapter`, qui rend NaN sur « Extra » ou
+        // « Bonus 1 » — il pouvait annoncer un autre chapitre que celui où
+        // menait la flèche.
+        const next = neighborChapter(1);
+        if (!next) { el.innerHTML = finDeSerie(); return; }
         el.innerHTML = `
         <div class="reader-next-chapter">
             <div class="next-chapter-cover">
@@ -1307,6 +1542,31 @@
             else annulerEnchainement();
         });
         if (autoNextActif()) armerEnchainement(next);
+    }
+
+    // Au dernier chapitre, le bloc « À suivre » disparaissait et la flèche
+    // suivante restait grisée sans un mot : on ne savait pas si la série
+    // était finie, en pause, ou si le suivant manquait.
+    function finDeSerie() {
+        const statut = manga?.status;
+        const titre = statut === 'completed' ? 'Série terminée'
+            : statut === 'cancelled' ? 'Série arrêtée'
+            : statut === 'hiatus' ? 'Série en pause'
+            : 'Tu es à jour';
+        const texte = statut === 'completed' ? `Tu as lu le dernier chapitre de ${MH.esc(manga.title)}.`
+            : statut === 'cancelled' ? "La publication a été arrêtée : il n'y aura pas de suite."
+            : `C'est le dernier chapitre paru pour l'instant.`;
+        return `
+        <div class="reader-next-chapter reader-fin-serie" role="status">
+            <div class="next-chapter-cover">
+                <img src="${MH.cover(manga.coverThumb, manga.cover)}" alt="" loading="lazy">
+            </div>
+            <div class="next-chapter-info">
+                <div class="next-chapter-label">${titre}</div>
+                <div class="next-chapter-title">${texte}</div>
+            </div>
+            <a href="serie.html?id=${encodeURIComponent(manga.id)}&source=${encodeURIComponent(API.sources.current)}" class="btn btn-ghost">Voir la fiche</a>
+        </div>`;
     }
 
     // ── Enchaînement automatique (audit AMEL-15) ─────────────
@@ -1334,10 +1594,110 @@
     // mais ne se déclenchait pour personne.
     function chapitreSuivant() {
         if (!chapters || !currentChap) return null;
-        const asc = [...chapters].sort((a, b) => a.chapter - b.chapter);
-        const idx = asc.findIndex(c => c.id === currentChap.id);
-        return idx >= 0 && idx < asc.length - 1 ? asc[idx + 1] : null;
+        return neighborChapter(1);
     }
+    // ── Lecture continue en défilement ───────────────────────
+    // En défilement, la fin d'un chapitre était un mur : un bloc « Chapitre
+    // suivant », un clic, un rechargement complet du lecteur, et on
+    // repartait en haut d'une page vide le temps que la première planche
+    // arrive. Sur un webtoon, c'est une coupure toutes les trois minutes.
+    //
+    // À l'avant-dernière planche, on va chercher les pages du chapitre suivant
+    // et on les accroche SOUS le chapitre courant, avec son titre. Quand ce
+    // titre passe au-dessus de l'écran, le lecteur bascule sur place : le
+    // chapitre suivant devient le chapitre courant (adresse, titre,
+    // progression, barre), sans rechargement. La planche sous les yeux reste
+    // au même pixel : les marque-places reçoivent les formats déjà mesurés.
+    let suite = null;   // { chap, pages, ratios, el } une fois accrochée
+    let suiteEcoute = false;
+    async function preparerSuite() {
+        if (suite || readMode !== 'scroll') return;
+        const chap = chapitreSuivant();
+        if (!chap) return;
+        const pourChap = currentChap.id;
+        suite = { chap, pages: null, ratios: [], el: null };
+        let data;
+        try { data = await API.mangas.pages(chap.id); } catch (e) { suite = null; return; }
+        // Entre-temps : mode changé, chapitre changé, ou rendu refait.
+        if (readMode !== 'scroll' || currentChap.id !== pourChap || !suite || suite.chap !== chap) return;
+        const liste = data?.pages || [];
+        if (!liste.length) { suite = null; return; }
+        suite.pages = liste;
+        const zone = document.getElementById('readerPagesArea');
+        const colonne = zone?.querySelector('.reader-scroll-wrapper');
+        if (!colonne) { suite = null; return; }
+        const widthPct = Math.max(20, Math.min(100, zoom));
+        const el = document.createElement('section');
+        el.className = 'reader-suite';
+        el.setAttribute('aria-label', `Suite : chapitre ${chap.chapter}`);
+        el.innerHTML = `<div class="reader-suite-tete">${MH.esc(MH.unitLabel(API.sources.current, { short: true }))} ${MH.esc(String(chap.chapter))}${chap.title ? ' · ' + MH.esc(chap.title) : ''}</div>
+            <div class="reader-scroll-wrapper" style="display:flex;flex-direction:column;align-items:center;gap:${rs.gap}px;width:${widthPct}%;margin:0 auto">
+            ${liste.map((p, i) => { const b = boitePour(RATIO_DEFAUT); return `<img class="reader-page-img reader-suite-img" data-i="${i}" alt="Page ${i + 1}" loading="lazy" decoding="async"
+                style="width:${b.w}px;height:${b.h}px;background:var(--bg2,#141414)" src="${MH.esc(pageSrc(p))}">`; }).join('')}
+            </div>`;
+        el.querySelectorAll('.reader-suite-img').forEach(im => im.addEventListener('load', () => {
+            if (!im.naturalWidth) return;
+            im.classList.add('loaded');   // même fondu que les planches du chapitre
+            const r = im.naturalHeight / im.naturalWidth;
+            suite && (suite.ratios[+im.dataset.i] = r);
+            const b = boitePour(r);
+            im.style.width = b.w + 'px'; im.style.height = b.h + 'px';
+        }, { once: true }));
+        colonne.after(el);
+        suite.el = el;
+        if (!suiteEcoute) {
+            suiteEcoute = true;
+            let prevu = false;
+            window.addEventListener('scroll', () => {
+                if (prevu) return;
+                prevu = true;
+                requestAnimationFrame(() => { prevu = false; surveillerSuite(); });
+            }, { passive: true });
+        }
+    }
+    function surveillerSuite() {
+        if (!suite?.el || readMode !== 'scroll') return;
+        const tete = suite.el.querySelector('.reader-suite-tete');
+        if (tete && tete.getBoundingClientRect().bottom <= 0) basculerSurSuite();
+    }
+    function basculerSurSuite() {
+        const s = suite;
+        // La planche sous le haut de l'écran : c'est elle qui ne doit pas bouger.
+        // (Les images de la suite portent aussi `reader-page-img` : même CSS,
+        // donc même boîte que les marque-places qui vont les remplacer.)
+        const imgs = [...s.el.querySelectorAll('.reader-suite-img')];
+        const ancre = imgs.find(im => im.getBoundingClientRect().bottom > 0) || imgs[0];
+        const k = +ancre.dataset.i, haut = ancre.getBoundingClientRect().top;
+
+        currentChap = s.chap;
+        pages = s.pages;
+        totalPages = pages.length;
+        pageRatios.clear();
+        s.ratios.forEach((r, i) => { if (r) pageRatios.set(i, r); });
+        currentPage = k + 1;
+        suite = null;
+        annulerEnchainement();
+        history.replaceState(null, '', `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(currentChap.id)}&source=${encodeURIComponent(API.sources.current)}`);
+        document.getElementById('pageTitle').textContent =
+            `${manga.title} — ${MH.unitLabel(API.sources.current, { short: true })} ${currentChap.chapter}`;
+        renderToolbar();
+        renderModebar();
+        renderPage(currentPage);
+        renderThumbnails();
+        renderNavigation();
+        renderNextChapter();
+        renderDetails();
+        const img = document.querySelector(`.reader-page-img[data-page="${k + 1}"]`);
+        // `instant` : le document défile en douceur (scroll-behavior: smooth),
+        // et une compensation animée se verrait glisser.
+        if (img) window.scrollBy({ top: img.getBoundingClientRect().top - haut, behavior: 'instant' });
+        saveProgress();
+        preloadNextChapter();
+        const hA11y = document.getElementById('readerTitreA11y');
+        if (hA11y) hA11y.textContent = `${manga.title} — chapitre ${currentChap.chapter}`;
+        MH.announce?.(`Chapitre ${currentChap.chapter}`);
+    }
+
     function annulerEnchainement() {
         clearTimeout(minuterieEnchainement);
         minuterieEnchainement = null;
@@ -1422,10 +1782,11 @@
     window.navStep = function (dir) {   // dir : +1 = suivant, -1 = précédent
         if (readMode === 'scroll') { window.goToPage(currentPage + dir); return; }
         if (readMode === 'double') {
-            const target = doubleBase + dir * 2;
+            const avant = dir < 0 ? uniteAvant(doubleBase, pageLarge) : null;
+            const target = dir > 0 ? doubleBase + doubleCount : (avant ? avant.base : 0);
             if (target < 1) { if (neighborChapter(-1)) showChapterTransition(-1); return; }
             if (target > totalPages) { showChapterTransition(1); return; }
-            renderDouble(target);
+            renderDouble(target, avant?.n);
             resetPagedScroll(dir);
             return;
         }
@@ -1531,7 +1892,7 @@
             // Double-tap → bascule le zoom (immobile + tap rapide)
             if (!moved && dt < 250) {
                 const now = Date.now();
-                if (now - lastTap < 300) { lastTap = 0; toggleTapZoom({ x: t.clientX, y: t.clientY }); }
+                if (now - lastTap < 300) { lastTap = 0; zoomerSurCase({ x: t.clientX, y: t.clientY }, e.target.closest?.('.reader-page-img')); }
                 else lastTap = now;
                 return;
             }
@@ -1619,6 +1980,43 @@
     function toggleTapZoom(point) {
         if (readMode === 'scroll') return;
         appliquerZoom(zoom > 110 ? 100 : 170, point);
+    }
+
+    // ── Zoom sur la case désignée ────────────────────────────
+    // Double-clic ou double appui sur une planche : on cadre la CASE sous le
+    // pointeur (zoom-case.js trouve ses gouttières) et on la centre. Sans
+    // case reconnaissable, on retombe sur le zoom ancré ci-dessus. Le même
+    // geste, ou Échap, ramène la planche entière.
+    function zoomCaseActif() {
+        return !!document.querySelector('.reader-page-wrapper[data-zoom-case]');
+    }
+    function quitterZoomCase() {
+        document.querySelectorAll('.reader-page-wrapper[data-zoom-case]').forEach(w => delete w.dataset.zoomCase);
+        appliquerZoom(100);
+    }
+    function zoomerSurCase(point, img) {
+        if (readMode === 'scroll') return;
+        if (zoomCaseActif() || zoom > 110) { quitterZoomCase(); return; }
+        const wrapper = img?.closest('.reader-page-wrapper');
+        const zone = document.getElementById('readerPagesArea');
+        const v = window.MH?.zoomCase?.vignette(img);
+        if (!wrapper || !zone || !v) { toggleTapZoom(point); return; }
+        const r0 = img.getBoundingClientRect();
+        const kase = window.MH.zoomCase.detecterCase(v.px, v.w, v.h,
+            ((point.x - r0.left) / r0.width) * v.w, ((point.y - r0.top) / r0.height) * v.h);
+        if (!kase) { toggleTapZoom(point); return; }
+        appliquerZoom(100);                        // mesurer à l'échelle 1
+        const r = img.getBoundingClientRect(), W = wrapper.getBoundingClientRect(), V = zone.getBoundingClientRect();
+        const cw = kase.w * r.width, ch = kase.h * r.height;
+        const s = Math.min(4, Math.max(1.2, Math.min(V.width / cw, V.height / ch) * 0.94));
+        const cx = r.left + (kase.x + kase.w / 2) * r.width, cy = r.top + (kase.y + kase.h / 2) * r.height;
+        const tx = (V.left + V.width / 2) - W.left - s * (cx - W.left);
+        const ty = (V.top + V.height / 2) - W.top - s * (cy - W.top);
+        wrapper.dataset.zoomCase = '1';
+        wrapper.style.transformOrigin = '0 0';
+        wrapper.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s.toFixed(3)})`;
+        const label = document.getElementById('zoomLabel');
+        if (label) label.textContent = Math.round(s * 100) + '%';
     }
 
     // ── Partager ce chapitre (audit §9) ──
@@ -1719,32 +2117,70 @@
         // N54) : a.chapter - b.chapter donnait NaN → ordre imprévisible et
         // « chapitre suivant » pouvant sauter au mauvais endroit. Les entrées non
         // numériques sont classées en fin de liste, entre elles par texte.
+        const asc = chapitresTries();
+        const idx = asc.findIndex(c => c.id === currentChap.id);
+        if (idx < 0) return null;
+        // Seules les entrées CONSTATÉES vides dans la session sont sautées.
+        // Pas `pages === 0` : WeebCentral, SushiScan et les sources de romans
+        // écrivent 0 pour « inconnu » — le prendre pour « vide » sauterait
+        // tous leurs chapitres.
+        const vides = chapitresVides();
+        for (let t = idx + delta; t >= 0 && t < asc.length; t += delta) {
+            const c = asc[t];
+            if (vides.has(String(c.id))) continue;
+            return c;
+        }
+        return null;
+    }
+    // Un seul ordre de chapitres pour tout le lecteur. La barre d'outils, le
+    // bloc « À suivre » et l'enchaînement triaient chacun par
+    // `a.chapter - b.chapter`, qui rend NaN dès qu'un numéro n'est pas un
+    // nombre : trois voisins possibles pour un même chapitre.
+    function chapitresTries() {
         const num = c => { const n = parseFloat(c.chapter); return isNaN(n) ? null : n; };
-        const asc = [...chapters].sort((a, b) => {
+        return [...chapters].sort((a, b) => {
             const na = num(a), nb = num(b);
             if (na !== null && nb !== null) return na - nb;
             if (na !== null) return -1;
             if (nb !== null) return 1;
             return String(a.chapter).localeCompare(String(b.chapter), 'fr');
         });
-        const idx = asc.findIndex(c => c.id === currentChap.id);
-        const t = idx + delta;
-        return (t >= 0 && t < asc.length) ? asc[t] : null;
+    }
+    function urlChapitre(c, saut) {
+        return `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(c.id)}&source=${encodeURIComponent(API.sources.current)}`
+            + (saut ? `&saut=${saut}` : '');
     }
     function goChapter(delta) {
         const c = neighborChapter(delta);
-        if (c) window.location.href = `chapitre.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(c.id)}&source=${encodeURIComponent(API.sources.current)}`;
+        if (c) window.location.href = urlChapitre(c, delta);
+    }
+    const CLE_VIDES = 'inko_chapitres_vides';
+    function chapitresVides() {
+        try { return new Set(JSON.parse(sessionStorage.getItem(CLE_VIDES) || '[]')); }
+        catch (e) { return new Set(); }   // stockage refusé (navigation privée) : rien à sauter
+    }
+    function retenirChapitreVide(id) {
+        const v = chapitresVides(); v.add(String(id));
+        try { sessionStorage.setItem(CLE_VIDES, JSON.stringify([...v].slice(-200))); }
+        catch (e) { window.MH?.err?.('chapitre.js', e); }
     }
 
     function bindKeyboard() {
-        // Double-clic sur la page = zoom rapide 100 % ↔ 150 %
+        // Double-clic sur une planche : cadrer la case désignée (ou dézoomer).
+        // C'était un 100 % ↔ 150 % partant du haut de la planche, qui ne
+        // gardait même pas le point cliqué sous le curseur.
         document.getElementById('readerPagesArea')?.addEventListener('dblclick', e => {
-            if (!e.target.closest('.reader-page-img')) return;
+            const img = e.target.closest('.reader-page-img');
+            if (!img) return;
             e.preventDefault();
-            window.changeZoom(zoom === 100 ? 50 : 100 - zoom);
+            zoomerSurCase({ x: e.clientX, y: e.clientY }, img);
         });
+        // Les touches du lecteur sont les siennes : les raccourcis globaux
+        // (B bibliothèque, H accueil, ? aide…) ne doivent pas partir en même temps.
+        window.MH?.reserverTouches?.(['n', 'N', 'p', 'P', 'b', 'B', 'h', 'H', 's', 'S', '?', 'a', 'A',
+            'j', 'J', 'i', 'I', 'f', 'F', '+', '-', '=', '[', ']', ' ']);
         document.addEventListener('keydown', e => {
-            if (['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName)) return;
+            if (MH.toucheIgnoree(e)) return;
             const rtl = rs.direction === 'rtl';
             // Touches globales (tous modes)
             switch (e.key) {
@@ -1755,12 +2191,13 @@
                 case '-': window.changeZoom(-10); return;
                 case 's': case 'S': case '?': case 'h': case 'H': toggleReaderSettings(); return;
                 case 'a': case 'A': toggleAutoScroll(); return;
-                case 'b': case 'B': toggleBookmark(); return;
+                case 'b': case 'B': e.preventDefault(); toggleBookmark(); return;   // sinon le « b » s'écrit dans le champ de la note
                 case 'j': case 'J': openNotes(); return;
                 case 'i': case 'I': toggleImmersive(); return;
                 case '[': bumpAutoSpeed(-0.2); return;
                 case ']': bumpAutoSpeed(0.2); return;
                 case 'Escape':
+                    if (zoomCaseActif()) { quitterZoomCase(); return; }
                     if (document.body.classList.contains('reader-immersive')) { toggleImmersive(); return; }
                     if (document.getElementById('chapTransition')) { document.getElementById('chapTransition').remove(); return; }
                     if (autoTimer) { stopAutoScroll(); return; }
@@ -1824,34 +2261,71 @@
         if (autoTimer) MH.toast?.('Vitesse : ' + v.toFixed(1) + '×');
     }
 
-    // ── Minuteur de lecture (sleep timer) ──
-    function setSleepTimer(mins) {
-        sleepMins = mins || 0;
+    // ── Minuteur de lecture (« encore 20 minutes ») ──
+    // Deux défauts dans la première version :
+    //   · le minuteur vivait dans la page. Changer de chapitre recharge le
+    //     lecteur : il était perdu. « Encore 20 minutes » sur des chapitres de
+    //     8 minutes ne se déclenchait donc JAMAIS ;
+    //   · à l'échéance, un voile plein écran tombait au milieu d'une planche,
+    //     parfois au milieu d'une bulle.
+    // L'échéance est désormais notée pour la session (sessionStorage : un
+    // nouvel onglet demain n'hérite pas d'un minuteur d'hier), et le rappel
+    // attend la FIN DU CHAPITRE — le moment naturel pour s'arrêter. Il est
+    // discret (un encart, pas un voile) et l'enchaînement automatique vers le
+    // chapitre suivant est suspendu : c'est lui qui faisait « encore un ».
+    const CLE_MINUTEUR = 'inko_minuteur';
+    let sleepEchu = false;
+    function lireMinuteur() {
+        try { const m = JSON.parse(sessionStorage.getItem(CLE_MINUTEUR) || 'null'); return m && m.fin > 0 ? m : null; }
+        catch (e) { return null; }
+    }
+    function ecrireMinuteur(m) {
+        try { m ? sessionStorage.setItem(CLE_MINUTEUR, JSON.stringify(m)) : sessionStorage.removeItem(CLE_MINUTEUR); }
+        catch (e) { /* stockage bloqué : le minuteur vit au moins jusqu'au chapitre suivant */ }
+    }
+    function armerMinuteur(m, auChargement) {
         if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
-        if (sleepMins > 0) {
-            sleepTimerId = setTimeout(triggerSleep, sleepMins * 60 * 1000);
-            MH.toast?.(`Minuteur réglé : pause dans ${sleepMins} min`);
-        } else {
-            MH.toast?.('Minuteur désactivé');
-        }
+        sleepEchu = false;
+        if (!m) { sleepMins = 0; return; }
+        sleepMins = m.mins;
+        const reste = m.fin - Date.now();
+        if (reste > 0) { sleepTimerId = setTimeout(triggerSleep, reste); return; }
+        // Échu pendant qu'on changeait de chapitre : on est au début d'un
+        // chapitre, c'est déjà un bon moment pour le dire.
+        if (auChargement) { sleepEchu = true; afficherRappelMinuteur(true); }
+        else triggerSleep();
+    }
+    function setSleepTimer(mins) {
+        mins = +mins || 0;
+        const m = mins > 0 ? { mins, fin: Date.now() + mins * 60 * 1000 } : null;
+        ecrireMinuteur(m);
+        armerMinuteur(m);
+        document.getElementById('sleepRappel')?.remove();
+        MH.toast?.(m ? `Minuteur réglé : rappel à la fin du chapitre après ${mins} min` : 'Minuteur désactivé');
     }
     function triggerSleep() {
-        if (autoTimer) stopAutoScroll();
         sleepTimerId = null;
-        if (document.getElementById('sleepOverlay')) return;
-        const ov = document.createElement('div');
-        ov.id = 'sleepOverlay';
-        ov.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:130;background:rgba(0,0,0,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center';
-        ov.innerHTML = `<div style="text-align:center;max-width:340px;padding:30px">
-            <div style="margin-bottom:12px;color:var(--accent)">${MH.icon('moon', 40)}</div>
-            <div style="font-family:var(--font-head);font-size:20px;font-weight:800;margin-bottom:8px;color:#fff">Pause lecture</div>
-            <div style="font-size:13.5px;color:rgba(255,255,255,.7);margin-bottom:20px">Tu lis depuis ${sleepMins} min. Le temps de souffler un peu ?</div>
-            <div style="display:flex;gap:10px;justify-content:center">
-                <button class="btn btn-primary" id="sleepResume">Continuer</button>
-                <a class="btn btn-ghost" href="accueil.html">Arrêter</a>
-            </div></div>`;
-        document.body.appendChild(ov);
-        ov.querySelector('#sleepResume').onclick = () => { ov.remove(); if (sleepMins) setSleepTimer(sleepMins); };
+        sleepEchu = true;
+        annulerEnchainement();   // pas de « chapitre suivant » automatique une fois l'heure passée
+        if (totalPages && currentPage >= totalPages) afficherRappelMinuteur();
+        // Sinon : updateUIPage l'affichera en arrivant à la dernière page.
+    }
+    function afficherRappelMinuteur(entreDeux) {
+        if (document.getElementById('sleepRappel')) return;
+        const mins = sleepMins;
+        ecrireMinuteur(null);
+        sleepMins = 0;
+        if (autoTimer) stopAutoScroll();
+        const el = document.createElement('div');
+        el.id = 'sleepRappel';
+        el.setAttribute('role', 'status');
+        el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:130;max-width:min(420px,calc(100vw - 32px));padding:14px 16px;border-radius:14px;background:rgba(20,20,24,.94);color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;gap:12px;align-items:center;font-size:13.5px';
+        el.innerHTML = `<span style="color:var(--accent);flex:none">${MH.icon('moon', 22)}</span>
+            <span style="flex:1"><span>${mins ? `Tes ${mins} minutes sont passées.` : 'Le temps prévu est passé.'}</span> <span>${entreDeux ? 'Entre deux chapitres' : 'Fin de chapitre'} : un bon moment pour t'arrêter.</span></span>
+            <button class="btn btn-ghost btn-sm" id="sleepEncore">Encore 10 min</button>
+            <a class="btn btn-primary btn-sm" href="accueil.html">Arrêter</a>`;
+        document.body.appendChild(el);
+        el.querySelector('#sleepEncore').onclick = () => { el.remove(); setSleepTimer(10); };
     }
 
     // ── Réglages lecteur : application + panneau ──
@@ -1870,7 +2344,12 @@
             dim.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:#000;pointer-events:none;z-index:75;transition:opacity .2s';
             document.body.appendChild(dim);
         }
-        dim.style.opacity = String(Math.max(0, (100 - rs.brightness) / 100 * 0.72));
+        // La nuit progressive ne remplace pas les curseurs : elle ne peut que
+        // les renforcer. Un réglage manuel plus fort qu'elle reste gagnant.
+        const nuit = rs.nuitAuto === '1' ? nuitProgressive(new Date()) : { chaleur: 0, assombri: 0 };
+        const luminosite = Math.min(rs.brightness, 100 - nuit.assombri);
+        const chaleur = Math.max(+rs.warm || 0, nuit.chaleur);
+        dim.style.opacity = String(Math.max(0, (100 - luminosite) / 100 * 0.72));
 
         // Filtre confort des yeux (lumière chaude type f.lux)
         let warm = document.getElementById('readerWarm');
@@ -1880,7 +2359,28 @@
             warm.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:#ff8a1e;pointer-events:none;z-index:76;mix-blend-mode:multiply;transition:opacity .2s';
             document.body.appendChild(warm);
         }
-        warm.style.opacity = String(Math.max(0, Math.min(0.6, (+rs.warm || 0) / 100 * 0.6)));
+        warm.style.opacity = String(Math.max(0, Math.min(0.6, chaleur / 100 * 0.6)));
+        const note = document.getElementById('rsNuitNote');
+        if (note) note.textContent = rs.nuitAuto !== '1' ? ''
+            : (nuit.chaleur ? `En ce moment : chaleur ${nuit.chaleur} %, luminosité −${nuit.assombri} %` : 'En ce moment : rien (de jour)');
+    }
+
+    // ── Nuit progressive ─────────────────────────────────────
+    // Les curseurs « luminosité » et « lumière chaude » sont réglés une fois,
+    // de jour ou de nuit, et restent faux le reste du temps : trop sombres à
+    // midi, trop blancs à minuit. La nuit progressive suit l'heure locale :
+    // rien jusqu'à 20 h, une montée douce jusqu'à 23 h, le plein la nuit, puis
+    // une redescente de 5 h à 7 h. Linéaire et réévaluée chaque minute : le
+    // changement ne se voit jamais d'un coup.
+    const NUIT_CHALEUR_MAX = 50, NUIT_ASSOMBRI_MAX = 20;   // en %
+    function nuitProgressive(date) {
+        const h = date.getHours() + date.getMinutes() / 60;
+        let t;
+        if (h >= 23 || h < 5) t = 1;
+        else if (h >= 20) t = (h - 20) / 3;
+        else if (h >= 5 && h < 7) t = 1 - (h - 5) / 2;
+        else t = 0;
+        return { chaleur: Math.round(NUIT_CHALEUR_MAX * t), assombri: Math.round(NUIT_ASSOMBRI_MAX * t) };
     }
 
     function saveReaderSetting(key, val, doRerender) {
@@ -1915,12 +2415,36 @@
     //     session. Sans ça, on remettrait « page » en paysage et l'automatisme
     //     le rebasculerait aussitôt : l'utilisateur perdrait la main sur son
     //     propre lecteur.
+    //
+    // Le critère est le format RÉEL des planches, pas l'orientation de la
+    // fenêtre. « Paysage » n'en était qu'une approximation, fausse dans les
+    // deux sens. Mesuré : une fenêtre de bureau de 1100 × 1000 est en
+    // paysage, mais deux planches de manga (0,7 de large pour 1 de haut) y
+    // s'affichent à 627 + 627 px dans 1100 : la planche double déborde. On
+    // passe donc en double quand deux planches côte à côte tiennent dans la
+    // largeur à pleine hauteur (2 % de tolérance). Tant qu'aucune planche
+    // n'est mesurée, on suppose le format typique (RATIO_DEFAUT) plutôt que
+    // l'orientation : basculer en double puis revenir aussitôt clignoterait.
     let autoDoubleDesarme = false;
+    const DOUBLE_HAUTEUR_MIN = 0.98;
+    /** Largeur / hauteur typique (médiane) des planches simples mesurées, ou null. */
+    function formatPlanches(ratios) {
+        const lh = ratios.map(r => 1 / r).filter(x => x > 0 && x <= 1.2).sort((a, b) => a - b);
+        return lh.length ? lh[Math.floor(lh.length / 2)] : null;
+    }
+    function doubleTient(largeur, hauteur, ratios) {
+        if (!largeur || !hauteur) return false;
+        const f = formatPlanches(ratios) || 1 / RATIO_DEFAUT;
+        return largeur / (2 * f * hauteur) >= DOUBLE_HAUTEUR_MIN;
+    }
+    function ratiosConnus() { return formatPlanches([...pageRatios.values()]) !== null; }
     function surRotation() {
         if (rs.autoDouble !== '1' || autoDoubleDesarme) return;
         if (readMode === 'scroll') return;
-        const paysage = window.innerWidth > window.innerHeight;
-        const voulu = paysage ? 'double' : 'page';
+        const zone = document.getElementById('readerPagesArea');
+        const largeur = zone?.clientWidth || window.innerWidth;
+        const hauteur = window.innerHeight - Math.max(0, zone?.getBoundingClientRect().top || 0);
+        const voulu = doubleTient(largeur, hauteur, [...pageRatios.values()]) ? 'double' : 'page';
         if (readMode === voulu) return;
         readMode = voulu;
         if (voulu === 'double') doubleBase = currentPage;
@@ -1954,6 +2478,11 @@
             <input type="range" id="rsBright" min="40" max="100" value="${rs.brightness}" class="rs-range">
             <label class="rs-label">Confort des yeux (lumière chaude) <span id="rsWarmVal">${rs.warm || 0}%</span></label>
             <input type="range" id="rsWarm" min="0" max="100" value="${rs.warm || 0}" class="rs-range">
+            <label class="rs-check">
+                <input type="checkbox" id="rsNuitAuto" ${rs.nuitAuto === '1' ? 'checked' : ''}>
+                <span>Nuit progressive selon l'heure</span>
+            </label>
+            <div class="rs-note" id="rsNuitNote" aria-live="polite"></div>
             <label class="rs-label">Écart entre pages <span id="rsGapVal">${rs.gap}px</span></label>
             <input type="range" id="rsGap" min="0" max="40" value="${rs.gap}" class="rs-range">
             <label class="rs-label">Vitesse défilement auto <span id="rsAutoVal">${(+rs.autospeed || 1.4).toFixed(1)}×</span></label>
@@ -1962,24 +2491,35 @@
             ${seg('orientation', [{v:'libre',l:'Libre'},{v:'portrait',l:'Portrait'},{v:'landscape',l:'Paysage'}], rs.orientation)}
             <label class="rs-check">
                 <input type="checkbox" id="rsAutoDouble" ${rs.autoDouble === '1' ? 'checked' : ''}>
-                <span>Double page automatique en paysage</span>
+                <span>Double page automatique quand deux planches tiennent</span>
             </label>
             <label class="rs-check">
                 <input type="checkbox" id="rsDecouper" ${rs.decouper === '1' ? 'checked' : ''}>
                 <span>Découper les planches doubles en deux pages</span>
             </label>
+            <label class="rs-check">
+                <input type="checkbox" id="rsPivoter" ${rs.pivoter === '1' ? 'checked' : ''}>
+                <span>Pivoter les planches paysage sur un écran en portrait</span>
+            </label>
+            <label class="rs-check">
+                <input type="checkbox" id="rsContinu" ${rs.continu === '1' ? 'checked' : ''}>
+                <span>Enchaîner les chapitres en défilement</span>
+            </label>
             <label class="rs-label">Qualité des images</label>
             ${seg('quality', [{v:'high',l:'Haute'},{v:'saver',l:'Éco'}], q)}
             <label class="rs-label">Minuteur de lecture</label>
             <div class="rs-seg" id="rsSleep">
-                ${[['0','Off'],['15','15m'],['30','30m'],['45','45m'],['60','60m']].map(([v,l]) =>
+                ${[['0','Off'],['10','10m'],['20','20m'],['30','30m'],['45','45m'],['60','60m']].map(([v,l]) =>
                     `<button data-sleep="${v}" class="${String(sleepMins)===v?'on':''}">${l}</button>`).join('')}
             </div>
             <div class="rs-foot">
+                <a class="btn btn-ghost btn-sm" id="rsComparer" style="width:100%;margin-bottom:6px"
+                   href="comparer.html?manga=${encodeURIComponent(manga.id)}&chapter=${encodeURIComponent(currentChap.id)}&source=${encodeURIComponent(API.sources.current)}">Comparer avec une autre source</a>
                 <button class="btn btn-secondary btn-sm" id="rsMarkAll" style="width:100%">Marquer tout le manga comme lu</button>
                 <div class="rs-shortcuts">← → pages · ↑ ↓ / molette défile puis tourne · Début/Fin première/dernière · N/P chapitre · F plein écran · I immersif · B signet · A défilement auto · [ ] vitesse · S réglages</div>
             </div>`;
         document.body.appendChild(panel);
+        applyReaderSettings();   // remplit la note de la nuit progressive
 
         panel.querySelectorAll('.rs-seg').forEach(sg => {
             const key = sg.dataset.key;
@@ -2021,6 +2561,16 @@
         panel.querySelector('#rsWarm').addEventListener('input', e => {
             document.getElementById('rsWarmVal').textContent = e.target.value + '%';
             saveReaderSetting('warm', +e.target.value, false);
+        });
+        panel.querySelector('#rsPivoter')?.addEventListener('change', e => {
+            saveReaderSetting('pivoter', e.target.checked ? '1' : '0', false);
+            appliquerPivot();
+        });
+        panel.querySelector('#rsContinu')?.addEventListener('change', e => {
+            saveReaderSetting('continu', e.target.checked ? '1' : '0', false);
+        });
+        panel.querySelector('#rsNuitAuto')?.addEventListener('change', e => {
+            saveReaderSetting('nuitAuto', e.target.checked ? '1' : '0', false);
         });
         panel.querySelector('#rsGap').addEventListener('input', e => {
             document.getElementById('rsGapVal').textContent = e.target.value + 'px';
@@ -2110,21 +2660,76 @@
         btn.classList.toggle('on', on);
         btn.title = on ? 'Signet posé sur ce chapitre (B)' : 'Ajouter un signet sur cette page (B)';
     }
+    // Un signet porte une PHRASE, pas seulement une position : ce qu'on veut
+    // retrouver, c'est souvent pourquoi on l'a posé. B (ou le bouton) pose
+    // le signet tout de suite — rien n'est perdu si on ne tape rien — et
+    // ouvre un champ pour la phrase. Sur un signet existant, le même geste
+    // rouvre ce champ, avec de quoi le retirer.
+    //
+    // La page est envoyée pour de bon : seul le libellé « Page N » partait,
+    // le serveur enregistrait donc page = 1 et « Lire » depuis la
+    // bibliothèque rouvrait la progression, pas la page marquée.
+    function signetCourant() {
+        return (UserData.getBookmarks?.() || []).find(b => b.mangaId === manga.id && b.chapterId === currentChap.id) || null;
+    }
+    function poserSignet(page, note) {
+        UserData.addBookmark({
+            mangaId: manga.id, source: API.sources.current,
+            title: manga.title, cover: manga.cover || manga.coverThumb,
+            chapterId: currentChap.id, chapterNum: currentChap.chapter,
+            page, label: 'Page ' + page, note: (note || '').trim().slice(0, 500),
+        });
+    }
     function toggleBookmark() {
         if (!window.UserData) return;
-        if (UserData.hasBookmark(manga.id, currentChap.id)) {
-            UserData.removeBookmark(manga.id, currentChap.id);
-            MH.toast?.('Signet retiré');
-        } else {
-            UserData.addBookmark({
-                mangaId: manga.id, source: API.sources.current,
-                title: manga.title, cover: manga.cover || manga.coverThumb,
-                chapterId: currentChap.id, chapterNum: currentChap.chapter,
-                label: 'Page ' + currentPage,
-            });
+        const ouvert = document.getElementById('signetPop');
+        if (ouvert) { ouvert.remove(); return; }
+        let signet = signetCourant();
+        const nouveau = !signet;
+        if (nouveau) {
+            poserSignet(currentPage, '');
+            signet = signetCourant() || { page: currentPage, note: '' };
             MH.toast?.('Signet ajouté — retrouvé dans ta bibliothèque');
         }
         refreshBookmarkBtn();
+        ouvrirNoteSignet(signet, nouveau);
+    }
+    function ouvrirNoteSignet(signet, nouveau) {
+        const pop = document.createElement('form');
+        pop.id = 'signetPop';
+        pop.className = 'signet-pop';
+        pop.setAttribute('role', 'dialog');
+        pop.setAttribute('aria-label', 'Note du signet');
+        const page = signet.page || currentPage;
+        pop.innerHTML = `
+            <label class="signet-pop-label" for="signetNote">Une phrase pour ce signet <span>(page ${page}, facultatif)</span></label>
+            <input id="signetNote" class="input" maxlength="500" autocomplete="off" placeholder="ex. : la révélation, la case à montrer">
+            <div class="signet-pop-actions">
+                <button type="submit" class="btn btn-primary btn-sm">Enregistrer</button>
+                ${nouveau ? '' : '<button type="button" class="btn btn-ghost btn-sm" id="signetRetirer">Retirer le signet</button>'}
+            </div>`;
+        pop.querySelector('#signetNote').value = signet.note || '';
+        document.body.appendChild(pop);
+        const fermer = () => { pop.remove(); document.removeEventListener('pointerdown', dehors, true); };
+        const dehors = (e) => { if (!pop.contains(e.target) && !e.target.closest?.('#btnBookmark')) fermer(); };
+        document.addEventListener('pointerdown', dehors, true);
+        pop.addEventListener('keydown', (e) => {
+            e.stopPropagation();   // les raccourcis du lecteur ne s'appliquent pas en tapant
+            if (e.key === 'Escape') fermer();
+        });
+        pop.addEventListener('submit', (e) => {
+            e.preventDefault();
+            poserSignet(page, pop.querySelector('#signetNote').value);
+            fermer();
+            MH.toast?.('Signet enregistré');
+        });
+        pop.querySelector('#signetRetirer')?.addEventListener('click', () => {
+            UserData.removeBookmark(manga.id, currentChap.id);
+            fermer();
+            refreshBookmarkBtn();
+            MH.toast?.('Signet retiré');
+        });
+        pop.querySelector('#signetNote').focus();
     }
 
     // ── Mode immersif (masque l'interface pour une lecture sans distraction) ──
@@ -2238,7 +2843,12 @@
         if (!p) return;
         const t0 = performance.now();
         const im = new Image();
-        im.onload = () => noterDureePage(performance.now() - t0);
+        im.onload = () => {
+            noterDureePage(performance.now() - t0);
+            // Le format des planches à venir, connu AVANT qu'on les affiche :
+            // le mode double sait d'avance qu'une panoramique doit rester seule.
+            if (im.naturalWidth) pageRatios.set(num - 1, im.naturalHeight / im.naturalWidth);
+        };
         im.src = pageSrc(p);
     }
     // ── Le chapitre suivant, préparé pour de bon ────────────────

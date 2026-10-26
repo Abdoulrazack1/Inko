@@ -1,0 +1,14 @@
+/* comparer.html — le même chapitre chez deux sources, côte à côte. */
+.cmp { display: flex; flex-direction: column; height: calc(100vh - var(--header-h, 58px)); }
+.cmp-bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.cmp-titre { font-size: 15px; font-weight: 700; margin: 0; }
+.cmp-reglages { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; font-size: 13px; color: var(--text2); }
+.cmp-choix select { margin-left: 6px; background: var(--bg3); color: var(--text); border: 1px solid var(--border2); border-radius: 8px; padding: 5px 8px; }
+.cmp-sync { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.cmp-colonnes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--border); }
+.cmp-col { overflow-y: auto; background: var(--bg); min-width: 0; }
+.cmp-tete { position: sticky; top: 0; z-index: 1; padding: 8px 12px; font-size: 12.5px; background: var(--bg2); border-bottom: 1px solid var(--border); color: var(--text2); }
+.cmp-tete strong { color: var(--text); }
+.cmp-page { display: block; width: 100%; height: auto; min-height: 120px; background: var(--bg3); }
+.cmp-page + .cmp-page { margin-top: 4px; }
+.cmp-vide { padding: 32px 16px; text-align: center; color: var(--text2); font-size: 13.5px; }
