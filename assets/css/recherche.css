@@ -1,8 +1,8 @@
 /* recherche.css — Écran Recherche globale (audit §11 : sorti du <style> inline) */
 
-.se-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
-.se-bar { display: flex; gap: 10px; margin-bottom: 8px; }
-.se-input { flex: 1; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); padding: 12px 16px; border-radius:  var(--r-carte); font-size: 15px; }
+.se-wrap { max-width: 1200px; margin: 0 auto; padding: var(--sp-5) 20px 80px; }
+.se-bar { display: flex; gap: 10px; margin-bottom: var(--sp-2); }
+.se-input { flex: 1; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); padding: var(--sp-3) var(--sp-4); border-radius:  var(--r-carte); font-size: 15px; }
 .se-input:focus { outline: none; border-color: var(--orange); }
 /* Meme raison que dans music.css : « :focus » retire le contour au clavier
    aussi, et une bordure coloree ne se distingue pas d'un survol. */
@@ -12,20 +12,20 @@
 .se-group { margin-bottom: 30px; }
 .se-ghead { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .se-gname { font-family: var(--font-head); font-size: 17px; font-weight: 700; }
-.se-gtag { font-size: 10.5px; padding: 2px 8px; border-radius:  var(--r-controle); background: var(--bg3); color: var(--text2); text-transform: uppercase; font-weight: 600; }
+.se-gtag { font-size: 10.5px; padding: var(--sp-0) var(--sp-2); border-radius:  var(--r-controle); background: var(--bg3); color: var(--text2); text-transform: uppercase; font-weight: 600; }
 .se-gcount { font-size: 12px; color: var(--text3); margin-left: auto; }
-.se-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+.se-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-4); }
 .se-card { cursor: pointer; position: relative; display: block; transition: transform .28s var(--ease-out); }
 .se-cover { aspect-ratio: 3/4; border-radius: var(--radius); overflow: hidden; background: var(--bg4); position: relative; box-shadow: var(--shadow-1); transition: box-shadow .28s var(--ease-out); }
 .se-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s var(--ease-out); }
 .se-card:hover { transform: translateY(-4px); }
 .se-card:hover .se-cover { box-shadow: var(--shadow-3); }
 .se-card:hover .se-cover img { transform: scale(1.06); }
-.se-title { font-size: 12.5px; font-weight: 500; margin-top: 7px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.se-title { font-size: 12.5px; font-weight: 500; margin-top: var(--sp-2); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .se-empty { color: var(--text3); font-size: 13px; padding: 6px 0; }
 /* « Voulais-tu dire … ? ». Le titre propose est un BOUTON : c'est une
    action (relancer la recherche), pas un lien vers une page. */
-.se-corr { font-size: 13.5px; color: var(--text2); padding: 2px 0 8px; }
+.se-corr { font-size: 13.5px; color: var(--text2); padding: var(--sp-0) 0 var(--sp-2); }
 .se-corr-btn {
   background: none; border: none; padding: 0; font: inherit; cursor: pointer;
   color: var(--accent-text); font-weight: 600; text-decoration: underline;
@@ -35,9 +35,9 @@
 .se-corr-btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; border-radius:  var(--r-trait); }
 .se-err { color: #ef4444; font-size: 12.5px; }
 .se-loading { text-align: center; padding: 60px; color: var(--text3); }
-.se-hist { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:22px; }
-.se-hist-label { font-size:12px; color:var(--text3); margin-right:2px; }
-.se-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius: var(--r-feuille); background:var(--bg3); border:1px solid var(--border2); color:var(--text2); font-size:12.5px; cursor:pointer; transition:all .12s; }
+.se-hist { display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap; margin-bottom:22px; }
+.se-hist-label { font-size:12px; color:var(--text3); margin-right:var(--sp-0); }
+.se-chip { display:inline-flex; align-items:center; gap:6px; padding:6px var(--sp-3); border-radius: var(--r-feuille); background:var(--bg3); border:1px solid var(--border2); color:var(--text2); font-size:12.5px; cursor:pointer; transition:all .12s; }
 .se-chip:hover, .se-chip.kbd { color:var(--text); border-color:var(--accent); }
 .se-chip.on { background:var(--accent); border-color:var(--accent); color:var(--sur-couleur); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
 .se-src-chip { transition:border-color var(--transition), color var(--transition), background var(--transition); }
@@ -51,39 +51,39 @@
 .se-hist-clear { font-size:11.5px; color:var(--text3); cursor:pointer; background:none; border:none; text-decoration:underline; }
 
 /* ── §11 : carte fusionnée par titre (dédup multi-sources) ── */
-.se-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius: var(--r-controle); text-transform:uppercase; letter-spacing:.03em; color:var(--sur-couleur); }
-.se-lib-badge { position:absolute; top:8px; right:8px; background:#22c55e; color:var(--sur-couleur); font-size:9.5px; font-weight:700; padding:2px 8px; border-radius: var(--r-feuille); box-shadow:var(--e-detache); display:inline-flex; align-items:center; gap:3px; }
-.se-multi { position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,.6); color:var(--sur-couleur); font-size:9.5px; font-weight:700; padding:2px 7px; border-radius: var(--r-feuille); backdrop-filter:blur(2px); }
-.se-meta { font-size:10.5px; color:var(--text3); margin-top:2px; }
-.se-sources { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
-.se-src-chip { font-size:10px; padding:2px 7px; border-radius: var(--r-controle); background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; text-decoration:none; }
+.se-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:var(--sp-0) var(--sp-2); border-radius: var(--r-controle); text-transform:uppercase; letter-spacing:.03em; color:var(--sur-couleur); }
+.se-lib-badge { position:absolute; top:8px; right:8px; background:#22c55e; color:var(--sur-couleur); font-size:9.5px; font-weight:700; padding:var(--sp-0) var(--sp-2); border-radius: var(--r-feuille); box-shadow:var(--e-detache); display:inline-flex; align-items:center; gap:var(--sp-1); }
+.se-multi { position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,.6); color:var(--sur-couleur); font-size:9.5px; font-weight:700; padding:var(--sp-0) var(--sp-2); border-radius: var(--r-feuille); backdrop-filter:blur(2px); }
+.se-meta { font-size:10.5px; color:var(--text3); margin-top:var(--sp-0); }
+.se-sources { display:flex; flex-wrap:wrap; gap:var(--sp-1); margin-top:var(--sp-1); }
+.se-src-chip { font-size:10px; padding:var(--sp-0) var(--sp-2); border-radius: var(--r-controle); background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; text-decoration:none; }
 .se-src-chip:hover { border-color:var(--orange); color:var(--text); background:color-mix(in srgb, var(--orange) 8%, transparent); }
 .se-src-chip.novel { border-color:var(--ai); }
-.se-types { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+.se-types { display:flex; gap:var(--sp-2); margin-bottom:var(--sp-4); flex-wrap:wrap; }
 /* Suggestions personnalisées (§11) */
-.se-perso-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; margin-bottom:8px; }
+.se-perso-row { display:flex; gap:var(--sp-3); overflow-x:auto; padding-bottom:6px; margin-bottom:var(--sp-2); }
 .se-perso-card { flex:0 0 96px; width:96px; }
 .se-perso-card .se-cover { border-radius: var(--r-controle); }
 .se-perso-card .se-title { font-size:11px; -webkit-line-clamp:1; }
 
 /* ── Résultats de la bibliothèque (audit AMEL-12) ── */
-.se-local { margin: 12px 0 4px; }
+.se-local { margin: var(--sp-3) 0 var(--sp-1); }
 .se-local-head { font-size: 12px; font-weight: 700; color: var(--accent-text);
-  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
-.se-local-grid { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: var(--sp-2); }
+.se-local-grid { display: flex; gap: 10px; overflow-x: auto; padding-bottom: var(--sp-1); }
 .se-local-item { flex: 0 0 auto; width: 96px; }
 .se-local-item img { width: 96px; height: 132px; object-fit: cover;
   border-radius:  var(--r-controle); background: var(--bg3); }
 /* `display` une seule fois : `block` etait ecrase deux lignes plus bas par le
    `-webkit-box` du clamp, dans la MEME regle. */
-.se-local-item span { margin-top: 5px; font-size: 11.5px;
+.se-local-item span { margin-top: var(--sp-1); font-size: 11.5px;
   color: var(--text2); line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* ── Sources en échec (audit AMEL-11) ── */
 .se-fail {
-  display: flex; gap: 9px; align-items: flex-start; flex-wrap: wrap;
-  margin: 10px 0 14px; padding: 10px 13px;
+  display: flex; gap: var(--sp-2); align-items: flex-start; flex-wrap: wrap;
+  margin: 10px 0 14px; padding: 10px var(--sp-3);
   border: 1px solid rgba(181,118,27,.32); border-radius:  var(--r-carte);
   background: rgba(181,118,27,.08);
   font-size: 12.5px; color: var(--amber-text); line-height: 1.45;
@@ -94,7 +94,7 @@
   background: none;
   border: 1px solid currentColor;
   border-radius:  var(--r-pastille);
-  padding: 3px 11px;
+  padding: var(--sp-1) var(--sp-3);
   font: inherit;
   font-size: 12px;
   color: inherit;
@@ -106,6 +106,6 @@
 .se-fail-retry:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 /* ── Recherche encore en cours (audit AMEL-10) ── */
-.se-partiel { margin-top: 16px; font-size: 12.5px; color: var(--text3); }
+.se-partiel { margin-top: var(--sp-4); font-size: 12.5px; color: var(--text3); }
 /* Deuxième rangée de puces (statut) : légèrement en retrait de la première. */
 .se-statuts { margin-top: 6px; }
