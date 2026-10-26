@@ -45,9 +45,11 @@
                         <div class="source-meta">
                             <div class="source-name">${MH.esc(u.name || u.id)} ${u.isNew ? '<span class="source-type-badge" style="background:#22c55e">NOUVEAU</span>' : ''}</div>
                             <div class="source-desc">${u.isNew ? `Nouvelle source disponible · v${u.latest}` : `v${u.current} → <strong style="color:var(--orange)">v${u.latest}</strong>`}</div>
+                            ${notesVersion(u.notes)}
+                            ${empreinteLigne(u.empreinte)}
                         </div>
                         <div class="source-actions">
-                            <button class="btn btn-secondary btn-sm" data-upd="${MH.esc(u.id)}">${u.isNew ? 'Installer' : 'Mettre à jour'}</button>
+                            <button class="btn btn-secondary btn-sm" data-upd="${MH.esc(u.id)}" ${u.empreinte ? '' : 'disabled title="Aucune empreinte publiée : l’installation serait refusée"'}>${u.isNew ? 'Installer' : 'Mettre à jour'}</button>
                         </div>
                     </div>`).join('');
                 box.querySelectorAll('[data-upd]').forEach(b => b.addEventListener('click', () => doUpdate([b.dataset.upd], b)));
@@ -56,13 +58,31 @@
             } finally { btn.disabled = false; }
         }
 
+        // Ce qui change, AVANT d'installer : les notes de chaque version à venir.
+        function notesVersion(notes) {
+            if (!notes || !notes.length) return '<div class="maj-notes maj-notes-vide">Pas de notes publiées pour cette version.</div>';
+            return `<details class="maj-notes"><summary>Ce qui change</summary>${notes.map(n => `
+                <div class="maj-version"><strong>v${MH.esc(n.version)}</strong>${n.date ? ` · ${MH.esc(new Date(n.date).toLocaleDateString('fr-FR'))}` : ''}
+                <ul>${n.notes.map(x => `<li>${MH.esc(x)}</li>`).join('')}</ul></div>`).join('')}</details>`;
+        }
+        // Et ce qui sera vérifié : le code téléchargé doit avoir exactement
+        // cette empreinte, sinon il est rejeté (SEC-07).
+        function empreinteLigne(h) {
+            return h
+                ? `<div class="maj-empreinte" title="SHA-256 complet : ${MH.esc(h)}">Empreinte vérifiée à l’installation : <code>${MH.esc(h.slice(0, 12))}…</code></div>`
+                : '<div class="maj-empreinte maj-empreinte-absente">Aucune empreinte publiée : installation impossible tant qu’elle manque.</div>';
+        }
+
         async function doUpdate(ids, btnEl) {
             if (!API.isLoggedIn()) { MH.toast?.('Connecte-toi pour installer des mises à jour'); return; }
             if (btnEl) { btnEl.disabled = true; btnEl.textContent = '…'; }
             else { allBtn.disabled = true; allBtn.textContent = 'Installation…'; }
             try {
                 const r = await API.sources.update(ids);
-                MH.toast?.(`${(r.updated || []).length} extension(s) mise(s) à jour`);
+                const n = (r.updated || []).length;
+                const verifiees = Object.values(r.verifiees || {}).filter(Boolean).length;
+                MH.toast?.(`${n} extension(s) mise(s) à jour` + (n ? ` — empreinte vérifiée pour ${verifiees}` : '')
+                    + ((r.failed || []).length ? ` · ${(r.failed || []).length} refusée(s) : ${(r.failed || [])[0].error}` : ''), 5000);
                 await render();      // recharge la liste (nouvelles versions)
                 await check();       // rafraîchit l'état des MAJ
             } catch (e) { MH.toast?.('Erreur : ' + e.message); }

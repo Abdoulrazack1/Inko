@@ -71,3 +71,13 @@ si tu utilises ces extensions :
 cd server
 npm install cheerio
 ```
+
+## Publier une nouvelle version
+
+1. Monte `version` dans l'`index.js` de l'extension.
+2. Ajoute dans `changelog.json` une entrée `{ "version", "date", "notes": [...] }`
+   qui dit, en phrases simples, ce qui change pour le lecteur. La page Sources
+   l'affiche **avant** l'installation ; la CI échoue si elle manque
+   (`scripts-ci/verifier-changelog-extensions.js`).
+3. Regénère les empreintes : `npm run gen-ext-hashes`. Sans empreinte publiée,
+   l'installation est refusée (et le bouton est désactivé dans la page Sources).

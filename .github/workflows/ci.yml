@@ -120,6 +120,9 @@ jobs:
       - name: Vérifier le code Android (compilation sur stubs)
         run: node scripts-ci/verifier-java-android.js
 
+      - name: Chaque version d'extension a ses notes (changelog)
+        run: node scripts-ci/verifier-changelog-extensions.js
+
       - name: Regénérer les empreintes
         run: node scripts-ci/gen-ext-hashes.js
       - name: Échouer si hashes.json n'est pas à jour
