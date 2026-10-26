@@ -442,8 +442,15 @@
       </div>
       <div class="set-row">
         <div>
+          <div class="set-row-label">Exporter une sauvegarde chiffrée</div>
+          <div class="set-row-desc">Le même contenu, illisible sans ta phrase de passe (AES-256). Pour une clé USB ou un nuage.</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnExportChiffre">Chiffrer et exporter</button>
+      </div>
+      <div class="set-row">
+        <div>
           <div class="set-row-label">Importer une sauvegarde</div>
-          <div class="set-row-desc">Restaure un fichier JSON exporté (fusion, sans écraser)</div>
+          <div class="set-row-desc">Restaure un fichier JSON exporté, chiffré ou non (fusion, sans écraser)</div>
         </div>
         <button class="btn btn-secondary btn-sm" id="btnImport">Importer</button>
         <input type="file" id="importFile" accept="application/json,.json" style="display:none"
@@ -583,6 +590,7 @@
   <script src="assets/js/une-main.js"></script>
   <script src="assets/js/tirer-rafraichir.js"></script>
   <script src="assets/js/anilist.js"></script>
+  <script src="assets/js/sauvegarde-chiffree.js"></script>
   <script src="assets/js/parametres.js"></script>
   <script src="assets/js/import-listes.js"></script>
   <script src="assets/js/appairage.js"></script>
