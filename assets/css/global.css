@@ -115,6 +115,40 @@
   --orange2:     var(--accent);
   --orange-glow: transparent;
 
+
+  /* Echelle typographique (§13). AVANT : 36 tailles distinctes pour 989
+     declarations, dont 838 entassees entre 10 et 15 px — onze tailles dans
+     une bande de cinq pixels, demi-pixels compris (10,5 · 11,5 · 12,5 ·
+     13,5 · 14,5). A cette densite deux tailles voisines ne se distinguent
+     pas : elles ne hierarchisent rien, elles font du bruit.
+
+     Les sept pas ci-dessous sortent de la distribution reelle, pas d'un
+     gabarit : chacun absorbe un amas mesure.
+
+         --t-xs  11px   10 · 10,5 · 11 · 11,5        273 declarations
+         --t-s   13px   12 · 12,5 · 13 · 13,5        461
+         --t-m   15px   14 · 14,5 · 15               104
+         --t-l   18px   16 · 17 · 18 · 19             60
+         --t-xl  22px   20 · 21 · 22 · 23 · 24        38
+         --t-2xl 28px   26 · 27 · 28 · 30             23
+         --t-3xl 38px   34 · 36 · 38                   4
+
+     Les tailles sous 10 px (8 · 8,5 · 9 · 9,5, 18 declarations) montent a
+     --t-xs : en dessous de 11 px, un texte d'interface ne se lit plus, et
+     le theme « contraste renforce » les relevait deja de force.
+
+     Le rapport entre pas bas vaut 1,18 et non 1,25 : fitter la distribution
+     evite de deplacer 461 declarations d'un pixel pour la seule elegance de
+     la progression. C'est un compromis, et il est assume ici plutot que
+     cache. */
+  --t-xs:   11px;
+  --t-s:    13px;
+  --t-m:    15px;
+  --t-l:    18px;
+  --t-xl:   22px;
+  --t-2xl:  28px;
+  --t-3xl:  38px;
+
   --radius:      12px;
   --radius2:     8px;
   --radius3:     18px;   /* pills / grands blocs */
@@ -324,7 +358,7 @@ html[data-theme="contrast"] :focus-visible {
 }
 /* Aucun texte sous 12 px : la taille EST un facteur de lisibilite, au meme
    titre que le contraste. */
-html[data-theme="contrast"] body { font-size: 15px; }
+html[data-theme="contrast"] body { font-size: var(--t-m); }
 /* MOB-02 : `html[data-theme="contrast"] * { min-height: 0 }` a été retiré.
    Son intention supposée — empêcher qu'une hauteur figée ne rogne un texte
    agrandi — ne pouvait pas être remplie : un `min-height` ne rogne JAMAIS,
@@ -338,7 +372,7 @@ html[data-theme="contrast"] body { font-size: 15px; }
    la règle s'écrivait, se parsait, correspondait, et ne s'appliquait pas. */
 html[data-theme="contrast"] [style*="font-size:9"],
 html[data-theme="contrast"] [style*="font-size:10"],
-html[data-theme="contrast"] [style*="font-size:11"] { font-size: 12px !important; }
+html[data-theme="contrast"] [style*="font-size:11"] { font-size: var(--t-s) !important; }
 
 /* Deux aplats posent leur couleur EN DUR, hors variables : la pastille de
    notifications (#b91c1c, ~5,9:1 avec du blanc) et le bouton AniList
@@ -356,7 +390,7 @@ body {
   font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--t-m);
   line-height: 1.5;
   min-height: 100vh;
   overflow-x: hidden;
@@ -478,7 +512,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
 .header-logo {
   display: flex; align-items: center; gap: 8px;
   font-family: var(--font-head);
-  font-size: 15px; font-weight: 800;
+  font-size: var(--t-m); font-weight: 800;
   flex-shrink: 0;
   transition: opacity var(--transition);
 }
@@ -488,7 +522,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
   background: var(--orange);
   border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
+  font-size: var(--t-m);
 }
 
 .header-nav {
@@ -497,7 +531,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
 .header-nav a {
   padding: 6px 12px;
   border-radius: var(--radius2);
-  font-size: 13.5px; font-weight: 500; color: var(--text2);
+  font-size: var(--t-s); font-weight: 500; color: var(--text2);
   transition: all var(--transition);
 }
 .header-nav a:hover { color: var(--text); background: var(--bg3); }
@@ -519,14 +553,14 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
   width: 100%; height: 34px;
   background: var(--bg3); border: 1px solid var(--border);
   border-radius: 20px; color: var(--text);
-  padding: 0 14px 0 36px; font-size: 13px;
+  padding: 0 14px 0 36px; font-size: var(--t-s);
   transition: border-color var(--transition);
 }
 .header-search input:focus { outline: none; border-color: var(--orange); }
 .header-search input::placeholder { color: var(--text3); }
 .header-search-icon {
   position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-  color: var(--text3); font-size: 13px; pointer-events: none;
+  color: var(--text3); font-size: var(--t-s); pointer-events: none;
 }
 .search-dropdown {
   position: absolute; top: calc(100% + 8px); left: 0; right: 0;
@@ -549,8 +583,8 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
   background: var(--bg4);
 }
 .search-result-info { flex: 1; min-width: 0; }
-.search-result-info .title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.search-result-info .meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.search-result-info .title { font-size: var(--t-s); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search-result-info .meta { font-size: var(--t-xs); color: var(--text2); margin-top: 2px; }
 
 .header-actions {
   display: flex; align-items: center; gap: 8px;
@@ -560,7 +594,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
   width: 34px; height: 34px;
   background: var(--bg3); border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  color: var(--text2); font-size: 14px;
+  color: var(--text2); font-size: var(--t-m);
   transition: all var(--transition);
   border: 1px solid var(--border);
 }
@@ -585,17 +619,17 @@ body.incognito-on::before {
   padding: 9px 14px;
   background: var(--bg2); border: 1px solid var(--orange);
   border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.4);
-  font-size: 12.5px; color: var(--text2);
+  font-size: var(--t-s); color: var(--text2);
 }
 #incognitoBar .inco-pastille {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--orange); flex: 0 0 auto;
 }
 #incognitoBar .inco-texte { font-weight: 600; color: var(--text); }
-#incognitoBar .inco-detail { color: var(--text3); font-size: 11.5px; }
+#incognitoBar .inco-detail { color: var(--text3); font-size: var(--t-xs); }
 #incognitoBar .inco-off {
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
-  border-radius: 999px; padding: 4px 11px; font-size: 11.5px; font-family: inherit; cursor: pointer;
+  border-radius: 999px; padding: 4px 11px; font-size: var(--t-xs); font-family: inherit; cursor: pointer;
 }
 #incognitoBar .inco-off:hover { border-color: var(--orange); }
 #incognitoBar .inco-off:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -615,14 +649,14 @@ body.incognito-on::before {
   display: flex; align-items: center; gap: 8px;
   padding: 5px 10px 5px 6px;
   background: var(--bg3); border: 1px solid var(--border);
-  border-radius: 20px; font-size: 13px; font-weight: 500;
+  border-radius: 20px; font-size: var(--t-s); font-weight: 500;
   transition: border-color var(--transition);
 }
 .header-user:hover { border-color: var(--border2); }
 .header-avatar {
   width: 24px; height: 24px; border-radius: 50%;
   background: var(--orange); display: flex; align-items: center;
-  justify-content: center; font-size: 11px; font-weight: 700;
+  justify-content: center; font-size: var(--t-xs); font-weight: 700;
   flex-shrink: 0; overflow: hidden;
   /* Aucune couleur de texte n'etait posee : l'initiale heritait de l'encre de
      la page. Sur le remplissage accent, cela donne 3,7:1 — sous le seuil AA,
@@ -632,11 +666,11 @@ body.incognito-on::before {
 }
 .header-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .user-label { line-height: 1; }
-.user-sublabel { font-size: 10px; color: var(--accent-text); display: block; }   /* audit A11Y-02 : 3.29:1 avant */
+.user-sublabel { font-size: var(--t-xs); color: var(--accent-text); display: block; }   /* audit A11Y-02 : 3.29:1 avant */
 .btn-connect {
   height: 34px; padding: 0 16px;
   background: var(--orange); color: #fff;
-  border-radius: 20px; font-size: 13px; font-weight: 600;
+  border-radius: 20px; font-size: var(--t-s); font-weight: 600;
   transition: background var(--transition);
   flex-shrink: 0;
 }
@@ -656,7 +690,7 @@ body.incognito-on::before {
 }
 #inko-titlebar .tb-brand { display: flex; align-items: center; gap: 8px; padding-left: 12px; height: 100%; flex: 1; }
 #inko-titlebar .tb-logo { width: 16px; height: 16px; border-radius: 4px; pointer-events: none; }
-#inko-titlebar .tb-title { font-family: var(--font-head, inherit); font-size: 12.5px; font-weight: 600; color: var(--text2); letter-spacing: .2px; }
+#inko-titlebar .tb-title { font-family: var(--font-head, inherit); font-size: var(--t-s); font-weight: 600; color: var(--text2); letter-spacing: .2px; }
 #inko-titlebar .tb-controls { display: flex; height: 100%; }
 #inko-titlebar .tb-btn {
   width: 46px; height: 100%; display: flex; align-items: center; justify-content: center;
@@ -687,17 +721,17 @@ body.incognito-on::before {
 .footer-brand { display: flex; flex-direction: column; gap: 12px; }
 .footer-logo {
   display: flex; align-items: center; gap: 8px;
-  font-family: var(--font-head); font-size: 16px; font-weight: 800;
+  font-family: var(--font-head); font-size: var(--t-l); font-weight: 800;
 }
-.footer-logo .logo-icon { width: 26px; height: 26px; font-size: 12px; }
-.footer-desc { font-size: 12.5px; color: var(--text2); line-height: 1.6; }
+.footer-logo .logo-icon { width: 26px; height: 26px; font-size: var(--t-s); }
+.footer-desc { font-size: var(--t-s); color: var(--text2); line-height: 1.6; }
 .footer-stay { margin-top: 8px; }
-.footer-stay h4 { font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.footer-stay h4 { font-size: var(--t-s); font-weight: 600; margin-bottom: 8px; }
 .footer-email-form { display: flex; gap: 6px; }
 .footer-email-form input {
   flex: 1; height: 34px; background: var(--bg3);
   border: 1px solid var(--border); border-radius: var(--radius2);
-  color: var(--text); padding: 0 10px; font-size: 12px;
+  color: var(--text); padding: 0 10px; font-size: var(--t-s);
 }
 .footer-email-form input:focus { outline: none; border-color: var(--orange); }
 .footer-email-form input::placeholder { color: var(--text3); }
@@ -705,18 +739,18 @@ body.incognito-on::before {
   height: 34px; padding: 0 14px;
   background: var(--bg4); border: 1px solid var(--border);
   border-radius: var(--radius2); color: var(--text);
-  font-size: 12px; font-weight: 500;
+  font-size: var(--t-s); font-weight: 500;
   transition: background var(--transition);
 }
 .footer-email-form button:hover { background: var(--orange); border-color: var(--orange); }
 .footer-col h4 {
-  font-family: var(--font-head); font-size: 12px;
+  font-family: var(--font-head); font-size: var(--t-s);
   font-weight: 700; letter-spacing: .05em;
   text-transform: uppercase; color: var(--text2);
   margin-bottom: 14px;
 }
 .footer-col ul { display: flex; flex-direction: column; gap: 8px; }
-.footer-col a { font-size: 13px; color: var(--text2); transition: color var(--transition); }
+.footer-col a { font-size: var(--t-s); color: var(--text2); transition: color var(--transition); }
 .footer-col a:hover { color: var(--orange); }
 
 /* ── Les liens de pied de page, au doigt ─────────────────────
@@ -742,9 +776,9 @@ body.incognito-on::before {
   padding: 20px 24px 0; border-top: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
 }
-.footer-bottom p { font-size: 12px; color: var(--text3); }
+.footer-bottom p { font-size: var(--t-s); color: var(--text3); }
 .footer-socials { display: flex; gap: 12px; }
-.footer-socials a { font-size: 16px; color: var(--text3); transition: color var(--transition); }
+.footer-socials a { font-size: var(--t-l); color: var(--text3); transition: color var(--transition); }
 .footer-socials a:hover { color: var(--orange); }
 
 /* ╔══════════════════════════════════════════════════════════╗
@@ -755,7 +789,7 @@ body.incognito-on::before {
 .badge {
   display: inline-flex; align-items: center;
   padding: 2px 8px; border-radius: 4px;
-  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  font-size: var(--t-xs); font-weight: 700; letter-spacing: .04em;
   text-transform: uppercase; line-height: 1.6;
 }
 .badge-hot    { background: rgba(239,68,68,.15); color: var(--red-text); }
@@ -768,9 +802,9 @@ body.incognito-on::before {
 .badge-pause  { background: rgba(245,158,11,.1); color: var(--amber); }
 
 /* Rating stars */
-.stars { display: inline-flex; gap: 1px; color: var(--amber); font-size: 12px; }
-.stars-score { font-size: 12px; font-weight: 600; color: var(--text); }
-.stars-count { font-size: 11px; color: var(--text2); }
+.stars { display: inline-flex; gap: 1px; color: var(--amber); font-size: var(--t-s); }
+.stars-score { font-size: var(--t-s); font-weight: 600; color: var(--text); }
+.stars-count { font-size: var(--t-xs); color: var(--text2); }
 
 /* Section header */
 .section-header {
@@ -778,18 +812,18 @@ body.incognito-on::before {
   margin-bottom: 18px;
 }
 .section-title {
-  font-family: var(--font-head); font-size: 17px; font-weight: 700;
+  font-family: var(--font-head); font-size: var(--t-l); font-weight: 700;
   display: flex; align-items: center; gap: 8px;
   /* Ces intertitres sont passes de <div> a <h2> pour exister dans la
      navigation par titres. Un h2 apporte ses marges par defaut : sans ce
      zero, chaque section se decalerait. */
   margin: 0;
 }
-.section-title-icon { color: var(--orange); font-size: 16px; }
-.section-subtitle { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.section-title-icon { color: var(--orange); font-size: var(--t-l); }
+.section-subtitle { font-size: var(--t-s); color: var(--text2); margin-top: 2px; }
 .section-link {
   /* audit A11Y-02 : l'accent de marque en texte 12.5px donnait 3.93:1 */
-  font-size: 12.5px; color: var(--accent-text); font-weight: 500;
+  font-size: var(--t-s); color: var(--accent-text); font-weight: 500;
   display: flex; align-items: center; gap: 4px;
   transition: opacity var(--transition);
 }
@@ -842,7 +876,7 @@ body.incognito-on::before {
 .manga-card:hover .manga-card-overlay { opacity: 1; }
 .btn-read-overlay, .btn-add-overlay {
   flex: 1; height: 34px;
-  border-radius: var(--radius3); font-size: 12px; font-weight: 600;
+  border-radius: var(--radius3); font-size: var(--t-s); font-weight: 600;
   display: flex; align-items: center; justify-content: center; gap: 4px;
   transition: background var(--transition), transform .15s var(--ease-out);
 }
@@ -862,18 +896,18 @@ body.incognito-on::before {
 .btn-add-overlay:hover { background: rgba(255,255,255,.22); transform: translateY(-1px); }
 .manga-card-info { padding: 10px 12px 12px; }
 .manga-card-title {
-  font-size: 13px; font-weight: 600; color: var(--text);
+  font-size: var(--t-s); font-weight: 600; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   margin-bottom: 3px;
 }
-.manga-card-author { font-size: 11.5px; color: var(--text2); margin-bottom: 5px; }
+.manga-card-author { font-size: var(--t-xs); color: var(--text2); margin-bottom: 5px; }
 .manga-card-meta {
   display: flex; align-items: center; justify-content: space-between;
-  font-size: 11px; color: var(--text3);
+  font-size: var(--t-xs); color: var(--text3);
 }
 .manga-card-rating { display: flex; align-items: center; gap: 3px; color: var(--text2); }
 .manga-card-rating svg { color: var(--amber); }
-.manga-card-chapter { font-size: 11px; color: var(--text3); }
+.manga-card-chapter { font-size: var(--t-xs); color: var(--text3); }
 
 /* Progress bar */
 .progress-bar {
@@ -897,7 +931,7 @@ body.incognito-on::before {
   color: var(--text);
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   padding: 0 17px; height: 38px;
-  border-radius: var(--radius3); font-size: 13.5px; font-weight: 600;
+  border-radius: var(--radius3); font-size: var(--t-s); font-weight: 600;
   letter-spacing: .005em; white-space: nowrap;
   transition: background var(--transition), border-color var(--transition),
               transform .12s var(--ease-out), box-shadow var(--transition), color var(--transition);
@@ -916,15 +950,15 @@ body.incognito-on::before {
 .btn-secondary:hover { background: var(--bg3); border-color: var(--text3); transform: translateY(-1px); }
 .btn-ghost { color: var(--text2); border: 1px solid var(--border); }
 .btn-ghost:hover { color: var(--text); border-color: var(--border2); background: var(--bg2); }
-.btn-sm { height: 32px; padding: 0 13px; font-size: 12px; border-radius: 16px; }
-.btn-xs { height: 27px; padding: 0 11px; font-size: 11px; border-radius: 14px; }
+.btn-sm { height: 32px; padding: 0 13px; font-size: var(--t-s); border-radius: 16px; }
+.btn-xs { height: 27px; padding: 0 11px; font-size: var(--t-xs); border-radius: 14px; }
 
 /* Tag / genre pill */
 .tag {
   display: inline-flex; align-items: center;
   padding: 3px 10px;
   background: var(--bg4); border: 1px solid var(--border);
-  border-radius: 30px; font-size: 11.5px; color: var(--text2);
+  border-radius: 30px; font-size: var(--t-xs); color: var(--text2);
   transition: all var(--transition);
 }
 .tag:hover, .tag.active {
@@ -995,7 +1029,7 @@ img.img-echec { background: var(--bg3); animation: none; }
   border-radius: 50%; border: none;
   background: rgba(0,0,0,0.55);
   color: #fff;
-  font-size: 15px;
+  font-size: var(--t-m);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   z-index: 2;
@@ -1024,7 +1058,7 @@ img.img-echec { background: var(--bg3); animation: none; }
   border: 1px solid var(--border2);
   border-left: 3px solid var(--accent);
   border-radius: var(--radius); padding: 12px 20px 12px 17px;
-  font-size: 13px; font-weight: 500; color: var(--text); z-index: 9999;
+  font-size: var(--t-s); font-weight: 500; color: var(--text); z-index: 9999;
   box-shadow: var(--shadow-3);
   animation: toastIn .34s var(--ease-spring);
   pointer-events: none;
@@ -1054,7 +1088,7 @@ img.img-echec { background: var(--bg3); animation: none; }
   width: 28px; height: 28px; border-radius: 50%;
   background: var(--bg3); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
-  color: var(--text2); font-size: 12px;
+  color: var(--text2); font-size: var(--t-s);
   transition: all var(--transition);
 }
 .arrow-btn:hover { background: var(--bg4); color: var(--text); border-color: var(--border2); }
@@ -1070,20 +1104,20 @@ a[data-nsfw] .manga-card-cover::after,
   content: '+18';
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 15px; letter-spacing: .5px;
+  font-weight: 700; font-size: var(--t-m); letter-spacing: .5px;
   color: #fff; background: rgba(0,0,0,.35);
   border-radius: inherit; pointer-events: none;
 }
 
 /* ── Méta des cartes (statut / année / démographie) ──────── */
 .manga-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
-.manga-card-meta .mc-year { font-size: 11px; color: var(--text3); }
+.manga-card-meta .mc-year { font-size: var(--t-xs); color: var(--text3); }
 .manga-card-meta .mc-demo {
-  font-size: 10px; color: var(--text2); background: var(--bg4);
+  font-size: var(--t-xs); color: var(--text2); background: var(--bg4);
   padding: 1px 6px; border-radius: 4px; text-transform: capitalize;
 }
 .manga-card-meta .mc-status {
-  font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 20px;
+  font-size: var(--t-xs); font-weight: 600; padding: 1px 7px; border-radius: 20px;
   display: inline-flex; align-items: center; gap: 4px;
 }
 .manga-card-meta .mc-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
@@ -1108,11 +1142,11 @@ a[data-nsfw] .manga-card-cover::after,
   background: var(--bg3); border: 1px solid var(--border);
 }
 .conn-body { flex: 1; min-width: 0; }
-.conn-name { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-.conn-desc { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
-.conn-desc code { background: var(--bg4); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+.conn-name { font-size: var(--t-m); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.conn-desc { font-size: var(--t-s); color: var(--text2); margin-top: 3px; line-height: 1.4; }
+.conn-desc code { background: var(--bg4); padding: 1px 5px; border-radius: 4px; font-size: var(--t-xs); }
 .conn-pill {
-  font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  font-size: var(--t-xs); font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
   padding: 2px 8px; border-radius: 20px; color: var(--text2);
   background: var(--bg4); border: 1px solid var(--border);
 }
@@ -1172,7 +1206,7 @@ a[data-nsfw] .manga-card-cover::after,
   .mnav-item {
     flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
     padding: 9px 0 7px; text-decoration: none;
-    color: var(--text3); font-size: 10px; font-weight: 600;
+    color: var(--text3); font-size: var(--t-xs); font-weight: 600;
     transition: color var(--transition);
   }
   /* Meme defaut, et meme correctif que `.tag.active` plus haut : l'accent est
@@ -1229,7 +1263,7 @@ a[data-nsfw] .manga-card-cover::after,
   .manga-grid-5,
   .manga-grid-4 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .manga-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .btn { height: 34px; font-size: 13px; }
+  .btn { height: 34px; font-size: var(--t-s); }
   .footer-email-form { flex-direction: column; }
   .footer-inner { padding: 0 14px; }
 }
@@ -1265,12 +1299,12 @@ a[data-nsfw] .manga-card-cover::after,
 }
 .list-modal-head {
   display: flex; align-items: center; justify-content: space-between;
-  font-size: 17px; font-weight: 700;
+  font-size: var(--t-l); font-weight: 700;
   margin-bottom: 16px;
 }
-.list-modal-close { background: none; border: none; color: var(--text3); font-size: 18px; cursor: pointer; line-height: 1; }
+.list-modal-close { background: none; border: none; color: var(--text3); font-size: var(--t-l); cursor: pointer; line-height: 1; }
 .list-modal-close:hover { color: var(--text); }
-.list-modal-label { display: block; font-size: 12.5px; color: var(--text2); margin: 12px 0 6px; }
+.list-modal-label { display: block; font-size: var(--t-s); color: var(--text2); margin: 12px 0 6px; }
 .list-modal-input {
   width: 100%;
   background: var(--bg3);
@@ -1278,11 +1312,11 @@ a[data-nsfw] .manga-card-cover::after,
   border-radius: var(--radius2);
   padding: 10px 12px;
   color: var(--text);
-  font-family: inherit; font-size: 14px;
+  font-family: inherit; font-size: var(--t-m);
   outline: none; resize: vertical;
 }
 .list-modal-input:focus { border-color: var(--orange); }
-.list-modal-check { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13.5px; color: var(--text2); cursor: pointer; }
+.list-modal-check { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: var(--t-s); color: var(--text2); cursor: pointer; }
 .list-modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
 /* Sélecteur "Ajouter à une liste" */
@@ -1296,9 +1330,9 @@ a[data-nsfw] .manga-card-cover::after,
 }
 .lp-row:hover { background: var(--bg3); }
 .lp-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--orange); cursor: pointer; }
-.lp-name { flex: 1; font-size: 14px; }
-.lp-count { font-size: 12px; color: var(--text3); background: var(--bg3); padding: 1px 8px; border-radius: 999px; }
-.lp-empty { font-size: 13px; color: var(--text3); padding: 16px 4px; text-align: center; }
+.lp-name { flex: 1; font-size: var(--t-m); }
+.lp-count { font-size: var(--t-s); color: var(--text3); background: var(--bg3); padding: 1px 8px; border-radius: 999px; }
+.lp-empty { font-size: var(--t-s); color: var(--text3); padding: 16px 4px; text-align: center; }
 .lp-new { display: flex; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .lp-new .list-modal-input { flex: 1; }
 .lp-new .btn { white-space: nowrap; }
@@ -1314,7 +1348,7 @@ a[data-nsfw] .manga-card-cover::after,
   border-radius: 999px;
   background: var(--orange);
   color: #fff;
-  font-size: 10px;
+  font-size: var(--t-xs);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
@@ -1348,7 +1382,7 @@ a[data-nsfw] .manga-card-cover::after,
 /* Lien d'évitement « Aller au contenu » : invisible jusqu'au focus clavier */
 .skip-link {
   position: fixed; top: -48px; left: 12px; z-index: 10000;
-  background: var(--orange); color: #fff; font-size: 13px; font-weight: 600;
+  background: var(--orange); color: #fff; font-size: var(--t-s); font-weight: 600;
   padding: 9px 16px; border-radius: 8px; text-decoration: none;
   transition: top 0.15s ease;
 }
@@ -1376,10 +1410,10 @@ a[data-nsfw] .manga-card-cover::after,
 }
 .mh-cm-txt { min-width: 0; }
 .mh-cm-title {
-  display: block; font-size: 12.5px; font-weight: 600; line-height: 1.3;
+  display: block; font-size: var(--t-s); font-weight: 600; line-height: 1.3;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.mh-cm-sub { display: block; font-size: 11px; color: var(--text3); margin-top: 2px; }
+.mh-cm-sub { display: block; font-size: var(--t-xs); color: var(--text3); margin-top: 2px; }
 
 /* ── Ajout à une liste depuis une carte (audit AMEL-39) ──
    Placé sous le cœur, même gabarit : deux actions de carte de même nature
@@ -1390,7 +1424,7 @@ a[data-nsfw] .manga-card-cover::after,
   border-radius: 50%; border: none;
   background: rgba(0,0,0,0.55);
   color: #fff;
-  font-size: 18px; line-height: 1;
+  font-size: var(--t-l); line-height: 1;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   z-index: 2;
@@ -1413,16 +1447,16 @@ a[data-nsfw] .manga-card-cover::after,
   padding: 11px 14px;
   background: var(--bg2); border: 1px solid var(--border2);
   border-radius: var(--radius); box-shadow: var(--shadow-3);
-  font-size: 13px; color: var(--text);
+  font-size: var(--t-s); color: var(--text);
 }
 .undo-bar-action {
   flex: 0 0 auto;
   background: var(--accent); color: #fff;
   border-radius: 16px; padding: 5px 14px;
-  font-size: 12.5px; font-weight: 700;
+  font-size: var(--t-s); font-weight: 700;
 }
 .undo-bar-action:disabled { opacity: .6; cursor: default; }
-.undo-bar-close { flex: 0 0 auto; color: var(--text3); font-size: 15px; padding: 2px 4px; }
+.undo-bar-close { flex: 0 0 auto; color: var(--text3); font-size: var(--t-m); padding: 2px 4px; }
 .undo-bar-close:hover { color: var(--text); }
 
 
@@ -1496,9 +1530,9 @@ a[data-nsfw] .manga-card-cover::after,
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; padding: 48px 24px; gap: 4px; min-height: 220px;
 }
-.mh-vide-ico { font-size: 34px; line-height: 1; margin-bottom: 10px; opacity: .75; }
-.mh-vide-titre { font-family: var(--font-head, inherit); font-size: 17px; font-weight: 700; color: var(--text); }
-.mh-vide-texte { font-size: 13.5px; line-height: 1.6; color: var(--text2); max-width: 42ch; margin-top: 4px; }
+.mh-vide-ico { font-size: var(--t-3xl); line-height: 1; margin-bottom: 10px; opacity: .75; }
+.mh-vide-titre { font-family: var(--font-head, inherit); font-size: var(--t-l); font-weight: 700; color: var(--text); }
+.mh-vide-texte { font-size: var(--t-s); line-height: 1.6; color: var(--text2); max-width: 42ch; margin-top: 4px; }
 .mh-vide-actions { display: flex; gap: 9px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
 @media (max-width: 640px) {
     .mh-etat-vide { padding: 36px 18px; }
@@ -1575,7 +1609,7 @@ a[data-nsfw] .manga-card-cover::after,
     left: auto; right: 5px; top: 5px;
     align-items: flex-end;
   }
-  .manga-card-badges .badge { font-size: 8.5px; padding: 2px 5px; }
+  .manga-card-badges .badge { font-size: var(--t-xs); padding: 2px 5px; }
 
   /* Titre sur DEUX lignes. Sur 109 px de large, une seule ligne coupée à
      l'ellipse ne montre souvent que le premier mot : deux tomes d'une même
@@ -1589,7 +1623,7 @@ a[data-nsfw] .manga-card-cover::after,
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
-    font-size: 12px; line-height: 1.25;
+    font-size: var(--t-s); line-height: 1.25;
     min-height: 2.5em;
     margin-bottom: 2px;
   }
@@ -1597,7 +1631,7 @@ a[data-nsfw] .manga-card-cover::after,
      de la carte. Il reste sur la fiche série, où on va le chercher. */
   .manga-card-author { display: none; }
   .manga-card-info { padding: 6px 7px 8px; }
-  .manga-card-meta { font-size: 10.5px; gap: 4px; }
+  .manga-card-meta { font-size: var(--t-xs); gap: 4px; }
 
   /* `:hover` est COLLANT au doigt : sur plusieurs WebView, un appui laisse la
      carte soulevée jusqu'au prochain appui ailleurs. Une carte qui reste en
@@ -1625,7 +1659,7 @@ a[data-nsfw] .manga-card-cover::after,
 .appbar { display: none; }
 @media (max-width: 768px) {
   .appbar { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
-  .appbar-titre { font-family: var(--font-head); font-weight: 700; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .appbar-titre { font-family: var(--font-head); font-weight: 700; font-size: var(--t-l); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .appbar-retour { width: 40px; height: 40px; margin-left: -8px; border: 0; border-radius: 50%; background: none; color: var(--text); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
   .appbar-retour:active { background: var(--bg3); }
   .site-header .header-nav, .site-header .header-search { display: none !important; }
