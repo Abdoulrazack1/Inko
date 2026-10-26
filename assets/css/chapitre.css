@@ -1202,6 +1202,16 @@ body.page-body { padding-top: 0; padding-bottom: 0; }
 .reader-pop-zoom { display: flex; align-items: center; gap: 8px; padding: 8px 10px 6px; margin-top: 4px; border-top: 1px solid rgba(255,255,255,.08); font-size: 13px; color: var(--text2); }
 .reader-pop-zoom > span:first-child { flex: 1; }
 
+/* Chapitre lu sur une source de secours : on le dit, une ligne. */
+.bandeau-secours {
+  position: fixed; left: 50%; top: 66px; transform: translateX(-50%); z-index: 120;
+  display: flex; gap: 10px; align-items: center; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box;
+  padding: 10px 12px 10px 16px; border-radius: 12px; font-size: 13px;
+  background: var(--bg2, #141417); color: var(--text, #f0f0f2);
+  border: 1px solid #f59e0b; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+.bandeau-secours button { background: none; border: none; color: var(--text3, #9a9aa6); cursor: pointer; padding: 4px 6px; }
+
 /* Un autre appareil est allé plus loin dans la série : une ligne, pas un voile. */
 .autre-appareil {
   position: fixed; left: 50%; top: 66px; transform: translateX(-50%); z-index: 120;

@@ -47,6 +47,14 @@
        reste la propriete de l'application, qui s'en sert pour les reglages
        propres au tactile. Les confondre revelerait des reglages sans effet. */
     .sr-filtre { display: none !important; }
+    .pc-conflits { display: block; }
+    .pc-conflits[hidden] { display: none; }
+    .pc-conflits-liste { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    .pc-conflit { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+    .pc-conflit-choix { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .pc-conflit-choix button { text-align: left; white-space: normal; height: auto; padding: 8px 10px; }
+    .pc-conflit-choix small { display: block; color: var(--text3); font-weight: 400; }
+
     .import-liste-zone { display: block; }
     .import-liste-zone[hidden] { display: none; }
     .import-liste-source select { margin-left: 6px; }
@@ -176,6 +184,13 @@
         </div>
         <button class="btn btn-primary btn-sm" id="pcSync" hidden>Synchroniser maintenant</button>
       </div>
+      <!-- Le PC et le téléphone ont changé la même chose chacun de leur côté :
+           on montre les deux, on laisse choisir. -->
+      <div class="set-row pc-conflits" id="pcConflits" hidden>
+        <div class="set-row-label">À trancher</div>
+        <ul class="pc-conflits-liste" id="pcConflitsListe"></ul>
+      </div>
+
       <details class="set-row" id="pcJournal" hidden>
         <summary class="set-row-label">Journal de synchronisation</summary>
         <ol class="pc-journal" id="pcJournalListe"></ol>
@@ -427,8 +442,15 @@
       </div>
       <div class="set-row">
         <div>
+          <div class="set-row-label">Exporter une sauvegarde chiffrée</div>
+          <div class="set-row-desc">Le même contenu, illisible sans ta phrase de passe (AES-256). Pour une clé USB ou un nuage.</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnExportChiffre">Chiffrer et exporter</button>
+      </div>
+      <div class="set-row">
+        <div>
           <div class="set-row-label">Importer une sauvegarde</div>
-          <div class="set-row-desc">Restaure un fichier JSON exporté (fusion, sans écraser)</div>
+          <div class="set-row-desc">Restaure un fichier JSON exporté, chiffré ou non (fusion, sans écraser)</div>
         </div>
         <button class="btn btn-secondary btn-sm" id="btnImport">Importer</button>
         <input type="file" id="importFile" accept="application/json,.json" style="display:none"
@@ -568,6 +590,7 @@
   <script src="assets/js/une-main.js"></script>
   <script src="assets/js/tirer-rafraichir.js"></script>
   <script src="assets/js/anilist.js"></script>
+  <script src="assets/js/sauvegarde-chiffree.js"></script>
   <script src="assets/js/parametres.js"></script>
   <script src="assets/js/import-listes.js"></script>
   <script src="assets/js/appairage.js"></script>

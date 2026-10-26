@@ -52,7 +52,14 @@ for (const [nom, hauteur, chemin] of [
         await page.goto('/chapitre.html?manga=m-e2e&chapter=c1&source=weebcentral', { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('.reader-page-img');
         if (chemin === 'bascule') await page.click('[data-mode="scroll"]');
-        await expect(page.locator('.reader-scroll-wrapper .reader-page-img')).toHaveCount(NB);
+        // `:not(.reader-suite-img)` : depuis la lecture continue, le chapitre
+        // SUIVANT est accroché sous le courant dès l'avant-dernière planche.
+        // Le compte montait donc à 40 pour un chapitre de 20, et le test
+        // tombait sur une fonctionnalité qui marche. Ce qu'on vérifie ici,
+        // c'est que le chapitre courant est entièrement posé — pas ce que la
+        // lecture continue ajoute ensuite.
+        await expect(page.locator('.reader-scroll-wrapper .reader-page-img:not(.reader-suite-img)'))
+            .toHaveCount(NB);
         await page.waitForTimeout(1500);
         // Le défilement doux rendrait chaque arrêt dépendant d'une animation.
         await page.addStyleTag({ content: 'html, * { scroll-behavior: auto !important; }' });

@@ -448,6 +448,58 @@
         // page de texte). On lit `content-length` quand il est la, sinon on
         // mesure le blob. Borne a 24 chapitres par serie : au-dela l'estimation
         // est deja bonne et lire 500 blobs figerait l'onglet.
+        // ── Export CBZ ──────────────────────────────────────────
+        // Ce qui est téléchargé ne se lisait que dans Inko. Un CBZ (une
+        // archive ZIP d'images, le format de toutes les liseuses de BD) le
+        // rend lisible ailleurs, ou archivable. Rien n'est retéléchargé : les
+        // pages viennent du cache, et une page absente est comptée, pas
+        // inventée. Une page par fichier, un dossier par chapitre, dans
+        // l'ordre ; `ComicInfo.xml` porte le titre pour les liseuses qui le lisent.
+        nomPage(chapitre, index, type) {
+            const n = parseFloat(chapitre);
+            // Toujours une décimale : « 0010.0 » et « 0010.5 ». Avec « 0010 »,
+            // le « . » se classe avant le « / » et un tri sur le chemin complet
+            // — celui de beaucoup de liseuses — rangeait le 10.5 AVANT le 10.
+            const ch = Number.isFinite(n)
+                ? n.toFixed(1).padStart(6, '0')
+                : String(chapitre || 'x').replace(/[^\w.-]+/g, '_');
+            const ext = /png/.test(type) ? 'png' : /webp/.test(type) ? 'webp' : /gif/.test(type) ? 'gif' : /avif/.test(type) ? 'avif' : 'jpg';
+            return `Chapitre ${ch}/${String(index + 1).padStart(3, '0')}.${ext}`;
+        },
+        comicInfo(titre, chapitres) {
+            const x = (t) => String(t ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+            return `<?xml version="1.0" encoding="utf-8"?>\n<ComicInfo>\n  <Series>${x(titre)}</Series>\n  <Notes>Exporté depuis Inko : ${chapitres} chapitre(s).</Notes>\n</ComicInfo>\n`;
+        },
+        async exporterCbz(mangaId, { onProgress } = {}) {
+            if (typeof window.JSZip === 'undefined') throw new Error('Archivage indisponible sur cette page');
+            const chapitres = (await this.list())
+                .filter(c => c.mangaId === mangaId && c.kind !== 'novel' && (c.pages || []).length)
+                .sort((a, b) => (parseFloat(a.chapterNum) || 0) - (parseFloat(b.chapterNum) || 0));
+            if (!chapitres.length) throw new Error('Aucun chapitre en images à exporter');
+            const zip = new window.JSZip();
+            const cache = await caches.open(CACHE);
+            let pages = 0, manquantes = 0;
+            const total = chapitres.reduce((n, c) => n + c.pages.length, 0);
+            for (const c of chapitres) {
+                for (let i = 0; i < c.pages.length; i++) {
+                    let r = await cache.match(c.pages[i]);
+                    // APK : la page peut vivre en fichier privé plutôt qu'en cache.
+                    if (!r && c.fichiers?.[i]) { try { r = await fetch(this.srcPage(c, i)); } catch (e) { r = null; } }
+                    if (r && r.ok !== false) {
+                        const blob = await r.blob();
+                        zip.file(this.nomPage(c.chapterNum, i, blob.type || r.headers.get('content-type') || ''), blob);
+                        pages++;
+                    } else manquantes++;
+                    onProgress?.(pages + manquantes, total);
+                }
+            }
+            const titre = chapitres[0].mangaTitle || mangaId;
+            zip.file('ComicInfo.xml', this.comicInfo(titre, chapitres.length));
+            // Les images sont déjà compressées : les recompresser ne gagne rien.
+            const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE', mimeType: 'application/vnd.comicbook+zip' });
+            return { blob, nom: `${titre.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || 'serie'}.cbz`, chapitres: chapitres.length, pages, manquantes };
+        },
+
         // ── Purge intelligente ──────────────────────────────────
         // « Tout supprimer » ou série par série : rien entre les deux. Or ce
         // qu'on veut supprimer en premier, c'est ce qu'on a DÉJÀ LU, et
