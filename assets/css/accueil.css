@@ -42,7 +42,7 @@
 .cont-bar--small { margin: 6px 0 0; height: 3px; background: var(--bg4); }
 .cont-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .cont-hero-cta { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; font-size: 14px; }
-.cont-hero .btn-ghost { color: #fff; border-color: rgba(255,255,255,.28); background: rgba(255,255,255,.06); }
+.cont-hero .btn-ghost { color: var(--sur-couleur); border-color: rgba(255,255,255,.28); background: rgba(255,255,255,.06); }
 .cont-hero .btn-ghost:hover { background: rgba(255,255,255,.14); }
 
 .cont-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 12px; }
@@ -90,9 +90,9 @@
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .shelf-meta { margin-top: 2px; font-size: 11.5px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .shelf-badge { position: absolute; left: 6px; bottom: 6px; z-index: 2; padding: 3px 8px; border-radius:  var(--r-carte);
-    background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; box-shadow: var(--e-detache); }
+    background: var(--accent); color: var(--sur-couleur); font-size: 11px; font-weight: 700; box-shadow: var(--e-detache); }
 .shelf-card .card-fav-btn, .shelf-x { position: absolute; top: 6px; right: 6px; z-index: 3; }
-.shelf-x { width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; opacity: 0; transition: opacity .15s; }
+.shelf-x { width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: var(--sur-couleur); cursor: pointer; opacity: 0; transition: opacity .15s; }
 .shelf-card:hover .shelf-x, .shelf-x:focus-visible { opacity: 1; }
 @media (hover: none) { .shelf-x { opacity: 1; } }
 .shelf-card--skel .shelf-cover { animation: home-pulse 1.4s ease-in-out infinite; }

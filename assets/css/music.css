@@ -9,10 +9,10 @@
 #inko-music .im-tabs{display:flex;gap:4px;padding:12px 14px 0}
 #inko-music .im-tab{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:none;background:transparent;color:var(--text2,#a8a8b3);border-radius: var(--r-controle);font-size:12.5px;font-weight:600;cursor:pointer}
 #inko-music .im-tab svg{width:15px;height:15px}
-#inko-music .im-tab.on{background:rgba(255,255,255,.09);color:#fff}
+#inko-music .im-tab.on{background:rgba(255,255,255,.09);color:var(--sur-couleur)}
 #inko-music .im-content{padding:14px;max-height:380px;overflow:auto}
 #inko-music .im-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
-#inko-music .im-station{position:relative;height:78px;border-radius: var(--r-carte);border:none;cursor:pointer;overflow:hidden;text-align:left;padding:11px 12px;color:#fff;display:flex;flex-direction:column;justify-content:flex-end;box-shadow:var(--e-souleve)}
+#inko-music .im-station{position:relative;height:78px;border-radius: var(--r-carte);border:none;cursor:pointer;overflow:hidden;text-align:left;padding:11px 12px;color:var(--sur-couleur);display:flex;flex-direction:column;justify-content:flex-end;box-shadow:var(--e-souleve)}
 #inko-music .im-station .nm{font-weight:700;font-size:13.5px;text-shadow:0 1px 4px rgba(0,0,0,.5)}
 #inko-music .im-station .sb{font-size:10.5px;opacity:.92;text-shadow:0 1px 3px rgba(0,0,0,.5)}
 #inko-music .im-station .rd{position:absolute;top:9px;right:9px;width:18px;height:18px;opacity:.85}
@@ -24,13 +24,13 @@
 #inko-music .im-embed{margin-top:12px;border-radius: var(--r-carte);overflow:hidden}
 #inko-music .im-embed iframe{width:100%;border:none;display:block}
 #inko-music .im-row{display:flex;gap:8px;margin-bottom:10px}
-#inko-music .im-input{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:9px 12px;border-radius: var(--r-controle);font-size:12.5px}
+#inko-music .im-input{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--sur-couleur);padding:9px 12px;border-radius: var(--r-controle);font-size:12.5px}
 #inko-music .im-input:focus{outline:none;border-color:var(--orange,#ff6b1a)}
 /* « :focus » couvre aussi le clavier : la bordure seule ne distingue pas un
    champ focalise d'un champ survole. Le contour revient pour la navigation
    au clavier, sans changer l'aspect au pointeur. */
 #inko-music .im-input:focus-visible{outline:2px solid var(--orange,#ff6b1a);outline-offset:2px}
-#inko-music .im-btn{background:var(--orange,#ff6b1a);color:#fff;border:none;padding:9px 14px;border-radius: var(--r-controle);font-size:12.5px;font-weight:600;cursor:pointer}
+#inko-music .im-btn{background:var(--orange,#ff6b1a);color:var(--sur-couleur);border:none;padding:9px 14px;border-radius: var(--r-controle);font-size:12.5px;font-weight:600;cursor:pointer}
 #inko-music .im-btn.green{background:#1db954}
 #inko-music .im-hint{font-size:11.5px;color:var(--text3,#7a7a86);line-height:1.5;margin-bottom:10px}
 #inko-music .im-list{margin-top:4px}
@@ -44,18 +44,18 @@
 
 #inko-music .im-spprof-ph svg{width:22px;height:22px}
 
-#inko-music .im-spprof-meta .nm{font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#inko-music .im-spprof-meta .nm{font-size:13.5px;font-weight:700;color:var(--sur-couleur);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #inko-music .im-spprof-meta .sb{font-size:11px;color:#1db954;font-weight:600}
 
-#inko-music .im-spprof-x:hover{background:rgba(255,255,255,.16);color:#fff}
+#inko-music .im-spprof-x:hover{background:rgba(255,255,255,.16);color:var(--sur-couleur)}
 /* Barre */
 #inko-music .im-bar{pointer-events:auto;width:min(960px,calc(100vw - 24px));height:64px;display:flex;align-items:center;gap:12px;padding:0 14px;background:rgba(18,18,22,.60);backdrop-filter:blur(26px) saturate(1.9);-webkit-backdrop-filter:blur(26px) saturate(1.9);border:1px solid rgba(255,255,255,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 8px 40px rgba(0,0,0,.5);border-radius: var(--r-carte);margin:0 0 12px}
 #inko-music.open .im-bar{border-radius:0 0 14px 14px;margin-top:0}
-#inko-music .im-art{width:42px;height:42px;border-radius: var(--r-controle);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,#fc5c7d,#6a82fb)}
+#inko-music .im-art{width:42px;height:42px;border-radius: var(--r-controle);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--sur-couleur);background:linear-gradient(135deg,#fc5c7d,#6a82fb)}
 #inko-music .im-art svg{width:20px;height:20px}
 #inko-music .im-art img{width:100%;height:100%;object-fit:cover;border-radius: var(--r-controle)}
 #inko-music .im-meta{flex:1;min-width:0}
-#inko-music .im-meta .t{font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#inko-music .im-meta .t{font-size:13px;font-weight:600;color:var(--sur-couleur);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #inko-music .im-meta .s{font-size:11px;color:var(--text3,#8a8a94);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #inko-music .im-ctr{display:flex;align-items:center;gap:4px}
 #inko-music .im-ico{background:none;border:none;color:#e8e8ee;cursor:pointer;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s}
@@ -66,7 +66,7 @@
 #inko-music .im-mute.on{color:var(--text3,#6b6b76);position:relative}
 #inko-music .im-mute.on::after{content:"";position:absolute;left:50%;top:50%;width:22px;height:2px;background:currentColor;transform:translate(-50%,-50%) rotate(-45deg);border-radius: var(--r-trait)}
 #im-repeat{position:relative}
-#inko-music .im-rep1{position:absolute;top:2px;right:2px;font-size:8px;font-weight:800;background:var(--orange,#ff6b1a);color:#fff;border-radius: var(--r-controle);min-width:11px;height:11px;display:flex;align-items:center;justify-content:center;line-height:1;padding:0 1px}
+#inko-music .im-rep1{position:absolute;top:2px;right:2px;font-size:8px;font-weight:800;background:var(--orange,#ff6b1a);color:var(--sur-couleur);border-radius: var(--r-controle);min-width:11px;height:11px;display:flex;align-items:center;justify-content:center;line-height:1;padding:0 1px}
 #inko-music .im-ico svg{width:18px;height:18px}
 #inko-music .im-ico.pp{background:#fff;color:#111;width:40px;height:40px}
 #inko-music .im-ico.pp:hover{background:#fff;transform:scale(1.05)}
@@ -83,7 +83,7 @@
    musique sans fermer le lecteur, donc sans perdre la station en cours. */
 @media(max-width:640px){ #inko-music .im-vol{display:none} #inko-music .im-bar{height:60px} }
 /* Pastille minimale */
-#inko-music .im-pill{pointer-events:auto;position:fixed;right:18px;bottom:18px;width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;color:#fff;display:none;align-items:center;justify-content:center;background:linear-gradient(135deg,#ff6b1a,#ff9a3c);box-shadow:0 10px 30px rgba(255,107,26,.45);transition:transform .15s}
+#inko-music .im-pill{pointer-events:auto;position:fixed;right:18px;bottom:18px;width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;color:var(--sur-couleur);display:none;align-items:center;justify-content:center;background:linear-gradient(135deg,#ff6b1a,#ff9a3c);box-shadow:0 10px 30px rgba(255,107,26,.45);transition:transform .15s}
 #inko-music .im-pill:hover{transform:scale(1.07)}
 #inko-music .im-pill svg{width:24px;height:24px}
 #inko-music .im-pill .peq{position:absolute;bottom:8px;display:flex;gap:2px;align-items:flex-end;height:9px}
