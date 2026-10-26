@@ -124,6 +124,8 @@
         });
         document.getElementById('listRuleCategory').value = regles?.category || '';
         document.getElementById('listRuleRating').value = regles?.minRating ? String(regles.minRating) : '';
+        document.getElementById('listRuleInactif').value = regles?.inactifJours ? String(regles.inactifJours) : '';
+        document.getElementById('listRuleSourceActive').checked = !!regles?.sourceActive;
         const modal = document.getElementById('listModal');
         modal.style.display = 'flex';
         setTimeout(() => document.getElementById('listName')?.focus(), 50);
@@ -158,10 +160,13 @@
             const statuts = [...document.querySelectorAll('#listRuleStatus input:checked')].map(i => i.value);
             const cat = document.getElementById('listRuleCategory').value.trim();
             const note = document.getElementById('listRuleRating').value;
+            const inactif = document.getElementById('listRuleInactif').value;
             const regles = {};
             if (statuts.length) regles.status = statuts;
             if (cat) regles.category = cat;
             if (note) regles.minRating = +note;
+            if (inactif) regles.inactifJours = +inactif;
+            if (document.getElementById('listRuleSourceActive').checked) regles.sourceActive = true;
             if (!Object.keys(regles).length) {
                 MH.toast?.('Choisis au moins un critere, sinon la liste prendrait toute ta bibliotheque');
                 return;
