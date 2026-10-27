@@ -146,8 +146,12 @@
         });
     }
     async function save() {
-        const name = document.getElementById('listName').value.trim();
-        if (!name) { MH.toast?.('Donne un nom à ta liste'); return; }
+        const champNom = document.getElementById('listName');
+        const name = champNom.value.trim();
+        // Le message va SOUS le champ, pas dans un toast : il nomme ainsi
+        // le champ fautif, il ne s’efface pas tout seul, et il est annoncé.
+        if (!name) { MH.champErreur?.(champNom, 'Donne un nom à ta liste'); return; }
+        MH.champValide?.(champNom);
         const payload = {
             name,
             description: document.getElementById('listDesc').value.trim() || null,

@@ -2,7 +2,7 @@
 
 .se-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
 .se-bar { display: flex; gap: 10px; margin-bottom: 8px; }
-.se-input { flex: 1; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); padding: 12px 16px; border-radius: 11px; font-size: 15px; }
+.se-input { --champ-rayon: 11px; --champ-taille: 15px; --champ-rembourrage: 12px 16px; flex: 1; }
 .se-input:focus { outline: none; border-color: var(--orange); }
 /* Meme raison que dans music.css : « :focus » retire le contour au clavier
    aussi, et une bordure coloree ne se distingue pas d'un survol. */

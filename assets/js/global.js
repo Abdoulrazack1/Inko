@@ -1170,6 +1170,47 @@
      * injoignable de la session expirée, et elle écarte les codes techniques.
      * Un toast ne peut pas porter d'action — le texte doit donc se suffire.
      */
+    /**
+     * Signale qu'une saisie est refusée, à l'œil ET à la voix.
+     *
+     * Avant, un champ refusé ne recevait RIEN : le message partait en toast
+     * — loin du champ, sans dire lequel, et il s'effaçait — ou bien rien du
+     * tout ne se passait. `aria-invalid` était employé zéro fois dans toute
+     * l'application.
+     *
+     * Le message est posé SOUS le champ et rattaché par `aria-describedby` :
+     * sans ce lien, un lecteur d'écran lit le champ puis passe, et le texte
+     * reste à l'écran sans jamais être lu.
+     */
+    window.MH.champErreur = function (champ, message) {
+        if (!champ) return;
+        const id = champ.id ? champ.id + '-err' : 'champ-err-' + Math.random().toString(36).slice(2, 8);
+        let bloc = document.getElementById(id);
+        if (!bloc) {
+            bloc = document.createElement('span');
+            bloc.id = id;
+            bloc.className = 'champ-erreur';
+            // `role="alert"` annonce le message AU MOMENT où il apparaît, sans
+            // attendre que le champ reprenne le focus.
+            bloc.setAttribute('role', 'alert');
+            champ.insertAdjacentElement('afterend', bloc);
+        }
+        bloc.textContent = message || '';
+        champ.setAttribute('aria-invalid', 'true');
+        const d = (champ.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+        if (!d.includes(id)) champ.setAttribute('aria-describedby', [...d, id].join(' '));
+        champ.focus?.();
+    };
+
+    /** Efface l'erreur d'un champ. Appelé dès qu'on y retouche. */
+    window.MH.champValide = function (champ) {
+        if (!champ) return;
+        champ.removeAttribute('aria-invalid');
+        const bloc = document.getElementById((champ.id || '') + '-err')
+            || champ.nextElementSibling?.classList?.contains('champ-erreur') && champ.nextElementSibling;
+        if (bloc) bloc.textContent = '';
+    };
+
     window.MH.toastErreur = function (err, ctx = {}) {
         const m = window.MH.messageErreur(err, ctx);
         // Le TITRE seul, et pas « titre — texte ».

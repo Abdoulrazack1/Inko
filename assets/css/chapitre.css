@@ -110,17 +110,7 @@
     flex-shrink: 0;
 }
 
-.reader-chap-select {
-    height: 32px;
-    padding: 0 10px;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius2);
-    color: var(--text);
-    font-size: 12px;
-    max-width: 200px;
-    cursor: pointer;
-}
+.reader-chap-select { --champ-bordure: var(--border); height: 32px; max-width: 200px; cursor: pointer; }
 .reader-chap-select:focus { outline: none; border-color: var(--orange); }
 
 .toolbar-right {
@@ -806,7 +796,7 @@
   .toolbar-sep { display: none; }
   .toolbar-chap { display: none; }
   .toolbar-source { display: none; }
-  .reader-chap-select { max-width: 130px; font-size: 11px; }
+  .reader-chap-select { max-width: 130px; --champ-taille: 11px; }
   .reader-zoom-label { display: none; }
   .reader-modebar { height: 34px; padding: 0 12px; }
   .modebar-info { display: none; }

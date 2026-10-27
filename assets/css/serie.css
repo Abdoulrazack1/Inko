@@ -297,17 +297,7 @@
   align-items: center;
   gap: 8px;
 }
-.chap-search-input {
-  height: 30px;
-  padding: 0 12px;
-  background: var(--bg4);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  color: var(--text);
-  font-size: 12px;
-  width: 160px;
-  transition: border-color 0.15s;
-}
+.chap-search-input { --champ-taille: 12px; --champ-rembourrage: 0 12px; --champ-fond: var(--bg4); --champ-rayon: 20px; height: 30px; width: 160px; transition: border-color 0.15s; }
 .chap-search-input:focus {
   outline: none;
   border-color: var(--orange);

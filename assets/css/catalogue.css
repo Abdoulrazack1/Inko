@@ -246,11 +246,7 @@
 .view-btn:first-child { border-radius: var(--radius2) 0 0 var(--radius2); }
 .view-btn:last-child { border-radius: 0 var(--radius2) var(--radius2) 0; border-left: none; }
 .view-btn.active { background: var(--bg4); color: var(--text); border-color: var(--border2); }
-.sort-select {
-  height: 32px; padding: 0 10px;
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--radius2); color: var(--text); font-size: 12.5px;
-}
+.sort-select { --champ-bordure: var(--border); height: 32px; }
 .sort-select:focus { outline: none; border-color: var(--orange); }
 
 /* Grid results */
