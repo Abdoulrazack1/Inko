@@ -919,6 +919,59 @@ body.incognito-on::before {
 .btn-sm { height: 32px; padding: 0 13px; font-size: 12px; border-radius: 16px; }
 .btn-xs { height: 27px; padding: 0 11px; font-size: 11px; border-radius: 14px; }
 
+/* ── Danger, icône, et l'état qui manquait ────────────
+   `btn-danger` était utilisé trois fois — effacer l'historique, fermer les
+   autres sessions, supprimer le compte — et n'existait nulle part dans le
+   système : la classe était déclarée dans `parametres.html`, sur des boutons
+   qui ne portaient même pas `.btn`. Mesuré côte à côte sur cette page, à
+   quelques centimètres l'un de l'autre :
+
+       .btn-danger (local)    36 px   padding 16   rayon 8    13px / 500
+       .btn .btn-sm           32 px   padding 13   rayon 16   12px / 600
+
+   Les boutons les plus dangereux de l'application étaient les seuls à ne
+   pas suivre le système.
+
+   Et `.btn` n'avait AUCUN état désactivé, alors que 53 endroits du code
+   posent `.disabled = true`. Vérifié dans la page : fond, texte, opacité et
+   curseur strictement identiques avant et après désactivation — le curseur
+   continuait même d'annoncer un clic possible. Même classe de défaut que
+   QUAL-05 ci-dessus : pas une règle fausse, une règle ABSENTE. */
+.btn-danger {
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+  color: var(--red-text);
+  border: 1px solid color-mix(in srgb, var(--red) 34%, transparent);
+}
+.btn-danger:hover { background: color-mix(in srgb, var(--red) 24%, transparent); border-color: var(--red); transform: translateY(-1px); }
+
+/* Carré, pour un bouton qui ne porte qu'un signe. La seule définition
+   existante était enfermée sous `.serie-more` : ailleurs, `btn-icon` ne
+   valait rien. */
+.btn-icon { width: 38px; padding: 0; }
+.btn-sm.btn-icon { width: 32px; }
+.btn-xs.btn-icon { width: 27px; }
+
+/* L'état désactivé, pour toutes les variantes à la fois. `pointer-events`
+   suffit à éteindre les survols de chaque variante : sans lui, un bouton
+   désactivé continuait de se soulever sous la souris. */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: .45;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+.btn:disabled { pointer-events: none; }
+/* `aria-disabled` reste cliquable et focalisable — c'est son intérêt : le
+   lecteur d'écran l'annonce au lieu de le sauter. On éteint donc ses
+   survols un par un. */
+.btn[aria-disabled="true"]:hover { transform: none; box-shadow: none; }
+.btn-primary[aria-disabled="true"]:hover { background: var(--accent); }
+.btn-secondary[aria-disabled="true"]:hover { background: var(--bg2); border-color: var(--border2); }
+.btn-ghost[aria-disabled="true"]:hover { background: none; color: var(--text2); border-color: var(--border); }
+.btn-danger[aria-disabled="true"]:hover { background: color-mix(in srgb, var(--red) 14%, transparent); border-color: color-mix(in srgb, var(--red) 34%, transparent); }
+
+
 /* Tag / genre pill */
 .tag {
   display: inline-flex; align-items: center;

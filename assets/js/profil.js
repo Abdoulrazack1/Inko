@@ -1247,7 +1247,7 @@
         if (apercu) {
             const nom = API.user?.username;
             if (nom) apercu.href = `u.html?u=${encodeURIComponent(nom)}&preview=1`;
-            else { apercu.setAttribute('aria-disabled', 'true'); apercu.style.opacity = '.5'; }
+            else apercu.setAttribute('aria-disabled', 'true');   // l’apparence vient du système
         }
     }
     function initPrefBtns() {
