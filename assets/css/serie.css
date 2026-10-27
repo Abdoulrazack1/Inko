@@ -1046,7 +1046,9 @@
 
 /* « Tu aimeras aussi » : une grille qui se replie, plus une rangée coupée
    au bord sans flèche ni indice qu'elle défile. */
-.sim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 14px 12px; padding: 4px 2px 8px; }
+/* Une rangee d’oeuvres proches se parcourt : elle est dense par nature. */
+.sim-grid { display: grid; --grille-carte: var(--grille-carte-dense);
+    grid-template-columns: repeat(auto-fill, minmax(var(--grille-carte), 1fr)); gap: var(--grille-gouttiere-dense); padding: 4px 2px 8px; }
 
 /* Choix d'un téléchargement : combien, et combien ça pèse. */
 .mh-modal.dl-choix { width: min(440px, 94vw); }

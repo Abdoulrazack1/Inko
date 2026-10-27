@@ -919,6 +919,28 @@ body.incognito-on::before {
 .btn-sm { height: 32px; padding: 0 13px; font-size: 12px; border-radius: 16px; }
 .btn-xs { height: 27px; padding: 0 11px; font-size: 11px; border-radius: 14px; }
 
+/* ── La grille de cartes ───────────────────────────
+   Dix grilles fluides dans les feuilles, et entre elles SEPT largeurs
+   minimales de carte et CINQ gouttieres : 96, 104, 120, 140, 150, 220,
+   260 px ; 10, 12, 14/12, 16, 18 px.
+
+   Toutes ne tiennent pas la meme chose : `.cont-row` porte des reprises
+   de lecture et `.lists-grid` des cartes de liste, qui sont plus larges
+   par nature. Mais `.lib2-grid` (140), `.cd-series-grid` (150) et
+   `.se-grid` (150) posent la MEME carte de serie, et ne s'accordaient
+   pas -- 10 px d'ecart, assez pour que la bibliotheque tienne une
+   colonne de plus que la recherche a la meme largeur de fenetre.
+
+   Les densites sont celles de la carte, deja nommees : une grille dense
+   pour une bibliotheque de 508 titres ou une rangee d'oeuvres proches,
+   la normale ailleurs. */
+:root {
+  --grille-carte:           150px;
+  --grille-carte-dense:     96px;
+  --grille-gouttiere:       16px;
+  --grille-gouttiere-dense: 10px;
+}
+
 /* Tag / genre pill */
 .tag {
   display: inline-flex; align-items: center;
