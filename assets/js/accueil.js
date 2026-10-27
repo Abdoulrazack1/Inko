@@ -417,10 +417,9 @@
         </div>`;
     }
 
-    function squelette(id) {
-        const t = document.getElementById(id);
-        if (t) t.innerHTML = Array.from({ length: 8 }, () => '<div class="shelf-card shelf-card--skel"><div class="shelf-cover"></div><div class="shelf-name"></div></div>').join('');
-    }
+    // Le squelette d'un rayon passe par le système : il y gagne l'`aria-busy`
+    // et sa levée automatique, qu'une copie locale n'avait pas.
+    function squelette(id) { MH.squelette(id, { n: 8, type: 'rayon' }); }
 
     // Flèches de défilement : ajoutées à chaque rayon, visibles au survol, et
     // masquées aux extrémités.
