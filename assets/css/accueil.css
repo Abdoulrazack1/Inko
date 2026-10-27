@@ -27,7 +27,7 @@
     filter: blur(34px) saturate(1.3) brightness(.45); transform: scale(1.1); }
 .cont-hero::after { content: ""; position: absolute; inset: 0; z-index: -1;
     background: linear-gradient(90deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.25) 60%, rgba(0,0,0,.1) 100%); }
-.cont-hero-cover { flex: 0 0 auto; width: 132px; aspect-ratio: 3 / 4.3; border-radius: 10px; overflow: hidden;
+.cont-hero-cover { flex: 0 0 auto; width: 132px; aspect-ratio: var(--carte-ratio); border-radius: var(--carte-rayon); overflow: hidden;
     box-shadow: 0 14px 34px rgba(0,0,0,.5); }
 .cont-hero-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cont-hero-body { min-width: 0; flex: 1; }
@@ -83,12 +83,12 @@
 .shelf-track[hidden] { display: none; }
 .shelf-card { position: relative; scroll-snap-align: start; min-width: 0; background: none !important; border: 0 !important; box-shadow: none !important; }
 .shelf-card:hover { transform: none; }
-.shelf-cover { position: relative; aspect-ratio: 3 / 4.3; border-radius: 10px; overflow: hidden; background: var(--bg3); }
+.shelf-cover { position: relative; aspect-ratio: var(--carte-ratio); border-radius: var(--carte-rayon); overflow: hidden; background: var(--bg3); }
 .shelf-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
 .shelf-card:hover .shelf-cover img { transform: scale(1.04); }
-.shelf-name { margin-top: 8px; font-size: 13px; font-weight: 600; line-height: 1.3;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.shelf-meta { margin-top: 2px; font-size: 11.5px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shelf-name { margin-top: var(--carte-ecart); font-size: var(--carte-titre); font-weight: var(--carte-graisse); line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: var(--carte-lignes); -webkit-box-orient: vertical; overflow: hidden; }
+.shelf-meta { margin-top: 2px; font-size: var(--carte-meta); color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .shelf-badge { position: absolute; left: 6px; bottom: 6px; z-index: 2; padding: 3px 8px; border-radius: 12px;
     background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
 .shelf-card .card-fav-btn, .shelf-x { position: absolute; top: 6px; right: 6px; z-index: 3; }

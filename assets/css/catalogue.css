@@ -260,7 +260,9 @@
 }
 .results-grid.list-view { grid-template-columns: 1fr; }
 .results-grid.list-view .manga-card { display: flex; flex-direction: row; }
-.results-grid.list-view .manga-card-cover { width: 80px; flex-shrink: 0; aspect-ratio: auto; height: 110px; }
+/* Boîte fixe : le rapport ne s’applique plus, mais il doit rester celui
+   des couvertures. 80 × 110 valait 0,727 ; 80 × 120 vaut 2:3. */
+.results-grid.list-view .manga-card-cover { width: 80px; flex-shrink: 0; aspect-ratio: auto; height: 120px; }
 .results-grid.list-view .manga-card-info { flex: 1; padding: 12px; }
 
 /* Catalogue card extra info */

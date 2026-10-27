@@ -26,10 +26,11 @@
     .pl-meta { color: var(--text3); font-size: 12.5px; margin-top: 10px; }
     .pl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 16px; }
     .pl-card { display: block; color: inherit; }
-    .pl-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover;
-      border-radius: 10px; background: var(--bg3); }
-    .pl-card span { display: block; margin-top: 7px; font-size: 12.5px; line-height: 1.35;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .pl-card img { width: 100%; aspect-ratio: var(--carte-ratio); object-fit: cover;
+      border-radius: var(--carte-rayon); background: var(--bg3); }
+    .pl-card span { display: block; margin-top: var(--carte-ecart); font-size: var(--carte-titre);
+      font-weight: var(--carte-graisse); line-height: 1.35;
+      display: -webkit-box; -webkit-line-clamp: var(--carte-lignes); -webkit-box-orient: vertical; overflow: hidden; }
     .pl-state { text-align: center; padding: 60px 20px; color: var(--text3); }
     @media (max-width: 520px) {
       .pl-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; }
