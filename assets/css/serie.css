@@ -719,17 +719,17 @@
 .progress-val   { font-weight: 600; }
 
 .progress-bar-big {
-  height: 5px;
-  background: var(--bg4);
-  border-radius: 3px;
+  height: var(--jauge-epaisse);
+  background: var(--jauge-piste);
+  border-radius: 999px;
   overflow: hidden;
   margin: 8px 0;
 }
 .progress-bar-big .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--orange), var(--orange2, #ff8c42));
-  border-radius: 3px;
-  transition: width 0.5s ease;
+  background: linear-gradient(90deg, var(--jauge-couleur), var(--orange2, #ff8c42));
+  border-radius: 999px;
+  transition: width var(--jauge-duree) var(--ease-out);
 }
 
 .quick-review {

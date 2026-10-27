@@ -747,17 +747,18 @@
 }
 .casting-name { font-size: 10px; font-weight: 600; color: var(--text); line-height: 1.3; }
 
+/* Même classe que dans `serie.css` : même épaisseur. */
 .progress-bar-big {
-    height: 4px;
-    background: var(--bg4);
-    border-radius: 2px;
+    height: var(--jauge-epaisse);
+    background: var(--jauge-piste);
+    border-radius: 999px;
     overflow: hidden;
     margin: 8px 0;
 }
 .progress-bar-big .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--orange), var(--orange2));
-    border-radius: 2px;
+    background: linear-gradient(90deg, var(--jauge-couleur), var(--orange2));
+    border-radius: 999px;
     transition: width 0.5s ease;
 }
 
@@ -868,14 +869,13 @@
 /* Barre de progression fine sous la toolbar */
 .reader-progressbar {
   position: sticky; top: 0; z-index: 60;
-  height: 3px; background: var(--bg3);
+  height: var(--jauge-fine); background: var(--bg3);
   /* Audit AMEL-19 : la barre devient un point de navigation. 3 px est trop
      fin pour être visé à la souris ; on l'agrandit au survol et on ajoute une
      zone de clic invisible au-dessus, sans changer la hauteur perçue au repos
      — la barre reste discrète tant qu'on ne s'en sert pas. */
   cursor: pointer;
-  transition: height .12s var(--ease-out);
-}
+  transition: height .12s var(--ease-out); border-radius: 999px;}
 .reader-progressbar::before {
   content: ''; position: absolute; left: 0; right: 0; top: -7px; height: 16px;
 }
@@ -884,8 +884,7 @@
 .reader-progressbar-fill {
   height: 100%; width: 0%;
   background: var(--orange);
-  transition: width .25s ease;
-}
+  transition: width .25s ease; border-radius: 999px;}
 
 /* Une planche en route se voit en route. Avant, elle restait à opacité 0
    jusqu'à son arrivée : sur une source qui met 4 à 20 s par page, un cadre
