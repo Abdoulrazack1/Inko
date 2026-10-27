@@ -191,8 +191,8 @@
 ══════════════════════════════════════════════════════════ */
 .cd-series-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--grille-carte), 1fr));
+  gap: var(--grille-gouttiere);
 }
 .cd-serie-card {
   background: var(--bg2);
@@ -221,7 +221,9 @@
 .cd-serie-card-actions { display: flex; gap: 6px; padding: 6px 10px 12px; margin-top: auto; }
 
 @media (max-width: 600px) {
-  .cd-series-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+  /* Sur telephone, la grille passe en densite dense : c’est la meme
+     bascule que la bibliotheque compacte. */
+  .cd-series-grid { --grille-carte: var(--grille-carte-dense); --grille-gouttiere: var(--grille-gouttiere-dense); }
 }
 
 /* ── Réordonnancement par glisser-déposer (audit AMEL-37) ──

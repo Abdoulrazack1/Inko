@@ -21,8 +21,8 @@
 .lib2-view button:hover { color:var(--text); }
 .lib2-view button.on { background:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
 
-.lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:16px; }
-.lib2-grid.lib2-grid--compact { grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:10px; }
+.lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--grille-carte),1fr)); gap:var(--grille-gouttiere); }
+.lib2-grid.lib2-grid--compact { grid-template-columns:repeat(auto-fill, minmax(var(--grille-carte-dense),1fr)); gap:var(--grille-gouttiere-dense); }
 .lib2-grid--compact .lib2-title { font-size:11px; }
 .lib2-grid--compact .lib2-sub, .lib2-grid--compact .lib2-cat { display:none; }
 .lib2-card { position:relative; cursor:pointer; transition:transform .28s var(--ease-out); }
@@ -143,12 +143,12 @@
    La bibliothèque est justement l'écran où l'on cherche une série qu'on
    possède déjà : plus il en tient à l'œil, plus vite on la trouve. */
 @media (hover: none) and (max-width: 420px) {
-  .lib2-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .lib2-grid.lib2-grid--compact { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .lib2-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--grille-gouttiere-dense); }
+  .lib2-grid.lib2-grid--compact { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--grille-gouttiere-dense); }
   .lib2-list, .lib2-grid.lib2-list { grid-template-columns: minmax(0, 1fr); }
 }
 @media (hover: none) and (min-width: 421px) and (max-width: 767px) {
-  .lib2-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .lib2-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--grille-gouttiere-dense); }
   .lib2-grid.lib2-grid--compact { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
   .lib2-list, .lib2-grid.lib2-list { grid-template-columns: minmax(0, 1fr); }
 }
