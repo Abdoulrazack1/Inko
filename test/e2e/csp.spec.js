@@ -63,7 +63,7 @@ const PAGES = [
     '/accueil.html', '/catalogue.html', '/bibliotheque.html', '/recherche.html',
     '/parametres.html', '/profil.html', '/notifications.html', '/sources.html',
     '/collections.html', '/stats.html', '/notes.html', '/downloads.html',
-    '/liste.html', '/import.html', '/u.html', '/confidentialite.html',
+    '/liste.html', '/import.html', '/u.html', '/confidentialite.html', '/systeme.html',
 ];
 
 for (const p of PAGES) {
