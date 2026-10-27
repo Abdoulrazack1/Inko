@@ -68,9 +68,11 @@
             <div class="mh-modal-actions"><button type="button" class="btn btn-ghost" data-fermer>Fermer</button></div>
         </div>`;
         document.body.appendChild(veil);
-        const fermer = () => { veil.remove(); document.removeEventListener('keydown', surTouche); };
-        function surTouche(e) { if (e.key === 'Escape') fermer(); }
-        document.addEventListener('keydown', surTouche);
+        // Le clavier est tenu par le piège partagé : entrer, y rester, et
+        // revenir d’où l’on venait. `aria-modal` ne le fait pas tout seul.
+        const liberer = window.MH?.piegerFocus?.(veil.querySelector('[role="dialog"]'),
+            { surEchap: () => fermer() }) || (() => {});
+        const fermer = () => { liberer(); veil.remove(); };
         veil.addEventListener('click', (e) => { if (e.target === veil) fermer(); });
         veil.querySelector('[data-fermer]').addEventListener('click', fermer);
         veil.querySelectorAll('[data-garder]').forEach(b => b.addEventListener('click', async () => {

@@ -18,6 +18,23 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'js', 'feuille.js'), 'utf8');
+const GLOBAL = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'js', 'global.js'), 'utf8');
+
+// Le piège de focus a été EXTRAIT de `feuille.js` vers `global.js` : huit
+// autres panneaux en avaient besoin et le refaisaient à moitié. On
+// installe donc ici la VRAIE fonction, découpée dans sa source, plutôt
+// qu'une imitation : ce test vérifie la composition des deux, qui est ce
+// que l'utilisateur rencontre.
+function piegeReel(w) {
+    const debut = GLOBAL.indexOf('window.MH.piegerFocus = function');
+    if (debut < 0) throw new Error('piegerFocus introuvable dans global.js');
+    // La signature déstructure son deuxième argument (`{ surEchap, origine }`) :
+    // la première accolade n'est PAS celle du corps. On part de `) {`.
+    let n = 0, j = GLOBAL.indexOf(') {', debut) + 2;
+    for (; j < GLOBAL.length; j++) { if (GLOBAL[j] === '{') n++; else if (GLOBAL[j] === '}' && --n === 0) break; }
+    // eslint-disable-next-line no-new-func
+    return new w.Function('document', 'return ' + GLOBAL.slice(GLOBAL.indexOf('function', debut), j + 1))(w.document);
+}
 
 function monter() {
     const dom = new JSDOM('<!doctype html><body><button id="ouvrir">Filtres</button><a id="derriere" href="#">page</a></body>',
@@ -26,6 +43,7 @@ function monter() {
     // jsdom ne calcule pas de mise en page : tout élément y a offsetParent null.
     Object.defineProperty(w.HTMLElement.prototype, 'offsetParent', { get() { return w.document.body; } });
     w.MH = { esc: (t) => String(t) };
+    w.MH.piegerFocus = piegeReel(w);
     w.eval(SRC);
     const ouvrir = w.document.getElementById('ouvrir');
     ouvrir.focus();

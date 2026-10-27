@@ -89,9 +89,12 @@
                 </div></form>`;
             document.body.appendChild(veil);
             const form = veil.querySelector('form');
-            const fin = (v) => { veil.remove(); resolve(v); };
+            // Le clavier est tenu par le piège partagé : entrer, y rester, et
+            // revenir d’où l’on venait. `aria-modal` ne le fait pas tout seul.
+            const liberer = window.MH?.piegerFocus?.(form, { surEchap: () => fin(null) }) || (() => {});
+            const fin = (v) => { liberer(); veil.remove(); resolve(v); };
             veil.querySelector('[data-annuler]').addEventListener('click', () => fin(null));
-            form.addEventListener('keydown', (e) => { if (e.key === 'Escape') fin(null); });
+            // Échap passe désormais par le piège, avec le reste du clavier.
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const p1 = form.querySelector('#phrase1').value;
