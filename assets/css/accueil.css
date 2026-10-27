@@ -86,7 +86,12 @@
 .shelf-cover { position: relative; aspect-ratio: 3 / 4.3; border-radius: 10px; overflow: hidden; background: var(--bg3); }
 .shelf-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
 .shelf-card:hover .shelf-cover img { transform: scale(1.04); }
+/* Hauteur figée à deux lignes, comme `.manga-card-title` : sans elle, un
+   titre court remonte la ligne de méta et les bas de cartes du rayon ne
+   s'alignent plus. C'est aussi ce qui empêchait un squelette de réserver
+   la bonne place — la carte réelle n'en avait pas de fixe. */
 .shelf-name { margin-top: 8px; font-size: 13px; font-weight: 600; line-height: 1.3;
+    min-height: 2.6em;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .shelf-meta { margin-top: 2px; font-size: 11.5px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .shelf-badge { position: absolute; left: 6px; bottom: 6px; z-index: 2; padding: 3px 8px; border-radius: 12px;

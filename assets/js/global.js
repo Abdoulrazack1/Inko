@@ -1219,7 +1219,20 @@
     window.MH.squelette = function (cible, { n = 12, type = 'carte' } = {}) {
         const el = typeof cible === 'string' ? document.getElementById(cible) : cible;
         if (!el) return null;
-        const unite = type === 'ligne'
+        // `rayon` : la carte d'une étagère d'accueil, qui n'est pas une
+        // `.manga-card`. Comme les deux autres, elle reprend les CLASSES de
+        // la vraie carte pour hériter de son rapport et de sa hauteur de
+        // titre : recopier ces valeurs les laisserait dériver.
+        const unite = type === 'rayon'
+            ? '<div class="shelf-card shelf-card--skel mh-sq" aria-hidden="true">'
+              + '<div class="shelf-cover skeleton"></div>'
+              // Deux lignes de titre ET la ligne de méta : la vraie carte les
+              // porte, et un squelette plus court rend 240 px là où le rayon
+              // en fait 308 — le saut revient, en plus petit.
+              + '<div class="shelf-name"><span class="skeleton mh-sq-t1"></span>'
+              + '<span class="skeleton mh-sq-t2"></span></div>'
+              + '<div class="shelf-meta"><span class="skeleton mh-sq-t2"></span></div></div>'
+            : type === 'ligne'
             ? '<div class="mh-sq mh-sq-ligne" aria-hidden="true"><div class="skeleton mh-sq-vignette"></div>'
               + '<div class="mh-sq-lignes"><div class="skeleton mh-sq-t1"></div>'
               + '<div class="skeleton mh-sq-t2"></div></div></div>'
