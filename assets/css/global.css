@@ -1527,6 +1527,12 @@ a[data-nsfw] .manga-card-cover::after,
 .mh-sq .manga-card-meta span { display: block; height: 16px; border-radius: 4px; }
 .mh-sq .manga-card-meta span:first-child { width: 62%; }
 .mh-sq .manga-card-meta span:last-child { width: 45%; }
+/* Le squelette d’un rayon : les lignes sont des blocs, pour que le titre
+   occupe ses deux lignes comme la vraie carte. */
+.shelf-card--skel .shelf-name span { display: block; }
+.shelf-card--skel .shelf-name span + span { margin-top: 5px; }
+.shelf-card--skel .shelf-meta { min-height: 1.5em; }
+.shelf-card--skel .shelf-meta span { display: block; }
 .mh-sq-t1 { height: 11px; width: 92%; border-radius: 4px; }
 .mh-sq-t2 { height: 11px; width: 58%; border-radius: 4px; }
 .mh-sq-ligne { display: flex; gap: 12px; align-items: center; padding: 10px 0; }

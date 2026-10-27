@@ -108,7 +108,11 @@
         const out = document.getElementById('seResults');
         const sub = document.getElementById('seSub');
         if (!out) return;
-        out.innerHTML = `<div class="se-loading"><div class="spinner-inline"></div> Suggestions…</div>`;
+        // Une roué qui tourne ne réserve aucune place : mesuré dans la page,
+        // cette attente occupait 143 px là où la grille en prend 937. La page
+        // sautait donc de près de 800 px à l'arrivée des résultats — ce que
+        // les squelettes du système existent précisément pour empêcher.
+        MH.squelette(out, { n: 12, type: 'carte' });
         let persoHtml = '';
         // « Depuis ta bibliothèque » : accès rapide personnalisé (audit §11)
         if (API.isLoggedIn()) {
@@ -162,7 +166,7 @@
         const my = ++reqSeq;
         history.replaceState({}, '', 'recherche.html?q=' + encodeURIComponent(q));
         sub.textContent = `Recherche de « ${q} »…`;
-        out.innerHTML = `<div class="se-loading"><div class="spinner-inline"></div> Recherche en cours…</div>`;
+        MH.squelette(out, { n: 12, type: 'carte' });
         sourcesEnEchec = [];
         groupesRecus = [];
 
