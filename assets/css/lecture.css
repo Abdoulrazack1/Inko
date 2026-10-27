@@ -35,8 +35,8 @@
 }
 
 /* Barre de progression */
-.novel-progressbar { position: sticky; top: 53px; z-index: 70; height: 3px; background: var(--bg3); }
-.novel-progressbar-fill { height: 100%; width: 0%; background: var(--orange); transition: width .15s linear; }
+.novel-progressbar { position: sticky; top: 53px; z-index: 70; height: var(--jauge-fine); background: var(--bg3); border-radius: 999px;}
+.novel-progressbar-fill { height: 100%; width: 0%; background: var(--orange); transition: width .15s linear; border-radius: 999px;}
 
 /* Zone de lecture — les variables sont pilotées par lecture.js */
 .novel-wrap {

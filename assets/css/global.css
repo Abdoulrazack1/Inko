@@ -876,13 +876,52 @@ body.incognito-on::before {
 .manga-card-chapter { font-size: 11px; color: var(--text3); }
 
 /* Progress bar */
+/* ── La jauge de progression ────────────────────────
+   Treize jauges, relevées dans les feuilles : trois épaisseurs (3, 4 et
+   5 px), sept rayons, trois couleurs de piste. Et `.progress-bar-big`
+   était déclaré DEUX FOIS — 4 px / rayon 2 dans `chapitre.css`, 5 px /
+   rayon 3 dans `serie.css`. Le même nom de classe, deux tailles, selon
+   la page.
+
+   Les trois épaisseurs sont gardées : elles correspondent à trois usages
+   réels — un filet d'ambiance en haut du lecteur, une jauge posée sur
+   une carte, une barre qu'on lit pour elle-même. Ce qui change, c'est
+   qu'elles sont désormais NOMMÉES, et que le comportement est commun :
+   même piste, même remplissage, mêmes extrémités arrondies, même
+   transition.
+
+   Le rayon vaut 999px et non la moitié de la hauteur : une pastille
+   reste une pastille quand l'épaisseur change, sans qu'on ait à recalculer
+   un rayon qui ne serait juste que pour une taille. */
+:root {
+  --jauge-fine:     3px;
+  --jauge-normale:  4px;
+  --jauge-epaisse:  5px;
+  --jauge-piste:    var(--bg4);
+  --jauge-couleur:  var(--orange);
+  --jauge-duree:    .35s;
+}
+
+.jauge {
+  height: var(--jauge-epaisseur, var(--jauge-normale));
+  background: var(--jauge-piste);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.jauge > * {
+  height: 100%;
+  background: var(--jauge-couleur);
+  border-radius: 999px;
+  transition: width var(--jauge-duree) var(--ease-out);
+}
+
 .progress-bar {
-  height: 3px; background: var(--bg4); border-radius: 2px;
+  height: var(--jauge-fine); background: var(--jauge-piste); border-radius: 999px;
   overflow: hidden; margin-top: 6px;
 }
 .progress-fill {
-  height: 100%; background: var(--orange); border-radius: 2px;
-  transition: width 0.3s ease;
+  height: 100%; background: var(--jauge-couleur); border-radius: 999px;
+  transition: width var(--jauge-duree) var(--ease-out);
 }
 
 /* Buttons */
