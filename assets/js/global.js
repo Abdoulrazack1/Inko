@@ -1026,16 +1026,26 @@
      *
      * `actions` : [{ libelle, href }] ou [{ libelle, onClick }].
      */
-    window.MH.etatVide = function ({ icone, titre, texte, actions = [] } = {}) {
+    // `densite: 'compact'` pour un creux dans une page, et non un écran entier ;
+    // `grille: true` quand l'état vide prend la place d'une grille de cartes.
+    // Sans ces deux-là, le composant ne savait faire QUE le grand format, et
+    // quinze endroits écrivaient donc le leur en style en ligne.
+    window.MH.etatVide = function ({ icone, titre, texte, actions = [], densite, grille } = {}) {
         const boutons = actions.map((a, i) => a.href
             ? `<a class="btn ${i === 0 ? 'btn-primary' : 'btn-ghost'} btn-sm" href="${esc(a.href)}">${esc(a.libelle)}</a>`
             : `<button class="btn ${i === 0 ? 'btn-primary' : 'btn-ghost'} btn-sm" data-vide-act="${i}">${esc(a.libelle)}</button>`
         ).join('');
 
         const el = document.createElement('div');
-        el.className = 'mh-etat-vide';
+        el.className = 'mh-etat-vide'
+            + (densite === 'compact' ? ' mh-etat-vide--compact' : '')
+            + (grille ? ' mh-etat-vide--grille' : '');
         el.innerHTML = `
-            ${icone ? `<div class="mh-vide-ico" aria-hidden="true">${esc(icone)}</div>` : ''}
+            ${icone ? `<div class="mh-vide-ico" aria-hidden="true">`
+                // Un NOM d'icone, pas du balisage : `esc` transformerait un SVG
+                // en son propre code source, visible a l'ecran. Deux etats vides
+                // de la bibliotheque portaient donc leur icone a la main.
+                + (window.MH.icon(icone, 40) || esc(icone)) + '</div>' : ''}
             <div class="mh-vide-titre">${esc(titre || '')}</div>
             ${texte ? `<div class="mh-vide-texte">${esc(texte)}</div>` : ''}
             ${boutons ? `<div class="mh-vide-actions">${boutons}</div>` : ''}`;
@@ -2412,7 +2422,10 @@
         function render(results, q) {
             selIdx = -1;
             if (!results.length) {
-                dropdown.innerHTML = `<div style="padding:14px;text-align:center;color:var(--text3);font-size:13px">Aucun résultat${q ? ` pour « ${esc(q)} »` : ''}</div>`;
+                window.MH.poserEtatVide(dropdown, {
+                    titre: 'Aucun résultat', densite: 'compact',
+                    texte: q ? `Rien ne correspond à « ${q} ».` : '',
+                });
             } else {
                 dropdown.innerHTML = results.map((m, i) => `
                   <a href="serie.html?id=${encodeURIComponent(m.id)}" class="search-result-item" role="option" id="searchOpt${i}" aria-selected="false">

@@ -1038,7 +1038,7 @@
             const data = await API.mangas.latest({ limit: 6 });
             const list = (data.results || []).slice(0, 6);
             const src = API.sources.current;
-            if (!list.length) { el.innerHTML = '<div class="latest-mini-empty">Rien pour l\'instant.</div>'; return; }
+            if (!list.length) { MH.poserEtatVide(el, { titre: 'Rien pour l’instant', densite: 'compact' }); return; }
             el.innerHTML = `<div class="latest-mini">` + list.map((m, i) => `
                 <a class="latest-mini-row" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(src)}" title="${MH.esc(m.title)}">
                     <span class="latest-mini-rank">${i + 1}</span>

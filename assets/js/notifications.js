@@ -169,7 +169,10 @@
             shown = items.filter(n => accepted.includes(n.type));
         }
         if (!shown.length) {
-            list.innerHTML = `<div class="nt-empty">Aucune notification${filter !== 'all' ? ' dans ce filtre' : ''}.</div>`;
+            MH.poserEtatVide(list, {
+                titre: filter !== 'all' ? 'Aucune notification dans ce filtre' : 'Aucune notification',
+                densite: 'compact',
+            });
             return;
         }
         // Gabarit partagé avec la cloche du header (audit N2)
