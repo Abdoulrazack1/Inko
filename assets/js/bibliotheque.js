@@ -590,9 +590,10 @@
         await window.UserData?.ready?.();
         const items = window.UserData?.getBookmarks?.() || [];
         if (!items.length) {
-            el.innerHTML = `<div class="lib2-empty"><div class="ico" style="color:var(--accent)">${MH.icon('bookmark', 40)}</div>
-                <div style="font-size:14px;color:var(--text);font-weight:500;margin-bottom:6px">Aucun signet</div>
-                Sur une fiche série, clique sur l'icône signet d'un chapitre pour le retrouver ici.</div>`;
+            MH.poserEtatVide(el, {
+                icone: 'bookmark', titre: 'Aucun signet',
+                texte: 'Sur une fiche série, clique sur l’icône signet d’un chapitre pour le retrouver ici.',
+            });
             return;
         }
         el.innerHTML = items.map(b => {
@@ -631,9 +632,10 @@
             ? `${groups.reduce((n, g) => n + g.chapters.length, 0)} chapitre(s) téléchargé(s) · ${fmtMB(st.usage)} utilisés`
             : '';
         if (!groups.length) {
-            listEl.innerHTML = `<div class="lib2-empty"><div class="ico"></div>
-                <div style="font-size:14px;color:var(--text);font-weight:500;margin-bottom:6px">Aucun chapitre téléchargé</div>
-                Ouvre un chapitre et appuie sur l'icône de téléchargement pour le lire hors-ligne.</div>`;
+            MH.poserEtatVide(listEl, {
+                icone: 'download', titre: 'Aucun chapitre téléchargé',
+                texte: 'Ouvre un chapitre et appuie sur l’icône de téléchargement pour le lire hors-ligne.',
+            });
             return;
         }
         listEl.innerHTML = groups.map(g => {

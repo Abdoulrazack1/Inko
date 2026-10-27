@@ -114,7 +114,10 @@
         const here = notes.filter(n => ctx.chapterId && n.chapterId === ctx.chapterId);
         const rest = notes.filter(n => !ctx.chapterId || n.chapterId !== ctx.chapterId);
         if (!notes.length) {
-            el.innerHTML = `<div class="notes-empty">Aucune note pour cette série pour l'instant.<br>Écris ta première impression ci-dessous.</div>`;
+            MH.poserEtatVide(el, {
+                titre: 'Aucune note pour cette série', densite: 'compact',
+                texte: 'Écris ta première impression ci-dessous.',
+            });
             return;
         }
         el.innerHTML =

@@ -438,8 +438,11 @@
         try {
             const ratings = await API.me.myRatings();
             if (!ratings.length) {
-                el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text3);font-size:13px">
-                    Aucun avis pour l'instant. Note une série depuis sa fiche !</div>`;
+                MH.poserEtatVide(el, {
+                    titre: 'Aucun avis', densite: 'compact',
+                    texte: 'Note une série depuis sa fiche pour la retrouver ici.',
+                    actions: [{ libelle: 'Parcourir le catalogue', href: 'catalogue.html' }],
+                });
                 return;
             }
             const mangas = await loadMangas(ratings.slice(0, 30).map(r => r.mangaId));
@@ -622,9 +625,14 @@
         try {
             const favs = await API.me.favorites();
             if (!favs.length) {
-                el.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--text3);font-size:13px">
-                    Aucun favori. <a href="catalogue.html" class="link-orange">Explorer le catalogue →</a>
-                </div><div class="fav-add" onclick="window.location.href='catalogue.html'">+</div>`;
+                // L'ancien balisage portait un `onclick=` en attribut, que la CSP de
+                // l'application installée bloque (DESK-01) : le bouton « + » ne faisait
+                // rien là où ça compte. L'action passe par le composant.
+                MH.poserEtatVide(el, {
+                    titre: 'Aucun favori', densite: 'compact', grille: true,
+                    texte: 'Mets une œuvre en favori depuis sa fiche pour la garder sous la main.',
+                    actions: [{ libelle: 'Explorer le catalogue', href: 'catalogue.html' }],
+                });
                 return;
             }
             // Les favoris stockent titre/cover/source : on les affiche directement
@@ -634,7 +642,10 @@
                     <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                     <div class="fav-item-title">${MH.esc(f.title || f.mangaId)}</div>
                 </a>
-            `).join('') + `<div class="fav-add" onclick="window.location.href='catalogue.html'">+</div>`;
+            `).join('')
+                // Un `onclick=` en attribut est bloqué par la CSP de l’application
+                // installée (DESK-01) : ce « + » ne faisait rien là où ça compte.
+                + `<a class="fav-add" href="catalogue.html" aria-label="Ajouter une œuvre">+</a>`;
         } catch(e) {
             el.innerHTML = `<div style="padding:14px;color:var(--red-text);font-size:12px">Erreur de chargement</div>`;
         }
@@ -651,7 +662,7 @@
                 .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
                 .slice(0, 4);
             if (!items.length) {
-                el.innerHTML = `<div style="color:var(--text3);font-size:12.5px;padding:12px">Aucune lecture en cours.</div>`;
+                MH.poserEtatVide(el, { titre: 'Aucune lecture en cours', densite: 'compact' });
                 return;
             }
             await MH.loadSourceTypes();
@@ -871,7 +882,10 @@
             ]);
             const readEvents = events.filter(e => e.type === 'read');
             if (!readEvents.length) {
-                el.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Aucune activité enregistrée. Lis un chapitre pour démarrer.</div>`;
+                MH.poserEtatVide(el, {
+                    titre: 'Aucune activité enregistrée', densite: 'compact',
+                    texte: 'Lis un chapitre : il apparaîtra ici.',
+                });
                 return;
             }
 
@@ -916,19 +930,18 @@
             // « Rien pour ce filtre » et « rien du tout » sont deux messages
             // différents : le premier se corrige en élargissant, le second non.
             if (!candidats.length) {
-                el.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">
-                    Aucune lecture ne correspond à ces filtres.
-                    <button type="button" id="histReset" class="link-orange"
-                        style="background:none;border:none;padding:0;font:inherit;cursor:pointer;text-decoration:underline">Tout afficher</button>
-                </div>`;
-                document.getElementById('histReset')?.addEventListener('click', () => {
-                    histPeriode = 365; histTexte = ''; histType = 'tous';
-                    histGenre = ''; histMoment = ''; histSource = '';
-                    const champ = document.querySelector('.history-search-bar input');
-                    if (champ) champ.value = '';
-                    document.querySelectorAll('.hqf-btn').forEach((b, i) => b.classList.toggle('active', i === 2));
-                    renderHistoryTimeline();
-                });
+                    MH.poserEtatVide(el, {
+                        titre: 'Aucune lecture ne correspond à ces filtres',
+                        densite: 'compact',
+                        actions: [{ libelle: 'Tout afficher', onClick: () => {
+                            histPeriode = 365; histTexte = ''; histType = 'tous';
+                            histGenre = ''; histMoment = ''; histSource = '';
+                            const champ = document.querySelector('.history-search-bar input');
+                            if (champ) champ.value = '';
+                            document.querySelectorAll('.hqf-btn').forEach((b, i) => b.classList.toggle('active', i === 2));
+                            renderHistoryTimeline();
+                        } }],
+                    });
                 return;
             }
             const now = new Date();
@@ -1055,7 +1068,7 @@
                 reads7ev.forEach(e => { if (e.mangaId) counts[e.mangaId] = (counts[e.mangaId] || 0) + 1; });
                 const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
                 if (!top.length) {
-                    cont.innerHTML = `<div style="color:var(--text3);font-size:11.5px;padding:8px 4px">Aucune lecture cette semaine.</div>`;
+                    MH.poserEtatVide(cont, { titre: 'Aucune lecture cette semaine', densite: 'compact' });
                 } else {
                     // Audit PERF-01 : indexation par id, pas par position — le
                     // tableau était filtré des valeurs nulles, donc une œuvre
@@ -1180,9 +1193,12 @@
                 : (await API.me.favorites()).map(f => f.mangaId);
             if (countEl) countEl.textContent = `${ids.length} titre${ids.length > 1 ? 's' : ''}`;
             if (!ids.length) {
-                grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text3)">${
-                    list ? 'Cette liste est vide. Ajoute des œuvres depuis leur fiche (« + Liste »).'
-                         : 'Aucun favori pour l\'instant.'}</div>`;
+                    MH.poserEtatVide(grid, {
+                        titre: list ? 'Cette liste est vide' : 'Aucun favori',
+                        densite: 'compact', grille: true,
+                        texte: list ? 'Ajoute des œuvres depuis leur fiche (« + Liste »).'
+                            : 'Mets une œuvre en favori depuis sa fiche.',
+                    });
                 return;
             }
             const mangas = await loadMangas(ids.slice(0, 60));
