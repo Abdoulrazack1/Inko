@@ -717,9 +717,9 @@
   position: relative;
   background: var(--bg3);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--carte-rayon);
   overflow: hidden;
-  aspect-ratio: 3/4;
+  aspect-ratio: var(--carte-ratio);
 }
 .list-manga-cover img { width: 100%; height: 100%; object-fit: cover; }
 .list-manga-cover .placeholder {
