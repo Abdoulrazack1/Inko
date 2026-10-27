@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Système de style</title>
+  <!-- meta:auto -->
+    <meta name="description" content="Le système de style d’Inko, lu dans les feuilles réellement servies : couleurs, typographie, rayons, élévations, espacement.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Inko">
+    <meta property="og:title" content="Inko — Système de style">
+    <meta property="og:description" content="Le système de style d’Inko, lu dans les feuilles réellement servies : couleurs, typographie, rayons, élévations, espacement.">
+    <meta property="og:image" content="/assets/img/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Inko — Système de style">
+    <meta name="twitter:description" content="Le système de style d’Inko, lu dans les feuilles réellement servies : couleurs, typographie, rayons, élévations, espacement.">
+    <!-- meta:auto -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0d0d0f">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <style>
+    /* Cette page est habillée PAR le système qu'elle documente : pas une
+       valeur en dur ici, sinon elle démentirait son propre propos. */
+    .sy { max-width: 1020px; margin: 0 auto; padding: 30px 22px 90px; }
+    .sy h1 { font-family: var(--font-head); font-size: 28px; margin: 0 0 6px; }
+    .sy .chapeau { color: var(--text2); font-size: 14.5px; line-height: 1.65; max-width: 62ch; }
+    .sy .chapeau strong { color: var(--text); }
+    #sy-source { color: var(--text3); font-size: 12.5px; margin: 14px 0 0; }
+
+    .sy-fam { margin-top: 42px; }
+    .sy-fam h2 { font-size: 18px; margin: 0 0 4px; }
+    .sy-quoi { color: var(--text3); font-size: 13px; line-height: 1.6; margin: 0 0 16px; max-width: 70ch; }
+
+    .sy-grille { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .sy-v { border: 1px solid var(--border); border-radius: var(--radius, 12px); background: var(--bg2);
+            padding: 10px; min-width: 0; }
+    .sy-ap { height: 64px; border-radius: var(--radius2, 8px); display: flex; align-items: center;
+             justify-content: center; overflow: hidden; background: var(--bg3); margin-bottom: 9px; }
+    .sy-nom { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 12px;
+              color: var(--text); overflow-wrap: anywhere; }
+    .sy-val { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 11px;
+              color: var(--text3); overflow-wrap: anywhere; margin-top: 2px; }
+    .sy-note { font-size: 11px; color: var(--text2); margin-top: 5px; line-height: 1.45; }
+
+    .sy-aplat { font-weight: 700; font-size: 16px; }
+    .sy-specimen { color: var(--text); padding: 0 10px; text-align: center; overflow-wrap: anywhere; }
+    .sy-carte { width: 64px; height: 38px; border-radius: 10px; background: var(--bg2); }
+    .sy-boite { width: 70px; height: 46px; background: var(--accent); }
+    .sy-ecart { height: 22px; background: var(--accent); border-radius: 2px; min-width: 1px; }
+    .sy-brut { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 11.5px;
+               color: var(--text2); padding: 0 8px; text-align: center; overflow-wrap: anywhere; }
+    .sy-piste { position: relative; }
+    .sy-piste i { position: absolute; left: 10px; width: 16px; height: 16px; border-radius: 50%;
+                  background: var(--accent); }
+    .sy-v:hover .sy-piste i { transform: translateX(84px); }
+
+    #sy-controle { margin-top: 54px; display: grid; gap: 14px; }
+    .sy-ctl { border: 1px solid var(--border); border-left-width: 3px; border-radius: var(--radius2, 8px);
+              background: var(--bg2); padding: 14px 16px; }
+    .sy-ctl h3 { font-size: 14.5px; margin: 0 0 4px; }
+    .sy-ctl ul { margin: 10px 0 0; padding-left: 18px; }
+    .sy-ctl li { color: var(--text2); font-size: 12.5px; line-height: 1.75; }
+    .sy-ctl code { font-family: var(--font-mono, ui-monospace, Consolas, monospace); color: var(--text); }
+    .sy-ctl.ok { border-left-color: var(--green); }
+    .sy-ctl.info { border-left-color: var(--blue); }
+    .sy-ctl.tiede { border-left-color: var(--amber); }
+    .sy-ctl.mal { border-left-color: var(--red); }
+
+    @media (max-width: 560px) {
+      .sy-grille { grid-template-columns: repeat(auto-fill, minmax(126px, 1fr)); }
+    }
+  </style>
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
+  <div class="sy">
+    <h1>Système de style</h1>
+    <p class="chapeau">
+      Cette page ne récite aucune valeur. Elle <strong>relit les feuilles de style réellement
+      servies</strong>, demande au navigateur ce que chaque jeton vaut <strong>dans le thème que tu
+      regardes</strong>, et compare ce qui est appelé à ce qui est défini. Change de thème : tout
+      se redessine. Supprime un jeton : sa vignette disparaît. Appelle-en un qui n’existe pas :
+      il s’affiche en bas, en rouge.
+    </p>
+    <p id="sy-source">Lecture des feuilles…</p>
+
+    <div id="sy-familles"></div>
+
+    <h2 style="font-size:18px;margin:54px 0 4px">Contrôle</h2>
+    <p class="sy-quoi">Ce que la page trouve et ne sait pas expliquer. C’est la partie qui se plaint — donc la seule qui serve à quelque chose avec le temps.</p>
+    <div id="sy-controle"></div>
+  </div>
+  </main>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/systeme.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>
