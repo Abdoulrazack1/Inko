@@ -861,7 +861,7 @@ body.incognito-on::before {
    elle se lit moins bien que la même chose en bas de casse. Le titre de
    colonne garde son rôle par sa graisse et sa couleur. */
 .footer-col h4 {
-  font-family: var(--font-head); font-size: 13.5px;
+  font-family: var(--font-head); font-size: var(--t-s);
   font-weight: 700; color: var(--text);
   margin-bottom: 14px;
 }
@@ -1145,7 +1145,7 @@ body.incognito-on::before {
 .btn:active { transform: translateY(1px) scale(.99); }
 /* Plat : un seul aplat, sans ombre ni lueur. Le relief sur un bouton est
    le premier signe d’un gabarit. */
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary { background: var(--accent); color: var(--sur-couleur); }
 .btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); box-shadow: var(--shadow-2); transform: translateY(-1px); }
 .btn-primary:active { box-shadow: var(--shadow-1); }
 .btn-secondary {
@@ -1616,9 +1616,9 @@ a[data-nsfw] .manga-card-cover::after,
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .mnav-item {
-    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-    padding: 9px 0 7px; text-decoration: none;
-    color: var(--text3); font-size: 11px; font-weight: 600;
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--sp-1);
+    padding: var(--sp-2) 0 var(--sp-2); text-decoration: none;
+    color: var(--text3); font-size: var(--t-xs); font-weight: 600;
     transition: color var(--transition);
   }
   /* Meme defaut, et meme correctif que `.tag.active` plus haut : l'accent est
@@ -1673,7 +1673,7 @@ a[data-nsfw] .manga-card-cover::after,
   .header-icon-btn { width: 30px; height: 30px; }
   /* 16 px au minimum : à 14, le titre et les libellés de coin touchent
      presque le bord de l’écran. */
-  .container, .container-wide { padding: 0 16px; }
+  .container, .container-wide { padding: 0 var(--sp-4); }
   .manga-grid-5,
   .manga-grid-4 { grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
   .manga-grid-3 { grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
