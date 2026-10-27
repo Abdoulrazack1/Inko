@@ -5,38 +5,83 @@
 .home { padding-top: 28px; padding-bottom: 48px; }
 
 /* ── En-tête ─────────────────────────────────────────────── */
-.home-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 22px; }
-.home-hello { font-family: var(--font-head); font-size: clamp(26px, 3.2vw, 36px); font-weight: 700; letter-spacing: -.01em; margin: 0; }
+/* L’accueil est un écran d’application, pas une page d’accroche : son
+   titre se tient entre 18 et 32 px. À 36 px, la salutation — qui ne dit
+   rien — était le plus gros caractère de l’écran, devant la série qu’on
+   est en train de lire. */
+.home-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px 28px; flex-wrap: wrap; margin-bottom: 26px; }
+.home-hello { font-family: var(--font-head); font-size: clamp(20px, 2vw, 24px); font-weight: 700; letter-spacing: -.01em; margin: 0; }
 .home-sub { margin: 4px 0 0; color: var(--text3); font-size: 13.5px; }
 .home-sub:empty { display: none; }
-.home-stats { display: flex; gap: 8px; flex-wrap: wrap; }
-.home-stat { display: flex; flex-direction: column; min-width: 110px; padding: 10px 14px; border-radius: 12px;
-    background: var(--bg2); border: 1px solid var(--border); color: inherit; text-decoration: none; transition: border-color .15s; }
-.home-stat:hover { border-color: var(--border2); }
-.home-stat strong { font-family: var(--font-head); font-size: 20px; line-height: 1.1; }
-.home-stat span { color: var(--text3); font-size: 12px; }
+
+/* Trois chiffres, trois tuiles encadrées, en haut à droite : ils pesaient
+   autant que la lecture en cours alors qu’on ne vient jamais sur l’accueil
+   pour eux. Ils deviennent une phrase — même information, un dixième de
+   la place, et plus un seul cadre. Les chiffres restent tabulaires pour
+   qu’ils ne dansent pas d’un chargement à l’autre. */
+.home-chiffres { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none;
+    font-size: 13px; color: var(--text3); font-variant-numeric: tabular-nums; }
+.home-chiffres a { color: inherit; text-decoration: none; }
+.home-chiffres a:hover { color: var(--text2); text-decoration: underline; text-underline-offset: 3px; }
+.home-chiffres b { font-weight: 600; color: var(--text2); }
 
 /* ── Reprendre ───────────────────────────────────────────── */
+/* À partir de 1080 px, la reprise et les lectures en cours forment UNE
+   composition : la bande occupait la largeur entière et laissait 40 % de
+   vide à sa droite, puis six lignes s’empilaient dessous. La colonne de
+   droite ferme ce vide avec la seule chose qui mérite d’y être : ce qu’on
+   lit aussi en ce moment. */
 .home-continue { margin-bottom: 34px; }
+@media (min-width: 1080px) {
+  .home-continue { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); gap: 16px; align-items: stretch; }
+  .home-continue .cont-row { margin-top: 0; grid-template-columns: 1fr; align-content: start; }
+  .home-continue .cont-item:nth-child(n+5) { display: none; }
+}
 .cont-skel { height: 236px; border-radius: 18px; background: var(--bg2); animation: home-pulse 1.4s ease-in-out infinite; }
 @keyframes home-pulse { 50% { opacity: .55; } }
 
-.cont-hero { position: relative; display: flex; gap: 26px; align-items: center; padding: 22px; border-radius: 18px;
-    overflow: hidden; background: #111; color: #f3f1ea; isolation: isolate; min-height: 236px; }
-.cont-hero-bg { position: absolute; inset: -40px; z-index: -1; background-size: cover; background-position: center 30%;
-    filter: blur(34px) saturate(1.3) brightness(.45); transform: scale(1.1); }
-.cont-hero::after { content: ""; position: absolute; inset: 0; z-index: -1;
-    background: linear-gradient(90deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.25) 60%, rgba(0,0,0,.1) 100%); }
-.cont-hero-cover { flex: 0 0 auto; width: 132px; aspect-ratio: 3 / 4.3; border-radius: 10px; overflow: hidden;
-    box-shadow: 0 14px 34px rgba(0,0,0,.5); }
+/* ── Le bloc qui répond à la question de l’écran ────────────
+   « Où est-ce que je m’étais arrêté ? » — et c’était le plus PETIT objet
+   de la page qui répondait : une couverture de 132 px posée dans une
+   bande de 236 px dont les deux tiers étaient vides.
+
+   La couverture devient le champ. Elle est la seule chose colorée que
+   l’application possède vraiment, et c’est à elle qu’un lecteur reconnaît
+   sa série avant d’en lire le titre. Elle double de taille et son propre
+   flou fait le fond ; le voile est un simple assombrissement, pour que le
+   texte tienne par-dessus n’importe quelle image.
+
+   Plus d’ombre portée : la couverture se détache par sa clarté sur un
+   fond assombri, pas par un halo. */
+.cont-hero { position: relative; display: flex; gap: 32px; align-items: center; padding: 28px; border-radius: 18px;
+    overflow: hidden; background: #0c0c0e; color: #f4f3f0; isolation: isolate; min-height: 352px; }
+/* Moins de flou et moins d’assombrissement : à brightness(.38) le champ
+   n’était plus la couverture, c’était un rectangle gris. Le voile plat
+   garde le texte lisible par-dessus n’importe quelle image. */
+.cont-hero-bg { position: absolute; inset: -60px; z-index: -1; background-size: cover; background-position: center 28%;
+    filter: blur(34px) saturate(1.5) brightness(.62); transform: scale(1.12); }
+.cont-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; background: rgba(0,0,0,.52); }
+.cont-hero-cover { flex: 0 0 auto; width: clamp(150px, 16vw, 208px); aspect-ratio: var(--carte-ratio, 2 / 3);
+    border-radius: 12px; overflow: hidden; }
 .cont-hero-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cont-hero-body { min-width: 0; flex: 1; }
-.cont-hero-kicker { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.7); }
-.cont-hero-title { font-family: var(--font-head); font-size: clamp(22px, 2.6vw, 32px); line-height: 1.1; margin: 6px 0 8px; }
+/* Une étiquette capitale espacée de 11 px au-dessus d’un titre est le
+   plus sûr moyen de faire « modèle de page ». Une phrase dit la même
+   chose, et se lit. */
+.cont-hero-kicker { font-size: 13.5px; color: rgba(255,255,255,.72); }
+.cont-hero-title { font-family: var(--font-head); font-size: clamp(26px, 3vw, 36px); line-height: 1.05;
+    letter-spacing: -.02em; margin: 8px 0 10px; }
 .cont-hero-title a { color: inherit; text-decoration: none; }
 .cont-hero-title a:hover { text-decoration: underline; text-underline-offset: 4px; }
-.cont-hero-where { font-size: 14px; color: rgba(255,255,255,.82); }
+.cont-hero-where { font-size: 15px; color: rgba(255,255,255,.84); }
 .cont-hero-left { color: #ffc9a8; font-weight: 600; }
+/* La position est LA donnée de cet écran : elle porte donc le seul grand
+   chiffre de la page, et la seule couleur d’accent. Les trois tuiles de
+   statistiques lui disputaient ce rôle sans rien dire d’utile. */
+.cont-hero-mesure { display: flex; align-items: center; gap: 14px; margin: 16px 0 20px; max-width: 460px; }
+.cont-hero-mesure .cont-bar { flex: 1; margin: 0; max-width: none; }
+.cont-hero-pct { font-family: var(--font-head); font-size: 26px; font-weight: 700; line-height: 1;
+    font-variant-numeric: tabular-nums; color: #fff; }
 .cont-bar { height: 4px; border-radius: 4px; background: rgba(255,255,255,.18); overflow: hidden; margin: 12px 0 16px; max-width: 420px; }
 .cont-bar > span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
 .cont-bar--small { margin: 6px 0 0; height: 3px; background: var(--bg4); }
@@ -45,11 +90,16 @@
 .cont-hero .btn-ghost { color: #fff; border-color: rgba(255,255,255,.28); background: rgba(255,255,255,.06); }
 .cont-hero .btn-ghost:hover { background: rgba(255,255,255,.14); }
 
-.cont-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 12px; }
-.cont-item { position: relative; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); transition: border-color .15s; }
-.cont-item:hover { border-color: var(--border2); }
+/* Six boîtes encadrées, toutes identiques, sous une bande elle aussi
+   encadrée : trois compositions de suite au même poids. Elles passent en
+   lignes posées sur un même plan, séparées par la clarté et non par un
+   trait — une rangée se parcourt, une boîte se regarde. */
+.cont-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2px; margin-top: 16px; border-radius: 12px; overflow: hidden; }
+.cont-item { position: relative; background: var(--bg2); transition: background var(--transition); }
+.cont-item:hover { background: var(--bg3); }
 .cont-item-link { display: flex; gap: 12px; align-items: center; padding: 10px 36px 10px 10px; color: inherit; text-decoration: none; }
-.cont-item-link img { width: 44px; height: 62px; object-fit: cover; border-radius: 6px; flex: 0 0 auto; background: var(--bg3); }
+.cont-item-link img { width: 46px; height: 69px; object-fit: cover; border-radius: 6px; flex: 0 0 auto; background: var(--bg3); }
 .cont-item-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .cont-item-title { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cont-item-where { color: var(--text3); font-size: 12px; margin-top: 2px; }
@@ -109,10 +159,20 @@
 
 @media (max-width: 640px) {
   .home { padding-top: 16px; }
-  .home-stats { width: 100%; }
-  .home-stat { flex: 1; min-width: 0; }
-  .cont-hero { flex-direction: column; align-items: flex-start; padding: 18px; }
-  .cont-hero-cover { width: 96px; }
+  /* La bande GARDE sa rangée au téléphone. Empilée, la couverture de
+     96 px laissait les deux tiers de sa ligne vides, et le titre
+     descendait sous le pli : le plus grand objet de l’écran redevenait
+     le plus petit. */
+  .cont-hero { gap: 16px; padding: 16px; min-height: 0; align-items: flex-start; }
+  .cont-hero-cover { width: 108px; }
+  .cont-hero-title { font-size: 21px; margin: 6px 0 8px; }
+  .cont-hero-kicker { font-size: 12.5px; }
+  .cont-hero-where { font-size: 13.5px; }
+  .cont-hero-mesure { margin: 12px 0 14px; gap: 10px; }
+  .cont-hero-pct { font-size: 20px; }
+  .cont-hero-actions { gap: 8px; }
+  .cont-hero-cta { padding: 10px 14px; font-size: 13px; }
+  .cont-hero .btn-ghost { padding: 10px 14px; font-size: 13px; }
   .shelf-track { grid-auto-columns: 118px; gap: 10px; }
   .cont-empty { flex-direction: column; align-items: flex-start; }
 }

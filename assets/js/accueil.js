@@ -53,7 +53,10 @@
             const st = await API.me.stats();
             const t = st.totals || {};
             const serie = st.streak?.current || 0;
-            const bloc = (n, l, href) => `<a class="home-stat" href="${href}"><strong>${MH.fmt(n || 0)}</strong><span>${l}</span></a>`;
+            // Une phrase, pas trois tuiles encadrées : on ne vient jamais sur
+            // l’accueil pour ces chiffres, et ils pesaient autant que la série
+            // qu’on est en train de lire.
+            const bloc = (n, l, href) => `<li><a href="${href}"><b>${MH.fmt(n || 0)}</b> ${l}</a></li>`;
             // Une série de lecture à ZÉRO n'est pas une statistique, c'est un
             // reproche. Elle occupait le même poids visuel que « 495 séries
             // suivies », en tête de l'accueil, et ne disait qu'une chose : tu
@@ -66,6 +69,7 @@
             const milieu = serie > 0
                 ? bloc(serie, serie > 1 ? 'jours d’affilée' : 'jour d’affilée', 'stats.html')
                 : bloc(t.chapters_this_month, 'chapitres ce mois', 'stats.html');
+            el.className = 'home-chiffres';
             el.innerHTML = bloc(t.chapters_read, 'chapitres lus', 'stats.html')
                 + milieu
                 + bloc(favoris.length, 'séries suivies', 'bibliotheque.html');
@@ -118,6 +122,12 @@
         const ou = (e) => MH.isNovelSource(e.source)
             ? `${unite(e)} ${MH.chapNum(e.chapter)} · ${pct(e)} %`
             : `${unite(e)} ${MH.chapNum(e.chapter)}${e.totalPages ? ` · page ${e.page} / ${e.totalPages}` : e.page ? ` · page ${e.page}` : ''}`;
+        // Dans la bande de reprise, le pourcentage est déjà le grand chiffre
+        // à côté de la jauge : l’écrire une seconde fois dans la même phrase,
+        // c’est deux endroits où la même valeur peut se contredire.
+        const ouHero = (e) => MH.isNovelSource(e.source)
+            ? `${unite(e)} ${MH.chapNum(e.chapter)}`
+            : ou(e);
         const lien = (e) => MH.readerHref(e.mangaId, e.chapterId, e.source);
         const fiche = (e) => `serie.html?id=${encodeURIComponent(e.mangaId)}&source=${encodeURIComponent(e.source || '')}`;
         const couv = (e) => MH.cover(e.cover, MH.placeholderCover(e.mangaId));
@@ -127,10 +137,13 @@
                 <div class="cont-hero-bg" style="background-image:url('${couv(une)}')" aria-hidden="true"></div>
                 <a class="cont-hero-cover" href="${lien(une)}" tabindex="-1" aria-hidden="true"><img src="${couv(une)}" alt=""></a>
                 <div class="cont-hero-body">
-                    <div class="cont-hero-kicker">Reprendre · ${MH.esc(MH.relTime(une.updatedAt))}</div>
+                    <div class="cont-hero-kicker">Tu t’es arrêté ${MH.esc(MH.relTime(une.updatedAt))}</div>
                     <h2 class="cont-hero-title"><a href="${fiche(une)}">${MH.esc(une.title)}</a></h2>
-                    <div class="cont-hero-where">${MH.esc(ou(une))}${typeof une.unread === 'number' && une.unread > 1 ? ` · <span class="cont-hero-left">${une.unread} chapitres non lus</span>` : ''}</div>
-                    <div class="cont-bar"><span style="width:${pct(une)}%"></span></div>
+                    <div class="cont-hero-where">${MH.esc(ouHero(une))}${typeof une.unread === 'number' && une.unread > 1 ? ` · <span class="cont-hero-left">${une.unread} chapitres non lus</span>` : ''}</div>
+                    <div class="cont-hero-mesure">
+                        <div class="cont-bar"><span style="width:${pct(une)}%"></span></div>
+                        <span class="cont-hero-pct">${pct(une)} %</span>
+                    </div>
                     <div class="cont-hero-actions">
                         <a class="btn btn-primary cont-hero-cta" href="${lien(une)}">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
@@ -150,7 +163,7 @@
                         </span>
                     </a>
                     <button class="cont-item-x" type="button" data-retirer="${MH.esc(e.mangaId)}"
-                        title="Retirer de « Reprendre »" aria-label="Retirer « ${MH.esc(e.title)} » de « Reprendre »">✕</button>
+                        title="Retirer de « Reprendre »" aria-label="Retirer « ${MH.esc(e.title)} » de « Reprendre »">×</button>
                 </div>`).join('')}</div>` : ''}`;
 
         zone.querySelectorAll('[data-retirer]').forEach(b => b.addEventListener('click', async (ev) => {
@@ -409,7 +422,7 @@
             <div class="shelf-cover">
                 <img src="${MH.cover(cover, MH.placeholderCover(id))}" alt="" loading="lazy" decoding="async">
                 ${badge ? `<span class="shelf-badge">${MH.esc(badge)}</span>` : ''}
-                ${retirer ? `<button class="shelf-x" type="button" ${retirer} aria-label="Retirer">✕</button>`
+                ${retirer ? `<button class="shelf-x" type="button" ${retirer} aria-label="Retirer">×</button>`
                     : `<button class="card-fav-btn" data-fav="${MH.esc(id)}" title="Ajouter à ma bibliothèque">${MH.heartIcon(favSet.has(String(id)))}</button>`}
             </div>
             <div class="shelf-name">${MH.esc(title || '')}</div>
