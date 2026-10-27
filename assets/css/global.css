@@ -897,8 +897,8 @@ body.incognito-on::before {
 /* Badge statut */
 .badge {
   display: inline-flex; align-items: center;
-  padding: var(--sp-0) var(--sp-2); border-radius: var(--r-trait);
-  font-size: var(--t-xs); font-weight: 700; letter-spacing: .04em;
+  padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon);
+  font-size: var(--pastille-taille); font-weight: var(--pastille-graisse); letter-spacing: .04em;
   text-transform: uppercase; line-height: 1.6;
 }
 .badge-hot    { background: rgba(239,68,68,.15); color: var(--red-text); }
@@ -1205,12 +1205,47 @@ body.incognito-on::before {
 .btn-danger[aria-disabled="true"]:hover { background: color-mix(in srgb, var(--red) 14%, transparent); border-color: color-mix(in srgb, var(--red) 34%, transparent); }
 
 
+/* ── Pastilles et puces : deux familles, pas trente-quatre dessins ──
+   Releve dans les feuilles : 34 regles de marque ou de puce, et entre
+   elles 12 tailles, 17 rembourrages, 10 rayons, 4 graisses.
+
+   Le chantier disait que « statut, source, langue et non-lus se
+   disputent la meme place ». Mesure dans les pages : c'est FAUX. Sur
+   120 cartes de bibliotheque, zero chevauchement, et les coins sont
+   constants -- non-lus en haut a gauche, epingle et retrait en bas a
+   droite, progression en bas. Sur le catalogue, les 55 recouvrements
+   comptes sont tous avec le voile de survol, qui couvre la carte
+   entiere par construction. Les POSITIONS sont disciplinees.
+
+   Ce qui ne l'est pas, c'est le dessin -- et il y a deux intentions
+   qu'on n'avait jamais separees :
+
+     une PASTILLE est une marque posee SUR quelque chose. Elle est
+     petite, dense, grasse : statut, langue, non-lus, « ROMAN » ;
+
+     une PUCE se clique. Elle a besoin d'une cible : filtres, tags,
+     sources, chapitres d'une liste.
+
+   Les confondre, c'etait condamner les deux a se ressembler a peu pres
+   sans jamais se ressembler vraiment. */
+:root {
+  --pastille-taille:      10px;
+  --pastille-rembourrage: 2px 7px;
+  --pastille-rayon:       999px;
+  --pastille-graisse:     700;
+
+  --puce-taille:      12px;
+  --puce-rembourrage: 4px 10px;
+  --puce-rayon:       999px;
+  --puce-graisse:     500;
+}
+
 /* Tag / genre pill */
 .tag {
   display: inline-flex; align-items: center;
-  padding: var(--sp-1) 10px;
+  padding: var(--puce-rembourrage);
   background: var(--bg4); border: 1px solid var(--border);
-  border-radius: var(--r-feuille); font-size: var(--t-xs); color: var(--text2);
+  border-radius: var(--puce-rayon); font-size: var(--puce-taille); color: var(--text2);
   transition: all var(--transition);
 }
 .tag:hover, .tag.active {
@@ -1482,8 +1517,8 @@ a[data-nsfw] .manga-card-cover::after,
 .conn-desc { font-size: var(--t-s); color: var(--text2); margin-top: var(--sp-1); line-height: 1.4; }
 .conn-desc code { background: var(--bg4); padding: 1px var(--sp-1); border-radius: var(--r-trait); font-size: var(--t-xs); }
 .conn-pill {
-  font-size: var(--t-xs); font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
-  padding: var(--sp-0) var(--sp-2); border-radius: var(--r-feuille); color: var(--text2);
+  font-size: var(--pastille-taille); font-weight: var(--pastille-graisse); letter-spacing: .03em; text-transform: uppercase;
+  padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon); color: var(--text2);
   background: var(--bg4); border: 1px solid var(--border);
 }
 .conn-pill.ok { color: var(--green); background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); }
@@ -1671,12 +1706,12 @@ a[data-nsfw] .manga-card-cover::after,
   right: -12px;
   min-width: 16px;
   height: 16px;
-  padding: 0 var(--sp-1);
-  border-radius:  var(--r-pastille);
+  padding: var(--pastille-rembourrage);
+  border-radius: var(--pastille-rayon);
   background: var(--orange);
-  color: var(--sur-couleur);
-  font-size: var(--t-xs);
-  font-weight: 700;
+  color: #fff;
+  font-size: var(--pastille-taille);
+  font-weight: var(--pastille-graisse);
   line-height: 16px;
   text-align: center;
   box-shadow: var(--e-pose);
@@ -1948,7 +1983,7 @@ a[data-nsfw] .manga-card-cover::after,
     left: auto; right: 5px; top: 5px;
     align-items: flex-end;
   }
-  .manga-card-badges .badge { font-size: var(--t-xs); padding: var(--sp-0) var(--sp-1); }
+  .manga-card-badges .badge { font-size: var(--pastille-taille); padding: var(--pastille-rembourrage); }
 
   /* Titre sur DEUX lignes. Sur 109 px de large, une seule ligne coupée à
      l'ellipse ne montre souvent que le premier mot : deux tomes d'une même

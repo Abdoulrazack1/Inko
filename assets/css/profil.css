@@ -243,8 +243,8 @@
 .stat-mini-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-2); }
 .stat-mini-icon { font-size: 18px; }
 .stat-mini-badge {
-  font-size: 10px; font-weight: 700;
-  padding: var(--sp-0) 6px; border-radius:  var(--r-trait);
+  font-size: var(--pastille-taille); font-weight: var(--pastille-graisse);
+  padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon);
 }
 .stat-mini-badge.green { background: rgba(34,197,94,.15); color: var(--green-text); }
 .stat-mini-badge.blue  { background: rgba(59,130,246,.15); color: var(--blue-text); }
