@@ -97,11 +97,8 @@
     .seg button.active { background: var(--orange); color: #fff; font-weight: 600; }
     .danger-zone { border-color: rgba(239,68,68,.3); }
     .danger-zone h2 { color: var(--red-text); }
-    .btn-danger {
-      background: rgba(239,68,68,.12); color: var(--red-text); border: 1px solid rgba(239,68,68,.3);
-      padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
-    }
-    .btn-danger:hover { background: rgba(239,68,68,.2); }
+    /* `.btn-danger` est désormais une variante du système (global.css) :
+       cette page n’a plus à redessiner ses boutons les plus dangereux. */
     .nsfw-card { border-color: rgba(236,72,153,.25); }
     /* Audit A11Y-02 (defaut residuel) : #ec4899 sur le fond clair donne
        2,77:1 — tres en dessous du seuil AA de 4,5:1. Le defaut echappait aux
@@ -471,7 +468,7 @@
           <div class="set-row-label">Effacer l'historique de lecture</div>
           <div class="set-row-desc">Progression et activité (favoris conservés)</div>
         </div>
-        <button class="btn-danger" id="btnClearHistory">Effacer</button>
+        <button class="btn btn-sm btn-danger" id="btnClearHistory">Effacer</button>
       </div>
     </div>
 
@@ -561,7 +558,7 @@
           <div class="set-row-label">Fermer les autres sessions</div>
           <div class="set-row-desc">Garde celle-ci, deconnecte tous les autres appareils</div>
         </div>
-        <button class="btn-danger" id="btnRevokeOthers">Fermer les autres</button>
+        <button class="btn btn-sm btn-danger" id="btnRevokeOthers">Fermer les autres</button>
       </div>
     </div>
 
@@ -574,7 +571,7 @@
           <div class="set-row-label">Supprimer mon compte</div>
           <div class="set-row-desc">Efface définitivement le compte et toutes les données</div>
         </div>
-        <button class="btn-danger" id="btnDeleteAccount">Supprimer le compte</button>
+        <button class="btn btn-sm btn-danger" id="btnDeleteAccount">Supprimer le compte</button>
       </div>
     </div>
   </div>

@@ -1010,6 +1010,8 @@
 .btn-lib.is-in { border-color: color-mix(in srgb, var(--accent) 55%, var(--border2)); }
 .btn-lib-check { color: var(--accent-text, var(--accent)); font-weight: 700; }
 .btn-lib-caret { opacity: .7; margin-left: var(--sp-0); }
+/* Plus grand que la variante du système : c’est la cible tactile d’un
+   menu, pas un bouton de barre. */
 .serie-more .btn-icon { height: 44px; width: 44px; font-size: 20px; line-height: 1; letter-spacing: 1px; }
 
 .serie-pop {
