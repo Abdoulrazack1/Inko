@@ -28,11 +28,9 @@
 }
 .reader-icon-btn:hover:not(:disabled) { border-color: var(--border2); color: var(--text); }
 .reader-icon-btn:disabled { opacity: .4; cursor: default; }
-.reader-chap-select {
-  max-width: 260px; height: 32px; padding: 0 8px;
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--radius2); color: var(--text); font-size: 12.5px;
-}
+/* Les six déclarations sont parties dans le contrat : ce lecteur-ci ne
+   dessine plus son sélecteur autrement que l’autre. */
+.reader-chap-select { --champ-bordure: var(--border); max-width: 260px; height: 32px; }
 
 /* Barre de progression */
 .novel-progressbar { position: sticky; top: 53px; z-index: 70; height: 3px; background: var(--bg3); }

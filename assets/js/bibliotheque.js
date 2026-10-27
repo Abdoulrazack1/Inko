@@ -1459,8 +1459,11 @@
             corps.querySelectorAll('.lib-catpick-opt').forEach(b => b.addEventListener('click', () => finir(b.dataset.none ? null : b.dataset.v)));
             corps.querySelector('#catPickNew').addEventListener('submit', (e) => {
                 e.preventDefault();
-                const v = e.target.querySelector('input').value.trim().replace(/\s+/g, ' ').slice(0, 60);
-                if (v) finir(v);
+                const champ = e.target.querySelector('input');
+                const v = champ.value.trim().replace(/\s+/g, ' ').slice(0, 60);
+                if (!v) { MH.champErreur?.(champ, 'Donne un nom à la catégorie'); return; }
+                MH.champValide?.(champ);
+                finir(v);
             });
             f = MH.feuille({ titre: 'Catégorie', hauteur: 'filtres', contenu: corps, onFermeture: () => resoudre(rendu) });
         });
@@ -1537,9 +1540,13 @@
                 }).join('')}</ul>` : '<p class="lib-catmgr-empty">Aucune catégorie pour l’instant. Crée-en une, puis range tes séries avec « Sélectionner ».</p>'}`;
             corps.querySelector('#catAddForm').addEventListener('submit', (e) => {
                 e.preventDefault();
-                const v = corps.querySelector('#catAddInput').value.trim().replace(/\s+/g, ' ').slice(0, 60);
-                if (!v) return;
-                if (listeCategories().includes(v)) { MH.toast?.('Cette catégorie existe déjà'); return; }
+                const champCat = corps.querySelector('#catAddInput');
+                const v = champCat.value.trim().replace(/\s+/g, ' ').slice(0, 60);
+                // Avant : un nom vide ne produisait RIEN. On appuyait sur
+                // Entrée, la feuille restait là, et rien n’expliquait pourquoi.
+                if (!v) { MH.champErreur?.(champCat, 'Donne un nom à la catégorie'); return; }
+                if (listeCategories().includes(v)) { MH.champErreur?.(champCat, 'Cette catégorie existe déjà'); return; }
+                MH.champValide?.(champCat);
                 categoriesPerso = [...listeCategories(), v];
                 sauverCategories();
                 peindre(); renderCatTabs();

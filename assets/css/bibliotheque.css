@@ -11,7 +11,7 @@
 .lib2-tab .tab-count { display:inline-block; margin-left:6px; font-size:11px; font-weight:700; background:var(--bg4); color:var(--text2); padding:1px 6px; border-radius:9px; }
 .lib2-tab.active .tab-count { background:rgba(255,255,255,.25); color:#fff; }
 .lib2-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
-.lib2-search { flex:1; min-width:200px; background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:9px 14px; border-radius:9px; font-size:13px; }
+.lib2-search { --champ-rayon: 9px; flex:1; min-width:200px; }
 .lib2-search:focus { outline:none; border-color:var(--orange); }
 .lib2-sort { background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:9px 12px; border-radius:9px; font-size:12.5px; }
 
