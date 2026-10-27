@@ -310,7 +310,7 @@
                 </div>
                 <button class="btn btn-secondary btn-sm" data-sc="${MH.esc(r.id)}"
                     aria-label="Modifier le raccourci ${MH.esc(r.label)}"
-                    style="font-family:monospace;min-width:64px">${r.touche ? MH.esc(r.touche) : '—'}</button>
+                    style="font-family:var(--font-mono);min-width:64px">${r.touche ? MH.esc(r.touche) : '—'}</button>
             </div>`).join('');
 
         liste.querySelectorAll('[data-sc]').forEach(b => {

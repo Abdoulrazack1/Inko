@@ -2893,7 +2893,7 @@
         ov.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)';
         ov.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:22px 24px;min-width:300px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.5)">
             <div style="font-family:var(--font-head);font-size:17px;font-weight:700;margin-bottom:14px">Raccourcis clavier</div>
-            ${rows.map(([k, l]) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:24px;padding:6px 0;font-size:13.5px;color:var(--text2)"><span>${l}</span><kbd style="background:var(--bg4);border:1px solid var(--border2);border-radius:6px;padding:2px 9px;font-family:monospace;color:var(--text)">${k}</kbd></div>`).join('')}
+            ${rows.map(([k, l]) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:24px;padding:6px 0;font-size:13.5px;color:var(--text2)"><span>${l}</span><kbd style="background:var(--bg4);border:1px solid var(--border2);border-radius:6px;padding:2px 9px;font-family:var(--font-mono);color:var(--text)">${k}</kbd></div>`).join('')}
             <div style="text-align:right;margin-top:14px"><button class="btn btn-primary btn-sm" id="mhShortcutsClose">Fermer</button></div>
         </div>`;
         ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });

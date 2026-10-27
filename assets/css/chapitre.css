@@ -531,7 +531,7 @@
     background: var(--bg4);
     border: 1px solid var(--border);
     border-radius:  var(--r-trait);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
 }
 
