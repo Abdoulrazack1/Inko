@@ -147,20 +147,35 @@
         veil.style.opacity = '';   // rend la main à la transition de sortie
         veil.classList.remove('on');
         setTimeout(() => { veil.remove(); veil = null; }, 380);
+        liberer();
         document.removeEventListener('keydown', onKey);
     }
 
     function onKey(e) {
-        // Echap = « pas maintenant », pas « plus jamais ».
-        if (e.key === 'Escape') done(false);
-        else if (e.key === 'ArrowRight' || e.key === 'Enter') go(idx + 1);
+        // Echap est tenu par le piège ; il vaut « pas maintenant », pas
+        // « plus jamais ». Restent les flèches, qui sont à la visite.
+        if (e.key === 'ArrowRight' || e.key === 'Enter') go(idx + 1);
         else if (e.key === 'ArrowLeft') go(idx - 1);
+    }
+
+    // La visite remplace le contenu de sa carte à chaque étape : le piège
+    // est donc reposé après chaque rendu, sinon le focus tombe sur <body>
+    // dès la première flèche et le Tab suivant part derrière le voile.
+    let liberer = () => {};
+    let origine = null;
+    function pieger() {
+        liberer();
+        const carte = veil && veil.querySelector('.itr-card');
+        liberer = carte && window.MH?.piegerFocus
+            ? window.MH.piegerFocus(carte, { surEchap: () => done(false), origine })
+            : () => {};
     }
 
     function go(n) {
         if (n >= SLIDES.length) return done();
         idx = Math.max(0, Math.min(SLIDES.length - 1, n));
         render();
+        pieger();
     }
 
     function render() {
@@ -218,6 +233,8 @@
         veil.innerHTML = '<div class="itr-card" role="dialog" aria-modal="true" aria-label="Visite guidée"></div>';
         document.body.appendChild(veil);
         render();
+        origine = document.activeElement;
+        pieger();
         // Reflow forcé puis classe : la transition joue même si l'onglet
         // n'a pas le focus (requestAnimationFrame y est suspendu). Et si un
         // environnement gèle les transitions, l'état final est garanti.

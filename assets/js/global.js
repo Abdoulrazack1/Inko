@@ -767,6 +767,61 @@
         .mh-modal-btn.danger:hover{filter:brightness(1.1)}`;
         document.head.appendChild(st);
     }
+    /**
+     * Garde le clavier dans un dialogue, et le rend d'où il venait.
+     *
+     * `aria-modal="true"` est une PROMESSE faite aux technologies
+     * d'assistance : derrière ce dialogue, il n'y a rien. Neuf panneaux de
+     * l'application la font ; un seul la tenait. Mesuré sur `MH.confirm`
+     * dans la page réelle : le dialogue s'ouvre et le focus N'Y ENTRE PAS
+     * — il reste sur le bouton qui l'a ouvert, derrière le voile — puis le
+     * premier Tab part dans la page masquée. Un lecteur d'écran annonce
+     * donc « dialogue modal » pendant que le curseur est dehors.
+     *
+     * Trois choses, donc, et toujours les trois ensemble : entrer dans le
+     * dialogue, y retenir Tab, et rendre le focus à la fermeture.
+     *
+     * Retourne la fonction qui libère — à appeler quand le dialogue part.
+     */
+    window.MH.piegerFocus = function (dialogue, { surEchap, origine } = {}) {
+        if (!dialogue) return () => {};
+        const venaitDe = origine || document.activeElement;
+        if (!dialogue.hasAttribute('tabindex')) dialogue.tabIndex = -1;
+
+        // `offsetParent` écarte ce qui est masqué ; l'élément actif est gardé
+        // même s'il ne l'a pas, sinon on perd la position courante.
+        const focusables = () => [...dialogue.querySelectorAll(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]),'
+            + ' textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+            .filter((el) => el.offsetParent !== null || el === document.activeElement);
+
+        (focusables()[0] || dialogue).focus({ preventScroll: true });
+
+        function surTouche(e) {
+            if (e.key === 'Escape' && surEchap) { e.preventDefault(); surEchap(); return; }
+            if (e.key !== 'Tab') return;
+            const l = focusables();
+            if (!l.length) { e.preventDefault(); dialogue.focus(); return; }
+            const premier = l[0], dernier = l[l.length - 1];
+            if (!dialogue.contains(document.activeElement)) { e.preventDefault(); premier.focus(); }
+            else if (e.shiftKey && (document.activeElement === premier || document.activeElement === dialogue)) { e.preventDefault(); dernier.focus(); }
+            else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
+        }
+        document.addEventListener('keydown', surTouche);
+
+        return function liberer() {
+            document.removeEventListener('keydown', surTouche);
+            // Le focus revient d'où l'on venait, au lieu de tomber sur <body>.
+            // La fermeture peut passer par le bouton retour d'Android : quand
+            // elle arrive, le focus est parfois déjà retombé sur <body>.
+            const a = document.activeElement;
+            if (venaitDe && venaitDe.isConnected
+                && (!a || a === document.body || dialogue.contains(a))) {
+                venaitDe.focus({ preventScroll: true });
+            }
+        };
+    };
+
     function mhModal({ title, message, input, value, placeholder, okText, cancelText, danger, showCancel }) {
         return new Promise((resolve) => {
             const veil = document.createElement('div');
@@ -788,6 +843,9 @@
             const inp = veil.querySelector('.mh-modal-input');
             // L'animation CSS (mhVeilIn / mhModalIn) joue seule à l'insertion :
             // pas de toggle de classe ni de rAF → affichage garanti.
+            const libererFocus = window.MH.piegerFocus(veil.querySelector('.mh-modal'),
+                { surEchap: () => onCancel() });
+            // Le champ passe avant le premier bouton : on vient écrire.
             if (inp) { inp.focus(); inp.select(); }
             // P2.7 : la modale pousse une entrée d'historique, pour que le
             // bouton retour d'Android l'annule au lieu de quitter la page.
@@ -800,6 +858,7 @@
                 veil.classList.add('closing');
                 setTimeout(() => veil.remove(), 160);
                 document.removeEventListener('keydown', onKey);
+                libererFocus();
                 resolve(result);
             };
             const rendre = window.MH.retour
@@ -812,9 +871,9 @@
             };
             const onOk = () => close(input ? (inp ? inp.value : '') : true);
             const onCancel = () => close(input ? null : false);
+            // Échap est tenu par le piège de focus, avec le reste du clavier.
             function onKey(e) {
-                if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
-                else if (e.key === 'Enter' && (input || !showCancel)) { e.preventDefault(); onOk(); }
+                if (e.key === 'Enter' && (input || !showCancel)) { e.preventDefault(); onOk(); }
             }
             document.addEventListener('keydown', onKey);
             veil.querySelector('[data-act="ok"]').onclick = onOk;

@@ -960,9 +960,9 @@
                 alerte.hidden = !trop;
                 alerte.textContent = trop ? `C’est plus que l’espace libre de l’appareil : la file s’arrêtera quand il sera plein.` : '';
             };
-            const fin = (n) => { veil.remove(); document.removeEventListener('keydown', echap); resolve(n); };
-            const echap = (e) => { if (e.key === 'Escape') fin(0); };
-            document.addEventListener('keydown', echap);
+            // Le clavier passe par le piège partagé : entrer, y rester, revenir.
+            const liberer = MH.piegerFocus?.(form, { surEchap: () => fin(0) }) || (() => {});
+            const fin = (n) => { liberer(); veil.remove(); resolve(n); };
             form.addEventListener('change', verifier);
             form.addEventListener('submit', (e) => { e.preventDefault(); fin(valeur()); });
             veil.querySelector('[data-annuler]').addEventListener('click', () => fin(0));
