@@ -368,9 +368,9 @@
     transform: translateX(-50%);
     background: rgba(0,0,0,0.75);
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 20px;
-    padding: 5px 16px;
-    font-size: 12px;
+    border-radius: var(--pastille-rayon);
+    padding: var(--pastille-rembourrage);
+    font-size: var(--pastille-taille);
     color: var(--text2);
     backdrop-filter: blur(10px);
     pointer-events: none;

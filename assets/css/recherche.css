@@ -12,7 +12,7 @@
 .se-group { margin-bottom: 30px; }
 .se-ghead { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .se-gname { font-family: var(--font-head); font-size: 17px; font-weight: 700; }
-.se-gtag { font-size: 10.5px; padding: 2px 8px; border-radius: 5px; background: var(--bg3); color: var(--text2); text-transform: uppercase; font-weight: 600; }
+.se-gtag { font-size: var(--pastille-taille); padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon); background: var(--bg3); color: var(--text2); text-transform: uppercase; font-weight: var(--pastille-graisse); }
 .se-gcount { font-size: 12px; color: var(--text3); margin-left: auto; }
 .se-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
 .se-card { cursor: pointer; position: relative; display: block; transition: transform .28s var(--ease-out); }
@@ -37,7 +37,7 @@
 .se-loading { text-align: center; padding: 60px; color: var(--text3); }
 .se-hist { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:22px; }
 .se-hist-label { font-size:12px; color:var(--text3); margin-right:2px; }
-.se-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:20px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); font-size:12.5px; cursor:pointer; transition:all .12s; }
+.se-chip { display:inline-flex; align-items:center; gap:6px; padding: var(--puce-rembourrage); border-radius: var(--puce-rayon); background:var(--bg3); border:1px solid var(--border2); color:var(--text2); font-size: var(--puce-taille); cursor:pointer; transition:all .12s; }
 .se-chip:hover, .se-chip.kbd { color:var(--text); border-color:var(--accent); }
 .se-chip.on { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
 .se-src-chip { transition:border-color var(--transition), color var(--transition), background var(--transition); }
@@ -46,17 +46,17 @@
    deux regles de meme specificite, la seconde gagnante, et un fond qui restait
    de la premiere. Les deux variables valent la meme couleur aujourd'hui — d'ou
    l'absence de symptome — mais en changer une seule aurait suffi. */
-.se-chip .x { opacity:.5; font-size:14px; line-height:1; }
+.se-chip .x { opacity:.5; font-size: 14px; line-height:1; }
 .se-chip .x:hover { opacity:1; color:#ef4444; }
 .se-hist-clear { font-size:11.5px; color:var(--text3); cursor:pointer; background:none; border:none; text-decoration:underline; }
 
 /* ── §11 : carte fusionnée par titre (dédup multi-sources) ── */
 .se-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; color:#fff; }
-.se-lib-badge { position:absolute; top:8px; right:8px; background:#22c55e; color:#fff; font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.4); display:inline-flex; align-items:center; gap:3px; }
+.se-lib-badge { position:absolute; top:8px; right:8px; background:#22c55e; color:#fff; font-size: var(--pastille-taille); font-weight: var(--pastille-graisse); padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon); box-shadow:0 2px 8px rgba(0,0,0,.4); display:inline-flex; align-items:center; gap:3px; }
 .se-multi { position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,.6); color:#fff; font-size:9.5px; font-weight:700; padding:2px 7px; border-radius:20px; backdrop-filter:blur(2px); }
 .se-meta { font-size:10.5px; color:var(--text3); margin-top:2px; }
 .se-sources { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
-.se-src-chip { font-size:10px; padding:2px 7px; border-radius:6px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; text-decoration:none; }
+.se-src-chip { font-size: var(--pastille-taille); padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon); background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; text-decoration:none; }
 .se-src-chip:hover { border-color:var(--orange); color:var(--text); background:color-mix(in srgb, var(--orange) 8%, transparent); }
 .se-src-chip.novel { border-color:var(--ai); }
 .se-types { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }

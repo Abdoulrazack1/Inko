@@ -149,10 +149,10 @@
   flex-wrap: wrap;
 }
 .lang-badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 4px;
+  font-size: var(--pastille-taille);
+  font-weight: var(--pastille-graisse);
+  padding: var(--pastille-rembourrage);
+  border-radius: var(--pastille-rayon);
   background: var(--bg4);
   border: 1px solid var(--border);
   color: var(--text2);
@@ -161,10 +161,10 @@
 /* Statut inline */
 .status-badge {
   display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 8px;
-  border-radius: 10px;
+  font-size: var(--pastille-taille);
+  font-weight: var(--pastille-graisse);
+  padding: var(--pastille-rembourrage);
+  border-radius: var(--pastille-rayon);
   border: 1px solid currentColor;
 }
 .status-en_cours { color: var(--green); }
@@ -377,14 +377,14 @@
 .chapter-date  { font-size: 11px; color: var(--text3); }
 .chapter-time  { font-size: 11px; color: var(--text2); }
 .badge-new {
-  font-size: 9px;
-  font-weight: 800;
+  font-size: var(--pastille-taille);
+  font-weight: var(--pastille-graisse);
   letter-spacing: 0.06em;
   color: var(--orange);
   background: rgba(255,107,26,0.1);
   border: 1px solid rgba(255,107,26,0.3);
-  border-radius: 4px;
-  padding: 1px 6px;
+  border-radius: var(--pastille-rayon);
+  padding: var(--pastille-rembourrage);
   text-transform: uppercase;
   white-space: nowrap;
 }
