@@ -133,45 +133,38 @@
         const couv = (e) => MH.cover(e.cover, MH.placeholderCover(e.mangaId));
 
         zone.innerHTML = `
-            <article class="cont-hero">
-                <div class="cont-hero-bg" style="background-image:url('${couv(une)}')" aria-hidden="true"></div>
-                <a class="cont-hero-cover" href="${lien(une)}" tabindex="-1" aria-hidden="true"><img src="${couv(une)}" alt=""></a>
-                <div class="cont-hero-body">
-                    <div class="cont-hero-kicker">Tu t’es arrêté ${MH.esc(MH.relTime(une.updatedAt))}</div>
-                    <h2 class="cont-hero-title"><a href="${fiche(une)}">${MH.esc(une.title)}</a></h2>
-                    <div class="cont-hero-where">${MH.esc(ouHero(une))}${typeof une.unread === 'number' && une.unread > 1 ? ` · <span class="cont-hero-left">${une.unread} chapitres non lus</span>` : ''}</div>
-                    <div class="cont-hero-mesure">
-                        <div class="cont-bar"><span style="width:${pct(une)}%"></span></div>
-                        <span class="cont-hero-pct">${pct(une)} %</span>
-                    </div>
-                    <div class="cont-hero-actions">
-                        <a class="btn btn-primary cont-hero-cta" href="${lien(une)}">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-                            Reprendre la lecture</a>
-                        <a class="btn btn-ghost" href="${fiche(une)}">Voir la fiche</a>
-                    </div>
-                </div>
-            </article>
-            ${autres.length ? `<div class="cont-row">${autres.map(e => `
-                <div class="cont-item" data-id="${MH.esc(e.mangaId)}">
-                    <a class="cont-item-link" href="${lien(e)}">
-                        <img src="${couv(e)}" alt="" loading="lazy">
-                        <span class="cont-item-text">
-                            <span class="cont-item-title">${MH.esc(e.title)}</span>
-                            <span class="cont-item-where">${MH.esc(ou(e))}</span>
-                            <span class="cont-bar cont-bar--small"><span style="width:${pct(e)}%"></span></span>
-                        </span>
-                    </a>
-                    <button class="cont-item-x" type="button" data-retirer="${MH.esc(e.mangaId)}"
-                        title="Retirer de « Reprendre »" aria-label="Retirer « ${MH.esc(e.title)} » de « Reprendre »">×</button>
-                </div>`).join('')}</div>` : ''}`;
+            <div class="etagere" role="list">
+                ${visibles.map((e, i) => `
+                <a class="latte${i === 0 ? ' latte--ouverte' : ''}" role="listitem"
+                   href="${lien(e)}" data-id="${MH.esc(e.mangaId)}"
+                   aria-label="Reprendre ${MH.esc(e.title)}, ${MH.esc(ou(e))}">
+                    <img class="latte-couv" src="${couv(e)}" alt="" loading="${i === 0 ? 'eager' : 'lazy'}">
+                    <span class="latte-dos">
+                        <span class="latte-titre">${MH.esc(e.title)}</span>
+                        <span class="latte-ou">${i === 0 ? `Tu t\u2019es arr\u00eat\u00e9 ${MH.esc(MH.relTime(e.updatedAt))} \u00b7 ` : ''}${MH.esc(ou(e))}</span>
+                    </span>
+                    <span class="latte-jauge" aria-hidden="true"><span style="width:${pct(e)}%"></span></span>
+                </a>`).join('')}
+            </div>
+            <div class="etagere-pied">
+                <a class="btn btn-primary etagere-cta" href="${lien(une)}">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                    Reprendre ${MH.esc(une.title)}</a>
+                <a class="btn btn-ghost" href="${fiche(une)}">Voir la fiche</a>
+                <button class="etagere-retirer" type="button" data-retirer="${MH.esc(une.mangaId)}"
+                    title="Retirer de \u00ab\u00a0Reprendre\u00a0\u00bb" aria-label="Retirer \u00ab\u00a0${MH.esc(une.title)}\u00a0\u00bb de \u00ab\u00a0Reprendre\u00a0\u00bb">Retirer</button>
+            </div>`;
 
         zone.querySelectorAll('[data-retirer]').forEach(b => b.addEventListener('click', async (ev) => {
             ev.preventDefault();
             try {
                 await API.me.removeProgress(b.dataset.retirer);
-                b.closest('.cont-item')?.remove();
+                // L’étagère est une composition : retirer une latte change la
+                // largeur de toutes les autres. On la redessine au lieu d’ôter
+                // un nœud dans un rang qui ne s’en remettrait pas.
                 MH.toast('Retiré de « Reprendre »');
+                chargerReprise();
+                return;
             } catch (e) { MH.toastErreur(e); }
         }));
     }

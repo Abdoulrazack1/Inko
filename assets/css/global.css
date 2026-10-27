@@ -1009,7 +1009,19 @@ img.img-echec { background: var(--bg3); animation: none; }
   backdrop-filter: blur(6px);
   transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
-.card-fav-btn:hover  { background: rgba(0,0,0,0.75); transform: scale(1.08); }
+.card-fav-btn:hover  { background: rgba(0,0,0,0.75); }
+
+/* Une icône dans un rond teinté, posée sur CHAQUE couverture d’une page :
+   c'est le signe le plus sûr d'une interface fabriquée en série, et ici
+   trente ronds noirs mouchetaient la seule chose colorée de l’écran.
+   Le cœur apparaît au survol et au clavier ; il reste visible quand il
+   PORTE une information, c’est-à-dire quand la série est déjà en favori.
+   Au doigt, où il n’y a pas de survol, il reste là. */
+@media (hover: hover) {
+  .card-fav-btn { opacity: 0; transition: opacity .16s, background var(--transition); }
+  .manga-card:hover .card-fav-btn, .shelf-card:hover .card-fav-btn,
+  .card-fav-btn:focus-visible, .card-fav-btn.is-fav { opacity: 1; }
+}
 .card-fav-btn.is-fav { color: var(--red); background: rgba(0,0,0,0.7); }
 
 /* ── Spinner inline ── */
