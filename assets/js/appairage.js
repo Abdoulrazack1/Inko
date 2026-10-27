@@ -59,14 +59,14 @@
         veil.appendChild(boite);
         document.body.appendChild(veil);
         let minuteur = null;
+        // Le clavier passe par le piège partagé : entrer, y rester, revenir.
+        const liberer = window.MH?.piegerFocus?.(boite, { surEchap: () => fermer() }) || (() => {});
         const fermer = () => {
             if (minuteur) clearInterval(minuteur);
+            liberer();
             veil.classList.add('closing');
             setTimeout(() => veil.remove(), 160);
-            document.removeEventListener('keydown', surTouche);
         };
-        function surTouche(e) { if (e.key === 'Escape') { e.preventDefault(); fermer(); } }
-        document.addEventListener('keydown', surTouche);
         veil.addEventListener('click', (e) => { if (e.target === veil) fermer(); });
         return { boite, fermer, poserMinuteur: (f) => { minuteur = f; } };
     }
