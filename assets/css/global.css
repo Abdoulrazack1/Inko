@@ -795,25 +795,20 @@ body.incognito-on::before {
 }
 .section-link:hover { opacity: 0.8; }
 
-/* Manga card */
+/* ── La carte de série ─────────────────────────────────
+   Fond relevé, filet, rayon, et une ombre au survol : quatre marques
+   pour dire « ceci est un objet » autour d’une image qui le dit déjà.
+   Le catalogue en aligne vingt-quatre par page. La couverture est
+   l’objet ; il ne reste qu’à la soulever quand on la vise. */
 .manga-card {
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden;
-  transition: transform .28s var(--ease-out), box-shadow .28s var(--ease-out), border-color var(--transition);
-  position: relative;
+  position: relative; overflow: hidden;
+  transition: transform .28s var(--ease-out);
 }
-.manga-card:hover {
-  border-color: var(--border2);
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-3);
-}
+.manga-card:hover { transform: translateY(-4px); }
 /* Audit C3 : lien « étendu » — la carte est un <div>, le lien un calque
    au-dessus du contenu, et le cœur favori (frère, plus enfant du lien)
    reste cliquable au-dessus. */
-.manga-card-link {
-  position: absolute; inset: 0; z-index: 2;
-  border-radius: inherit;
-}
+.manga-card-link { position: absolute; inset: 0; z-index: 2; }
 .manga-card-link:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
@@ -832,35 +827,13 @@ body.incognito-on::before {
   position: absolute; top: 8px; left: 8px;
   display: flex; flex-direction: column; gap: 4px;
 }
-.manga-card-overlay {
-  position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,.72) 0%, transparent 52%);
-  opacity: 0; transition: opacity .22s var(--ease-out);
-  display: flex; align-items: flex-end; padding: 12px;
-  gap: 8px;
-}
-.manga-card:hover .manga-card-overlay { opacity: 1; }
-.btn-read-overlay, .btn-add-overlay {
-  flex: 1; height: 34px;
-  border-radius: var(--radius3); font-size: 12px; font-weight: 600;
-  display: flex; align-items: center; justify-content: center; gap: 4px;
-  transition: background var(--transition), transform .15s var(--ease-out);
-}
-.btn-read-overlay {
-  background: var(--accent); color: #fff;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 4px 12px rgba(0,0,0,.3);
-}
-.btn-read-overlay:hover { background: color-mix(in srgb, var(--accent) 88%, #000); transform: translateY(-1px); }
-.btn-add-overlay {
-  /* liquid glass sur la couverture */
-  background: rgba(255,255,255,.12); color: #fff;
-  -webkit-backdrop-filter: blur(14px) saturate(1.6);
-  backdrop-filter: blur(14px) saturate(1.6);
-  border: 1px solid rgba(255,255,255,.26);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.30);
-}
-.btn-add-overlay:hover { background: rgba(255,255,255,.22); transform: translateY(-1px); }
-.manga-card-info { padding: 10px 12px 12px; }
+/* Le calque de survol — un voile noir, un bouton « Lire » en aplat
+   d’accent ombré et un second en verre dépoli — retiré. La carte
+   ENTIÈRE est déjà un lien vers la série (.manga-card-link, inset 0) :
+   le bouton « Lire » ne menait nulle part où le clic ne menait déjà.
+   Il voilait la couverture pour proposer ce qu’on avait déjà. L’ajout
+   à une liste survit dans la légende, avec le cœur. */
+.manga-card-info { padding: 9px 2px 12px; position: relative; }
 .manga-card-title {
   font-size: 13px; font-weight: 600; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1077,23 +1050,27 @@ a[data-nsfw] .manga-card-cover::after,
 
 /* ── Méta des cartes (statut / année / démographie) ──────── */
 .manga-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
-.manga-card-meta .mc-year { font-size: 11px; color: var(--text3); }
+.manga-card-meta .mc-year { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; }
+/* Le genre et le statut étaient deux pastilles de formes DIFFÉRENTES sur
+   la même ligne : rayon 4 pour l’une, rayon 20 pour l’autre. Le statut
+   garde sa couleur, qui est sa donnée, et prend la forme qu’il a déjà
+   dans la bibliothèque — un point de 5 px et un mot. Le genre n’est
+   pas une donnée colorée : c’est du texte. */
 .manga-card-meta .mc-demo {
-  font-size: 10px; color: var(--text2); background: var(--bg4);
-  padding: 1px 6px; border-radius: 4px; text-transform: capitalize;
+  font-size: 11px; color: var(--text3); text-transform: capitalize;
 }
 .manga-card-meta .mc-status {
-  font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 20px;
-  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 5px;
 }
 .manga-card-meta .mc-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-.mc-status.mc-ongoing   { color: var(--green-text); background: rgba(34,197,94,.12); }   /* audit A11Y-02 : 3.58:1 avant */
+.mc-status.mc-ongoing   { color: var(--green-text); }   /* audit A11Y-02 : 3.58:1 avant */
 /* audit A11Y-02 : ces trois-là restaient sous le seuil en édition sombre —
    du bleu/rouge/ambre calibrés pour du texte sur fond clair, posés en 10px
    sur fond sombre (« Terminé » mesurait 1.93:1). */
-.mc-status.mc-completed  { color: var(--blue-text); background: rgba(59,130,246,.12); }
-.mc-status.mc-hiatus     { color: var(--amber-text); background: rgba(245,158,11,.12); }
-.mc-status.mc-cancelled  { color: var(--red-text); background: rgba(239,68,68,.12); }
+.mc-status.mc-completed  { color: var(--blue-text); }
+.mc-status.mc-hiatus     { color: var(--amber-text); }
+.mc-status.mc-cancelled  { color: var(--red-text); }
 
 /* ── Comptes connectés (AniList) ───────────────── */
 .conn-list { display: flex; flex-direction: column; gap: 10px; }
@@ -1384,21 +1361,24 @@ a[data-nsfw] .manga-card-cover::after,
 /* ── Ajout à une liste depuis une carte (audit AMEL-39) ──
    Placé sous le cœur, même gabarit : deux actions de carte de même nature
    doivent se ressembler et s'aligner. */
+/* Le « + » était un disque noir flouté posé sur la couverture, sous le
+   cœur. Il le suit dans la légende : même bouton, même correction,
+   même raison — rien ne se pose sur l’œuvre. */
 .card-list-btn {
-  position: absolute; top: 44px; right: 8px;
-  width: 30px; height: 30px;
-  border-radius: 50%; border: none;
-  background: rgba(0,0,0,0.55);
-  color: #fff;
-  font-size: 18px; line-height: 1;
-  cursor: pointer;
+  width: 26px; height: 26px;
+  border: 0; background: none;
+  color: var(--text3); font-size: 17px; line-height: 1; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  z-index: 2;
-  backdrop-filter: blur(6px);
-  transition: background .18s ease, transform .18s ease;
+  transition: color var(--transition), opacity .16s;
 }
-.card-list-btn:hover { background: rgba(0,0,0,0.75); transform: scale(1.08); }
+.card-list-btn:hover { color: var(--text); }
 .manga-card .card-list-btn { z-index: 3; }
+.manga-card-info .card-list-btn { position: absolute; right: 34px; bottom: 8px; }
+@media (hover: hover) {
+  .manga-card-info .card-list-btn { opacity: 0; }
+  .manga-card:hover .card-list-btn,
+  .card-list-btn:focus-visible { opacity: 1; }
+}
 
 /* ── Barre d'annulation (audit AMEL-40) ──
    Persistante et non un toast de trois secondes : le temps de réaliser qu'on
@@ -1559,9 +1539,9 @@ a[data-nsfw] .manga-card-cover::after,
      posées sur une couverture de 109 px, qu'on touche en voulant ouvrir la
      série. Les actions passent par l'appui long, où elles ont de la place et
      un libellé. */
-  .manga-card .card-fav-btn,
-  .manga-card .card-list-btn,
-  .manga-card .manga-card-overlay { display: none; }
+  /* Le calque de survol a disparu ; le cœur et le « + » ne sont plus
+     sur la couverture mais dans la légende, où ils ne gênent rien :
+     au doigt, ils restent donc visibles. */
 
   /* Le rapport d'une couverture est 2:3, pas 3:4 (IX.5). En 3:4 la
      couverture est rognée en haut et en bas par `object-fit: cover` — or
