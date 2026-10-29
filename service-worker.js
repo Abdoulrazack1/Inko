@@ -15,6 +15,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 const CACHE_VERSION = 'inko-2.8.2-f19055';
 =======
 const CACHE_VERSION = 'inko-2.8.2-4f6750';
@@ -40,6 +41,9 @@ const CACHE_VERSION = 'inko-2.8.2-70854c';
 =======
 const CACHE_VERSION = 'inko-2.8.2-5b796d';
 >>>>>>> 5980a2a (Fiche serie : l'oeuvre est la page, et 110 lignes de CSS mort partent)
+=======
+const CACHE_VERSION = 'inko-2.8.2-1e5cd8';
+>>>>>>> 9c2850b (Lecteur : la planche tient seule)
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
