@@ -1,0 +1,146 @@
+/* ── parametres.css ────────────────────────────────────
+   Ces règles vivaient dans un bloc <style> du gabarit. C’était la
+   seule page de l’application dans ce cas, et ça avait une
+   conséquence concrète : tout ce qui lit assets/css/*.css ne la
+   voyait pas. Ni le générateur du repli aspect-ratio, ni le test qui
+   interdit une virgule traînante dans une liste de sélecteurs, ni
+   aucun des tests de composition écrits pour les autres écrans. La
+   bibliothèque avait déjà fait ce déménagement (audit §10) ; voici le
+   dernier. */
+
+.set-wrap { max-width: 820px; margin: 0 auto; padding: 28px 20px 80px; }
+.set-head h1 { font-family: var(--font-head); font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+.set-head p  { color: var(--text2); font-size: 13.5px; margin-bottom: 14px; }
+.set-chercher {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 26px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 0 12px; color: var(--text3);
+}
+.set-chercher:focus-within { border-color: var(--accent); }
+.set-chercher input {
+  flex: 1 1 auto; min-width: 0; background: none; border: 0; outline: none;
+  color: var(--text); font: inherit; font-size: 13.5px; padding: 10px 0;
+}
+/* La croix native des champs `search` differe d'un navigateur a l'autre
+   et reste invisible au clavier : on pose la notre. */
+.set-chercher input::-webkit-search-cancel-button { display: none; }
+.set-chercher button {
+  flex: 0 0 auto; background: none; border: 0; cursor: pointer;
+  color: var(--text3); font-size: 13px; padding: 4px 2px; line-height: 1;
+}
+.set-chercher button:hover { color: var(--text); }
+.set-chercher-vide { color: var(--text2); font-size: 13.5px; margin-bottom: 26px; }
+/* Masque par la RECHERCHE, et seulement par elle : l'attribut `hidden`
+   reste la propriete de l'application, qui s'en sert pour les reglages
+   propres au tactile. Les confondre revelerait des reglages sans effet. */
+.sr-filtre { display: none !important; }
+.pc-conflits { display: block; }
+.pc-conflits[hidden] { display: none; }
+.pc-conflits-liste { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.pc-conflit { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.pc-conflit-choix { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.pc-conflit-choix button { text-align: left; white-space: normal; height: auto; padding: 8px 10px; }
+.pc-conflit-choix small { display: block; color: var(--text3); font-weight: 400; }
+
+.import-liste-zone { display: block; }
+.import-liste-zone[hidden] { display: none; }
+.import-liste-source select { margin-left: 6px; }
+/* Dix-huit cartes sur cette page, chacune avec un fond relevé ET un
+   filet. Un panneau se détache par une chose. */
+.set-card {
+  background: var(--bg2);
+  border-radius: 12px; padding: 22px 24px; margin-bottom: 18px;
+}
+.set-card h2 {
+  font-size: 15px; font-weight: 600; margin-bottom: 4px;
+  display: flex; align-items: center; gap: 8px;
+}
+.set-card .sub { color: var(--text3); font-size: 12px; margin-bottom: 18px; }
+.set-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 12px 0; border-top: 1px solid var(--border);
+}
+.set-row:first-of-type { border-top: none; }
+.set-row-label { font-size: 13.5px; font-weight: 500; }
+.set-row-desc  { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+#pcJournal { display: block; }
+#pcJournal summary { cursor: pointer; }
+.pc-journal { list-style: none; margin: 8px 0 0; padding: 0; max-height: 260px; overflow: auto; font-size: 12px; }
+.pc-journal li { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; padding: 5px 0; border-top: 1px solid var(--border); }
+.pc-journal time { color: var(--text3); white-space: nowrap; }
+.pc-journal small { color: var(--text3); }
+.pc-journal .pc-j-refus, .pc-journal .pc-j-echec { color: var(--accent); }
+.set-input {
+  background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+  padding: 9px 12px; border-radius: 8px; font-size: 13px; width: 100%;
+  transition: border-color .15s;
+}
+.set-input:focus { outline: none; border-color: var(--orange); }
+.set-field { margin-bottom: 14px; }
+.set-field label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+.seg { display: inline-flex; background: var(--bg3); border-radius: 8px; padding: 3px; gap: 2px; }
+.seg button {
+  padding: 7px 14px; border-radius: 6px; font-size: 12.5px; color: var(--text2);
+  background: transparent; transition: all .15s;
+}
+/* Septième écran où le choix actif d’un contrôle segmenté était un
+   aplat d’accent. Même réponse que partout ailleurs : un pas de
+   clarté et l’encre pleine. */
+.seg button.active { background: var(--bg4); color: var(--text); font-weight: 600; }
+/* La carte n’a plus de filet : la zone de danger se marque par le
+   même filet d’accent (rouge) que les états actifs ailleurs. */
+.danger-zone { box-shadow: inset 3px 0 0 var(--red, #a83232); }
+.danger-zone h2 { color: var(--red-text); }
+.btn-danger {
+  background: rgba(239,68,68,.12); color: var(--red-text); border: 1px solid rgba(239,68,68,.3);
+  padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+}
+.btn-danger:hover { background: rgba(239,68,68,.2); }
+.nsfw-card { box-shadow: inset 3px 0 0 #a3185c; }
+html[data-theme="dark"] .nsfw-card,
+html[data-theme="amoled"] .nsfw-card { box-shadow: inset 3px 0 0 #ec4899; }
+/* Audit A11Y-02 (defaut residuel) : #ec4899 sur le fond clair donne
+   2,77:1 — tres en dessous du seuil AA de 4,5:1. Le defaut echappait aux
+   campagnes precedentes parce que cette carte n'est PAS toujours rendue :
+   axe ignore ce qui est masque, la violation n'apparaissait donc que
+   certains passages. Rose assombri (5,8:1) ; sur fond sombre le rose
+   d'origine passait deja, il y est conserve. */
+.nsfw-card h2 { color: #a3185c; }
+html[data-theme="dark"] .nsfw-card h2,
+html[data-theme="amoled"] .nsfw-card h2 { color: #ec4899; }
+html[data-theme="contrast"] .nsfw-card h2 { color: #85114a; }
+/* Rien sous 11 px. */
+.pill { font-size: 11px; padding: 2px 8px; border-radius: 5px; font-weight: 600; }
+.pill-on  { background: rgba(34,197,94,.15); color: var(--green); }
+.pill-off { background: var(--bg4); color: var(--text3); }
+
+/* Sessions : le dépliant, et le repère « cet appareil » qui était
+   un style en ligne. */
+.sess-ici { color: var(--accent-text, var(--accent)); font-size: 11.5px; }
+.sess-reste-ligne { justify-content: flex-start; }
+.sess-plus {
+  background: none; border: 0; padding: 4px 0; cursor: pointer;
+  color: var(--accent-text, var(--accent)); font: inherit; font-size: 13px;
+  font-weight: 600;
+}
+.sess-plus:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── MOB-01 / MOB-02 : les réglages au doigt ─────────────
+   Chaque ligne est « libellé … contrôle » en flex `nowrap`. Le contrôle
+   segmenté du thème fait 355 px à lui seul : sur 375 px d'écran, avec le
+   libellé devant, il dépassait de 112 px. Il y a 4 720 lignes de ce type
+   sur la page — une seule règle les couvre toutes.
+   Sous 640 px, le contrôle passe SOUS son libellé plutôt que de forcer la
+   page à s'élargir, et les cibles montent à 44 px. */
+@media (max-width: 640px) {
+  .set-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .set-row > * { min-width: 0; }
+  .set-row > *:last-child:not(:only-child) { flex: 1 0 100%; }
+  .seg { flex-wrap: wrap; width: 100%; }
+  .seg button { flex: 1 1 auto; min-height: 44px; }
+  .set-input { min-height: 44px; }
+}
