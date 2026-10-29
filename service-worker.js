@@ -12,6 +12,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 const CACHE_VERSION = 'inko-2.8.2-1e467c';
 =======
 const CACHE_VERSION = 'inko-2.8.2-4f6750';
@@ -28,6 +29,9 @@ const CACHE_VERSION = 'inko-2.8.2-ba5bdb';
 =======
 const CACHE_VERSION = 'inko-2.8.2-ed7468';
 >>>>>>> cf77620 (Bibliotheque : 500 couvertures, et plus 500 cartes)
+=======
+const CACHE_VERSION = 'inko-2.8.2-560e19';
+>>>>>>> 38fd4e2 (Bibliotheque : rien ne se pose sur l'oeuvre, deuxieme passe)
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
