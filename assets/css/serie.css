@@ -5,15 +5,17 @@
 /* ══════════════════════════════════════════════════════════
    HERO
 ══════════════════════════════════════════════════════════ */
-.serie-hero {
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-}
+/* ── Le hero ────────────────────────────────────────
+   Cette page parle d’UNE œuvre, et elle en donnait une vignette de
+   160 px posée sur une bande grise, à côté d’une fiche encadrée. La
+   bande partait : sur le fond de la page, la couverture devient le
+   seul objet éclairé de l’écran — c’est tout ce qu’il faut. */
+.serie-hero { background: var(--bg); }
 .serie-hero-inner {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: var(--sp-5);
-  padding: 28px var(--sp-5);
+  gap: var(--sp-6);
+  padding: 36px var(--sp-5) 30px;
   max-width: 1200px;
   margin: 0 auto;
   align-items: start;
@@ -24,17 +26,11 @@
   position: relative;
   flex-shrink: 0;
 }
-.serie-cover-status {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 2;
-}
+/* Une couverture est une image imprimée : ni coins arrondis, ni ombre
+   portée de 32 px. Elle grandit à la place : 230 px au lieu de 160. */
 .serie-cover {
-  width: 160px;
-  border-radius: var(--radius);
+  width: clamp(170px, 16vw, 230px);
   overflow: hidden;
-  box-shadow: var(--e-flottant);
 }
 .serie-cover img {
   width: 100%;
@@ -45,7 +41,7 @@
   bottom: 8px;
   left: 0; right: 0;
   text-align: center;
-  font-size: 11.5px;
+  font-size: var(--t-xs);
   font-weight: 600;
   color: var(--text2);
 }
@@ -60,13 +56,15 @@
 }
 .serie-title {
   font-family: var(--font-head);
-  font-size: 28px;
+  font-size: clamp(30px, 3.4vw, 46px);
   font-weight: 800;
-  line-height: 1.15;
+  letter-spacing: -.02em;
+  line-height: 1.05;
   margin-bottom: var(--sp-1);
+  text-wrap: balance;
 }
 .serie-title-jp {
-  font-size: 12px;
+  font-size: var(--t-s);
   color: var(--text3);
   margin-bottom: 10px;
   font-family: sans-serif;
@@ -76,7 +74,7 @@
   align-items: center;
   gap: var(--sp-4);
   margin-bottom: var(--sp-3);
-  font-size: 13px;
+  font-size: var(--t-s);
   color: var(--text2);
   flex-wrap: wrap;
 }
@@ -87,10 +85,10 @@
 }
 .serie-meta-icon { color: var(--orange); }
 .serie-desc-short {
-  font-size: 13.5px;
+  font-size: var(--t-m);
   color: var(--text2);
-  line-height: 1.65;
-  max-width: 580px;
+  line-height: 1.6;
+  max-width: 62ch;
   margin-bottom: 18px;
 }
 .serie-actions {
@@ -101,37 +99,27 @@
 }
 .serie-actions .btn.is-fav { color: var(--red); border-color: var(--red); }
 
-/* Fiche rapide */
+/* Six lignes de faits n’ont pas besoin d’un cadre : un filet vertical
+   les rassemble aussi bien, et laisse la couverture seule à porter la
+   lumière. Une petite capitale espacée, en plus, est le signe le plus
+   sûr d’un gabarit. */
 .serie-fiche {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--sp-4);
-  min-width: 220px;
+  min-width: 212px;
+  padding-left: var(--sp-4);
+  border-left: 1px solid var(--border);
 }
 .serie-fiche-title {
   font-family: var(--font-head);
-  font-size: 12px;
+  font-size: var(--t-s);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .06em;
   color: var(--text2);
   margin-bottom: var(--sp-3);
-}
-.fiche-subtitle {
-  font-size: 10.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--text3);
-  margin-bottom: var(--sp-2);
-  margin-top: var(--sp-3);
 }
 .fiche-row {
   display: flex;
   justify-content: space-between;
   padding: var(--sp-1) 0;
-  font-size: 12.5px;
+  font-size: var(--t-s);
   border-bottom: 1px solid var(--border);
   gap: var(--sp-2);
 }
@@ -149,10 +137,10 @@
   flex-wrap: wrap;
 }
 .lang-badge {
-  font-size: var(--pastille-taille);
-  font-weight: var(--pastille-graisse);
-  padding: var(--pastille-rembourrage);
-  border-radius: var(--pastille-rayon);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  padding: var(--sp-0) 7px;
+  border-radius: var(--r-trait);
   background: var(--bg4);
   border: 1px solid var(--border);
   color: var(--text2);
@@ -198,7 +186,7 @@
   height: 46px;
   display: flex;
   align-items: center;
-  font-size: 13.5px;
+  font-size: var(--t-s);
   font-weight: 500;
   color: var(--text2);
   border-bottom: 2px solid transparent;
@@ -207,12 +195,15 @@
   white-space: nowrap;
 }
 .serie-tab:hover { color: var(--text); }
+/* Un onglet actif se marque par son encre et un filet — comme ceux
+   de la bibliothèque, et pour la même raison : la couleur de marque
+   sert aux données, pas au mobilier. */
 .serie-tab.active {
-  color: var(--orange);
-  border-bottom-color: var(--orange);
+  color: var(--text);
+  border-bottom-color: var(--text);
 }
 .serie-tabs-right {
-  font-size: 12px;
+  font-size: var(--t-s);
   color: var(--text2);
 }
 .serie-tabs-right a { color: var(--orange); }
@@ -249,16 +240,16 @@
   /* Promu de <div>/<span> a <h2> pour exister dans la navigation
      par titres : on neutralise la marge par defaut du h2. */
   margin: 0;
-  font-size: 14px;
+  font-size: var(--t-m);
   font-weight: 700;
 }
 .synopsis-spoiler-btn {
-  font-size: 11.5px;
+  font-size: var(--t-xs);
   color: var(--text2);
   cursor: pointer;
 }
 .synopsis-text {
-  font-size: 13.5px;
+  font-size: var(--t-s);
   color: var(--text2);
   line-height: 1.75;
   white-space: pre-line;
@@ -268,8 +259,7 @@
    CHAPITRES
 ══════════════════════════════════════════════════════════ */
 .chapters-block {
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  background: var(--bg2);
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 20px;
@@ -287,7 +277,7 @@
   /* Promu de <div>/<span> a <h2> pour exister dans la navigation
      par titres : on neutralise la marge par defaut du h2. */
   margin: 0;
-  font-size: 14px;
+  font-size: var(--t-m);
   font-weight: 700;
 }
 
@@ -310,7 +300,7 @@
   border: 1px solid var(--border);
   border-radius:  var(--r-feuille);
   color: var(--text2);
-  font-size: 11.5px;
+  font-size: var(--t-xs);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
@@ -322,12 +312,15 @@
 }
 
 /* Ligne de chapitre (lien cliquable) */
+/* Cette série compte 1 194 chapitres. Chaque rangée portait un rayon,
+   donc 1 194 objets là où l’on veut UNE liste : c’est la même
+   correction que la vue liste de la bibliothèque et les rangées de
+   mises à jour. Le cheveu sépare, la clarté répond au pointeur. */
 .chapter-row {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px var(--sp-2);
-  border-radius:  var(--r-controle);
   border-bottom: 1px solid var(--border);
   text-decoration: none;
   color: inherit;
@@ -343,7 +336,7 @@
 .chapter-row--read { opacity: 0.6; }
 
 .chapter-num {
-  font-size: 12px;
+  font-size: var(--t-s);
   font-weight: 700;
   color: var(--text2);
   min-width: 64px;
@@ -351,7 +344,7 @@
 }
 .chapter-title-text {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--t-s);
   font-weight: 500;
   color: var(--text);
   white-space: nowrap;
@@ -364,8 +357,8 @@
   gap: 10px;
   flex-shrink: 0;
 }
-.chapter-date  { font-size: 11px; color: var(--text3); }
-.chapter-time  { font-size: 11px; color: var(--text2); }
+.chapter-date  { font-size: var(--t-xs); color: var(--text3); }
+.chapter-time  { font-size: var(--t-xs); color: var(--text2); }
 .badge-new {
   font-size: var(--pastille-taille);
   font-weight: var(--pastille-graisse);
@@ -417,32 +410,33 @@
 .ic-btn { display: inline-flex; align-items: center; gap: 6px; }
 .ic-btn svg { flex-shrink: 0; }
 .chap-filter {
-  padding: var(--sp-1) var(--sp-3); border-radius:  var(--r-feuille); font-size: 12px; font-weight: 600;
+  padding: var(--sp-1) var(--sp-3); border-radius:  var(--r-feuille); font-size: var(--t-s); font-weight: 600;
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text2);
   cursor: pointer; transition: all 0.12s;
 }
-.chap-filter:hover { color: var(--text); border-color: var(--border); }
-.chap-filter.on { background: var(--orange); border-color: var(--orange); color: var(--sur-couleur); }
+.chap-filter:hover { color: var(--text); background: var(--bg4); }
+/* Cinquième écran où un filtre actif était un aplat d’accent. Même
+   réponse que dans la bibliothèque et le catalogue. */
+.chap-filter.on { background: var(--bg4); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
 
 .chapters-list { }
 .chapters-empty {
   text-align: center;
   padding: var(--sp-5);
   color: var(--text3);
-  font-size: 13px;
+  font-size: var(--t-s);
 }
 .chapters-see-all {
   text-align: center;
   padding-top: 14px;
-  font-size: 12.5px;
+  font-size: var(--t-s);
 }
 
 /* ══════════════════════════════════════════════════════════
    PERSONNAGES
 ══════════════════════════════════════════════════════════ */
 .characters-block {
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  background: var(--bg2);
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 20px;
@@ -458,15 +452,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--bg4);
-  border: 1px solid var(--border);
+  background: var(--bg3);
   border-radius: var(--radius2);
   padding: 10px var(--sp-3);
   flex: 1;
   min-width: 160px;
   transition: border-color 0.15s;
 }
-.character-card:hover { border-color: var(--border2); }
+.character-card:hover { background: var(--bg4); }
 .character-card--lg {
   flex-direction: column;
   align-items: flex-start;
@@ -479,21 +472,20 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--bg3), rgba(255,107,26,0.15));
-  border: 1px solid var(--border2);
+  background: var(--bg4);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: var(--t-l);
   font-weight: 800;
-  color: var(--orange);
+  color: var(--text2);
   flex-shrink: 0;
   overflow: hidden;
 }
 .character-avatar--lg {
   width: 52px;
   height: 52px;
-  font-size: 20px;
+  font-size: var(--t-xl);
 }
 .character-avatar img {
   width: 100%;
@@ -501,132 +493,26 @@
   object-fit: cover;
 }
 .character-name {
-  font-size: 12.5px;
+  font-size: var(--t-s);
   font-weight: 600;
   color: var(--text);
 }
 .character-role {
-  font-size: 11px;
+  font-size: var(--t-xs);
   color: var(--text2);
   margin-top: var(--sp-0);
 }
 
-/* ══════════════════════════════════════════════════════════
-   SIMILAIRES
-══════════════════════════════════════════════════════════ */
-.similar-block {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  margin-bottom: 20px;
-}
-.similar-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--sp-3);
-}
-.similar-card {
-  cursor: pointer;
-  transition: transform var(--transition);
-  text-decoration: none;
-  color: inherit;
-  display: block;
-}
-.similar-card:hover { transform: translateY(-2px); }
-.similar-cover {
-  aspect-ratio: var(--carte-ratio);
-  border-radius:  var(--r-controle);
-  overflow: hidden;
-  margin-bottom: 6px;
-  background: var(--bg4);
-}
-.similar-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.2s;
-}
-.similar-card:hover .similar-cover img { transform: scale(1.04); }
-.similar-title {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--text);
-}
-.similar-meta {
-  font-size: 11px;
-  color: var(--text2);
-  margin-top: var(--sp-0);
-}
+/* ── Cent dix lignes de CSS mort ─────────────────────────
+   Ici vivaient .similar-block / -grid / -card / -cover / -title /
+   -meta, et une COPIE LOCALE complète de la carte de série globale —
+   .manga-card, -cover, -overlay, -info, -title, -author, -meta,
+   -rating — calque de survol et bouton « Lire » compris, c’est-à-dire
+   une seconde copie de ce que la PR du catalogue vient de retirer.
 
-/* Manga grid (onglet Similaires) */
-.manga-grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-}
-.manga-card {
-  text-decoration: none;
-  color: inherit;
-  display: block;
-  transition: transform 0.15s;
-}
-.manga-card:hover { transform: translateY(-2px); }
-.manga-card-cover {
-  aspect-ratio: var(--carte-ratio);
-  border-radius: var(--carte-rayon);
-  overflow: hidden;
-  position: relative;
-  background: var(--bg4);
-  margin-bottom: var(--sp-2);
-}
-.manga-card-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.25s;
-}
-.manga-card:hover .manga-card-cover img { transform: scale(1.05); }
-.manga-card-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.manga-card:hover .manga-card-overlay { opacity: 1; }
-.btn-read-overlay {
-  background: var(--orange);
-  color: var(--sur-couleur);
-  font-size: 12px;
-  font-weight: 700;
-  padding: var(--sp-2) var(--sp-4);
-  border-radius:  var(--r-feuille);
-}
-.manga-card-info { }
-.manga-card-title {
-  font-size: 12.5px;
-  font-weight: 700;
-  line-height: 1.35;
-  color: var(--text);
-  margin-bottom: var(--sp-0);
-}
-.manga-card-author {
-  font-size: 11px;
-  color: var(--text3);
-  margin-bottom: var(--sp-1);
-}
-.manga-card-meta {
-  display: flex;
-  gap: var(--sp-2);
-  font-size: 11px;
-  color: var(--text2);
-}
-.manga-card-rating { color: var(--amber); font-weight: 600; }
+   Aucune de ces classes n’apparaît dans serie.js ni dans serie.html :
+   la page rend .sim-card. Quatre-vingt-quatre lignes qui ne
+   s’appliquaient à rien, mais qu’il fallait relire à chaque passage. */
 
 /* ══════════════════════════════════════════════════════════
    SIDEBAR
@@ -644,9 +530,11 @@
 }
 .serie-sidebar::-webkit-scrollbar { display: none; }
 
+/* Un panneau se détache par UNE chose : un pas de clarté ou un filet
+   discret — pas les deux, sinon l’écran devient une grille de boîtes.
+   Six panneaux de cette page portaient les deux. */
 .sidebar-progress {
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  background: var(--bg2);
   border-radius: var(--radius);
   padding: var(--sp-4);
 }
@@ -658,7 +546,7 @@
 }
 .sidebar-progress-title {
   font-family: var(--font-head);
-  font-size: 13.5px;
+  font-size: var(--t-s);
   font-weight: 700;
 }
 .sidebar-resume-btn {
@@ -671,8 +559,7 @@
 .sidebar-stats,
 .sidebar-tags,
 .sidebar-reviews {
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  background: var(--bg2);
   border-radius: var(--radius);
   padding: var(--sp-4);
 }
@@ -687,10 +574,8 @@
   /* Promu de <div>/<span> a <h2> pour exister dans la navigation
      par titres : on neutralise la marge par defaut du h2. */
   margin: 0;
-  font-size: 12px;
+  font-size: var(--t-s);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--text2);
 }
 
@@ -698,7 +583,7 @@
   display: flex;
   justify-content: space-between;
   padding: 6px 0;
-  font-size: 12.5px;
+  font-size: var(--t-s);
   border-bottom: 1px solid var(--border);
 }
 .progress-stat:last-of-type {
@@ -725,14 +610,14 @@
 .quick-review {
   padding: var(--sp-2) 0;
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: var(--t-s);
   color: var(--text2);
   line-height: 1.5;
   font-style: italic;
 }
 .quick-review:last-child { border-bottom: none; }
 .quick-review-user {
-  font-size: 11px;
+  font-size: var(--t-xs);
   color: var(--text3);
   margin-top: var(--sp-1);
   font-style: normal;
@@ -755,7 +640,7 @@
 .link-orange:hover { opacity: 0.8; }
 
 .section-link {
-  font-size: 12px;
+  font-size: var(--t-s);
   color: var(--orange);
   background: none;
   border: none;
@@ -780,9 +665,7 @@
     grid-template-columns: 1fr;
   }
   .serie-sidebar { display: none; }
-  .serie-title { font-size: 22px; }
-  .similar-grid,
-  .manga-grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .serie-title { font-size: clamp(24px, 6vw, 30px); }
   /* `.chap-search-input` etait fixe ici a 110px, puis a 140px dans le SECOND
      bloc `@media (max-width: 768px)` de ce fichier (ligne ~812). Le second
      gagnait : cette declaration n'a jamais rien fait. Le 110px voulu sous
@@ -798,9 +681,7 @@
   .serie-cover { width: 120px; }
   .chapter-meta .chapter-time,
   .chapter-meta .badge-new { display: none; }
-  .serie-meta-row { gap: 10px; font-size: 12px; }
-  .similar-grid,
-  .manga-grid-3 { grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
+  .serie-meta-row { gap: 10px; font-size: var(--t-s); }
   .character-card--lg { flex: 0 1 calc(50% - 7px); }
 }
 /* ── Additional responsive fixes ─────────────────────────── */
@@ -815,7 +696,7 @@
   .serie-hero-inner { padding: 20px var(--sp-4); gap: 14px; }
   .serie-actions { flex-wrap: wrap; gap: var(--sp-2); }
   .serie-stats-row { flex-wrap: wrap; gap: 10px; }
-  .serie-desc { font-size: 13px; }
+  .serie-desc { font-size: var(--t-s); }
   .chap-header { flex-wrap: wrap; gap: var(--sp-2); }
   .chap-tools { flex-wrap: wrap; gap: 6px; }
   .chap-search-input { width: 140px; }
@@ -826,11 +707,9 @@
 @media (max-width: 480px) {
   .serie-hero-inner { padding: 14px; gap: var(--sp-3); }
   .serie-cover { width: 100px; }
-  .serie-title { font-size: 18px; }
-  .serie-meta-row { flex-wrap: wrap; gap: var(--sp-2); font-size: 11.5px; }
+  .serie-title { font-size: var(--t-xl); }
+  .serie-meta-row { flex-wrap: wrap; gap: var(--sp-2); font-size: var(--t-xs); }
   .serie-actions .btn { flex: 1; justify-content: center; }
-  .similar-grid,
-  .manga-grid-3 { grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
   .chap-row { padding: 10px var(--sp-3); }
   .chap-info { flex-wrap: wrap; gap: var(--sp-1); }
   .chap-search-input { width: 110px; }
@@ -839,7 +718,7 @@
 /* ══════════════════════════════════════════════════════════
    COMMENTAIRES
 ══════════════════════════════════════════════════════════ */
-.comment-count-badge { color: var(--text3); font-weight: 500; font-size: 13px; }
+.comment-count-badge { color: var(--text3); font-weight: 500; font-size: var(--t-s); }
 .comment-compose {
   background: var(--bg3);
   border: 1px solid var(--border);
@@ -853,7 +732,7 @@
   resize: vertical;
   color: var(--text);
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--t-m);
   line-height: 1.5;
   outline: none;
   min-height: 44px;
@@ -867,7 +746,7 @@
   padding-top: var(--sp-2);
   border-top: 1px solid var(--border);
 }
-.comment-len { font-size: 12px; color: var(--text3); }
+.comment-len { font-size: var(--t-s); color: var(--text3); }
 
 /* ── Portée, ancrage, spoiler (audit AMEL-50/51/52) ──────────
    Les trois options tiennent sur une ligne au-dessus du pied :
@@ -878,18 +757,18 @@
 }
 .comment-opt {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 11.5px; color: var(--text3); cursor: pointer;
+  font-size: var(--t-xs); color: var(--text3); cursor: pointer;
 }
 .comment-opt select {
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
-  border-radius:  var(--r-controle); padding: var(--sp-1) var(--sp-2); font-size: 11.5px;
+  border-radius:  var(--r-controle); padding: var(--sp-1) var(--sp-2); font-size: var(--t-xs);
   font-family: inherit; cursor: pointer; max-width: 220px;
 }
 .comment-opt-check input { accent-color: var(--accent); cursor: pointer; }
 
 /* Étiquette de chapitre : un lien, parce qu'on veut y aller. */
 .comment-chap {
-  font-size: 11px; color: var(--accent-text); text-decoration: none;
+  font-size: var(--t-xs); color: var(--accent-text); text-decoration: none;
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   border-radius:  var(--r-controle); padding: 1px var(--sp-2); white-space: nowrap;
 }
@@ -897,7 +776,7 @@
 
 /* Portée : affichée seulement quand elle s'écarte du défaut. */
 .comment-vis {
-  font-size: 10.5px; border-radius:  var(--r-controle); padding: 1px var(--sp-2);
+  font-size: var(--t-xs); border-radius: var(--r-controle); padding: 1px 7px;
   border: 1px solid var(--border2); color: var(--text3);
 }
 .comment-vis-private { color: var(--text2); border-style: dashed; }
@@ -913,7 +792,7 @@
 }
 .comment-spoiler:not(.revealed) .comment-spoiler-body a { pointer-events: none; color: transparent; }
 .comment-spoiler-veil {
-  display: block; font-size: 11px; font-weight: 600;
+  display: block; font-size: var(--t-xs); font-weight: 600;
   color: var(--red-text); margin-bottom: var(--sp-1); letter-spacing: .02em;
 }
 .comment-spoiler.revealed .comment-spoiler-veil { display: none; }
@@ -928,10 +807,10 @@
   padding: 14px;
   text-align: center;
   color: var(--text3);
-  font-size: 13px;
+  font-size: var(--t-s);
 }
 .comments-list { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
-.comment-empty { color: var(--text3); font-size: 13px; padding: var(--sp-2) var(--sp-0); }
+.comment-empty { color: var(--text3); font-size: var(--t-s); padding: var(--sp-2) var(--sp-0); }
 .comment-item { display: flex; gap: var(--sp-3); }
 .comment-avatar {
   flex-shrink: 0;
@@ -944,13 +823,13 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 15px;
+  font-size: var(--t-m);
 }
 .comment-body { flex: 1; min-width: 0; }
 .comment-head { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-1); }
-.comment-user { font-weight: 600; font-size: 13.5px; color: var(--text); }
-.comment-date { font-size: 12px; color: var(--text3); }
-.comment-text { font-size: 14px; line-height: 1.55; color: var(--text2); white-space: pre-wrap; word-break: break-word; }
+.comment-user { font-weight: 600; font-size: var(--t-s); color: var(--text); }
+.comment-date { font-size: var(--t-s); color: var(--text3); }
+.comment-text { font-size: var(--t-m); line-height: 1.55; color: var(--text2); white-space: pre-wrap; word-break: break-word; }
 
 /* ── Action de lecture principale (audit AMEL-100) ──
    Un seul bouton porte l'action, avec sa raison en sous-titre ; les replis
@@ -959,8 +838,8 @@
   flex-direction: column; align-items: flex-start; gap: 1px;
   height: auto; padding: var(--sp-2) 20px; line-height: 1.25;
 }
-.reprise-label { font-size: 14px; font-weight: 700; }
-.reprise-sub { font-size: 11px; font-weight: 500; opacity: .82; }
+.reprise-label { font-size: var(--t-m); font-weight: 700; }
+.reprise-sub { font-size: var(--t-xs); font-weight: 500; opacity: .82; }
 
 /* ── Notation en demi-étoiles (audit AMEL-47) ──
    `TINYINT` 1-5 est trop grossier pour classer des centaines de séries :
@@ -969,7 +848,7 @@
 .rate-stars { display: flex; gap: var(--sp-1); }
 .rate-star {
   position: relative; display: inline-block;
-  font-size: 26px; line-height: 1; width: 1em; height: 1em;
+  font-size: var(--t-2xl); line-height: 1; width: 1em; height: 1em;
 }
 .rate-star-bg   { color: var(--bg4); }
 .rate-star-fill {
@@ -994,7 +873,7 @@
   display: inline-flex; align-items: center; gap: var(--sp-2);
   height: 44px; padding: 0 var(--sp-4); border-radius:  var(--r-carte);
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
-  font-weight: 600; font-size: 13.5px; cursor: pointer;
+  font-weight: 600; font-size: var(--t-s); cursor: pointer;
 }
 .btn-lib:hover { border-color: var(--accent); }
 .btn-lib.is-in { border-color: color-mix(in srgb, var(--accent) 55%, var(--border2)); }
@@ -1002,7 +881,7 @@
 .btn-lib-caret { opacity: .7; margin-left: var(--sp-0); }
 /* Plus grand que la variante du système : c’est la cible tactile d’un
    menu, pas un bouton de barre. */
-.serie-more .btn-icon { height: 44px; width: 44px; font-size: 20px; line-height: 1; letter-spacing: 1px; }
+.serie-more .btn-icon { height: 44px; width: 44px; font-size: var(--t-xl); line-height: 1; letter-spacing: 1px; }
 
 .serie-pop {
   position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
@@ -1014,20 +893,20 @@
 .serie-pop--right { left: auto; right: 0; }
 @keyframes serie-pop-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .serie-pop { animation: none; } }
-.serie-pop-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); padding: var(--sp-2) 10px 6px; }
+.serie-pop-title { font-size: var(--t-s); font-weight: 700; color: var(--text3); padding: var(--sp-2) 10px 6px; }
 .serie-pop-sep { height: 1px; background: var(--border); margin: 6px var(--sp-1); }
 .serie-pop-item {
   display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);
   width: 100%; padding: var(--sp-2) 10px; border: 0; border-radius:  var(--r-controle);
-  background: none; color: var(--text); font-size: 13.5px; text-align: left; cursor: pointer;
+  background: none; color: var(--text); font-size: var(--t-s); text-align: left; cursor: pointer;
 }
 .serie-pop-item:hover, .serie-pop-item:focus-visible { background: var(--bg3); outline: none; }
-.serie-pop-val { color: var(--text3); font-size: 12.5px; }
+.serie-pop-val { color: var(--text3); font-size: var(--t-s); }
 .serie-pop-danger { color: var(--red, #c0392b); }
 .serie-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-1); padding: 0 var(--sp-1) var(--sp-1); }
 .serie-status-opt {
   padding: var(--sp-2) 6px; border-radius:  var(--r-controle); border: 1px solid var(--border);
-  background: var(--bg3); color: var(--text2); font-size: 12.5px; cursor: pointer;
+  background: var(--bg3); color: var(--text2); font-size: var(--t-s); cursor: pointer;
 }
 .serie-status-opt:hover { color: var(--text); border-color: var(--border2); }
 .serie-status-opt.on { background: color-mix(in srgb, var(--accent) 16%, var(--bg3)); border-color: var(--accent); color: var(--text); font-weight: 600; }
@@ -1038,15 +917,26 @@
 
 /* « Tu aimeras aussi » : une grille qui se replie, plus une rangée coupée
    au bord sans flèche ni indice qu'elle défile. */
-/* Une rangee d’oeuvres proches se parcourt : elle est dense par nature. */
-.sim-grid { display: grid; --grille-carte: var(--grille-carte-dense);
-    grid-template-columns: repeat(auto-fill, minmax(var(--grille-carte), 1fr)); gap: var(--grille-gouttiere-dense); padding: var(--sp-1) var(--sp-0) var(--sp-2); }
+.sim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--sp-4) 6px; padding: var(--sp-1) var(--sp-0) var(--sp-2); }
+/* Cette rangée était écrite ENTIÈREMENT en styles en ligne dans le JS,
+   y compris une pastille de score en #3f7d4e codé en dur — aveugle au
+   thème clair — posée sur la couverture avec son ombre, en 9 px.
+   La couverture reste nue ; le score descend dans la légende. */
+.sim-card { display: block; min-width: 0; color: inherit; text-decoration: none; }
+.sim-vignette { aspect-ratio: 3/4; overflow: hidden; background: var(--bg4); }
+.sim-vignette img { width: 100%; height: 100%; object-fit: cover;
+    transition: transform .4s var(--ease-out); }
+.sim-card:hover .sim-vignette img { transform: scale(1.05); }
+.sim-nom { font-size: var(--t-xs); margin-top: 6px; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sim-badge { display: none; font-size: var(--t-xs); font-weight: 700;
+    color: var(--green-text, var(--green)); margin-top: var(--sp-0); }
 
 /* Choix d'un téléchargement : combien, et combien ça pèse. */
 .mh-modal.dl-choix { width: min(440px, 94vw); }
 .dl-choix-options { display: flex; flex-direction: column; gap: 6px; margin: var(--sp-3) 0 var(--sp-2); }
-.dl-choix-option { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border); border-radius:  var(--r-carte); cursor: pointer; font-size: 13.5px; }
+.dl-choix-option { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border); border-radius:  var(--r-carte); cursor: pointer; font-size: var(--t-s); }
 .dl-choix-option:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .dl-choix-poids { color: var(--text2); font-variant-numeric: tabular-nums; }
-.dl-choix-note { font-size: 12px; color: var(--text3); margin: 0; }
-.dl-choix-alerte { font-size: 12.5px; color: var(--hanko, #c0392b); margin: var(--sp-2) 0 0; }
+.dl-choix-note { font-size: var(--t-s); color: var(--text3); margin: 0; }
+.dl-choix-alerte { font-size: var(--t-s); color: var(--hanko, #c0392b); margin: var(--sp-2) 0 0; }
