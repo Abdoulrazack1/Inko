@@ -2,72 +2,199 @@
    accueil.css — Accueil : reprendre, nouveautés suivies, rayons
    ============================================================ */
 
-.home { padding-top: 28px; padding-bottom: 48px; }
+.home { padding-top: 28px; padding-bottom: 0; }
+/* Le dernier rayon n’a pas à porter la marge qui sépare deux sections :
+   c’est le pied de page qui pose l’écart suivant, et les deux s’ajoutaient
+   en un vide de 200 px que rien n’occupait. */
+.home > .shelf:last-of-type { margin-bottom: 0; }
 
 /* ── En-tête ─────────────────────────────────────────────── */
-.home-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 22px; }
-.home-hello { font-family: var(--font-head); font-size: clamp(26px, 3.2vw, 36px); font-weight: 700; letter-spacing: -.01em; margin: 0; }
+/* L’accueil est un écran d’application, pas une page d’accroche : son
+   titre se tient entre 18 et 32 px. À 36 px, la salutation — qui ne dit
+   rien — était le plus gros caractère de l’écran, devant la série qu’on
+   est en train de lire. */
+.home-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px 28px; flex-wrap: wrap; margin-bottom: 26px; }
+.home-hello { font-family: var(--font-head); font-size: clamp(20px, 2vw, 24px); font-weight: 700; letter-spacing: -.01em; margin: 0; }
 .home-sub { margin: 4px 0 0; color: var(--text3); font-size: 13.5px; }
 .home-sub:empty { display: none; }
-.home-stats { display: flex; gap: 8px; flex-wrap: wrap; }
-.home-stat { display: flex; flex-direction: column; min-width: 110px; padding: 10px 14px; border-radius: 12px;
-    background: var(--bg2); border: 1px solid var(--border); color: inherit; text-decoration: none; transition: border-color .15s; }
-.home-stat:hover { border-color: var(--border2); }
-.home-stat strong { font-family: var(--font-head); font-size: 20px; line-height: 1.1; }
-.home-stat span { color: var(--text3); font-size: 12px; }
 
-/* ── Reprendre ───────────────────────────────────────────── */
-.home-continue { margin-bottom: 34px; }
-.cont-skel { height: 236px; border-radius: 18px; background: var(--bg2); animation: home-pulse 1.4s ease-in-out infinite; }
-@keyframes home-pulse { 50% { opacity: .55; } }
+/* Trois chiffres, trois tuiles encadrées, en haut à droite : ils pesaient
+   autant que la lecture en cours alors qu’on ne vient jamais sur l’accueil
+   pour eux. Ils deviennent une phrase — même information, un dixième de
+   la place, et plus un seul cadre. Les chiffres restent tabulaires pour
+   qu’ils ne dansent pas d’un chargement à l’autre. */
+.home-chiffres { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none;
+    font-size: 13px; color: var(--text3); font-variant-numeric: tabular-nums; }
+.home-chiffres a { color: inherit; text-decoration: none; }
+.home-chiffres a:hover { color: var(--text2); text-decoration: underline; text-underline-offset: 3px; }
+.home-chiffres b { font-weight: 600; color: var(--text2); }
 
-.cont-hero { position: relative; display: flex; gap: 26px; align-items: center; padding: 22px; border-radius: 18px;
-    overflow: hidden; background: #111; color: #f3f1ea; isolation: isolate; min-height: 236px; }
-.cont-hero-bg { position: absolute; inset: -40px; z-index: -1; background-size: cover; background-position: center 30%;
-    filter: blur(34px) saturate(1.3) brightness(.45); transform: scale(1.1); }
-.cont-hero::after { content: ""; position: absolute; inset: 0; z-index: -1;
-    background: linear-gradient(90deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.25) 60%, rgba(0,0,0,.1) 100%); }
-.cont-hero-cover { flex: 0 0 auto; width: 132px; aspect-ratio: 3 / 4.3; border-radius: 10px; overflow: hidden;
-    box-shadow: 0 14px 34px rgba(0,0,0,.5); }
-.cont-hero-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.cont-hero-body { min-width: 0; flex: 1; }
-.cont-hero-kicker { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.7); }
-.cont-hero-title { font-family: var(--font-head); font-size: clamp(22px, 2.6vw, 32px); line-height: 1.1; margin: 6px 0 8px; }
-.cont-hero-title a { color: inherit; text-decoration: none; }
-.cont-hero-title a:hover { text-decoration: underline; text-underline-offset: 4px; }
-.cont-hero-where { font-size: 14px; color: rgba(255,255,255,.82); }
-.cont-hero-left { color: #ffc9a8; font-weight: 600; }
-.cont-bar { height: 4px; border-radius: 4px; background: rgba(255,255,255,.18); overflow: hidden; margin: 12px 0 16px; max-width: 420px; }
-.cont-bar > span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
-.cont-bar--small { margin: 6px 0 0; height: 3px; background: var(--bg4); }
-.cont-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-.cont-hero-cta { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; font-size: 14px; }
-.cont-hero .btn-ghost { color: #fff; border-color: rgba(255,255,255,.28); background: rgba(255,255,255,.06); }
-.cont-hero .btn-ghost:hover { background: rgba(255,255,255,.14); }
+/* ── L'étagère ─────────────────────────────────────
+   On ne regarde pas une bibliothèque en vignettes : on la regarde par la
+   TRANCHE, et on tire le volume qu'on veut. C'est ce que fait cette bande.
 
-.cont-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 12px; }
-.cont-item { position: relative; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); transition: border-color .15s; }
-.cont-item:hover { border-color: var(--border2); }
-.cont-item-link { display: flex; gap: 12px; align-items: center; padding: 10px 36px 10px 10px; color: inherit; text-decoration: none; }
-.cont-item-link img { width: 44px; height: 62px; object-fit: cover; border-radius: 6px; flex: 0 0 auto; background: var(--bg3); }
-.cont-item-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.cont-item-title { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cont-item-where { color: var(--text3); font-size: 12px; margin-top: 2px; }
-.cont-item-x { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border: 0; border-radius: 6px;
-    background: none; color: var(--text3); cursor: pointer; opacity: 0; transition: opacity .15s; }
-.cont-item:hover .cont-item-x, .cont-item-x:focus-visible { opacity: 1; }
-.cont-item-x:hover { color: var(--text); background: var(--bg3); }
-@media (hover: none) { .cont-item-x { opacity: .7; } }
+   Ce qu'elle remplace : une carte de reprise dans un cadre arrondi, puis
+   six autres cartes encadrées en dessous. Sept conteneurs pour montrer
+   sept couvertures. Ici il n'y en a aucun — la couverture EST la latte.
 
-.cont-empty { display: flex; gap: 22px; align-items: center; padding: 26px; border-radius: 18px;
-    background: var(--bg2); border: 1px solid var(--border); }
-.cont-empty-kanji { font-size: 64px; line-height: 1; color: var(--accent); font-weight: 700; flex: 0 0 auto; }
-.cont-empty h2 { margin: 0 0 6px; font-family: var(--font-head); font-size: 22px; }
-.cont-empty p { margin: 0 0 14px; color: var(--text2); max-width: 560px; }
+   Ce qui est mesuré plutôt que décoré : la largeur d'une latte dit où on
+   en est (celle qu'on lit est ouverte), sa clarté dit la même chose, et
+   le filet du bas porte la progression réelle. Rien n'est ajouté qui ne
+   soit une donnée. */
+.home-continue { margin-bottom: 38px; }
+.cont-skel { height: clamp(300px, 32vw, 400px); background: var(--bg2);
+    animation: squelette-souffle 1.6s ease-in-out infinite; }
+
+.etagere { display: flex; gap: 2px; height: clamp(300px, 32vw, 400px);
+    overflow: hidden; background: var(--bg); }
+
+/* Une latte : la couverture, son dos, sa jauge. Pas de cadre, pas d'ombre,
+   pas de rayon — un livre serré contre ses voisins n'en a pas. */
+.latte { position: relative; flex: 1 1 0; min-width: 0; overflow: hidden;
+    display: block; color: #fff; text-decoration: none; isolation: isolate;
+    transition: flex-grow .42s var(--ease-out, cubic-bezier(.2,.8,.2,1)); }
+.latte-couv { position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; object-position: center 22%; z-index: -2;
+    filter: brightness(.42) saturate(.78);
+    transition: filter .42s var(--ease-out, cubic-bezier(.2,.8,.2,1)); }
+
+/* Celle qu'on lit est tirée de l'étagère : plus large, et à sa vraie
+   lumière. Les autres restent dans l'ombre du rang. */
+.latte--ouverte { flex-grow: 3.4; }
+/* Ouverte, la latte est large et presque carrée : on cadre par le HAUT,
+   là où une couverture met son titre et son visage. */
+.latte--ouverte .latte-couv { filter: none; object-position: center top; }
+.latte:hover, .latte:focus-visible { flex-grow: 4.2; }
+.latte:hover .latte-couv, .latte:focus-visible .latte-couv { filter: brightness(.92) saturate(1); }
+.latte:focus-visible { outline: 2px solid #fff; outline-offset: -4px; }
+
+/* Le dos porte le titre, debout, comme sur la tranche d'un volume. Il se
+   couche dès que la latte est ouverte ou tirée : c'est là qu'on lit. */
+/* Le dos porte son propre voile, et il est plat. Un dégradé n’est toléré
+   que pour poser du texte sur une image : c’est exactement son emploi ici.
+
+   J’ai essayé d’en faire du verre dépoli — il y a bien une image derrière,
+   donc le cas semblait fait pour. C’était faux : sur une tranche de 90 px,
+   le flou ne voile pas la couverture, il la SALIT, et la bande de verre
+   sur la latte ouverte est une dalle grise là où un dégradé s’efface.
+   Le verre reste donc où il sert vraiment dans cette application : la
+   barre fixe qui passe au-dessus du contenu qui défile, la barre du
+   lecteur, le panneau de musique. */
+.latte-dos { position: absolute; inset: auto 0 0 0; padding: 14px;
+    display: flex; flex-direction: column; gap: 3px;
+    background: linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,.72) 42%, rgba(0,0,0,0) 100%);
+    padding-top: 64px; }
+.latte-titre { font-family: var(--font-head); font-weight: 700; font-size: 15px;
+    line-height: 1.2; writing-mode: vertical-rl; transform: rotate(180deg);
+    max-height: 190px; overflow: hidden; margin-bottom: 6px; }
+.latte-ou { font-size: 12.5px; color: rgba(255,255,255,.76); display: none; }
+
+.latte--ouverte .latte-titre, .latte:hover .latte-titre, .latte:focus-visible .latte-titre {
+    writing-mode: horizontal-tb; transform: none; max-height: none;
+    font-size: clamp(20px, 2.1vw, 30px); letter-spacing: -.02em; margin-bottom: 2px; }
+.latte--ouverte .latte-ou, .latte:hover .latte-ou, .latte:focus-visible .latte-ou { display: block; }
+
+/* La jauge : deux pixels au ras du bois. La seule couleur d'accent de la
+   page, et elle porte une valeur. */
+.latte-jauge { position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+    background: rgba(255,255,255,.18); }
+.latte-jauge > span { display: block; height: 100%; background: var(--accent); }
+
+.etagere-pied { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.etagere-cta { display: inline-flex; align-items: center; gap: 8px; }
+.etagere-retirer { margin-left: auto; border: 0; background: none; cursor: pointer;
+    color: var(--text3); font: inherit; font-size: 13px; padding: 6px 2px; }
+.etagere-retirer:hover { color: var(--text2); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Au pointeur grossier, `global.css` relève TOUS les enfants d’un lien
+   en `position: relative` pour qu’ils passent au-dessus de la zone
+   d’atteinte étendue. Pour une latte, ça décroche la couverture, le dos
+   et la jauge de leur conteneur : le dos tombait SOUS l’étagère, et le
+   titre de la lecture en cours disparaissait de l’écran. Ils reprennent
+   leur position, et leur rang, explicitement. */
+/* « Nouveaux chapitres » ne montre QUE des séries suivies : le cœur y
+   est allumé sur chaque couverture et n’apprend donc rien à personne.
+   Un marqueur qui vaut pour tout le rang ne marque rien. */
+/* « Nouveaux chapitres » ne montre QUE des séries suivies : le cœur y est
+   allumé sur chaque ligne et n’apprend donc rien à personne. Un marqueur
+   qui vaut pour tout le rang ne marque rien. */
+#shelfNew .card-fav-btn { display: none; }
+
+@media (pointer: coarse) {
+  .latte > .latte-couv { position: absolute; z-index: 0; }
+  .latte > .latte-dos { position: absolute; z-index: 1; }
+  .latte > .latte-jauge { position: absolute; z-index: 2; }
+}
+@media (hover: none) {
+    /* Au doigt, il n'y a pas de survol : la latte ouverte reste ouverte, et
+       les autres sont de vraies tranches — on les touche pour les tirer. */
+    .latte:hover { flex-grow: 1; }
+    .latte:hover .latte-couv { filter: brightness(.42) saturate(.78); }
+    .latte--ouverte:hover { flex-grow: 3.4; }
+    .latte--ouverte:hover .latte-couv { filter: none; }
+}
+/* Le téléphone a sa propre composition, pas la même en plus petit.
+   Sept lattes dans 375 px donnaient des tranches de 35 px dont le
+   rembourrage de 14 px écrasait le titre. On en garde cinq : la latte
+   ouverte prend la moitié, les quatre tranches font 42 px — de quoi
+   lire un dos. */
+@media (max-width: 560px) {
+  .etagere { height: 316px; }
+  .latte:nth-child(n+6) { display: none; }
+  .latte--ouverte { flex-grow: 4.6; }
+  .latte-dos { padding: 8px; padding-top: 48px; }
+  .latte-titre { font-size: 12.5px; max-height: 150px; }
+  .latte--ouverte .latte-titre { font-size: 20px; }
+  .latte--ouverte .latte-dos { padding: 12px; padding-top: 56px; }
+  .etagere-pied .btn { flex: 1 1 auto; justify-content: center; }
+  .etagere-retirer { flex: 0 0 auto; }
+}
+@media (prefers-reduced-motion: reduce) { .latte, .latte-couv { transition: none; } }
+
+/* Quand il n’y a rien à montrer, il n’y a surtout aucune raison de
+   dessiner une boîte vide. C’est le seul écran de l’application où les
+   couvertures manquent : le sceau de la marque y devient la seule image,
+   et il est grand, comme un cachet sur une page blanche. */
+.cont-empty { display: flex; gap: 32px; align-items: center;
+    min-height: clamp(280px, 30vw, 360px); }
+.cont-empty-kanji { font-size: clamp(92px, 13vw, 168px); line-height: .85; color: var(--accent);
+    font-weight: 700; flex: 0 0 auto; }
+.cont-empty h2 { margin: 0 0 8px; font-family: var(--font-head); font-size: clamp(24px, 3vw, 34px);
+    letter-spacing: -.02em; line-height: 1.1; }
+.cont-empty p { margin: 0 0 18px; color: var(--text2); font-size: 15px; max-width: 46ch; }
 .cont-empty-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ── Rayons ──────────────────────────────────────────────── */
-.shelf { position: relative; margin-bottom: 30px; }
+/* ── Trois poids, et non cinq rangées identiques ──────────────
+   Ce que tu suis vient en grand ; ce que tu as mis de côté est une pile,
+   donc plus petite ; ce que tu pourrais lire est une seule section à
+   entrées. La différence de DENSITÉ fait le travail que cinq titres ne
+   faisaient pas. */
+/* Tout était à 30 px de tout : aucune section ne respirait différemment, et
+   la page se lisait comme une liste de blocs équivalents. L’écart ENTRE
+   deux sections doit être nettement plus grand que n’importe quel écart à
+   l’intérieur de l’une d’elles — c’est ce qui fait qu’on les voit comme des
+   sections et non comme une suite.
+   Et la coupure la plus large sépare les deux familles : ce qui est à toi,
+   et ce qui ne l’est pas encore. */
+.shelf { position: relative; margin-bottom: clamp(56px, 7vw, 92px); }
+.shelf--pile { margin-bottom: clamp(80px, 11vw, 140px); }
+.shelf-head { margin-bottom: 16px; }
+.shelf--pile .shelf-title { font-size: 16px; }
+.shelf--pile .shelf-track { grid-auto-columns: 104px; gap: 10px; }
+.shelf--pile .shelf-name { font-size: 12px; -webkit-line-clamp: 1; }
+.shelf--pile .shelf-meta { display: none; }
+
+/* Les entrées de « Découvrir ». Un onglet actif se marque par son encre,
+   pas par une pastille colorée : la couleur de cette page est réservée
+   aux données. */
+.decouvrir-onglets { display: flex; gap: 20px; margin: 0 0 14px; }
+.decouvrir-onglet { border: 0; background: none; padding: 0 0 6px; cursor: pointer;
+    font: inherit; font-size: 14px; font-weight: 600; color: var(--text3);
+    border-bottom: 2px solid transparent; transition: color var(--transition); }
+.decouvrir-onglet:hover { color: var(--text2); }
+.decouvrir-onglet.on { color: var(--text); border-bottom-color: var(--text); }
+.decouvrir-onglet[hidden] { display: none; }
 .shelf-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .shelf-title { font-family: var(--font-head); font-size: 20px; margin: 0; }
 .shelf-sub { margin: 2px 0 0; color: var(--text3); font-size: 12.5px; }
@@ -77,43 +204,56 @@
 .shelf-link:hover { text-decoration: underline; }
 .shelf-link:disabled { color: var(--text3); cursor: default; text-decoration: none; }
 
-.shelf-track { display: grid; grid-auto-flow: column; grid-auto-columns: 148px; gap: 14px;
-    overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding: 2px 2px 6px; }
+/* Quatorze pixels entre chaque couverture : chacune redevenait un objet
+   séparé, c’est-à-dire une carte sans cadre. Quatre pixels, et le rayon se
+   lit comme une bande d’images — la même lecture que l’étagère du haut. */
+.shelf-track { display: grid; grid-auto-flow: column; grid-auto-columns: 152px; gap: 4px;
+    overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding: 0 0 6px; }
 .shelf-track::-webkit-scrollbar { display: none; }
 .shelf-track[hidden] { display: none; }
 .shelf-card { position: relative; scroll-snap-align: start; min-width: 0; background: none !important; border: 0 !important; box-shadow: none !important; }
 .shelf-card:hover { transform: none; }
-.shelf-cover { position: relative; aspect-ratio: 3 / 4.3; border-radius: 10px; overflow: hidden; background: var(--bg3); }
+/* La même grammaire que l’étagère : la couverture EST l’objet. Un rayon
+   de 10 px autour de quarante couvertures, c’est quarante cartes — et
+   c’est précisément ce dont la page venait de se défaire au-dessus. */
+.shelf-cover { position: relative; aspect-ratio: 3 / 4.3; overflow: hidden; background: var(--bg3); }
 .shelf-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
 .shelf-card:hover .shelf-cover img { transform: scale(1.04); }
 .shelf-name { margin-top: 8px; font-size: 13px; font-weight: 600; line-height: 1.3;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .shelf-meta { margin-top: 2px; font-size: 11.5px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.shelf-badge { position: absolute; left: 6px; bottom: 6px; z-index: 2; padding: 3px 8px; border-radius: 12px;
-    background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
-.shelf-card .card-fav-btn, .shelf-x { position: absolute; top: 6px; right: 6px; z-index: 3; }
-.shelf-x { width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; opacity: 0; transition: opacity .15s; }
+/* Le compte de non-lus est une donnée : il reste coloré. Mais il n’a rien
+   à faire SUR l’œuvre — descendu dans la ligne de méta, il se lit au lieu
+   de masquer. Même décision que pour le cœur, même raison. */
+.shelf-nonlus { color: var(--accent-text, var(--accent)); font-weight: 700;
+    font-variant-numeric: tabular-nums; }
+/* La croix était le dernier rond noir posé sur une couverture. Elle rejoint
+   la ligne du titre, comme le cœur, et pour la même raison. */
+.shelf-x { flex: 0 0 auto; width: 26px; height: 26px; border: 0; background: none;
+    color: var(--text3); font-size: 18px; line-height: 1; cursor: pointer;
+    border-radius: var(--radius2); opacity: 0; transition: opacity .15s, color var(--transition); }
+.shelf-x:hover { color: var(--text); }
 .shelf-card:hover .shelf-x, .shelf-x:focus-visible { opacity: 1; }
 @media (hover: none) { .shelf-x { opacity: 1; } }
 .shelf-card--skel .shelf-cover { animation: home-pulse 1.4s ease-in-out infinite; }
 .shelf-card--skel .shelf-name { height: 12px; width: 80%; border-radius: 4px; background: var(--bg3); }
 
-.shelf-arrow { position: absolute; top: calc(50% + 4px); z-index: 5; width: 38px; height: 38px; border-radius: 50%;
-    border: 1px solid var(--border2); background: var(--bg2); color: var(--text); font-size: 22px; line-height: 1;
-    cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.3); opacity: 0; transition: opacity .15s; }
-.shelf-arrow--prev { left: -14px; }
-.shelf-arrow--next { right: -14px; }
+/* Deux ronds bordés et ombrés flottant sur la rangée : c’est du mobilier
+   déguisé en objet. Un volet plat, de la hauteur des couvertures, pousse
+   la rangée sans se faire remarquer. */
+.shelf-arrow { position: absolute; top: 0; z-index: 5; width: 44px; height: calc(100% - 46px);
+    border: 0; background: linear-gradient(to right, transparent, rgba(0,0,0,.55));
+    color: #fff; font-size: 24px; line-height: 1; cursor: pointer; opacity: 0;
+    transition: opacity .15s; display: flex; align-items: center; justify-content: center; }
+.shelf-arrow--prev { left: 0; background: linear-gradient(to left, transparent, rgba(0,0,0,.55)); }
+.shelf-arrow--next { right: 0; }
 .shelf:hover .shelf-arrow, .shelf-arrow:focus-visible { opacity: 1; }
 .shelf-arrow[hidden] { display: none; }
 @media (hover: none) { .shelf-arrow { display: none; } }
 
 @media (max-width: 640px) {
   .home { padding-top: 16px; }
-  .home-stats { width: 100%; }
-  .home-stat { flex: 1; min-width: 0; }
-  .cont-hero { flex-direction: column; align-items: flex-start; padding: 18px; }
-  .cont-hero-cover { width: 96px; }
-  .shelf-track { grid-auto-columns: 118px; gap: 10px; }
+  .shelf-track { grid-auto-columns: 120px; gap: 3px; }
   .cont-empty { flex-direction: column; align-items: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) {

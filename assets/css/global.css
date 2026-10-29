@@ -205,7 +205,12 @@ html[data-theme="dark"] {
   --hm4:         #ff9a4d;
   --border:      rgba(233,231,224,0.09);
   --border2:     rgba(233,231,224,0.17);
-  --text:        #e9e7e0;   /* Encre sur Sumi */
+  /* L’encre était crème (#e9e7e0). Avec l’orange de la marque, ce couple
+     crème-terracotta est exactement la palette que tout générateur produit :
+     l’outil de direction artistique la nomme et la refuse. Le papier chaud
+     garde son sens dans l’édition CLAIRE, qui s’appelle Washi ; sur le noir,
+     il ne signifiait plus rien et coûtait l’identité de la marque. */
+  --text:        #e9e9ec;   /* Encre sur Sumi */
   --text2:       #b2afa5;
   /* Audit QUAL-05 : #8b877c ne tenait 4,5:1 que sur le fond le plus sombre —
      4,19 sur --bg4, où il sert justement de fond de pastille (versions,
@@ -556,15 +561,20 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
   display: flex; align-items: center; gap: 8px;
   margin-left: auto; flex-shrink: 0;
 }
+/* Sept icônes, chacune dans sa pastille bordée : c’est le mobilier qui se
+   fait remarquer au lieu de la page. Une icône d’en-tête est une commande,
+   pas un objet — elle n’a besoin ni de fond, ni de cadre, ni de rond. Elle
+   garde sa cible de 34 px et se signale par son encre.
+   (Celles qui portent un ÉTAT — incognito actif, musique en cours — le
+   disent par leur couleur ; voir `.header-icon-btn.on` plus bas.) */
 .header-icon-btn {
   width: 34px; height: 34px;
-  background: var(--bg3); border-radius: 50%;
+  background: none; border: 0; border-radius: var(--radius2);
   display: flex; align-items: center; justify-content: center;
-  color: var(--text2); font-size: 14px;
-  transition: all var(--transition);
-  border: 1px solid var(--border);
+  color: var(--text3); font-size: 14px;
+  transition: color var(--transition), background var(--transition);
 }
-.header-icon-btn:hover { color: var(--text); border-color: var(--border2); }
+.header-icon-btn:hover { color: var(--text); background: var(--bg3); }
 .header-icon-btn:disabled { opacity: .6; cursor: default; }
 .header-icon-btn.on { background: var(--orange); color: #fff; border-color: var(--orange); }
 /* Mode incognito : liseré discret en haut de page pour le rappeler */
@@ -674,12 +684,19 @@ body.incognito-on::before {
 /* ╔══════════════════════════════════════════════════════════╗
    ║  FOOTER                                                   ║
    ╚══════════════════════════════════════════════════════════╝ */
+/* Le pied n’est pas un panneau rapporté : même fond que la page, séparé
+   par l’espace. Un bandeau d’une autre teinte sous une page sombre, c’est
+   une deuxième page collée sous la première. */
 .site-footer {
-  background: var(--bg2);
+  background: none;
   border-top: 1px solid var(--border);
   padding: 48px 0 24px;
-  margin-top: 80px;
+  margin-top: 96px;
 }
+/* Les deux boutons de langue portaient leur dessin en attribut `style`. */
+.footer-lang-btn { background: none; border: 1px solid var(--border2); color: var(--text2);
+  border-radius: var(--radius2); padding: 3px 8px; cursor: pointer; font: inherit; font-size: 12px; }
+.footer-lang-btn:hover { color: var(--text); border-color: var(--text3); }
 .footer-inner {
   max-width: 1200px; margin: 0 auto; padding: 0 24px;
   display: grid; grid-template-columns: 280px repeat(3,1fr); gap: 40px;
@@ -709,10 +726,12 @@ body.incognito-on::before {
   transition: background var(--transition);
 }
 .footer-email-form button:hover { background: var(--orange); border-color: var(--orange); }
+/* Une petite capitale espacée est le signe le plus sûr d’un gabarit, et
+   elle se lit moins bien que la même chose en bas de casse. Le titre de
+   colonne garde son rôle par sa graisse et sa couleur. */
 .footer-col h4 {
-  font-family: var(--font-head); font-size: 12px;
-  font-weight: 700; letter-spacing: .05em;
-  text-transform: uppercase; color: var(--text2);
+  font-family: var(--font-head); font-size: 13.5px;
+  font-weight: 700; color: var(--text);
   margin-bottom: 14px;
 }
 .footer-col ul { display: flex; flex-direction: column; gap: 8px; }
@@ -903,10 +922,9 @@ body.incognito-on::before {
               transform .12s var(--ease-out), box-shadow var(--transition), color var(--transition);
 }
 .btn:active { transform: translateY(1px) scale(.99); }
-.btn-primary {
-  background: var(--accent); color: #fff;
-  box-shadow: 0 1px 2px rgba(28,27,25,.12), inset 0 1px 0 rgba(255,255,255,.14);
-}
+/* Plat : un seul aplat, sans ombre ni lueur. Le relief sur un bouton est
+   le premier signe d’un gabarit. */
+.btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); box-shadow: var(--shadow-2); transform: translateY(-1px); }
 .btn-primary:active { box-shadow: var(--shadow-1); }
 .btn-secondary {
@@ -959,13 +977,15 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .divider { height: 1px; background: var(--border); margin: 20px 0; }
 
 /* Loading skeleton */
+/* Le miroitement était un dégradé animé — trente et un dégradés sur la
+   seule page d’accueil. Un aplat qui respire dit la même chose et ne
+   peint rien. */
 .skeleton {
-  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
-  background-size: 400% 100%;
-  animation: shimmer 1.5s infinite;
+  background: var(--bg3);
+  animation: squelette-souffle 1.6s ease-in-out infinite;
   border-radius: var(--radius2);
 }
-@keyframes shimmer { 0%{background-position:200%} 100%{background-position:-200%} }
+@keyframes squelette-souffle { 50% { opacity: .55; } }
 
 /* ── Une couverture qui arrive ne doit pas ressembler à une panne ──
    Relevé sur l'accueil : 36 images sur 83 encore en vol au moment de la
@@ -975,9 +995,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
    avoir à toucher le gabarit de chaque page. Le fond d'une <img> se voit
    tant que ses données ne sont pas là ; l'image le recouvre en arrivant. */
 img[src*="/api/img"]:not(.img-arrivee) {
-  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
-  background-size: 400% 100%;
-  animation: shimmer 1.5s infinite;
+  background: var(--bg3);
+  animation: squelette-souffle 1.6s ease-in-out infinite;
 }
 /* Échec : un fond calme et muet. Un miroitement sans fin promettrait une
    image qui ne viendra jamais. */
@@ -989,21 +1008,59 @@ img.img-echec { background: var(--bg3); animation: none; }
 @keyframes fadeIn  { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── Card favorite button (used on catalogue + reco grids) ── */
+/* ── Le cœur sort de la couverture ──────────────────────
+   C’était un rond noir flouté posé PAR-DESSUS l’œuvre, sur chaque carte
+   d’une page qui en compte quarante. Deux torts : il abîme la seule chose
+   belle de l’écran, et une icône dans une pastille teintée est le signe le
+   plus sûr d’une interface fabriquée en série.
+
+   Le projet avait déjà tranché pour le doigt : ces actions passent par
+   l’appui long, « où elles ont de la place et un libellé ». Au pointeur,
+   le cœur descend dans la ligne du titre : la couverture redevient une
+   image, et le geste garde sa cible.
+
+   Plus de fond, plus de rond, plus de flou : un glyphe, qui prend la
+   couleur quand il porte un état. */
 .card-fav-btn {
-  position: absolute; top: 8px; right: 8px;
-  width: 30px; height: 30px;
-  border-radius: 50%; border: none;
-  background: rgba(0,0,0,0.55);
-  color: #fff;
-  font-size: 15px;
-  cursor: pointer;
+  flex: 0 0 auto; width: 26px; height: 26px;
+  border: 0; background: none; border-radius: var(--radius2);
+  color: var(--text3); font-size: 15px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  z-index: 2;
-  backdrop-filter: blur(6px);
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition: color var(--transition), opacity .16s;
 }
-.card-fav-btn:hover  { background: rgba(0,0,0,0.75); transform: scale(1.08); }
-.card-fav-btn.is-fav { color: var(--red); background: rgba(0,0,0,0.7); }
+.card-fav-btn:hover { color: var(--text); }
+.card-fav-btn.is-fav { color: var(--red); }
+.card-fav-btn.is-fav:hover { color: var(--red-text, var(--red)); }
+
+/* Au pointeur fin, il n’apparaît qu’au survol ou au clavier — sauf quand
+   il porte déjà une information. Au doigt, il reste là. */
+@media (hover: hover) {
+  .card-fav-btn { opacity: 0; }
+  .manga-card:hover .card-fav-btn, .shelf-card:hover .card-fav-btn,
+  .card-fav-btn:focus-visible, .card-fav-btn.is-fav { opacity: 1; }
+}
+
+/* La ligne du titre d’une carte de rayon : le titre prend la place, le
+   cœur se range au bout. */
+.shelf-nom { display: flex; align-items: flex-start; gap: 6px;
+    margin-top: var(--carte-ecart, 8px); padding-right: 6px; }
+.shelf-nom .shelf-name { flex: 1 1 auto; min-width: 0; margin-top: 0; }
+.shelf-meta { padding-right: 6px; }
+.manga-card-info { position: relative; }
+.manga-card-info .card-fav-btn { position: absolute; right: 8px; bottom: 8px; }
+
+/* ── Le bandeau « il manque quelque chose » ───────────────
+   Il était dessiné en attributs `style`, sur huit écrans. Sa place est
+   ici, et sa forme est celle de l'état vide : du texte dans de l'espace,
+   pas une boîte. */
+.mh-invite { padding: 40px 16px; text-align: center; }
+.mh-invite-titre { margin: 0 0 6px; font-size: 16px; font-weight: 600; color: var(--text); }
+.mh-invite-texte { margin: 0 auto 18px; color: var(--text3); max-width: 52ch; }
+.mh-invite--ligne { padding: 4px 0 2px; font-size: 12.5px; color: var(--text3); text-align: left; }
+.mh-invite-lien { border: 0; background: none; padding: 0; font: inherit;
+    color: var(--accent-text, var(--accent)); cursor: pointer; text-decoration: underline;
+    text-underline-offset: 2px; }
+.mh-invite-lien:hover { color: var(--text); }
 
 /* ── Spinner inline ── */
 .spinner-inline {
@@ -1172,7 +1229,7 @@ a[data-nsfw] .manga-card-cover::after,
   .mnav-item {
     flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
     padding: 9px 0 7px; text-decoration: none;
-    color: var(--text3); font-size: 10px; font-weight: 600;
+    color: var(--text3); font-size: 11px; font-weight: 600;
     transition: color var(--transition);
   }
   /* Meme defaut, et meme correctif que `.tag.active` plus haut : l'accent est
@@ -1225,7 +1282,9 @@ a[data-nsfw] .manga-card-cover::after,
   .site-header { padding: 0 12px; gap: 8px; }
   .header-search { display: none; }
   .header-icon-btn { width: 30px; height: 30px; }
-  .container, .container-wide { padding: 0 14px; }
+  /* 16 px au minimum : à 14, le titre et les libellés de coin touchent
+     presque le bord de l’écran. */
+  .container, .container-wide { padding: 0 16px; }
   .manga-grid-5,
   .manga-grid-4 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .manga-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -1660,11 +1719,10 @@ html.inko-app main { animation: inko-app-entree .18s ease-out; }
 
 /* ══ REPLI aspect-ratio — GÉNÉRÉ par scripts-ci/gen-repli-aspect-ratio.js ══ */
 /* Ne pas modifier à la main : `npm run gen-repli-ar` régénère ce bloc.
-   16 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
+   15 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
    (WebView Android 8 = Chrome 61). Sur un navigateur récent, ce bloc
    entier est ignoré. */
 @supports not (aspect-ratio: 1 / 1) {
-    .cont-hero-cover { height: 189.2px; }
     .shelf-cover { height: 0; padding-top: 143.3333%; }
     .shelf-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .lib2-cover { height: 0; padding-top: 133.3333%; }

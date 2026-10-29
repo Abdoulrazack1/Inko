@@ -53,7 +53,10 @@
             const st = await API.me.stats();
             const t = st.totals || {};
             const serie = st.streak?.current || 0;
-            const bloc = (n, l, href) => `<a class="home-stat" href="${href}"><strong>${MH.fmt(n || 0)}</strong><span>${l}</span></a>`;
+            // Une phrase, pas trois tuiles encadrées : on ne vient jamais sur
+            // l’accueil pour ces chiffres, et ils pesaient autant que la série
+            // qu’on est en train de lire.
+            const bloc = (n, l, href) => `<li><a href="${href}"><b>${MH.fmt(n || 0)}</b> ${l}</a></li>`;
             // Une série de lecture à ZÉRO n'est pas une statistique, c'est un
             // reproche. Elle occupait le même poids visuel que « 495 séries
             // suivies », en tête de l'accueil, et ne disait qu'une chose : tu
@@ -65,7 +68,11 @@
             // quand elle encourage au lieu d'accuser.
             const milieu = serie > 0
                 ? bloc(serie, serie > 1 ? 'jours d’affilée' : 'jour d’affilée', 'stats.html')
-                : bloc(t.chapters_this_month, 'chapitres ce mois', 'stats.html');
+                // « 1 chapitres ce mois » : l’accord manquait, et le cas se
+                // produit tous les premiers du mois.
+                : bloc(t.chapters_this_month,
+                    (t.chapters_this_month === 1 ? 'chapitre' : 'chapitres') + ' ce mois', 'stats.html');
+            el.className = 'home-chiffres';
             el.innerHTML = bloc(t.chapters_read, 'chapitres lus', 'stats.html')
                 + milieu
                 + bloc(favoris.length, 'séries suivies', 'bibliotheque.html');
@@ -110,7 +117,7 @@
         const visibles = entrees.filter(e => e.title);
         if (!visibles.length) { rendreAccueilVide(zone); return; }
 
-        const [une, ...autres] = visibles;
+        const [une] = visibles;
         const pct = (e) => MH.isNovelSource(e.source)
             ? Math.min(100, e.page || 0)
             : (e.totalPages > 0 ? Math.min(100, Math.round((e.page / e.totalPages) * 100)) : 0);
@@ -123,42 +130,38 @@
         const couv = (e) => MH.cover(e.cover, MH.placeholderCover(e.mangaId));
 
         zone.innerHTML = `
-            <article class="cont-hero">
-                <div class="cont-hero-bg" style="background-image:url('${couv(une)}')" aria-hidden="true"></div>
-                <a class="cont-hero-cover" href="${lien(une)}" tabindex="-1" aria-hidden="true"><img src="${couv(une)}" alt=""></a>
-                <div class="cont-hero-body">
-                    <div class="cont-hero-kicker">Reprendre · ${MH.esc(MH.relTime(une.updatedAt))}</div>
-                    <h2 class="cont-hero-title"><a href="${fiche(une)}">${MH.esc(une.title)}</a></h2>
-                    <div class="cont-hero-where">${MH.esc(ou(une))}${typeof une.unread === 'number' && une.unread > 1 ? ` · <span class="cont-hero-left">${une.unread} chapitres non lus</span>` : ''}</div>
-                    <div class="cont-bar"><span style="width:${pct(une)}%"></span></div>
-                    <div class="cont-hero-actions">
-                        <a class="btn btn-primary cont-hero-cta" href="${lien(une)}">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-                            Reprendre la lecture</a>
-                        <a class="btn btn-ghost" href="${fiche(une)}">Voir la fiche</a>
-                    </div>
-                </div>
-            </article>
-            ${autres.length ? `<div class="cont-row">${autres.map(e => `
-                <div class="cont-item" data-id="${MH.esc(e.mangaId)}">
-                    <a class="cont-item-link" href="${lien(e)}">
-                        <img src="${couv(e)}" alt="" loading="lazy">
-                        <span class="cont-item-text">
-                            <span class="cont-item-title">${MH.esc(e.title)}</span>
-                            <span class="cont-item-where">${MH.esc(ou(e))}</span>
-                            <span class="cont-bar cont-bar--small"><span style="width:${pct(e)}%"></span></span>
-                        </span>
-                    </a>
-                    <button class="cont-item-x" type="button" data-retirer="${MH.esc(e.mangaId)}"
-                        title="Retirer de « Reprendre »" aria-label="Retirer « ${MH.esc(e.title)} » de « Reprendre »">✕</button>
-                </div>`).join('')}</div>` : ''}`;
+            <div class="etagere" role="list">
+                ${visibles.map((e, i) => `
+                <a class="latte${i === 0 ? ' latte--ouverte' : ''}" role="listitem"
+                   href="${lien(e)}" data-id="${MH.esc(e.mangaId)}"
+                   aria-label="Reprendre ${MH.esc(e.title)}, ${MH.esc(ou(e))}">
+                    <img class="latte-couv" src="${couv(e)}" alt="" loading="${i === 0 ? 'eager' : 'lazy'}">
+                    <span class="latte-dos">
+                        <span class="latte-titre">${MH.esc(e.title)}</span>
+                        <span class="latte-ou">${i === 0 ? `Tu t\u2019es arr\u00eat\u00e9 ${MH.esc(MH.relTime(e.updatedAt))} \u00b7 ` : ''}${MH.esc(ou(e))}</span>
+                    </span>
+                    <span class="latte-jauge" aria-hidden="true"><span style="width:${pct(e)}%"></span></span>
+                </a>`).join('')}
+            </div>
+            <div class="etagere-pied">
+                <a class="btn btn-primary etagere-cta" href="${lien(une)}">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                    Reprendre ${MH.esc(une.title)}</a>
+                <a class="btn btn-ghost" href="${fiche(une)}">Voir la fiche</a>
+                <button class="etagere-retirer" type="button" data-retirer="${MH.esc(une.mangaId)}"
+                    title="Retirer de \u00ab\u00a0Reprendre\u00a0\u00bb" aria-label="Retirer \u00ab\u00a0${MH.esc(une.title)}\u00a0\u00bb de \u00ab\u00a0Reprendre\u00a0\u00bb">Retirer</button>
+            </div>`;
 
         zone.querySelectorAll('[data-retirer]').forEach(b => b.addEventListener('click', async (ev) => {
             ev.preventDefault();
             try {
                 await API.me.removeProgress(b.dataset.retirer);
-                b.closest('.cont-item')?.remove();
+                // L’étagère est une composition : retirer une latte change la
+                // largeur de toutes les autres. On la redessine au lieu d’ôter
+                // un nœud dans un rang qui ne s’en remettrait pas.
                 MH.toast('Retiré de « Reprendre »');
+                chargerReprise();
+                return;
             } catch (e) { MH.toastErreur(e); }
         }));
     }
@@ -216,7 +219,10 @@
         track.hidden = false;
         track.innerHTML = avec.map(f => carte({
             id: f.mangaId, source: f.source, title: f.title, cover: f.cover,
-            badge: `${f.unreadCount} à lire`,
+            // Le compte était une pastille orange posée SUR la couverture.
+            // C'est une donnée, donc il reste coloré — mais il descend dans
+            // la ligne de méta, où il se lit au lieu de masquer l'œuvre.
+            nonLus: f.unreadCount,
             sous: f.latestAt ? MH.relTime(new Date(f.latestAt).toISOString()) : '',
         })).join('');
         MH.markFavorites?.(track);
@@ -261,13 +267,51 @@
         }));
     }
 
+    // ── Découvrir : trois entrées, une seule section ─────────────
+    // Trois rangées de couvertures qui se suivaient, de même taille et au
+    // même rythme, sous trois titres : la page en comptait cinq et on ne
+    // les distinguait plus. Elles n’appelaient pas trois sections.
+    const LEGENDES = { pourToi: '', populaire: '', dernieres: '' };
+    const ONGLETS = [
+        ['ongletReco', 'shelfRecoTrack', 'pourToi'],
+        ['ongletPopular', 'shelfPopularTrack', 'populaire'],
+        ['ongletLatest', 'shelfLatestTrack', 'dernieres'],
+    ];
+    function majLegende() {
+        const actif = ONGLETS.find(([id]) => document.getElementById(id)?.classList.contains('on'));
+        const sub = document.getElementById('shelfDecouvrirSub');
+        if (sub && actif) sub.textContent = LEGENDES[actif[2]] || '';
+    }
+    function choisirOnglet(cible) {
+        for (const [id, trackId] of ONGLETS) {
+            const b = document.getElementById(id), t = document.getElementById(trackId);
+            if (!b || !t) continue;
+            const actif = id === cible;
+            b.classList.toggle('on', actif);
+            b.setAttribute('aria-selected', String(actif));
+            t.hidden = !actif;
+        }
+        majLegende();
+    }
+    function ouvrirOngletReco(legende) {
+        const b = document.getElementById('ongletReco');
+        if (!b) return;
+        LEGENDES.pourToi = legende;
+        b.hidden = false;
+        // Une recommandation nommée vaut mieux qu’un classement : dès qu’elle
+        // existe, c’est elle qu’on montre en premier.
+        choisirOnglet('ongletReco');
+    }
+    ONGLETS.forEach(([id]) => document.getElementById(id)?.addEventListener('click', () => choisirOnglet(id)));
+
     // ── 4 & 5. Découverte : populaire, dernières sorties, recommandation ──
     async function chargerDecouverte() {
         const nomSrc = MH.sourceName?.(API.sources.current) || API.sources.current || '';
-        const pSub = document.getElementById('shelfPopularSub');
-        const lSub = document.getElementById('shelfLatestSub');
-        if (pSub) pSub.textContent = `Les séries les plus suivies sur ${nomSrc}`;
-        if (lSub) lSub.textContent = `Chapitres fraîchement publiés sur ${nomSrc}`;
+        // Les trois entrées partagent un titre : c’est l’onglet actif qui dit
+        // laquelle on regarde, et la phrase sous le titre le répète en clair.
+        LEGENDES.populaire = `Les séries les plus suivies sur ${nomSrc}`;
+        LEGENDES.dernieres = `Chapitres fraîchement publiés sur ${nomSrc}`;
+        majLegende();
         squelette('shelfPopularTrack'); squelette('shelfLatestTrack');
 
         const [pop, lat] = await Promise.allSettled([
@@ -334,8 +378,7 @@
         }
         const picks = [...vus.values()].sort((x, y) => y.score - x.score).slice(0, 16);
         if (picks.length < 4) return false;
-        section.hidden = false;
-        if (sub) sub.textContent = `${profil[0].tag} + ${profil[1].tag}, d’après tes ${avecTags.length} dernières lectures`;
+        ouvrirOngletReco(`${profil[0].tag} + ${profil[1].tag}, d’après tes ${avecTags.length} dernières lectures`);
         track.innerHTML = picks.map(({ m, communs }) => carte({
             id: m.id, source, title: m.title, cover: m.cover || m.coverThumb, manga: m,
             sous: communs.slice(0, 2).join(' · '),
@@ -368,8 +411,7 @@
                 .filter(m => !favSet.has(String(m.id)) && String(m.id) !== String(origine.id) && visible(m))
                 .slice(0, 16);
             if (picks.length < 4) return;
-            section.hidden = false;
-            if (sub) sub.textContent = `Parce que tu as lu « ${origine.title} »`;
+            ouvrirOngletReco(`Parce que tu as lu « ${origine.title} »`);
             track.innerHTML = picks.map(m => carte({
                 id: m.id, source, title: m.title, cover: m.cover || m.coverThumb, manga: m,
                 sous: (m.tags || []).find(t => tags.includes(t)) || m.year || '',
@@ -401,19 +443,24 @@
     // (flouté ailleurs, mais une page d'accueil ne se floute pas à moitié).
     const visible = (m) => MH.nsfwAllowed?.() || !MH.isAdultManga?.(m);
 
-    function carte({ id, source, title, cover, sous, badge, retirer, manga }) {
+    function carte({ id, source, title, cover, sous, nonLus, retirer, manga }) {
         const href = `serie.html?id=${encodeURIComponent(id)}&source=${encodeURIComponent(source || '')}`;
         return `
         <div class="shelf-card manga-card" data-manga-id="${MH.esc(id)}">
             <a href="${href}" class="manga-card-link" aria-label="${MH.esc(title || '')}"${manga ? MH.nsfwCardAttrs?.(manga) || '' : ''}></a>
             <div class="shelf-cover">
                 <img src="${MH.cover(cover, MH.placeholderCover(id))}" alt="" loading="lazy" decoding="async">
-                ${badge ? `<span class="shelf-badge">${MH.esc(badge)}</span>` : ''}
-                ${retirer ? `<button class="shelf-x" type="button" ${retirer} aria-label="Retirer">✕</button>`
-                    : `<button class="card-fav-btn" data-fav="${MH.esc(id)}" title="Ajouter à ma bibliothèque">${MH.heartIcon(favSet.has(String(id)))}</button>`}
             </div>
-            <div class="shelf-name">${MH.esc(title || '')}</div>
-            ${sous ? `<div class="shelf-meta">${MH.esc(String(sous))}</div>` : ''}
+            <div class="shelf-nom">
+                <span class="shelf-name">${MH.esc(title || '')}</span>
+                ${retirer
+                    ? `<button class="shelf-x" type="button" ${retirer} title="Retirer de « À lire ensuite »" aria-label="Retirer « ${MH.esc(title || '')} » de « À lire ensuite »">×</button>`
+                    : `<button class="card-fav-btn" data-fav="${MH.esc(id)}" title="Ajouter à ma bibliothèque" aria-label="Ajouter « ${MH.esc(title || '')} » à ma bibliothèque">${MH.heartIcon(favSet.has(String(id)))}</button>`}
+            </div>
+            ${nonLus || sous ? `<div class="shelf-meta">`
+                + (nonLus ? `<b class="shelf-nonlus">${nonLus} à lire</b>` : '')
+                + (nonLus && sous ? ' · ' : '')
+                + (sous ? MH.esc(String(sous)) : '') + `</div>` : ''}
         </div>`;
     }
 
