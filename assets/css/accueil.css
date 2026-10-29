@@ -120,6 +120,16 @@
    qui vaut pour tout le rang ne marque rien. */
 #shelfNew .card-fav-btn { display: none; }
 
+/* Et dans « Découvrir », vingt ronds noirs mouchetaient vingt couvertures
+   — c’est là que le cœur sert VRAIMENT (on ne suit pas encore la série),
+   mais il n’a pas besoin d’être un rond posé par-dessus l’œuvre. Il prend
+   le coin, à plat, et ne s’allume qu’au survol ou au clavier — la règle
+   générale posée dans `global.css`. */
+.decouvrir .card-fav-btn, .shelf .card-fav-btn {
+  top: 0; right: 0; width: 30px; height: 30px; border-radius: 0;
+  background: rgba(0,0,0,.55); backdrop-filter: none;
+}
+
 @media (pointer: coarse) {
   .latte > .latte-couv { position: absolute; z-index: 0; }
   .latte > .latte-dos { position: absolute; z-index: 1; }

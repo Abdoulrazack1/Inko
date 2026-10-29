@@ -128,9 +128,20 @@ test('guestNotice ne propose pas « recharger » là où ça ne peut rien donner
     // L'action est choisie AVANT d'être posée dans le gabarit : les deux
     // rendus (compact et complet) doivent la partager, sinon l'un des deux
     // garde l'ancien comportement sans que personne le voie.
-    assert.match(bloc[0], /const action = autonome/,
+    //
+    // Elle était posée en attribut `onclick`, que la CSP de l'application
+    // installée bloque (DESK-01) : le bouton était donc MORT là où ça
+    // compte, sur les huit écrans qui affichent ce bandeau. Ce qui est
+    // vérifié reste l'intention — une seule décision pour deux rendus —
+    // sur le mécanisme qui, lui, fonctionne partout.
+    assert.match(bloc[0], /const quoi = autonome \? 'hub' : 'recharger';/,
         'l’action doit être décidée une fois, pour les deux rendus');
-    const rendus = bloc[0].match(/onclick="\$\{action\}/g) || [];
+    const rendus = bloc[0].match(/data-invite="\$\{quoi\}"/g) || [];
     assert.equal(rendus.length, 2,
         'le rendu compact ET le rendu complet doivent utiliser la même action');
+    assert.ok(!/onclick=/.test(bloc[0]),
+        'plus aucun gestionnaire en attribut : la CSP de l’app installée les bloque');
+    // Et le geste existe vraiment, une fois, pour tout le monde.
+    assert.match(globalJs, /\[data-invite\]/,
+        'un seul écouteur délégué, pas un rebranchement à chaque rendu');
 });
