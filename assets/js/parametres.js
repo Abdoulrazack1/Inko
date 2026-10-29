@@ -241,7 +241,7 @@
         const sauvEtat = !d.sauvegardes.derniere ? 'err'
             : age > 3 ? 'warn' : 'ok';
         const lignes = [
-            [d.base.ok ? 'ok' : 'err', 'Base de donnees',
+            [d.base.ok ? 'ok' : 'err', 'Base de données',
                 d.base.ok ? `repond en ${d.base.latenceMs} ms` : (d.base.error || 'injoignable')],
             [d.volumes ? 'ok' : 'warn', 'Contenu',
                 d.volumes ? `${MH.fmt(d.volumes.comptes)} compte(s) · ${MH.fmt(d.volumes.favoris)} favoris · ${MH.fmt(d.volumes.chapitresLus)} chapitres lus`
@@ -306,7 +306,7 @@
             <div class="set-row">
                 <div>
                     <div class="set-row-label">${MH.esc(r.label)}</div>
-                    <div class="set-row-desc">${r.touche ? '' : 'Desactive'}</div>
+                    <div class="set-row-desc">${r.touche ? '' : 'Désactivé'}</div>
                 </div>
                 <button class="btn btn-secondary btn-sm" data-sc="${MH.esc(r.id)}"
                     aria-label="Modifier le raccourci ${MH.esc(r.label)}"
@@ -454,25 +454,55 @@
         if (!sessions.length) return;
         carte.style.display = '';
 
-        liste.innerHTML = sessions.map(s => `
+        // Cette carte affichait TOUTES les sessions, sans plafond. Sur ce
+        // compte elle en a 219 : 14 189 px de haut, soit 72 % d’une page
+        // de paramètres qui en fait 19 810. Un réglage était noyé sous une
+        // liste. On montre la session courante et les quatre plus
+        // récentes ; le reste se déplie à la demande.
+        const rangee = s => `
             <div class="set-row" data-sess="${MH.esc(s.id)}">
                 <div>
-                    <div class="set-row-label">${MH.esc(s.device)}${s.current ? ' <span style="color:var(--accent-text);font-size:11px">· cet appareil</span>' : ''}</div>
+                    <div class="set-row-label">${MH.esc(s.device)}${s.current ? ' <span class="sess-ici">· cet appareil</span>' : ''}</div>
                     <div class="set-row-desc">${MH.esc(s.ip || 'adresse inconnue')} · vue ${ilYA(s.lastSeenAt)} · ouverte ${ilYA(s.createdAt)}</div>
                 </div>
-                <button class="btn btn-secondary btn-sm" data-revoke="${MH.esc(s.id)}">${s.current ? 'Me deconnecter' : 'Fermer'}</button>
-            </div>`).join('');
+                <button class="btn btn-secondary btn-sm" data-revoke="${MH.esc(s.id)}">${s.current ? 'Me déconnecter' : 'Fermer'}</button>
+            </div>`;
+
+        const rang = [...sessions].sort((a, b) =>
+            (b.current ? 1 : 0) - (a.current ? 1 : 0)
+            || new Date(b.lastSeenAt) - new Date(a.lastSeenAt));
+        const VISIBLES = 5;
+        const reste = rang.length - VISIBLES;
+        liste.innerHTML = rang.slice(0, VISIBLES).map(rangee).join('')
+            + (reste > 0
+                ? `<div class="set-row sess-reste-ligne">
+                       <button type="button" class="sess-plus" id="sessPlus"
+                           aria-expanded="false">Voir les ${reste} autres sessions</button>
+                   </div>
+                   <div id="sessReste" hidden>${rang.slice(VISIBLES).map(rangee).join('')}</div>`
+                : '');
+
+        const plus = document.getElementById('sessPlus');
+        plus?.addEventListener('click', () => {
+            const zone = document.getElementById('sessReste');
+            const ouvert = !zone.hidden;
+            zone.hidden = ouvert;
+            plus.setAttribute('aria-expanded', String(!ouvert));
+            plus.textContent = ouvert
+                ? `Voir les ${reste} autres sessions`
+                : 'Masquer les autres sessions';
+        });
 
         liste.querySelectorAll('[data-revoke]').forEach(b => {
             b.addEventListener('click', async () => {
                 const id = b.dataset.revoke;
                 const soi = sessions.find(x => x.id === id)?.current;
-                if (soi && !await MH.confirm('Fermer cette session te deconnecte immediatement.', {
-                    danger: true, okText: 'Me deconnecter' })) return;
+                if (soi && !await MH.confirm('Fermer cette session te déconnecte immédiatement.', {
+                    danger: true, okText: 'Me déconnecter' })) return;
                 try {
                     const r = await API.auth.revokeSession(id);
-                    if (r.self) { toast('Deconnecte'); setTimeout(() => location.reload(), 600); return; }
-                    toast('Session fermee');
+                    if (r.self) { toast('Déconnecté'); setTimeout(() => location.reload(), 600); return; }
+                    toast('Session fermée');
                     renderSessions();
                 } catch (e) { MH.toastErreur(e); }
             });
@@ -487,7 +517,7 @@
                     message: 'Cet appareil reste connecté. Tous les autres devront se reconnecter.' })) return;
                 try {
                     const r = await API.auth.revokeOthers();
-                    toast(r.closed ? `${r.closed} session(s) fermee(s)` : 'Aucune autre session');
+                    toast(r.closed ? `${r.closed} session(s) fermée(s)` : 'Aucune autre session');
                     renderSessions();
                 } catch (e) { MH.toastErreur(e); }
             });
