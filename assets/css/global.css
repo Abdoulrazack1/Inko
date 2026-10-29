@@ -1008,33 +1008,44 @@ img.img-echec { background: var(--bg3); animation: none; }
 @keyframes fadeIn  { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── Card favorite button (used on catalogue + reco grids) ── */
-.card-fav-btn {
-  position: absolute; top: 8px; right: 8px;
-  width: 30px; height: 30px;
-  border-radius: 50%; border: none;
-  background: rgba(0,0,0,0.55);
-  color: #fff;
-  font-size: 15px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  z-index: 2;
-  backdrop-filter: blur(6px);
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
-}
-.card-fav-btn:hover  { background: rgba(0,0,0,0.75); }
+/* ── Le cœur sort de la couverture ──────────────────────
+   C’était un rond noir flouté posé PAR-DESSUS l’œuvre, sur chaque carte
+   d’une page qui en compte quarante. Deux torts : il abîme la seule chose
+   belle de l’écran, et une icône dans une pastille teintée est le signe le
+   plus sûr d’une interface fabriquée en série.
 
-/* Une icône dans un rond teinté, posée sur CHAQUE couverture d’une page :
-   c'est le signe le plus sûr d'une interface fabriquée en série, et ici
-   trente ronds noirs mouchetaient la seule chose colorée de l’écran.
-   Le cœur apparaît au survol et au clavier ; il reste visible quand il
-   PORTE une information, c’est-à-dire quand la série est déjà en favori.
-   Au doigt, où il n’y a pas de survol, il reste là. */
+   Le projet avait déjà tranché pour le doigt : ces actions passent par
+   l’appui long, « où elles ont de la place et un libellé ». Au pointeur,
+   le cœur descend dans la ligne du titre : la couverture redevient une
+   image, et le geste garde sa cible.
+
+   Plus de fond, plus de rond, plus de flou : un glyphe, qui prend la
+   couleur quand il porte un état. */
+.card-fav-btn {
+  flex: 0 0 auto; width: 26px; height: 26px;
+  border: 0; background: none; border-radius: var(--radius2);
+  color: var(--text3); font-size: 15px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color var(--transition), opacity .16s;
+}
+.card-fav-btn:hover { color: var(--text); }
+.card-fav-btn.is-fav { color: var(--red); }
+.card-fav-btn.is-fav:hover { color: var(--red-text, var(--red)); }
+
+/* Au pointeur fin, il n’apparaît qu’au survol ou au clavier — sauf quand
+   il porte déjà une information. Au doigt, il reste là. */
 @media (hover: hover) {
-  .card-fav-btn { opacity: 0; transition: opacity .16s, background var(--transition); }
+  .card-fav-btn { opacity: 0; }
   .manga-card:hover .card-fav-btn, .shelf-card:hover .card-fav-btn,
   .card-fav-btn:focus-visible, .card-fav-btn.is-fav { opacity: 1; }
 }
-.card-fav-btn.is-fav { color: var(--red); background: rgba(0,0,0,0.7); }
+
+/* La ligne du titre d’une carte de rayon : le titre prend la place, le
+   cœur se range au bout. */
+.shelf-nom { display: flex; align-items: flex-start; gap: 6px; margin-top: var(--carte-ecart, 8px); }
+.shelf-nom .shelf-name { flex: 1 1 auto; min-width: 0; margin-top: 0; }
+.manga-card-info { position: relative; }
+.manga-card-info .card-fav-btn { position: absolute; right: 8px; bottom: 8px; }
 
 /* ── Le bandeau « il manque quelque chose » ───────────────
    Il était dessiné en attributs `style`, sur huit écrans. Sa place est

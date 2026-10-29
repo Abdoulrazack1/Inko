@@ -105,17 +105,10 @@
 /* « Nouveaux chapitres » ne montre QUE des séries suivies : le cœur y
    est allumé sur chaque couverture et n’apprend donc rien à personne.
    Un marqueur qui vaut pour tout le rang ne marque rien. */
+/* « Nouveaux chapitres » ne montre QUE des séries suivies : le cœur y est
+   allumé sur chaque ligne et n’apprend donc rien à personne. Un marqueur
+   qui vaut pour tout le rang ne marque rien. */
 #shelfNew .card-fav-btn { display: none; }
-
-/* Et dans « Découvrir », vingt ronds noirs mouchetaient vingt couvertures
-   — c’est là que le cœur sert VRAIMENT (on ne suit pas encore la série),
-   mais il n’a pas besoin d’être un rond posé par-dessus l’œuvre. Il prend
-   le coin, à plat, et ne s’allume qu’au survol ou au clavier — la règle
-   générale posée dans `global.css`. */
-.decouvrir .card-fav-btn, .shelf .card-fav-btn {
-  top: 0; right: 0; width: 30px; height: 30px; border-radius: 0;
-  background: rgba(0,0,0,.55); backdrop-filter: none;
-}
 
 @media (pointer: coarse) {
   .latte > .latte-couv { position: absolute; z-index: 0; }
@@ -214,7 +207,7 @@
 .shelf-badge { position: absolute; left: 0; bottom: 0; z-index: 2; padding: 3px 8px;
     background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
     font-variant-numeric: tabular-nums; }
-.shelf-card .card-fav-btn, .shelf-x { position: absolute; top: 6px; right: 6px; z-index: 3; }
+.shelf-x { position: absolute; top: 6px; right: 6px; z-index: 3; }
 .shelf-x { width: 26px; height: 26px; border: 0; background: rgba(0,0,0,.62); color: #fff;
     cursor: pointer; opacity: 0; transition: opacity .15s; }
 .shelf-card:hover .shelf-x, .shelf-x:focus-visible { opacity: 1; }
