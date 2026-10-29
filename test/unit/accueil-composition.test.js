@@ -144,6 +144,33 @@ test('les chiffres s\'accordent', () => {
     assert.match(JS, /chapters_this_month === 1 \? 'chapitre' : 'chapitres'/);
 });
 
+test("rien n’est posé par-dessus l’œuvre", () => {
+    // Le cœur était un rond noir flouté posé SUR la couverture, sur
+    // chaque carte d'une page qui en compte quarante. Deux torts : il
+    // abîme la seule chose belle de l'écran, et une icône dans une
+    // pastille teintée est le signe le plus sûr d'une interface
+    // fabriquée en série. Le projet avait déjà tranché pour le doigt :
+    // ces actions passent par l'appui long, « où elles ont de la place ».
+    const cat = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'js', 'catalogue.js'), 'utf8');
+    for (const [nom, src, couv] of [['accueil.js', JS, 'shelf-cover'], ['catalogue.js', cat, 'manga-card-cover']]) {
+        // Le gabarit est une chaîne de template : on découpe de l'ouverture
+        // de la couverture jusqu'à la fermeture de son conteneur.
+        const i = src.indexOf('class="' + couv + '"');
+        assert.ok(i > 0, nom + ' : la couverture doit exister');
+        assert.ok(!src.slice(i, src.indexOf('</div>', i)).includes('card-fav-btn'),
+            nom + ' : le cœur ne se pose plus sur la couverture');
+    }
+    // `regle()` prendrait `.manga-card .card-fav-btn` en premier : on veut
+    // la règle de base, celle qui commence la ligne.
+    const c = /\n\.card-fav-btn \{([^}]*)\}/.exec(GLOBAL)[1];
+    assert.ok(!/position: absolute/.test(c), 'il vit dans la ligne du titre');
+    assert.ok(!/border-radius:\s*50%/.test(c) && !/backdrop-filter/.test(c),
+        'plus de rond, plus de flou : un glyphe');
+    assert.match(c, /background: none/, 'et plus de fond');
+    assert.match(GLOBAL, /\.card-fav-btn\.is-fav \{ color: var\(--red\); \}/,
+        'il prend la couleur quand il porte un état');
+});
+
 test('ce que la direction artistique interdit a disparu', () => {
     assert.ok(!/box-shadow/.test(regle(GLOBAL, '.btn-primary') || ''),
         'un bouton principal est un aplat, sans relief');

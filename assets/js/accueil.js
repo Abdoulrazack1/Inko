@@ -448,10 +448,12 @@
             <div class="shelf-cover">
                 <img src="${MH.cover(cover, MH.placeholderCover(id))}" alt="" loading="lazy" decoding="async">
                 ${badge ? `<span class="shelf-badge">${MH.esc(badge)}</span>` : ''}
-                ${retirer ? `<button class="shelf-x" type="button" ${retirer} aria-label="Retirer">×</button>`
-                    : `<button class="card-fav-btn" data-fav="${MH.esc(id)}" title="Ajouter à ma bibliothèque">${MH.heartIcon(favSet.has(String(id)))}</button>`}
+                ${retirer ? `<button class="shelf-x" type="button" ${retirer} aria-label="Retirer">×</button>` : ''}
             </div>
-            <div class="shelf-name">${MH.esc(title || '')}</div>
+            <div class="shelf-nom">
+                <span class="shelf-name">${MH.esc(title || '')}</span>
+                ${retirer ? '' : `<button class="card-fav-btn" data-fav="${MH.esc(id)}" title="Ajouter à ma bibliothèque" aria-label="Ajouter « ${MH.esc(title || '')} » à ma bibliothèque">${MH.heartIcon(favSet.has(String(id)))}</button>`}
+            </div>
             ${sous ? `<div class="shelf-meta">${MH.esc(String(sous))}</div>` : ''}
         </div>`;
     }

@@ -120,16 +120,6 @@
    qui vaut pour tout le rang ne marque rien. */
 #shelfNew .card-fav-btn { display: none; }
 
-/* Et dans « Découvrir », vingt ronds noirs mouchetaient vingt couvertures
-   — c’est là que le cœur sert VRAIMENT (on ne suit pas encore la série),
-   mais il n’a pas besoin d’être un rond posé par-dessus l’œuvre. Il prend
-   le coin, à plat, et ne s’allume qu’au survol ou au clavier — la règle
-   générale posée dans `global.css`. */
-.decouvrir .card-fav-btn, .shelf .card-fav-btn {
-  top: 0; right: 0; width: 30px; height: 30px; border-radius: 0;
-  background: rgba(0,0,0,.55); backdrop-filter: none;
-}
-
 @media (pointer: coarse) {
   .latte > .latte-couv { position: absolute; z-index: 0; }
   .latte > .latte-dos { position: absolute; z-index: 1; }
@@ -238,12 +228,9 @@
    de masquer. Même décision que pour le cœur, même raison. */
 .shelf-nonlus { color: var(--accent-text, var(--accent)); font-weight: 700;
     font-variant-numeric: tabular-nums; }
-/* La croix était le dernier rond noir posé sur une couverture. Elle rejoint
-   la ligne du titre, comme le cœur, et pour la même raison. */
-.shelf-x { flex: 0 0 auto; width: 26px; height: 26px; border: 0; background: none;
-    color: var(--text3); font-size: var(--t-l); line-height: 1; cursor: pointer;
-    border-radius: var(--radius2); opacity: 0; transition: opacity .15s, color var(--transition); }
-.shelf-x:hover { color: var(--text); }
+.shelf-x { position: absolute; top: 6px; right: 6px; z-index: 3; }
+.shelf-x { width: 26px; height: 26px; border: 0; background: rgba(0,0,0,.62); color: var(--sur-couleur);
+    cursor: pointer; opacity: 0; transition: opacity .15s; }
 .shelf-card:hover .shelf-x, .shelf-x:focus-visible { opacity: 1; }
 @media (hover: none) { .shelf-x { opacity: 1; } }
 .shelf-card--skel .shelf-cover { animation: home-pulse 1.4s ease-in-out infinite; }
