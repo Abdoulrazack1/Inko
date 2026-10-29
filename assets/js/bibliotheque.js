@@ -604,13 +604,13 @@
                     <img src="${MH.cover(b.cover, MH.placeholderCover(b.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(b.mangaId)}'">
                 </a>
                 <div class="upd-info">
-                    <a class="upd-name" href="${href}" style="color:inherit;text-decoration:none">${MH.esc(b.title || b.mangaId)}</a>
+                    <a class="upd-name upd-lien" href="${href}">${MH.esc(b.title || b.mangaId)}</a>
                     <div class="upd-meta">${MH.unitLabel(b.source, { short: true })} ${MH.esc(String(b.chapterNum || '?'))}${b.label ? ' · ' + MH.esc(b.label) : ''}${b.source ? ' · ' + MH.esc(b.source) : ''}</div>
                     ${b.note ? `<q class="bm-note">${MH.esc(b.note)}</q>` : ''}
                 </div>
-                <div style="display:flex;gap:6px;flex-shrink:0">
+                <div class="upd-actions">
                     <a class="btn btn-primary btn-sm" href="${href}">Lire</a>
-                    <button class="btn btn-sm" style="background:rgba(239,68,68,.12);color:#ef4444" data-bmdel="${MH.esc(b.mangaId)}" data-bmchap="${MH.esc(b.chapterId)}">Retirer</button>
+                    <button class="btn btn-sm upd-danger" data-bmdel="${MH.esc(b.mangaId)}" data-bmchap="${MH.esc(b.chapterId)}">Retirer</button>
                 </div>
             </div>`;
         }).join('');
@@ -646,10 +646,10 @@
                     <img src="${MH.cover(g.cover, MH.placeholderCover(g.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(g.mangaId)}'">
                 </a>
                 <div class="upd-info">
-                    <a class="upd-name" href="${readHref}" style="color:inherit;text-decoration:none">${MH.esc(g.title || g.mangaId)}</a>
+                    <a class="upd-name upd-lien" href="${readHref}">${MH.esc(g.title || g.mangaId)}</a>
                     <div class="upd-meta">${g.chapters.length} chapitre(s) · ${g.chapters.slice(0, 5).map(c => 'Ch.' + c.chapterNum).join(', ')}${g.chapters.length > 5 ? '…' : ''}</div>
                 </div>
-                <button class="btn btn-sm" style="background:rgba(239,68,68,.12);color:#ef4444" data-dlmanga="${g.mangaId}">Supprimer</button>
+                <button class="btn btn-sm upd-danger" data-dlmanga="${g.mangaId}">Supprimer</button>
             </div>`;
         }).join('');
         listEl.querySelectorAll('[data-dlmanga]').forEach(b => b.addEventListener('click', async () => {
@@ -972,7 +972,7 @@
         if (active || inProgress.length < 2) { box.style.display = 'none'; box.innerHTML = ''; return; }
         box.style.display = '';
         box.innerHTML = `
-            <div class="lib2-section-head"><span class="bar"></span><h2>Reprendre où j'en étais</h2></div>
+            <div class="lib2-section-head"><h2>Reprendre où j'en étais</h2></div>
             <div class="lib2-resume-row">${inProgress.map(f => {
                 const prog = progressByManga[f.mangaId];
                 const u = unreadCount(f);
@@ -983,11 +983,10 @@
                     <div class="lib2-cover">
                         <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy"
                              onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
-                        ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
                     </div>
                     <div class="lib2-info">
                         <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
-                        <div class="lib2-sub">${unit} ${MH.chapNum(prog.chapter)}</div>
+                        <div class="lib2-sub">${u > 0 ? `<b class="lib2-nonlus">${u} à lire</b> · ` : ''}${unit} ${MH.chapNum(prog.chapter)}</div>
                     </div>
                 </a>`;
             }).join('')}</div>`;
@@ -1225,6 +1224,11 @@
             const hasBm = bmSet.has(f.mangaId);
             const isSel = selected.has(f.mangaId);
             const unit = MH.unitLabel(f.source, { short: true });
+            // Épingler et retirer étaient deux boutons arrondis et floutés posés
+            // SUR la couverture : 992 surfaces sur cette seule page, deux par
+            // œuvre. Ils vivent dans la ligne du titre, à plat, révélés au survol.
+            // (Le commentaire reste ici : dans le gabarit, il partait 500 fois
+            // dans le DOM.)
             return `
             <a class="lib2-card ${selectMode ? 'selectable' : ''} ${isSel ? 'selected' : ''}" href="${href}" data-manga-id="${f.mangaId}" data-src="${MH.esc(f.source || '')}">
                 <div class="lib2-cover">
@@ -1232,14 +1236,16 @@
                          onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                     ${selectMode ? `<div class="lib2-check">${isSel ? '✓' : ''}</div>` : ''}
                     ${(hasBm || prog) ? `<div class="dog-ear ${MH.isNovelSource(f.source) ? 'novel' : ''}" title="${hasBm ? 'Contient un signet' : 'Reprise de lecture possible'}"></div>` : ''}
-                    <button class="lib2-pin ${isPin ? 'on' : ''}" data-pin="${MH.esc(f.mangaId)}" data-src="${MH.esc(f.source || '')}"
-                        title="${isPin ? 'Désépingler' : 'Épingler en haut'}" aria-label="Épingler">${MH.icon('pin', 15)}</button>
-                    <button class="lib2-del" data-del="${MH.esc(f.mangaId)}" data-title="${MH.esc(f.title || '')}"
-                        title="Retirer de ma bibliothèque" aria-label="Retirer">✕</button>
                     ${progBar}
                 </div>
                 <div class="lib2-info">
-                    <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
+                    <div class="lib2-ligne">
+                        <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
+                        <button class="lib2-pin ${isPin ? 'on' : ''}" data-pin="${MH.esc(f.mangaId)}" data-src="${MH.esc(f.source || '')}"
+                        title="${isPin ? 'Désépingler' : 'Épingler en haut'}" aria-label="Épingler">${MH.icon('pin', 15)}</button>
+                        <button class="lib2-del" data-del="${MH.esc(f.mangaId)}" data-title="${MH.esc(f.title || '')}"
+                        title="Retirer de ma bibliothèque" aria-label="Retirer">×</button>
+                    </div>
                     <div class="lib2-sub">
                         ${st ? st + ' · ' : ''}
                         ${u > 0 ? `<b class="lib2-nonlus">${u} à lire</b> · ` : ''}
@@ -1680,12 +1686,12 @@
                 }
                 // §15.4-2 : les échecs de vérification sont visibles, plus jamais muets
                 const failsHtml = fails.map(f => `
-                    <div class="upd-row" style="border-left:3px solid var(--hanko)">
+                    <div class="upd-row upd-row--hanko">
                         <a class="upd-cover" href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}">
                             <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="" loading="lazy" onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                         </a>
                         <div class="upd-info">
-                            <div class="upd-name">${MH.esc(f.title)} <span class="upd-new" style="background:rgba(168,50,50,.14);color:var(--hanko)">ÉCHEC</span></div>
+                            <div class="upd-name upd-lien">${MH.esc(f.title)} <span class="upd-echec">Échec</span></div>
                             <div class="upd-meta" style="color:var(--hanko)">${MH.esc(f.error || 'Vérification impossible')}</div>
                         </div>
                     </div>`).join('');
@@ -1698,13 +1704,13 @@
                                  onerror="this.src='${MH.placeholderCover(u.mangaId)}'">
                         </a>
                         <div class="upd-info">
-                            <div class="upd-name">${MH.esc(u.title)} ${u.hasNew ? '<span class="upd-new">NOUVEAU</span>' : ''}${u.retour ? ` <span class="upd-retour">De retour après ${Math.max(2, Math.round(u.retour.jours / 30))} mois</span>` : ''}</div>
+                            <div class="upd-name upd-lien">${MH.esc(u.title)} ${u.hasNew ? '<span class="upd-new">Nouveau</span>' : ''}${u.retour ? ` <span class="upd-retour">De retour après ${Math.max(2, Math.round(u.retour.jours / 30))} mois</span>` : ''}</div>
                             <div class="upd-meta">
                                 ${u.latest ? `Dernier : Ch. ${u.latest.chapter}` : ''}
                                 ${u.unreadCount > 0 ? ` · <strong style="color:var(--orange)">${u.unreadCount} non lu(s)</strong>` : ' · à jour'}
                             </div>
                         </div>
-                        <div style="display:flex;gap:6px;flex-shrink:0">
+                        <div class="upd-actions">
                             ${u.unreadCount > 0 ? `<button class="btn btn-secondary btn-sm" data-markread="${encodeURIComponent(u.mangaId)}" data-src="${MH.esc(src)}" title="Marquer toute la série comme lue">Tout lu</button>` : ''}
                             ${u.latest ? `<a class="btn btn-primary btn-sm" href="${MH.readerHref(u.mangaId, u.latest.id, u.source || decodeURIComponent(src))}">Lire</a>` : ''}
                         </div>
