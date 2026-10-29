@@ -566,7 +566,13 @@
         const tags = (m.tags || []).filter(Boolean).slice(0, 3);
         const statusLabel = STATUS_LABELS[m.status] || '';
         const sub = m.author || (tags.length ? tags.join(' · ') : (isNovel ? 'Roman' : ''));
+        // Trois pastilles en capitales étaient posées sur la couverture :
+        // ROMAN, TERMINÉ, PAUSE. Les deux dernières répétaient MOT POUR MOT
+        // le .mc-status de la ligne juste en dessous — la même donnée deux
+        // fois sur la même carte, dont une par-dessus l’œuvre. La première
+        // descend ici, comme dans la bibliothèque.
         const metaBits = [];
+        if (isNovel) metaBits.push('<span class="mc-demo">Roman</span>');
         if (m.year) metaBits.push(`<span class="mc-year">${m.year}</span>`);
         if (m.demographic) metaBits.push(`<span class="mc-demo">${MH.esc(cap(m.demographic))}</span>`);
         if (statusLabel) metaBits.push(`<span class="mc-status mc-${m.status}">${statusLabel}</span>`);
@@ -590,24 +596,13 @@
             <div class="manga-card-cover">
                 <img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
-                <div class="manga-card-badges">
-                    ${isNovel ? '<span class="badge" style="background:var(--ai);color:#fff">ROMAN</span>' : ''}
-                    ${m.status === 'completed' ? '<span class="badge badge-termine">TERMINÉ</span>' : ''}
-                    ${m.status === 'hiatus' ? '<span class="badge badge-pause">PAUSE</span>' : ''}
-                </div>
                 <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris" aria-pressed="false" aria-label="Ajouter aux favoris">${MH.heartIcon(false)}</button>
-                <!-- Audit AMEL-39 : l'ajout à une liste n'était possible que
-                     depuis la fiche série — il fallait donc ouvrir chaque titre
-                     pour le ranger, alors qu'on constitue une liste EN
-                     parcourant le catalogue. -->
+            </div>
+            <div class="manga-card-info">${cardInfoHTML(m)}
                 <button class="card-list-btn" data-addlist="${MH.esc(m.id)}" data-src="${MH.esc(src)}"
                         data-title="${MH.esc(m.title || '')}" data-cover="${MH.esc(m.cover || '')}"
-                        title="Ajouter à une liste" aria-label="Ajouter à une liste">+</button>
-                <div class="manga-card-overlay">
-                    <div class="btn-read-overlay">Lire</div>
-                </div>
+                        title="Ajouter à une liste" aria-label="Ajouter « ${MH.esc(m.title)} » à une liste">+</button>
             </div>
-            <div class="manga-card-info">${cardInfoHTML(m)}</div>
         </div>`;
     }
 
