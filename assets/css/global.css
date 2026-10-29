@@ -1660,7 +1660,7 @@ html.inko-app main { animation: inko-app-entree .18s ease-out; }
 
 /* ══ REPLI aspect-ratio — GÉNÉRÉ par scripts-ci/gen-repli-aspect-ratio.js ══ */
 /* Ne pas modifier à la main : `npm run gen-repli-ar` régénère ce bloc.
-   16 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
+   15 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
    (WebView Android 8 = Chrome 61). Sur un navigateur récent, ce bloc
    entier est ignoré. */
 @supports not (aspect-ratio: 1 / 1) {
@@ -1686,10 +1686,8 @@ html.inko-app main { animation: inko-app-entree .18s ease-out; }
     .list-manga-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .se-cover { height: 0; padding-top: 133.3333%; }
     .se-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .similar-cover { height: 0; padding-top: 133.3333%; }
-    .similar-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .manga-card-cover { height: 0; padding-top: 133.3333%; }
-    .manga-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .sim-vignette { height: 0; padding-top: 133.3333%; }
+    .sim-vignette > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
   @media (max-width: 480px) {
       .cd-serie-cover { height: 0; padding-top: 133.3333%; }
       .cd-serie-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }

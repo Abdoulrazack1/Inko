@@ -5,15 +5,17 @@
 /* ══════════════════════════════════════════════════════════
    HERO
 ══════════════════════════════════════════════════════════ */
-.serie-hero {
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-}
+/* ── Le hero ────────────────────────────────────────
+   Cette page parle d’UNE œuvre, et elle en donnait une vignette de
+   160 px posée sur une bande grise, à côté d’une fiche encadrée. La
+   bande partait : sur le fond de la page, la couverture devient le
+   seul objet éclairé de l’écran — c’est tout ce qu’il faut. */
+.serie-hero { background: var(--bg); }
 .serie-hero-inner {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 24px;
-  padding: 28px 24px;
+  gap: 32px;
+  padding: 36px 24px 30px;
   max-width: 1200px;
   margin: 0 auto;
   align-items: start;
@@ -24,17 +26,11 @@
   position: relative;
   flex-shrink: 0;
 }
-.serie-cover-status {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 2;
-}
+/* Une couverture est une image imprimée : ni coins arrondis, ni ombre
+   portée de 32 px. Elle grandit à la place : 230 px au lieu de 160. */
 .serie-cover {
-  width: 160px;
-  border-radius: var(--radius);
+  width: clamp(170px, 16vw, 230px);
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0,0,0,.5);
 }
 .serie-cover img {
   width: 100%;
@@ -60,10 +56,12 @@
 }
 .serie-title {
   font-family: var(--font-head);
-  font-size: 28px;
+  font-size: clamp(30px, 3.4vw, 46px);
   font-weight: 800;
-  line-height: 1.15;
+  letter-spacing: -.02em;
+  line-height: 1.05;
   margin-bottom: 4px;
+  text-wrap: balance;
 }
 .serie-title-jp {
   font-size: 12px;
@@ -87,10 +85,10 @@
 }
 .serie-meta-icon { color: var(--orange); }
 .serie-desc-short {
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--text2);
-  line-height: 1.65;
-  max-width: 580px;
+  line-height: 1.6;
+  max-width: 62ch;
   margin-bottom: 18px;
 }
 .serie-actions {
@@ -101,31 +99,21 @@
 }
 .serie-actions .btn.is-fav { color: var(--red); border-color: var(--red); }
 
-/* Fiche rapide */
+/* Six lignes de faits n’ont pas besoin d’un cadre : un filet vertical
+   les rassemble aussi bien, et laisse la couverture seule à porter la
+   lumière. Une petite capitale espacée, en plus, est le signe le plus
+   sûr d’un gabarit. */
 .serie-fiche {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  min-width: 220px;
+  min-width: 212px;
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
 }
 .serie-fiche-title {
   font-family: var(--font-head);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .06em;
   color: var(--text2);
   margin-bottom: 12px;
-}
-.fiche-subtitle {
-  font-size: 10.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--text3);
-  margin-bottom: 8px;
-  margin-top: 12px;
 }
 .fiche-row {
   display: flex;
@@ -149,7 +137,7 @@
   flex-wrap: wrap;
 }
 .lang-badge {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 4px;
@@ -207,9 +195,12 @@
   white-space: nowrap;
 }
 .serie-tab:hover { color: var(--text); }
+/* Un onglet actif se marque par son encre et un filet — comme ceux
+   de la bibliothèque, et pour la même raison : la couleur de marque
+   sert aux données, pas au mobilier. */
 .serie-tab.active {
-  color: var(--orange);
-  border-bottom-color: var(--orange);
+  color: var(--text);
+  border-bottom-color: var(--text);
 }
 .serie-tabs-right {
   font-size: 12px;
@@ -268,8 +259,7 @@
    CHAPITRES
 ══════════════════════════════════════════════════════════ */
 .chapters-block {
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  background: var(--bg2);
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 20px;
@@ -332,12 +322,15 @@
 }
 
 /* Ligne de chapitre (lien cliquable) */
+/* Cette série compte 1 194 chapitres. Chaque rangée portait un rayon,
+   donc 1 194 objets là où l’on veut UNE liste : c’est la même
+   correction que la vue liste de la bibliothèque et les rangées de
+   mises à jour. Le cheveu sépare, la clarté répond au pointeur. */
 .chapter-row {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 8px;
-  border-radius: 8px;
   border-bottom: 1px solid var(--border);
   text-decoration: none;
   color: inherit;
@@ -431,8 +424,10 @@
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text2);
   cursor: pointer; transition: all 0.12s;
 }
-.chap-filter:hover { color: var(--text); border-color: var(--border); }
-.chap-filter.on { background: var(--orange); border-color: var(--orange); color: #fff; }
+.chap-filter:hover { color: var(--text); background: var(--bg4); }
+/* Cinquième écran où un filtre actif était un aplat d’accent. Même
+   réponse que dans la bibliothèque et le catalogue. */
+.chap-filter.on { background: var(--bg4); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
 
 .chapters-list { }
 .chapters-empty {
@@ -451,8 +446,7 @@
    PERSONNAGES
 ══════════════════════════════════════════════════════════ */
 .characters-block {
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  background: var(--bg2);
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 20px;
@@ -468,15 +462,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--bg4);
-  border: 1px solid var(--border);
+  background: var(--bg3);
   border-radius: var(--radius2);
   padding: 10px 12px;
   flex: 1;
   min-width: 160px;
   transition: border-color 0.15s;
 }
-.character-card:hover { border-color: var(--border2); }
+.character-card:hover { background: var(--bg4); }
 .character-card--lg {
   flex-direction: column;
   align-items: flex-start;
@@ -489,14 +482,13 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--bg3), rgba(255,107,26,0.15));
-  border: 1px solid var(--border2);
+  background: var(--bg4);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 16px;
   font-weight: 800;
-  color: var(--orange);
+  color: var(--text2);
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -521,122 +513,16 @@
   margin-top: 2px;
 }
 
-/* ══════════════════════════════════════════════════════════
-   SIMILAIRES
-══════════════════════════════════════════════════════════ */
-.similar-block {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  margin-bottom: 20px;
-}
-.similar-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-.similar-card {
-  cursor: pointer;
-  transition: transform var(--transition);
-  text-decoration: none;
-  color: inherit;
-  display: block;
-}
-.similar-card:hover { transform: translateY(-2px); }
-.similar-cover {
-  aspect-ratio: 3/4;
-  border-radius: 6px;
-  overflow: hidden;
-  margin-bottom: 6px;
-  background: var(--bg4);
-}
-.similar-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.2s;
-}
-.similar-card:hover .similar-cover img { transform: scale(1.04); }
-.similar-title {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--text);
-}
-.similar-meta {
-  font-size: 11px;
-  color: var(--text2);
-  margin-top: 2px;
-}
+/* ── Cent dix lignes de CSS mort ─────────────────────────
+   Ici vivaient .similar-block / -grid / -card / -cover / -title /
+   -meta, et une COPIE LOCALE complète de la carte de série globale —
+   .manga-card, -cover, -overlay, -info, -title, -author, -meta,
+   -rating — calque de survol et bouton « Lire » compris, c’est-à-dire
+   une seconde copie de ce que la PR du catalogue vient de retirer.
 
-/* Manga grid (onglet Similaires) */
-.manga-grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-}
-.manga-card {
-  text-decoration: none;
-  color: inherit;
-  display: block;
-  transition: transform 0.15s;
-}
-.manga-card:hover { transform: translateY(-2px); }
-.manga-card-cover {
-  aspect-ratio: 3/4;
-  border-radius: var(--radius2);
-  overflow: hidden;
-  position: relative;
-  background: var(--bg4);
-  margin-bottom: 8px;
-}
-.manga-card-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.25s;
-}
-.manga-card:hover .manga-card-cover img { transform: scale(1.05); }
-.manga-card-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.manga-card:hover .manga-card-overlay { opacity: 1; }
-.btn-read-overlay {
-  background: var(--orange);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 7px 16px;
-  border-radius: 20px;
-}
-.manga-card-info { }
-.manga-card-title {
-  font-size: 12.5px;
-  font-weight: 700;
-  line-height: 1.35;
-  color: var(--text);
-  margin-bottom: 2px;
-}
-.manga-card-author {
-  font-size: 11px;
-  color: var(--text3);
-  margin-bottom: 4px;
-}
-.manga-card-meta {
-  display: flex;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--text2);
-}
-.manga-card-rating { color: var(--amber); font-weight: 600; }
+   Aucune de ces classes n’apparaît dans serie.js ni dans serie.html :
+   la page rend .sim-card. Quatre-vingt-quatre lignes qui ne
+   s’appliquaient à rien, mais qu’il fallait relire à chaque passage. */
 
 /* ══════════════════════════════════════════════════════════
    SIDEBAR
@@ -654,9 +540,11 @@
 }
 .serie-sidebar::-webkit-scrollbar { display: none; }
 
+/* Un panneau se détache par UNE chose : un pas de clarté ou un filet
+   discret — pas les deux, sinon l’écran devient une grille de boîtes.
+   Six panneaux de cette page portaient les deux. */
 .sidebar-progress {
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  background: var(--bg2);
   border-radius: var(--radius);
   padding: 16px;
 }
@@ -681,8 +569,7 @@
 .sidebar-stats,
 .sidebar-tags,
 .sidebar-reviews {
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  background: var(--bg2);
   border-radius: var(--radius);
   padding: 16px;
 }
@@ -697,10 +584,8 @@
   /* Promu de <div>/<span> a <h2> pour exister dans la navigation
      par titres : on neutralise la marge par defaut du h2. */
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--text2);
 }
 
@@ -790,9 +675,7 @@
     grid-template-columns: 1fr;
   }
   .serie-sidebar { display: none; }
-  .serie-title { font-size: 22px; }
-  .similar-grid,
-  .manga-grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .serie-title { font-size: clamp(24px, 6vw, 30px); }
   /* `.chap-search-input` etait fixe ici a 110px, puis a 140px dans le SECOND
      bloc `@media (max-width: 768px)` de ce fichier (ligne ~812). Le second
      gagnait : cette declaration n'a jamais rien fait. Le 110px voulu sous
@@ -809,8 +692,6 @@
   .chapter-meta .chapter-time,
   .chapter-meta .badge-new { display: none; }
   .serie-meta-row { gap: 10px; font-size: 12px; }
-  .similar-grid,
-  .manga-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .character-card--lg { flex: 0 1 calc(50% - 7px); }
 }
 /* ── Additional responsive fixes ─────────────────────────── */
@@ -836,11 +717,9 @@
 @media (max-width: 480px) {
   .serie-hero-inner { padding: 14px; gap: 12px; }
   .serie-cover { width: 100px; }
-  .serie-title { font-size: 18px; }
+  .serie-title { font-size: 24px; }
   .serie-meta-row { flex-wrap: wrap; gap: 8px; font-size: 11.5px; }
   .serie-actions .btn { flex: 1; justify-content: center; }
-  .similar-grid,
-  .manga-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .chap-row { padding: 10px 12px; }
   .chap-info { flex-wrap: wrap; gap: 4px; }
   .chap-search-input { width: 110px; }
@@ -907,7 +786,7 @@
 
 /* Portée : affichée seulement quand elle s'écarte du défaut. */
 .comment-vis {
-  font-size: 10.5px; border-radius: 6px; padding: 1px 7px;
+  font-size: 11px; border-radius: 6px; padding: 1px 7px;
   border: 1px solid var(--border2); color: var(--text3);
 }
 .comment-vis-private { color: var(--text2); border-style: dashed; }
@@ -1022,7 +901,7 @@
 .serie-pop--right { left: auto; right: 0; }
 @keyframes serie-pop-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .serie-pop { animation: none; } }
-.serie-pop-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); padding: 8px 10px 6px; }
+.serie-pop-title { font-size: 12px; font-weight: 700; color: var(--text3); padding: 8px 10px 6px; }
 .serie-pop-sep { height: 1px; background: var(--border); margin: 6px 4px; }
 .serie-pop-item {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -1046,7 +925,20 @@
 
 /* « Tu aimeras aussi » : une grille qui se replie, plus une rangée coupée
    au bord sans flèche ni indice qu'elle défile. */
-.sim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 14px 12px; padding: 4px 2px 8px; }
+.sim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 16px 6px; padding: 4px 2px 8px; }
+/* Cette rangée était écrite ENTIÈREMENT en styles en ligne dans le JS,
+   y compris une pastille de score en #3f7d4e codé en dur — aveugle au
+   thème clair — posée sur la couverture avec son ombre, en 9 px.
+   La couverture reste nue ; le score descend dans la légende. */
+.sim-card { display: block; min-width: 0; color: inherit; text-decoration: none; }
+.sim-vignette { aspect-ratio: 3/4; overflow: hidden; background: var(--bg4); }
+.sim-vignette img { width: 100%; height: 100%; object-fit: cover;
+    transition: transform .4s var(--ease-out); }
+.sim-card:hover .sim-vignette img { transform: scale(1.05); }
+.sim-nom { font-size: 11.5px; margin-top: 6px; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sim-badge { display: none; font-size: 11px; font-weight: 700;
+    color: var(--green-text, var(--green)); margin-top: 2px; }
 
 /* Choix d'un téléchargement : combien, et combien ça pèse. */
 .mh-modal.dl-choix { width: min(440px, 94vw); }
