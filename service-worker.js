@@ -16,6 +16,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 const CACHE_VERSION = 'inko-2.8.2-9f8e1d';
 =======
 const CACHE_VERSION = 'inko-2.8.2-4f6750';
@@ -44,6 +45,9 @@ const CACHE_VERSION = 'inko-2.8.2-5b796d';
 =======
 const CACHE_VERSION = 'inko-2.8.2-1e5cd8';
 >>>>>>> 9c2850b (Lecteur : la planche tient seule)
+=======
+const CACHE_VERSION = 'inko-2.8.2-79ed52';
+>>>>>>> 09485b2 (Parametres : un reglage ne se cherche pas sous 219 lignes)
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -74,6 +78,7 @@ const STATIC_ASSETS = [
     '/assets/css/lecture.css',
     '/assets/css/music.css',
     '/assets/css/notes.css',
+    '/assets/css/parametres.css',
     '/assets/css/profil.css',
     '/assets/css/recherche.css',
     '/assets/css/serie.css',
