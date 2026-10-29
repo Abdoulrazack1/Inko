@@ -68,7 +68,10 @@
             // quand elle encourage au lieu d'accuser.
             const milieu = serie > 0
                 ? bloc(serie, serie > 1 ? 'jours d’affilée' : 'jour d’affilée', 'stats.html')
-                : bloc(t.chapters_this_month, 'chapitres ce mois', 'stats.html');
+                // « 1 chapitres ce mois » : l’accord manquait, et le cas se
+                // produit tous les premiers du mois.
+                : bloc(t.chapters_this_month,
+                    (t.chapters_this_month === 1 ? 'chapitre' : 'chapitres') + ' ce mois', 'stats.html');
             el.className = 'home-chiffres';
             el.innerHTML = bloc(t.chapters_read, 'chapitres lus', 'stats.html')
                 + milieu

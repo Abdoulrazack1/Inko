@@ -107,6 +107,16 @@
    Un marqueur qui vaut pour tout le rang ne marque rien. */
 #shelfNew .card-fav-btn { display: none; }
 
+/* Et dans « Découvrir », vingt ronds noirs mouchetaient vingt couvertures
+   — c’est là que le cœur sert VRAIMENT (on ne suit pas encore la série),
+   mais il n’a pas besoin d’être un rond posé par-dessus l’œuvre. Il prend
+   le coin, à plat, et ne s’allume qu’au survol ou au clavier — la règle
+   générale posée dans `global.css`. */
+.decouvrir .card-fav-btn, .shelf .card-fav-btn {
+  top: 0; right: 0; width: 30px; height: 30px; border-radius: 0;
+  background: rgba(0,0,0,.55); backdrop-filter: none;
+}
+
 @media (pointer: coarse) {
   .latte > .latte-couv { position: absolute; z-index: 0; }
   .latte > .latte-dos { position: absolute; z-index: 1; }
@@ -138,11 +148,17 @@
 }
 @media (prefers-reduced-motion: reduce) { .latte, .latte-couv { transition: none; } }
 
-.cont-empty { display: flex; gap: 22px; align-items: center; padding: 26px; border-radius: 18px;
-    background: var(--bg2); border: 1px solid var(--border); }
-.cont-empty-kanji { font-size: 64px; line-height: 1; color: var(--accent); font-weight: 700; flex: 0 0 auto; }
-.cont-empty h2 { margin: 0 0 6px; font-family: var(--font-head); font-size: 22px; }
-.cont-empty p { margin: 0 0 14px; color: var(--text2); max-width: 560px; }
+/* Quand il n’y a rien à montrer, il n’y a surtout aucune raison de
+   dessiner une boîte vide. C’est le seul écran de l’application où les
+   couvertures manquent : le sceau de la marque y devient la seule image,
+   et il est grand, comme un cachet sur une page blanche. */
+.cont-empty { display: flex; gap: 32px; align-items: center;
+    min-height: clamp(280px, 30vw, 360px); }
+.cont-empty-kanji { font-size: clamp(92px, 13vw, 168px); line-height: .85; color: var(--accent);
+    font-weight: 700; flex: 0 0 auto; }
+.cont-empty h2 { margin: 0 0 8px; font-family: var(--font-head); font-size: clamp(24px, 3vw, 34px);
+    letter-spacing: -.02em; line-height: 1.1; }
+.cont-empty p { margin: 0 0 18px; color: var(--text2); font-size: 15px; max-width: 46ch; }
 .cont-empty-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ── Rayons ──────────────────────────────────────────────── */

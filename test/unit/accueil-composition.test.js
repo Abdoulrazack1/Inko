@@ -120,6 +120,30 @@ test('cinq rangées identiques sont devenues trois poids', () => {
         'un onglet actif n’est pas une pastille colorée');
 });
 
+test('les sections que je n\'avais pas regardées', () => {
+    // L'en-tête : sept icônes, chacune dans sa pastille bordée. C'est le
+    // mobilier qui se fait remarquer au lieu de la page.
+    const ic = regle(GLOBAL, '.header-icon-btn');
+    assert.ok(!/border-radius:\s*50%/.test(ic), 'une commande n’est pas un objet rond');
+    assert.ok(!/border: 1px/.test(ic), 'ni un objet encadré');
+
+    // L'état vide était une boîte vide dessinée autour de rien.
+    const vide = regle(CSS, '.cont-empty');
+    assert.ok(!/border-radius/.test(vide) && !/border:/.test(vide),
+        'quand il n’y a rien à montrer, il n’y a pas de boîte à dessiner');
+
+    // Le pied répétait la navigation du haut.
+    const g = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'js', 'global.js'), 'utf8');
+    assert.ok(!/<h4>Explorer<\/h4>/.test(g), 'la colonne qui redisait la barre du haut');
+    assert.ok(!/style="background:none;border:1px solid var\(--border2\)/.test(g),
+        'les boutons de langue portaient leur dessin en attribut');
+});
+
+test('les chiffres s\'accordent', () => {
+    // « 1 chapitres ce mois » : le cas se produit tous les premiers du mois.
+    assert.match(JS, /chapters_this_month === 1 \? 'chapitre' : 'chapitres'/);
+});
+
 test('ce que la direction artistique interdit a disparu', () => {
     assert.ok(!/box-shadow/.test(regle(GLOBAL, '.btn-primary') || ''),
         'un bouton principal est un aplat, sans relief');

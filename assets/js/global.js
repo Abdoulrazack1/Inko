@@ -113,22 +113,37 @@
                 ? 'Le serveur ne répond pas (base de données injoignable ou service arrêté). Tes données sont intactes — réessaie dans un instant.'
                 : 'Ta session a expiré ou tu n\'es pas connecté. Recharge la page pour rétablir la session.');
         const cta   = autonome ? 'Connecter un ordinateur' : (down ? 'Réessayer' : 'Se reconnecter');
-        // En autonome, recharger ne changera jamais rien : on ouvre le réglage
-        // du hub. `INKO_changerHub` vient de `hub.js` ; s'il manque, on retombe
-        // sur les paramètres, qui portent la même entrée.
-        const action = autonome
-            ? "window.INKO_changerHub ? window.INKO_changerHub() : (location.href='parametres.html')"
-            : 'location.reload()';
+        // Le geste était posé en attribut `onclick`. La CSP de l'application
+        // installée les bloque (DESK-01) : le bouton « Se reconnecter » y
+        // était donc MORT, sur les huit écrans qui affichent ce bandeau.
+        // Il passe par un attribut de données et un seul écouteur délégué.
+        //
+        // En autonome, recharger ne changerait jamais rien : on ouvre le
+        // réglage du hub. `INKO_changerHub` vient de `hub.js` ; s'il manque,
+        // on retombe sur les paramètres, qui portent la même entrée.
+        const quoi = autonome ? 'hub' : 'recharger';
         if (compact) {
-            return `<div style="font-size:12.5px;color:var(--text3);padding:4px 0 2px">
-                ${title} — <a href="#" class="link-orange" onclick="${action};return false">${cta.toLowerCase()}</a>.</div>`;
+            return `<p class="mh-invite mh-invite--ligne">${title} — `
+                + `<button type="button" class="mh-invite-lien" data-invite="${quoi}">${cta.toLowerCase()}</button>.</p>`;
         }
-        return `<div style="text-align:center;padding:34px 16px">
-            <div style="font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px">${title}</div>
-            <div style="color:var(--text3);margin-bottom:18px">${body}</div>
-            <button class="btn btn-primary" onclick="${action}">${cta}</button>
+        return `<div class="mh-invite">
+            <p class="mh-invite-titre">${title}</p>
+            <p class="mh-invite-texte">${body}</p>
+            <button type="button" class="btn btn-primary" data-invite="${quoi}">${cta}</button>
         </div>`;
     };
+
+    // Un seul écouteur pour les huit écrans : le bandeau est réécrit à chaque
+    // rendu, et rebrancher un gestionnaire à chaque fois, c'est en oublier un.
+    document.addEventListener('click', (e) => {
+        const b = e.target.closest?.('[data-invite]');
+        if (!b) return;
+        e.preventDefault();
+        if (b.dataset.invite === 'hub') {
+            if (window.INKO_changerHub) window.INKO_changerHub();
+            else location.href = 'parametres.html';
+        } else location.reload();
+    });
 
     /* ── Icônes SVG (remplace les emojis d'interface) ──────── */
     const ICON_PATHS = {
@@ -1816,11 +1831,13 @@
                nulle part (aucune route serveur, aucun appel réseau). -->
         </div>
         <div class="footer-col">
-          <h4>Explorer</h4>
+          <!-- Cette colonne répétait la barre du haut : « Catalogue » y est
+               déjà, et « Nouveautés » comme « Top » sont la même page avec
+               un tri. Un pied de page qui redit la navigation n’aide
+               personne et allonge la page de trois lignes mortes. Restent
+               les deux destinations qui ne sont nulle part ailleurs. -->
+          <h4>Tes fichiers</h4>
           <ul>
-            <li><a href="catalogue.html">Catalogue</a></li>
-            <li><a href="catalogue.html?sort=latest">Nouveautés</a></li>
-            <li><a href="catalogue.html?sort=rating">Top</a></li>
             <li><a href="import.html">Importer un fichier</a></li>
             <li><a href="downloads.html">Téléchargements</a></li>
           </ul>
@@ -1854,8 +1871,8 @@
              source (i18n.js) couvre désormais toute l'interface. -->
         <div class="footer-lang" style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text3)">
           <span data-i18n="common.language">Langue</span>
-          <button type="button" data-setlang="fr" class="footer-lang-btn" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:3px 8px;cursor:pointer">FR</button>
-          <button type="button" data-setlang="en" class="footer-lang-btn" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:3px 8px;cursor:pointer">EN</button>
+          <button type="button" data-setlang="fr" class="footer-lang-btn">FR</button>
+          <button type="button" data-setlang="en" class="footer-lang-btn">EN</button>
         </div>
       </div>
     </footer>`;

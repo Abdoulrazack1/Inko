@@ -561,15 +561,20 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
   display: flex; align-items: center; gap: 8px;
   margin-left: auto; flex-shrink: 0;
 }
+/* Sept icônes, chacune dans sa pastille bordée : c’est le mobilier qui se
+   fait remarquer au lieu de la page. Une icône d’en-tête est une commande,
+   pas un objet — elle n’a besoin ni de fond, ni de cadre, ni de rond. Elle
+   garde sa cible de 34 px et se signale par son encre.
+   (Celles qui portent un ÉTAT — incognito actif, musique en cours — le
+   disent par leur couleur ; voir `.header-icon-btn.on` plus bas.) */
 .header-icon-btn {
   width: 34px; height: 34px;
-  background: var(--bg3); border-radius: 50%;
+  background: none; border: 0; border-radius: var(--radius2);
   display: flex; align-items: center; justify-content: center;
-  color: var(--text2); font-size: 14px;
-  transition: all var(--transition);
-  border: 1px solid var(--border);
+  color: var(--text3); font-size: 14px;
+  transition: color var(--transition), background var(--transition);
 }
-.header-icon-btn:hover { color: var(--text); border-color: var(--border2); }
+.header-icon-btn:hover { color: var(--text); background: var(--bg3); }
 .header-icon-btn:disabled { opacity: .6; cursor: default; }
 .header-icon-btn.on { background: var(--orange); color: #fff; border-color: var(--orange); }
 /* Mode incognito : liseré discret en haut de page pour le rappeler */
@@ -679,12 +684,19 @@ body.incognito-on::before {
 /* ╔══════════════════════════════════════════════════════════╗
    ║  FOOTER                                                   ║
    ╚══════════════════════════════════════════════════════════╝ */
+/* Le pied n’est pas un panneau rapporté : même fond que la page, séparé
+   par l’espace. Un bandeau d’une autre teinte sous une page sombre, c’est
+   une deuxième page collée sous la première. */
 .site-footer {
-  background: var(--bg2);
+  background: none;
   border-top: 1px solid var(--border);
   padding: 48px 0 24px;
-  margin-top: 80px;
+  margin-top: 96px;
 }
+/* Les deux boutons de langue portaient leur dessin en attribut `style`. */
+.footer-lang-btn { background: none; border: 1px solid var(--border2); color: var(--text2);
+  border-radius: var(--radius2); padding: 3px 8px; cursor: pointer; font: inherit; font-size: 12px; }
+.footer-lang-btn:hover { color: var(--text); border-color: var(--text3); }
 .footer-inner {
   max-width: 1200px; margin: 0 auto; padding: 0 24px;
   display: grid; grid-template-columns: 280px repeat(3,1fr); gap: 40px;
@@ -1023,6 +1035,19 @@ img.img-echec { background: var(--bg3); animation: none; }
   .card-fav-btn:focus-visible, .card-fav-btn.is-fav { opacity: 1; }
 }
 .card-fav-btn.is-fav { color: var(--red); background: rgba(0,0,0,0.7); }
+
+/* ── Le bandeau « il manque quelque chose » ───────────────
+   Il était dessiné en attributs `style`, sur huit écrans. Sa place est
+   ici, et sa forme est celle de l'état vide : du texte dans de l'espace,
+   pas une boîte. */
+.mh-invite { padding: 40px 16px; text-align: center; }
+.mh-invite-titre { margin: 0 0 6px; font-size: 16px; font-weight: 600; color: var(--text); }
+.mh-invite-texte { margin: 0 auto 18px; color: var(--text3); max-width: 52ch; }
+.mh-invite--ligne { padding: 4px 0 2px; font-size: 12.5px; color: var(--text3); text-align: left; }
+.mh-invite-lien { border: 0; background: none; padding: 0; font: inherit;
+    color: var(--accent-text, var(--accent)); cursor: pointer; text-decoration: underline;
+    text-underline-offset: 2px; }
+.mh-invite-lien:hover { color: var(--text); }
 
 /* ── Spinner inline ── */
 .spinner-inline {
