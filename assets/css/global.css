@@ -1042,8 +1042,10 @@ img.img-echec { background: var(--bg3); animation: none; }
 
 /* La ligne du titre d’une carte de rayon : le titre prend la place, le
    cœur se range au bout. */
-.shelf-nom { display: flex; align-items: flex-start; gap: 6px; margin-top: var(--carte-ecart, 8px); }
+.shelf-nom { display: flex; align-items: flex-start; gap: 6px;
+    margin-top: var(--carte-ecart, 8px); padding-right: 6px; }
 .shelf-nom .shelf-name { flex: 1 1 auto; min-width: 0; margin-top: 0; }
+.shelf-meta { padding-right: 6px; }
 .manga-card-info { position: relative; }
 .manga-card-info .card-fav-btn { position: absolute; right: 8px; bottom: 8px; }
 

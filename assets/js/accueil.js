@@ -219,7 +219,10 @@
         track.hidden = false;
         track.innerHTML = avec.map(f => carte({
             id: f.mangaId, source: f.source, title: f.title, cover: f.cover,
-            badge: `${f.unreadCount} à lire`,
+            // Le compte était une pastille orange posée SUR la couverture.
+            // C'est une donnée, donc il reste coloré — mais il descend dans
+            // la ligne de méta, où il se lit au lieu de masquer l'œuvre.
+            nonLus: f.unreadCount,
             sous: f.latestAt ? MH.relTime(new Date(f.latestAt).toISOString()) : '',
         })).join('');
         MH.markFavorites?.(track);
@@ -440,21 +443,24 @@
     // (flouté ailleurs, mais une page d'accueil ne se floute pas à moitié).
     const visible = (m) => MH.nsfwAllowed?.() || !MH.isAdultManga?.(m);
 
-    function carte({ id, source, title, cover, sous, badge, retirer, manga }) {
+    function carte({ id, source, title, cover, sous, nonLus, retirer, manga }) {
         const href = `serie.html?id=${encodeURIComponent(id)}&source=${encodeURIComponent(source || '')}`;
         return `
         <div class="shelf-card manga-card" data-manga-id="${MH.esc(id)}">
             <a href="${href}" class="manga-card-link" aria-label="${MH.esc(title || '')}"${manga ? MH.nsfwCardAttrs?.(manga) || '' : ''}></a>
             <div class="shelf-cover">
                 <img src="${MH.cover(cover, MH.placeholderCover(id))}" alt="" loading="lazy" decoding="async">
-                ${badge ? `<span class="shelf-badge">${MH.esc(badge)}</span>` : ''}
-                ${retirer ? `<button class="shelf-x" type="button" ${retirer} aria-label="Retirer">×</button>` : ''}
             </div>
             <div class="shelf-nom">
                 <span class="shelf-name">${MH.esc(title || '')}</span>
-                ${retirer ? '' : `<button class="card-fav-btn" data-fav="${MH.esc(id)}" title="Ajouter à ma bibliothèque" aria-label="Ajouter « ${MH.esc(title || '')} » à ma bibliothèque">${MH.heartIcon(favSet.has(String(id)))}</button>`}
+                ${retirer
+                    ? `<button class="shelf-x" type="button" ${retirer} title="Retirer de « À lire ensuite »" aria-label="Retirer « ${MH.esc(title || '')} » de « À lire ensuite »">×</button>`
+                    : `<button class="card-fav-btn" data-fav="${MH.esc(id)}" title="Ajouter à ma bibliothèque" aria-label="Ajouter « ${MH.esc(title || '')} » à ma bibliothèque">${MH.heartIcon(favSet.has(String(id)))}</button>`}
             </div>
-            ${sous ? `<div class="shelf-meta">${MH.esc(String(sous))}</div>` : ''}
+            ${nonLus || sous ? `<div class="shelf-meta">`
+                + (nonLus ? `<b class="shelf-nonlus">${nonLus} à lire</b>` : '')
+                + (nonLus && sous ? ' · ' : '')
+                + (sous ? MH.esc(String(sous)) : '') + `</div>` : ''}
         </div>`;
     }
 
