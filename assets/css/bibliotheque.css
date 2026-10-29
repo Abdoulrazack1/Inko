@@ -1,15 +1,26 @@
 /* bibliotheque.css — Écran Bibliothèque (audit §10 : sorti du <style> inline) */
 
 .lib2-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
-.lib2-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
+/* L’en-tête comptait QUATRE rangées avant la première couverture : titre,
+   invitation à créer une catégorie, barre d’outils, et la ligne de
+   vérification. Le titre et les onglets tiennent sur la même ligne, posés
+   sur une base commune, et l’écart sous eux se resserre. */
+.lib2-head { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; margin-bottom:14px; }
 .lib2-head h1 { font-family: var(--font-head); font-size: 26px; font-weight: 700; }
-.lib2-tabs { display:flex; gap:4px; background:var(--glass-bg); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); box-shadow:var(--glass-inner); border-radius:12px; padding:4px; }
-.lib2-tab { padding:8px 16px; border-radius:8px; font-size:13px; color:var(--text2); font-weight:500; position:relative; transition:color var(--transition), background var(--transition); }
-.lib2-tab:hover { color:var(--text); }
-.lib2-tab.active { background:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+/* Quatre onglets dans un boîtier de verre bordé, dont l’actif est un aplat
+   orange ombré : c’est de la couleur dépensée en MOBILIER, sur une page où
+   elle devrait être réservée aux données. L’onglet actif se marque par son
+   encre et un filet, comme partout ailleurs désormais. */
+.lib2-tabs { display:flex; gap:22px; }
+.lib2-tab { padding:0 0 7px; border:0; background:none; font-size:14px; font-weight:600;
+    color:var(--text3); cursor:pointer; border-bottom:2px solid transparent;
+    transition:color var(--transition); }
+.lib2-tab:hover { color:var(--text2); }
+.lib2-tab.active { color:var(--text); border-bottom-color:var(--text); }
 /* Compteur discret sur un onglet (Téléchargements) */
-.lib2-tab .tab-count { display:inline-block; margin-left:6px; font-size:11px; font-weight:700; background:var(--bg4); color:var(--text2); padding:1px 6px; border-radius:9px; }
-.lib2-tab.active .tab-count { background:rgba(255,255,255,.25); color:#fff; }
+.lib2-tab .tab-count { margin-left:5px; font-size:12px; font-weight:400; color:var(--text3);
+    font-variant-numeric:tabular-nums; }
+.lib2-tab.active .tab-count { color:var(--text2); }
 .lib2-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
 .lib2-search { flex:1; min-width:200px; background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:9px 14px; border-radius:9px; font-size:13px; }
 .lib2-search:focus { outline:none; border-color:var(--orange); }
@@ -19,21 +30,33 @@
 .lib2-view { display:inline-flex; background:var(--bg3); border:1px solid var(--border2); border-radius:9px; padding:2px; gap:2px; }
 .lib2-view button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:30px; border:none; background:none; color:var(--text2); border-radius:7px; cursor:pointer; transition:color var(--transition), background var(--transition); }
 .lib2-view button:hover { color:var(--text); }
-.lib2-view button.on { background:var(--accent); color:#fff; box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+/* L’actif d’une bascule est un ÉTAT de mobilier, pas une donnée : il se
+   marque par un pas de clarté et par l’encre, comme les onglets. */
+.lib2-view button.on { background:var(--bg4); color:var(--text); }
 
-.lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:16px; }
+.lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:4px 6px; }
 .lib2-grid.lib2-grid--compact { grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:10px; }
-.lib2-grid--compact .lib2-title { font-size:11px; }
+.lib2-grid--compact .lib2-title { font-size:12px; }
 .lib2-grid--compact .lib2-sub, .lib2-grid--compact .lib2-cat { display:none; }
 .lib2-card { position:relative; cursor:pointer; transition:transform .28s var(--ease-out); }
-.lib2-cover { aspect-ratio:3/4; border-radius:var(--radius); overflow:hidden; background:var(--bg4); position:relative; box-shadow:var(--shadow-1); transition:box-shadow .28s var(--ease-out); }
+/* La couverture EST l’objet : ni rayon, ni ombre. Cinq cents cartes
+   arrondies et ombrées font cinq cents objets ; cinq cents couvertures
+   serrées font une bibliothèque. */
+.lib2-cover { aspect-ratio:3/4; overflow:hidden; background:var(--bg4); position:relative; }
 .lib2-cover img { width:100%; height:100%; object-fit:cover; transition:transform .5s var(--ease-out); }
 .lib2-grid .lib2-card:hover { transform:translateY(-4px); }
 .lib2-grid .lib2-card:hover .lib2-cover { box-shadow:var(--shadow-3); }
 .lib2-grid .lib2-card:hover .lib2-cover img { transform:scale(1.06); }
-.lib2-badge { position:absolute; top:8px; left:8px; background:var(--hanko); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.4); z-index:4; }
+/* ── Rien ne se pose plus sur la couverture ────────────────
+   Une pastille rouge ombrée en haut à gauche de CHAQUE couverture, sur une
+   page qui en affiche cinq cents : l’écran était moucheré de rouge, et
+   l’inspecteur mesurait 12 % de surface fortement colorée pour une cible
+   de 3 %. Le compte est une donnée, il reste donc coloré — mais il descend
+   sous la couverture, où il se lit au lieu de masquer. Même décision que
+   sur l’accueil, même raison. */
+.lib2-nonlus { color: var(--accent-text, var(--accent)); font-weight: 700;
+    font-variant-numeric: tabular-nums; }
 /* si un badge de statut occupe déjà le coin haut-gauche, on descend le compteur */
-.lib2-status + .lib2-badge, .lib2-status ~ .lib2-badge { top:34px; }
 .lib2-pin { position:absolute; bottom:8px; right:8px; width:30px; height:30px; border-radius:9px; border:none; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; opacity:0; transform:translateY(4px); transition:opacity .14s, transform .14s, background .14s; backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; }
 .lib2-card:hover .lib2-pin { opacity:.9; transform:translateY(0); }
 .lib2-pin:hover { background:rgba(0,0,0,.8); }
@@ -43,13 +66,12 @@
 .lib2-del:hover { background:#ef4444; opacity:1; }
 /* Signet : indicateur qu'un passage est marqué (audit §10.3) */
 .lib2-bm { position:absolute; top:6px; right:8px; color:#fbbf24; filter:drop-shadow(0 1px 2px rgba(0,0,0,.6)); pointer-events:none; }
-.lib2-badge + .lib2-bm { top:36px; }
 .ic-btn { display:inline-flex; align-items:center; gap:6px; }
 .ic-btn svg { flex-shrink:0; }
 .lib2-progress { position:absolute; left:0; right:0; bottom:0; height:4px; background:rgba(0,0,0,.45); }
 .lib2-progress-fill { height:100%; background:var(--orange); transition:width .3s; }
 .lib2-title { font-size:12.5px; font-weight:500; margin-top:7px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.lib2-sub { font-size:11px; color:var(--text3); margin-top:2px; }
+.lib2-sub { font-size:12px; color:var(--text3); margin-top:2px; }
 .lib2-empty { text-align:center; padding:70px 20px; color:var(--text3); }
 .lib2-empty .ico { font-size:48px; margin-bottom:10px; }
 
@@ -64,9 +86,14 @@
 .lib2-chip.on .cnt, .lib2-chip.active .cnt,
 .lib2-kind.on .cnt, .lib2-kind.active .cnt { opacity:1; color:#fff; }
 .lib2-chip-add { color:var(--text3); border-style:dashed; }
-.lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; color:#fff; }
-.lib2-kind-badge { position:absolute; bottom:8px; left:8px; font-size:8.5px; font-weight:800; padding:2px 6px; border-radius:5px; letter-spacing:.04em; color:#fff; background:var(--ai); box-shadow:0 2px 6px rgba(0,0,0,.4); }
-.lib2-cat { font-size:10px; color:var(--text3); margin-top:1px; }
+/* Le statut était la troisième marque posée sur la couverture, en
+   capitales de 9 px. Il descend sous elle et garde sa couleur, qui est
+   sa donnée : une pastille de 6 px avant le mot suffit à la porter. */
+.lib2-statut { display:inline-flex; align-items:center; gap:5px; }
+.lib2-statut::before { content:""; width:6px; height:6px; border-radius:50%;
+    background:currentColor; flex:0 0 auto; }
+/* Rien sous 11 px : une donnée qu’on n’arrive pas à lire ne sert personne. */
+.lib2-cat { font-size:11.5px; color:var(--text3); margin-top:1px; }
 
 /* Segment Mangas / Romans */
 .lib2-kinds { display:inline-flex; background:var(--bg3); border:1px solid var(--border2); border-radius:20px; padding:3px; gap:2px; margin-right:6px; }
@@ -84,7 +111,7 @@
 .lib2-resume-card { flex:0 0 118px; width:118px; position:relative; }
 .lib2-resume-card .lib2-cover { border-radius:9px; }
 .lib2-resume-card .lib2-title { font-size:11.5px; -webkit-line-clamp:1; margin-top:5px; }
-.lib2-resume-card .lib2-sub { font-size:10px; }
+.lib2-resume-card .lib2-sub { font-size:11.5px; }
 
 /* Vue Liste (symétrique du catalogue) — réutilise le même DOM de carte que la grille */
 .lib2-list { display:flex; flex-direction:column; gap:8px; }
@@ -112,7 +139,7 @@
 .upd-info { flex:1; min-width:0; }
 .upd-name { font-size:14px; font-weight:600; }
 .upd-meta { font-size:12px; color:var(--text2); margin-top:3px; }
-.upd-new { background:rgba(34,197,94,.15); color:var(--green); font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:5px; }
+.upd-new { background:rgba(34,197,94,.15); color:var(--green); font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:5px; }
 
 
 /* ── MOB-01 / MOB-02 : la bibliothèque au doigt ──────────────
@@ -166,8 +193,7 @@
   margin: 0 0 10px;
 }
 .lib2-resume-label {
-  font-size: 11.5px; color: var(--text3); text-transform: uppercase;
-  letter-spacing: .04em; margin-right: 2px;
+  font-size: 12.5px; color: var(--text3); margin-right: 2px;
 }
 .lib2-resume-chip {
   display: inline-flex; align-items: center; gap: 6px;
@@ -216,7 +242,9 @@
 .lib-pop--right { left: auto; right: 0; }
 .lib-pop .lib2-filters { display: block; margin: 0; padding: 0; border: 0; background: none; }
 .lib-filter-group + .lib-filter-group { margin-top: 12px; }
-.lib-filter-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); margin-bottom: 6px; }
+/* Une petite capitale espacée est le signe le plus sûr d’un gabarit, et
+   elle se lit moins bien que la même chose en bas de casse. */
+.lib-filter-label { font-size: 12.5px; font-weight: 700; color: var(--text2); margin-bottom: 6px; }
 .lib-filter-chips, .lib-pop .lib2-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
 .lib-filter-reset { margin-top: 14px; border: 0; background: none; color: var(--accent-text, var(--accent)); font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; }
 .lib-filter-count[hidden] { display: none; }
@@ -257,7 +285,7 @@
 /* Vue chronologique des sorties (onglet « Mises à jour »). */
 .upd-chrono { margin: 4px 0 22px; }
 .upd-chrono-titre { font-size: 15px; font-weight: 700; margin: 0 0 8px; }
-.upd-chrono-tranche { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text3); margin: 14px 0 6px; }
+.upd-chrono-tranche { font-size: 13px; font-weight: 600; color: var(--text2); margin: 14px 0 6px; }
 .upd-chrono-tranche .cnt { font-weight: 500; margin-left: 4px; }
 .upd-chrono-ligne { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 10px; color: inherit; text-decoration: none; }
 .upd-chrono-ligne:hover { background: var(--bg2); }

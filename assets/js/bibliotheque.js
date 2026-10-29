@@ -1209,8 +1209,10 @@
             const prog = progressByManga[f.mangaId];
             const u = unreadCount(f);
             const isPin = window.UserData?.isPinned?.(f.mangaId, f.source);
+            // Le statut était posé SUR la couverture. Il descend dans la
+            // ligne de méta, où sa couleur devient une pastille de 6 px.
             const st = f.status && STATUS[f.status]
-                ? `<div class="lib2-status" style="background:${STATUS[f.status][1]}">${STATUS[f.status][0]}</div>` : '';
+                ? `<span class="lib2-statut" style="color:${STATUS[f.status][1]}">${STATUS[f.status][0]}</span>` : '';
             // Progression de lecture : chapitres lus / total connu
             const readN = (readByManga[f.mangaId] || []).length;
             const total = Math.max(readN + u, readN, Math.round(f.lastChapter || 0));
@@ -1229,9 +1231,6 @@
                     <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy"
                          onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                     ${selectMode ? `<div class="lib2-check">${isSel ? '✓' : ''}</div>` : ''}
-                    ${st}
-                    ${MH.isNovelSource(f.source) ? '<div class="lib2-kind-badge">ROMAN</div>' : ''}
-                    ${u > 0 ? `<div class="lib2-badge">${u}</div>` : ''}
                     ${(hasBm || prog) ? `<div class="dog-ear ${MH.isNovelSource(f.source) ? 'novel' : ''}" title="${hasBm ? 'Contient un signet' : 'Reprise de lecture possible'}"></div>` : ''}
                     <button class="lib2-pin ${isPin ? 'on' : ''}" data-pin="${MH.esc(f.mangaId)}" data-src="${MH.esc(f.source || '')}"
                         title="${isPin ? 'Désépingler' : 'Épingler en haut'}" aria-label="Épingler">${MH.icon('pin', 15)}</button>
@@ -1241,7 +1240,12 @@
                 </div>
                 <div class="lib2-info">
                     <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
-                    <div class="lib2-sub">${prog ? unit + ' ' + MH.chapNum(prog.chapter) : 'Pas commencé'} · ${f.source || 'mangadex'}</div>
+                    <div class="lib2-sub">
+                        ${st ? st + ' · ' : ''}
+                        ${u > 0 ? `<b class="lib2-nonlus">${u} à lire</b> · ` : ''}
+                        ${prog ? unit + ' ' + MH.chapNum(prog.chapter) : 'Pas commencé'}
+                        ${MH.isNovelSource(f.source) ? ' · roman' : ''}
+                    </div>
                     ${f.category ? `<div class="lib2-cat">${MH.esc(f.category)}</div>` : ''}
                     ${tri === 'rythme' ? `<div class="lib2-cat lib2-rythme">${MH.esc(libelleRythme(f) || 'Rythme pas encore connu')}</div>` : ''}
                 </div>
@@ -1494,7 +1498,10 @@
         // une liste d'onglets est une faute d'accessibilité (aria-required-children).
         if (cats.length) el.setAttribute('role', 'tablist'); else el.removeAttribute('role');
         if (!cats.length) {
-            el.innerHTML = `<button type="button" class="lib-cat-add" id="libCatAddFirst">＋ Créer une catégorie pour ranger tes séries</button>`;
+            // Cette invitation prenait une RANGÉE entière au-dessus de la
+            // barre d’outils, sur une page qui en comptait déjà trois avant
+            // la première couverture. Elle se dit en trois mots.
+            el.innerHTML = `<button type="button" class="lib-cat-add" id="libCatAddFirst">＋ Créer une catégorie</button>`;
             el.querySelector('#libCatAddFirst').addEventListener('click', ouvrirGestionCategories);
             return;
         }
