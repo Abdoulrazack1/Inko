@@ -235,7 +235,10 @@
         el.innerHTML = `
         <div class="serie-hero-inner">
             <div class="serie-cover-wrap">
-                <div class="serie-cover-status">${MH.statusBadge(manga.status)}</div>
+                <!-- Le statut était dit DEUX FOIS dans ce hero : une pastille
+                     posée sur la couverture, et le même mot dans la ligne de
+                     méta à côté. Celle du dessus part : rien ne se pose sur
+                     l’œuvre. -->
                 <div class="serie-cover">
                     <img src="${MH.cover(manga.coverLarge, manga.cover)}" alt="${MH.esc(manga.title)}"
                          onerror="this.src='${MH.placeholderCover(manga.id)}'">
@@ -1436,13 +1439,12 @@
         if (sub) sub.textContent = `Parce que tu lis « ${manga.title} »`;
 
         row.innerHTML = items.map((m, i) => `
-            <a class="sim-card" data-idx="${i}" href="recherche.html?q=${encodeURIComponent(m.title)}"
-               style="text-decoration:none;color:inherit;display:block;min-width:0">
-                <div style="aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--bg4);position:relative">
-                    <img src="${MH.esc(m.cover || '')}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.style.visibility='hidden'">
-                    <div class="sim-badge" data-badge="${i}" style="display:none;position:absolute;left:6px;bottom:6px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;background:#3f7d4e;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4)"></div>
+            <a class="sim-card" data-idx="${i}" href="recherche.html?q=${encodeURIComponent(m.title)}">
+                <div class="sim-vignette">
+                    <img src="${MH.esc(m.cover || '')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
                 </div>
-                <div style="font-size:11.5px;margin-top:6px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${MH.esc(m.title)}</div>
+                <div class="sim-nom">${MH.esc(m.title)}</div>
+                <div class="sim-badge" data-badge="${i}"></div>
             </a>`).join('');
         block.style.display = '';
 
