@@ -9,10 +9,12 @@
 }
 
 /* ── Sidebar filtres ────────────────────────────────────────── */
+/* Un panneau se détache de son fond par UNE chose : un pas de clarté
+   ou un filet discret — pas les deux, sinon l’écran devient une grille
+   de boîtes. Ces quatre-là portaient les deux. */
 .filters-sidebar {
   position: sticky; top: 70px;
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: var(--sp-4);
+  background: var(--bg2); border-radius: var(--radius); padding: var(--sp-4);
   max-height: calc(100vh - 90px); overflow-y: auto;
   scrollbar-width: thin;
 }
@@ -20,10 +22,10 @@
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: var(--sp-4);
 }
-.filters-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; }
+.filters-title { font-family: var(--font-head); font-size: var(--t-m); font-weight: 700; }
 .filters-reset {
   /* audit A11Y-02 : 3.65:1 avec l'accent de marque en 11.5px */
-  font-size: 11.5px; color: var(--accent-text); font-weight: 500;
+  font-size: var(--t-xs); color: var(--accent-text); font-weight: 500;
   transition: opacity var(--transition);
 }
 .filters-reset:hover { opacity: .75; }
@@ -38,67 +40,74 @@
 .filter-search {
   width: 100%; margin-bottom: var(--sp-2); padding: var(--sp-2) 10px;
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
-  border-radius:  var(--r-controle); font-size: 12.5px; font-family: inherit;
+  border-radius:  var(--r-controle); font-size: var(--t-s); font-family: inherit;
 }
 .filter-search::placeholder { color: var(--text3); }
 .filter-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.filter-empty { font-size: 12px; color: var(--text3); padding: var(--sp-1) var(--sp-0); }
+.filter-empty { font-size: var(--t-s); color: var(--text3); padding: var(--sp-1) var(--sp-0); }
 
 /* Annee : liste deroulante, alignee sur les autres champs de la barre. */
 .filter-select {
   width: 100%; padding: var(--sp-2) 10px;
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
-  border-radius:  var(--r-controle); font-size: 12.5px; font-family: inherit; cursor: pointer;
+  border-radius:  var(--r-controle); font-size: var(--t-s); font-family: inherit; cursor: pointer;
 }
 
 /* Resume des filtres actifs : chaque entree se retire d'un clic. La croix est
    dans le bouton, pas a cote — c'est toute la pastille qui est cliquable. */
 .filter-active-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-active-chip {
-  display: inline-flex; align-items: center; gap: var(--sp-1);
-  padding: var(--puce-rembourrage); border-radius: var(--puce-rayon); cursor: pointer;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  border: 1px solid var(--accent); color: var(--accent-text);
-  font-size: var(--puce-taille); font-family: inherit;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: var(--sp-1) 9px; border-radius: var(--radius2); border: 0; cursor: pointer;
+  background: var(--bg4); color: var(--accent-text);
+  box-shadow: inset 2px 0 0 var(--accent);
+  font-size: var(--t-xs); font-family: inherit;
 }
-.filter-active-chip:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+.filter-active-chip:hover { color: var(--text); }
 .filter-active-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.filter-active-chip span { font-size: 13px; line-height: 1; }
+.filter-active-chip span { font-size: var(--t-s); line-height: 1; }
+/* Une petite capitale espacée est le signe le plus sûr d’un gabarit, et
+   elle se lit moins bien que la même chose en bas de casse. */
 .filter-label {
-  font-size: 11px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .06em; color: var(--text2); margin-bottom: var(--sp-2);
+  font-size: var(--t-s); font-weight: 700; color: var(--text2); margin-bottom: var(--sp-2);
 }
 .filter-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
-.filter-tag {
-  padding: var(--puce-rembourrage); background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--puce-rayon); font-size: var(--puce-taille); color: var(--text2);
-  transition: all var(--transition); cursor: pointer;
+
+/* ── Un filtre s’allume d’une seule façon ─────────────────────
+   Cette page avait QUATRE grammaires pour le même geste : le genre
+   (rayon 30, bordé, actif en orange pâle), le statut (rayon 20, bordé,
+   actif en aplat orange), la langue (idem) et les filtres rapides
+   (idem). Quarante-trois pilules bordées dans la colonne de gauche.
+   Un seul objet, et l’actif marqué comme partout ailleurs désormais :
+   un pas de clarté, l’encre pleine, un filet d’accent à gauche. */
+.filter-tag, .filter-status-btn, .lang-btn, .quick-filter-btn {
+  padding: var(--sp-1) 10px; background: var(--bg3); border: 0;
+  border-radius: var(--radius2); font-size: var(--t-xs); color: var(--text2);
+  font-family: inherit; cursor: pointer;
+  transition: color var(--transition), background var(--transition);
 }
-.filter-tag:hover, .filter-tag.active {
-  background: rgba(255,107,26,.12); border-color: rgba(255,107,26,.3);
-  /* --accent-text et non --accent : couleur de TEXTE sur fond sombre (QUAL-05) */
-  color: var(--accent-text);
+.filter-tag:hover, .filter-status-btn:hover,
+.lang-btn:hover, .quick-filter-btn:hover { background: var(--bg4); color: var(--text); }
+.filter-tag.active, .filter-status-btn.active,
+.lang-btn.active, .quick-filter-btn.active {
+  background: var(--bg4); color: var(--text); font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 /* Audit AMEL-05 : troisième état, « exclu ». Il ne doit pas ressembler à
    « inclus » : couleur de rejet, texte barré et préfixe « − » posé dans le
    libellé — trois signaux, dont deux ne dépendent pas de la couleur, pour
    rester lisible en vision des couleurs déficiente. */
+/* Le troisième état, « exclu », garde ses trois signaux (dont deux qui
+   ne dépendent pas de la couleur) — mais son filet passe à gauche,
+   comme celui de l’état actif, pour qu’on lise les deux au même endroit. */
 .filter-tag.excluded {
-  background: rgba(168,50,50,.14); border-color: rgba(168,50,50,.38);
-  color: var(--red-text); text-decoration: line-through;
-  text-decoration-thickness: 1px;
+  background: var(--bg4); color: var(--red-text);
+  text-decoration: line-through; text-decoration-thickness: 1px;
+  box-shadow: inset 2px 0 0 var(--red, #a83232);
 }
-.filter-tag.excluded:hover { background: rgba(168,50,50,.22); }
+.filter-tag.excluded:hover { color: var(--red-text); }
 
-.filter-status { display: flex; gap: 6px; flex-wrap: wrap; }
-.filter-status-btn {
-  padding: var(--sp-1) var(--sp-3); border-radius:  var(--r-feuille);
-  border: 1px solid var(--border); background: var(--bg3);
-  font-size: 11.5px; color: var(--text2); transition: all var(--transition);
-  cursor: pointer;
-}
-.filter-status-btn.active { background: var(--orange); border-color: var(--orange); color: var(--sur-couleur); }
-.filter-status-btn[data-status="termine"].active { background: var(--bg4); color: var(--text); }
+.filter-status { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
 
 .filter-rating { padding: 0 var(--sp-0); }
 .filter-rating input[type="range"] {
@@ -106,29 +115,22 @@
 }
 .rating-vals {
   display: flex; justify-content: space-between;
-  font-size: 11px; color: var(--text2); margin-top: var(--sp-1);
+  font-size: var(--t-xs); color: var(--text2); margin-top: var(--sp-1);
 }
 
 .filter-checkboxes { display: flex; flex-direction: column; gap: 6px; }
 .filter-checkbox {
   display: flex; align-items: center; gap: var(--sp-2);
-  font-size: 12.5px; cursor: pointer;
+  font-size: var(--t-s); cursor: pointer;
 }
 .filter-checkbox input { accent-color: var(--orange); width: 14px; height: 14px; }
 
-.filter-langs { display: flex; gap: 6px; }
-.lang-btn {
-  padding: var(--sp-1) var(--sp-3); border-radius:  var(--r-feuille);
-  border: 1px solid var(--border); background: var(--bg3);
-  font-size: 11.5px; font-weight: 600; color: var(--text2);
-  transition: all var(--transition); cursor: pointer;
-}
-.lang-btn.active { background: var(--orange); border-color: var(--orange); color: var(--sur-couleur); }
+.filter-langs { display: flex; gap: var(--sp-1); }
 
 /* ── Dernières sorties (sidebar) ─────────────────────────────── */
 .latest-mini { display: flex; flex-direction: column; gap: var(--sp-0); }
 .latest-mini-loading { display: flex; justify-content: center; padding: 14px 0; }
-.latest-mini-empty { font-size: 11.5px; color: var(--text3); padding: 6px 0; }
+.latest-mini-empty { font-size: var(--t-xs); color: var(--text3); padding: 6px 0; }
 .latest-mini-row {
   display: flex; align-items: center; gap: var(--sp-2);
   padding: 6px 6px; margin: 0 -6px; border-radius:  var(--r-controle);
@@ -137,23 +139,26 @@
 .latest-mini-row:hover { background: var(--bg3); }
 .latest-mini-rank {
   flex-shrink: 0; width: 16px; text-align: center;
-  font-family: var(--font-head); font-size: 12px; font-weight: 800;
+  font-family: var(--font-head); font-size: var(--t-s); font-weight: 800;
   color: var(--text3);
 }
 .latest-mini-row:hover .latest-mini-rank { color: var(--orange); }
+/* Une couverture est une image imprimée : elle n’a pas de coins
+   arrondis. Trois vignettes de cette page en avaient trois rayons
+   différents — 5, 6 et 6. */
 .latest-mini-cover {
-  flex-shrink: 0; width: 32px; height: 44px; border-radius:  var(--r-controle);
+  flex-shrink: 0; width: 32px; height: 44px;
   overflow: hidden; background: var(--bg4); position: relative;
 }
 .latest-mini-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .latest-mini-cover.noimg img { display: none; }
 .latest-mini-info { display: flex; flex-direction: column; gap: var(--sp-0); min-width: 0; }
 .latest-mini-title {
-  font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.25;
+  font-size: var(--t-s); font-weight: 600; color: var(--text); line-height: 1.25;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.latest-mini-sub { font-size: 10.5px; color: var(--text3); }
+.latest-mini-sub { font-size: var(--t-xs); color: var(--text3); }
 
 /* ── Catalogue header ───────────────────────────────────────── */
 .catalogue-header {
@@ -161,39 +166,32 @@
   gap: 20px; margin-bottom: var(--sp-5);
 }
 .catalogue-title {
-  font-family: var(--font-head); font-size: 28px; font-weight: 800;
+  font-family: var(--font-head); font-size: var(--t-2xl); font-weight: 800;
   margin-bottom: 6px;
 }
-.catalogue-desc { font-size: 13px; color: var(--text2); max-width: 520px; line-height: 1.5; margin-bottom: var(--sp-3); }
+.catalogue-desc { font-size: var(--t-s); color: var(--text2); max-width: 520px; line-height: 1.5; margin-bottom: var(--sp-3); }
 .catalogue-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .catalogue-chip {
   display: flex; align-items: center; gap: 6px;
-  padding: var(--puce-rembourrage); background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--puce-rayon); font-size: var(--puce-taille); color: var(--text2);
+  padding: var(--sp-1) 10px; background: var(--bg3); border: 0;
+  border-radius: var(--radius2); font-size: var(--t-xs); color: var(--text2);
 }
-.catalogue-chip svg, .catalogue-chip-icon { color: var(--orange); font-size: 12px; }
-.catalogue-quick-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.quick-filter-btn {
-  padding: var(--sp-1) var(--sp-3); border-radius:  var(--r-feuille); border: 1px solid var(--border);
-  background: var(--bg3); font-size: 12px; color: var(--text2);
-  transition: all var(--transition); cursor: pointer;
-}
-.quick-filter-btn.active { background: var(--orange); border-color: var(--orange); color: var(--sur-couleur); }
+.catalogue-chip svg, .catalogue-chip-icon { color: var(--orange); font-size: var(--t-s); }
+.catalogue-quick-filters { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-bottom: 10px; }
 .catalogue-actions-bar { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-.catalogue-active-filters { font-size: 11.5px; color: var(--orange); font-weight: 500; }
+.catalogue-active-filters { font-size: var(--t-xs); color: var(--orange); font-weight: 500; }
 
 /* Focus du moment */
 .catalogue-focus {
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 14px; width: 220px; flex-shrink: 0;
+  background: var(--bg3); border-radius: var(--radius);
+  padding: 14px; width: 220px; flex-shrink: 0;
 }
 .focus-label {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  color: var(--text2); letter-spacing: .06em; margin-bottom: 6px;
+  font-size: var(--t-xs); font-weight: 700; color: var(--text2); margin-bottom: 6px;
 }
-.focus-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; margin-bottom: var(--sp-2); }
+.focus-title { font-family: var(--font-head); font-size: var(--t-m); font-weight: 700; margin-bottom: var(--sp-2); }
 .focus-cover {
-  width: 100%; aspect-ratio: 16/9; border-radius:  var(--r-controle);
+  width: 100%; aspect-ratio: 16/9;
   overflow: hidden; margin-bottom: 10px;
 }
 .focus-cover img { width: 100%; height: 100%; object-fit: cover; }
@@ -201,8 +199,8 @@
   display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2);
 }
 .focus-stat { }
-.focus-stat-label { font-size: 10px; color: var(--text3); }
-.focus-stat-value { font-size: 13px; font-weight: 600; }
+.focus-stat-label { font-size: var(--t-xs); color: var(--text3); }
+.focus-stat-value { font-size: var(--t-s); font-weight: 600; }
 .focus-badge {
   position: absolute; top: 8px; right: 8px;
 }
@@ -213,12 +211,11 @@
   display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3);
 }
 .team-pick-card {
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden;
+  background: var(--bg3); border-radius: var(--radius); overflow: hidden;
   display: flex; flex-direction: column; position: relative;
   min-height: 130px; cursor: pointer; transition: all var(--transition);
 }
-.team-pick-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+.team-pick-card:hover { transform: translateY(-2px); }
 .team-pick-bg {
   position: absolute; inset: 0;
   background-size: cover; background-position: center;
@@ -226,22 +223,22 @@
 }
 .team-pick-content { position: relative; padding: 14px; }
 .team-pick-badge { margin-bottom: 6px; }
-.team-pick-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; margin-bottom: var(--sp-0); }
-.team-pick-subtitle { font-size: 11.5px; color: var(--text2); }
+.team-pick-title { font-family: var(--font-head); font-size: var(--t-m); font-weight: 700; margin-bottom: var(--sp-0); }
+.team-pick-subtitle { font-size: var(--t-xs); color: var(--text2); }
 
 /* ── Results ────────────────────────────────────────────────── */
 .results-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: var(--sp-4); padding: 0;
 }
-.results-count { font-size: 13px; color: var(--text2); }
+.results-count { font-size: var(--t-s); color: var(--text2); }
 .results-count strong { color: var(--text); font-weight: 600; }
 .results-actions { display: flex; align-items: center; gap: 10px; }
 .view-toggle { display: flex; }
 .view-btn {
   width: 32px; height: 32px; border-radius: var(--radius2);
   border: 1px solid var(--border); background: var(--bg3);
-  color: var(--text2); font-size: 14px; transition: all var(--transition);
+  color: var(--text2); font-size: var(--t-m); transition: all var(--transition);
 }
 .view-btn:first-child { border-radius: var(--radius2) 0 0 var(--radius2); }
 .view-btn:last-child { border-radius: 0 var(--radius2) var(--radius2) 0; border-left: none; }
@@ -250,78 +247,74 @@
 .sort-select:focus { outline: none; border-color: var(--orange); }
 
 /* Grid results */
-/* La seule grille de l’application à colonnes FIXES : cinq, puis quatre
-   sous 1024 px. Une carte y changeait donc de TAILLE avec la fenêtre au
-   lieu de changer de nombre : mesurée à 148 px dans un conteneur de
-   798 px, elle en fait 229 dans un conteneur large. La même carte, deux
-   tailles, selon l’écran — pendant que toutes les autres grilles la
-   gardaient stable et faisaient varier le nombre de colonnes.
-   Elle rejoint la grille commune : même largeur minimale, même
-   gouttiere, même comportement. */
+/* L’écart était le même dans les deux sens, parce qu’il séparait des
+   CARTES. Il sépare maintenant des couvertures : serrées côte à côte
+   comme sur un rayon, et aérées entre les rangées pour que la légende
+   de l’une ne touche pas l’œuvre de la suivante. */
 .results-grid {
-  display: grid; gap: var(--grille-gouttiere);
-  grid-template-columns: repeat(auto-fill, minmax(var(--grille-carte), 1fr));
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 22px 6px;
   margin-bottom: 28px;
 }
 .results-grid.list-view { grid-template-columns: 1fr; }
-.results-grid.list-view .manga-card { display: flex; flex-direction: row; }
-/* Boîte fixe : le rapport ne s’applique plus, mais il doit rester celui
-   des couvertures. 80 × 110 valait 0,727 ; 80 × 120 vaut 2:3. */
-.results-grid.list-view .manga-card-cover { width: 80px; flex-shrink: 0; aspect-ratio: auto; height: 120px; }
+.results-grid.list-view .manga-card { display: flex; flex-direction: row;
+    border-bottom: 1px solid var(--border); transition: background var(--transition); }
+.results-grid.list-view .manga-card:last-child { border-bottom: 0; }
+.results-grid.list-view .manga-card:hover { background: var(--bg2); transform: none; }
+.results-grid.list-view .manga-card-cover { width: 80px; flex-shrink: 0; aspect-ratio: auto; height: 110px; }
 .results-grid.list-view .manga-card-info { flex: 1; padding: var(--sp-3); }
 
 /* Catalogue card extra info */
 .manga-card-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
-.manga-card-tag {
-  font-size: var(--pastille-taille); padding: var(--pastille-rembourrage);
-  background: var(--bg4); border-radius: var(--pastille-rayon); color: var(--text2);
-}
+/* Rien sous 11 px : une donnée qu’on n’arrive pas à lire ne sert personne. */
+.manga-card-tag { font-size: var(--t-xs); color: var(--text3); }
 
 /* Pagination */
 .pagination { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 40px; }
 .page-btn {
   width: 34px; height: 34px; border-radius: var(--radius2);
   background: var(--bg3); border: 1px solid var(--border);
-  color: var(--text2); font-size: 13px; transition: all var(--transition);
+  color: var(--text2); font-size: var(--t-s); transition: all var(--transition);
 }
 .page-btn:hover { border-color: var(--border2); color: var(--text); }
-.page-btn.active { background: var(--orange); border-color: var(--orange); color: var(--sur-couleur); }
+/* .view-btn.active marque déjà l’actif par la clarté : c’est le bon
+   geste, et il était seul de son espèce sur cette page. */
+.page-btn.active { background: var(--bg4); border-color: var(--border2); color: var(--text); font-weight: 600; }
 .page-sep { color: var(--text3); }
 
 /* Collections mini */
 .collections-mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
 .collection-mini-card {
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 14px;
+  background: var(--bg3); border-radius: var(--radius); padding: 14px;
   display: flex; align-items: center; gap: var(--sp-3);
   transition: all var(--transition); cursor: pointer;
 }
-.collection-mini-card:hover { border-color: var(--border2); }
+.collection-mini-card:hover { background: var(--bg4); }
 .collection-mini-cover {
-  width: 56px; height: 56px; border-radius:  var(--r-controle);
+  width: 56px; height: 56px;
   overflow: hidden; flex-shrink: 0;
   background: var(--bg4);
   display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-0);
 }
 .collection-mini-cover img { width: 100%; height: 100%; object-fit: cover; }
 .collection-mini-info {}
-.collection-mini-title { font-size: 12.5px; font-weight: 600; margin-bottom: var(--sp-0); line-height: 1.3; }
-.collection-mini-meta { font-size: 11px; color: var(--text2); }
+.collection-mini-title { font-size: var(--t-s); font-weight: 600; margin-bottom: var(--sp-0); line-height: 1.3; }
+.collection-mini-meta { font-size: var(--t-xs); color: var(--text2); }
 
 /* Reviews grid */
 .reviews-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
 .review-card {
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 14px;
+  background: var(--bg3); border-radius: var(--radius); padding: 14px;
 }
-.review-card-manga { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; letter-spacing: .04em; }
+/* Capitales espacées ET orange de marque, pour un titre de série :
+   deux façons d’écrire fort la même chose. Le gras suffit. */
+.review-card-manga { font-size: var(--t-s); font-weight: 700; color: var(--text); margin-bottom: 6px; }
 .review-card-stars { margin-bottom: 6px; }
-.review-card-text { font-size: 12.5px; color: var(--text2); line-height: 1.5; font-style: italic; }
-.review-card-user { font-size: 11.5px; color: var(--text3); margin-top: var(--sp-2); display: flex; align-items: center; gap: 6px; }
+.review-card-text { font-size: var(--t-s); color: var(--text2); line-height: 1.5; font-style: italic; }
+.review-card-user { font-size: var(--t-xs); color: var(--text3); margin-top: var(--sp-2); display: flex; align-items: center; gap: 6px; }
 .review-avatar {
   width: 22px; height: 22px; border-radius: 50%;
   background: var(--bg4); display: flex; align-items: center;
-  justify-content: center; font-size: 10px; font-weight: 700; color: var(--orange);
+  justify-content: center; font-size: var(--t-xs); font-weight: 700; color: var(--text2);
   flex-shrink: 0;
 }
 
@@ -355,7 +348,7 @@
   .results-header { flex-wrap: wrap; gap: 10px; }
   .catalogue-quick-filters { gap: var(--sp-1); }
   .catalogue-actions-bar { flex-wrap: wrap; }
-  .catalogue-title { font-size: 22px; }
+  .catalogue-title { font-size: var(--t-xl); }
   .filter-section { margin-bottom: var(--sp-3); }
 }
 
@@ -365,11 +358,11 @@
   .results-grid.list-view { grid-template-columns: 1fr; }
   .team-picks-grid { grid-template-columns: 1fr; }
   .pagination { gap: var(--sp-1); }
-  .page-btn { width: 30px; height: 30px; font-size: 12px; }
-  .catalogue-title { font-size: 20px; }
-  .catalogue-desc { font-size: 12px; }
+  .page-btn { width: 30px; height: 30px; font-size: var(--t-s); }
+  .catalogue-title { font-size: var(--t-xl); }
+  .catalogue-desc { font-size: var(--t-s); }
   .filter-tags { gap: var(--sp-1); }
-  .filter-tag { font-size: var(--puce-taille); padding: var(--puce-rembourrage); }
+  .filter-tag, .filter-status-btn, .lang-btn, .quick-filter-btn { font-size: var(--t-xs); padding: 3px var(--sp-2); }
 }
 
 /* ══ Échelle de colonnes TACTILE (audit IX.5) ═══════════
@@ -401,7 +394,7 @@
 /* Téléphone en paysage : large mais BAS. Garder quatre colonnes y gaspillerait
    la largeur en n'affichant qu'une rangée et demie. */
 @media (hover: none) and (orientation: landscape) and (max-height: 520px) {
-  .results-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+  .results-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 18px 6px; }
   .results-grid.list-view { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -409,6 +402,6 @@
 .cat-search { position: relative; max-width: 560px; margin: var(--sp-1) 0 14px; }
 .cat-search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text3); pointer-events: none; }
 .cat-search input { width: 100%; height: 42px; padding: 0 14px 0 38px; border-radius:  var(--r-carte); border: 1px solid var(--border2);
-  background: var(--bg2); color: var(--text); font-size: 14px; }
+  background: var(--bg2); color: var(--text); font-size: var(--t-m); }
 .cat-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 .catalogue-header { grid-template-columns: 1fr !important; }
