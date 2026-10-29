@@ -11,6 +11,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 const CACHE_VERSION = 'inko-2.8.2-1e467c';
 =======
 const CACHE_VERSION = 'inko-2.8.2-4f6750';
@@ -24,6 +25,9 @@ const CACHE_VERSION = 'inko-2.8.2-0e0378';
 =======
 const CACHE_VERSION = 'inko-2.8.2-ba5bdb';
 >>>>>>> 9858b79 (Regenere le repli aspect-ratio, que la CI refusait)
+=======
+const CACHE_VERSION = 'inko-2.8.2-ed7468';
+>>>>>>> cf77620 (Bibliotheque : 500 couvertures, et plus 500 cartes)
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
