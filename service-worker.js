@@ -18,6 +18,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 const CACHE_VERSION = 'inko-2.8.2-0c12d1';
 =======
 const CACHE_VERSION = 'inko-2.8.2-4f6750';
@@ -52,6 +53,9 @@ const CACHE_VERSION = 'inko-2.8.2-79ed52';
 =======
 const CACHE_VERSION = 'inko-2.8.2-f079d9';
 >>>>>>> 068c9a3 (Profil : la bande la plus decoree de l'application)
+=======
+const CACHE_VERSION = 'inko-2.8.2-51ba57';
+>>>>>>> c979fca (En-tete et navigation : le verre de toute l'application)
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
