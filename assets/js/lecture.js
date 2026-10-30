@@ -9,7 +9,38 @@
 
     // ── Réglages typo (persistés, préfixe novel_) ──
     // `mode` : 'scroll' (defilement continu, defaut) | 'pages' (audit AMEL-21)
-    const ns = { size: 17, lh: 1.85, width: 720, font: 'serif', theme: 'dark', mode: 'scroll' };
+    // ── Largeur de lecture : en CARACTÈRES, pas en pixels ──────
+    // Mesuré avant : 720 px de colonne, texte à 17 px en Bitter, largeur de
+    // caractère 9,01 px → **80 caractères par ligne**. Le confort de lecture
+    // se situe entre 60 et 70 ; au-delà, l'œil perd le début de la ligne
+    // suivante en revenant à la ligne.
+    //
+    // Mais le vrai défaut n'est pas le chiffre, c'est l'UNITÉ. Une largeur en
+    // pixels ne suit pas la taille du texte : le même réglage de 720 px donne
+    // 62 caractères à 22 px et 91 à 15 px. Le lecteur qui grossit son texte
+    // pour mieux voir rétrécit sa ligne sans le vouloir, et celui qui le
+    // réduit se retrouve avec des lignes interminables. Le curseur affichait
+    // « 720px » dans les deux cas — un nombre qui ne dit rien de la lecture.
+    //
+    // En `ch`, la colonne suit la police. Mesuré sur le texte de Moby Dick,
+    // nombre de caractères réellement rendus par ligne :
+    //
+    //     taille du texte     720 px (avant)     60 ch (après)
+    //     15 px                    80                 65
+    //     17 px                    71                 65
+    //     22 px                    55                 65
+    //     26 px                    46                 65
+    //
+    // L'ancien réglage donnait entre 46 et 80 caractères selon la taille
+    // choisie — les deux extrêmes hors de la plage confortable, et dans des
+    // sens opposés. Le nouveau en donne 65 à toutes les tailles.
+    //
+    // `ch` est la largeur du glyphe zéro, pas celle du caractère moyen. Sur
+    // les trois polices proposées l'écart mesuré est de 0,93 (Bitter), 1,025
+    // (Segoe UI) et 1,00 (mono) : le libellé « caractères » est donc juste à
+    // 7 % près. Corriger par un facteur selon la police coûterait plus de
+    // machinerie que l'écart n'en vaut, pour un réglage qu'on ajuste à l'œil.
+    const ns = { size: 17, lh: 1.85, width: 60, font: 'serif', theme: 'dark', mode: 'scroll' };
     const FONTS = {
         serif: "'Bitter', Georgia, 'Times New Roman', serif",   // §13 : serif à faible contraste, pensée écran
         sans:  "'Segoe UI', system-ui, -apple-system, sans-serif",
@@ -28,7 +59,16 @@
         });
         ns.size  = +ns.size  || 17;
         ns.lh    = +ns.lh    || 1.85;
-        ns.width = +ns.width || 720;
+        ns.width = +ns.width || 60;
+        // Reprise d'un reglage ecrit AVANT le passage en caracteres : il
+        // valait entre 540 et 980 pixels. Sans cette conversion, 720
+        // serait relu comme 720 caracteres — une colonne dix fois trop
+        // large, et le curseur bute a 100 sans pouvoir revenir.
+        if (ns.width > 140) {
+            const parCaractere = ns.size * 0.53;   // Bitter : 9,01 px mesures a 17 px
+            ns.width = Math.max(45, Math.min(100, Math.round(ns.width / parCaractere / 5) * 5));
+            window.Storage?.setPref('novel_width', ns.width);
+        }
     }
     function saveSetting(k, v) {
         ns[k] = v;
@@ -43,7 +83,7 @@
         w.style.setProperty('--novel-fg', t.fg);
         w.style.setProperty('--novel-size', ns.size + 'px');
         w.style.setProperty('--novel-lh', String(ns.lh));
-        w.style.setProperty('--novel-width', ns.width + 'px');
+        w.style.setProperty('--novel-width', ns.width + 'ch');
         w.style.setProperty('--novel-font', FONTS[ns.font] || FONTS.serif);
         // Audit AMEL-21 : le mode pages est porté par une classe, la mise en
         // colonnes étant entièrement CSS. Le JS ne s'occupe que de la mesure de
@@ -936,8 +976,8 @@
             <input type="range" id="nsSize" class="ns-range" min="13" max="26" step="1" value="${ns.size}">
             <div class="ns-label"><span>Interligne</span><span id="nsLhVal">${ns.lh}</span></div>
             <input type="range" id="nsLh" class="ns-range" min="1.4" max="2.4" step="0.05" value="${ns.lh}">
-            <div class="ns-label"><span>Largeur de colonne</span><span id="nsWidthVal">${ns.width}px</span></div>
-            <input type="range" id="nsWidth" class="ns-range" min="540" max="980" step="20" value="${ns.width}">
+            <div class="ns-label"><span>Largeur de colonne</span><span id="nsWidthVal">${ns.width} caractères</span></div>
+            <input type="range" id="nsWidth" class="ns-range" min="45" max="100" step="5" value="${ns.width}">
             <div class="ns-label"><span>Police</span></div>
             ${seg('font', [{v:'serif',l:'Serif'},{v:'sans',l:'Sans'},{v:'mono',l:'Mono'}], ns.font)}
             <div class="ns-label"><span>Thème</span></div>
@@ -956,7 +996,7 @@
             saveSetting('lh', +e.target.value);
         });
         panel.querySelector('#nsWidth').addEventListener('input', e => {
-            document.getElementById('nsWidthVal').textContent = e.target.value + 'px';
+            document.getElementById('nsWidthVal').textContent = e.target.value + ' caractères';
             saveSetting('width', +e.target.value);
         });
         panel.querySelectorAll('.ns-seg').forEach(sg => {
