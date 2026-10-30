@@ -3,46 +3,27 @@
    ============================================================ */
 
 /* ── Hero ───────────────────────────────────────────────────── */
-/* L'en-tête du profil est TOUJOURS sombre (dégradé encré codé en dur) :
-   on force l'encre claire quel que soit le thème — sinon en Washi le nom,
-   les stats et les boutons devenaient noirs sur noir. */
+/* C'était l'élément le plus décoré de l'application, et rien de cette
+   décoration ne portait de donnée : un dégradé diagonal à trois arrêts
+   codé en dur (brun → noir → bleu nuit), DEUX ellipses de lueur
+   par-dessus (une orange, une bleue), un avatar en dégradé avec un halo
+   et une ombre portée, un second anneau qui pulsait SANS FIN, une
+   pastille de niveau en aplat d'accent avec son ombre colorée, et deux
+   boutons en verre dépoli.
+
+   La bande partie, la page suit le thème : le bloc qui forçait l'encre
+   claire « quel que soit le thème » n'a plus lieu d'être, et avec lui
+   toute une classe de bogues de thème. */
 .profil-hero {
   position: relative;
-  background: var(--bg2);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
-  overflow: hidden;
-  min-height: 190px;
-  --text: #f2f0ea; --text2: #cfccc2; --text3: #a5a196;
-  --bg3: rgba(255,255,255,.08); --bg4: rgba(255,255,255,.14);
-  --border: rgba(255,255,255,.14); --border2: rgba(255,255,255,.22);
-  color: var(--text);
-}
-.profil-hero .btn-secondary,
-.profil-hero .btn-ghost {
-  background: rgba(255,255,255,.10); color: #fff;
-  border: 1px solid rgba(255,255,255,.26);
-  -webkit-backdrop-filter: blur(14px) saturate(1.5);
-  backdrop-filter: blur(14px) saturate(1.5);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.2);
-}
-.profil-hero .btn-secondary:hover,
-.profil-hero .btn-ghost:hover { background: rgba(255,255,255,.2); color: #fff; }
-.profil-hero-bg {
-  position: absolute; inset: 0;
-  background: linear-gradient(135deg, #1f0a00 0%, #0d0d0f 45%, #080d1e 100%);
-}
-.profil-hero-bg::after {
-  content: '';
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(ellipse at 20% 60%, rgba(255,107,26,.15) 0%, transparent 55%),
-    radial-gradient(ellipse at 75% 30%, rgba(59,130,246,.07) 0%, transparent 45%);
 }
 .profil-hero-inner {
   position: relative;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 40px 32px 36px;
+  padding: 40px 24px 32px;
   display: flex;
   align-items: center;
   gap: 28px;
@@ -52,26 +33,17 @@
   position: relative;
   flex-shrink: 0;
 }
+/* L’avatar garde la couleur de la marque — c’est le seul endroit de
+   l’application où elle désigne la personne. À plat. */
 .profil-avatar {
   width: 96px; height: 96px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff8c42, #ff3d00);
+  background: var(--accent);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-head);
-  font-size: 30px; font-weight: 800;
+  font-size: 34px; font-weight: 800;
   color: #fff;
   position: relative; z-index: 1;
-  box-shadow: 0 0 0 4px rgba(255,107,26,.2), 0 8px 28px rgba(0,0,0,.5);
-}
-.profil-avatar-ring {
-  position: absolute; inset: -5px;
-  border-radius: 50%;
-  border: 2px solid rgba(255,107,26,.5);
-  animation: ringPulse 3s ease-in-out infinite;
-}
-@keyframes ringPulse {
-  0%, 100% { opacity: .5; transform: scale(1); }
-  50%       { opacity: .9; transform: scale(1.04); }
 }
 .profil-info { flex: 1; min-width: 200px; }
 .profil-name-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -80,14 +52,10 @@
   font-size: 26px; font-weight: 800;
   color: var(--text); line-height: 1.1;
 }
+/* Le niveau est une donnée : il garde la couleur, en encre. */
 .profil-level {
-  background: var(--orange);
-  color: #fff;
-  font-size: 10px; font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 5px;
-  letter-spacing: .06em;
-  box-shadow: 0 2px 8px rgba(255,107,26,.35);
+  color: var(--accent-text, var(--accent));
+  font-size: 12.5px; font-weight: 700;
 }
 .profil-meta {
   display: flex; align-items: center; gap: 8px;
@@ -96,45 +64,43 @@
   flex-wrap: wrap;
 }
 .profil-dot { color: var(--text3); }
-.profil-handle { color: var(--orange); font-weight: 500; }
+.profil-handle { color: var(--text2); font-weight: 500; }
 .profil-socials { display: flex; gap: 8px; margin-top: 14px; }
 .profil-social-btn {
   width: 32px; height: 32px;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.1);
+  background: var(--bg3);
+  border: 1px solid var(--border);
   border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px;
   transition: all var(--transition);
   text-decoration: none;
 }
-.profil-social-btn:hover { border-color: var(--orange); background: rgba(255,107,26,.12); }
+.profil-social-btn:hover { border-color: var(--border2); background: var(--bg4); color: var(--text); }
+/* Trois chiffres dans un boîtier bordé et arrondi, avec un survol
+   orange sur une zone qui n’est pas cliquable. Ce sont les seules
+   données de cette bande : qu’elles la portent. */
 .profil-stats {
   display: flex; gap: 0;
   flex-shrink: 0;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 12px;
-  overflow: hidden;
 }
 .profil-stat {
-  text-align: center;
-  padding: 16px 28px;
-  border-right: 1px solid rgba(255,255,255,.07);
-  transition: background var(--transition);
+  padding: 0 24px;
+  border-right: 1px solid var(--border);
   cursor: default;
 }
-.profil-stat:last-child { border-right: none; }
-.profil-stat:hover { background: rgba(255,107,26,.06); }
+.profil-stat:first-child { padding-left: 0; }
+.profil-stat:last-child { border-right: none; padding-right: 0; }
 .profil-stat-num {
   font-family: var(--font-head);
-  font-size: 22px; font-weight: 800;
+  font-size: clamp(26px, 2.6vw, 34px); font-weight: 800;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
   color: var(--text); line-height: 1;
 }
 .profil-stat-label {
-  font-size: 10px; color: var(--text3);
-  letter-spacing: .07em; text-transform: uppercase;
-  margin-top: 4px;
+  font-size: 12px; color: var(--text3);
+  margin-top: 5px;
 }
 .profil-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
@@ -159,9 +125,8 @@
 }
 .sidebar-section { margin-bottom: 8px; }
 .sidebar-section-label {
-  font-size: 10px; font-weight: 700;
+  font-size: 11.5px; font-weight: 700;
   color: var(--text3);
-  letter-spacing: .08em;
   padding: 0 10px;
   margin-bottom: 4px;
 }
@@ -176,16 +141,20 @@
   position: relative;
 }
 .sidebar-nav-item:hover { background: var(--bg3); color: var(--text); }
+/* Huitième écran où l’élément actif d’une navigation était une tuile
+   d’accent. Un pas de clarté, l’encre pleine, un filet à gauche. */
 .sidebar-nav-item.active {
-  background: rgba(255,107,26,.12);
-  color: var(--accent-text);
+  background: var(--bg3);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 .sidebar-nav-icon { font-size: 14px; width: 16px; text-align: center; }
 .sidebar-notif {
   margin-left: auto;
   background: var(--orange);
   color: #fff;
-  font-size: 10px; font-weight: 700;
+  font-size: 11px; font-weight: 700;
   padding: 1px 6px;
   border-radius: 10px;
 }
@@ -207,7 +176,9 @@
 }
 
 /* ── Card base overrides ─────────────────────────────────────── */
-.card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+/* Dix-huit cartes sur cette page, chacune avec un fond relevé ET un
+   filet. Un panneau se détache par une chose. */
+.card { background: var(--bg2); border-radius: var(--radius); padding: 16px; }
 .card-title { font-size: 14px; font-weight: 600; color: var(--text); }
 .card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .card-link { font-size: 12px; color: var(--accent-text); }
@@ -216,7 +187,7 @@
 /* ── Overview: top row ──────────────────────────────────────── */
 .overview-top-row { display: grid; grid-template-columns: 1fr 200px; gap: 16px; }
 .last-read-card { padding: 16px; }
-.last-read-label { font-size: 10px; font-weight: 700; color: var(--accent-text); letter-spacing: .08em; margin-bottom: 12px; }
+.last-read-label { font-size: 12px; font-weight: 700; color: var(--text3); margin-bottom: 12px; }
 .last-read-body { display: flex; gap: 14px; }
 .last-read-cover img { width: 64px; height: 88px; object-fit: cover; border-radius: 6px; }
 .last-read-info { flex: 1; }
@@ -243,7 +214,7 @@
 .stat-mini-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .stat-mini-icon { font-size: 18px; }
 .stat-mini-badge {
-  font-size: 10px; font-weight: 700;
+  font-size: 11px; font-weight: 700;
   padding: 2px 6px; border-radius: 4px;
 }
 .stat-mini-badge.green { background: rgba(34,197,94,.15); color: var(--green-text); }
@@ -416,14 +387,16 @@
   cursor: pointer;
   transition: all var(--transition);
 }
-.pref-btn.active { background: rgba(255,107,26,.15); color: var(--accent-text); border-color: rgba(255,107,26,.3); }
+.pref-btn.active { background: var(--bg4); color: var(--text); border-color: var(--border2); font-weight: 600; }
 .pref-slider { width: 100%; accent-color: var(--orange); margin-top: 4px; }
 
 /* Footer cards */
 .overview-footer-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .footer-mini-card { display: flex; align-items: center; gap: 12px; padding: 14px; }
-.footer-mini-card.green-border { border-color: rgba(34,197,94,.25); }
-.footer-mini-card.orange-border { border-color: rgba(255,107,26,.25); }
+/* Ces deux-là se distinguaient par la COULEUR de leur filet : elles
+   prennent le filet posé à gauche, comme partout ailleurs. */
+.footer-mini-card.green-border { box-shadow: inset 3px 0 0 var(--green); }
+.footer-mini-card.orange-border { box-shadow: inset 3px 0 0 var(--accent); }
 .footer-mini-icon { font-size: 22px; }
 .footer-mini-label { font-size: 12px; color: var(--text2); }
 .footer-mini-val { font-size: 13px; font-weight: 600; margin-top: 2px; }
@@ -444,9 +417,10 @@
   transition: all var(--transition);
 }
 .lib-filter-btn.active {
-  background: rgba(255,107,26,.15);
-  border-color: rgba(255,107,26,.3);
-  color: var(--orange);
+  background: var(--bg4);
+  border-color: var(--border2);
+  color: var(--text);
+  font-weight: 600;
 }
 .library-filters-bar {
   display: flex; align-items: center; gap: 8px;
@@ -483,11 +457,11 @@
 .lib-manga-status-fill { height: 100%; background: var(--orange); }
 .lib-manga-status-fill.green { background: var(--green); }
 .lib-manga-progress-label {
-  font-size: 10.5px; color: var(--text3);
+  font-size: 11px; color: var(--text3);
   margin-top: 3px;
   display: flex; align-items: center; justify-content: space-between;
 }
-.lib-manga-rating { font-size: 10.5px; color: var(--text3); }
+.lib-manga-rating { font-size: 11px; color: var(--text3); }
 
 .library-pagination {
   display: flex; align-items: center; justify-content: space-between;
@@ -661,8 +635,8 @@
 .lists-layout { display: grid; grid-template-columns: 240px 1fr; gap: 16px; align-items: start; }
 .lists-panel { padding: 14px; }
 .lists-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.lists-panel-title { font-size: 11px; font-weight: 700; color: var(--text3); letter-spacing: .08em; }
-.lists-section-label { font-size: 10px; font-weight: 700; color: var(--text3); letter-spacing: .08em; padding: 4px 0; margin-bottom: 4px; }
+.lists-panel-title { font-size: 12px; font-weight: 700; color: var(--text3); }
+.lists-section-label { font-size: 11.5px; font-weight: 700; color: var(--text3); padding: 4px 0; margin-bottom: 4px; }
 .list-nav-item {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 10px;
@@ -692,7 +666,7 @@
 .list-detail-desc { font-size: 13px; color: var(--text2); line-height: 1.5; margin-bottom: 10px; }
 .list-detail-stats { display: flex; gap: 20px; }
 .list-stat-num { font-family: var(--font-head); font-size: 18px; font-weight: 800; }
-.list-stat-label { font-size: 10px; color: var(--text3); letter-spacing: .06em; }
+.list-stat-label { font-size: 11.5px; color: var(--text3); }
 .list-detail-toolbar {
   display: flex; align-items: center; gap: 10px;
   flex-wrap: wrap;
