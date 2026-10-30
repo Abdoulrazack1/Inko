@@ -158,21 +158,39 @@
      toutes les surfaces suivent. */
   --glass-bg:     var(--bg2);
   --glass-border: var(--border2);
-  --glass-inner:  inset 0 1px 0 rgba(255,255,255,.32), inset 0 -1px 0 rgba(0,0,0,.07);
+  /* L’arête spéculaire est blanche : elle n’a de sens que sur du sombre.
+     En édition claire, un filet bas discret dit la même chose. */
+  --glass-inner:  inset 0 -1px 0 rgba(28,27,25,.09);
   --glass-blur:   blur(24px) saturate(1.9);
 }
 
-/* Le vrai verre, là où le navigateur sait le rendre. */
+/* Le vrai verre, là où le navigateur sait le rendre.
+
+   À CORRIGER ICI : --glass-border était posé sur :root NU, sans garde
+   de thème. Sur tout navigateur qui lit color-mix — c’est-à-dire tous
+   les navigateurs modernes — l’arête du verre valait donc 30 % de
+   BLANC dans les deux éditions. Mesuré : color(srgb 1 1 1 / 0.3) en
+   clair comme en sombre. Sur le Washi crème (#eeece6), c’est un trait
+   blanc sur du blanc cassé : l’en-tête fixe et la barre de navigation
+   n’avaient AUCUNE arête visible en édition claire, et le contenu
+   passait dessous sans rien pour les séparer. Même défaut pour
+   --glass-inner (32 % de blanc en haut).
+
+   Le blanc n’est juste que sur un fond sombre : il descend donc avec
+   les autres valeurs sombres. */
 @supports (background: color-mix(in srgb, red 50%, transparent)) {
   :root {
     --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
     --glass-bg:     color-mix(in srgb, var(--bg2) 46%, transparent);
+  }
+  html[data-theme="dark"], html[data-theme="amoled"] {
     --glass-border: color-mix(in srgb, #ffffff 30%, transparent);
   }
 }
 
 /* En édition sombre, les ombres repassent sur du noir profond. */
 html[data-theme="dark"], html[data-theme="amoled"] {
+  --glass-inner: inset 0 1px 0 rgba(255,255,255,.32), inset 0 -1px 0 rgba(0,0,0,.07);
   --shadow-1: 0 1px 2px rgba(0,0,0,.4);
   --shadow-2: 0 6px 18px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.35);
   --shadow-3: 0 20px 48px rgba(0,0,0,.6), 0 8px 20px rgba(0,0,0,.4);
@@ -462,14 +480,21 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
 /* ╔══════════════════════════════════════════════════════════╗
    ║  HEADER                                                   ║
    ╚══════════════════════════════════════════════════════════╝ */
+/* ── L’en-tête ──────────────────────────────────────────
+   Il était en verre blur(24px) saturate(1.9) — exactement la feuille
+   retirée de la barre du lecteur, et pour la même raison : il passe
+   au-dessus des MÊMES planches et des mêmes couvertures, et saturer
+   à 1,9 y étale leur couleur à chaque défilement. Il portait en plus
+   un liséré blanc intérieur à 14 %, codé en dur, donc identique dans
+   les deux éditions.
+
+   C’est la surface qui se superpose à TOUTE l’application : un aplat
+   opaque et un cheveu. L’arête existe enfin en édition claire. */
 .site-header {
   position: fixed; top: 0; left: 0; right: 0;
   height: var(--header-h);
-  background: color-mix(in srgb, var(--bg2) 62%, transparent);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);   /* liquid glass prononcé */
-  border-bottom: 1px solid var(--glass-border);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), var(--shadow-1);
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
   z-index: 1000;
   display: flex; align-items: center;
   padding: 0 24px; gap: 28px;
@@ -501,15 +526,14 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
   transition: all var(--transition);
 }
 .header-nav a:hover { color: var(--text); background: var(--bg3); }
+/* Neuvième écran où l’élément actif était une tuile d’accent bordée.
+   Celui-ci est le plus visible de tous : il est sur chaque page. */
 .header-nav a.active {
-  color: var(--text);
-  background: rgba(255,107,26,0.12);
-  border: 1px solid rgba(255,107,26,0.2);
+  color: var(--text); font-weight: 600;
+  background: var(--bg3);
 }
-.nav-mes-listes {
-  color: var(--orange) !important;
-  border: 1px solid rgba(255,107,26,0.3) !important;
-}
+/* « Mes listes » criait en couleur de marque, avec deux !important
+   pour couvrir le reste. C’est un lien de navigation comme les autres. */
 
 .header-search {
   flex: 1; max-width: 340px;
@@ -518,7 +542,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
 .header-search input {
   width: 100%; height: 34px;
   background: var(--bg3); border: 1px solid var(--border);
-  border-radius: 20px; color: var(--text);
+  border-radius: var(--radius2); color: var(--text);
   padding: 0 14px 0 36px; font-size: 13px;
   transition: border-color var(--transition);
 }
@@ -566,7 +590,10 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
 }
 .header-icon-btn:hover { color: var(--text); border-color: var(--border2); }
 .header-icon-btn:disabled { opacity: .6; cursor: default; }
-.header-icon-btn.on { background: var(--orange); color: #fff; border-color: var(--orange); }
+/* Allumé, ce bouton porte une donnée (lecture privée, scan en cours) :
+   il garde la couleur, en encre — comme l’épingle de la bibliothèque
+   et les outils du lecteur. */
+.header-icon-btn.on { background: var(--bg4); color: var(--accent-text, var(--accent)); border-color: var(--border2); }
 /* Mode incognito : liseré discret en haut de page pour le rappeler */
 body.incognito-on::before {
   content: ""; position: fixed; top: 0; left: 0; right: 0; height: 3px;
@@ -614,11 +641,11 @@ body.incognito-on::before {
 .header-user {
   display: flex; align-items: center; gap: 8px;
   padding: 5px 10px 5px 6px;
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: 20px; font-size: 13px; font-weight: 500;
-  transition: border-color var(--transition);
+  background: var(--bg3);
+  border-radius: var(--radius3); font-size: 13px; font-weight: 500;
+  transition: background var(--transition);
 }
-.header-user:hover { border-color: var(--border2); }
+.header-user:hover { background: var(--bg4); }
 .header-avatar {
   width: 24px; height: 24px; border-radius: 50%;
   background: var(--orange); display: flex; align-items: center;
@@ -632,7 +659,7 @@ body.incognito-on::before {
 }
 .header-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .user-label { line-height: 1; }
-.user-sublabel { font-size: 10px; color: var(--accent-text); display: block; }   /* audit A11Y-02 : 3.29:1 avant */
+.user-sublabel { font-size: 11px; color: var(--text3); display: block; }   /* audit A11Y-02 : 3.29:1 avant */
 .btn-connect {
   height: 34px; padding: 0 16px;
   background: var(--orange); color: #fff;
@@ -1156,14 +1183,13 @@ a[data-nsfw] .manga-card-cover::after,
 }
 
 @media (max-width: 1024px) {
+  /* Seconde feuille de verre, en bas de l’écran, au-dessus des mêmes
+     couvertures. Même réponse que l’en-tête. */
   .mobile-nav {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 95;
     display: flex;
-    background: var(--glass-bg);      /* liquid glass */
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border-top: 1px solid var(--glass-border);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
     /* Doublée : env() est du Chrome 69, et le WebView d'Android 8 jette la
        déclaration entière plutôt que de retomber sur la valeur par défaut. */
     padding-bottom: 0;
