@@ -17,6 +17,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 const CACHE_VERSION = 'inko-2.8.2-e76f6a';
 =======
 const CACHE_VERSION = 'inko-2.8.2-4f6750';
@@ -48,6 +49,9 @@ const CACHE_VERSION = 'inko-2.8.2-1e5cd8';
 =======
 const CACHE_VERSION = 'inko-2.8.2-79ed52';
 >>>>>>> 09485b2 (Parametres : un reglage ne se cherche pas sous 219 lignes)
+=======
+const CACHE_VERSION = 'inko-2.8.2-f079d9';
+>>>>>>> 068c9a3 (Profil : la bande la plus decoree de l'application)
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
