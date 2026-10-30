@@ -65,7 +65,7 @@
   border: 1px solid var(--border2); color: var(--text2); background: var(--bg);
   transition: transform .12s var(--ease-out), color var(--transition), background var(--transition), border-color var(--transition); }
 .notes-mood:hover { color: var(--mc, var(--text)); border-color: var(--mc, var(--border2)); transform: translateY(-1px); }
-.notes-mood.on { color: #fff; background: var(--mc, var(--accent)); border-color: var(--mc, var(--accent)); }
+.notes-mood.on { color: var(--sur-couleur); background: var(--mc, var(--accent)); border-color: var(--mc, var(--accent)); }
 .notes-text {
   width: 100%; background: var(--bg); border: 1px solid var(--border2); color: var(--text);
   border-radius: var(--radius2); padding: 11px 13px; font-size: 14px; line-height: 1.5; resize: vertical;
@@ -77,7 +77,7 @@
 /* Pastille compteur sur le bouton Notes du lecteur */
 .notes-dot {
   position: absolute; top: -3px; right: -3px; min-width: 15px; height: 15px; padding: 0 3px;
-  background: var(--hanko); color: #fff; font-size: 9px; font-weight: 700; border-radius:  var(--r-controle);
+  background: var(--hanko); color: var(--sur-couleur); font-size: 9px; font-weight: 700; border-radius:  var(--r-controle);
   display: flex; align-items: center; justify-content: center; line-height: 1;
 }
 #btnNotes { position: relative; }
