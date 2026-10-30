@@ -36,7 +36,7 @@
         s.id = 'mh-feuille-css';
         s.textContent = `
         .mh-feuille-fond{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147481000;
-            background:rgba(0,0,0,.4);opacity:0;transition:opacity .2s ease}
+            background:rgba(0,0,0,.4);opacity:0;transition:opacity var(--transition)}
         .mh-feuille-fond.ouverte{opacity:1}
         .mh-feuille{position:fixed;left:0;right:0;bottom:0;z-index:2147481001;
             /* Verre. Les jetons --glass-* portent DÉJÀ leur repli opaque
@@ -48,7 +48,7 @@
             border-top:1px solid var(--glass-border,#333);
             box-shadow:var(--glass-inner),0 -12px 40px rgba(0,0,0,.5);
             display:flex;flex-direction:column;max-height:100vh;
-            transform:translateY(100%);transition:transform .26s cubic-bezier(.22,.7,.28,1);
+            transform:translateY(100%);transition:transform var(--transition2);
             padding-bottom:0;
             padding-bottom:env(safe-area-inset-bottom, 0)}
         .mh-feuille.ouverte{transform:translateY(0)}

@@ -24,7 +24,7 @@
     .im-wrap { max-width: 880px; margin: 0 auto; padding: 26px 20px 80px; }
     .im-head h1 { font-family: var(--font-head); font-size: 27px; font-weight: 700; margin-bottom: 4px; }
     .im-head p { color: var(--text2); font-size: 13.5px; margin-bottom: 22px; }
-    .im-drop { border: 2px dashed var(--border2); border-radius: 16px; padding: 44px 20px; text-align: center; color: var(--text2); cursor: pointer; transition: border-color .2s, background .2s; background: var(--bg2); }
+    .im-drop { border: 2px dashed var(--border2); border-radius: 16px; padding: 44px 20px; text-align: center; color: var(--text2); cursor: pointer; transition: border-color var(--transition), background var(--transition); background: var(--bg2); }
     .im-drop.drag { border-color: var(--orange); background: rgba(255,140,66,.06); }
     .im-drop .ic { font-size: 38px; margin-bottom: 10px; }
     .im-drop .hint { font-size: 12px; color: var(--text3); margin-top: 8px; }
@@ -50,7 +50,7 @@
       font-size: 12px; color: var(--text2); margin-bottom: 6px; }
     .im-quota-pct { font-variant-numeric: tabular-nums; color: var(--text3); }
     .im-quota-bar { height: 6px; border-radius: 3px; background: var(--bg4); overflow: hidden; }
-    .im-quota-bar > div { height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+    .im-quota-bar > div { height: 100%; width: 0; background: var(--accent); transition: width var(--transition2); }
     /* Au-delà de 85 %, l'information devient un avertissement : c'est là qu'un
        import de 300 Mo risque d'être refusé après téléversement complet. */
     .im-quota-warn .im-quota-bar > div { background: var(--red); }
@@ -64,7 +64,7 @@
       text-overflow: ellipsis; white-space: nowrap; }
     .im-q-state { font-size: 11.5px; color: var(--text3); white-space: nowrap; }
     .im-q-bar { grid-column: 1 / -1; height: 3px; border-radius: 2px; background: var(--bg4); overflow: hidden; }
-    .im-q-bar > div { height: 100%; background: var(--accent); transition: width .2s ease; }
+    .im-q-bar > div { height: 100%; background: var(--accent); transition: width var(--transition); }
     /* L'état se lit aussi sans la couleur : le texte le dit (« Importé »,
        « Quota insuffisant — … »). La teinte ne fait que le confirmer. */
     .im-q-item.ok .im-q-state { color: var(--green-text); }

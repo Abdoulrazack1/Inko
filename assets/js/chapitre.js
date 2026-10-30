@@ -2341,7 +2341,7 @@
         if (!dim) {
             dim = document.createElement('div');
             dim.id = 'readerDim';
-            dim.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:#000;pointer-events:none;z-index:75;transition:opacity .2s';
+            dim.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:#000;pointer-events:none;z-index:75;transition:opacity var(--transition)';
             document.body.appendChild(dim);
         }
         // La nuit progressive ne remplace pas les curseurs : elle ne peut que
@@ -2356,7 +2356,7 @@
         if (!warm) {
             warm = document.createElement('div');
             warm.id = 'readerWarm';
-            warm.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:#ff8a1e;pointer-events:none;z-index:76;mix-blend-mode:multiply;transition:opacity .2s';
+            warm.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:#ff8a1e;pointer-events:none;z-index:76;mix-blend-mode:multiply;transition:opacity var(--transition)';
             document.body.appendChild(warm);
         }
         warm.style.opacity = String(Math.max(0, Math.min(0.6, chaleur / 100 * 0.6)));

@@ -72,7 +72,7 @@
 .filter-tag {
   padding: 3px 9px; background: var(--bg3); border: 1px solid var(--border);
   border-radius: 30px; font-size: 11px; color: var(--text2);
-  transition: all var(--transition); cursor: pointer;
+  transition: var(--transition-etat); cursor: pointer;
 }
 .filter-tag:hover, .filter-tag.active {
   background: rgba(255,107,26,.12); border-color: rgba(255,107,26,.3);
@@ -94,7 +94,7 @@
 .filter-status-btn {
   padding: 4px 12px; border-radius: 20px;
   border: 1px solid var(--border); background: var(--bg3);
-  font-size: 11.5px; color: var(--text2); transition: all var(--transition);
+  font-size: 11.5px; color: var(--text2); transition: var(--transition-etat);
   cursor: pointer;
 }
 .filter-status-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
@@ -121,7 +121,7 @@
   padding: 4px 12px; border-radius: 20px;
   border: 1px solid var(--border); background: var(--bg3);
   font-size: 11.5px; font-weight: 600; color: var(--text2);
-  transition: all var(--transition); cursor: pointer;
+  transition: var(--transition-etat); cursor: pointer;
 }
 .lang-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
 
@@ -176,7 +176,7 @@
 .quick-filter-btn {
   padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border);
   background: var(--bg3); font-size: 12px; color: var(--text2);
-  transition: all var(--transition); cursor: pointer;
+  transition: var(--transition-etat); cursor: pointer;
 }
 .quick-filter-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
 .catalogue-actions-bar { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
@@ -216,7 +216,7 @@
   background: var(--bg3); border: 1px solid var(--border);
   border-radius: var(--radius); overflow: hidden;
   display: flex; flex-direction: column; position: relative;
-  min-height: 130px; cursor: pointer; transition: all var(--transition);
+  min-height: 130px; cursor: pointer; transition: var(--transition-etat);
 }
 .team-pick-card:hover { border-color: var(--border2); transform: translateY(-2px); }
 .team-pick-bg {
@@ -241,7 +241,7 @@
 .view-btn {
   width: 32px; height: 32px; border-radius: var(--radius2);
   border: 1px solid var(--border); background: var(--bg3);
-  color: var(--text2); font-size: 14px; transition: all var(--transition);
+  color: var(--text2); font-size: 14px; transition: var(--transition-etat);
 }
 .view-btn:first-child { border-radius: var(--radius2) 0 0 var(--radius2); }
 .view-btn:last-child { border-radius: 0 var(--radius2) var(--radius2) 0; border-left: none; }
@@ -275,7 +275,7 @@
 .page-btn {
   width: 34px; height: 34px; border-radius: var(--radius2);
   background: var(--bg3); border: 1px solid var(--border);
-  color: var(--text2); font-size: 13px; transition: all var(--transition);
+  color: var(--text2); font-size: 13px; transition: var(--transition-etat);
 }
 .page-btn:hover { border-color: var(--border2); color: var(--text); }
 .page-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
@@ -287,7 +287,7 @@
   background: var(--bg3); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 14px;
   display: flex; align-items: center; gap: 12px;
-  transition: all var(--transition); cursor: pointer;
+  transition: var(--transition-etat); cursor: pointer;
 }
 .collection-mini-card:hover { border-color: var(--border2); }
 .collection-mini-cover {

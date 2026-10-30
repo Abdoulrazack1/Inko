@@ -30,7 +30,7 @@
     pointer-events: none;
 }
 .reader-toolbar {
-    transition: transform .22s ease, opacity .22s ease;
+    transition: transform var(--transition2), opacity var(--transition2);
 
     background: rgba(12,12,16,.66);
     -webkit-backdrop-filter: blur(24px) saturate(1.9);
@@ -66,7 +66,7 @@
     white-space: nowrap;
     flex-shrink: 0;
     letter-spacing: 0.01em;
-    transition: opacity 0.15s;
+    transition: opacity var(--transition);
     padding: 4px 10px;
     background: rgba(255,107,26,0.08);
     border: 1px solid rgba(255,107,26,0.2);
@@ -150,7 +150,7 @@
     justify-content: center;
     font-size: 14px;
     color: var(--text2);
-    transition: all 0.15s ease;
+    transition: var(--transition-etat);
     cursor: pointer;
     flex-shrink: 0;
 }
@@ -204,7 +204,7 @@
     font-size: 11px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: var(--transition-etat);
     white-space: nowrap;
     flex-shrink: 0;
     letter-spacing: 0.02em;
@@ -298,7 +298,7 @@
     display: flex;
     align-items: center;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity var(--transition);
 }
 .reader-pages-area:hover .page-zone-prev,
 .reader-pages-area:hover .page-zone-next { opacity: 1; }
@@ -327,7 +327,7 @@
     font-size: 18px;
     color: rgba(255,255,255,0.65);
     backdrop-filter: blur(8px);
-    transition: all 0.15s;
+    transition: var(--transition-etat);
 }
 .page-zone-prev:hover .page-zone-arrow,
 .page-zone-next:hover .page-zone-arrow {
@@ -440,7 +440,7 @@
     overflow: hidden;
     border: 2px solid transparent;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: var(--transition-etat);
     background: var(--bg3);
     position: relative;
 }
@@ -453,7 +453,7 @@
     width: 100%; height: 100%;
     object-fit: cover;
     opacity: 0.5;
-    transition: opacity 0.15s;
+    transition: opacity var(--transition);
 }
 .reader-thumb.active img,
 .reader-thumb:hover img { opacity: 1; }
@@ -491,7 +491,7 @@
     font-size: 12.5px;
     font-weight: 600;
     color: var(--text2);
-    transition: all 0.15s ease;
+    transition: var(--transition-etat);
     cursor: pointer;
     flex-shrink: 0;
 }
@@ -549,7 +549,7 @@
     margin-bottom: 20px;
     position: relative;
     overflow: hidden;
-    transition: border-color 0.15s;
+    transition: border-color var(--transition);
 }
 .reader-next-chapter::before {
     content: '';
@@ -661,7 +661,7 @@
     font-size: 12.5px;
     resize: none;
     font-family: var(--font-body);
-    transition: border-color 0.15s;
+    transition: border-color var(--transition);
 }
 .comment-input-area:focus { outline: none; border-color: rgba(255,107,26,0.4); }
 .comment-warning { font-size: 10.5px; color: var(--amber); margin: 4px 0 8px; }
@@ -688,7 +688,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 14px;
-    transition: border-color 0.15s;
+    transition: border-color var(--transition);
 }
 .reader-panel-block:hover { border-color: var(--border2); }
 
@@ -720,7 +720,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s;
+    transition: var(--transition-etat);
     color: var(--text2);
 }
 .ambiance-btn:hover {
@@ -758,7 +758,7 @@
     height: 100%;
     background: linear-gradient(90deg, var(--orange), var(--orange2));
     border-radius: 2px;
-    transition: width 0.5s ease;
+    transition: width var(--transition3);
 }
 
 .share-icons { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; }
@@ -772,7 +772,7 @@
     justify-content: center;
     font-size: 15px;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: var(--transition-etat);
     color: var(--text2);
 }
 .share-icon-btn:hover {
@@ -855,7 +855,7 @@
 .rs-close:hover { background: var(--bg3, #1f1f26); color: var(--text, #fff); }
 .rs-label { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text2, #a8a8b3); margin: 12px 2px 6px; font-weight: 500; }
 .rs-seg { display: flex; gap: 4px; flex-wrap: wrap; background: var(--bg3, #1f1f26); padding: 4px; border-radius: 9px; }
-.rs-seg button { flex: 1; min-width: 52px; padding: 7px 6px; border: none; background: transparent; color: var(--text2, #a8a8b3); border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500; transition: all .12s; }
+.rs-seg button { flex: 1; min-width: 52px; padding: 7px 6px; border: none; background: transparent; color: var(--text2, #a8a8b3); border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500; transition: var(--transition-etat); }
 .rs-seg button:hover { color: var(--text, #fff); }
 .rs-seg button.on { background: var(--orange, #ff6b1a); color: #fff; font-weight: 600; }
 .rs-range { width: 100%; accent-color: var(--orange, #ff6b1a); margin-top: 2px; }
@@ -874,7 +874,7 @@
      zone de clic invisible au-dessus, sans changer la hauteur perçue au repos
      — la barre reste discrète tant qu'on ne s'en sert pas. */
   cursor: pointer;
-  transition: height .12s var(--ease-out);
+  transition: height var(--transition);
 }
 .reader-progressbar::before {
   content: ''; position: absolute; left: 0; right: 0; top: -7px; height: 16px;
@@ -884,7 +884,7 @@
 .reader-progressbar-fill {
   height: 100%; width: 0%;
   background: var(--orange);
-  transition: width .25s ease;
+  transition: width var(--transition2);
 }
 
 /* Une planche en route se voit en route. Avant, elle restait à opacité 0
@@ -1128,7 +1128,7 @@ body.reader-immersive .reader-pages-area.paged {
   width: 200%;
   max-width: none;
   display: block;
-  transition: margin-left .18s cubic-bezier(.22,.7,.28,1);
+  transition: margin-left var(--transition);
 }
 .reader-page-wrapper.mh-demi[data-demi="0"] > .reader-page-img { margin-left: 0; }
 .reader-page-wrapper.mh-demi[data-demi="1"] > .reader-page-img { margin-left: -100%; }
