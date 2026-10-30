@@ -545,7 +545,7 @@
 }
 .similar-card:hover { transform: translateY(-2px); }
 .similar-cover {
-  aspect-ratio: 3/4;
+  aspect-ratio: var(--carte-ratio);
   border-radius:  var(--r-controle);
   overflow: hidden;
   margin-bottom: 6px;
@@ -584,8 +584,8 @@
 }
 .manga-card:hover { transform: translateY(-2px); }
 .manga-card-cover {
-  aspect-ratio: 3/4;
-  border-radius: var(--radius2);
+  aspect-ratio: var(--carte-ratio);
+  border-radius: var(--carte-rayon);
   overflow: hidden;
   position: relative;
   background: var(--bg4);

@@ -961,9 +961,60 @@ body.incognito-on::before {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 .manga-card .card-fav-btn { z-index: 3; }
+/* ── La carte de série : un seul objet, trois densités ─────
+   Six familles de classes rendaient la même chose — une couverture, un
+   titre, parfois une ligne de méta — et aucune n'était d'accord avec une
+   autre. Mesuré dans les pages réelles :
+
+       .shelf-*       accueil        3 / 4.3   r10   13px   / 600 / 2 lignes
+       .manga-card-*  catalogue      3 / 4     r8    13px   / 600 / sans borne
+       .lib2-*        bibliothèque   3 / 4     r12   12,5px / 500 / 2 lignes
+       .pl-card       liste          3 / 4     r10   12,5px / 400 / 2 lignes
+       .se-*          recherche      3 / 4     r12   12,5px / 500 / 2 lignes
+
+   Le plus visible n'est pas le titre, c'est le RATIO — et c'est la mesure
+   qui a tranché, contre le plan. 34 couvertures relevées dans la
+   bibliothèque : médiane 0,667 au millème près, 28 sur 34 en 2:3. Dans
+   une boîte 3 / 4, `object-fit: cover` leur prend **10,8 % de hauteur** en
+   moyenne — en haut et en bas, là où se trouvent le titre et le numéro de
+   tome. Dans une boîte 2 / 3 : 0,3 %.
+
+   L'audit IX.5 l'avait déjà dit, et le correctif n'avait été posé que
+   sous `(hover: none)` : le tactile voyait la bonne couverture, le bureau
+   la version rognée. Le rapport juste devient la valeur par défaut, et
+   l'exception tactile disparaît — elle n'avait plus de raison d'être.
+
+   Et la densité EXISTAIT déjà, inventée deux fois sans être nommée :
+   `.lib2-grid--compact` et `.se-perso-card` posaient chacune leur titre de
+   11 px et leur rayon à eux. C'est ce que ce bloc nomme : ce qui varie
+   d'une page à l'autre est la DENSITÉ, pas la carte. Une bibliothèque de
+   508 titres en veut des petites à une ligne ; un catalogue qu'on parcourt
+   en veut des grandes. Le reste est partagé. */
+:root {
+  --carte-ratio:   2 / 3;
+  --carte-rayon:   10px;
+  --carte-titre:   13px;
+  --carte-graisse: 600;
+  --carte-lignes:  2;
+  --carte-ecart:   8px;     /* couverture → titre */
+  --carte-meta:    11px;
+}
+[data-densite="dense"],
+.lib2-grid--compact,
+.se-perso-card {
+  --carte-rayon:   8px;
+  --carte-titre:   12px;
+  --carte-graisse: 500;
+  --carte-lignes:  1;
+  --carte-ecart:   5px;
+}
+[data-densite="large"],
+.results-grid { --carte-rayon: 12px; }
+
 .manga-card-cover {
   position: relative; overflow: hidden;
-  aspect-ratio: 3/4;
+  aspect-ratio: var(--carte-ratio);
+  border-radius: var(--carte-rayon);
 }
 .manga-card-cover img {
   width: 100%; height: 100%;
@@ -1005,7 +1056,7 @@ body.incognito-on::before {
 .btn-add-overlay:hover { background: rgba(255,255,255,.22); transform: translateY(-1px); }
 .manga-card-info { padding: 10px var(--sp-3) var(--sp-3); }
 .manga-card-title {
-  font-size: var(--t-s); font-weight: 600; color: var(--text);
+  font-size: var(--carte-titre); font-weight: var(--carte-graisse); color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   margin-bottom: var(--sp-1);
 }
@@ -1706,10 +1757,8 @@ a[data-nsfw] .manga-card-cover::after,
   .manga-card .card-list-btn,
   .manga-card .manga-card-overlay { display: none; }
 
-  /* Le rapport d'une couverture est 2:3, pas 3:4 (IX.5). En 3:4 la
-     couverture est rognée en haut et en bas par `object-fit: cover` — or
-     c'est précisément là que se trouvent le titre et le numéro de tome. */
-  .manga-card-cover { aspect-ratio: 2/3; }
+  /* (Le rapport 2:3 de l’audit IX.5 n’est plus une exception tactile :
+     il est devenu le défaut de la carte, en haut de cette feuille.) */
 
   /* Statut en haut à DROITE (IX.6) : le coin gauche est réservé au signal
      « non lu », qui doit rester au même endroit sur toutes les cartes de
@@ -1726,13 +1775,16 @@ a[data-nsfw] .manga-card-cover::after,
      `min-height` fige la hauteur à deux lignes — sans elle, un titre court
      remonte le numéro de chapitre et les bas de cartes cessent de s'aligner,
      ce qui hache visuellement la grille. */
+  /* Le catalogue sur téléphone est une densité de plus : titre plus
+     petit, mais toujours deux lignes pour la raison ci-dessus. */
+  .results-grid { --carte-titre: 12px; --carte-lignes: 2; }
   .manga-card-title {
     white-space: normal;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: var(--carte-lignes);
     overflow: hidden;
-    font-size: var(--t-s); line-height: 1.25;
+    font-size: var(--carte-titre); line-height: 1.25;
     min-height: 2.5em;
     margin-bottom: var(--sp-0);
   }
@@ -1803,43 +1855,35 @@ html.inko-app main { animation: inko-app-entree .18s ease-out; }
 
 /* ══ REPLI aspect-ratio — GÉNÉRÉ par scripts-ci/gen-repli-aspect-ratio.js ══ */
 /* Ne pas modifier à la main : `npm run gen-repli-ar` régénère ce bloc.
-   16 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
+   14 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
    (WebView Android 8 = Chrome 61). Sur un navigateur récent, ce bloc
    entier est ignoré. */
 @supports not (aspect-ratio: 1 / 1) {
-    .cont-hero-cover { height: 189.2px; }
-    .shelf-cover { height: 0; padding-top: 143.3333%; }
+    .cont-hero-cover { height: 198px; }
+    .shelf-cover { height: 0; padding-top: 150%; }
     .shelf-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .lib2-cover { height: 0; padding-top: 133.3333%; }
+    .lib2-cover { height: 0; padding-top: 150%; }
     .lib2-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .focus-cover { height: 0; padding-top: 56.25%; }
     .focus-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .results-grid.list-view .manga-card-cover { padding-top: 0; }
-    .cd-serie-cover { height: 0; padding-top: 133.3333%; }
+    .cd-serie-cover { height: 0; padding-top: 150%; }
     .cd-serie-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .cd-serie-card-cover { height: 0; padding-top: 133.3333%; }
+    .cd-serie-card-cover { height: 0; padding-top: 150%; }
     .cd-serie-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .list-card-cover { height: 0; padding-top: 62.5%; }
     .list-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .manga-card-cover { height: 0; padding-top: 133.3333%; }
+    .manga-card-cover { height: 0; padding-top: 150%; }
     .manga-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .heatmap-cell { height: 0; padding-top: 100%; }
     .heatmap-cell > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .list-manga-cover { height: 0; padding-top: 133.3333%; }
+    .list-manga-cover { height: 0; padding-top: 150%; }
     .list-manga-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .se-cover { height: 0; padding-top: 133.3333%; }
+    .se-cover { height: 0; padding-top: 150%; }
     .se-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .similar-cover { height: 0; padding-top: 133.3333%; }
+    .similar-cover { height: 0; padding-top: 150%; }
     .similar-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .manga-card-cover { height: 0; padding-top: 133.3333%; }
+    .manga-card-cover { height: 0; padding-top: 150%; }
     .manga-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-  @media (max-width: 480px) {
-      .cd-serie-cover { height: 0; padding-top: 133.3333%; }
-      .cd-serie-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-  }
-  @media (hover: none) {
-      .manga-card-cover { height: 0; padding-top: 150%; }
-      .manga-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-  }
 }
 /* ══ fin du repli aspect-ratio ══ */

@@ -73,7 +73,7 @@
 }
 .cd-serie-item:last-child { border-bottom: none; }
 .cd-serie-cover {
-  aspect-ratio: 3/4; border-radius:  var(--r-controle); overflow: hidden;
+  aspect-ratio: var(--carte-ratio); border-radius:  var(--r-controle); overflow: hidden;
   position: relative;
 }
 .cd-serie-cover img { width: 100%; height: 100%; object-fit: cover; }
@@ -178,7 +178,6 @@
 @media (max-width: 480px) {
   .cd-hero-inner { padding: 0 14px; }
   .cd-serie-item { grid-template-columns: 70px 1fr; gap: 10px; padding: var(--sp-3) 0; }
-  .cd-serie-cover { aspect-ratio: 3/4; }
   .cd-serie-title { font-size: 14px; }
   .cd-serie-meta { flex-wrap: wrap; gap: 6px; }
   .cd-title { font-size: 20px; }
@@ -204,7 +203,7 @@
 }
 .cd-serie-card-cover {
   display: block;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: var(--carte-ratio);
   background: var(--bg4);
   overflow: hidden;
 }

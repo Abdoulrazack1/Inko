@@ -94,9 +94,33 @@ function reglesAvecRatio(css) {
     return trouvees;
 }
 
-// « 3/4 », « 3 / 4 », « 1 », « auto »  →  hauteur/largeur, ou null
-function rapport(valeur) {
+// Les jetons de `:root`, pour resoudre un `var(--x)` ecrit dans un
+// `aspect-ratio`. Depuis que la carte de serie declare son rapport une
+// seule fois, les regles ecrivent `var(--carte-ratio)` : sans cette
+// resolution le repli disparaitrait, et la couverture ferait 0 px de
+// haut sur le WebView d'Android 8 — exactement ce que ce script existe
+// pour empecher.
+let JETONS = null;
+function jetons() {
+    if (JETONS) return JETONS;
+    JETONS = new Map();
+    const css = fs.readFileSync(CIBLE, 'utf8').split(DEBUT)[0];
+    for (const m of css.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;}]+)/gi)) {
+        if (!JETONS.has(m[1])) JETONS.set(m[1], m[2].trim());
+    }
+    return JETONS;
+}
+
+// « 3/4 », « 3 / 4 », « 1 », « auto », « var(--carte-ratio) »  →  hauteur/largeur, ou null
+function rapport(valeur, profondeur) {
     if (/^auto$/i.test(valeur)) return 'auto';
+    const v = /^var\(\s*(--[a-z0-9-]+)\s*(?:,([^)]*))?\)$/i.exec(valeur);
+    if (v) {
+        if ((profondeur || 0) > 4) return null;          // var() qui se mord la queue
+        const pose = jetons().get(v[1]);
+        const suite = pose !== undefined ? pose : (v[2] || '').trim();
+        return suite ? rapport(suite, (profondeur || 0) + 1) : null;
+    }
     const m = /^(\d+(?:\.\d+)?)\s*(?:\/\s*(\d+(?:\.\d+)?))?$/.exec(valeur);
     if (!m) return null;
     const l = parseFloat(m[1]);
