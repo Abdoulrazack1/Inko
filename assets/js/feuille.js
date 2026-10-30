@@ -128,8 +128,11 @@
         // feuille. Mesuré sur les filtres du catalogue à 390 px : le focus
         // restait sur le bouton d'ouverture, et le premier Tab partait derrière
         // le voile, dans la page masquée.
+        // Le piège de focus est désormais dans `global.js`, extrait d’ici :
+        // huit autres panneaux en avaient besoin et le refaisaient à moitié.
         const origine = document.activeElement;
         f.tabIndex = -1;
+        let liberer = () => {};
         document.body.appendChild(fond);
         document.body.appendChild(f);
         // Deux images successives : sans ce délai, le navigateur applique
@@ -149,11 +152,8 @@
             ouvert = true;
             fond.classList.add('ouverte');
             f.classList.add('ouverte');
-            (focusables()[0] || f).focus({ preventScroll: true });
+            liberer = window.MH.piegerFocus(f, { surEchap: () => fermer(), origine });
         };
-        const focusables = () => [...f.querySelectorAll(
-            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
-            .filter((el) => el.offsetParent !== null || el === document.activeElement);
         requestAnimationFrame(() => requestAnimationFrame(ouvrir));
         setTimeout(ouvrir, 120);
 
@@ -163,13 +163,9 @@
             ferme = true;
             f.classList.remove('ouverte');
             fond.classList.remove('ouverte');
-            document.removeEventListener('keydown', surTouche);
             setTimeout(() => { f.remove(); fond.remove(); }, 280);
-            // Le focus revient d'où l'on venait, au lieu de tomber sur <body>.
-            // La fermeture passe par l'historique (bouton retour d'Android) :
-            // quand elle arrive, le focus peut déjà être retombé sur <body>.
-            const a = document.activeElement;
-            if (origine && origine.isConnected && (!a || a === document.body || f.contains(a))) origine.focus({ preventScroll: true });
+            // Libère le clavier ET rend le focus à l’ouvrant.
+            liberer();
             if (o.onFermeture) o.onFermeture();
         };
         // P2.7 / IX.7 : le bouton retour d'Android doit fermer la FEUILLE, pas
@@ -179,17 +175,6 @@
         // L'entrée poussée ici est celle que le retour consomme.
         const rendre = window.MH?.retour ? window.MH.retour.pousser(fermerReel) : null;
         const fermer = () => { if (rendre) rendre(); else fermerReel(); };
-        function surTouche(e) {
-            if (e.key === 'Escape') { e.preventDefault(); fermer(); return; }
-            if (e.key !== 'Tab') return;
-            const l = focusables();
-            if (!l.length) { e.preventDefault(); f.focus(); return; }
-            const premier = l[0], dernier = l[l.length - 1];
-            if (!f.contains(document.activeElement)) { e.preventDefault(); premier.focus(); }
-            else if (e.shiftKey && (document.activeElement === premier || document.activeElement === f)) { e.preventDefault(); dernier.focus(); }
-            else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
-        }
-        document.addEventListener('keydown', surTouche);
         fond.addEventListener('click', fermer);
 
         f.querySelector('[data-f="tete"]')?.addEventListener('click', () => o.actionTete.onClick({ fermer, corps }));
