@@ -260,15 +260,10 @@
 }
 .results-grid.list-view { grid-template-columns: 1fr; }
 .results-grid.list-view .manga-card { display: flex; flex-direction: row; }
-<<<<<<< HEAD
-.results-grid.list-view .manga-card-cover { width: 80px; flex-shrink: 0; aspect-ratio: auto; height: 110px; }
-.results-grid.list-view .manga-card-info { flex: 1; padding: var(--sp-3); }
-=======
 /* Boîte fixe : le rapport ne s’applique plus, mais il doit rester celui
    des couvertures. 80 × 110 valait 0,727 ; 80 × 120 vaut 2:3. */
 .results-grid.list-view .manga-card-cover { width: 80px; flex-shrink: 0; aspect-ratio: auto; height: 120px; }
-.results-grid.list-view .manga-card-info { flex: 1; padding: 12px; }
->>>>>>> cfa2533 (Une seule carte de serie : un contrat, trois densites)
+.results-grid.list-view .manga-card-info { flex: 1; padding: var(--sp-3); }
 
 /* Catalogue card extra info */
 .manga-card-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }

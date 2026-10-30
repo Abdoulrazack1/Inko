@@ -177,12 +177,7 @@
 /* ── Mobile portrait (≤ 480px) ──────────────────────────── */
 @media (max-width: 480px) {
   .cd-hero-inner { padding: 0 14px; }
-<<<<<<< HEAD
   .cd-serie-item { grid-template-columns: 70px 1fr; gap: 10px; padding: var(--sp-3) 0; }
-  .cd-serie-cover { aspect-ratio: 3/4; }
-=======
-  .cd-serie-item { grid-template-columns: 70px 1fr; gap: 10px; padding: 12px 0; }
->>>>>>> cfa2533 (Une seule carte de serie : un contrat, trois densites)
   .cd-serie-title { font-size: 14px; }
   .cd-serie-meta { flex-wrap: wrap; gap: 6px; }
   .cd-title { font-size: 20px; }

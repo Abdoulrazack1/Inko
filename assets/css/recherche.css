@@ -21,7 +21,7 @@
 .se-card:hover { transform: translateY(-4px); }
 .se-card:hover .se-cover { box-shadow: var(--shadow-3); }
 .se-card:hover .se-cover img { transform: scale(1.06); }
-.se-title { font-size: var(--carte-titre); font-weight: var(--carte-graisse); margin-top: var(--sp-2); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.se-title { font-size: var(--carte-titre); font-weight: var(--carte-graisse); margin-top: var(--sp-2); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: var(--carte-lignes); -webkit-box-orient: vertical; overflow: hidden; }
 .se-empty { color: var(--text3); font-size: 13px; padding: 6px 0; }
 /* « Voulais-tu dire … ? ». Le titre propose est un BOUTON : c'est une
    action (relancer la recherche), pas un lien vers une page. */
@@ -63,13 +63,8 @@
 /* Suggestions personnalisées (§11) */
 .se-perso-row { display:flex; gap:var(--sp-3); overflow-x:auto; padding-bottom:6px; margin-bottom:var(--sp-2); }
 .se-perso-card { flex:0 0 96px; width:96px; }
-<<<<<<< HEAD
-.se-perso-card .se-cover { border-radius: var(--r-controle); }
-.se-perso-card .se-title { font-size:11px; -webkit-line-clamp:1; }
-=======
 /* `.se-perso-card` posait son rayon et son titre à elle : c’était une
    densité sans nom. Elle est désormais déclarée dense, en haut. */
->>>>>>> cfa2533 (Une seule carte de serie : un contrat, trois densites)
 
 /* ── Résultats de la bibliothèque (audit AMEL-12) ── */
 .se-local { margin: var(--sp-3) 0 var(--sp-1); }
