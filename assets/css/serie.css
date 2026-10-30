@@ -202,7 +202,7 @@
   font-weight: 500;
   color: var(--text2);
   border-bottom: 2px solid transparent;
-  transition: all var(--transition);
+  transition: var(--transition-etat);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -306,7 +306,7 @@
   color: var(--text);
   font-size: 12px;
   width: 160px;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition);
 }
 .chap-search-input:focus {
   outline: none;
@@ -323,7 +323,7 @@
   font-size: 11.5px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: var(--transition-etat);
   white-space: nowrap;
 }
 .chap-sort-btn:hover {
@@ -341,7 +341,7 @@
   border-bottom: 1px solid var(--border);
   text-decoration: none;
   color: inherit;
-  transition: background 0.15s;
+  transition: background var(--transition);
   cursor: pointer;
   /* Longues séries : ne peint que les lignes visibles */
   content-visibility: auto;
@@ -398,7 +398,7 @@
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  transition: background 0.15s, transform 0.1s, border-color 0.15s;
+  transition: background var(--transition), transform var(--transition), border-color var(--transition);
   flex-shrink: 0;
 }
 .chapter-read-dot:hover { border-color: var(--green); transform: scale(1.15); }
@@ -415,7 +415,7 @@
   border-radius: 6px;
   color: var(--text3);
   opacity: 0.5;
-  transition: opacity 0.15s, transform 0.1s, color 0.15s;
+  transition: opacity var(--transition), transform var(--transition), color var(--transition);
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -429,7 +429,7 @@
 .chap-filter {
   padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 600;
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text2);
-  cursor: pointer; transition: all 0.12s;
+  cursor: pointer; transition: var(--transition-etat);
 }
 .chap-filter:hover { color: var(--text); border-color: var(--border); }
 .chap-filter.on { background: var(--orange); border-color: var(--orange); color: #fff; }
@@ -474,7 +474,7 @@
   padding: 10px 12px;
   flex: 1;
   min-width: 160px;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition);
 }
 .character-card:hover { border-color: var(--border2); }
 .character-card--lg {
@@ -555,7 +555,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.2s;
+  transition: transform var(--transition);
 }
 .similar-card:hover .similar-cover img { transform: scale(1.04); }
 .similar-title {
@@ -580,7 +580,7 @@
   text-decoration: none;
   color: inherit;
   display: block;
-  transition: transform 0.15s;
+  transition: transform var(--transition);
 }
 .manga-card:hover { transform: translateY(-2px); }
 .manga-card-cover {
@@ -595,7 +595,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.25s;
+  transition: transform var(--transition2);
 }
 .manga-card:hover .manga-card-cover img { transform: scale(1.05); }
 .manga-card-overlay {
@@ -606,7 +606,7 @@
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity var(--transition);
 }
 .manga-card:hover .manga-card-overlay { opacity: 1; }
 .btn-read-overlay {
@@ -729,7 +729,7 @@
   height: 100%;
   background: linear-gradient(90deg, var(--orange), var(--orange2, #ff8c42));
   border-radius: 3px;
-  transition: width 0.5s ease;
+  transition: width var(--transition3);
 }
 
 .quick-review {
@@ -754,7 +754,7 @@
 .tag-link {
   text-decoration: none;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity var(--transition);
 }
 .tag-link:hover { opacity: 0.75; }
 
@@ -929,7 +929,7 @@
 .comment-spoiler.revealed .comment-spoiler-veil { display: none; }
 .comment-spoiler:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (prefers-reduced-motion: no-preference) {
-  .comment-spoiler-body { transition: color .18s ease, text-shadow .18s ease; }
+  .comment-spoiler-body { transition: color var(--transition), text-shadow var(--transition); }
 }
 .comment-login-hint {
   background: var(--bg3);

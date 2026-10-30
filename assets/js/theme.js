@@ -24,7 +24,7 @@
 
     // Audit A11Y-02 : au changement de thème, les propriétés qui portent une
     // `transition` gardaient l'ANCIENNE couleur. Mesuré : en basculant en clair,
-    // les liens du pied de page (`.footer-col a`, qui a `transition: color`)
+    // les liens du pied de page (`.footer-col a`, qui a `transition:color`)
     // restaient à #b2afa5 — la valeur du thème sombre — sur fond clair #e7e4da,
     // soit 1.73:1 alors que le seuil AA est 4.5:1. Les éléments SANS transition
     // (.footer-desc, même variable) se mettaient bien à jour, ce qui rendait le

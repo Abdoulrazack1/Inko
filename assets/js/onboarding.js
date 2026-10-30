@@ -69,11 +69,11 @@
     const CSS = `
     .itr-veil{position:fixed;top:0;right:0;bottom:0;left:0;z-index:99990;background:color-mix(in srgb, var(--bg, #111) 55%, transparent);
       -webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);
-      display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .35s ease}
+      display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity var(--transition2)}
     .itr-veil.on{opacity:1}
     .itr-card{position:relative;width:min(520px,94vw);background:var(--bg2,#1a1a1e);border:1px solid var(--border,#333);
       border-radius:22px;padding:44px 38px 30px;text-align:center;overflow:hidden;
-      box-shadow:0 30px 80px -20px rgba(0,0,0,.5);transform:translateY(14px) scale(.98);transition:transform .35s cubic-bezier(.2,.9,.3,1.2)}
+      box-shadow:0 30px 80px -20px rgba(0,0,0,.5);transform:translateY(14px) scale(.98);transition:transform var(--transition2)}
     .itr-veil.on .itr-card{transform:none}
     .itr-card::after{content:'';position:absolute;top:0;right:0;width:34px;height:34px;
       background:linear-gradient(225deg, var(--bg,#111) 50%, transparent 50.5%);opacity:.9}
@@ -93,7 +93,7 @@
       background:var(--bg2,#141417);border:1px solid var(--border,#2a2a30);border-left:3px solid var(--accent,#c1531b);
       border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.45);
       font-size:12.5px;line-height:1.5;color:var(--text2,#bbb);
-      opacity:0;transform:translateY(8px);transition:opacity .25s ease,transform .25s ease}
+      opacity:0;transform:translateY(8px);transition:opacity var(--transition2),transform var(--transition2)}
     .itr-astuce.on{opacity:1;transform:none}
     .itr-astuce-x{background:none;border:none;color:var(--text3,#888);font-size:17px;line-height:1;
       cursor:pointer;padding:0 2px;flex:0 0 auto}
@@ -102,7 +102,7 @@
     @media (max-width:560px){.itr-astuce{left:12px;right:12px;max-width:none;bottom:84px}}
     @media (prefers-reduced-motion:reduce){.itr-astuce{transition:none}}
     .itr-art{width:96px;height:96px;margin:6px auto 20px;border-radius:28px;display:flex;align-items:center;justify-content:center;
-      background:color-mix(in srgb, currentColor 12%, transparent);transition:color .3s}
+      background:color-mix(in srgb, currentColor 12%, transparent);transition:color var(--transition2)}
     .itr-kanji{font-size:52px;line-height:1;font-weight:700}
     .itr-step{font-size:10.5px;font-weight:700;letter-spacing:.14em;color:var(--text3,#888);margin-bottom:8px}
     .itr-title{font-family:var(--font-head,inherit);font-size:24px;font-weight:700;margin-bottom:12px;color:var(--text,#eee)}
@@ -119,10 +119,10 @@
        destination est pire qu'une cible trop petite. */
     .itr-dots{display:flex;gap:12px;justify-content:center;margin:14px 0 12px}
     .itr-dot{width:7px;height:7px;box-sizing:content-box;padding:18px 9px;background-clip:content-box;
-             border-radius:99px;background-color:var(--bg4,#333);border:none;cursor:pointer;transition:background-color .3s,width .3s}
+             border-radius:99px;background-color:var(--bg4,#333);border:none;cursor:pointer;transition:background-color var(--transition2),width var(--transition2)}
     .itr-dot.on{width:22px;background-color:var(--accent,#c1531b)}
     .itr-nav{display:flex;gap:10px;justify-content:center;align-items:center}
-    .itr-btn{border:none;cursor:pointer;border-radius:12px;padding:12px 26px;font-size:13.5px;font-weight:600;transition:all .2s}
+    .itr-btn{border:none;cursor:pointer;border-radius:12px;padding:12px 26px;font-size:13.5px;font-weight:600;transition:var(--transition-etat)}
     .itr-next{background:var(--accent,#c1531b);color:#fff;min-width:150px}
     .itr-next:hover{filter:brightness(1.08);transform:translateY(-1px)}
     .itr-prev{background:var(--bg3,#222);color:var(--text2,#bbb)}

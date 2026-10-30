@@ -24,7 +24,7 @@
   background: var(--bg3); border: 1px solid var(--border);
   color: var(--text2); font-size: 15px; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
-  transition: all var(--transition);
+  transition: var(--transition-etat);
 }
 .reader-icon-btn:hover:not(:disabled) { border-color: var(--border2); color: var(--text); }
 .reader-icon-btn:disabled { opacity: .4; cursor: default; }
@@ -36,7 +36,7 @@
 
 /* Barre de progression */
 .novel-progressbar { position: sticky; top: 53px; z-index: 70; height: 3px; background: var(--bg3); }
-.novel-progressbar-fill { height: 100%; width: 0%; background: var(--orange); transition: width .15s linear; }
+.novel-progressbar-fill { height: 100%; width: 0%; background: var(--orange); transition: width var(--transition); }
 
 /* Zone de lecture — les variables sont pilotées par lecture.js */
 .novel-wrap {
@@ -49,7 +49,7 @@
   background: var(--novel-bg);
   min-height: calc(100vh - 120px);
   padding: 36px 20px 80px;
-  transition: background .25s;
+  transition: background var(--transition2);
 }
 .novel-content {
   max-width: var(--novel-width);
@@ -137,7 +137,7 @@
   background: rgba(255,140,66,.14);
   box-shadow: 0 0 0 6px rgba(255,140,66,.14);
   border-radius: 4px;
-  transition: background .2s;
+  transition: background var(--transition);
 }
 
 @media (max-width: 600px) {

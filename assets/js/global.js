@@ -548,7 +548,7 @@
             background: '#ff6b1a', color: '#fff', padding: '10px 18px',
             borderRadius: '8px', fontSize: '13.5px', fontWeight: '500',
             boxShadow: '0 4px 16px rgba(255,107,26,.4)', opacity: '1',
-            transition: 'opacity .3s', pointerEvents: 'none',
+            transition:'opacity .3s', pointerEvents: 'none',
             fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
         });
         document.body.appendChild(el);
@@ -587,7 +587,7 @@
             padding:10px 6px 10px 14px;font-size:13.5px;line-height:1.35;
             box-shadow:var(--glass-inner),0 8px 28px rgba(0,0,0,.45);
             opacity:0;transform:translateY(14px);
-            transition:opacity .2s ease,transform .2s ease;
+            transition:opacity var(--transition),transform var(--transition);
             /* Deux déclarations, et c'est voulu : env() est du Chrome 69. Le
                WebView d'Android 8 ne sait pas la lire, jette la seconde, et
                garde la première — sans ce doublon il jetterait bottom tout
@@ -749,16 +749,16 @@
         .mh-modal-veil{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147482000;display:flex;align-items:center;justify-content:center;padding:20px;
           background:color-mix(in srgb, var(--bg,#111) 55%, transparent);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
           opacity:1}
-        .mh-modal-veil.closing{opacity:0;transition:opacity .15s ease}
+        .mh-modal-veil.closing{opacity:0;transition:opacity var(--transition)}
         .mh-modal{width:min(420px,94vw);background:var(--bg2,#1a1a1e);border:1px solid var(--border,#333);border-radius:18px;
           padding:24px 24px 20px;box-shadow:0 24px 70px -18px rgba(0,0,0,.55)}
         .mh-modal-title{font-family:var(--font-head,inherit);font-size:17px;font-weight:700;color:var(--text,#eee);margin-bottom:8px}
         .mh-modal-msg{font-size:13.5px;line-height:1.55;color:var(--text2,#bbb);white-space:pre-line}
         .mh-modal-input{width:100%;margin-top:14px;background:var(--bg3,#222);border:1px solid var(--border2,#3a3a3a);color:var(--text,#eee);
-          border-radius:10px;padding:11px 13px;font-size:14px;outline:none;transition:border-color .15s}
+          border-radius:10px;padding:11px 13px;font-size:14px;outline:none;transition:border-color var(--transition)}
         .mh-modal-input:focus{border-color:var(--accent,#c1531b)}
         .mh-modal-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:20px}
-        .mh-modal-btn{border:none;cursor:pointer;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600;transition:filter .15s,background .15s}
+        .mh-modal-btn{border:none;cursor:pointer;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600;transition:filter var(--transition),background var(--transition)}
         .mh-modal-btn.ghost{background:var(--bg3,#222);color:var(--text2,#bbb)}
         .mh-modal-btn.ghost:hover{color:var(--text,#eee)}
         .mh-modal-btn.primary{background:var(--accent,#c1531b);color:#fff}
@@ -2663,7 +2663,7 @@
         btn.title = 'Retour en haut';
         btn.setAttribute('aria-label', 'Retour en haut');
         btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polyline points="18 15 12 9 6 15"/></svg>';
-        btn.style.cssText = 'position:fixed;right:20px;bottom:22px;z-index:900;width:42px;height:42px;border-radius:50%;border:1px solid var(--border);background:var(--orange);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.35);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .2s,transform .2s';
+        btn.style.cssText = 'position:fixed;right:20px;bottom:22px;z-index:900;width:42px;height:42px;border-radius:50%;border:1px solid var(--border);background:var(--orange);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.35);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity var(--transition),transform var(--transition)';
         btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
         document.body.appendChild(btn);
         const onScroll = () => {

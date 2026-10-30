@@ -74,7 +74,7 @@
            propre positionnement — il le décale, simplement. */
         html.mh-une-main .site-header{
             transform:translateY(var(--mh-une-main-y,0));
-            transition:transform .22s cubic-bezier(.22,.7,.28,1)}
+            transition:transform var(--transition2)}
         /* Ce qui est ancré EN BAS ne bouge pas : la barre d'onglets, le
            bandeau et l'avis hors-ligne sont déjà dans la zone du pouce. Les
            descendre les pousserait hors de l'écran — c'est exactement ce que

@@ -122,7 +122,37 @@
   --font-head:   'Archivo Narrow', system-ui, sans-serif;   /* Display */
   --font-body:   'IBM Plex Sans', system-ui, sans-serif;    /* Utilitaire */
   --font-read:   'Bitter', Georgia, serif;                  /* Lecture longue */
-  --transition:  0.16s ease;
+  /* Trois durées, pas une — et c’est la mesure qui l’a dit, pas le plan.
+     Les 138 transitions de l’application se rangent en trois grappes
+     nettes selon CE QU’ELLES ANIMENT :
+
+       120–180 ms  (x50)  couleur, fond, filet, opacité — un contrôle
+                          répond au pointeur ou au clavier
+       200–340 ms  (x19)  transform sur une carte, ouverture d’un
+                          panneau — un objet se déplace
+       400–600 ms   (x8)  width sur une jauge, zoom d’une couverture —
+                          une valeur parcourt sa course
+
+     Une seule durée pour les trois ferait claquer les jauges ou traîner
+     les survols. Trois pas, et un seul par grappe. */
+  --transition:  150ms var(--ease-out);   /* réponse */
+  --transition2: 280ms var(--ease-out);   /* déplacement */
+  --transition3: 500ms var(--ease-out);   /* parcours */
+
+  /* L’état d’un contrôle : ce qui change quand on le survole, l’atteint
+     au clavier ou l’allume. Quarante-trois règles écrivaient
+     `transition: all` — qui anime TOUTE propriété animable, y compris
+     celles qui déclenchent une mise en page, sur des cartes répétées 500
+     fois. La liste explicite ne peut pas s’écrire dans la forme abrégée
+     sans répéter la durée (la virgule y sépare des transitions
+     COMPLÈTES) : elle est donc posée une fois, ici. */
+  --transition-etat:
+      background-color 150ms var(--ease-out),
+      border-color     150ms var(--ease-out),
+      color            150ms var(--ease-out),
+      box-shadow       150ms var(--ease-out),
+      opacity          150ms var(--ease-out),
+      transform        150ms var(--ease-out);
 
   /* ── Système de mouvement (courbes soignées, jamais linéaire) ── */
   --ease:      cubic-bezier(.4, 0, .2, 1);
@@ -498,7 +528,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
   padding: 6px 12px;
   border-radius: var(--radius2);
   font-size: 13.5px; font-weight: 500; color: var(--text2);
-  transition: all var(--transition);
+  transition: var(--transition-etat);
 }
 .header-nav a:hover { color: var(--text); background: var(--bg3); }
 .header-nav a.active {
@@ -561,7 +591,7 @@ h1, h2, h3, .section-title, .lib2-head h1 { font-family: var(--font-head); lette
   background: var(--bg3); border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   color: var(--text2); font-size: 14px;
-  transition: all var(--transition);
+  transition: var(--transition-etat);
   border: 1px solid var(--border);
 }
 .header-icon-btn:hover { color: var(--text); border-color: var(--border2); }
@@ -609,7 +639,7 @@ body.incognito-on::before {
 /* Avancement du scan : fine barre sous le bouton (largeur = % de séries vérifiées) */
 #btnRefresh { position: relative; }
 #btnRefresh.spinning::after { content: ""; position: absolute; left: 6px; bottom: 3px; height: 2px; border-radius: 2px;
-    width: calc((100% - 12px) * var(--refresh-pct-n, 0)); background: var(--accent); transition: width .4s ease; }
+    width: calc((100% - 12px) * var(--refresh-pct-n, 0)); background: var(--accent); transition: width var(--transition3); }
 @keyframes inko-spin { to { transform: rotate(360deg); } }
 .header-user {
   display: flex; align-items: center; gap: 8px;
@@ -661,7 +691,7 @@ body.incognito-on::before {
 #inko-titlebar .tb-btn {
   width: 46px; height: 100%; display: flex; align-items: center; justify-content: center;
   background: transparent; border: 0; color: var(--text2); cursor: pointer;
-  transition: background .12s, color .12s;
+  transition: background var(--transition), color var(--transition);
 }
 #inko-titlebar .tb-btn:hover { background: color-mix(in srgb, var(--text) 12%, transparent); color: var(--text); }
 #inko-titlebar .tb-close:hover { background: #e81123; color: #fff; }
@@ -799,7 +829,7 @@ body.incognito-on::before {
 .manga-card {
   background: var(--bg2); border: 1px solid var(--border);
   border-radius: var(--radius); overflow: hidden;
-  transition: transform .28s var(--ease-out), box-shadow .28s var(--ease-out), border-color var(--transition);
+  transition: transform var(--transition2), box-shadow var(--transition2), border-color var(--transition2);
   position: relative;
 }
 .manga-card:hover {
@@ -825,7 +855,7 @@ body.incognito-on::before {
 .manga-card-cover img {
   width: 100%; height: 100%;
   object-fit: cover;
-  transition: transform .5s var(--ease-out);
+  transition: transform var(--transition3);
 }
 .manga-card:hover .manga-card-cover img { transform: scale(1.07); }
 .manga-card-badges {
@@ -835,7 +865,7 @@ body.incognito-on::before {
 .manga-card-overlay {
   position: absolute; inset: 0;
   background: linear-gradient(to top, rgba(0,0,0,.72) 0%, transparent 52%);
-  opacity: 0; transition: opacity .22s var(--ease-out);
+  opacity: 0; transition: opacity var(--transition2);
   display: flex; align-items: flex-end; padding: 12px;
   gap: 8px;
 }
@@ -844,7 +874,7 @@ body.incognito-on::before {
   flex: 1; height: 34px;
   border-radius: var(--radius3); font-size: 12px; font-weight: 600;
   display: flex; align-items: center; justify-content: center; gap: 4px;
-  transition: background var(--transition), transform .15s var(--ease-out);
+  transition: background var(--transition), transform var(--transition);
 }
 .btn-read-overlay {
   background: var(--accent); color: #fff;
@@ -882,7 +912,7 @@ body.incognito-on::before {
 }
 .progress-fill {
   height: 100%; background: var(--orange); border-radius: 2px;
-  transition: width 0.3s ease;
+  transition: width var(--transition2);
 }
 
 /* Buttons */
@@ -899,8 +929,7 @@ body.incognito-on::before {
   padding: 0 17px; height: 38px;
   border-radius: var(--radius3); font-size: 13.5px; font-weight: 600;
   letter-spacing: .005em; white-space: nowrap;
-  transition: background var(--transition), border-color var(--transition),
-              transform .12s var(--ease-out), box-shadow var(--transition), color var(--transition);
+  transition: background var(--transition), border-color var(--transition), transform var(--transition), box-shadow var(--transition), color var(--transition);
 }
 .btn:active { transform: translateY(1px) scale(.99); }
 .btn-primary {
@@ -925,7 +954,7 @@ body.incognito-on::before {
   padding: 3px 10px;
   background: var(--bg4); border: 1px solid var(--border);
   border-radius: 30px; font-size: 11.5px; color: var(--text2);
-  transition: all var(--transition);
+  transition: var(--transition-etat);
 }
 .tag:hover, .tag.active {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -1000,7 +1029,7 @@ img.img-echec { background: var(--bg3); animation: none; }
   display: flex; align-items: center; justify-content: center;
   z-index: 2;
   backdrop-filter: blur(6px);
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition: background var(--transition), color var(--transition), transform var(--transition);
 }
 .card-fav-btn:hover  { background: rgba(0,0,0,0.75); transform: scale(1.08); }
 .card-fav-btn.is-fav { color: var(--red); background: rgba(0,0,0,0.7); }
@@ -1055,7 +1084,7 @@ img.img-echec { background: var(--bg3); animation: none; }
   background: var(--bg3); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
   color: var(--text2); font-size: 12px;
-  transition: all var(--transition);
+  transition: var(--transition-etat);
 }
 .arrow-btn:hover { background: var(--bg4); color: var(--text); border-color: var(--border2); }
 .arrow-btn:disabled { opacity: 0.3; pointer-events: none; }
@@ -1244,7 +1273,7 @@ a[data-nsfw] .manga-card-cover::after,
   border: 1px solid var(--border);
   color: var(--text2);
   cursor: pointer;
-  transition: all .15s ease;
+  transition: var(--transition-etat);
 }
 .list-icon-btn:hover { background: rgba(255,107,26,.12); border-color: rgba(255,107,26,.3); color: var(--orange); }
 
@@ -1292,7 +1321,7 @@ a[data-nsfw] .manga-card-cover::after,
   padding: 10px 12px;
   border-radius: var(--radius2);
   cursor: pointer;
-  transition: background .12s ease;
+  transition: background var(--transition);
 }
 .lp-row:hover { background: var(--bg3); }
 .lp-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--orange); cursor: pointer; }
@@ -1350,7 +1379,7 @@ a[data-nsfw] .manga-card-cover::after,
   position: fixed; top: -48px; left: 12px; z-index: 10000;
   background: var(--orange); color: #fff; font-size: 13px; font-weight: 600;
   padding: 9px 16px; border-radius: 8px; text-decoration: none;
-  transition: top 0.15s ease;
+  transition: top var(--transition);
 }
 .skip-link:focus { top: 12px; }
 
@@ -1395,7 +1424,7 @@ a[data-nsfw] .manga-card-cover::after,
   display: flex; align-items: center; justify-content: center;
   z-index: 2;
   backdrop-filter: blur(6px);
-  transition: background .18s ease, transform .18s ease;
+  transition: background var(--transition), transform var(--transition);
 }
 .card-list-btn:hover { background: rgba(0,0,0,0.75); transform: scale(1.08); }
 .manga-card .card-list-btn { z-index: 3; }

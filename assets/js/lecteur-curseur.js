@@ -56,7 +56,7 @@
             border-radius:10px;padding:5px;
             box-shadow:0 10px 30px rgba(0,0,0,.55);
             opacity:0;transform:translateY(6px);
-            transition:opacity .12s ease,transform .12s ease;
+            transition:opacity var(--transition),transform var(--transition);
             pointer-events:none}
         .mh-vignette.visible{opacity:1;transform:none}
         .mh-vignette img{display:block;width:100%;height:${Math.round(LARGEUR * 1.4)}px;
