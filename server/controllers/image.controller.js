@@ -238,8 +238,35 @@ function ipIsPrivate(ip) {
         const v = ip.toLowerCase();
         if (v === '::1' || v === '::') return true;              // loopback / non spécifié
         if (v.startsWith('fe80') || v.startsWith('fc') || v.startsWith('fd')) return true; // link-local / ULA
-        const m = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);      // IPv4 mappée
-        if (m) return ipIsPrivate(m[1]);
+
+        // IPv4 mappée. Deux écritures désignent la même adresse :
+        //
+        //     ::ffff:127.0.0.1   la forme pointée, celle qu'on tape
+        //     ::ffff:7f00:1      la forme hexadécimale, celle que `new URL`
+        //                        écrit APRÈS normalisation
+        //
+        // Seule la première était reconnue. Or le contrôleur ne voit jamais
+        // que la seconde : `new URL('http://[::ffff:127.0.0.1]/')` rend
+        // `[::ffff:7f00:1]`. Résultat, `::ffff:a9fe:a9fe` — soit
+        // 169.254.169.254, les métadonnées cloud — passait pour une adresse
+        // publique. Contournement signalé par zaderlyl avec le test qui le
+        // démontre (PR #134).
+        //
+        // On reconstruit donc l'IPv4 à partir des deux derniers groupes
+        // hexadécimaux, et on la soumet au même examen que n'importe quelle
+        // IPv4.
+        const pointee = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+        if (pointee) return ipIsPrivate(pointee[1]);
+        const hexa = v.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+        if (hexa) {
+            const haut = parseInt(hexa[1], 16), bas = parseInt(hexa[2], 16);
+            return ipIsPrivate([haut >> 8, haut & 255, bas >> 8, bas & 255].join('.'));
+        }
+        // Tout autre IPv6 qui EMBARQUE de l'IPv4 (NAT64 `64:ff9b::`, formes
+        // compressées exotiques) n'est pas déchiffrable ici sans se tromper :
+        // on refuse, comme pour un format inconnu. Un proxy d'images n'a
+        // aucune raison d'aller chercher une planche derrière un NAT64.
+        if (/^(::|64:ff9b::)/.test(v)) return true;
         return false;
     }
     return true; // format inconnu → on refuse par prudence
