@@ -227,7 +227,12 @@
 .lib-menu { min-width: 280px; padding: 6px; }
 .lib-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 8px;
     background: none; color: var(--text); font-size: 13.5px; text-align: left; cursor: pointer; }
-.lib-menu-item:hover, .lib-menu-item:focus-visible { background: var(--bg3); outline: none; }
+/* `outline: none` posé SUR :focus-visible retirait l’anneau du
+   système, et le seul signal restant — le fond — était celui du
+   SURVOL : au clavier, l’entrée visée devenait indiscernable de
+   celle que la souris effleure. Le fond reste partagé (c’est
+   voulu) ; l’anneau distingue. */
+.lib-menu-item:hover, .lib-menu-item:focus-visible { background: var(--bg3); }
 .lib-menu-item svg { flex: 0 0 auto; color: var(--text3); }
 .lib-menu-sep { height: 1px; background: var(--border); margin: 6px 4px; }
 .lib-refresh-status { font-size: 12px; color: var(--text3); display: inline-flex; align-items: center; gap: 6px; }

@@ -6,7 +6,7 @@
 .se-input:focus { outline: none; border-color: var(--orange); }
 /* Meme raison que dans music.css : « :focus » retire le contour au clavier
    aussi, et une bordure coloree ne se distingue pas d'un survol. */
-.se-input:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.se-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .se-go { background: var(--orange); color: #fff; border: none; padding: 0 22px; border-radius: 11px; font-weight: 600; font-size: 14px; cursor: pointer; }
 .se-sub { font-size: 12.5px; color: var(--text3); margin-bottom: 22px; }
 .se-group { margin-bottom: 30px; }
@@ -32,7 +32,7 @@
   text-underline-offset: 2px;
 }
 .se-corr-btn:hover { text-decoration-thickness: 2px; }
-.se-corr-btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; border-radius: 3px; }
+.se-corr-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 .se-err { color: #ef4444; font-size: 12.5px; }
 .se-loading { text-align: center; padding: 60px; color: var(--text3); }
 .se-hist { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:22px; }
@@ -103,7 +103,7 @@
 }
 .se-fail-retry:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
 .se-fail-retry[disabled] { opacity: .55; cursor: default; }
-.se-fail-retry:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.se-fail-retry:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ── Recherche encore en cours (audit AMEL-10) ── */
 .se-partiel { margin-top: 16px; font-size: 12.5px; color: var(--text3); }
