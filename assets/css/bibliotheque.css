@@ -318,9 +318,14 @@
 #btnLibFilters.is-active { border-color: var(--accent); }
 .lib-more-btn { min-width: 34px; font-size: var(--t-l); line-height: 1; letter-spacing: 1px; }
 .lib-menu { min-width: 280px; padding: 6px; }
-.lib-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: var(--sp-2) 10px; border: 0; border-radius:  var(--r-controle);
+.lib-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: var(--sp-2) 10px; border: 0; border-radius: var(--r-controle);
     background: none; color: var(--text); font-size: var(--t-s); text-align: left; cursor: pointer; }
-.lib-menu-item:hover, .lib-menu-item:focus-visible { background: var(--bg3); outline: none; }
+/* `outline: none` posé SUR :focus-visible retirait l’anneau du
+   système, et le seul signal restant — le fond — était celui du
+   SURVOL : au clavier, l’entrée visée devenait indiscernable de
+   celle que la souris effleure. Le fond reste partagé (c’est
+   voulu) ; l’anneau distingue. */
+.lib-menu-item:hover, .lib-menu-item:focus-visible { background: var(--bg3); }
 .lib-menu-item svg { flex: 0 0 auto; color: var(--text3); }
 .lib-menu-sep { height: 1px; background: var(--border); margin: 6px var(--sp-1); }
 .lib-refresh-status { font-size: var(--t-s); color: var(--text3); display: inline-flex; align-items: center; gap: 6px; }
