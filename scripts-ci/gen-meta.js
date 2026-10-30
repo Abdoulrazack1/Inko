@@ -41,6 +41,7 @@ const DESCRIPTIONS = {
     'import.html':            'Importe tes propres fichiers EPUB, PDF ou CBZ dans ta bibliothèque.',
     'sources.html':           'Gère tes sources de contenu : extensions mangas et romans.',
     'parametres.html':        'Réglages de lecture, apparence, confidentialité et comptes liés.',
+    'systeme.html':           'Le système de style d’Inko, lu dans les feuilles réellement servies : couleurs, typographie, rayons, élévations, espacement.',
     'confidentialite.html':   'Ce qu\'Inko stocke, pourquoi, et ce qu\'il ne fait pas : aucune télémétrie, aucune publicité.',
     'anilist.html':           'Connexion du compte AniList pour synchroniser ta progression.',
     'offline.html':           'Tu es hors ligne — tes téléchargements restent accessibles.',

@@ -91,9 +91,15 @@ test('les cercles et les gélules restent ce qu’ils sont', () => {
 // Plafonnées à leur niveau du jour, elles ne peuvent que descendre.
 const PLAFOND_PAGES = 138;
 
+// `systeme.html` AFFICHE l’échelle : y écrire « 12px » est du CONTENU, pas
+// de la dette. On l’exclut du décompte plutôt que de relever le plafond —
+// un cliquet qu’on relâche n’en est plus un.
+const VITRINE = ['systeme.html'];
+
 test('la dette des pages et des scripts ne remonte pas', () => {
     const fichiers = [
-        ...fs.readdirSync(RACINE).filter((f) => f.endsWith('.html')).map((f) => path.join(RACINE, f)),
+        ...fs.readdirSync(RACINE).filter((f) => f.endsWith('.html') && !VITRINE.includes(f))
+            .map((f) => path.join(RACINE, f)),
         ...fs.readdirSync(path.join(RACINE, 'assets', 'js')).filter((f) => f.endsWith('.js'))
             .map((f) => path.join(RACINE, 'assets', 'js', f)),
     ];

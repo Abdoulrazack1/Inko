@@ -83,11 +83,17 @@ test('la feuille partagée ne porte plus aucune taille littérale', () => {
 const PLAFOND_FEUILLES = 548;
 const PLAFOND_PAGES = 359;
 
+// `systeme.html` AFFICHE l’échelle : y écrire « 11px » est du CONTENU, pas
+// de la dette. On l’exclut du décompte plutôt que de relever le plafond —
+// un cliquet qu’on relâche n’en est plus un.
+const VITRINE = ['systeme.html'];
+
 const compter = (fichiers) => fichiers
     .map((f) => (lire(f).match(/font-size:\s*[0-9.]+px/g) || []).length)
     .reduce((a, b) => a + b, 0);
 
 const sous = (dir, filtre) => fs.readdirSync(path.join(RACINE, dir))
+    .filter((f) => !VITRINE.includes(f))
     .filter(filtre)
     .map((f) => path.join(RACINE, dir, f));
 

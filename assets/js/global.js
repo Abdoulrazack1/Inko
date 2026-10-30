@@ -1835,6 +1835,7 @@
             <li><a href="https://github.com/Abdoulrazack1/Inko" target="_blank" rel="noopener noreferrer">Code source</a></li>
             <li><a href="https://github.com/Abdoulrazack1/Inko/issues" target="_blank" rel="noopener noreferrer">Signaler un bug</a></li>
             <li><a href="https://github.com/Abdoulrazack1/Inko/releases" target="_blank" rel="noopener noreferrer">Versions</a></li>
+            <li><a href="systeme.html">Système de style</a></li>
           </ul>
         </div>
         <div class="footer-col">
