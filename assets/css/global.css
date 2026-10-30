@@ -406,8 +406,11 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
    de focus change la FORME de l'élément au moment où on le focalise — une
    pastille ronde voyait ses coins passer à 4 px. Le contour suit tout seul le
    rayon réel de l'élément ; on n'a rien à lui imposer. */
+/* Une seule écriture de la couleur de l’anneau. Elle était posée de
+   trois façons : var(--orange), var(--accent), et
+   var(--orange,#ff6b1a) — trois noms pour la même valeur. */
 :focus-visible {
-  outline: 2px solid var(--orange);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   box-shadow: var(--ring);
 }

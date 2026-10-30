@@ -244,7 +244,7 @@
    On le rend, et seulement au clavier — « :focus-visible » ne se declenche
    pas sur un clic de souris, donc l'aspect au pointeur ne bouge pas. */
 .novel-find .nf-champ:focus-visible {
-  outline: 2px solid var(--orange);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .novel-find .nf-champ::placeholder { color: var(--text3, #8a8a90); }
