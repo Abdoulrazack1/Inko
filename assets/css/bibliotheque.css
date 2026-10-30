@@ -1,27 +1,27 @@
 /* bibliotheque.css — Écran Bibliothèque (audit §10 : sorti du <style> inline) */
 
-.lib2-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
-.lib2-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
+.lib2-wrap { max-width: 1200px; margin: 0 auto; padding: var(--sp-5) 20px 80px; }
+.lib2-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:var(--sp-3); margin-bottom:18px; }
 .lib2-head h1 { font-family: var(--font-head); font-size: 26px; font-weight: 700; }
-.lib2-tabs { display:flex; gap:4px; background:var(--glass-bg); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); box-shadow:var(--glass-inner); border-radius: var(--r-carte); padding:4px; }
-.lib2-tab { padding:8px 16px; border-radius: var(--r-controle); font-size:13px; color:var(--text2); font-weight:500; position:relative; transition:color var(--transition), background var(--transition); }
+.lib2-tabs { display:flex; gap:var(--sp-1); background:var(--glass-bg); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); box-shadow:var(--glass-inner); border-radius: var(--r-carte); padding:var(--sp-1); }
+.lib2-tab { padding:var(--sp-2) var(--sp-4); border-radius: var(--r-controle); font-size:13px; color:var(--text2); font-weight:500; position:relative; transition:color var(--transition), background var(--transition); }
 .lib2-tab:hover { color:var(--text); }
 .lib2-tab.active { background:var(--accent); color:var(--sur-couleur); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
 /* Compteur discret sur un onglet (Téléchargements) */
 .lib2-tab .tab-count { display:inline-block; margin-left:6px; font-size:11px; font-weight:700; background:var(--bg4); color:var(--text2); padding:1px 6px; border-radius: var(--r-controle); }
 .lib2-tab.active .tab-count { background:rgba(255,255,255,.25); color:var(--sur-couleur); }
 .lib2-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
-.lib2-search { flex:1; min-width:200px; background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:9px 14px; border-radius: var(--r-controle); font-size:13px; }
+.lib2-search { flex:1; min-width:200px; background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:var(--sp-2) 14px; border-radius: var(--r-controle); font-size:13px; }
 .lib2-search:focus { outline:none; border-color:var(--orange); }
-.lib2-sort { background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:9px 12px; border-radius: var(--r-controle); font-size:12.5px; }
+.lib2-sort { background:var(--bg3); border:1px solid var(--border2); color:var(--text); padding:var(--sp-2) var(--sp-3); border-radius: var(--r-controle); font-size:12.5px; }
 
 /* Bascule Grille / Liste */
-.lib2-view { display:inline-flex; background:var(--bg3); border:1px solid var(--border2); border-radius: var(--r-controle); padding:2px; gap:2px; }
+.lib2-view { display:inline-flex; background:var(--bg3); border:1px solid var(--border2); border-radius: var(--r-controle); padding:var(--sp-0); gap:var(--sp-0); }
 .lib2-view button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:30px; border:none; background:none; color:var(--text2); border-radius: var(--r-controle); cursor:pointer; transition:color var(--transition), background var(--transition); }
 .lib2-view button:hover { color:var(--text); }
 .lib2-view button.on { background:var(--accent); color:var(--sur-couleur); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent); }
 
-.lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:16px; }
+.lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:var(--sp-4); }
 .lib2-grid.lib2-grid--compact { grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:10px; }
 .lib2-grid--compact .lib2-title { font-size:11px; }
 .lib2-grid--compact .lib2-sub, .lib2-grid--compact .lib2-cat { display:none; }
@@ -31,7 +31,7 @@
 .lib2-grid .lib2-card:hover { transform:translateY(-4px); }
 .lib2-grid .lib2-card:hover .lib2-cover { box-shadow:var(--shadow-3); }
 .lib2-grid .lib2-card:hover .lib2-cover img { transform:scale(1.06); }
-.lib2-badge { position:absolute; top:8px; left:8px; background:var(--hanko); color:var(--sur-couleur); font-size:11px; font-weight:700; padding:3px 8px; border-radius: var(--r-feuille); box-shadow:var(--e-detache); z-index:4; }
+.lib2-badge { position:absolute; top:8px; left:8px; background:var(--hanko); color:var(--sur-couleur); font-size:11px; font-weight:700; padding:var(--sp-1) var(--sp-2); border-radius: var(--r-feuille); box-shadow:var(--e-detache); z-index:4; }
 /* si un badge de statut occupe déjà le coin haut-gauche, on descend le compteur */
 .lib2-status + .lib2-badge, .lib2-status ~ .lib2-badge { top:34px; }
 .lib2-pin { position:absolute; bottom:8px; right:8px; width:30px; height:30px; border-radius: var(--r-controle); border:none; background:rgba(0,0,0,.55); color:var(--sur-couleur); cursor:pointer; opacity:0; transform:translateY(4px); transition:opacity .14s, transform .14s, background .14s; backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; }
@@ -48,47 +48,47 @@
 .ic-btn svg { flex-shrink:0; }
 .lib2-progress { position:absolute; left:0; right:0; bottom:0; height:4px; background:rgba(0,0,0,.45); }
 .lib2-progress-fill { height:100%; background:var(--orange); transition:width .3s; }
-.lib2-title { font-size:12.5px; font-weight:500; margin-top:7px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.lib2-sub { font-size:11px; color:var(--text3); margin-top:2px; }
+.lib2-title { font-size:12.5px; font-weight:500; margin-top:var(--sp-2); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.lib2-sub { font-size:11px; color:var(--text3); margin-top:var(--sp-0); }
 .lib2-empty { text-align:center; padding:70px 20px; color:var(--text3); }
 .lib2-empty .ico { font-size:48px; margin-bottom:10px; }
 
 /* Filtres (statuts / catégories) */
-.lib2-filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; width:100%; }
-.lib2-chip { padding:6px 13px; border-radius: var(--r-feuille); font-size:12.5px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; font-weight:500; transition:all .12s; }
+.lib2-filters { display:flex; gap:var(--sp-2); flex-wrap:wrap; margin-bottom:var(--sp-4); align-items:center; width:100%; }
+.lib2-chip { padding:6px var(--sp-3); border-radius: var(--r-feuille); font-size:12.5px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; font-weight:500; transition:all .12s; }
 .lib2-chip:hover { color:var(--text); border-color:var(--text3); }
 .lib2-chip.on { background:var(--accent); border-color:var(--accent); color:var(--sur-couleur); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
-.lib2-chip .cnt { opacity:.85; margin-left:5px; font-size:11px; }
+.lib2-chip .cnt { opacity:.85; margin-left:var(--sp-1); font-size:11px; }
 /* Audit QUAL-05 : sur une pastille active le fond devient l'accent ; l'opacité
    ramenait le compteur à 3,79:1. Sur ce fond-là, le blanc plein (4,65:1). */
 .lib2-chip.on .cnt, .lib2-chip.active .cnt,
 .lib2-kind.on .cnt, .lib2-kind.active .cnt { opacity:1; color:var(--sur-couleur); }
 .lib2-chip-add { color:var(--text3); border-style:dashed; }
-.lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius: var(--r-controle); text-transform:uppercase; letter-spacing:.03em; color:var(--sur-couleur); }
-.lib2-kind-badge { position:absolute; bottom:8px; left:8px; font-size:8.5px; font-weight:800; padding:2px 6px; border-radius: var(--r-controle); letter-spacing:.04em; color:var(--sur-couleur); background:var(--ai); box-shadow:var(--e-detache); }
+.lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:var(--sp-0) var(--sp-2); border-radius: var(--r-controle); text-transform:uppercase; letter-spacing:.03em; color:var(--sur-couleur); }
+.lib2-kind-badge { position:absolute; bottom:8px; left:8px; font-size:8.5px; font-weight:800; padding:var(--sp-0) 6px; border-radius: var(--r-controle); letter-spacing:.04em; color:var(--sur-couleur); background:var(--ai); box-shadow:var(--e-detache); }
 .lib2-cat { font-size:10px; color:var(--text3); margin-top:1px; }
 
 /* Segment Mangas / Romans */
-.lib2-kinds { display:inline-flex; background:var(--bg3); border:1px solid var(--border2); border-radius: var(--r-feuille); padding:3px; gap:2px; margin-right:6px; }
-.lib2-kind { padding:5px 14px; border-radius: var(--r-feuille); font-size:12.5px; font-weight:600; color:var(--text2); background:none; border:none; cursor:pointer; transition:all .12s; }
+.lib2-kinds { display:inline-flex; background:var(--bg3); border:1px solid var(--border2); border-radius: var(--r-feuille); padding:var(--sp-1); gap:var(--sp-0); margin-right:6px; }
+.lib2-kind { padding:var(--sp-1) 14px; border-radius: var(--r-feuille); font-size:12.5px; font-weight:600; color:var(--text2); background:none; border:none; cursor:pointer; transition:all .12s; }
 .lib2-kind:hover { color:var(--text); }
 .lib2-kind.on { background:var(--accent); color:var(--sur-couleur); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
-.lib2-kind .cnt { opacity:.85; margin-left:5px; font-size:11px; }
+.lib2-kind .cnt { opacity:.85; margin-left:var(--sp-1); font-size:11px; }
 
 /* Rangée « Reprendre où j'en étais » (audit §10.3) */
 .lib2-resume { margin-bottom:22px; }
-.lib2-section-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.lib2-section-head { display:flex; align-items:center; gap:var(--sp-2); margin-bottom:10px; }
 .lib2-section-head h2 { font-family:var(--font-head); font-size:15px; font-weight:700; color:var(--text); }
 .lib2-section-head .bar { width:3px; height:16px; background:var(--orange); border-radius: var(--r-trait); }
-.lib2-resume-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; scrollbar-width:thin; }
+.lib2-resume-row { display:flex; gap:var(--sp-3); overflow-x:auto; padding-bottom:6px; scrollbar-width:thin; }
 .lib2-resume-card { flex:0 0 118px; width:118px; position:relative; }
 .lib2-resume-card .lib2-cover { border-radius: var(--r-controle); }
-.lib2-resume-card .lib2-title { font-size:11.5px; -webkit-line-clamp:1; margin-top:5px; }
+.lib2-resume-card .lib2-title { font-size:11.5px; -webkit-line-clamp:1; margin-top:var(--sp-1); }
 .lib2-resume-card .lib2-sub { font-size:10px; }
 
 /* Vue Liste (symétrique du catalogue) — réutilise le même DOM de carte que la grille */
-.lib2-list { display:flex; flex-direction:column; gap:8px; }
-.lib2-list .lib2-card { display:flex; align-items:center; gap:14px; padding:9px 12px; background:var(--bg2); border:1px solid var(--border); border-radius: var(--r-carte); }
+.lib2-list { display:flex; flex-direction:column; gap:var(--sp-2); }
+.lib2-list .lib2-card { display:flex; align-items:center; gap:14px; padding:var(--sp-2) var(--sp-3); background:var(--bg2); border:1px solid var(--border); border-radius: var(--r-carte); }
 .lib2-list .lib2-card:hover { border-color:var(--orange); }
 .lib2-list .lib2-cover { width:46px; height:62px; flex:0 0 46px; border-radius: var(--r-controle); }
 .lib2-list .lib2-info { flex:1; min-width:0; }
@@ -105,14 +105,14 @@
 .lib2-bulkbar.hidden { display:none; }
 
 /* Updates list (partagée avec Signets / Téléchargements) */
-.upd-row { display:flex; align-items:center; gap:14px; padding:12px; background:var(--bg2); border:1px solid var(--border); border-radius: var(--r-carte); margin-bottom:10px; transition:border-color .15s; }
+.upd-row { display:flex; align-items:center; gap:14px; padding:var(--sp-3); background:var(--bg2); border:1px solid var(--border); border-radius: var(--r-carte); margin-bottom:10px; transition:border-color .15s; }
 .upd-row:hover { border-color:var(--orange); }
 .upd-cover { width:52px; height:70px; border-radius: var(--r-controle); overflow:hidden; flex-shrink:0; background:var(--bg4); }
 .upd-cover img { width:100%; height:100%; object-fit:cover; }
 .upd-info { flex:1; min-width:0; }
 .upd-name { font-size:14px; font-weight:600; }
-.upd-meta { font-size:12px; color:var(--text2); margin-top:3px; }
-.upd-new { background:rgba(34,197,94,.15); color:var(--green); font-size:10.5px; font-weight:700; padding:2px 8px; border-radius: var(--r-controle); }
+.upd-meta { font-size:12px; color:var(--text2); margin-top:var(--sp-1); }
+.upd-new { background:rgba(34,197,94,.15); color:var(--green); font-size:10.5px; font-weight:700; padding:var(--sp-0) var(--sp-2); border-radius: var(--r-controle); }
 
 
 /* ── MOB-01 / MOB-02 : la bibliothèque au doigt ──────────────
@@ -143,17 +143,17 @@
    La bibliothèque est justement l'écran où l'on cherche une série qu'on
    possède déjà : plus il en tient à l'œil, plus vite on la trouve. */
 @media (hover: none) and (max-width: 420px) {
-  .lib2-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .lib2-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
   .lib2-grid.lib2-grid--compact { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
   .lib2-list, .lib2-grid.lib2-list { grid-template-columns: minmax(0, 1fr); }
 }
 @media (hover: none) and (min-width: 421px) and (max-width: 767px) {
-  .lib2-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .lib2-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); }
   .lib2-grid.lib2-grid--compact { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
   .lib2-list, .lib2-grid.lib2-list { grid-template-columns: minmax(0, 1fr); }
 }
 @media (hover: none) and (min-width: 768px) and (max-width: 1024px) {
-  .lib2-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .lib2-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--sp-3); }
   .lib2-list, .lib2-grid.lib2-list { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -167,86 +167,86 @@
 }
 .lib2-resume-label {
   font-size: 11.5px; color: var(--text3); text-transform: uppercase;
-  letter-spacing: .04em; margin-right: 2px;
+  letter-spacing: .04em; margin-right: var(--sp-0);
 }
 .lib2-resume-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 9px;
+  padding: var(--sp-1) var(--sp-2);
   background: color-mix(in srgb, var(--orange) 12%, transparent);
   border: 1px solid var(--orange); border-radius:  var(--r-pastille);
   color: var(--orange); font: inherit; font-size: 12px; cursor: pointer;
 }
 .lib2-resume-chip:hover { background: var(--orange); color: var(--sur-couleur); }
 .lib2-resume-tout {
-  background: none; border: none; padding: 4px 6px;
+  background: none; border: none; padding: var(--sp-1) 6px;
   color: var(--text3); font: inherit; font-size: 12px;
   text-decoration: underline; cursor: pointer;
 }
 .lib2-resume-tout:hover { color: var(--text); }
 
 @media (pointer: coarse) {
-  .lib2-resume-chip, .lib2-resume-tout { min-height: 38px; padding: 8px 12px; }
+  .lib2-resume-chip, .lib2-resume-tout { min-height: 38px; padding: var(--sp-2) var(--sp-3); }
 }
 
 /* Avancement du scan des mises à jour */
-.lib-scan-bar { display: inline-block; vertical-align: middle; width: 90px; height: 4px; margin-left: 8px;
+.lib-scan-bar { display: inline-block; vertical-align: middle; width: 90px; height: 4px; margin-left: var(--sp-2);
     border-radius:  var(--r-trait); background: var(--bg4, rgba(127,127,127,.2)); overflow: hidden; }
 .lib-scan-bar > span { display: block; height: 100%; background: var(--accent); transition: width .4s ease; }
 
 /* ── Catégories en onglets ─────────────────────────────────────────── */
-.lib-cats { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none;
-    border-bottom: 1px solid var(--border); margin: 6px 0 12px; }
+.lib-cats { display: flex; align-items: center; gap: var(--sp-1); overflow-x: auto; scrollbar-width: none;
+    border-bottom: 1px solid var(--border); margin: 6px 0 var(--sp-3); }
 .lib-cats::-webkit-scrollbar { display: none; }
-.lib-cat { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
-    padding: 10px 12px; border: 0; background: none; color: var(--text2); font-size: 13.5px; font-weight: 600; cursor: pointer; }
-.lib-cat .cnt { font-size: 11px; font-weight: 600; color: var(--text3); background: var(--bg3); border-radius:  var(--r-carte); padding: 1px 7px; }
+.lib-cat { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; gap: var(--sp-2);
+    padding: 10px var(--sp-3); border: 0; background: none; color: var(--text2); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.lib-cat .cnt { font-size: 11px; font-weight: 600; color: var(--text3); background: var(--bg3); border-radius:  var(--r-carte); padding: 1px var(--sp-2); }
 .lib-cat:hover { color: var(--text); }
 .lib-cat.on { color: var(--text); }
 .lib-cat.on::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius:  var(--r-trait); background: var(--accent); }
 .lib-cat.on .cnt { background: color-mix(in srgb, var(--accent) 18%, var(--bg3)); color: var(--text); }
 .lib-cat-edit { flex: 0 0 auto; margin-left: auto; width: 34px; height: 34px; border-radius:  var(--r-controle); border: 0; background: none; color: var(--text3); cursor: pointer; }
 .lib-cat-edit:hover { color: var(--text); background: var(--bg3); }
-.lib-cat-add { border: 1px dashed var(--border2); background: none; color: var(--text2); border-radius:  var(--r-carte); padding: 8px 14px; margin-bottom: 10px; cursor: pointer; font-size: 13px; }
+.lib-cat-add { border: 1px dashed var(--border2); background: none; color: var(--text2); border-radius:  var(--r-carte); padding: var(--sp-2) 14px; margin-bottom: 10px; cursor: pointer; font-size: 13px; }
 .lib-cat-add:hover { color: var(--text); border-color: var(--accent); }
 
 /* ── Panneau de filtres et menu « ⋯ » ───────────────────────────────── */
 .lib-pop-wrap { position: relative; }
 .lib-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 70; min-width: 400px; max-width: min(520px, 92vw);
-    padding: 12px; background: var(--bg2); border: 1px solid var(--border2); border-radius:  var(--r-carte); box-shadow: var(--e-flottant); }
+    padding: var(--sp-3); background: var(--bg2); border: 1px solid var(--border2); border-radius:  var(--r-carte); box-shadow: var(--e-flottant); }
 .lib-pop--right { left: auto; right: 0; }
 .lib-pop .lib2-filters { display: block; margin: 0; padding: 0; border: 0; background: none; }
-.lib-filter-group + .lib-filter-group { margin-top: 12px; }
+.lib-filter-group + .lib-filter-group { margin-top: var(--sp-3); }
 .lib-filter-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); margin-bottom: 6px; }
 .lib-filter-chips, .lib-pop .lib2-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
 .lib-filter-reset { margin-top: 14px; border: 0; background: none; color: var(--accent-text, var(--accent)); font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; }
 .lib-filter-count[hidden] { display: none; }
-.lib-filter-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px;
+.lib-filter-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 var(--sp-1);
     margin-left: 6px; border-radius:  var(--r-controle); background: var(--accent); color: var(--sur-couleur); font-size: 11px; font-weight: 700; }
 #btnLibFilters.is-active { border-color: var(--accent); }
 .lib-more-btn { min-width: 34px; font-size: 17px; line-height: 1; letter-spacing: 1px; }
 .lib-menu { min-width: 280px; padding: 6px; }
-.lib-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius:  var(--r-controle);
+.lib-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: var(--sp-2) 10px; border: 0; border-radius:  var(--r-controle);
     background: none; color: var(--text); font-size: 13.5px; text-align: left; cursor: pointer; }
 .lib-menu-item:hover, .lib-menu-item:focus-visible { background: var(--bg3); outline: none; }
 .lib-menu-item svg { flex: 0 0 auto; color: var(--text3); }
-.lib-menu-sep { height: 1px; background: var(--border); margin: 6px 4px; }
+.lib-menu-sep { height: 1px; background: var(--border); margin: 6px var(--sp-1); }
 .lib-refresh-status { font-size: 12px; color: var(--text3); display: inline-flex; align-items: center; gap: 6px; }
 
 /* ── Gestion des catégories (feuille) ───────────────────────────────── */
-.lib-catmgr-add { display: flex; gap: 8px; margin-bottom: 14px; }
-.lib-catmgr-add input { flex: 1; min-width: 0; height: 36px; padding: 0 12px; border-radius:  var(--r-controle); border: 1px solid var(--border2); background: var(--bg3); color: var(--text); }
+.lib-catmgr-add { display: flex; gap: var(--sp-2); margin-bottom: 14px; }
+.lib-catmgr-add input { flex: 1; min-width: 0; height: 36px; padding: 0 var(--sp-3); border-radius:  var(--r-controle); border: 1px solid var(--border2); background: var(--bg3); color: var(--text); }
 .lib-catmgr-list { list-style: none; margin: 0; padding: 0; }
-.lib-catmgr-list li { display: flex; align-items: center; gap: 8px; padding: 9px 4px; border-bottom: 1px solid var(--border); }
+.lib-catmgr-list li { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-1); border-bottom: 1px solid var(--border); }
 .lib-catmgr-name { flex: 1; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lib-catmgr-count { color: var(--text3); font-size: 12px; margin-right: 6px; white-space: nowrap; }
-.lib-catmgr-list button { border: 1px solid var(--border); background: var(--bg3); color: var(--text2); border-radius:  var(--r-controle); padding: 5px 9px; font-size: 12px; cursor: pointer; }
+.lib-catmgr-list button { border: 1px solid var(--border); background: var(--bg3); color: var(--text2); border-radius:  var(--r-controle); padding: var(--sp-1) var(--sp-2); font-size: 12px; cursor: pointer; }
 .lib-catmgr-list button:hover:not(:disabled) { color: var(--text); border-color: var(--border2); }
 .lib-catmgr-list button:disabled { opacity: .35; cursor: default; }
 .lib-catmgr-list button.danger { color: var(--red, #c0392b); }
 .lib-catmgr-empty { color: var(--text3); font-size: 13px; }
 .lib-catpick-sub { color: var(--text2); font-size: 13px; margin: 0 0 10px; }
-.lib-catpick-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.lib-catpick-opt { padding: 9px 14px; border-radius:  var(--r-carte); border: 1px solid var(--border2); background: var(--bg3); color: var(--text); font-size: 13.5px; cursor: pointer; }
+.lib-catpick-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: 14px; }
+.lib-catpick-opt { padding: var(--sp-2) 14px; border-radius:  var(--r-carte); border: 1px solid var(--border2); background: var(--bg3); color: var(--text); font-size: 13.5px; cursor: pointer; }
 .lib-catpick-opt:hover { border-color: var(--accent); }
 .lib-catpick-none { color: var(--text2); border-style: dashed; }
 @media (max-width: 560px) {
@@ -255,11 +255,11 @@
 }
 
 /* Vue chronologique des sorties (onglet « Mises à jour »). */
-.upd-chrono { margin: 4px 0 22px; }
-.upd-chrono-titre { font-size: 15px; font-weight: 700; margin: 0 0 8px; }
+.upd-chrono { margin: var(--sp-1) 0 22px; }
+.upd-chrono-titre { font-size: 15px; font-weight: 700; margin: 0 0 var(--sp-2); }
 .upd-chrono-tranche { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text3); margin: 14px 0 6px; }
-.upd-chrono-tranche .cnt { font-weight: 500; margin-left: 4px; }
-.upd-chrono-ligne { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius:  var(--r-carte); color: inherit; text-decoration: none; }
+.upd-chrono-tranche .cnt { font-weight: 500; margin-left: var(--sp-1); }
+.upd-chrono-ligne { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 6px var(--sp-2); border-radius:  var(--r-carte); color: inherit; text-decoration: none; }
 .upd-chrono-ligne:hover { background: var(--bg2); }
 .upd-chrono-ligne img { width: 32px; height: 44px; object-fit: cover; border-radius:  var(--r-trait); background: var(--bg3); }
 .upd-chrono-nom { font-size: 13.5px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -270,15 +270,15 @@
 }
 
 /* Une série qui reprend après une longue pause. */
-.upd-retour { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius:  var(--r-pastille); font-size: 11px; font-weight: 600; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.upd-retour { display: inline-block; margin-left: var(--sp-1); padding: 1px var(--sp-2); border-radius:  var(--r-pastille); font-size: 11px; font-weight: 600; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 
 /* Doublons : la même œuvre suivie sur deux sources. */
 .lib2-doublons { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .mh-modal.doublons-modal { width: min(520px, 94vw); }
-.doublons-intro { font-size: 13px; color: var(--text2); margin: 0 0 12px; }
+.doublons-intro { font-size: 13px; color: var(--text2); margin: 0 0 var(--sp-3); }
 .doublons-groupe { border-top: 1px solid var(--border); padding: 10px 0; }
 .doublons-titre { font-weight: 600; margin-bottom: 6px; }
-.doublons-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 13px; color: var(--text2); }
+.doublons-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: var(--sp-1) 0; font-size: 13px; color: var(--text2); }
 
 /* Note d’un signet : la phrase qu’on a voulu retenir. */
-.bm-note { display: block; margin-top: 4px; font-size: 12.5px; font-style: italic; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bm-note { display: block; margin-top: var(--sp-1); font-size: 12.5px; font-style: italic; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
