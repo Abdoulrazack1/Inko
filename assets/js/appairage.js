@@ -30,13 +30,13 @@
         .appr-modal{width:min(460px,95vw)}
         .appr-qr{display:flex;justify-content:center;padding:18px;background:#fff;border-radius:14px;margin:14px 0}
         .appr-qr img,.appr-qr canvas{display:block;image-rendering:pixelated}
-        .appr-code{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:26px;font-weight:700;
+        .appr-code{font-family:var(--font-mono);font-size:26px;font-weight:700;
             letter-spacing:.10em;text-align:center;color:var(--text,#eee);margin:4px 0 2px}
         .appr-exp{font-size:12px;color:var(--text3,#888);text-align:center;margin-bottom:12px}
         .appr-exp.court{color:#e0a83a}
         .appr-etapes{font-size:13px;line-height:1.65;color:var(--text2,#bbb);margin:0;padding-left:18px}
         .appr-adr{font-size:12px;color:var(--text3,#888);text-align:center;margin-top:10px;
-            font-family:ui-monospace,Consolas,monospace}
+            font-family:var(--font-mono)}
         .appr-liste{display:flex;flex-direction:column;gap:8px;margin-top:6px}
         .appr-item{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:11px;
             border:1px solid var(--border,#333);background:var(--bg3,#202024)}

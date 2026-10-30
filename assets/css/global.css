@@ -192,6 +192,18 @@
   --font-head:   'Archivo Narrow', system-ui, sans-serif;   /* Display */
   --font-body:   'IBM Plex Sans', system-ui, sans-serif;    /* Utilitaire */
   --font-read:   'Bitter', Georgia, serif;                  /* Lecture longue */
+  /* Le quatrieme role. Les trois familles de l'application etaient nommees
+     et tenues ; le monospace, lui, s'ecrivait en clair, et pas deux fois
+     pareil — TROIS piles differentes pour la meme intention :
+
+         monospace
+         ui-monospace,Consolas,monospace
+         ui-monospace,'Cascadia Code',Consolas,monospace
+
+     Pire, `notes.css` appelait deja `var(--font-mono, ...)` : le jeton
+     etait reference sans jamais avoir ete defini, donc toujours en repli.
+     Quelqu'un l'avait voulu, personne ne l'avait cree. */
+  --font-mono:   ui-monospace, 'Cascadia Code', Consolas, monospace;
   --transition:  0.16s ease;
 
   /* ── Système de mouvement (courbes soignées, jamais linéaire) ── */

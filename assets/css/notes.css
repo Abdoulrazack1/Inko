@@ -188,7 +188,7 @@
 .jr-chip { border: 1px solid var(--border2); background: var(--bg2); color: var(--text2); border-radius:  var(--r-feuille); padding: 4px 10px; font-size: 12px; cursor: pointer; }
 .jr-chip span { color: var(--text3); margin-left: 2px; }
 .jr-chip.on { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 14%, var(--bg2)); }
-.jr-chip-tag { font-family: var(--font-mono, ui-monospace, monospace); }
+.jr-chip-tag { font-family: var(--font-mono); }
 .jr-tag { color: var(--accent-text, var(--accent)); text-decoration: none; font-weight: 600; }
 .jr-tag:hover { text-decoration: underline; }
 .jr-note-kind { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius:  var(--r-controle); background: var(--bg3); color: var(--text2); }
