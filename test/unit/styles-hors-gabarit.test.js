@@ -152,4 +152,15 @@ test('une page porte son titre même quand elle n’a rien à montrer', () => {
     assert.ok(f, 'la fonction d’état');
     assert.match(f[1], /<h1 class="pl-name pl-name--etat">/,
         'l’état porte le titre de la page');
+
+    // Même mesure, même défaut sur `collection-detail.html` : ses deux
+    // chemins qui n'aboutissent pas n'avaient pas de `h1` non plus.
+    const cd = lire('assets', 'js', 'collection-detail.js');
+    const g = /function renderGuard\(msg\) \{([\s\S]*?)\n    \}/.exec(cd);
+    assert.ok(g, 'la fonction de garde');
+    assert.match(g[1], /<h1 class="cd-garde-titre">/);
+    // Et ses trois attributs `style` sont partis avec : un style en
+    // ligne ne connaît ni le thème, ni les échelles, ni aucun test.
+    assert.ok(!/style="/.test(g[1]),
+        `encore des styles en ligne :\n${g[1]}`);
 });

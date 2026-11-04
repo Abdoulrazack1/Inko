@@ -21,14 +21,20 @@
         render();
     }
 
+    // Même mesure que sur `liste.html` : sur ses deux chemins qui
+    // n'aboutissent pas, la page n'avait AUCUN `h1`. Ses seuls titres
+    // étaient les trois colonnes du pied de page — autant dire qu'elle
+    // n'existait pas pour qui navigue par titre. Elle porte le sien, et
+    // ses styles quittent les attributs `style` au passage.
     function renderGuard(msg) {
         document.getElementById('cdHero').innerHTML = '';
         document.getElementById('cdTabs').innerHTML = '';
         document.getElementById('cdSidebar').innerHTML = '';
         document.getElementById('cdContent').innerHTML = `
-            <div class="card" style="padding:40px;text-align:center;color:var(--text2)">
-                <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">${MH.esc(msg)}</div>
-                <a href="collections.html" class="btn btn-primary btn-sm" style="margin-top:10px">← Mes listes</a>
+            <div class="card cd-garde">
+                <h1 class="cd-garde-titre">Liste</h1>
+                <p class="cd-garde-texte">${MH.esc(msg)}</p>
+                <a href="collections.html" class="btn btn-primary btn-sm">← Mes listes</a>
             </div>`;
     }
 
