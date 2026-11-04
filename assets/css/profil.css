@@ -223,8 +223,8 @@
 .last-read-title { font-family: var(--font-head); font-size: 16px; font-weight: 700; }
 .last-read-chap { font-size: 12px; color: var(--text2); margin: var(--sp-1) 0; }
 .last-read-progress { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
-.last-read-bar { flex: 1; height: 4px; background: var(--bg4); border-radius:  var(--r-trait); }
-.last-read-fill { height: 100%; background: var(--orange); border-radius:  var(--r-trait); }
+.last-read-bar { flex: 1; height: var(--jauge-normale); background: var(--bg4); border-radius: var(--r-pastille); }
+.last-read-fill { height: 100%; background: var(--orange); border-radius: var(--r-pastille); }
 .last-read-progress span { font-size: 11px; color: var(--text2); }
 
 .goal-card { display: flex; flex-direction: column; align-items: center; padding: var(--sp-4); gap: var(--sp-2); }
@@ -286,8 +286,8 @@
 }
 .genre-bar-label span:first-child { color: var(--text2); }
 .genre-bar-label span:last-child  { color: var(--text3); font-size: 11px; }
-.genre-bar-track { height: 5px; background: var(--bg4); border-radius:  var(--r-trait); }
-.genre-bar-fill  { height: 100%; border-radius:  var(--r-trait); transition: width .6s ease; }
+.genre-bar-track { height: var(--jauge-epaisse); background: var(--bg4); border-radius: var(--r-pastille); }
+.genre-bar-fill  { height: 100%; border-radius: var(--r-pastille); transition: width .6s ease; }
 
 .badges-card { }
 .badges-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: var(--sp-2); }
@@ -729,8 +729,8 @@
 .list-manga-name { font-size: 13px; font-weight: 500; margin-top: var(--sp-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list-manga-meta { font-size: 11.5px; color: var(--text2); margin-top: var(--sp-0); }
 .list-manga-progress { display: flex; align-items: center; gap: 6px; margin-top: var(--sp-1); }
-.list-manga-prog-bar { flex: 1; height: 3px; background: var(--bg4); border-radius:  var(--r-trait); }
-.list-manga-prog-fill { height: 100%; border-radius:  var(--r-trait); }
+.list-manga-prog-bar { flex: 1; height: var(--jauge-fine); background: var(--bg4); border-radius: var(--r-pastille); }
+.list-manga-prog-fill { height: 100%; border-radius: var(--r-pastille); }
 .list-manga-prog-fill.green  { background: var(--green); }
 .list-manga-prog-fill.orange { background: var(--orange); }
 .list-manga-prog-fill.yellow { background: var(--amber); }
