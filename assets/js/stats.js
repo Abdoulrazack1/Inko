@@ -551,7 +551,13 @@
     }
 
     function renderActivity(el, events) {
-        if (!events || !events.length) { el.innerHTML = `<div class="st-empty" style="padding:24px">Aucune activité récente. Lis un chapitre pour commencer.</div>`; return; }
+        if (!events || !events.length) {
+            MH.poserEtatVide(el, {
+                titre: 'Aucune activité récente', densite: 'compact',
+                texte: 'Lis un chapitre pour commencer.',
+            });
+            return;
+        }
         const label = e => {
             switch (e.type) {
                 case 'read': return 'Chapitre lu';

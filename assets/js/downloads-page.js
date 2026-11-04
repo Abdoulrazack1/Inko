@@ -285,9 +285,10 @@
         } catch (e) { window.MH?.err?.('downloads-page.js', e); }
 
         if (!groups.length) {
-            body.innerHTML = `<div class="dl-empty">
-                <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px">Aucun téléchargement</div>
-                <div>Depuis un chapitre, clique sur l'icône de téléchargement pour le lire hors-ligne.</div></div>`;
+            MH.poserEtatVide(body, {
+                icone: 'download', titre: 'Aucun téléchargement',
+                texte: 'Depuis un chapitre, clique sur l’icône de téléchargement pour le lire hors-ligne.',
+            });
             return;
         }
 

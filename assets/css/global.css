@@ -1743,6 +1743,14 @@ a[data-nsfw] .manga-card-cover::after,
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; padding: var(--sp-7) var(--sp-5); gap: var(--sp-1); min-height: 220px;
 }
+/* Un creux dans une page, pas un écran entier : même composant, moins de
+   place. Quinze endroits écrivaient leur propre état vide faute de ça. */
+.mh-etat-vide--compact { padding: var(--sp-4) var(--sp-3); min-height: 0; }
+.mh-etat-vide--compact .mh-vide-ico { font-size: var(--t-xl); margin-bottom: var(--sp-1); }
+.mh-etat-vide--compact .mh-vide-titre { font-size: var(--t-s); }
+.mh-etat-vide--compact .mh-vide-texte { font-size: var(--t-s); }
+/* Quand il remplace une grille de cartes, il en occupe toute la largeur. */
+.mh-etat-vide--grille { grid-column: 1 / -1; }
 .mh-vide-ico { font-size: var(--t-3xl); line-height: 1; margin-bottom: 10px; opacity: .75; }
 .mh-vide-titre { font-family: var(--font-head, inherit); font-size: var(--t-l); font-weight: 700; color: var(--text); }
 .mh-vide-texte { font-size: var(--t-s); line-height: 1.6; color: var(--text2); max-width: 42ch; margin-top: var(--sp-1); }

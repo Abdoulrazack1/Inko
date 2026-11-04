@@ -1243,7 +1243,10 @@
         }
         if (countEl) countEl.textContent = commentTotal ? `· ${commentTotal}` : '';
         if (!commentItems.length) {
-            listEl.innerHTML = `<div class="comment-empty">Aucun commentaire pour l'instant. Sois le premier à donner ton avis.</div>`;
+            MH.poserEtatVide(listEl, {
+                titre: 'Aucun commentaire', densite: 'compact',
+                texte: 'Sois le premier à donner ton avis.',
+            });
             return;
         }
         renderCommentTree(listEl, commentItems);
