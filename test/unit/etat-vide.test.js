@@ -44,7 +44,12 @@ const GLOBAL = lire('global.js');
 // état vide mais une ASTUCE posée AU-DESSUS d'un repli — « tu n'as encore
 // rien écrit : voici ce que tu as lu ». Le composant remplace le contenu
 // du conteneur ; ici il effacerait justement ce qu'on veut montrer.
-const HORS_CONTRAT = new Set(['music.js', 'notes.js']);
+// `systeme.js` aussi, et pour une raison de même nature : son message
+// n'annonce pas un contenu absent mais un DIAGNOSTIC en panne — « les
+// feuilles de style sont illisibles, la page ne peut rien affirmer ».
+// Le composant d'état vide invite à remplir ; ici il n'y a rien à
+// remplir, il y a quelque chose de cassé.
+const HORS_CONTRAT = new Set(['music.js', 'notes.js', 'systeme.js']);
 
 test('aucun état vide n\'est plus écrit à la main', () => {
     const fautes = [];
