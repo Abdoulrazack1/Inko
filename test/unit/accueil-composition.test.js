@@ -90,6 +90,36 @@ test('le téléphone a sa propre composition', () => {
         'et les lattes gardent leur empilement au doigt');
 });
 
+test('les rayons parlent la même langue que l\'étagère', () => {
+    // Un rayon de 10 px autour de quarante couvertures, c'est quarante
+    // cartes — et c'est ce dont la page venait de se défaire au-dessus.
+    const couv = regle(CSS, '.shelf-cover');
+    assert.ok(!/border-radius/.test(couv), 'la couverture est l’objet, pas son cadre');
+    assert.ok(!/box-shadow/.test(regle(CSS, '.shelf-badge') || ''),
+        'le compte de non-lus est une donnée posée à plat, pas un bijou flottant');
+    const fleche = regle(CSS, '.shelf-arrow');
+    assert.ok(!/border-radius:\s*50%/.test(fleche) && !/box-shadow/.test(fleche),
+        'deux ronds bordés et ombrés sont du mobilier déguisé en objet');
+});
+
+test('cinq rangées identiques sont devenues trois poids', () => {
+    // Trois rangées de couvertures de même taille sous trois titres : on ne
+    // les distinguait plus. Elles n'appelaient pas trois sections.
+    for (const mort of ['id="shelfPopular"', 'id="shelfLatest"', 'id="shelfReco"']) {
+        assert.ok(!HTML.includes('<section class="shelf" ' + mort),
+            mort + ' ne doit plus être une section à lui seul');
+    }
+    assert.match(HTML, /<section class="shelf decouvrir" id="shelfDecouvrir">/);
+    assert.match(HTML, /role="tablist"/, 'trois entrées dans une seule section');
+    // Et la pile mise de côté est plus légère que les nouveautés.
+    assert.match(CSS, /\.shelf--pile \.shelf-track \{[^}]*grid-auto-columns: 104px/,
+        'ce qu’on a mis de côté ne pèse pas autant que ce qui vient de sortir');
+    // L'onglet actif se marque par son encre : la couleur est aux données.
+    const onglet = regle(CSS, '.decouvrir-onglet.on');
+    assert.ok(onglet && !/background/.test(onglet),
+        'un onglet actif n’est pas une pastille colorée');
+});
+
 test('ce que la direction artistique interdit a disparu', () => {
     assert.ok(!/box-shadow/.test(regle(GLOBAL, '.btn-primary') || ''),
         'un bouton principal est un aplat, sans relief');

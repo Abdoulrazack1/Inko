@@ -114,7 +114,7 @@
         const visibles = entrees.filter(e => e.title);
         if (!visibles.length) { rendreAccueilVide(zone); return; }
 
-        const [une, ...autres] = visibles;
+        const [une] = visibles;
         const pct = (e) => MH.isNovelSource(e.source)
             ? Math.min(100, e.page || 0)
             : (e.totalPages > 0 ? Math.min(100, Math.round((e.page / e.totalPages) * 100)) : 0);
@@ -122,12 +122,6 @@
         const ou = (e) => MH.isNovelSource(e.source)
             ? `${unite(e)} ${MH.chapNum(e.chapter)} · ${pct(e)} %`
             : `${unite(e)} ${MH.chapNum(e.chapter)}${e.totalPages ? ` · page ${e.page} / ${e.totalPages}` : e.page ? ` · page ${e.page}` : ''}`;
-        // Dans la bande de reprise, le pourcentage est déjà le grand chiffre
-        // à côté de la jauge : l’écrire une seconde fois dans la même phrase,
-        // c’est deux endroits où la même valeur peut se contredire.
-        const ouHero = (e) => MH.isNovelSource(e.source)
-            ? `${unite(e)} ${MH.chapNum(e.chapter)}`
-            : ou(e);
         const lien = (e) => MH.readerHref(e.mangaId, e.chapterId, e.source);
         const fiche = (e) => `serie.html?id=${encodeURIComponent(e.mangaId)}&source=${encodeURIComponent(e.source || '')}`;
         const couv = (e) => MH.cover(e.cover, MH.placeholderCover(e.mangaId));
@@ -267,13 +261,51 @@
         }));
     }
 
+    // ── Découvrir : trois entrées, une seule section ─────────────
+    // Trois rangées de couvertures qui se suivaient, de même taille et au
+    // même rythme, sous trois titres : la page en comptait cinq et on ne
+    // les distinguait plus. Elles n’appelaient pas trois sections.
+    const LEGENDES = { pourToi: '', populaire: '', dernieres: '' };
+    const ONGLETS = [
+        ['ongletReco', 'shelfRecoTrack', 'pourToi'],
+        ['ongletPopular', 'shelfPopularTrack', 'populaire'],
+        ['ongletLatest', 'shelfLatestTrack', 'dernieres'],
+    ];
+    function majLegende() {
+        const actif = ONGLETS.find(([id]) => document.getElementById(id)?.classList.contains('on'));
+        const sub = document.getElementById('shelfDecouvrirSub');
+        if (sub && actif) sub.textContent = LEGENDES[actif[2]] || '';
+    }
+    function choisirOnglet(cible) {
+        for (const [id, trackId] of ONGLETS) {
+            const b = document.getElementById(id), t = document.getElementById(trackId);
+            if (!b || !t) continue;
+            const actif = id === cible;
+            b.classList.toggle('on', actif);
+            b.setAttribute('aria-selected', String(actif));
+            t.hidden = !actif;
+        }
+        majLegende();
+    }
+    function ouvrirOngletReco(legende) {
+        const b = document.getElementById('ongletReco');
+        if (!b) return;
+        LEGENDES.pourToi = legende;
+        b.hidden = false;
+        // Une recommandation nommée vaut mieux qu’un classement : dès qu’elle
+        // existe, c’est elle qu’on montre en premier.
+        choisirOnglet('ongletReco');
+    }
+    ONGLETS.forEach(([id]) => document.getElementById(id)?.addEventListener('click', () => choisirOnglet(id)));
+
     // ── 4 & 5. Découverte : populaire, dernières sorties, recommandation ──
     async function chargerDecouverte() {
         const nomSrc = MH.sourceName?.(API.sources.current) || API.sources.current || '';
-        const pSub = document.getElementById('shelfPopularSub');
-        const lSub = document.getElementById('shelfLatestSub');
-        if (pSub) pSub.textContent = `Les séries les plus suivies sur ${nomSrc}`;
-        if (lSub) lSub.textContent = `Chapitres fraîchement publiés sur ${nomSrc}`;
+        // Les trois entrées partagent un titre : c’est l’onglet actif qui dit
+        // laquelle on regarde, et la phrase sous le titre le répète en clair.
+        LEGENDES.populaire = `Les séries les plus suivies sur ${nomSrc}`;
+        LEGENDES.dernieres = `Chapitres fraîchement publiés sur ${nomSrc}`;
+        majLegende();
         squelette('shelfPopularTrack'); squelette('shelfLatestTrack');
 
         const [pop, lat] = await Promise.allSettled([
@@ -340,8 +372,7 @@
         }
         const picks = [...vus.values()].sort((x, y) => y.score - x.score).slice(0, 16);
         if (picks.length < 4) return false;
-        section.hidden = false;
-        if (sub) sub.textContent = `${profil[0].tag} + ${profil[1].tag}, d’après tes ${avecTags.length} dernières lectures`;
+        ouvrirOngletReco(`${profil[0].tag} + ${profil[1].tag}, d’après tes ${avecTags.length} dernières lectures`);
         track.innerHTML = picks.map(({ m, communs }) => carte({
             id: m.id, source, title: m.title, cover: m.cover || m.coverThumb, manga: m,
             sous: communs.slice(0, 2).join(' · '),
@@ -374,8 +405,7 @@
                 .filter(m => !favSet.has(String(m.id)) && String(m.id) !== String(origine.id) && visible(m))
                 .slice(0, 16);
             if (picks.length < 4) return;
-            section.hidden = false;
-            if (sub) sub.textContent = `Parce que tu as lu « ${origine.title} »`;
+            ouvrirOngletReco(`Parce que tu as lu « ${origine.title} »`);
             track.innerHTML = picks.map(m => carte({
                 id: m.id, source, title: m.title, cover: m.cover || m.coverThumb, manga: m,
                 sous: (m.tags || []).find(t => tags.includes(t)) || m.year || '',
