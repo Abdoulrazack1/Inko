@@ -47,6 +47,7 @@
         { titre: 'Rayons', prefixe: '--r-', quoi: 'Du trait de progression à la feuille. Chaque boîte porte son propre rayon.' },
         { titre: 'Élévations', prefixe: '--e-', quoi: 'Les hauteurs au-dessus du fond. Chaque carte projette son ombre réelle.' },
         { titre: 'Espacement', prefixe: '--sp-', quoi: 'Les écarts autorisés, dessinés à leur vraie largeur.' },
+        { titre: 'Champ de saisie', prefixe: '--champ-', quoi: 'Le contrat d’un champ : son fond, son filet, son rembourrage, son rayon, sa taille. Une page qui veut un champ plus dense change ces jetons-là — elle ne redessine pas le champ.' },
         { titre: 'Carte de série', prefixe: '--carte-', quoi: 'Le contrat d’une carte de série : son rapport, son rayon, et la densité de sa légende. Une page qui veut une carte plus dense change ces jetons-là — elle ne redessine pas la carte.' },
         { titre: 'Graphiques', prefixe: '--graph-', quoi: 'Les aplats de série : ils doivent se distinguer entre eux ET rester lisibles sous du texte.' },
         { titre: 'Assiduité', prefixe: '--hm', quoi: 'Les degrés du calendrier de lecture, du vide au plus dense.' },
