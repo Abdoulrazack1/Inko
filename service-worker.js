@@ -13,7 +13,8 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
-const CACHE_VERSION = 'inko-2.8.2-3eef64';
+<<<<<<< HEAD
+const CACHE_VERSION = 'inko-2.8.2-14d249';
 =======
 const CACHE_VERSION = 'inko-2.8.2-4f6750';
 >>>>>>> bf66a68 (Accueil : les sections que je n'avais pas regardees)
@@ -32,6 +33,9 @@ const CACHE_VERSION = 'inko-2.8.2-ed7468';
 =======
 const CACHE_VERSION = 'inko-2.8.2-560e19';
 >>>>>>> 38fd4e2 (Bibliotheque : rien ne se pose sur l'oeuvre, deuxieme passe)
+=======
+const CACHE_VERSION = 'inko-2.8.2-70854c';
+>>>>>>> 5f9f4c1 (Catalogue : un filtre s'allume d'une seule facon)
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
