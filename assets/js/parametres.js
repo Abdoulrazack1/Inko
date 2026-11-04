@@ -34,6 +34,7 @@
                     if (!TOUCHEES.has(k)) window.Storage.setPref(k, v);
                 });
                 if (s.theme && !TOUCHEES.has('theme')) window.Theme.apply(s.theme);
+                if (s.densite && !TOUCHEES.has('densite')) window.Theme.applyDensite(s.densite);
                 initSegments(); // re-sync l'état actif
                 if (!TOUCHEES.has('accent')) initAccent();
             } catch (e) { window.MH?.err?.('parametres.js', e); }
@@ -540,6 +541,7 @@
             { id: 'segQuality', key: 'quality',     def: 'high' },
             { id: 'segLang',    key: 'readingLang', def: 'fr,en' },
             { id: 'segTheme',   key: 'theme',       def: 'dark' },
+            { id: 'segDensite', key: 'densite',     def: 'confortable' },
         ];
         map.forEach(({ id, key, def }) => {
             const seg = document.getElementById(id);
@@ -552,6 +554,9 @@
                     b.classList.add('active');
                     await savePref(key, b.dataset.val);
                     if (key === 'theme') window.Theme.apply(b.dataset.val);
+                    // Appliquée tout de suite : on choisit une densité en
+                    // la regardant, pas en imaginant ce qu'elle donnera.
+                    if (key === 'densite') window.Theme.applyDensite(b.dataset.val);
                     toast('Enregistré ✓', 1200);
                 };
             });

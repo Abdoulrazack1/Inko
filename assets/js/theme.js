@@ -91,6 +91,27 @@
     }
     applyAccent();
 
+    // ── Densité d'affichage ──
+    // Les trois jeux de jetons existaient depuis l'étape 2 ; il n'y avait
+    // aucun moyen de les choisir. `[data-densite]` était stylé, et
+    // personne ne posait jamais l'attribut.
+    //
+    // Posé ici plutôt qu'ailleurs pour la même raison que le thème : il
+    // change la taille des cartes et l'écart des grilles, donc il doit
+    // être là AVANT la première peinture. Appliqué après coup, toute la
+    // page se réorganiserait sous les yeux.
+    //
+    // « Confortable » est le défaut, et c'est l'ABSENCE d'attribut : un
+    // défaut qui doit s'écrire quelque part finit par s'écrire deux fois.
+    const DENSITES = ['compact', 'confortable', 'spacieux'];
+    function applyDensite(d) {
+        const v = d || window.Storage?.getPref?.('densite') || 'confortable';
+        const root = document.documentElement;
+        if (!DENSITES.includes(v) || v === 'confortable') root.removeAttribute('data-densite');
+        else root.setAttribute('data-densite', v);
+    }
+    applyDensite();
+
     // Applique immédiatement (avant DOMContentLoaded → pas de flash)
     apply();
 
@@ -114,5 +135,8 @@
             apply(theme);
         },
         current() { return window.Storage?.getPref('theme') || 'light'; },
+        applyDensite,
+        densites: DENSITES.slice(),
+        currentDensite() { return window.Storage?.getPref('densite') || 'confortable'; },
     };
 })();
