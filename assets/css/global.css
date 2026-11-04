@@ -2093,7 +2093,11 @@ a[data-nsfw] .manga-card-cover::after,
 /* Quand il remplace une grille de cartes, il en occupe toute la largeur. */
 .mh-etat-vide--grille { grid-column: 1 / -1; }
 .mh-vide-ico { font-size: var(--t-3xl); line-height: 1; margin-bottom: 10px; opacity: .75; }
-.mh-vide-titre { font-family: var(--font-head, inherit); font-size: var(--t-l); font-weight: 700; color: var(--text); }
+/* C'est un vrai titre (h1 à h6 selon la place qu'il occupe) : il faut donc
+   lui retirer la marge que le navigateur donne aux titres, sinon l'état
+   vide s'écarte tout seul. Sa taille vient de l'échelle, pas du niveau —
+   un niveau de titre dit la structure, pas le corps. */
+.mh-vide-titre { font-family: var(--font-head, inherit); font-size: var(--t-l); font-weight: 700; color: var(--text); margin: 0; }
 .mh-vide-texte { font-size: var(--t-s); line-height: 1.6; color: var(--text2); max-width: 42ch; margin-top: var(--sp-1); }
 .mh-vide-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: center; margin-top: var(--sp-4); }
 @media (max-width: 640px) {

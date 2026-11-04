@@ -1104,7 +1104,23 @@
     // `grille: true` quand l'état vide prend la place d'une grille de cartes.
     // Sans ces deux-là, le composant ne savait faire QUE le grand format, et
     // quinze endroits écrivaient donc le leur en style en ligne.
-    window.MH.etatVide = function ({ icone, titre, texte, actions = [], densite, grille } = {}) {
+    /**
+     * `niveau` — le titre d'un état vide est un VRAI titre.
+     *
+     * Il était rendu en `<div>`. Mesuré : trente et un états vides dans
+     * treize fichiers, et pas un seul n'apparaissait dans le plan de sa
+     * page. Pour qui navigue par titre, « Aucune note pour cette série »
+     * n'existait pas — et sur les pages dont l'état vide EST tout le
+     * contenu (`lecture.html` avec un lien incomplet, par exemple), la
+     * page n'avait aucun titre du tout.
+     *
+     * Le niveau se choisit, parce qu'il dépend de la place : un état vide
+     * qui remplit une section est un `h2` (le défaut), un état vide qui
+     * remplit la PAGE est son `h1`. Mettre `h1` partout créerait autant
+     * de titres de page qu'il y a de sections vides.
+     */
+    window.MH.etatVide = function ({ icone, titre, texte, actions = [], densite, grille, niveau = 2 } = {}) {
+        const h = `h${Math.min(6, Math.max(1, Number(niveau) || 2))}`;
         const boutons = actions.map((a, i) => a.href
             ? `<a class="btn ${i === 0 ? 'btn-primary' : 'btn-ghost'} btn-sm" href="${esc(a.href)}">${esc(a.libelle)}</a>`
             : `<button class="btn ${i === 0 ? 'btn-primary' : 'btn-ghost'} btn-sm" data-vide-act="${i}">${esc(a.libelle)}</button>`
@@ -1120,7 +1136,7 @@
                 // en son propre code source, visible a l'ecran. Deux etats vides
                 // de la bibliotheque portaient donc leur icone a la main.
                 + (window.MH.icon(icone, 40) || esc(icone)) + '</div>' : ''}
-            <div class="mh-vide-titre">${esc(titre || '')}</div>
+            <${h} class="mh-vide-titre">${esc(titre || '')}</${h}>
             ${texte ? `<div class="mh-vide-texte">${esc(texte)}</div>` : ''}
             ${boutons ? `<div class="mh-vide-actions">${boutons}</div>` : ''}`;
 

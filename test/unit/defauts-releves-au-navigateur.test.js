@@ -77,6 +77,33 @@ test('une cible se touche ET se clique', () => {
     assert.match(bloc[1], /content: none/);
 });
 
+test('le titre d’un état vide est un vrai titre', () => {
+    // Il était rendu en `<div>`. Mesuré : trente et un états vides dans
+    // treize fichiers, et pas un seul n'apparaissait dans le plan de sa
+    // page. Pour qui navigue par titre, « Aucune note pour cette série »
+    // n'existait pas — et sur les pages dont l'état vide EST tout le
+    // contenu (`lecture.html` et `chapitre.html` avec un lien incomplet),
+    // la page n'avait aucun titre du tout.
+    assert.match(GLOBAL_JS, /const h = `h\$\{Math\.min\(6, Math\.max\(1, Number\(niveau\) \|\| 2\)\)\}`/,
+        'le niveau est borné entre 1 et 6');
+    assert.match(GLOBAL_JS, /<\$\{h\} class="mh-vide-titre">/, 'et il sert');
+    assert.ok(!/<div class="mh-vide-titre">/.test(GLOBAL_JS));
+    // Le défaut est `2` : un état vide remplit en général une SECTION.
+    // Mettre `h1` partout créerait autant de titres de page qu'il y a de
+    // sections vides.
+    assert.match(GLOBAL_JS, /niveau = 2 \} = \{\}\) \{/);
+    // Un titre porte la structure, pas le corps : sa taille reste celle
+    // de l'échelle, et la marge que le navigateur donne aux titres part.
+    assert.match(GLOBAL_CSS, /\.mh-vide-titre \{[^}]*margin: 0;? \}/);
+
+    // Les deux lecteurs remplacent TOUTE leur surface : là, c'est le h1.
+    for (const f of ['lecture.js', 'chapitre.js']) {
+        const src = lire('assets', 'js', f);
+        assert.match(src, /m\.niveau = 1;/, `${f} — branche « Error »`);
+        assert.match(src, /niveau: 1,\n\s+icone: '\\u\{1F517\}'/, `${f} — branche littérale`);
+    }
+});
+
 test('une couverture qui échoue montre quand même quelque chose', () => {
     // `MH.placeholderCover` existait, mais n'était appelé qu'au RENDU,
     // quand l'URL est ABSENTE. Quand elle existe et échoue, l'image

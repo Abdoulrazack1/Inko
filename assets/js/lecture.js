@@ -174,12 +174,16 @@
         if (err instanceof Error) {
             const src = new URLSearchParams(location.search).get('source') || undefined;
             const m = MH.messageErreur(err, { onRetry: () => location.reload(), source: src });
+            // Cet état vide remplace TOUTE la surface de lecture : c'est
+            // le contenu de la page, donc son titre est son h1.
+            m.niveau = 1;
             m.actions = [...(m.actions || []), retour];
             MH.poserEtatVide(el, m);
             el.firstChild?.setAttribute('role', 'alert');
             return;
         }
         MH.poserEtatVide(el, {
+            niveau: 1,
             icone: '\u{1F517}',
             titre: String(err || 'Chapitre indisponible'),
             texte: 'Le lien est peut-être incomplet.',
