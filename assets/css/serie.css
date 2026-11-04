@@ -1040,7 +1040,7 @@
    au bord sans flèche ni indice qu'elle défile. */
 /* Une rangee d’oeuvres proches se parcourt : elle est dense par nature. */
 .sim-grid { display: grid; --grille-carte: var(--grille-carte-dense);
-    grid-template-columns: repeat(auto-fill, minmax(var(--grille-carte), 1fr)); gap: var(--grille-gouttiere-dense); padding: 4px 2px 8px; }
+    grid-template-columns: repeat(auto-fill, minmax(var(--grille-carte), 1fr)); gap: var(--grille-gouttiere-dense); padding: var(--sp-1) var(--sp-0) var(--sp-2); }
 
 /* Choix d'un téléchargement : combien, et combien ça pèse. */
 .mh-modal.dl-choix { width: min(440px, 94vw); }

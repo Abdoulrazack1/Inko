@@ -23,7 +23,7 @@
 
 .lib2-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--grille-carte),1fr)); gap:var(--grille-gouttiere); }
 .lib2-grid.lib2-grid--compact { grid-template-columns:repeat(auto-fill, minmax(var(--grille-carte-dense),1fr)); gap:var(--grille-gouttiere-dense); }
-.lib2-grid--compact .lib2-title { font-size:11px; }
+.lib2-grid--compact { --carte-titre: var(--t-xs); }
 .lib2-grid--compact .lib2-sub, .lib2-grid--compact .lib2-cat { display:none; }
 .lib2-card { position:relative; cursor:pointer; transition:transform .28s var(--ease-out); }
 .lib2-cover { aspect-ratio:var(--carte-ratio); border-radius:var(--carte-rayon); overflow:hidden; background:var(--bg4); position:relative; box-shadow:var(--shadow-1); transition:box-shadow .28s var(--ease-out); }
