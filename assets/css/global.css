@@ -2152,7 +2152,7 @@ html.inko-app main { animation: inko-app-entree .18s ease-out; }
 
 /* ══ REPLI aspect-ratio — GÉNÉRÉ par scripts-ci/gen-repli-aspect-ratio.js ══ */
 /* Ne pas modifier à la main : `npm run gen-repli-ar` régénère ce bloc.
-   13 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
+   14 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
    (WebView Android 8 = Chrome 61). Sur un navigateur récent, ce bloc
    entier est ignoré. */
 @supports not (aspect-ratio: 1 / 1) {
@@ -2160,6 +2160,7 @@ html.inko-app main { animation: inko-app-entree .18s ease-out; }
     .shelf-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .lib2-cover { height: 0; padding-top: 150%; }
     .lib2-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .lib2-list .lib2-cover { padding-top: 0; }
     .focus-cover { height: 0; padding-top: 56.25%; }
     .focus-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .results-grid.list-view .manga-card-cover { padding-top: 0; }
