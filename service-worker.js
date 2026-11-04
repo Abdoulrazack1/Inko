@@ -20,7 +20,8 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
-const CACHE_VERSION = 'inko-2.8.2-879490';
+<<<<<<< HEAD
+const CACHE_VERSION = 'inko-2.8.2-fc47a6';
 =======
 const CACHE_VERSION = 'inko-2.8.2-4f6750';
 >>>>>>> bf66a68 (Accueil : les sections que je n'avais pas regardees)
@@ -60,6 +61,9 @@ const CACHE_VERSION = 'inko-2.8.2-51ba57';
 =======
 const CACHE_VERSION = 'inko-2.8.2-2823f9';
 >>>>>>> 875c5fb (Focus clavier : l'anneau existait deja — trois menus le retiraient)
+=======
+const CACHE_VERSION = 'inko-2.8.2-84ff1b';
+>>>>>>> 4de9c6a (Regeneration)
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
