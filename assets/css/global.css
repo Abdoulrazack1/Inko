@@ -1091,6 +1091,13 @@ body.incognito-on::before {
   --carte-lignes:  2;
   --carte-ecart:   8px;     /* couverture → titre */
   --carte-meta:    11px;
+  /* La taille DESSINÉE d'une action de carte — le cœur, le « + ». Elle
+     fixe aussi la hauteur du pied, donc celle du squelette : sans ce
+     nom, le squelette réservait 5 px de moins que la carte, et la grille
+     sautait d'autant au remplacement. La zone SENSIBLE, elle, reste à 24
+     ou 44 px selon le pointeur — elle est posée ailleurs, par un
+     pseudo-élément, et ne dépend pas de ce jeton. */
+  --carte-action:  22px;
 }
 [data-densite="dense"],
 .lib2-grid--compact,
@@ -1125,13 +1132,25 @@ body.incognito-on::before {
    le bouton « Lire » ne menait nulle part où le clic ne menait déjà.
    Il voilait la couverture pour proposer ce qu’on avait déjà. L’ajout
    à une liste survit dans la légende, avec le cœur. */
-.manga-card-info { padding: 10px var(--sp-3) var(--sp-3); position: relative; }
+/* Une colonne qui finit par une rangée — voir « La légende d'une carte »
+   plus bas, où le pied et les actions sont définis. Déclarée ICI et une
+   seule fois : elle l'était deux fois, à 400 lignes d'écart. */
+.manga-card-info { padding: 10px var(--sp-3) var(--sp-3); display: flex; flex-direction: column; }
 .manga-card-title {
   font-size: var(--carte-titre); font-weight: var(--carte-graisse); color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   margin-bottom: var(--sp-1);
 }
-.manga-card-author { font-size: var(--t-xs); color: var(--text2); margin-bottom: var(--sp-1); }
+/* Une ligne, jamais deux. Mesuré sur le catalogue : « KANESHIRO Munayuki,
+   NOMURA Yuusuke » repliait sur deux lignes quand « ODA Eiichiro » tenait
+   sur une — la ligne de méta de la carte voisine se retrouvait 17 px plus
+   haut, et la grille portait DEUX hauteurs de carte (337 et 353 px) dans
+   la même rangée. Un nom d'auteur coupé se devine ; une grille qui danse,
+   non. */
+.manga-card-author {
+  font-size: var(--t-xs); color: var(--text2); margin-bottom: var(--sp-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .manga-card-meta {
   display: flex; align-items: center; justify-content: space-between;
   font-size: var(--t-xs); color: var(--text3);
@@ -1524,8 +1543,80 @@ img.img-echec { background: var(--bg3); animation: none; }
     margin-top: var(--carte-ecart); padding-right: 6px; }
 .shelf-nom .shelf-name { flex: 1 1 auto; min-width: 0; margin-top: 0; }
 .shelf-meta { padding-right: 6px; }
-.manga-card-info { position: relative; }
-.manga-card-info .card-fav-btn { position: absolute; right: 8px; bottom: 8px; }
+/* ── La légende d'une carte : une colonne, pas un empilement ──
+   Les deux actions — le cœur et le « + » — étaient posées en ABSOLU sur
+   le coin bas-droit de la légende, là où se trouve déjà la ligne de méta.
+   Mesuré sur le catalogue, à 1280 px : les 24 cartes sur 24 avaient une
+   collision. Le cœur recouvrait la fin du statut — « En co♥ » — et le
+   « + » mordait 48 px dessus. Ce n'était pas une question de goût : deux
+   objets occupaient les mêmes pixels.
+
+   La page des rayons avait pourtant déjà résolu ça : `.shelf-nom` est une
+   RANGÉE, le titre prend la place, le cœur se range au bout. La carte de
+   grille, elle, n'avait jamais reçu la correction — elle avait reçu un
+   `position: absolute`.
+
+   Donc une vraie colonne, qui finit par une vraie rangée : la méta à
+   gauche, les actions à droite, et personne par-dessus personne.
+
+   `margin-top: auto` colle le pied en bas : les légendes d'une même
+   rangée alignent alors leur dernière ligne, quelle que soit la longueur
+   du titre ou de l'auteur. */
+.manga-card-pied {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-2); margin-top: auto; padding-top: var(--sp-1);
+  /* Le pied fait au moins la hauteur d'une action, qu'il en porte ou
+     non : c'est ce qui rend le squelette exact. Le rembourrage est
+     compté dedans — `box-sizing` est en `border-box`, donc une
+     hauteur minimale nue laissait encore 4 px d'écart. */
+  min-height: calc(var(--carte-action) + var(--sp-1));
+}
+/* La méta cède la place si elle est trop longue ; les actions, jamais :
+   une cible qui rétrécit n'est plus une cible.
+
+   Et elle ne REPLIE plus. Elle le faisait, et le pied passait alors à
+   deux lignes avec le cœur posé à côté de la seconde — ce qui rendait la
+   rangée bancale d'une carte à l'autre. Ce qui dépasse est coupé, d'où
+   l'ordre choisi dans `cardInfoHTML` : le statut d'abord, la démographie
+   au bout. */
+.manga-card-pied .manga-card-meta {
+  min-width: 0; flex: 1 1 auto; margin-top: 0;
+  flex-wrap: nowrap; overflow: hidden;
+  /* Les faits restent GROUPÉS. La règle de base de `.manga-card-meta`
+     les écarte (`space-between`), ce qui ne se voyait pas dans une carte
+     de 144 px — mais en vue liste, la légende fait 824 px et le statut
+     se retrouvait à un bout, l'année à l'autre. C'est le pied qui sépare
+     la méta des actions ; la méta, elle, ne sépare rien. */
+  justify-content: flex-start;
+}
+.manga-card-pied .manga-card-meta > * { flex: 0 0 auto; }
+.manga-card-actions { display: flex; align-items: center; gap: var(--sp-0); flex: 0 0 auto; }
+/* Le DESSIN rapetisse, pas la cible : les règles de cibles tactiles
+   étendent déjà la zone sensible à 44 px au doigt et 24 px à la souris,
+   par un pseudo-élément centré. Quatre pixels de glyphe rendus à la
+   ligne de méta ne coûtent donc rien à l'atteignabilité. */
+.manga-card-actions .card-fav-btn,
+.manga-card-actions .card-list-btn { width: var(--carte-action); height: var(--carte-action); }
+
+/* ── Sur une carte étroite, il faut choisir ────────────────
+   Mesuré à 375 px, où la grille fait trois colonnes : la carte tombe à
+   109 px, le pied à 93, les deux actions en prennent 46 — il reste 39 px
+   de méta pour 83 demandés. Tout ne rentre pas, et serrer davantage ne
+   ferait que couper plus bas.
+
+   On garde donc ce qui sert le plus : le statut, et le cœur — le seul
+   des deux boutons qui PORTE un état, donc le seul qui dit quelque chose
+   sans être pressé.
+
+   Le « + » est seulement MASQUÉ, jamais retiré du balisage : le menu
+   d'appui long propose « Ajouter à une liste » en cliquant ce
+   bouton-là. L'enlever casserait le geste tactile, qui est justement
+   celui qui sert ici. Et l'année reste lisible sur la fiche de l'œuvre,
+   à un toucher de distance. */
+@media (max-width: 640px) {
+  .manga-card-actions .card-list-btn { display: none; }
+  .manga-card-pied .mc-year { display: none; }
+}
 
 /* ── Le bandeau « il manque quelque chose » ───────────────
    Il était dessiné en attributs `style`, sur huit écrans. Sa place est
@@ -1927,9 +2018,8 @@ a[data-nsfw] .manga-card-cover::after,
 }
 .card-list-btn:hover { color: var(--text); }
 .manga-card .card-list-btn { z-index: 3; }
-.manga-card-info .card-list-btn { position: absolute; right: 34px; bottom: 8px; }
 @media (hover: hover) {
-  .manga-card-info .card-list-btn { opacity: 0; }
+  .manga-card-actions .card-list-btn { opacity: 0; }
   .manga-card:hover .card-list-btn,
   .card-list-btn:focus-visible { opacity: 1; }
 }
@@ -2119,14 +2209,23 @@ a[data-nsfw] .manga-card-cover::after,
   pointer-events: none;
 }
 .mh-sq:hover { transform: none; box-shadow: none; border-color: var(--border); }
-.mh-sq .manga-card-title span { display: block; height: 11px; border-radius:  var(--r-trait); }
-.mh-sq .manga-card-title span + span { margin-top: var(--sp-2); width: 58%; }
-/* Deux pastilles qui DEBORDENT la ligne (62 % + 45 %) : elles passent donc
-   sur deux rangs, comme les badges reels d'annee, de demographie et de statut.
-   Ajuste au millimetre sur la carte tactile — c'est elle que P1.6 vise. */
-.mh-sq .manga-card-meta span { display: block; height: 16px; border-radius:  var(--r-trait); }
-.mh-sq .manga-card-meta span:first-child { width: 62%; }
-.mh-sq .manga-card-meta span:last-child { width: 45%; }
+/* Les barres ne portent PLUS de hauteur à elles. Chacune contient un
+   `&nbsp;` et prend la ligne de sa rangée réelle — titre, auteur, méta —
+   donc exactement la hauteur que la vraie carte aura. Les hauteurs
+   écrites ici (11 px, 16 px) ne correspondaient plus depuis que la
+   légende a trois rangées : le squelette réservait 300 px pour une carte
+   de 344, et la grille sautait de 44 px au remplacement.
+
+   Mesuré après : 344 contre 344. */
+.mh-sq .manga-card-title span,
+.mh-sq .manga-card-author span,
+.mh-sq .manga-card-meta span {
+  display: block; border-radius: var(--r-trait);
+}
+/* Des largeurs inégales, parce qu'un vrai titre n'est jamais justifié. */
+.mh-sq .manga-card-title span { width: 82%; }
+.mh-sq .manga-card-author span { width: 58%; }
+.mh-sq .manga-card-meta span { width: 68%; }
 /* Le squelette d’un rayon : les lignes sont des blocs, pour que le titre
    occupe ses deux lignes comme la vraie carte. */
 .shelf-card--skel .shelf-name span { display: block; }

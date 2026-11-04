@@ -557,7 +557,6 @@
     }
 
     const STATUS_LABELS = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };
-    const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 
     // Bloc info (titre + sous-titre + méta) — réutilisé par le rendu et l'enrichissement
     function cardInfoHTML(m) {
@@ -571,15 +570,54 @@
         // le .mc-status de la ligne juste en dessous — la même donnée deux
         // fois sur la même carte, dont une par-dessus l’œuvre. La première
         // descend ici, comme dans la bibliothèque.
+        // MESURÉ avant de couper. Le pied d'une carte fait 144 px ; les
+        // deux actions en prennent 54, et la ligne de méta en demandait
+        // 135 pour se poser. Il en manquait 53 : l'année s'affichait
+        // « 201… ». Rapetisser les boutons n'en rendait que 14.
+        //
+        // Donc on enlève, et on enlève ce qui dit le moins. Toujours sur
+        // cette page : la démographie annonce « Shounen » sur 19 cartes
+        // des 24, et la colonne de gauche la filtre déjà — c'est le seul
+        // des trois faits qui ne distingue presque rien. Le statut reste,
+        // parce qu'il est le seul qui change ce qu'on FAIT : une série
+        // terminée se commence sans risque, une série en pause attend.
+        // L'année reste, parce qu'elle situe l'œuvre.
+        //
+        // « Roman » reste aussi : lui ne se répète pas, il dit qu'on va
+        // lire du texte et non des planches. La fiche série, elle, montre
+        // toujours la démographie — là, il y a la place.
         const metaBits = [];
-        if (isNovel) metaBits.push('<span class="mc-demo">Roman</span>');
-        if (m.year) metaBits.push(`<span class="mc-year">${m.year}</span>`);
-        if (m.demographic) metaBits.push(`<span class="mc-demo">${MH.esc(cap(m.demographic))}</span>`);
         if (statusLabel) metaBits.push(`<span class="mc-status mc-${m.status}">${statusLabel}</span>`);
+        if (m.year) metaBits.push(`<span class="mc-year">${m.year}</span>`);
+        if (isNovel) metaBits.push('<span class="mc-demo">Roman</span>');
         if (m._sourceName && allSources) metaBits.push(`<span class="mc-demo">${MH.esc(m._sourceName)}</span>`);
+        // La légende REND AUSSI ses deux actions, et c'est une correction
+        // de fond : `enrichSparseCards` remplace le contenu de
+        // `.manga-card-info` par le retour de cette fonction. Tant qu'elle
+        // ne rendait que du texte, l'enrichissement d'arrière-plan
+        // SUPPRIMAIT le cœur et le « + » de la carte — vérifié dans la
+        // page. Les œuvres concernées sont précisément celles dont la
+        // source ne donne ni auteur ni statut (SushiScan, Chireads) : les
+        // cartes les plus pauvres perdaient aussi leurs boutons.
         return `<div class="manga-card-title">${MH.esc(m.title)}</div>
                 ${sub ? `<div class="manga-card-author">${MH.esc(sub)}</div>` : ''}
-                ${metaBits.length ? `<div class="manga-card-meta">${metaBits.join('')}</div>` : ''}`;
+                <div class="manga-card-pied">
+                    ${metaBits.length ? `<div class="manga-card-meta">${metaBits.join('')}</div>` : '<span></span>'}
+                    ${cardActionsHTML(m, src)}
+                </div>`;
+    }
+
+    // Audit AMEL-39 : l'ajout à une liste n'était possible que depuis la
+    // fiche série — il fallait donc ouvrir chaque titre pour le ranger,
+    // alors qu'on constitue une liste EN parcourant le catalogue.
+    function cardActionsHTML(m, src) {
+        return `<div class="manga-card-actions">
+            <button class="card-list-btn" data-addlist="${MH.esc(m.id)}" data-src="${MH.esc(src)}"
+                    data-title="${MH.esc(m.title || '')}" data-cover="${MH.esc(m.cover || '')}"
+                    title="Ajouter à une liste" aria-label="Ajouter « ${MH.esc(m.title)} » à une liste">+</button>
+            <button class="card-fav-btn" data-fav="${MH.esc(m.id)}" title="Ajouter aux favoris" aria-pressed="false"
+                    aria-label="Ajouter « ${MH.esc(m.title)} » aux favoris">${MH.heartIcon(false)}</button>
+        </div>`;
     }
 
     // Une œuvre est "pauvre" si sa liste ne fournit ni auteur, ni statut, ni genres
@@ -596,17 +634,7 @@
                 <img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
             </div>
-            <div class="manga-card-info">${cardInfoHTML(m)}
-                <!-- Audit AMEL-39 : l'ajout à une liste n'était possible que
-                     depuis la fiche série — il fallait donc ouvrir chaque titre
-                     pour le ranger, alors qu'on constitue une liste EN
-                     parcourant le catalogue. -->
-                <button class="card-list-btn" data-addlist="${MH.esc(m.id)}" data-src="${MH.esc(src)}"
-                        data-title="${MH.esc(m.title || '')}" data-cover="${MH.esc(m.cover || '')}"
-                        title="Ajouter à une liste" aria-label="Ajouter « ${MH.esc(m.title)} » à une liste">+</button>
-                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris" aria-pressed="false"
-                    aria-label="Ajouter « ${MH.esc(m.title)} » aux favoris">${MH.heartIcon(false)}</button>
-            </div>
+            <div class="manga-card-info">${cardInfoHTML(m)}</div>
         </div>`;
     }
 
@@ -632,7 +660,12 @@
                     const card = [...document.querySelectorAll('#resultsGrid .manga-card')]
                         .find(c => c.dataset.mangaId === String(m.id));
                     const info = card?.querySelector('.manga-card-info');
-                    if (info) info.innerHTML = cardInfoHTML(full);
+                    if (info) {
+                        info.innerHTML = cardInfoHTML(full);
+                        // Le cœur est reconstruit : il repart de l'état
+                        // « pas en favori ». On le remet à ce qu'il est.
+                        MH.markFavorites?.(card);
+                    }
                 } catch (e) { window.MH?.err?.('catalogue.js', e); }
             }
         };

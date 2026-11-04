@@ -1481,11 +1481,22 @@
             ? '<div class="mh-sq mh-sq-ligne" aria-hidden="true"><div class="skeleton mh-sq-vignette"></div>'
               + '<div class="mh-sq-lignes"><div class="skeleton mh-sq-t1"></div>'
               + '<div class="skeleton mh-sq-t2"></div></div></div>'
+            // Le squelette porte les MÊMES trois rangées que la carte
+            // réelle — titre, auteur, pied — sinon il ne réserve pas la
+            // bonne hauteur et la grille saute au remplacement. Mesuré :
+            // 352 px de squelette pour 344 px de carte tant qu'il lui
+            // manquait la ligne d'auteur.
             : '<div class="manga-card mh-sq" aria-hidden="true">'
               + '<div class="manga-card-cover skeleton"></div>'
               + '<div class="manga-card-info">'
-              + '<div class="manga-card-title"><span class="skeleton"></span><span class="skeleton"></span></div>'
-              + '<div class="manga-card-meta"><span class="skeleton"></span><span class="skeleton"></span></div>'
+              // `&nbsp;` dans chaque barre : sans contenu, un `span` n'a
+              // aucune hauteur et la rangée s'écrase. Avec, elle prend la
+              // ligne de SA rangée réelle — donc la bonne hauteur, sans
+              // recopier une seule valeur de l'échelle typographique.
+              + '<div class="manga-card-title"><span class="skeleton">&nbsp;</span></div>'
+              + '<div class="manga-card-author"><span class="skeleton">&nbsp;</span></div>'
+              + '<div class="manga-card-pied"><div class="manga-card-meta">'
+              + '<span class="skeleton">&nbsp;</span></div></div>'
               + '</div></div>';
         el.innerHTML = new Array(Math.max(1, n)).fill(unite).join('');
         // `aria-busy` plutôt qu'un texte « Chargement… » : un lecteur d'écran

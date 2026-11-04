@@ -66,10 +66,113 @@ test('le « + » suit le cœur dans la légende', () => {
     assert.ok(!/border-radius: 50%/.test(b), 'ni rond');
     assert.ok(!/backdrop-filter/.test(b), 'ni flouté');
     assert.ok(!/background: rgba\(0,0,0/.test(b), 'ni noir translucide');
-    // Un commentaire peut s'intercaler : ce qui compte est que le bouton
-    // soit DANS la légende, pas collé à la ligne précédente.
-    assert.match(JS, /<div class="manga-card-info">\$\{cardInfoHTML\(m\)\}[\s\S]{0,400}?<button class="card-list-btn"/,
-        'et il vit dans la légende');
+    // Le bouton vit dans la légende — et désormais c'est la légende
+    // ELLE-MÊME qui le rend. Ce n'est pas un détail de rangement :
+    // `enrichSparseCards` remplace le contenu de `.manga-card-info` par
+    // le retour de `cardInfoHTML`. Tant que celui-ci ne rendait que du
+    // texte, l'enrichissement d'arrière-plan SUPPRIMAIT le « + » et le
+    // cœur — vérifié dans la page. Les œuvres touchées étaient justement
+    // celles dont la source ne donne ni auteur ni statut.
+    assert.match(JS, /<div class="manga-card-info">\$\{cardInfoHTML\(m\)\}<\/div>/,
+        'la légende est rendue d’un seul tenant');
+    const legende = /function cardInfoHTML\(m\) \{[\s\S]*?\n    \}/.exec(JS);
+    assert.ok(legende, 'cardInfoHTML');
+    assert.match(legende[0], /cardActionsHTML\(m, src\)/, 'et elle rend ses actions');
+    const actions = /function cardActionsHTML\(m, src\) \{[\s\S]*?\n    \}/.exec(JS);
+    assert.ok(actions, 'cardActionsHTML');
+    assert.match(actions[0], /<button class="card-list-btn"/);
+    assert.match(actions[0], /<button class="card-fav-btn"/);
+    // Et l'état du cœur est remis après chaque reconstruction, sinon une
+    // œuvre en favori repasserait en « pas en favori » sous les yeux.
+    assert.match(JS, /info\.innerHTML = cardInfoHTML\(full\);[\s\S]{0,260}?MH\.markFavorites\?\.\(card\)/);
+});
+
+test('les actions ne se posent plus sur la ligne de méta', () => {
+    // Mesuré sur le catalogue servi, à 1280 px : les 24 cartes sur 24
+    // avaient une collision. Le cœur, en absolu à `right: 8px`,
+    // recouvrait la fin du statut — « En co♥ » — et le « + », à
+    // `right: 34px`, mordait 48 px dessus. Deux objets, les mêmes pixels.
+    //
+    // La page des rayons l'avait déjà résolu : `.shelf-nom` est une
+    // RANGÉE. La carte de grille n'avait jamais reçu la correction — elle
+    // avait reçu un `position: absolute`.
+    assert.ok(!/\.manga-card-info \.card-fav-btn \{[^}]*position: absolute/.test(GLOBAL),
+        'le cœur n’est plus en absolu sur la légende');
+    assert.ok(!/\.manga-card-info \.card-list-btn \{[^}]*position: absolute/.test(GLOBAL),
+        'le « + » non plus');
+    const pied = regle(GLOBAL, '.manga-card-pied');
+    assert.ok(pied, '.manga-card-pied');
+    assert.match(pied, /display: flex/);
+    assert.match(pied, /justify-content: space-between/);
+    // Le pied se colle en bas : les légendes d'une rangée alignent alors
+    // leur dernière ligne, quelle que soit la longueur du titre.
+    assert.match(pied, /margin-top: auto/);
+    assert.match(regle(GLOBAL, '.manga-card-info'), /flex-direction: column/);
+    // Une cible qui rétrécit n'est plus une cible : c'est la méta qui cède.
+    assert.match(regle(GLOBAL, '.manga-card-actions'), /flex: 0 0 auto/);
+});
+
+test('la méta garde ses faits groupés', () => {
+    // `.manga-card-meta` écarte ses enfants (`space-between`). Invisible
+    // dans une carte de 144 px — mais en VUE LISTE la légende fait 824 px,
+    // et le statut se retrouvait à un bout, l'année à l'autre. C'est le
+    // pied qui sépare la méta des actions ; la méta ne sépare rien.
+    assert.match(regle(GLOBAL, '.manga-card-pied .manga-card-meta'),
+        /justify-content: flex-start/);
+});
+
+test('sur une carte étroite, on choisit — et on le dit', () => {
+    // Mesuré à 375 px, grille à trois colonnes : la carte tombe à 109 px,
+    // le pied à 93, les deux actions en prennent 46 — il reste 39 px de
+    // méta pour 83 demandés. Tout ne rentre pas.
+    const etroit = /@media \(max-width: 640px\) \{\s*\.manga-card-actions \.card-list-btn[\s\S]*?\n\}/.exec(GLOBAL);
+    assert.ok(etroit, 'la règle des cartes étroites');
+    assert.match(etroit[0], /\.card-list-btn \{ display: none; \}/);
+    assert.match(etroit[0], /\.mc-year \{ display: none; \}/);
+    // Le cœur RESTE : c'est le seul des deux boutons qui porte un état,
+    // donc le seul qui dit quelque chose sans être pressé.
+    assert.ok(!/\.card-fav-btn \{ display: none/.test(etroit[0]),
+        'le cœur reste');
+    // Et le « + » est MASQUÉ, jamais retiré du balisage : le menu d'appui
+    // long propose « Ajouter à une liste » en cliquant ce bouton-là.
+    const gestes = lire('assets', 'js', 'cartes-gestes.js');
+    assert.match(gestes, /\.card-list-btn\[data-addlist\]/);
+    assert.match(gestes, /libelle: 'Ajouter à une liste', act: \(\) => listes\.click\(\)/);
+});
+
+test('le squelette réserve exactement ce que la carte occupera', () => {
+    // Il portait deux rangées quand la carte en a trois, et des hauteurs
+    // écrites en dur (11 px, 16 px) qui ne correspondaient plus. Mesuré
+    // avant : 300 px réservés pour une carte de 344 — la grille sautait
+    // de 44 px au remplacement. Après : 344 contre 344, et 236 contre 236
+    // à 375 px.
+    const js = lire('assets', 'js', 'global.js');
+    const sq = /: '<div class="manga-card mh-sq"[\s\S]*?'<\/div><\/div>';/.exec(js);
+    assert.ok(sq, 'le gabarit du squelette');
+    for (const rangee of ['manga-card-title', 'manga-card-author', 'manga-card-pied']) {
+        assert.ok(sq[0].includes(rangee), `${rangee} est réservée`);
+    }
+    // `&nbsp;` : sans contenu, un span n'a aucune hauteur et la rangée
+    // s'écrase. Avec, elle prend la ligne de SA rangée réelle.
+    assert.match(sq[0], /<span class="skeleton">&nbsp;<\/span>/);
+    // Et plus une seule hauteur recopiée.
+    assert.ok(!/\.mh-sq \.manga-card-title span \{[^}]*height:/.test(GLOBAL),
+        'plus de hauteur en dur sur les barres du squelette');
+    // Le pied fait au moins la hauteur d'une action, qu'il en porte ou non.
+    assert.match(regle(GLOBAL, '.manga-card-pied'),
+        /min-height: calc\(var\(--carte-action\) \+ var\(--sp-1\)\)/);
+    assert.match(GLOBAL, /--carte-action:\s*22px;/);
+});
+
+test('un nom d’auteur ne fait pas danser la grille', () => {
+    // Mesuré : « KANESHIRO Munayuki, NOMURA Yuusuke » repliait sur deux
+    // lignes quand « ODA Eiichiro » tenait sur une. La ligne de méta de la
+    // carte voisine se retrouvait 17 px plus haut, et la grille portait
+    // DEUX hauteurs de carte — 337 et 353 px — dans la même rangée.
+    const a = regle(GLOBAL, '.manga-card-author');
+    assert.ok(a, '.manga-card-author');
+    assert.match(a, /white-space: nowrap/);
+    assert.match(a, /text-overflow: ellipsis/);
 });
 
 test('le statut n’est plus dit deux fois sur la même carte', () => {
