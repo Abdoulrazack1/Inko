@@ -8,62 +8,7 @@
 // l'« écran noir après mise à jour » qui a motivé le bouton « Vider le cache ».
 // Bump obligatoire à chaque changement d'asset ; la liste STATIC_ASSETS est
 // désormais générée (npm run gen-precache) et vérifiée en CI.
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-const CACHE_VERSION = 'inko-2.8.2-e77abf';
-=======
-const CACHE_VERSION = 'inko-2.8.2-4f6750';
->>>>>>> bf66a68 (Accueil : les sections que je n'avais pas regardees)
-=======
-const CACHE_VERSION = 'inko-2.8.2-5c8ec6';
->>>>>>> d8e9346 (Le coeur sort de la couverture)
-=======
-const CACHE_VERSION = 'inko-2.8.2-0e0378';
->>>>>>> 0f9cb15 (Rien ne reste pose sur l'oeuvre, et la page prend un rythme)
-=======
-const CACHE_VERSION = 'inko-2.8.2-ba5bdb';
->>>>>>> 9858b79 (Regenere le repli aspect-ratio, que la CI refusait)
-=======
-const CACHE_VERSION = 'inko-2.8.2-ed7468';
->>>>>>> cf77620 (Bibliotheque : 500 couvertures, et plus 500 cartes)
-=======
-const CACHE_VERSION = 'inko-2.8.2-560e19';
->>>>>>> 38fd4e2 (Bibliotheque : rien ne se pose sur l'oeuvre, deuxieme passe)
-=======
-const CACHE_VERSION = 'inko-2.8.2-70854c';
->>>>>>> 5f9f4c1 (Catalogue : un filtre s'allume d'une seule facon)
-=======
-const CACHE_VERSION = 'inko-2.8.2-5b796d';
->>>>>>> 5980a2a (Fiche serie : l'oeuvre est la page, et 110 lignes de CSS mort partent)
-=======
-const CACHE_VERSION = 'inko-2.8.2-1e5cd8';
->>>>>>> 9c2850b (Lecteur : la planche tient seule)
-=======
-const CACHE_VERSION = 'inko-2.8.2-79ed52';
->>>>>>> 09485b2 (Parametres : un reglage ne se cherche pas sous 219 lignes)
-=======
-const CACHE_VERSION = 'inko-2.8.2-f079d9';
->>>>>>> 068c9a3 (Profil : la bande la plus decoree de l'application)
-=======
-const CACHE_VERSION = 'inko-2.8.2-51ba57';
->>>>>>> c979fca (En-tete et navigation : le verre de toute l'application)
-=======
-const CACHE_VERSION = 'inko-2.8.2-2823f9';
->>>>>>> 875c5fb (Focus clavier : l'anneau existait deja — trois menus le retiraient)
-=======
-const CACHE_VERSION = 'inko-2.8.2-84ff1b';
->>>>>>> 4de9c6a (Regeneration)
+const CACHE_VERSION = 'inko-2.8.2-2c9649';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
