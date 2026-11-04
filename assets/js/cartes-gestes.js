@@ -326,6 +326,49 @@ Laisse vide pour retirer la catégorie.`
         }
     }
 
+    /* ── Les deux balayages sont réassignables ───────────────
+       Ils étaient écrits en dur : `dx > 0 ? marquerSerieLue :
+       telechargerProchain`, et l'icône du fond avec. Or un balayage se
+       fait par réflexe, et le réflexe de chacun ne va pas dans le même
+       sens — quelqu'un qui lit en ligne téléchargera rarement, quelqu'un
+       qui prépare un trajet ne marquera presque jamais une série lue
+       d'un geste.
+
+       Le CATALOGUE des gestes — identifiants, libellés, défauts, et la
+       lecture de la préférence — vit dans `global.js` : la page des
+       réglages doit le lire, et elle ne charge pas ce module-ci, qui ne
+       sert que là où il y a des cartes. Ici vivent les IMPLÉMENTATIONS,
+       rangées par identifiant. */
+    const ACTIONS_GESTE = {
+        lue:         (c) => marquerSerieLue(c),
+        telecharger: (c) => telechargerProchain(c),
+        favori:      (c) => basculerFavori(c),
+        liste:       (c) => ouvrirListes(c),
+        aucun:       null,
+    };
+
+    function actionGeste(id) {
+        const choix = window.MH?.gestesCartes?.choix?.(id) || 'aucun';
+        return {
+            ico: window.MH?.gestesCartes?.ico?.(choix) || '',
+            act: ACTIONS_GESTE[choix] || null,
+        };
+    }
+
+    // Les deux actions que le balayage peut désormais viser et qui ne
+    // vivaient que dans le menu : on passe par les BOUTONS de la carte,
+    // qui tiennent déjà l'état, l'étiquette et le retour arrière.
+    function basculerFavori(ctx) {
+        const coeur = ctx.carte?.querySelector('.card-fav-btn[data-fav]');
+        if (!coeur) { MH.bandeau('Les favoris ne sont pas disponibles ici.'); return; }
+        coeur.click();
+    }
+    function ouvrirListes(ctx) {
+        const b = ctx.carte?.querySelector('.card-list-btn[data-addlist]');
+        if (!b) { MH.bandeau('Les listes ne sont pas disponibles ici.'); return; }
+        b.click();
+    }
+
     // ── La machine à gestes ─────────────────────────────────
     let g = null;
 
@@ -401,10 +444,15 @@ Laisse vide pour retirer la catégorie.`
         const droite = dx > 0;
         f.classList.toggle('droite', droite);
         f.classList.toggle('gauche', !droite);
-        f.firstChild.textContent = droite ? '✓' : '⤓';
+        // L'icône du fond dit ce que CE balayage fera, pas ce qu'il
+        // faisait quand elle a été écrite en dur.
+        f.firstChild.textContent = actionGeste(droite ? 'balayageDroite' : 'balayageGauche').ico;
 
+        // Un geste réglé sur « Rien » ne s'arme pas : sans ça, la carte
+        // se colorerait et vibrerait pour n'aboutir à rien du tout.
         const seuil = Math.max(SEUIL_MIN, g.carte.offsetWidth * 0.4);
-        g.arme = Math.abs(dx) >= seuil;
+        g.arme = Math.abs(dx) >= seuil
+            && !!actionGeste(droite ? 'balayageDroite' : 'balayageGauche').act;
         f.classList.toggle('arme', g.arme);
         g.carte.style.setProperty('--mh-dx', dx + 'px');
     }
@@ -430,7 +478,8 @@ Laisse vide pour retirer la catégorie.`
                 // PARTIE. Les deux se ressemblaient, et on ne savait pas au
                 // doigt si le balayage avait pris.
                 vibrer('succes');
-                (dx > 0 ? marquerSerieLue : telechargerProchain)(contexte(carte));
+                const a = actionGeste(dx > 0 ? 'balayageDroite' : 'balayageGauche');
+                if (a.act) a.act(contexte(carte));
             }
         }
 

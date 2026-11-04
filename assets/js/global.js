@@ -1263,6 +1263,58 @@
         _barreAnnulation?.fermer();
     };
 
+    /* ── Le catalogue des gestes sur les cartes ──────────────
+     * Les deux balayages étaient écrits en dur dans `cartes-gestes.js` —
+     * droite marquait la série lue, gauche téléchargeait, et l'icône du
+     * fond avec. Or un balayage se fait par RÉFLEXE, et le réflexe de
+     * chacun ne va pas dans le même sens : qui lit en ligne ne
+     * téléchargera presque jamais, qui prépare un trajet ne marquera
+     * presque jamais une série lue d'un geste.
+     *
+     * Le catalogue vit ICI et non dans le module des gestes, parce que
+     * la page des réglages doit le lire et qu'elle ne charge pas ce
+     * module — il ne sert que là où il y a des cartes. Ici : les
+     * identifiants, les libellés, les défauts, la préférence. Là-bas :
+     * les implémentations, rangées par identifiant.
+     *
+     * Même forme que les raccourcis clavier remappables (AMEL-82), et
+     * pour la même raison : une liste déclarative, et une préférence qui
+     * ne stocke QUE les écarts au défaut. `aucun` désactive le geste,
+     * comme une touche vide désactive un raccourci.
+     *
+     * Les actions proposées sont celles que le menu d'appui long propose
+     * déjà : on ne réassigne pas un geste vers quelque chose qui
+     * n'existe nulle part ailleurs.
+     */
+    const ACTIONS_GESTE = [
+        { id: 'lue',         ico: '✓', libelle: 'Marquer la série comme lue' },
+        { id: 'telecharger', ico: '⤓', libelle: 'Télécharger le prochain chapitre' },
+        { id: 'favori',      ico: '♥', libelle: 'Ajouter ou retirer des favoris' },
+        { id: 'liste',       ico: '＋', libelle: 'Ajouter à une liste' },
+        { id: 'aucun',       ico: '',  libelle: 'Rien' },
+    ];
+    const GESTES_CARTE = [
+        { id: 'balayageDroite', defaut: 'lue',         label: 'Balayage vers la droite' },
+        { id: 'balayageGauche', defaut: 'telecharger', label: 'Balayage vers la gauche' },
+    ];
+    const CLE_GESTES = 'gestesCartes';
+
+    window.MH.gestesCartes = {
+        cle: CLE_GESTES,
+        actions: ACTIONS_GESTE.map(a => ({ ...a })),
+        gestes: GESTES_CARTE.map(g => ({ ...g })),
+        /** L'action choisie pour un geste — le défaut si rien, ou si la
+         *  valeur enregistrée ne correspond plus à aucune action. */
+        choix(id) {
+            let perso = {};
+            try { perso = JSON.parse(window.Storage?.getPref(CLE_GESTES) || '{}'); } catch (e) { perso = {}; }
+            const d = GESTES_CARTE.find(x => x.id === id);
+            const v = perso[id];
+            return ACTIONS_GESTE.some(a => a.id === v) ? v : (d ? d.defaut : 'aucun');
+        },
+        ico(actionId) { return ACTIONS_GESTE.find(a => a.id === actionId)?.ico || ''; },
+    };
+
     /* ── P1.6 / VIII.47 : une erreur dit quoi faire ──────────
      * Le motif employé partout aujourd'hui est `Erreur : ${e.message}` en
      * rouge, au milieu d'une grille vide. Il viole les trois règles de la

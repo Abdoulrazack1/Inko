@@ -210,6 +210,7 @@
         renderBackups();
         renderFileSync();
         renderRaccourcis();
+        renderGestes();
         renderDesktop();
         renderInstance();
     }
@@ -296,6 +297,52 @@
                 tgl.classList.toggle('on', !veut);
                 toast('Impossible de modifier le demarrage automatique : ' + e);
             }
+        });
+    }
+
+    // ── GESTES SUR LES CARTES ───────────────────────────────
+    // Même forme que les raccourcis : une liste déclarative, et une
+    // préférence qui ne stocke QUE les écarts au défaut. La différence
+    // est le contrôle — on ne capture pas un balayage comme on capture
+    // une touche, donc c'est une liste de choix et non un enregistreur.
+    function renderGestes() {
+        const liste = document.getElementById('gesturesList');
+        const G = window.MH?.gestesCartes;
+        if (!liste || !G) {
+            // Le module ne vit que là où des cartes existent : sur une page
+            // sans carte, la section n'a rien à régler et ne s'affiche pas.
+            document.getElementById('gesturesCard')?.setAttribute('hidden', '');
+            return;
+        }
+        liste.innerHTML = G.gestes.map(g => {
+            const cur = G.choix(g.id);
+            const opts = G.actions.map(a =>
+                `<option value="${MH.esc(a.id)}"${a.id === cur ? ' selected' : ''}>${MH.esc(a.libelle)}</option>`).join('');
+            return `<div class="set-row">
+                <div>
+                    <div class="set-row-label">${MH.esc(g.label)}</div>
+                    <div class="set-row-desc">Par défaut : ${MH.esc(
+        G.actions.find(a => a.id === g.defaut)?.libelle || g.defaut)}</div>
+                </div>
+                <select class="champ champ--compact" data-geste="${MH.esc(g.id)}"
+                        aria-label="Action du ${MH.esc(g.label.toLowerCase())}">${opts}</select>
+            </div>`;
+        }).join('');
+
+        liste.querySelectorAll('[data-geste]').forEach(sel => {
+            sel.addEventListener('change', async () => {
+                let perso = {};
+                try { perso = JSON.parse(window.Storage.getPref(G.cle) || '{}'); } catch (e) { perso = {}; }
+                const g = G.gestes.find(x => x.id === sel.dataset.geste);
+                // On n'enregistre que l'ÉCART au défaut : une préférence qui
+                // recopie les défauts les fige, et le jour où un défaut
+                // change, elle garde l'ancien sans que personne l'ait voulu.
+                if (g && sel.value === g.defaut) delete perso[sel.dataset.geste];
+                else perso[sel.dataset.geste] = sel.value;
+                await savePref(G.cle, JSON.stringify(perso));
+                renderGestes();
+                toast('Enregistré ✓', 1200);
+            });
         });
     }
 
