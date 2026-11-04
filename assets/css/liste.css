@@ -1,0 +1,35 @@
+/* ============================================================
+   liste.css — les styles propres à liste.html
+   ------------------------------------------------------------
+   Ils vivaient dans un bloc <style> du gabarit. Tout ce qui
+   balaie assets/css/*.css y était donc AVEUGLE : le générateur
+   du repli aspect-ratio pour Android 8, le test qui interdit
+   une virgule traînante dans une liste de sélecteurs, et tous
+   les tests de composition.
+   ============================================================ */
+.pl-wrap { max-width: 1080px; margin: 0 auto; padding: var(--page-haut) var(--page-cote) var(--page-bas); }
+.pl-head { margin-bottom: var(--sp-5); }
+.pl-kind { font-size: var(--t-xs); font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--accent-text); }
+.pl-name { font-family: var(--font-head); font-size: var(--t-2xl); font-weight: 700; margin: var(--sp-1) 0 var(--sp-2); }
+.pl-desc { color: var(--text2); font-size: var(--t-m); max-width: 62ch; line-height: 1.5; }
+.pl-meta { color: var(--text3); font-size: var(--t-s); margin-top: var(--sp-3); }
+.pl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: var(--sp-4); }
+.pl-card { display: block; color: inherit; }
+/* La couverture porte le ratio, l'image le remplit : c'est la forme que
+   le repli Android 8 sait replier (`height: 0` sur le conteneur, l'enfant
+   positionné par-dessus). Posé sur l'image elle-même, il l'effacerait. */
+.pl-card-cover { display: block; position: relative; width: 100%;
+  aspect-ratio: var(--carte-ratio);
+  border-radius: var(--carte-rayon); overflow: hidden; background: var(--bg3); }
+.pl-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pl-card-titre { display: -webkit-box; margin-top: var(--carte-ecart);
+  font-size: var(--carte-titre); font-weight: var(--carte-graisse); line-height: 1.35;
+  -webkit-line-clamp: var(--carte-lignes); -webkit-box-orient: vertical; overflow: hidden; }
+.pl-state { text-align: center; padding: var(--sp-7) var(--sp-5); color: var(--text3); }
+/* Le titre d'un état : la page le porte même quand elle n'a rien à montrer. */
+.pl-name--etat { text-align: center; color: var(--text2); }
+@media (max-width: 520px) {
+  .pl-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: var(--sp-3); }
+  .pl-name { font-size: var(--t-xl); }
+}

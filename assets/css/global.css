@@ -215,6 +215,20 @@
   --sp-6:  32px;
   --sp-7:  48px;
 
+  /* ── La gouttière d'une page de contenu ─────────────────────
+     Dix feuilles posaient le même bloc centré — « max-width, margin
+     auto, padding » — et chacune l'écrivait à sa façon : 26, 28 ou
+     30 px en haut, 20 ou 22 sur les côtés, 80 ou 90 en bas. Trois
+     valeurs pour la même intention, et aucune des trois ne venait de
+     l'échelle. Personne ne l'avait choisi : les feuilles vivaient dans
+     des blocs <style> de gabarit, invisibles les unes aux autres.
+
+     Le bas est plus généreux que le reste, et c'est voulu : la barre
+     basse du mobile passe par-dessus la fin de la page. */
+  --page-haut:  var(--sp-5);
+  --page-cote:  var(--sp-5);
+  --page-bas:   72px;
+
   --header-h:    58px;
   --font-head:   'Archivo Narrow', system-ui, sans-serif;   /* Display */
   --font-body:   'IBM Plex Sans', system-ui, sans-serif;    /* Utilitaire */
@@ -2249,7 +2263,7 @@ html.inko-app main { animation: inko-app-entree .18s ease-out; }
 
 /* ══ REPLI aspect-ratio — GÉNÉRÉ par scripts-ci/gen-repli-aspect-ratio.js ══ */
 /* Ne pas modifier à la main : `npm run gen-repli-ar` régénère ce bloc.
-   13 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
+   14 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
    (WebView Android 8 = Chrome 61). Sur un navigateur récent, ce bloc
    entier est ignoré. */
 @supports not (aspect-ratio: 1 / 1) {
@@ -2269,6 +2283,8 @@ html.inko-app main { animation: inko-app-entree .18s ease-out; }
     .list-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .manga-card-cover { height: 0; padding-top: 150%; }
     .manga-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .pl-card-cover { height: 0; padding-top: 150%; }
+    .pl-card-cover > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .heatmap-cell { height: 0; padding-top: 100%; }
     .heatmap-cell > img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .list-manga-cover { height: 0; padding-top: 150%; }

@@ -1,0 +1,18 @@
+/* ============================================================
+   confidentialite.css — les styles propres à confidentialite.html
+   ------------------------------------------------------------
+   Ils vivaient dans un bloc <style> du gabarit. Tout ce qui
+   balaie assets/css/*.css y était donc AVEUGLE : le générateur
+   du repli aspect-ratio pour Android 8, le test qui interdit
+   une virgule traînante dans une liste de sélecteurs, et tous
+   les tests de composition.
+   ============================================================ */
+.pp { max-width: 760px; margin: 0 auto; padding: var(--page-haut) var(--page-cote) var(--page-bas); }
+.pp h1 { font-family: var(--font-head); font-size: var(--t-2xl); margin-bottom: var(--sp-2); }
+.pp .upd { color: var(--text3); font-size: var(--t-s); margin-bottom: var(--sp-5); }
+.pp h2 { font-size: var(--t-l); margin: var(--sp-6) 0 var(--sp-3); }
+.pp p, .pp li { color: var(--text2); font-size: 14.5px; line-height: 1.65; }
+.pp ul { padding-left: var(--sp-5); }
+.pp li { margin-bottom: var(--sp-2); }
+.pp strong { color: var(--text); }
+.pp a { color: var(--orange); }

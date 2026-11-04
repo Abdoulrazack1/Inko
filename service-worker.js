@@ -8,7 +8,7 @@
 // l'« écran noir après mise à jour » qui a motivé le bouton « Vider le cache ».
 // Bump obligatoire à chaque changement d'asset ; la liste STATIC_ASSETS est
 // désormais générée (npm run gen-precache) et vérifiée en CI.
-const CACHE_VERSION = 'inko-2.8.2-a06729';
+const CACHE_VERSION = 'inko-2.8.2-edc09a';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -34,15 +34,25 @@ const STATIC_ASSETS = [
     '/assets/css/collection-detail.css',
     '/assets/css/collections.css',
     '/assets/css/comparer.css',
+    '/assets/css/confidentialite.css',
+    '/assets/css/downloads.css',
     '/assets/css/fonts.css',
     '/assets/css/global.css',
+    '/assets/css/import.css',
     '/assets/css/lecture.css',
+    '/assets/css/liste.css',
+    '/assets/css/localreader.css',
     '/assets/css/music.css',
     '/assets/css/notes.css',
+    '/assets/css/notifications.css',
     '/assets/css/parametres.css',
     '/assets/css/profil.css',
     '/assets/css/recherche.css',
     '/assets/css/serie.css',
+    '/assets/css/sources.css',
+    '/assets/css/stats.css',
+    '/assets/css/systeme.css',
+    '/assets/css/u.css',
     '/assets/i18n/en.json',
     '/assets/img/icon-192.png',
     '/assets/img/icon-512.png',

@@ -1,0 +1,28 @@
+/* ============================================================
+   u.css — les styles propres à u.html
+   ------------------------------------------------------------
+   Ils vivaient dans un bloc <style> du gabarit. Tout ce qui
+   balaie assets/css/*.css y était donc AVEUGLE : le générateur
+   du repli aspect-ratio pour Android 8, le test qui interdit
+   une virgule traînante dans une liste de sélecteurs, et tous
+   les tests de composition.
+   ============================================================ */
+.up-wrap { max-width: 820px; margin: 0 auto; padding: var(--page-haut) var(--page-cote) var(--page-bas); }
+.up-top { display: flex; align-items: center; gap: var(--sp-4); margin-bottom: var(--sp-5); flex-wrap: wrap; }
+.up-avatar { width: 86px; height: 86px; border-radius: var(--r-feuille); background: linear-gradient(135deg, var(--orange), #ff8c42); display: flex; align-items: center; justify-content: center; font-size: var(--t-3xl); font-weight: 800; color: var(--sur-couleur); overflow: hidden; flex-shrink: 0; }
+.up-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.up-name { font-family: var(--font-head); font-size: var(--t-2xl); font-weight: 700; }
+.up-since { color: var(--text3); font-size: var(--t-s); margin-top: var(--sp-1); }
+.up-bio { color: var(--text2); font-size: var(--t-s); margin-top: var(--sp-2); max-width: 560px; line-height: 1.5; }
+.up-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-5); }
+.up-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-carte); padding: var(--sp-4); text-align: center; }
+.up-card .v { font-size: var(--t-2xl); font-weight: 800; font-family: var(--font-head); }
+.up-card .l { font-size: var(--t-xs); color: var(--text3); margin-top: var(--sp-2); }
+.up-card.accent .v { color: var(--orange); }
+.up-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-carte); padding: var(--sp-5); }
+.up-panel h2 { font-size: var(--t-m); font-weight: 600; margin-bottom: var(--sp-4); }
+.up-badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--sp-3); }
+.up-badge { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); padding: var(--sp-3) var(--sp-2); border-radius: var(--r-carte); background: var(--bg3); border: 1px solid var(--border2); text-align: center; }
+.up-badge span.ic { font-size: var(--t-2xl); line-height: 1; }
+.up-badge span.nm { font-size: var(--t-xs); font-weight: 600; }
+.up-msg { text-align: center; padding: var(--page-bas) var(--page-cote); color: var(--text3); }

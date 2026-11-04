@@ -1,6 +1,6 @@
 /* bibliotheque.css — Écran Bibliothèque (audit §10 : sorti du <style> inline) */
 
-.lib2-wrap { max-width: 1200px; margin: 0 auto; padding: var(--sp-5) 20px 80px; }
+.lib2-wrap { max-width: 1200px; margin: 0 auto; padding: var(--page-haut) var(--page-cote) var(--page-bas); }
 /* L’en-tête comptait QUATRE rangées avant la première couverture : titre,
    invitation à créer une catégorie, barre d’outils, et la ligne de
    vérification. Le titre et les onglets tiennent sur la même ligne, posés

@@ -1,0 +1,48 @@
+/* ============================================================
+   notifications.css — les styles propres à notifications.html
+   ------------------------------------------------------------
+   Ils vivaient dans un bloc <style> du gabarit. Tout ce qui
+   balaie assets/css/*.css y était donc AVEUGLE : le générateur
+   du repli aspect-ratio pour Android 8, le test qui interdit
+   une virgule traînante dans une liste de sélecteurs, et tous
+   les tests de composition.
+   ============================================================ */
+.nt-wrap { max-width: 720px; margin: 0 auto; padding: var(--page-haut) var(--page-cote) var(--page-bas); }
+.nt-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-5); flex-wrap: wrap; }
+/* MOB-01 : cette barre portait un style EN LIGNE (`display:flex` sans
+   classe). Une media query ne peut pas l'atteindre — d'où la classe.
+   Ses trois boutons font 363 px à eux seuls : sur 375 px, avec l'horodatage
+   devant, la page dépassait de 82 px. */
+.nt-actions { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+.nt-head h1 { font-family: var(--font-head); font-size: var(--t-2xl); font-weight: 700; }
+.nt-filters { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-4); flex-wrap: wrap; }
+.nt-pill { padding: var(--sp-2) var(--sp-4); border-radius: var(--r-pastille); font-size: var(--t-s); background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); cursor: pointer; }
+.nt-pill.active { background: var(--orange); border-color: var(--orange); color: var(--sur-couleur); font-weight: 600; }
+.nt-item { display: flex; gap: var(--sp-3); padding: var(--sp-4); background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-carte); margin-bottom: var(--sp-2); text-decoration: none; color: inherit; }
+.nt-item.unread { background: rgba(255,140,66,.06); border-color: rgba(255,140,66,.25); }
+.nt-ico { font-size: var(--t-xl); flex: 0 0 auto; }
+.nt-body { min-width: 0; flex: 1; }
+.nt-title { font-size: var(--t-s); font-weight: 600; line-height: 1.35; }
+.nt-text { font-size: var(--t-s); color: var(--text2); margin-top: var(--sp-1); line-height: 1.4; }
+.nt-when { font-size: var(--t-xs); color: var(--text3); margin-top: var(--sp-1); }
+.nt-empty { text-align: center; padding: var(--sp-7) var(--sp-5); color: var(--text3); }
+/* Regroupement (audit AMEL-53) : le nombre de parutions recouvertes par
+   la ligne. Rendu en pastille et non en texte — il se lit d'un coup d'œil
+   et ne concurrence pas le titre. */
+.nt-count { display: inline-block; margin-left: var(--sp-2); padding: 0 var(--sp-2); border-radius: var(--r-pastille);
+  background: var(--orange); color: var(--sur-couleur); font-size: var(--t-xs); font-weight: 700; line-height: 16px;
+  vertical-align: middle; }
+/* Réglages (audit AMEL-54) */
+.nt-prefs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-4);
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-carte);
+  padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-4); font-size: var(--t-s); color: var(--text2); }
+.nt-prefs select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+  border-radius: var(--r-controle); padding: var(--sp-1) var(--sp-2); font-size: var(--t-s); font-family: inherit; cursor: pointer; }
+.nt-prefs-note { color: var(--text3); font-size: var(--t-xs); }
+
+/* ── MOB-01 / MOB-02 : les notifications au doigt ────────── */
+@media (max-width: 640px) {
+  .nt-actions { width: 100%; }
+  .nt-actions .btn { flex: 1 1 auto; min-height: 44px; }
+  .nt-item { gap: var(--sp-3); }
+}

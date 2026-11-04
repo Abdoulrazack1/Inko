@@ -55,15 +55,36 @@
     });
 
     function carte(m) {
+        // La couverture a son propre conteneur, comme toutes les autres
+        // cartes de l'application. Ce n'est pas une habitude : le repli
+        // `aspect-ratio` pour Android 8 pose `height: 0; padding-top: …`
+        // sur l'élément qui porte le ratio, et positionne son enfant
+        // `> img` par-dessus. Posé sur l'IMAGE elle-même, il lui donne
+        // une boîte de contenu haute de zéro — la couverture disparaît.
         return `<a class="pl-card" href="serie.html?id=${encodeURIComponent(m.id)}&source=${encodeURIComponent(m.source || '')}">
-            <img src="${MH.cover(m.cover, MH.placeholderCover(m.id))}" alt="" loading="lazy"
-                 onerror="this.src='${MH.placeholderCover(m.id)}'">
-            <span>${MH.esc(m.title || m.id)}</span>
+            <span class="pl-card-cover">
+                <img src="${MH.cover(m.cover, MH.placeholderCover(m.id))}" alt="" loading="lazy">
+            </span>
+            <span class="pl-card-titre">${MH.esc(m.title || m.id)}</span>
         </a>`;
     }
 
+    /**
+     * Un état de cette page porte quand même son titre.
+     *
+     * Mesuré dans le navigateur : sur les trois chemins qui n'aboutissent
+     * pas — lien incomplet, liste introuvable, serveur muet — la page
+     * n'avait AUCUN `h1`. Ses seuls titres étaient les trois colonnes du
+     * pied de page. Pour qui navigue par titre, la page n'existait pas ;
+     * pour un moteur ou un aperçu de lien partagé, elle était anonyme.
+     *
+     * C'est la page la plus susceptible d'être ouverte par quelqu'un qui
+     * ne connaît pas Inko : elle arrive par un lien partagé, sans compte.
+     * Le titre lui dit au moins ce qu'elle était censée être.
+     */
     function etat(wrap, message) {
-        wrap.innerHTML = `<div class="pl-state">${MH.esc(message)}
+        wrap.innerHTML = `<h1 class="pl-name pl-name--etat">Liste partagée</h1>
+        <div class="pl-state">${MH.esc(message)}
             <div style="margin-top:16px"><a class="btn btn-secondary btn-sm" href="accueil.html">Aller à l’accueil</a></div>
         </div>`;
     }

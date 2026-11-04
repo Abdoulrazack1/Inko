@@ -1,0 +1,24 @@
+/* ============================================================
+   localreader.css — les styles propres à localreader.html
+   ------------------------------------------------------------
+   Ils vivaient dans un bloc <style> du gabarit. Tout ce qui
+   balaie assets/css/*.css y était donc AVEUGLE : le générateur
+   du repli aspect-ratio pour Android 8, le test qui interdit
+   une virgule traînante dans une liste de sélecteurs, et tous
+   les tests de composition.
+   ============================================================ */
+body { margin: 0; background: var(--bg); color: var(--text); }
+.lr-bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--bg2); border-bottom: 1px solid var(--border); }
+.lr-bar a.back { color: var(--text2); text-decoration: none; font-size: var(--t-s); }
+.lr-title { font-weight: 600; font-size: var(--t-m); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lr-bar select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text); border-radius: var(--r-controle); padding: var(--sp-2) var(--sp-3); font-size: var(--t-s); max-width: 50vw; }
+/* CBZ : images empilées (webtoon) */
+.lr-images img { display: block; width: 100%; max-width: 860px; margin: 0 auto; }
+/* EPUB : colonne de texte lisible */
+.lr-text { max-width: 720px; margin: 0 auto; padding: var(--page-haut) var(--page-cote) var(--page-bas); font-size: var(--t-l); line-height: 1.75; font-family: var(--font-read); }
+.lr-text img { max-width: 100%; height: auto; }
+.lr-text h1, .lr-text h2, .lr-text h3 { line-height: 1.3; }
+.lr-msg { text-align: center; padding: var(--page-bas) var(--page-cote); color: var(--text3); }
+.lr-nav { display: flex; justify-content: space-between; gap: var(--sp-3); max-width: 720px; margin: var(--sp-5) auto 0; padding: 0 var(--sp-5); }
+/* Paragraphe en cours de lecture audio (TTS EPUB) */
+.tts-reading { background: color-mix(in srgb, var(--orange) 18%, transparent); border-radius: var(--r-controle); box-shadow: 0 0 0 4px color-mix(in srgb, var(--orange) 18%, transparent); }

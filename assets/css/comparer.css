@@ -6,6 +6,10 @@
 .cmp-choix select { margin-left: 6px; background: var(--bg3); color: var(--text); border: 1px solid var(--border2); border-radius:  var(--r-controle); padding: var(--sp-1) var(--sp-2); }
 .cmp-sync { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .cmp-colonnes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-0); background: var(--border); }
+/* Quand la PAGE n'a pas pu démarrer, il n'y a rien à comparer : le
+   message se dit une fois, sur toute la largeur, au lieu de laisser un
+   second panneau gris et muet à côté de lui. */
+.cmp-colonnes--seule { grid-template-columns: 1fr; }
 .cmp-col { overflow-y: auto; background: var(--bg); min-width: 0; }
 .cmp-tete { position: sticky; top: 0; z-index: 1; padding: var(--sp-2) var(--sp-3); font-size: 12.5px; background: var(--bg2); border-bottom: 1px solid var(--border); color: var(--text2); }
 .cmp-tete strong { color: var(--text); }

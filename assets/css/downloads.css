@@ -1,0 +1,35 @@
+/* ============================================================
+   downloads.css — les styles propres à downloads.html
+   ------------------------------------------------------------
+   Ils vivaient dans un bloc <style> du gabarit. Tout ce qui
+   balaie assets/css/*.css y était donc AVEUGLE : le générateur
+   du repli aspect-ratio pour Android 8, le test qui interdit
+   une virgule traînante dans une liste de sélecteurs, et tous
+   les tests de composition.
+   ============================================================ */
+.dl-prechauffe { display: flex; gap: var(--sp-2); align-items: flex-start; font-size: var(--t-s); color: var(--text2); margin: var(--sp-2) 0 var(--sp-3); cursor: pointer; }
+.dl-prechauffe-note { display: block; font-size: var(--t-s); color: var(--text3); }
+.dl-budget { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); font-size: var(--t-s); color: var(--text2); margin: var(--sp-2) 0 var(--sp-4); }
+.dl-budget select { background: var(--bg3); color: var(--text); border: 1px solid var(--border2); border-radius: var(--r-controle); padding: var(--sp-1) var(--sp-2); }
+.dl-budget-note { flex-basis: 100%; font-size: var(--t-s); color: var(--text3); }
+.dl-wrap { max-width: 880px; margin: 0 auto; padding: var(--page-haut) var(--page-cote) var(--page-bas); }
+.dl-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-2); flex-wrap: wrap; }
+.dl-head h1 { font-family: var(--font-head); font-size: 27px; font-weight: 700; }
+.dl-sub { color: var(--text2); font-size: var(--t-s); margin-bottom: var(--sp-5); }
+.dl-bar { height: 8px; border-radius: var(--r-controle); background: var(--bg4); overflow: hidden; margin: var(--sp-2) 0 var(--sp-5); }
+.dl-bar > div { height: 100%; background: linear-gradient(90deg,#ff8c42,var(--orange)); }
+.dl-group { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-carte); margin-bottom: var(--sp-3); overflow: hidden; }
+.dl-ghead { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border); }
+.dl-gcover { width: 38px; height: 52px; border-radius: var(--r-controle); object-fit: cover; background: var(--bg4); flex-shrink: 0; }
+.dl-gtitle { font-weight: 600; font-size: var(--t-m); flex: 1; min-width: 0; }
+.dl-gcount { font-size: var(--t-xs); color: var(--text3); }
+.dl-chap { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); border-top: 1px solid var(--border); font-size: var(--t-s); }
+.dl-chap:first-child { border-top: none; }
+.dl-chap .grow { flex: 1; min-width: 0; }
+.dl-empty { text-align: center; padding: var(--sp-7) var(--sp-5); color: var(--text3); }
+/* Une PUCE : elle annonce un format, elle ne se clique pas. Elle prend
+   donc les jetons de sa famille au lieu de les redessiner, et sa petite
+   capitale espacee part -- c'est le signe le plus sur d'un gabarit. */
+.tag { font-size: var(--puce-taille); padding: var(--puce-rembourrage);
+  border-radius: var(--puce-rayon); font-weight: var(--puce-graisse);
+  background: var(--bg4); color: var(--text2); }

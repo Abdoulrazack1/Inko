@@ -69,6 +69,27 @@
         return trouves.sort((a, b) => a.nom.localeCompare(b.nom));
     }
 
+    /**
+     * La page entière n'a pas pu démarrer.
+     *
+     * Les deux pannes de démarrage — adresse incomplète, chapitre
+     * illisible — écrivaient leur message dans la colonne A et
+     * rendaient la main. La colonne B restait alors un panneau gris de
+     * 123 px, vide, sans un mot : mesuré dans le navigateur. Le lecteur
+     * voit une comparaison à moitié chargée là où il n'y a rien à
+     * comparer du tout.
+     *
+     * Quand c'est la PAGE qui échoue, le message appartient à la page :
+     * il se dit une fois, sur toute la largeur, et la seconde colonne
+     * s'efface. Une panne par colonne — « cette source ne propose pas ce
+     * chapitre » — reste dans sa colonne, elle : là, l'autre a du contenu.
+     */
+    function panneDePage(message) {
+        $('cmpB').hidden = true;
+        document.querySelector('.cmp-colonnes')?.classList.add('cmp-colonnes--seule');
+        colonne($('cmpA'), { message });
+    }
+
     let numero = null;
     async function chargerB(choix) {
         const el = $('cmpB');
@@ -104,7 +125,7 @@
         MH.initPage?.('');
         $('cmpRetour').href = MH.readerHref(mangaId, chapterId, sourceA);
         if (!mangaId || !chapterId || !sourceA) {
-            colonne($('cmpA'), { message: 'Ouvre cette page depuis le lecteur : il manque la série ou le chapitre.' });
+            panneDePage('Ouvre cette page depuis le lecteur : il manque la série ou le chapitre.');
             return;
         }
         synchroniser();
@@ -116,7 +137,7 @@
                 API.mangas.pagesFor(sourceA, chapterId),
             ]);
         } catch (e) {
-            colonne($('cmpA'), { message: 'Impossible de charger ce chapitre pour l\'instant.' });
+            panneDePage('Impossible de charger ce chapitre pour l\'instant.');
             return;
         }
         const chap = (chaps.results || []).find(c => c.id === chapterId);

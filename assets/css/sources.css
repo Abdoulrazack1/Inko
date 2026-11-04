@@ -1,0 +1,102 @@
+/* ============================================================
+   sources.css — les styles propres à sources.html
+   ------------------------------------------------------------
+   Ils vivaient dans un bloc <style> du gabarit. Tout ce qui
+   balaie assets/css/*.css y était donc AVEUGLE : le générateur
+   du repli aspect-ratio pour Android 8, le test qui interdit
+   une virgule traînante dans une liste de sélecteurs, et tous
+   les tests de composition.
+   ============================================================ */
+.sources-wrap { max-width: 980px; margin: 0 auto; padding: var(--page-haut) var(--page-cote) var(--page-bas); }
+.sources-head { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-6); }
+.sources-head h1 { font-family: var(--font-head); font-size: var(--t-2xl); font-weight: 700; }
+.sources-head p { color: var(--text2); font-size: var(--t-s); max-width: 700px; }
+.sources-warning {
+  margin: var(--sp-4) 0 var(--sp-6); padding: var(--sp-4) var(--sp-4);
+  background: rgba(255,107,26,.08); border: 1px solid rgba(255,107,26,.25);
+  border-radius: var(--r-carte); font-size: var(--t-s); color: var(--text2); line-height: 1.55;
+}
+.sources-warning strong { color: var(--accent-text); }
+.sources-grid { display: flex; flex-direction: column; gap: var(--sp-6); }
+/* MOB-01 : `display: grid` sans colonnes déclarées crée une piste implicite
+   dimensionnée sur le CONTENU. La carte la plus large imposait donc sa
+   largeur à la grille, la grille au document, et le document à tous les
+   blocs pleine largeur — dont l'en-tête. Mesuré à 375 px : 489 px de
+   débordement, le pire des 10 pages.
+   `minmax(0, 1fr)` autorise la piste à se réduire. C'est correct à TOUTES
+   les largeurs, pas seulement sur mobile. */
+.sources-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
+.sources-group-head { display: flex; align-items: baseline; gap: var(--sp-3); margin-bottom: var(--sp-0); }
+.sources-group-title { font-family: var(--font-head); font-size: var(--t-l); font-weight: 700; }
+.sources-group-sub { font-size: var(--t-s); color: var(--text3); flex: 1; }
+.sources-group-count {
+  font-size: var(--t-xs); font-weight: 700; color: var(--text2);
+  background: var(--bg3); border: 1px solid var(--border);
+  padding: var(--sp-0) var(--sp-2); border-radius: var(--r-feuille);
+}
+.source-type-badge {
+  font-size: var(--t-xs); font-weight: 700; color: var(--sur-couleur);
+  background: #7c3aed; padding: var(--sp-0) var(--sp-2); border-radius: var(--r-trait); letter-spacing: .03em;
+}
+.source-card {
+  display: flex; align-items: center; gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5); background: var(--bg2);
+  border: 1px solid var(--border); border-radius: var(--r-carte);
+  transition:border-color var(--transition);
+  min-width: 0;   /* MOB-01 : sans ça, un enfant large fige la carte */
+}
+.source-card.active { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange) inset; }
+/* Etat de la source, visible en permanence (audit AMEL-65). La couleur ne
+   porte pas seule l'information : le mot l'accompagne toujours. */
+.src-sante { font-size: var(--t-xs); margin-top: var(--sp-1); display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.src-sante-point { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+.maj-notes { margin-top: var(--sp-2); font-size: var(--t-s); color: var(--text2); }
+.maj-notes summary { cursor: pointer; color: var(--accent); }
+.maj-notes-vide { color: var(--text3); }
+.maj-version { margin-top: var(--sp-2); }
+.maj-version ul { margin: var(--sp-1) 0 0 var(--sp-4); padding: 0; }
+.maj-empreinte { margin-top: var(--sp-1); font-size: var(--t-xs); color: var(--text3); }
+.maj-empreinte code { font-size: var(--t-xs); }
+.maj-empreinte-absente { color: #f59e0b; }
+.src-mesures { flex-basis: 100%; color: var(--text2); font-variant-numeric: tabular-nums; }
+.src-mesures-base { color: var(--text3); }
+.src-mesure-alerte { color: #f59e0b; font-weight: 600; }
+.source-icon {
+  width: 48px; height: 48px; border-radius: var(--r-carte);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--t-xl); font-weight: 800;
+  background: linear-gradient(135deg, #ff8c42, #ff6b1a); color: var(--sur-couleur);
+  flex-shrink: 0;
+}
+.source-meta { flex: 1; min-width: 0; }
+.source-name { font-size: var(--t-m); font-weight: 600; display: flex; align-items: center; gap: var(--sp-2); }
+.source-version { font-size: var(--t-xs); color: var(--text3); background: var(--bg4); padding: var(--sp-0) var(--sp-2); border-radius: var(--r-trait); }
+.source-lang { font-size: var(--t-xs); color: var(--text3); background: var(--bg4); padding: var(--sp-0) var(--sp-2); border-radius: var(--r-trait); }
+.source-nsfw { font-size: var(--t-xs); color: #ef4444; background: rgba(239,68,68,.15); padding: var(--sp-0) var(--sp-2); border-radius: var(--r-trait); }
+.source-desc { font-size: var(--t-s); color: var(--text2); margin-top: var(--sp-1); line-height: 1.45; }
+.source-caps { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-top: var(--sp-2); }
+.source-cap { font-size: var(--t-xs); padding: var(--sp-0) var(--sp-2); background: var(--bg3); border-radius: var(--r-trait); color: var(--text3); }
+.source-actions { flex-shrink: 0; display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+
+/* ── MOB-01 / MOB-02 : la page au doigt ──────────────────
+   Six boutons en ligne — Activer, Tester, Journal, ▲, Désactiver,
+   Désinstaller — font 442 px de contenu. Ils ne tiendront jamais sur un
+   écran de 375, et `flex-shrink: 0` les empêchait même d'essayer : la
+   carte passait à 789 px et entraînait toute la page.
+   Sous 640 px, la carte devient une colonne et les actions prennent leur
+   propre ligne. Les boutons montent à 44 px de haut : c'est la taille
+   sous laquelle une cible tactile se rate (MOB-02, 34 px auparavant). */
+@media (max-width: 640px) {
+  .source-card { flex-wrap: wrap; padding: var(--sp-4); gap: var(--sp-3); }
+  .source-meta { flex: 1 1 auto; }
+  .source-actions {
+    flex: 1 0 100%;          /* ligne à part entière */
+    flex-shrink: 1;
+    justify-content: flex-start;
+  }
+  .source-actions .btn { min-height: 44px; padding-inline: 12px; }
+  .sources-group-head { flex-wrap: wrap; row-gap: var(--sp-0); }
+  .sources-group-sub { flex: 1 1 100%; }
+}
+.source-active-badge { font-size: var(--t-xs); color: var(--accent-text); font-weight: 600; }
+.empty-state { text-align: center; padding: var(--sp-7) var(--sp-5); color: var(--text3); }

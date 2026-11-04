@@ -155,7 +155,10 @@ for (const [nom, pal] of AVANT) {
 
 // ── Une seule échelle, pas quatre ──
 const CONSOMMATEURS = [
-    ['stats.html', ['stats.html'], 4],
+    // La feuille et non le gabarit : les styles de stats.html vivaient dans
+    // un bloc <style>, où rien de ce qui balaie assets/css/*.css ne les
+    // voyait. Ils en sont sortis ; le test suit où ils sont allés.
+    ['stats.css', ['assets', 'css', 'stats.css'], 4],
     ['la légende de stats.js', ['assets', 'js', 'stats.js'], 5],
     ['la légende du profil', ['profil.html'], 5],
     ['les deux grilles du profil', ['assets', 'js', 'profil.js'], 10],

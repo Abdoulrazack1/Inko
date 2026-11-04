@@ -20,47 +20,7 @@
   <meta name="theme-color" content="#0d0d0f">
   <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
   <link rel="stylesheet" href="assets/css/global.css">
-  <style>
-    .nt-wrap { max-width: 720px; margin: 0 auto; padding: 26px 20px 80px; }
-    .nt-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-    /* MOB-01 : cette barre portait un style EN LIGNE (`display:flex` sans
-       classe). Une media query ne peut pas l'atteindre — d'où la classe.
-       Ses trois boutons font 363 px à eux seuls : sur 375 px, avec l'horodatage
-       devant, la page dépassait de 82 px. */
-    .nt-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .nt-head h1 { font-family: var(--font-head); font-size: 26px; font-weight: 700; }
-    .nt-filters { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
-    .nt-pill { padding: 6px 14px; border-radius: 999px; font-size: 12.5px; background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); cursor: pointer; }
-    .nt-pill.active { background: var(--orange); border-color: var(--orange); color: #fff; font-weight: 600; }
-    .nt-item { display: flex; gap: 12px; padding: 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 9px; text-decoration: none; color: inherit; }
-    .nt-item.unread { background: rgba(255,140,66,.06); border-color: rgba(255,140,66,.25); }
-    .nt-ico { font-size: 20px; flex: 0 0 auto; }
-    .nt-body { min-width: 0; flex: 1; }
-    .nt-title { font-size: 13.5px; font-weight: 600; line-height: 1.35; }
-    .nt-text { font-size: 12.5px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
-    .nt-when { font-size: 11px; color: var(--text3); margin-top: 5px; }
-    .nt-empty { text-align: center; padding: 60px 20px; color: var(--text3); }
-    /* Regroupement (audit AMEL-53) : le nombre de parutions recouvertes par
-       la ligne. Rendu en pastille et non en texte — il se lit d'un coup d'œil
-       et ne concurrence pas le titre. */
-    .nt-count { display: inline-block; margin-left: 7px; padding: 0 7px; border-radius: 999px;
-      background: var(--orange); color: #fff; font-size: 10.5px; font-weight: 700; line-height: 16px;
-      vertical-align: middle; }
-    /* Réglages (audit AMEL-54) */
-    .nt-prefs { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
-      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
-      padding: 12px 14px; margin-bottom: 16px; font-size: 12.5px; color: var(--text2); }
-    .nt-prefs select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
-      border-radius: 8px; padding: 5px 9px; font-size: 12.5px; font-family: inherit; cursor: pointer; }
-    .nt-prefs-note { color: var(--text3); font-size: 11.5px; }
-
-    /* ── MOB-01 / MOB-02 : les notifications au doigt ────────── */
-    @media (max-width: 640px) {
-      .nt-actions { width: 100%; }
-      .nt-actions .btn { flex: 1 1 auto; min-height: 44px; }
-      .nt-item { gap: 10px; }
-    }
-  </style>
+  <link rel="stylesheet" href="assets/css/notifications.css">
 </head>
 <body class="page-body">
   <div id="header-slot"></div>

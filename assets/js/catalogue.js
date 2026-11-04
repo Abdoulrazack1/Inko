@@ -587,7 +587,6 @@
 
     function mangaCardHTML(m) {
         const src = m._source || API.sources.current;
-        const isNovel = MH.isNovelSource(src);
         const srcNsfw = (sourcesList.find(s => s.id === src) || {}).nsfw;
         // Audit C3 : lien « étendu » + cœur en frère (plus de bouton dans un lien)
         return `

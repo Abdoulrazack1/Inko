@@ -83,7 +83,7 @@
 #btnNotes { position: relative; }
 
 /* ── Page Journal de lecture ── */
-.jr-wrap { max-width: 900px; margin: 0 auto; padding: var(--sp-5) 20px 90px; }
+.jr-wrap { max-width: 900px; margin: 0 auto; padding: var(--page-haut) var(--page-cote) var(--page-bas); }
 .jr-head { margin-bottom: 20px; }
 .jr-head h1 { font-family: var(--font-head); font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
 .jr-sub { font-size: 13px; color: var(--text3); margin-top: var(--sp-1); }

@@ -1,0 +1,32 @@
+/* ============================================================
+   stats.css — les styles propres à stats.html
+   ------------------------------------------------------------
+   Ils vivaient dans un bloc <style> du gabarit. Tout ce qui
+   balaie assets/css/*.css y était donc AVEUGLE : le générateur
+   du repli aspect-ratio pour Android 8, le test qui interdit
+   une virgule traînante dans une liste de sélecteurs, et tous
+   les tests de composition.
+   ============================================================ */
+.st-wrap { max-width: 1080px; margin: 0 auto; padding: var(--page-haut) var(--page-cote) var(--page-bas); }
+.st-head h1 { font-family: var(--font-head); font-size: 27px; font-weight: 700; margin-bottom: var(--sp-1); }
+.st-head p { color: var(--text2); font-size: var(--t-s); margin-bottom: var(--sp-5); }
+.st-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-4); margin-bottom: var(--sp-6); }
+.st-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-carte); padding: var(--sp-4); }
+.st-card .v { font-size: var(--t-2xl); font-weight: 800; font-family: var(--font-head); line-height: 1; }
+.st-card .l { font-size: var(--t-s); color: var(--text3); margin-top: var(--sp-2); }
+.st-card.accent .v { color: var(--orange); }
+.st-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-feuille); padding: var(--sp-5); margin-bottom: var(--sp-5); }
+.st-panel h2 { font-size: var(--t-m); font-weight: 600; margin-bottom: var(--sp-4); }
+/* Heatmap */
+.hm { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); gap: var(--sp-1); overflow-x: auto; padding-bottom: var(--sp-2); }
+.hm i { width: 12px; height: 12px; border-radius: var(--r-trait); background: var(--hm0); }
+.hm i.l1 { background: var(--hm1); } .hm i.l2 { background: var(--hm2); }
+.hm i.l3 { background: var(--hm3); } .hm i.l4 { background: var(--hm4); }
+.hm-legend { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--t-xs); color: var(--text3); margin-top: var(--sp-3); justify-content: flex-end; }
+.hm-legend i { width: 12px; height: 12px; border-radius: var(--r-trait); display: inline-block; }
+/* Activity */
+.act { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid var(--border); font-size: var(--t-s); }
+.act:first-child { border-top: none; }
+.act .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--orange); flex-shrink: 0; }
+.act .when { margin-left: auto; font-size: var(--t-xs); color: var(--text3); }
+.st-empty { text-align: center; padding: var(--sp-7) var(--sp-5); color: var(--text3); }

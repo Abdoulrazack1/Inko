@@ -1,0 +1,73 @@
+/* ============================================================
+   import.css — les styles propres à import.html
+   ------------------------------------------------------------
+   Ils vivaient dans un bloc <style> du gabarit. Tout ce qui
+   balaie assets/css/*.css y était donc AVEUGLE : le générateur
+   du repli aspect-ratio pour Android 8, le test qui interdit
+   une virgule traînante dans une liste de sélecteurs, et tous
+   les tests de composition.
+   ============================================================ */
+.im-wrap { max-width: 880px; margin: 0 auto; padding: var(--page-haut) var(--page-cote) var(--page-bas); }
+.im-head h1 { font-family: var(--font-head); font-size: 27px; font-weight: 700; margin-bottom: var(--sp-1); }
+.im-head p { color: var(--text2); font-size: var(--t-s); margin-bottom: var(--sp-5); }
+.im-drop { border: 2px dashed var(--border2); border-radius: var(--r-feuille); padding: var(--sp-7) var(--sp-5); text-align: center; color: var(--text2); cursor: pointer; transition:border-color var(--transition),background var(--transition); background: var(--bg2); }
+.im-drop.drag { border-color: var(--orange); background: rgba(255,140,66,.06); }
+.im-drop .ic { font-size: var(--t-3xl); margin-bottom: var(--sp-3); }
+.im-drop .hint { font-size: var(--t-s); color: var(--text3); margin-top: var(--sp-2); }
+/* (.im-bar retiree : la barre unique est remplacee par la file d'attente
+   par fichier, audit AMEL-103. Elle entrait de surcroit en collision avec
+   la classe .im-bar du dock musical.) */
+.im-list { margin-top: var(--sp-6); }
+.im-item { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4); background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-carte); margin-bottom: var(--sp-3); }
+.im-cover { width: 44px; height: 60px; border-radius: var(--r-controle); background: linear-gradient(135deg,var(--orange),#ff8c42); display: flex; align-items: center; justify-content: center; font-size: var(--t-xl); flex-shrink: 0; }
+.im-meta { flex: 1; min-width: 0; }
+.im-title { font-weight: 600; font-size: var(--t-m); }
+.im-sub { font-size: var(--t-xs); color: var(--text3); margin-top: var(--sp-1); }
+.im-empty { text-align: center; padding: var(--sp-6); color: var(--text3); }
+/* Vignette extraite du fichier (audit AMEL-25) — remplace l'icône de type
+   quand elle a pu être lue. object-fit pour ne jamais déformer une
+   couverture dont le rapport ne correspond pas au cadre. */
+.im-cover-img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-controle); }
+/* Une PUCE : elle annonce un format, elle ne se clique pas. Elle prend
+   donc les jetons de sa famille au lieu de les redessiner, et sa petite
+   capitale espacee part -- c'est le signe le plus sur d'un gabarit. */
+.tag { font-size: var(--puce-taille); padding: var(--puce-rembourrage);
+  border-radius: var(--puce-rayon); font-weight: var(--puce-graisse);
+  background: var(--bg4); color: var(--text2); }
+
+/* ── Jauge de quota (audit AMEL-105) ── */
+.im-quota { margin: var(--sp-4) 0 var(--sp-1); }
+.im-quota-head { display: flex; justify-content: space-between; align-items: baseline;
+  font-size: var(--t-s); color: var(--text2); margin-bottom: var(--sp-2); }
+.im-quota-pct { font-variant-numeric: tabular-nums; color: var(--text3); }
+.im-quota-bar { height: 6px; border-radius: var(--r-trait); background: var(--bg4); overflow: hidden; }
+.im-quota-bar > div { height: 100%; width: 0; background: var(--accent); transition:width var(--transition2); }
+/* Au-delà de 85 %, l'information devient un avertissement : c'est là qu'un
+   import de 300 Mo risque d'être refusé après téléversement complet. */
+.im-quota-warn .im-quota-bar > div { background: var(--red); }
+.im-quota-warn .im-quota-head { color: var(--red-text); }
+
+/* ── File d'attente d'import (audit AMEL-103) ── */
+.im-queue { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-4) 0; }
+.im-q-item { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-carte); background: var(--bg2); }
+.im-q-name { font-size: var(--t-s); font-weight: 600; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.im-q-state { font-size: var(--t-xs); color: var(--text3); white-space: nowrap; }
+.im-q-bar { grid-column: 1 / -1; height: 3px; border-radius: var(--r-trait); background: var(--bg4); overflow: hidden; }
+.im-q-bar > div { height: 100%; background: var(--accent); transition:width var(--transition); }
+/* L'état se lit aussi sans la couleur : le texte le dit (« Importé »,
+   « Quota insuffisant — … »). La teinte ne fait que le confirmer. */
+.im-q-item.ok .im-q-state { color: var(--green-text); }
+.im-q-item.echec { border-color: rgba(168,50,50,.4); }
+.im-q-item.echec .im-q-state { color: var(--red-text); white-space: normal; }
+
+/* ── Regroupement en séries (audit AMEL-104) ── */
+.im-serie { border: 1px solid var(--border); border-radius: var(--r-carte);
+  background: var(--bg2); margin-bottom: var(--sp-3); overflow: hidden; }
+.im-serie-head { display: flex; justify-content: space-between; align-items: center;
+  padding: var(--sp-3) var(--sp-4); cursor: pointer; font-weight: 600; font-size: var(--t-m); }
+.im-serie-head::-webkit-details-marker { display: none; }
+.im-serie-count { font-size: var(--t-xs); color: var(--text3); font-weight: 500; }
+.im-serie .im-item-sub { border: none; border-top: 1px solid var(--border);
+  border-radius: 0; background: transparent; padding-left: var(--sp-5); }
