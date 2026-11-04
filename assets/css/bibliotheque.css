@@ -31,7 +31,7 @@
 .lib2-grid .lib2-card:hover { transform:translateY(-4px); }
 .lib2-grid .lib2-card:hover .lib2-cover { box-shadow:var(--shadow-3); }
 .lib2-grid .lib2-card:hover .lib2-cover img { transform:scale(1.06); }
-.lib2-badge { position:absolute; top:8px; left:8px; background:var(--hanko); color:var(--sur-couleur); font-size:11px; font-weight:700; padding:var(--sp-1) var(--sp-2); border-radius: var(--r-feuille); box-shadow:var(--e-detache); z-index:4; }
+.lib2-badge { position:absolute; top:8px; left:8px; background:var(--hanko); color:var(--sur-couleur); font-size: var(--pastille-taille); font-weight: var(--pastille-graisse); padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon); box-shadow:var(--e-detache); z-index:4; }
 /* si un badge de statut occupe déjà le coin haut-gauche, on descend le compteur */
 .lib2-status + .lib2-badge, .lib2-status ~ .lib2-badge { top:34px; }
 .lib2-pin { position:absolute; bottom:8px; right:8px; width:30px; height:30px; border-radius: var(--r-controle); border:none; background:rgba(0,0,0,.55); color:var(--sur-couleur); cursor:pointer; opacity:0; transform:translateY(4px); transition:opacity .14s, transform .14s, background .14s; backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; }
@@ -55,17 +55,17 @@
 
 /* Filtres (statuts / catégories) */
 .lib2-filters { display:flex; gap:var(--sp-2); flex-wrap:wrap; margin-bottom:var(--sp-4); align-items:center; width:100%; }
-.lib2-chip { padding:6px var(--sp-3); border-radius: var(--r-feuille); font-size:12.5px; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; font-weight:500; transition:all .12s; }
+.lib2-chip { padding: var(--puce-rembourrage); border-radius: var(--puce-rayon); font-size: var(--puce-taille); background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; font-weight: var(--puce-graisse); transition:all .12s; }
 .lib2-chip:hover { color:var(--text); border-color:var(--text3); }
 .lib2-chip.on { background:var(--accent); border-color:var(--accent); color:var(--sur-couleur); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
-.lib2-chip .cnt { opacity:.85; margin-left:var(--sp-1); font-size:11px; }
+.lib2-chip .cnt { opacity:.85; margin-left:var(--sp-1); font-size: 11px; }
 /* Audit QUAL-05 : sur une pastille active le fond devient l'accent ; l'opacité
    ramenait le compteur à 3,79:1. Sur ce fond-là, le blanc plein (4,65:1). */
 .lib2-chip.on .cnt, .lib2-chip.active .cnt,
 .lib2-kind.on .cnt, .lib2-kind.active .cnt { opacity:1; color:var(--sur-couleur); }
 .lib2-chip-add { color:var(--text3); border-style:dashed; }
-.lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:var(--sp-0) var(--sp-2); border-radius: var(--r-controle); text-transform:uppercase; letter-spacing:.03em; color:var(--sur-couleur); }
-.lib2-kind-badge { position:absolute; bottom:8px; left:8px; font-size:8.5px; font-weight:800; padding:var(--sp-0) 6px; border-radius: var(--r-controle); letter-spacing:.04em; color:var(--sur-couleur); background:var(--ai); box-shadow:var(--e-detache); }
+.lib2-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:var(--sp-0) var(--sp-2); border-radius:var(--r-controle); text-transform:uppercase; letter-spacing:.03em; color:var(--sur-couleur); }
+.lib2-kind-badge { position:absolute; bottom:8px; left:8px; font-size: var(--pastille-taille); font-weight: var(--pastille-graisse); padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon); letter-spacing:.04em; color:var(--sur-couleur); background:var(--ai); box-shadow:var(--e-detache); }
 .lib2-cat { font-size:10px; color:var(--text3); margin-top:1px; }
 
 /* Segment Mangas / Romans */
@@ -175,10 +175,10 @@
 }
 .lib2-resume-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: var(--sp-1) var(--sp-2);
+  padding: var(--puce-rembourrage);
   background: color-mix(in srgb, var(--orange) 12%, transparent);
-  border: 1px solid var(--orange); border-radius:  var(--r-pastille);
-  color: var(--orange); font: inherit; font-size: 12px; cursor: pointer;
+  border: 1px solid var(--orange); border-radius: var(--puce-rayon);
+  color: var(--orange); font: inherit; font-size: var(--puce-taille); cursor: pointer;
 }
 .lib2-resume-chip:hover { background: var(--orange); color: var(--sur-couleur); }
 .lib2-resume-tout {

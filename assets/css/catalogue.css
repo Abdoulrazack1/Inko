@@ -56,10 +56,10 @@
 .filter-active-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-active-chip {
   display: inline-flex; align-items: center; gap: var(--sp-1);
-  padding: var(--sp-1) var(--sp-2); border-radius:  var(--r-pastille); cursor: pointer;
+  padding: var(--puce-rembourrage); border-radius: var(--puce-rayon); cursor: pointer;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   border: 1px solid var(--accent); color: var(--accent-text);
-  font-size: 11.5px; font-family: inherit;
+  font-size: var(--puce-taille); font-family: inherit;
 }
 .filter-active-chip:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
 .filter-active-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -70,8 +70,8 @@
 }
 .filter-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 .filter-tag {
-  padding: var(--sp-1) var(--sp-2); background: var(--bg3); border: 1px solid var(--border);
-  border-radius:  var(--r-feuille); font-size: 11px; color: var(--text2);
+  padding: var(--puce-rembourrage); background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--puce-rayon); font-size: var(--puce-taille); color: var(--text2);
   transition: all var(--transition); cursor: pointer;
 }
 .filter-tag:hover, .filter-tag.active {
@@ -168,8 +168,8 @@
 .catalogue-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .catalogue-chip {
   display: flex; align-items: center; gap: 6px;
-  padding: var(--sp-1) 10px; background: var(--bg3); border: 1px solid var(--border);
-  border-radius:  var(--r-feuille); font-size: 11.5px; color: var(--text2);
+  padding: var(--puce-rembourrage); background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--puce-rayon); font-size: var(--puce-taille); color: var(--text2);
 }
 .catalogue-chip svg, .catalogue-chip-icon { color: var(--orange); font-size: 12px; }
 .catalogue-quick-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
@@ -264,8 +264,8 @@
 /* Catalogue card extra info */
 .manga-card-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
 .manga-card-tag {
-  font-size: 10px; padding: 1px 6px;
-  background: var(--bg4); border-radius:  var(--r-trait); color: var(--text2);
+  font-size: var(--pastille-taille); padding: var(--pastille-rembourrage);
+  background: var(--bg4); border-radius: var(--pastille-rayon); color: var(--text2);
 }
 
 /* Pagination */
@@ -360,7 +360,7 @@
   .catalogue-title { font-size: 20px; }
   .catalogue-desc { font-size: 12px; }
   .filter-tags { gap: var(--sp-1); }
-  .filter-tag { font-size: 10.5px; padding: var(--sp-0) var(--sp-2); }
+  .filter-tag { font-size: var(--puce-taille); padding: var(--puce-rembourrage); }
 }
 
 /* ══ Échelle de colonnes TACTILE (audit IX.5) ═══════════

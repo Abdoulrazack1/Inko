@@ -184,7 +184,7 @@
 .jr-vue { border: 0; background: none; color: var(--text2); padding: 6px var(--sp-3); font-size: 13px; cursor: pointer; }
 .jr-vue[aria-pressed="true"] { background: var(--bg3); color: var(--text); font-weight: 600; }
 .jr-types, .jr-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.jr-chip { border: 1px solid var(--border2); background: var(--bg2); color: var(--text2); border-radius:  var(--r-feuille); padding: var(--sp-1) 10px; font-size: 12px; cursor: pointer; }
+.jr-chip { border: 1px solid var(--border2); background: var(--bg2); color: var(--text2); border-radius: var(--puce-rayon); padding: var(--puce-rembourrage); font-size: var(--puce-taille); cursor: pointer; }
 .jr-chip span { color: var(--text3); margin-left: var(--sp-0); }
 .jr-chip.on { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 14%, var(--bg2)); }
 .jr-chip-tag { font-family: var(--font-mono); }

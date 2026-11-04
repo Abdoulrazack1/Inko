@@ -47,6 +47,8 @@
         { titre: 'Rayons', prefixe: '--r-', quoi: 'Du trait de progression à la feuille. Chaque boîte porte son propre rayon.' },
         { titre: 'Élévations', prefixe: '--e-', quoi: 'Les hauteurs au-dessus du fond. Chaque carte projette son ombre réelle.' },
         { titre: 'Espacement', prefixe: '--sp-', quoi: 'Les écarts autorisés, dessinés à leur vraie largeur.' },
+        { titre: 'Puces', prefixe: '--puce-', quoi: 'L’autre moitié : une puce se CLIQUE pour filtrer. Elle a donc sa propre taille de cible et son propre rembourrage — c’est ce qui la distingue d’une pastille, qui ne fait qu’annoncer.' },
+        { titre: 'Pastilles et puces', prefixe: '--pastille-', quoi: 'Une pastille se POSE (elle annonce un état), une puce se CLIQUE (elle filtre). Deux intentions que trente-quatre dessins mélangeaient ; ces jetons portent la première.' },
         { titre: 'Jauges', prefixe: '--jauge-', quoi: 'Les trois épaisseurs de barre de progression, leur piste, leur couleur et leur durée. Trois et pas une : un fil sous une couverture, une barre de chapitre et une jauge d’objectif ne se lisent pas de la même distance.' },
         { titre: 'Champ de saisie', prefixe: '--champ-', quoi: 'Le contrat d’un champ : son fond, son filet, son rembourrage, son rayon, sa taille. Une page qui veut un champ plus dense change ces jetons-là — elle ne redessine pas le champ.' },
         { titre: 'Carte de série', prefixe: '--carte-', quoi: 'Le contrat d’une carte de série : son rapport, son rayon, et la densité de sa légende. Une page qui veut une carte plus dense change ces jetons-là — elle ne redessine pas la carte.' },

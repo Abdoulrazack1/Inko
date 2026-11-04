@@ -86,16 +86,12 @@
 .shelf-cover { position: relative; aspect-ratio: var(--carte-ratio); border-radius:  var(--r-carte); overflow: hidden; background: var(--bg3); }
 .shelf-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
 .shelf-card:hover .shelf-cover img { transform: scale(1.04); }
-/* Hauteur figée à deux lignes, comme `.manga-card-title` : sans elle, un
-   titre court remonte la ligne de méta et les bas de cartes du rayon ne
-   s’alignent plus. C’est aussi ce qui empêchait un squelette de réserver
-   la bonne place — la carte réelle n’en avait pas de fixe. */
 .shelf-name { margin-top: var(--sp-2); font-size: var(--carte-titre); font-weight: var(--carte-graisse); line-height: 1.3;
     min-height: 2.6em;
     display: -webkit-box; -webkit-line-clamp: var(--carte-lignes); -webkit-box-orient: vertical; overflow: hidden; }
 .shelf-meta { margin-top: var(--sp-0); font-size: var(--carte-meta); color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.shelf-badge { position: absolute; left: 6px; bottom: 6px; z-index: 2; padding: var(--sp-1) var(--sp-2); border-radius:  var(--r-carte);
-    background: var(--accent); color: var(--sur-couleur); font-size: 11px; font-weight: 700; box-shadow: var(--e-detache); }
+.shelf-badge { position: absolute; left: 6px; bottom: 6px; z-index: 2; padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon);
+    background: var(--accent); color: var(--sur-couleur); font-size: var(--pastille-taille); font-weight: var(--pastille-graisse); box-shadow: var(--e-detache); }
 .shelf-card .card-fav-btn, .shelf-x { position: absolute; top: 6px; right: 6px; z-index: 3; }
 .shelf-x { width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: var(--sur-couleur); cursor: pointer; opacity: 0; transition: opacity .15s; }
 .shelf-card:hover .shelf-x, .shelf-x:focus-visible { opacity: 1; }
