@@ -1662,15 +1662,61 @@ html[data-densite="compact"] .manga-card-pied .mc-year,
 html[data-densite="dense"] .manga-card-pied .mc-year { display: none; }
 
 /* Et même sans l'année, « En cours » demande 53 px quand il en reste 50.
-   Le statut porte DÉJÀ sa pastille de couleur (`::before`, 5 px) : en
-   compact, elle suffit — c'est la même information, et c'est elle qu'on
-   lit du coin de l'œil sur une grille de huit colonnes.
 
-   `font-size: 0` et non `display: none` sur le mot : il reste dans le
-   document, donc un lecteur d'écran l'annonce toujours. Une densité est
-   un choix de place à l'écran, jamais un retrait d'information. */
+   Première tentative : garder la pastille de couleur du statut et
+   masquer le mot. C'était une erreur, et elle se voit tout de suite —
+   une rondelle verte ne dit RIEN à qui la regarde. Personne ne devine
+   que vert vaut « en cours » et bleu « terminé » sans légende, et il n'y
+   a pas de légende sur une grille de couvertures. Une information qu'on
+   ne peut pas lire n'est pas une information : c'est une énigme.
+
+   Donc en compact le statut part, entier. Il reste là où il y a la
+   place de l'ÉCRIRE : les deux autres densités, la fiche de l'œuvre, et
+   la bibliothèque. Mieux vaut ne rien montrer que montrer une marque
+   indéchiffrable. */
 html[data-densite="compact"] .manga-card-pied .mc-status,
-html[data-densite="dense"] .manga-card-pied .mc-status { font-size: 0; gap: 0; }
+html[data-densite="dense"] .manga-card-pied .mc-status { display: none; }
+
+/* ── En compact, le pied REJOINT la ligne du titre ─────────
+   Première version : le pied restait une rangée à lui, et n'y portait
+   plus qu'une pastille de 5 px. Mesuré : 80 px de large pour 5 px
+   d'information, 53 px de vide jusqu'au cœur — et le cœur lui-même est
+   invisible au repos quand l'œuvre n'est pas en favori. La rangée se
+   lisait donc comme un chargement qui a échoué.
+
+   La page des rayons tenait déjà la bonne forme : `.shelf-nom` est une
+   ligne où le titre prend la place et l'action se range au bout. On la
+   reprend — le titre, puis la pastille et le cœur serrés à la fin de la
+   MÊME ligne. Plus de rangée presque vide, et rien de perdu.
+
+   Une grille à deux colonnes plutôt que `display: contents`, qui est du
+   Chrome 65 : le WebView d'Android 8 ne le connaît pas, et le portillon
+   de l'APK refuse ce qui n'a pas de repli. */
+html[data-densite="compact"] .manga-card-info,
+html[data-densite="dense"] .manga-card-info {
+  display: grid; grid-template-columns: 1fr auto;
+  align-items: center; column-gap: var(--sp-1);
+}
+html[data-densite="compact"] .manga-card-title,
+html[data-densite="dense"] .manga-card-title {
+  grid-column: 1; grid-row: 1; min-width: 0; margin-bottom: 0;
+}
+/* L'auteur ne tient pas sur une carte de 104 px sans tout écraser. */
+html[data-densite="compact"] .manga-card-author,
+html[data-densite="dense"] .manga-card-author { display: none; }
+html[data-densite="compact"] .manga-card-pied,
+html[data-densite="dense"] .manga-card-pied {
+  grid-column: 2; grid-row: 1;
+  margin-top: 0; padding-top: 0; min-height: 0; gap: var(--sp-1);
+}
+/* Serrés ensemble au bout de la ligne : la pastille n'a plus à traverser
+   la carte pour rejoindre le cœur. */
+html[data-densite="compact"] .manga-card-pied .manga-card-meta,
+html[data-densite="dense"] .manga-card-pied .manga-card-meta { flex: 0 0 auto; }
+/* Et le cœur reste visible : au bout d'une ligne de titre il fait partie
+   de la ligne, là où dans une rangée à lui il avait l'air d'un oubli. */
+html[data-densite="compact"] .manga-card-actions .card-fav-btn,
+html[data-densite="dense"] .manga-card-actions .card-fav-btn { opacity: 1; }
 
 /* ── Le bandeau « il manque quelque chose » ───────────────
    Il était dessiné en attributs `style`, sur huit écrans. Sa place est

@@ -102,18 +102,57 @@ test('en compact, la carte renonce à ce qui ne tient pas', () => {
     assert.match(bloc[0], /\.card-list-btn/);
     assert.match(bloc[0], /\.mc-year/);
 
-    // Le statut garde sa pastille de couleur et perd son mot — c'est la
-    // même information, et c'est elle qu'on lit du coin de l'œil.
-    const st = /html\[data-densite="compact"\] \.manga-card-pied \.mc-status[\s\S]*?\{([^}]*)\}/.exec(CSS);
-    assert.ok(st, 'le statut compact');
-    assert.match(st[1], /font-size: 0/);
-    // `font-size: 0` et NON `display: none` : le mot reste dans le
-    // document, donc un lecteur d'écran l'annonce toujours. Une densité
-    // est un choix de place à l'écran, jamais un retrait d'information.
-    assert.ok(!/display: none/.test(st[1]),
-        'le mot reste lisible pour les technologies d’assistance');
-    // Et la pastille de couleur est bien portée par le statut lui-même.
-    assert.match(CSS, /\.manga-card-meta \.mc-status::before \{ content: ''; width: 5px/);
+    // Le statut, lui, a sa propre règle et son propre test : voir
+    // « une marque qu’on ne peut pas lire ne s’affiche pas ».
+});
+
+test('en compact, le pied rejoint la ligne du titre', () => {
+    // Première version : le pied restait une rangée à lui et n'y portait
+    // plus qu'une pastille de 5 px. Mesuré : 80 px de large pour 5 px
+    // d'information, 53 px de vide jusqu'au cœur — et le cœur est
+    // invisible au repos quand l'œuvre n'est pas en favori. La rangée se
+    // lisait comme un chargement qui a échoué.
+    //
+    // La page des rayons tenait déjà la bonne forme : `.shelf-nom` est
+    // une ligne où le titre prend la place et l'action se range au bout.
+    const info = regle('html[data-densite="compact"] .manga-card-info,\nhtml[data-densite="dense"] .manga-card-info');
+    assert.ok(info, 'la légende compacte');
+    assert.match(info, /display: grid/);
+    assert.match(info, /grid-template-columns: 1fr auto/);
+
+    const pied = regle('html[data-densite="compact"] .manga-card-pied,\nhtml[data-densite="dense"] .manga-card-pied');
+    assert.ok(pied, 'le pied compact');
+    assert.match(pied, /grid-column: 2; grid-row: 1/, 'au bout de la ligne du titre');
+    assert.match(pied, /min-height: 0/, 'et il ne réserve plus sa rangée');
+
+    // Le cœur reste visible : au bout d'une ligne de titre il fait partie
+    // de la ligne, là où dans une rangée à lui il avait l'air d'un oubli.
+    assert.match(regle('html[data-densite="compact"] .manga-card-actions .card-fav-btn,\nhtml[data-densite="dense"] .manga-card-actions .card-fav-btn'),
+        /opacity: 1/);
+
+    // `display: contents` aurait été plus direct, mais c'est du Chrome 65 :
+    // le WebView d'Android 8 ne le connaît pas et le portillon de l'APK
+    // refuse ce qui n'a pas de repli. (Hors commentaires : le choix est
+    // expliqué juste au-dessus de la règle.)
+    const sansCommentaires = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.ok(!/display: contents/.test(sansCommentaires), 'aucun display: contents');
+});
+
+test('en compact, une marque qu’on ne peut pas lire ne s’affiche pas', () => {
+    // Première tentative : garder la pastille de couleur du statut et
+    // masquer le mot (`font-size: 0`). C'était une erreur. Une rondelle
+    // verte ne dit RIEN à qui la regarde : personne ne devine que vert
+    // vaut « en cours » et bleu « terminé » sans légende, et il n'y a pas
+    // de légende sur une grille de couvertures.
+    //
+    // Le statut part donc entier en compact. Il reste là où il y a la
+    // place de l'ÉCRIRE — les deux autres densités, la fiche de l'œuvre,
+    // la bibliothèque.
+    const st = regle('html[data-densite="compact"] .manga-card-pied .mc-status,\nhtml[data-densite="dense"] .manga-card-pied .mc-status');
+    assert.ok(st, 'le statut en compact');
+    assert.match(st, /display: none/);
+    assert.ok(!/font-size: 0/.test(st),
+        'plus de mot masqué derrière une pastille muette');
 });
 
 test('toutes les grilles lisent les mêmes deux jetons', () => {
