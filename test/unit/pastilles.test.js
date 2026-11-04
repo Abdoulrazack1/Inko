@@ -38,8 +38,12 @@ const TOUT = FEUILLES.map(([, s]) => s).join('\n');
 const PASTILLES = ['shelf-badge', 'lib2-badge', 'lib2-kind-badge', 'manga-card-tag',
     'badge', 'conn-pill', 'nav-badge', 'stat-mini-badge', 'se-gtag', 'se-lib-badge',
     'se-src-chip', 'lang-badge', 'status-badge', 'badge-new', 'collection-card-tag',
-    'page-counter-badge'];
-const PUCES = ['lib2-chip', 'filter-active-chip', 'filter-tag', 'catalogue-chip',
+    'page-counter-badge', 'catalogue-chip'];
+// `catalogue-chip` était classée parmi les puces. Elle est rendue en
+// <div>, jamais en bouton : elle AFFICHE la source et la langue du
+// catalogue, elle ne filtre rien. Une pastille se pose, une puce se
+// clique — c’est la définition posée ici même, et elle tranche.
+const PUCES = ['lib2-chip', 'filter-active-chip', 'filter-tag',
     'hero-tag', 'tag', 'jr-chip', 'se-chip'];
 
 // Les éléments INTERNES d'une puce ne sont pas des puces : un compteur,

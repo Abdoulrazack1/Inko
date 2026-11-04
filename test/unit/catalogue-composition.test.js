@@ -66,7 +66,9 @@ test('le « + » suit le cœur dans la légende', () => {
     assert.ok(!/border-radius: 50%/.test(b), 'ni rond');
     assert.ok(!/backdrop-filter/.test(b), 'ni flouté');
     assert.ok(!/background: rgba\(0,0,0/.test(b), 'ni noir translucide');
-    assert.match(JS, /<div class="manga-card-info">\$\{cardInfoHTML\(m\)\}\n\s*<button class="card-list-btn"/,
+    // Un commentaire peut s'intercaler : ce qui compte est que le bouton
+    // soit DANS la légende, pas collé à la ligne précédente.
+    assert.match(JS, /<div class="manga-card-info">\$\{cardInfoHTML\(m\)\}[\s\S]{0,400}?<button class="card-list-btn"/,
         'et il vit dans la légende');
 });
 
@@ -105,7 +107,9 @@ test('un filtre s’allume d’une seule façon', () => {
     const fam = ['.filter-tag', '.filter-status-btn', '.lang-btn', '.quick-filter-btn'];
     const commune = /\n\.filter-tag, \.filter-status-btn, \.lang-btn, \.quick-filter-btn \{([^}]*)\}/.exec(CAT);
     assert.ok(commune, 'une règle les porte toutes les quatre');
-    assert.match(commune[1], /border-radius: var\(--radius2\)/, 'un seul rayon, pris dans l’échelle');
+    // Depuis #149, le rayon d’une puce vient de SA famille (--puce-rayon)
+    // et non de l’échelle générale. Ce test avait été écrit avant elle.
+    assert.match(commune[1], /border-radius: var\(--puce-rayon\)/, 'un seul rayon, celui de la famille');
     assert.ok(!/border: 1px/.test(commune[1]), 'et pas de filet');
     // Plus aucune d'entre elles ne garde sa propre géométrie.
     for (const sel of fam) {

@@ -1545,7 +1545,7 @@ a[data-nsfw] .manga-card-cover::after,
 }
 .manga-card-meta .mc-status {
   font-size: var(--t-xs); font-weight: 600;
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: var(--sp-1);
 }
 .manga-card-meta .mc-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .mc-status.mc-ongoing   { color: var(--green-text); }   /* audit A11Y-02 : 3.58:1 avant */

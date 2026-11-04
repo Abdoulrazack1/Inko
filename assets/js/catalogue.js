@@ -596,32 +596,18 @@
             <div class="manga-card-cover">
                 <img src="${MH.cover(m.cover)}" alt="${MH.esc(m.title)}" loading="lazy" decoding="async"
                      onerror="this.src='${MH.placeholderCover(m.id)}'">
-<<<<<<< HEAD
-                <div class="manga-card-badges">
-                    ${isNovel ? '<span class="badge" style="background:var(--ai);color:#fff">ROMAN</span>' : ''}
-                    ${m.status === 'completed' ? '<span class="badge badge-termine">TERMINÉ</span>' : ''}
-                    ${m.status === 'hiatus' ? '<span class="badge badge-pause">PAUSE</span>' : ''}
-                </div>
+            </div>
+            <div class="manga-card-info">${cardInfoHTML(m)}
                 <!-- Audit AMEL-39 : l'ajout à une liste n'était possible que
                      depuis la fiche série — il fallait donc ouvrir chaque titre
                      pour le ranger, alors qu'on constitue une liste EN
                      parcourant le catalogue. -->
-=======
-                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris" aria-pressed="false" aria-label="Ajouter aux favoris">${MH.heartIcon(false)}</button>
-            </div>
-            <div class="manga-card-info">${cardInfoHTML(m)}
->>>>>>> 5f9f4c1 (Catalogue : un filtre s'allume d'une seule facon)
                 <button class="card-list-btn" data-addlist="${MH.esc(m.id)}" data-src="${MH.esc(src)}"
                         data-title="${MH.esc(m.title || '')}" data-cover="${MH.esc(m.cover || '')}"
                         title="Ajouter à une liste" aria-label="Ajouter « ${MH.esc(m.title)} » à une liste">+</button>
-            </div>
-<<<<<<< HEAD
-            <div class="manga-card-info">${cardInfoHTML(m)}
                 <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris" aria-pressed="false"
-                    aria-label="Ajouter « ${MH.esc(m.title)} » aux favoris">${MH.heartIcon(false)}</button>
+                    aria-label="Ajouter « ${MH.esc(m.title)} » aux favoris">${MH.heartIcon(false)}</button>
             </div>
-=======
->>>>>>> 5f9f4c1 (Catalogue : un filtre s'allume d'une seule facon)
         </div>`;
     }
 

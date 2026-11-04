@@ -57,8 +57,9 @@
    dans le bouton, pas a cote — c'est toute la pastille qui est cliquable. */
 .filter-active-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-active-chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: var(--sp-1) 9px; border-radius: var(--radius2); border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  font-size: var(--puce-taille);
+  padding: var(--puce-rembourrage); border-radius: var(--puce-rayon); border: 0; cursor: pointer;
   background: var(--bg4); color: var(--accent-text);
   box-shadow: inset 2px 0 0 var(--accent);
   font-size: var(--t-xs); font-family: inherit;
@@ -81,8 +82,8 @@
    Un seul objet, et l’actif marqué comme partout ailleurs désormais :
    un pas de clarté, l’encre pleine, un filet d’accent à gauche. */
 .filter-tag, .filter-status-btn, .lang-btn, .quick-filter-btn {
-  padding: var(--sp-1) 10px; background: var(--bg3); border: 0;
-  border-radius: var(--radius2); font-size: var(--t-xs); color: var(--text2);
+  padding: var(--puce-rembourrage); background: var(--bg3); border: 0;
+  border-radius: var(--puce-rayon); font-size: var(--puce-taille); color: var(--text2);
   font-family: inherit; cursor: pointer;
   transition: color var(--transition), background var(--transition);
 }
@@ -173,10 +174,10 @@
 .catalogue-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .catalogue-chip {
   display: flex; align-items: center; gap: 6px;
-  padding: var(--sp-1) 10px; background: var(--bg3); border: 0;
-  border-radius: var(--radius2); font-size: var(--t-xs); color: var(--text2);
+  padding: var(--pastille-rembourrage); background: var(--bg3); border: 0;
+  border-radius: var(--pastille-rayon); font-size: var(--pastille-taille); color: var(--text2);
 }
-.catalogue-chip svg, .catalogue-chip-icon { color: var(--orange); font-size: var(--t-s); }
+.catalogue-chip svg, .catalogue-chip-icon { color: var(--orange); font-size: var(--pastille-taille); }
 .catalogue-quick-filters { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-bottom: 10px; }
 .catalogue-actions-bar { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .catalogue-active-filters { font-size: var(--t-xs); color: var(--orange); font-weight: 500; }
@@ -252,7 +253,8 @@
    comme sur un rayon, et aérées entre les rangées pour que la légende
    de l’une ne touche pas l’œuvre de la suivante. */
 .results-grid {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 22px 6px;
+  display: grid; gap: var(--sp-5) var(--grille-gouttiere);
+  grid-template-columns: repeat(auto-fill, minmax(var(--grille-carte), 1fr));
   margin-bottom: 28px;
 }
 .results-grid.list-view { grid-template-columns: 1fr; }
@@ -266,7 +268,7 @@
 /* Catalogue card extra info */
 .manga-card-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
 /* Rien sous 11 px : une donnée qu’on n’arrive pas à lire ne sert personne. */
-.manga-card-tag { font-size: var(--t-xs); color: var(--text3); }
+.manga-card-tag { font-size: var(--pastille-taille); color: var(--text3); }
 
 /* Pagination */
 .pagination { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 40px; }
@@ -362,7 +364,7 @@
   .catalogue-title { font-size: var(--t-xl); }
   .catalogue-desc { font-size: var(--t-s); }
   .filter-tags { gap: var(--sp-1); }
-  .filter-tag, .filter-status-btn, .lang-btn, .quick-filter-btn { font-size: var(--t-xs); padding: 3px var(--sp-2); }
+  .filter-tag, .filter-status-btn, .lang-btn, .quick-filter-btn { font-size: var(--puce-taille); padding: var(--puce-rembourrage); }
 }
 
 /* ══ Échelle de colonnes TACTILE (audit IX.5) ═══════════
