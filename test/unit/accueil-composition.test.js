@@ -1,22 +1,25 @@
 // ============================================================
-// test/unit/accueil-composition.test.js — l'accueil a une dominante
+// test/unit/accueil-composition.test.js — l'accueil est une étagère
 // ------------------------------------------------------------
 // La page posait trois compositions de même poids : une salutation de
 // 36 px qui ne dit rien, trois tuiles de statistiques encadrées, et une
 // bande de reprise dont les deux tiers étaient vides. L'objet qui répond
 // à la question de l'écran — « où est-ce que je m'étais arrêté ? » —
-// était le PLUS PETIT de la page : une couverture de 132 px.
+// était le PLUS PETIT de la page.
 //
-// Mesuré par l'inspecteur de direction artistique, avant → après :
+// La première correction n'a fait que recomposer DANS le même langage :
+// une carte arrondie plus grande, posée sur un gris. Mesuré, ce langage
+// était le vrai défaut — 163 surfaces arrondies sur une seule page, dont
+// 139 au même rayon de 12 px. Aucune palette ne corrige ça.
 //
-//     FAIL   8 → 0     (en écartant trois défenses écrites au rapport)
-//     dégradés        31 → 0
-//     bordures lourdes 10 → 0
+// On ne regarde pas une bibliothèque en vignettes : on la regarde par la
+// TRANCHE, et on tire le volume qu'on veut. Sept conteneurs pour montrer
+// sept couvertures sont devenus zéro : la couverture EST la latte, sa
+// largeur dit si c'est celle qu'on lit, et le filet du bas porte la
+// progression réelle.
 //
-// Ce que le test garde, ce ne sont pas des pixels — c'est la hiérarchie :
-// l'écran d'application a un titre d'écran et non une accroche, les
-// chiffres sont une phrase et non des tuiles, et la couverture est
-// l'objet dominant.
+// Mesure de l'inspecteur de direction artistique : 0 FAIL à 1440, 768 et
+// 390, trois défenses écrites au rapport.
 'use strict';
 
 const { test } = require('node:test');
@@ -37,7 +40,6 @@ const regle = (src, sel) => {
 
 test('le titre est celui d\'un écran, pas d\'une page d\'accroche', () => {
     const h = regle(CSS, '.home-hello');
-    assert.ok(h, '.home-hello doit exister');
     const m = /font-size:\s*clamp\(\s*([\d.]+)px[^)]*?([\d.]+)px\s*\)/.exec(h);
     assert.ok(m, 'la taille est fluide');
     assert.ok(Number(m[2]) <= 32,
@@ -46,51 +48,61 @@ test('le titre est celui d\'un écran, pas d\'une page d\'accroche', () => {
 
 test('les chiffres sont une phrase, plus des tuiles encadrées', () => {
     assert.ok(!/\.home-stat\b/.test(CSS), 'les tuiles ont disparu');
-    assert.match(CSS, /\.home-chiffres \{/, 'remplacées par une ligne');
-    assert.match(HTML, /<ul class="home-chiffres"/, 'et par une vraie liste dans le gabarit');
-    const c = regle(CSS, '.home-chiffres');
-    assert.match(c, /tabular-nums/,
+    assert.match(HTML, /<ul class="home-chiffres"/, 'remplacées par une vraie liste');
+    assert.match(regle(CSS, '.home-chiffres'), /tabular-nums/,
         'des chiffres qui changent de largeur d’un chargement à l’autre dansent');
-    // Le plus gros chiffre de l'écran doit répondre à sa question, et la
-    // question n'est pas « combien de chapitres as-tu lus en tout ».
-    const taille = /font-size:\s*([\d.]+)px/.exec(c);
-    assert.ok(Number(taille[1]) <= 14, `la ligne de chiffres reste du texte — ${taille[1]}px`);
 });
 
-test('la couverture est l\'objet dominant de la page', () => {
-    const couv = regle(CSS, '.cont-hero-cover');
-    const m = /width:\s*clamp\([^,]+,[^,]+,\s*([\d.]+)px\)/.exec(couv);
-    assert.ok(m, 'la couverture a une largeur fluide');
-    assert.ok(Number(m[1]) >= 190,
-        `elle répond à la question de l'écran : elle ne peut pas faire ${m[1]}px`);
-    // Et elle ne flotte pas : dans ce style, l'élévation vient de la clarté.
-    assert.ok(!/box-shadow/.test(couv), 'pas d’ombre portée sur la couverture');
+test('la reprise n\'a plus un seul conteneur', () => {
+    // Sept cartes encadrées pour montrer sept couvertures. Ici, aucune :
+    // la couverture est la latte.
+    for (const mort of ['.cont-hero', '.cont-item', '.cont-row']) {
+        assert.ok(!new RegExp('\\' + mort + '(?![a-z0-9-])').test(CSS),
+            `${mort} appartient à l'ancienne grammaire`);
+    }
+    const latte = regle(CSS, '.latte');
+    assert.ok(latte, '.latte doit exister');
+    assert.ok(!/border-radius/.test(latte), 'un livre serré contre ses voisins n’a pas de rayon');
+    assert.ok(!/box-shadow/.test(latte), 'ni d’ombre portée');
+    assert.ok(!/border:/.test(latte), 'ni de cadre');
 });
 
-test('la bande ne laisse plus la moitié de l\'écran vide', () => {
-    assert.match(CSS, /@media \(min-width: 1080px\) \{\s*\n\s*\.home-continue \{ display: grid;/,
-        'au-delà de 1080 px, la reprise et les lectures en cours forment une seule composition');
+test('la largeur et la clarté d\'une latte sont des données, pas un décor', () => {
+    assert.match(CSS, /\.latte--ouverte \{[^}]*flex-grow/,
+        'celle qu’on lit est tirée de l’étagère');
+    assert.match(CSS, /\.latte--ouverte \.latte-couv \{[^}]*filter: none/,
+        'et elle est à sa vraie lumière ; les autres restent dans l’ombre du rang');
+    assert.match(CSS, /\.latte-jauge > span \{[^}]*background: var\(--accent\)/,
+        'le filet du bas porte la progression — la seule couleur d’accent de la page');
+    assert.match(JS, /latte-jauge[^`]*width:\$\{pct\(e\)\}%/,
+        'et cette progression est la vraie valeur');
 });
 
-test('le pourcentage n\'est écrit qu\'une fois', () => {
-    // Deux endroits pour la même valeur, c'est deux endroits où elle peut
-    // se contredire — et la bande en affichait déjà un grand chiffre.
-    assert.match(JS, /const ouHero = \(e\) =>/, 'la phrase de la bande a sa propre formulation');
-    assert.match(JS, /cont-hero-where">\$\{MH\.esc\(ouHero\(une\)\)\}/);
-    assert.match(CSS, /\.cont-hero-pct \{/, 'et le pourcentage est le grand chiffre');
+test('le téléphone a sa propre composition', () => {
+    // Sept lattes dans 375 px donnaient des tranches de 35 px dont le
+    // rembourrage écrasait le titre.
+    assert.match(CSS, /@media \(max-width: 560px\) \{[\s\S]*?\.latte:nth-child\(n\+6\) \{ display: none/,
+        'cinq lattes au téléphone, pas sept');
+    // `global.css` relève tous les enfants d'un lien au pointeur grossier,
+    // pour la zone d'atteinte étendue : sans ce rattrapage, le dos de la
+    // latte tombait SOUS l'étagère et le titre disparaissait.
+    assert.match(CSS, /@media \(pointer: coarse\) \{[\s\S]*?\.latte > \.latte-dos \{ position: absolute/,
+        'et les lattes gardent leur empilement au doigt');
 });
 
 test('ce que la direction artistique interdit a disparu', () => {
-    // Chacun de ces points était un FAIL mesuré dans la page réelle.
-    assert.ok(!/linear-gradient/.test(GLOBAL.split('REPLI aspect-ratio')[0].replace(/\/\*[\s\S]*?\*\//g, '').match(/\.skeleton \{[^}]*\}/)?.[0] || ''),
-        'le miroitement des squelettes était un dégradé animé');
     assert.ok(!/box-shadow/.test(regle(GLOBAL, '.btn-primary') || ''),
         'un bouton principal est un aplat, sans relief');
     assert.ok(!/text-transform:\s*uppercase/.test(regle(GLOBAL, '.footer-col h4') || ''),
         'plus de petite capitale espacée en titre de colonne');
-    const kicker = regle(CSS, '.cont-hero-kicker');
-    assert.ok(!/text-transform:\s*uppercase/.test(kicker),
-        'ni au-dessus du titre de la bande');
+    assert.ok(!/text-shadow/.test(CSS),
+        'la lisibilité sur une image vient du voile, pas d’une ombre portée sur le texte');
     assert.ok(!/font-size:\s*10px/.test(regle(GLOBAL, '.mnav-item') || ''),
         'rien sous 11 px, pas même un libellé d’onglet');
+    // Une icône dans un rond teinté sur chaque couverture est le signe le
+    // plus sûr d'une interface fabriquée en série.
+    assert.match(GLOBAL, /@media \(hover: hover\) \{\s*\n\s*\.card-fav-btn \{ opacity: 0;/,
+        'le cœur apparaît au survol');
+    assert.match(CSS, /#shelfNew \.card-fav-btn \{ display: none; \}/,
+        'et disparaît là où toutes les séries sont suivies — un marqueur qui vaut pour tout le rang ne marque rien');
 });
