@@ -329,9 +329,14 @@
 /* En édition sombre, les ombres repassent sur du noir profond. */
 html[data-theme="dark"], html[data-theme="amoled"] {
   --glass-inner: inset 0 1px 0 rgba(255,255,255,.32), inset 0 -1px 0 rgba(0,0,0,.07);
-  --shadow-1: 0 1px 2px rgba(0,0,0,.4);
-  --shadow-2: 0 6px 18px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.35);
-  --shadow-3: 0 20px 48px rgba(0,0,0,.6), 0 8px 20px rgba(0,0,0,.4);
+  --e-pose:     0 1px 2px rgba(0,0,0,.4);
+  --e-detache:  0 2px 8px rgba(0,0,0,.4);
+  --e-souleve:  0 6px 18px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.35);
+  --e-flottant: 0 20px 48px rgba(0,0,0,.6), 0 8px 20px rgba(0,0,0,.4);
+  --e-modal:    0 32px 80px rgba(0,0,0,.7), 0 12px 32px rgba(0,0,0,.5);
+  --shadow-1: var(--e-pose);
+  --shadow-2: var(--e-souleve);
+  --shadow-3: var(--e-flottant);
 }
 
 /* Contenu ROMAN → l'accent bascule sur Ai (indigo). Via [data-content="novel"]
@@ -788,7 +793,7 @@ body.incognito-on::before {
 @keyframes inko-spin { to { transform: rotate(360deg); } }
 .header-user {
   display: flex; align-items: center; gap: var(--sp-2);
-  padding: 5px 10px 5px 6px;
+  padding: var(--sp-1) 10px var(--sp-1) 6px;
   background: var(--bg3);
   border-radius: var(--radius3); font-size: var(--t-s); font-weight: 500;
   transition: background var(--transition);
