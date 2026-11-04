@@ -134,6 +134,7 @@
                 ${visibles.map((e, i) => `
                 <a class="latte${i === 0 ? ' latte--ouverte' : ''}" role="listitem"
                    href="${lien(e)}" data-id="${MH.esc(e.mangaId)}"
+                   data-titre="${MH.esc(e.title)}" data-fiche="${MH.esc(fiche(e))}"
                    aria-label="Reprendre ${MH.esc(e.title)}, ${MH.esc(ou(e))}">
                     <img class="latte-couv" src="${couv(e)}" alt="" loading="${i === 0 ? 'eager' : 'lazy'}">
                     <span class="latte-dos">
@@ -146,11 +147,62 @@
             <div class="etagere-pied">
                 <a class="btn btn-primary etagere-cta" href="${lien(une)}">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-                    Reprendre ${MH.esc(une.title)}</a>
-                <a class="btn btn-ghost" href="${fiche(une)}">Voir la fiche</a>
+                    <span class="etagere-cta-texte">Reprendre ${MH.esc(une.title)}</span></a>
+                <a class="btn btn-ghost etagere-fiche" href="${fiche(une)}">Voir la fiche</a>
                 <button class="etagere-retirer" type="button" data-retirer="${MH.esc(une.mangaId)}"
                     title="Retirer de \u00ab\u00a0Reprendre\u00a0\u00bb" aria-label="Retirer \u00ab\u00a0${MH.esc(une.title)}\u00a0\u00bb de \u00ab\u00a0Reprendre\u00a0\u00bb">Retirer</button>
             </div>`;
+
+        /* \u2500\u2500 Le pied suit la latte qu'on regarde \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+         * Les trois contr\u00f4les pointaient la PREMI\u00c8RE latte, quelle que
+         * soit celle qu'on survolait. Or survoler une latte l'ouvre
+         * d\u00e9j\u00e0 \u2014 elle s'\u00e9largit, son titre et sa position apparaissent.
+         * L'\u00e9tag\u00e8re disait donc \u00ab voici One Piece \u00bb pendant que le
+         * bouton en dessous proposait de reprendre Blue Lock.
+         *
+         * `pointerenter` filtr\u00e9 sur la souris : au doigt, cet \u00e9v\u00e9nement
+         * part au premier contact, et le pied changerait sous le pouce
+         * pendant le tap. Sans survol, il garde l'\u0153uvre en cours \u2014 ce
+         * qui est le bon d\u00e9faut quand on ne d\u00e9signe rien.
+         *
+         * `focusin` aussi, et c'est le m\u00eame geste au clavier : la latte
+         * qu'on atteint par Tab est celle qu'on regarde. On ne remet le
+         * d\u00e9faut que si le focus quitte l'\u00e9tag\u00e8re ENTI\u00c8RE, sinon passer
+         * d'une latte \u00e0 l'autre le ferait clignoter.
+         */
+        const etagere = zone.querySelector('.etagere');
+        const pied = {
+            cta:     zone.querySelector('.etagere-cta'),
+            texte:   zone.querySelector('.etagere-cta-texte'),
+            fiche:   zone.querySelector('.etagere-fiche'),
+            retirer: zone.querySelector('.etagere-retirer'),
+        };
+        let vise = null;
+        function viser(latte) {
+            if (!latte || !pied.cta || vise === latte) return;
+            vise = latte;
+            const titre = latte.dataset.titre || '';
+            pied.cta.href = latte.getAttribute('href') || pied.cta.href;
+            pied.texte.textContent = `Reprendre ${titre}`;
+            pied.fiche.href = latte.dataset.fiche || pied.fiche.href;
+            pied.retirer.dataset.retirer = latte.dataset.id || '';
+            pied.retirer.setAttribute('aria-label',
+                `Retirer \u00ab\u00a0${titre}\u00a0\u00bb de \u00ab\u00a0Reprendre\u00a0\u00bb`);
+        }
+        const defaut = () => viser(etagere?.querySelector('.latte--ouverte') || etagere?.querySelector('.latte'));
+
+        etagere?.querySelectorAll('.latte').forEach((latte) => {
+            latte.addEventListener('pointerenter', (ev) => {
+                if (ev.pointerType === 'mouse') viser(latte);
+            });
+            latte.addEventListener('focusin', () => viser(latte));
+        });
+        etagere?.addEventListener('pointerleave', (ev) => {
+            if (ev.pointerType === 'mouse') defaut();
+        });
+        etagere?.addEventListener('focusout', (ev) => {
+            if (!etagere.contains(ev.relatedTarget)) defaut();
+        });
 
         zone.querySelectorAll('[data-retirer]').forEach(b => b.addEventListener('click', async (ev) => {
             ev.preventDefault();
