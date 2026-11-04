@@ -55,7 +55,7 @@
    dans le bouton, pas a cote — c'est toute la pastille qui est cliquable. */
 .filter-active-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-active-chip {
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: var(--sp-1);
   padding: var(--puce-rembourrage); border-radius: var(--puce-rayon); cursor: pointer;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   border: 1px solid var(--accent); color: var(--accent-text);
