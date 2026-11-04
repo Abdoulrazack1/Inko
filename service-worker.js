@@ -14,7 +14,8 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
-const CACHE_VERSION = 'inko-2.8.2-14d249';
+<<<<<<< HEAD
+const CACHE_VERSION = 'inko-2.8.2-f19055';
 =======
 const CACHE_VERSION = 'inko-2.8.2-4f6750';
 >>>>>>> bf66a68 (Accueil : les sections que je n'avais pas regardees)
@@ -36,6 +37,9 @@ const CACHE_VERSION = 'inko-2.8.2-560e19';
 =======
 const CACHE_VERSION = 'inko-2.8.2-70854c';
 >>>>>>> 5f9f4c1 (Catalogue : un filtre s'allume d'une seule facon)
+=======
+const CACHE_VERSION = 'inko-2.8.2-5b796d';
+>>>>>>> 5980a2a (Fiche serie : l'oeuvre est la page, et 110 lignes de CSS mort partent)
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
