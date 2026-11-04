@@ -357,9 +357,39 @@
                 MH.toast?.(e.message || 'Export impossible');
             } finally { b.disabled = false; b.textContent = libelle; }
         }));
+        // Supprimer un chapitre téléchargé était un clic unique, sans
+        // confirmation et sans retour arrière.
+        //
+        // Ici, « annuler » ne peut pas rendre les octets : ils sont partis du
+        // cache. La seule façon de revenir en arrière est de RETÉLÉCHARGER,
+        // ce qui prend du temps et du réseau — et peut être une très
+        // mauvaise surprise en données mobiles. Le bouton dit donc ce qu'il
+        // fait plutôt que « Annuler » : la barre annonce la suppression, le
+        // bouton annonce le téléchargement. On ne promet pas gratuit ce qui
+        // ne l'est pas.
         body.querySelectorAll('[data-delchap]').forEach(b => b.addEventListener('click', async () => {
-            await window.Downloads.remove(b.dataset.delchap);
-            MH.toast?.('Chapitre supprimé'); render();
+            const id = b.dataset.delchap;
+            // Les métadonnées AVANT la suppression : après, il n'y a plus
+            // rien à partir de quoi reconstruire.
+            let meta = null;
+            try { meta = await window.Downloads.get(id); } catch (e) { MH.err?.('downloads-page.js', e); }
+            await window.Downloads.remove(id);
+            render();
+
+            const pages = (meta?.pages || []);
+            if (!pages.length) { MH.toast?.('Chapitre supprimé'); return; }
+            const quoi = meta.chapterNum ? `Chapitre ${meta.chapterNum}` : 'Chapitre';
+            MH.annuler(`${quoi} supprimé — ${pages.length} page(s).`, {
+                libelle: 'Retélécharger',
+                surAnnulation: async () => {
+                    await window.Downloads.download(
+                        { mangaId: meta.mangaId, chapterId: id, chapterNum: meta.chapterNum,
+                          mangaTitle: meta.mangaTitle, cover: meta.cover, source: meta.source },
+                        pages.map(u => ({ url: u })));
+                    MH.toast?.('Chapitre retéléchargé ✓');
+                    render();
+                },
+            });
         }));
         // Relance d'un téléchargement incomplet : re-fetch UNIQUEMENT les pages
         // manquantes (les pages déjà en cache sont sautées par download()).

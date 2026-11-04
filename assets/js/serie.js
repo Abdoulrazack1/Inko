@@ -884,34 +884,20 @@
     // Une barre visible et persistante, pas un simple message : un toast de
     // trois secondes ne laisse pas le temps de réaliser qu'on s'est trompé.
     // Elle reste jusqu'à ce qu'on l'utilise ou qu'on la ferme.
+    // La barre est désormais `MH.annuler` : elle était construite ici, à la
+    // main, alors que `.undo-bar` est déclarée dans `global.css` depuis
+    // l'audit AMEL-40. Trois autres gestes qui défont du travail n'en
+    // avaient aucune, faute d'un endroit où la prendre.
     function proposerAnnulation(nouveaux) {
-        document.getElementById('undoMarkBar')?.remove();
         if (!nouveaux.length) { MH.toast?.('Tous les chapitres étaient déjà lus'); return; }
-
-        const bar = document.createElement('div');
-        bar.id = 'undoMarkBar';
-        bar.className = 'undo-bar';
-        bar.setAttribute('role', 'status');
-        bar.innerHTML = `<span>${nouveaux.length} chapitre(s) marqué(s) comme lus.</span>
-            <button type="button" class="undo-bar-action" id="undoMarkGo">Annuler</button>
-            <button type="button" class="undo-bar-close" id="undoMarkClose" aria-label="Fermer">✕</button>`;
-        document.body.appendChild(bar);
-
-        bar.querySelector('#undoMarkClose').onclick = () => bar.remove();
-        bar.querySelector('#undoMarkGo').onclick = async () => {
-            const btn = bar.querySelector('#undoMarkGo');
-            btn.disabled = true; btn.textContent = 'Annulation…';
-            try {
+        MH.annuler(`${nouveaux.length} chapitre(s) marqué(s) comme lus.`, {
+            surAnnulation: async () => {
                 await API.me.unmarkChaptersBulk(manga.id, nouveaux);
                 nouveaux.forEach(id => readChapsSet.delete(id));
                 renderTab('chapitres'); renderSidebar();
                 MH.toast?.(`${nouveaux.length} chapitre(s) remis en non-lus`);
-                bar.remove();
-            } catch (e) {
-                btn.disabled = false; btn.textContent = 'Réessayer';
-                MH.toast?.('Annulation impossible : ' + e.message);
-            }
-        };
+            },
+        });
     }
 
     // ── Téléchargement d'une plage (audit AMEL-99) ───────────

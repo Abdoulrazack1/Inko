@@ -1732,9 +1732,30 @@
                     try {
                         const data = await API.mangas.chaptersFor(source, mangaId, { lang: window.Storage?.getPref('readingLang') || 'fr,en' });
                         const chaps = (data.results || []).map(c => ({ chapterId: c.id, chapter: c.chapter }));
+                        // Ce qui était DÉJÀ lu avant ce clic. Sans ça, « annuler »
+                        // remettrait en non-lu des chapitres lus il y a des mois :
+                        // une annulation qui détruit du travail n'en est pas une.
+                        let dejaLus = new Set();
+                        try {
+                            const tout = await API.me.readChapters();
+                            dejaLus = new Set((tout?.[mangaId] || []).map(r => r.chapterId));
+                        } catch (e) { MH.err?.('bibliotheque.js', e); }
+                        const nouveaux = chaps.filter(c => !dejaLus.has(c.chapterId)).map(c => c.chapterId);
                         if (chaps.length) await API.me.markChaptersBulk(mangaId, chaps);
-                        updatesByManga[mangaId] = { unreadCount: 0, latest: updatesByManga[mangaId]?.latest, hasNew: false };
-                        MH.toast('Série marquée comme lue');
+                        const avant = updatesByManga[mangaId];
+                        updatesByManga[mangaId] = { unreadCount: 0, latest: avant?.latest, hasNew: false };
+                        if (nouveaux.length) {
+                            MH.annuler(`${nouveaux.length} chapitre(s) marqué(s) comme lus.`, {
+                                surAnnulation: async () => {
+                                    await API.me.unmarkChaptersBulk(mangaId, nouveaux);
+                                    updatesByManga[mangaId] = avant;
+                                    MH.toast?.(`${nouveaux.length} chapitre(s) remis en non-lus`);
+                                    render();
+                                },
+                            });
+                        } else {
+                            MH.toast('Série marquée comme lue');
+                        }
                         render(); // rafraîchit les badges de l'onglet Bibliothèque
                         const row = b.closest('.upd-row');
                         if (row) {

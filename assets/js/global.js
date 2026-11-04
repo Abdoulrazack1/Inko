@@ -1159,6 +1159,110 @@
         return v;
     };
 
+    /* ── Annuler la dernière action ──────────────────────────
+     * La barre existait : `.undo-bar`, trois règles dans `global.css`,
+     * écrites pour l'audit AMEL-40. Mais UNE seule page la construisait,
+     * à la main, avec ses identifiants en dur — la fiche série, pour son
+     * « Tout lu ». Les trois autres gestes qui défont du travail n'avaient
+     * rien : retirer une œuvre d'une liste, marquer toute une série lue
+     * depuis la bibliothèque, supprimer un téléchargement.
+     *
+     * C'est le défaut de l'étape 2, à l'envers : là, une classe nommée
+     * globalement était redessinée par chaque page ; ici, un style nommé
+     * globalement n'était construit que par une seule.
+     *
+     * Trois partis pris :
+     *
+     *  1. PERSISTANTE, pas un toast. Le temps de réaliser qu'on s'est
+     *     trompé dépasse largement les trois secondes d'un message qui
+     *     s'efface. Elle reste jusqu'à ce qu'on l'utilise ou la ferme.
+     *
+     *  2. UNE SEULE À LA FOIS. Une pile d'annulations promettrait de
+     *     défaire des gestes dans l'ordre inverse, ce que les routes de
+     *     l'API ne savent pas faire. Une profondeur de un, qu'on tient,
+     *     vaut mieux qu'une pile qui ment. La nouvelle remplace l'ancienne.
+     *
+     *  3. Ctrl+Z pendant qu'elle est là. C'est le geste que tout le monde
+     *     a déjà dans les doigts, et il ne coûte rien puisque la barre
+     *     dit déjà ce qu'il va défaire. Jamais dans un champ de saisie :
+     *     là, Ctrl+Z appartient au navigateur.
+     *
+     * `surAnnulation` peut être asynchrone ; la barre affiche l'attente et
+     * se retire d'elle-même en cas de succès. Si elle échoue, elle le dit
+     * et laisse réessayer — une annulation qu'on croit faite et qui ne
+     * l'est pas est pire que pas d'annulation du tout.
+     */
+    let _barreAnnulation = null;
+    window.MH.annuler = function (message, { surAnnulation, libelle = 'Annuler' } = {}) {
+        if (typeof surAnnulation !== 'function') return null;
+        window.MH.fermerAnnulation();
+
+        const bar = document.createElement('div');
+        bar.className = 'undo-bar';
+        // `status` et non `alert` : on informe, on n'interrompt pas.
+        bar.setAttribute('role', 'status');
+        const texte = document.createElement('span');
+        texte.className = 'undo-bar-texte';
+        texte.textContent = message;
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.className = 'undo-bar-action';
+        action.textContent = libelle;
+        const fermer = document.createElement('button');
+        fermer.type = 'button';
+        fermer.className = 'undo-bar-close';
+        fermer.setAttribute('aria-label', 'Fermer');
+        fermer.textContent = '✕';
+        bar.append(texte, action, fermer);
+
+        const partir = () => {
+            if (_barreAnnulation !== poignee) return;
+            document.removeEventListener('keydown', surTouche, true);
+            bar.remove();
+            _barreAnnulation = null;
+        };
+
+        async function lancer() {
+            if (action.disabled) return;
+            action.disabled = true;
+            const avant = action.textContent;
+            action.textContent = 'Annulation…';
+            try {
+                await surAnnulation();
+                partir();
+            } catch (e) {
+                // Le dire, et laisser réessayer : une annulation qu'on
+                // croit faite et qui ne l'est pas est le pire des cas.
+                window.MH?.err?.('annuler', e);
+                texte.textContent = "L'annulation a échoué.";
+                action.textContent = avant;
+                action.disabled = false;
+            }
+        }
+
+        function surTouche(e) {
+            if (!(e.key === 'z' || e.key === 'Z') || !(e.ctrlKey || e.metaKey) || e.shiftKey) return;
+            // Dans un champ, Ctrl+Z appartient au navigateur.
+            const a = document.activeElement;
+            if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;
+            e.preventDefault();
+            lancer();
+        }
+
+        action.addEventListener('click', lancer);
+        fermer.addEventListener('click', partir);
+        document.addEventListener('keydown', surTouche, true);
+        document.body.appendChild(bar);
+
+        const poignee = { element: bar, fermer: partir, lancer };
+        _barreAnnulation = poignee;
+        return poignee;
+    };
+
+    window.MH.fermerAnnulation = function () {
+        _barreAnnulation?.fermer();
+    };
+
     /* ── P1.6 / VIII.47 : une erreur dit quoi faire ──────────
      * Le motif employé partout aujourd'hui est `Erreur : ${e.message}` en
      * rouge, au milieu d'une grille vide. Il viole les trois règles de la

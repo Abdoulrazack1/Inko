@@ -193,13 +193,40 @@
         });
     }
 
+    // Retirer une œuvre d'une liste n'avait aucun retour arrière, et c'est
+    // le geste le plus facile à faire par erreur : un seul clic, sur une
+    // carte, au milieu d'une grille.
+    //
+    // On remet l'œuvre À SA PLACE, pas à la fin. `addToList` ajoute en
+    // queue ; sans le `reorderList` qui suit, « annuler » déplacerait
+    // l'œuvre au lieu de la rendre — une annulation qui laisse une trace
+    // n'en est pas une.
     async function removeItem(mangaId) {
+        const items = list.items || [];
+        const i = items.findIndex(it => String(it.id) === String(mangaId));
+        const retiree = i >= 0 ? items[i] : null;
+        const ordreAvant = items.map(it => String(it.id));
         try {
             await API.me.removeFromList(list.id, mangaId);
-            list.items = (list.items || []).filter(it => String(it.id) !== String(mangaId));
-            MH.toast?.('Retiré de la liste');
+            list.items = items.filter(it => String(it.id) !== String(mangaId));
             renderHero(); renderContent();
-        } catch (e) { MH.toast?.('Erreur : ' + e.message); }
+        } catch (e) { MH.toast?.('Erreur : ' + e.message); return; }
+
+        if (!retiree) { MH.toast?.('Retiré de la liste'); return; }
+        MH.annuler(`« ${retiree.title || mangaId} » retiré de la liste.`, {
+            surAnnulation: async () => {
+                await API.me.addToList(list.id, mangaId, {
+                    source: retiree.source, title: retiree.title, cover: retiree.cover,
+                });
+                list.items = [...(list.items || [])];
+                list.items.splice(i, 0, retiree);
+                // L'ordre d'avant, tel quel : il contient déjà l'œuvre au bon rang.
+                try { await API.me.reorderList(list.id, ordreAvant); }
+                catch (e) { MH.err?.('collection-detail.js', e); }
+                renderHero(); renderContent();
+                MH.toast?.('Remis dans la liste');
+            },
+        });
     }
 
     function renderSidebar() {
