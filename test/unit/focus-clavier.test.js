@@ -74,7 +74,11 @@ test('une seule écriture de la couleur de l’anneau', () => {
             // carte, par exemple) : on ne juge que les règles de focus.
             const avant = src.slice(Math.max(0, m.index - 200), m.index);
             if (!/:focus/.test(avant.split('{').pop() + avant.split('\n').pop())) continue;
-            if (couleur !== 'var(--accent)') fautes.push(`${f} — outline: … ${couleur}`);
+            // `--sur-couleur` est admis : c'est l'encre posée sur une
+            // couleur, et une latte de l'étagère a pour fond une IMAGE,
+            // pas une surface du thème. L'anneau d'accent s'y perdrait.
+            const ADMIS = ['var(--accent)', 'var(--sur-couleur)'];
+            if (!ADMIS.includes(couleur)) fautes.push(`${f} — outline: … ${couleur}`);
         }
     }
     assert.deepEqual(fautes, [], `écritures concurrentes :\n  ${fautes.join('\n  ')}`);

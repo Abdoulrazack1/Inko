@@ -66,7 +66,10 @@
 .latte--ouverte .latte-couv { filter: none; object-position: center top; }
 .latte:hover, .latte:focus-visible { flex-grow: 4.2; }
 .latte:hover .latte-couv, .latte:focus-visible .latte-couv { filter: brightness(.92) saturate(1); }
-.latte:focus-visible { outline: 2px solid #fff; outline-offset: -4px; }
+/* La latte est une COUVERTURE : son fond est une image quelconque, pas une
+   surface du thème. L’anneau d’accent peut s’y perdre ; l’encre posée sur
+   une couleur, elle, est faite pour ça. */
+.latte:focus-visible { outline: 2px solid var(--sur-couleur); outline-offset: -4px; }
 
 /* Le dos porte le titre, debout, comme sur la tranche d'un volume. Il se
    couche dès que la latte est ouverte ou tirée : c'est là qu'on lit. */
