@@ -31,7 +31,7 @@
             background: var(--bg2, #141417); border: 1px solid var(--border2, rgba(255,255,255,.12));
             border-radius: 12px; box-shadow: 0 16px 50px rgba(0,0,0,.55);
             opacity: 0; transform: translateY(6px); pointer-events: none;
-            transition: opacity .15s ease, transform .15s ease; overflow: hidden;
+            transition:opacity var(--transition),transform var(--transition); overflow: hidden;
             font-family: var(--font-body, sans-serif);
         `;
         document.body.appendChild(tip);

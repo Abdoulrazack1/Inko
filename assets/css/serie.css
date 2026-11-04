@@ -190,7 +190,7 @@
   font-weight: 500;
   color: var(--text2);
   border-bottom: 2px solid transparent;
-  transition: all var(--transition);
+  transition: var(--transition-etat);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -287,7 +287,7 @@
   align-items: center;
   gap: var(--sp-2);
 }
-.chap-search-input { --champ-taille: 12px; --champ-rembourrage: 0 12px; --champ-fond: var(--bg4); --champ-rayon: 20px; height: 30px; width: 160px; transition: border-color 0.15s; }
+.chap-search-input { --champ-taille: 12px; --champ-rembourrage: 0 12px; --champ-fond: var(--bg4); --champ-rayon: 20px; height: 30px; width: 160px; transition: border-color var(--transition); }
 .chap-search-input:focus {
   outline: none;
   border-color: var(--orange);
@@ -303,7 +303,7 @@
   font-size: var(--t-xs);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: var(--transition-etat);
   white-space: nowrap;
 }
 .chap-sort-btn:hover {
@@ -324,7 +324,7 @@
   border-bottom: 1px solid var(--border);
   text-decoration: none;
   color: inherit;
-  transition: background 0.15s;
+  transition: background var(--transition);
   cursor: pointer;
   /* Longues séries : ne peint que les lignes visibles */
   content-visibility: auto;
@@ -381,7 +381,7 @@
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  transition: background 0.15s, transform 0.1s, border-color 0.15s;
+  transition: background var(--transition), transform var(--transition), border-color var(--transition);
   flex-shrink: 0;
 }
 .chapter-read-dot:hover { border-color: var(--green); transform: scale(1.15); }
@@ -398,7 +398,7 @@
   border-radius:  var(--r-controle);
   color: var(--text3);
   opacity: 0.5;
-  transition: opacity 0.15s, transform 0.1s, color 0.15s;
+  transition: opacity var(--transition), transform var(--transition), color var(--transition);
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -412,7 +412,7 @@
 .chap-filter {
   padding: var(--sp-1) var(--sp-3); border-radius:  var(--r-feuille); font-size: var(--t-s); font-weight: 600;
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text2);
-  cursor: pointer; transition: all 0.12s;
+  cursor: pointer; transition: var(--transition-etat);
 }
 .chap-filter:hover { color: var(--text); background: var(--bg4); }
 /* Cinquième écran où un filtre actif était un aplat d’accent. Même
@@ -457,7 +457,7 @@
   padding: 10px var(--sp-3);
   flex: 1;
   min-width: 160px;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition);
 }
 .character-card:hover { background: var(--bg4); }
 .character-card--lg {
@@ -629,7 +629,7 @@
 .tag-link {
   text-decoration: none;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity var(--transition);
 }
 .tag-link:hover { opacity: 0.75; }
 
@@ -798,7 +798,7 @@
 .comment-spoiler.revealed .comment-spoiler-veil { display: none; }
 .comment-spoiler:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (prefers-reduced-motion: no-preference) {
-  .comment-spoiler-body { transition: color .18s ease, text-shadow .18s ease; }
+  .comment-spoiler-body { transition: color var(--transition), text-shadow var(--transition); }
 }
 .comment-login-hint {
   background: var(--bg3);
@@ -925,7 +925,7 @@
 .sim-card { display: block; min-width: 0; color: inherit; text-decoration: none; }
 .sim-vignette { aspect-ratio: 3/4; overflow: hidden; background: var(--bg4); }
 .sim-vignette img { width: 100%; height: 100%; object-fit: cover;
-    transition: transform .4s var(--ease-out); }
+    transition: transform var(--transition3); }
 .sim-card:hover .sim-vignette img { transform: scale(1.05); }
 .sim-nom { font-size: var(--t-xs); margin-top: 6px; line-height: 1.3;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

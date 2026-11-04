@@ -38,12 +38,12 @@
 .lib2-grid.lib2-grid--compact { grid-template-columns:repeat(auto-fill, minmax(var(--grille-carte-dense),1fr)); gap:var(--grille-gouttiere-dense); }
 .lib2-grid--compact { --carte-titre: var(--t-s); }
 .lib2-grid--compact .lib2-sub, .lib2-grid--compact .lib2-cat { display:none; }
-.lib2-card { position:relative; cursor:pointer; transition:transform .28s var(--ease-out); }
+.lib2-card { position:relative; cursor:pointer; transition: transform var(--transition2); }
 /* La couverture EST l’objet : ni rayon, ni ombre. Cinq cents cartes
    arrondies et ombrées font cinq cents objets ; cinq cents couvertures
    serrées font une bibliothèque. */
 .lib2-cover { aspect-ratio:var(--carte-ratio); overflow:hidden; background:var(--bg4); position:relative; }
-.lib2-cover img { width:100%; height:100%; object-fit:cover; transition:transform .5s var(--ease-out); }
+.lib2-cover img { width:100%; height:100%; object-fit:cover; transition: transform var(--transition3); }
 .lib2-grid .lib2-card:hover { transform:translateY(-4px); }
 .lib2-grid .lib2-card:hover .lib2-cover { box-shadow:var(--shadow-3); }
 .lib2-grid .lib2-card:hover .lib2-cover img { transform:scale(1.06); }
@@ -66,7 +66,7 @@
 .lib2-pin, .lib2-del { flex:0 0 auto; width:24px; height:24px; border:0; background:none;
     color:var(--text3); cursor:pointer;
     display:flex; align-items:center; justify-content:center;
-    opacity:0; transition:opacity .14s, color var(--transition); }
+    opacity:0; transition: opacity var(--transition), color var(--transition); }
 .lib2-pin:hover, .lib2-del:hover { color:var(--text); }
 .lib2-del { font-size:var(--t-s); line-height:1; }
 .lib2-card:hover .lib2-pin, .lib2-card:hover .lib2-del,
@@ -78,7 +78,7 @@
 .ic-btn { display:inline-flex; align-items:center; gap:6px; }
 .ic-btn svg { flex-shrink:0; }
 .lib2-progress { position:absolute; left:0; right:0; bottom:0; height:var(--jauge-normale); background:rgba(255,255,255,.18); }
-.lib2-progress-fill { height:100%; background:var(--accent); transition:width .3s; }
+.lib2-progress-fill { height:100%; background:var(--accent); transition: width var(--transition2); }
 .lib2-title { font-size:var(--carte-titre); font-weight:var(--carte-graisse); margin-top:var(--sp-2); line-height:1.3; min-height:2.6em; display:-webkit-box; -webkit-line-clamp:var(--carte-lignes); -webkit-box-orient:vertical; overflow:hidden; }
 .lib2-sub { font-size:var(--t-s); color:var(--text3); margin-top:var(--sp-0); }
 .lib2-empty { text-align:center; padding:70px 20px; color:var(--text3); }
@@ -282,7 +282,7 @@
 /* Avancement du scan des mises à jour */
 .lib-scan-bar { display: inline-block; vertical-align: middle; width: 90px; height: 4px; margin-left: var(--sp-2);
     border-radius:  var(--r-trait); background: var(--bg4, rgba(127,127,127,.2)); overflow: hidden; }
-.lib-scan-bar > span { display: block; height: 100%; background: var(--accent); transition: width .4s ease; }
+.lib-scan-bar > span { display: block; height: 100%; background: var(--accent); transition: width var(--transition3); }
 
 /* ── Catégories en onglets ─────────────────────────────────────────── */
 .lib-cats { display: flex; align-items: center; gap: var(--sp-1); overflow-x: auto; scrollbar-width: none;

@@ -58,11 +58,11 @@
             box-shadow:var(--glass-inner),0 4px 14px rgba(0,0,0,.4);
             color:var(--accent,#c1531b);font-size:17px;
             transform:translateY(-60px);opacity:0;
-            transition:opacity .12s linear}
-        .mh-ptr.retour{transition:transform .25s cubic-bezier(.22,.7,.28,1),opacity .2s}
+            transition:opacity var(--transition)}
+        .mh-ptr.retour{transition:transform var(--transition2),opacity var(--transition)}
         /* Au-delà du seuil, la flèche pivote : c'est le seul moyen de savoir,
            AVANT de relâcher, que le geste va partir. */
-        .mh-ptr span{display:block;transition:transform .15s var(--ease-out,ease)}
+        .mh-ptr span{display:block;transition:transform var(--transition)}
         .mh-ptr.arme span{transform:rotate(180deg)}
         .mh-ptr.tourne span{animation:mh-ptr-tourne .8s linear infinite}
         @keyframes mh-ptr-tourne{to{transform:rotate(360deg)}}`;

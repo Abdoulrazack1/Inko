@@ -60,18 +60,18 @@
            l'envelopper dans un conteneur pour loger le fond derrière, donc à
            modifier le balisage de trois pages. */
         .mh-carte-glisse > *:not(.mh-carte-fond){transform:translateX(var(--mh-dx,0))}
-        .mh-carte-glisse.mh-carte-retour > *:not(.mh-carte-fond){transition:transform .22s cubic-bezier(.22,.7,.28,1)}
+        .mh-carte-glisse.mh-carte-retour > *:not(.mh-carte-fond){transition:transform var(--transition2)}
 
         .mh-carte-fond{position:absolute;top:0;right:0;bottom:0;left:0;
             z-index:0;display:flex;align-items:center;padding:0 16px;
             border-radius:inherit;color:#fff;font-size:22px;font-weight:700;
-            opacity:.55;transition:opacity .12s linear}
+            opacity:.55;transition:opacity var(--transition)}
         .mh-carte-fond.arme{opacity:1}
         .mh-carte-fond.droite{background:var(--green,#3f7d4e);justify-content:flex-start}
         .mh-carte-fond.gauche{background:var(--blue,#3d5170);justify-content:flex-end}
         /* Au-delà du seuil, l'icône grossit : c'est le seul moyen de savoir,
            AVANT de relâcher, que l'action partira. */
-        .mh-carte-fond span{display:block;transform:scale(.8);transition:transform .12s var(--ease-out,ease)}
+        .mh-carte-fond span{display:block;transform:scale(.8);transition:transform var(--transition)}
         .mh-carte-fond.arme span{transform:scale(1.15)}
 
         .mh-menu-carte{display:flex;flex-direction:column;gap:2px;margin:-6px -4px}

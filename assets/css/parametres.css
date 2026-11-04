@@ -73,7 +73,7 @@
 .set-input {
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
   padding: var(--sp-2) var(--sp-3); border-radius: var(--r-controle); font-size: var(--t-s); width: 100%;
-  transition: border-color .15s;
+  transition: border-color var(--transition);
 }
 .set-input:focus { outline: none; border-color: var(--orange); }
 .set-field { margin-bottom: 14px; }
@@ -81,7 +81,7 @@
 .seg { display: inline-flex; background: var(--bg3); border-radius: var(--r-controle); padding: var(--sp-1); gap: var(--sp-0); }
 .seg button {
   padding: var(--sp-2) 14px; border-radius: var(--r-controle); font-size: var(--t-s); color: var(--text2);
-  background: transparent; transition: all .15s;
+  background: transparent; transition: var(--transition-etat);
 }
 /* Septième écran où le choix actif d’un contrôle segmenté était un
    aplat d’accent. Même réponse que partout ailleurs : un pas de

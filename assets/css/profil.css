@@ -73,7 +73,7 @@
   border-radius: var(--r-controle);
   display: flex; align-items: center; justify-content: center;
   font-size: var(--t-m);
-  transition: all var(--transition);
+  transition: var(--transition-etat);
   text-decoration: none;
 }
 .profil-social-btn:hover { border-color: var(--border2); background: var(--bg4); color: var(--text); }
@@ -238,7 +238,7 @@
   border-radius:  var(--r-trait);
   background: var(--hm0);
   cursor: pointer;
-  transition: opacity .15s;
+  transition: opacity var(--transition);
 }
 .heatmap-cell:hover { opacity: .7; }
 .heatmap-legend { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
@@ -258,7 +258,7 @@
 .genre-bar-label span:first-child { color: var(--text2); }
 .genre-bar-label span:last-child  { color: var(--text3); font-size: var(--t-xs); }
 .genre-bar-track { height: var(--jauge-epaisse); background: var(--bg4); border-radius: var(--r-pastille); }
-.genre-bar-fill  { height: 100%; border-radius: var(--r-pastille); transition: width .6s ease; }
+.genre-bar-fill  { height: 100%; border-radius: var(--r-pastille); transition: width var(--transition3); }
 
 .badges-card { }
 .badges-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: var(--sp-2); }
@@ -385,7 +385,7 @@
   color: var(--text2);
   border: 1px solid var(--border);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: var(--transition-etat);
 }
 .pref-btn.active { background: var(--bg4); color: var(--text); border-color: var(--border2); font-weight: 600; }
 .pref-slider { width: 100%; accent-color: var(--orange); margin-top: var(--sp-1); }
@@ -414,7 +414,7 @@
   border: 1px solid var(--border);
   color: var(--text2);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: var(--transition-etat);
 }
 .lib-filter-btn.active {
   background: var(--bg4);
@@ -436,7 +436,7 @@
   display: flex; align-items: center; justify-content: center;
   font-size: var(--t-m); color: var(--text2);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: var(--transition-etat);
 }
 .view-toggle.active { border-color: var(--border2); color: var(--text); background: var(--bg4); }
 
@@ -478,7 +478,7 @@
   font-size: var(--t-s);
   color: var(--text2);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: var(--transition-etat);
 }
 .page-btn.active { background: var(--orange); color: var(--sur-couleur); border-color: var(--orange); }
 .page-btn:hover:not(.active) { border-color: var(--border2); color: var(--text); }
@@ -505,7 +505,7 @@
   border-radius:  var(--r-controle);
   font-size: var(--t-s); color: var(--text2);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: var(--transition-etat);
 }
 .sort-btn:hover { border-color: var(--border2); color: var(--text); }
 .library-sort { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--t-s); color: var(--text2); }
@@ -520,7 +520,7 @@
   border: 1px solid var(--border);
   color: var(--text2);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: var(--transition-etat);
 }
 .hqf-btn.active { background: rgba(255,107,26,.15); border-color: rgba(255,107,26,.3); color: var(--orange); }
 .history-search-bar {

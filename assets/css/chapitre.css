@@ -34,7 +34,7 @@
     pointer-events: none;
 }
 .reader-toolbar {
-    transition: transform .22s ease, opacity .22s ease;
+    transition: transform var(--transition2), opacity var(--transition2);
 
     /* blur(24px) saturate(1.9) : la plus lourde feuille de verre de
        l’application, et elle passait au-dessus d’une PLANCHE. Saturer
@@ -74,7 +74,7 @@
     white-space: nowrap;
     flex-shrink: 0;
     letter-spacing: 0.01em;
-    transition: opacity 0.15s;
+    transition: opacity var(--transition);
     padding: var(--sp-1) var(--sp-2) var(--sp-1) 0;
 }
 .toolbar-back:hover { color: var(--text); }
@@ -145,7 +145,7 @@
     justify-content: center;
     font-size: var(--t-m);
     color: var(--text2);
-    transition: all 0.15s ease;
+    transition: var(--transition-etat);
     cursor: pointer;
     flex-shrink: 0;
 }
@@ -202,7 +202,7 @@
     font-size: var(--t-s);
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: var(--transition-etat);
     white-space: nowrap;
     flex-shrink: 0;
     letter-spacing: 0.02em;
@@ -302,7 +302,7 @@
     display: flex;
     align-items: center;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity var(--transition);
 }
 .reader-pages-area:hover .page-zone-prev,
 .reader-pages-area:hover .page-zone-next { opacity: 1; }
@@ -333,7 +333,7 @@
     line-height: 1;
     color: rgba(255,255,255,0.72);
     text-shadow: 0 1px 4px rgba(0,0,0,.75);
-    transition: color 0.15s, transform 0.15s;
+    transition: color var(--transition), transform var(--transition);
 }
 .page-zone-prev:hover .page-zone-arrow,
 .page-zone-next:hover .page-zone-arrow {
@@ -450,7 +450,7 @@
     border: 0;
     border-bottom: 2px solid transparent;
     cursor: pointer;
-    transition: border-color 0.15s ease;
+    transition: border-color var(--transition);
     background: var(--bg3);
     position: relative;
 }
@@ -460,7 +460,7 @@
     width: 100%; height: 100%;
     object-fit: cover;
     opacity: 0.5;
-    transition: opacity 0.15s;
+    transition: opacity var(--transition);
 }
 .reader-thumb.active img,
 .reader-thumb:hover img { opacity: 1; }
@@ -498,7 +498,7 @@
     font-size: var(--t-s);
     font-weight: 600;
     color: var(--text2);
-    transition: all 0.15s ease;
+    transition: var(--transition-etat);
     cursor: pointer;
     flex-shrink: 0;
 }
@@ -556,7 +556,7 @@
     margin-bottom: 20px;
     position: relative;
     overflow: hidden;
-    transition: border-color 0.15s;
+    transition: border-color var(--transition);
 }
 .reader-next-chapter::before {
     content: '';
@@ -662,7 +662,7 @@
     font-size: var(--t-s);
     resize: none;
     font-family: var(--font-body);
-    transition: border-color 0.15s;
+    transition: border-color var(--transition);
 }
 .comment-input-area:focus { outline: none; border-color: rgba(255,107,26,0.4); }
 .comment-warning { font-size: var(--t-xs); color: var(--amber); margin: var(--sp-1) 0 var(--sp-2); }
@@ -689,7 +689,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 14px;
-    transition: border-color 0.15s;
+    transition: border-color var(--transition);
 }
 .reader-panel-block:hover { border-color: var(--border2); }
 
@@ -719,7 +719,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s;
+    transition: var(--transition-etat);
     color: var(--text2);
 }
 .ambiance-btn:hover {
@@ -757,7 +757,7 @@
     height: 100%;
     background: linear-gradient(90deg, var(--jauge-couleur), var(--orange2));
     border-radius: var(--r-pastille);
-    transition: width 0.5s ease;
+    transition: width var(--transition3);
 }
 
 .share-icons { display: grid; grid-template-columns: repeat(4,1fr); gap: var(--sp-2); }
@@ -771,7 +771,7 @@
     justify-content: center;
     font-size: var(--t-m);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: var(--transition-etat);
     color: var(--text2);
 }
 .share-icon-btn:hover {
@@ -854,7 +854,7 @@
 .rs-close:hover { background: var(--bg3, #1f1f26); color: var(--text, #fff); }
 .rs-label { display: flex; justify-content: space-between; font-size: var(--t-xs); color: var(--text2, #a8a8b3); margin: var(--sp-3) var(--sp-0) 6px; font-weight: 500; }
 .rs-seg { display: flex; gap: var(--sp-1); flex-wrap: wrap; background: var(--bg3, #1f1f26); padding: var(--sp-1); border-radius:  var(--r-controle); }
-.rs-seg button { flex: 1; min-width: 52px; padding: var(--sp-2) 6px; border: none; background: transparent; color: var(--text2, #a8a8b3); border-radius:  var(--r-controle); font-size: var(--t-s); cursor: pointer; font-weight: 500; transition: all .12s; }
+.rs-seg button { flex: 1; min-width: 52px; padding: var(--sp-2) 6px; border: none; background: transparent; color: var(--text2, #a8a8b3); border-radius:  var(--r-controle); font-size: var(--t-s); cursor: pointer; font-weight: 500; transition: var(--transition-etat); }
 .rs-seg button:hover { color: var(--text, #fff); }
 .rs-seg button.on { background: var(--orange, #ff6b1a); color: var(--sur-couleur); font-weight: 600; }
 .rs-range { width: 100%; accent-color: var(--orange, #ff6b1a); margin-top: var(--sp-0); }
@@ -873,7 +873,7 @@
      zone de clic invisible au-dessus, sans changer la hauteur perçue au repos
      — la barre reste discrète tant qu'on ne s'en sert pas. */
   cursor: pointer;
-  transition: height .12s var(--ease-out); border-radius: var(--r-pastille);}
+  transition: height var(--transition); border-radius: var(--r-pastille);}
 .reader-progressbar::before {
   content: ''; position: absolute; left: 0; right: 0; top: -7px; height: 16px;
 }
@@ -882,7 +882,7 @@
 .reader-progressbar-fill {
   height: 100%; width: 0%;
   background: var(--orange);
-  transition: width .25s ease; border-radius: var(--r-pastille);}
+  transition: width var(--transition2); border-radius: var(--r-pastille);}
 
 /* Une planche en route se voit en route. Avant, elle restait à opacité 0
    jusqu'à son arrivée : sur une source qui met 4 à 20 s par page, un cadre
@@ -1122,7 +1122,7 @@ body.reader-immersive .reader-pages-area.paged {
   width: 200%;
   max-width: none;
   display: block;
-  transition: margin-left .18s cubic-bezier(.22,.7,.28,1);
+  transition: margin-left var(--transition);
 }
 .reader-page-wrapper.mh-demi[data-demi="0"] > .reader-page-img { margin-left: 0; }
 .reader-page-wrapper.mh-demi[data-demi="1"] > .reader-page-img { margin-left: -100%; }

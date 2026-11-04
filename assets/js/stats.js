@@ -90,7 +90,7 @@
                                 style="background:none;border:none;padding:0;color:var(--orange);font:inherit;cursor:pointer;text-decoration:underline">Viser ${suggestion.propose}/semaine</button>`}
                     </div>` : ''}
                     <div style="height:9px;border-radius:6px;background:var(--bg4);overflow:hidden;margin-top:10px" aria-hidden="true">
-                        <div id="goalFill" style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--graph-1),var(--orange));transition:width .3s"></div>
+                        <div id="goalFill" style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--graph-1),var(--orange));transition:width var(--transition2)"></div>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
@@ -107,7 +107,7 @@
                         ? `${readThisYear} / ${yGoal} chapitre(s) cette année · ${yPct}%${yPct >= 100 ? ' — défi relevé 🏆' : ''}`
                         : 'Lance-toi un défi annuel (façon Goodreads) : combien de chapitres veux-tu lire cette année ?'}</div>
                     <div style="height:9px;border-radius:6px;background:var(--bg4);overflow:hidden;margin-top:10px" aria-hidden="true">
-                        <div id="yearFill" style="height:100%;width:${yPct}%;background:linear-gradient(90deg,var(--graph-4),var(--graph-2));transition:width .3s"></div>
+                        <div id="yearFill" style="height:100%;width:${yPct}%;background:linear-gradient(90deg,var(--graph-4),var(--graph-2));transition:width var(--transition2)"></div>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
