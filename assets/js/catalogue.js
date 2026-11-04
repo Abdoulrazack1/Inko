@@ -595,7 +595,6 @@
                     ${m.status === 'completed' ? '<span class="badge badge-termine">TERMINÉ</span>' : ''}
                     ${m.status === 'hiatus' ? '<span class="badge badge-pause">PAUSE</span>' : ''}
                 </div>
-                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris" aria-pressed="false" aria-label="Ajouter aux favoris">${MH.heartIcon(false)}</button>
                 <!-- Audit AMEL-39 : l'ajout à une liste n'était possible que
                      depuis la fiche série — il fallait donc ouvrir chaque titre
                      pour le ranger, alors qu'on constitue une liste EN
@@ -607,7 +606,10 @@
                     <div class="btn-read-overlay">Lire</div>
                 </div>
             </div>
-            <div class="manga-card-info">${cardInfoHTML(m)}</div>
+            <div class="manga-card-info">${cardInfoHTML(m)}
+                <button class="card-fav-btn" data-fav="${m.id}" title="Ajouter aux favoris" aria-pressed="false"
+                    aria-label="Ajouter « ${MH.esc(m.title)} » aux favoris">${MH.heartIcon(false)}</button>
+            </div>
         </div>`;
     }
 

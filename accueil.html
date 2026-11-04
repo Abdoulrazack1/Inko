@@ -40,7 +40,7 @@
         <h1 class="home-hello"><span class="a11y-invisible">Accueil — </span><span id="homeHello">Bonjour</span></h1>
         <p class="home-sub" id="homeSub"></p>
       </div>
-      <div class="home-stats" id="homeStats"></div>
+      <ul class="home-chiffres" id="homeStats"></ul>
     </header>
 
     <section class="home-continue" id="homeContinue" aria-label="Reprendre la lecture"></section>
@@ -56,30 +56,34 @@
       <div class="shelf-track" id="shelfNewTrack"></div>
     </section>
 
-    <section class="shelf" id="shelfFile" hidden>
+    <section class="shelf shelf--pile" id="shelfFile" hidden>
       <div class="shelf-head"><div><h2 class="shelf-title">À lire ensuite</h2><p class="shelf-sub">Ce que tu as mis de côté</p></div></div>
       <div class="shelf-track" id="shelfFileTrack"></div>
     </section>
 
-    <section class="shelf" id="shelfReco" hidden>
-      <div class="shelf-head"><div><h2 class="shelf-title">Recommandé pour toi</h2><p class="shelf-sub" id="shelfRecoSub"></p></div></div>
-      <div class="shelf-track" id="shelfRecoTrack"></div>
-    </section>
-
-    <section class="shelf" id="shelfPopular">
+    <!-- Trois rangées de couvertures qui se suivaient, de même taille, au
+         même rythme, sous trois titres : la page comptait cinq rangées
+         identiques et on ne les distinguait plus. Elles n’appellent pas
+         trois sections, elles appellent trois ENTRÉES dans la même. -->
+    <section class="shelf decouvrir" id="shelfDecouvrir">
       <div class="shelf-head">
-        <div><h2 class="shelf-title">Populaire</h2><p class="shelf-sub" id="shelfPopularSub"></p></div>
-        <a class="shelf-link" href="catalogue.html">Catalogue →</a>
+        <div>
+          <h2 class="shelf-title">Découvrir</h2>
+          <p class="shelf-sub" id="shelfDecouvrirSub"></p>
+        </div>
+        <a class="shelf-link" id="decouvrirLien" href="catalogue.html">Catalogue →</a>
       </div>
-      <div class="shelf-track" id="shelfPopularTrack"></div>
-    </section>
-
-    <section class="shelf" id="shelfLatest">
-      <div class="shelf-head">
-        <div><h2 class="shelf-title">Dernières sorties</h2><p class="shelf-sub" id="shelfLatestSub"></p></div>
-        <a class="shelf-link" href="catalogue.html?sort=latest">Tout voir →</a>
+      <div class="decouvrir-onglets" role="tablist" aria-label="Que découvrir">
+        <button class="decouvrir-onglet" type="button" role="tab" id="ongletReco"
+                aria-controls="shelfRecoTrack" aria-selected="false" hidden>Pour toi</button>
+        <button class="decouvrir-onglet on" type="button" role="tab" id="ongletPopular"
+                aria-controls="shelfPopularTrack" aria-selected="true">Populaire</button>
+        <button class="decouvrir-onglet" type="button" role="tab" id="ongletLatest"
+                aria-controls="shelfLatestTrack" aria-selected="false">Dernières sorties</button>
       </div>
-      <div class="shelf-track" id="shelfLatestTrack"></div>
+      <div class="shelf-track" id="shelfRecoTrack" role="tabpanel" aria-labelledby="ongletReco" hidden></div>
+      <div class="shelf-track" id="shelfPopularTrack" role="tabpanel" aria-labelledby="ongletPopular"></div>
+      <div class="shelf-track" id="shelfLatestTrack" role="tabpanel" aria-labelledby="ongletLatest" hidden></div>
     </section>
   </div>
   </main>

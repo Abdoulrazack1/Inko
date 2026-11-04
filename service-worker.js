@@ -8,7 +8,22 @@
 // l'« écran noir après mise à jour » qui a motivé le bouton « Vider le cache ».
 // Bump obligatoire à chaque changement d'asset ; la liste STATIC_ASSETS est
 // désormais générée (npm run gen-precache) et vérifiée en CI.
-const CACHE_VERSION = 'inko-2.8.2-80ea03';
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+const CACHE_VERSION = 'inko-2.8.2-1e467c';
+=======
+const CACHE_VERSION = 'inko-2.8.2-4f6750';
+>>>>>>> bf66a68 (Accueil : les sections que je n'avais pas regardees)
+=======
+const CACHE_VERSION = 'inko-2.8.2-5c8ec6';
+>>>>>>> d8e9346 (Le coeur sort de la couverture)
+=======
+const CACHE_VERSION = 'inko-2.8.2-0e0378';
+>>>>>>> 0f9cb15 (Rien ne reste pose sur l'oeuvre, et la page prend un rythme)
+=======
+const CACHE_VERSION = 'inko-2.8.2-ba5bdb';
+>>>>>>> 9858b79 (Regenere le repli aspect-ratio, que la CI refusait)
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
