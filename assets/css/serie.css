@@ -111,7 +111,7 @@
 .serie-fiche-title {
   font-family: var(--font-head);
   font-size: var(--t-s);
-  font-weight: 700;
+  font-weight: var(--pastille-graisse);
   color: var(--text2);
   margin-bottom: var(--sp-3);
 }
@@ -137,10 +137,10 @@
   flex-wrap: wrap;
 }
 .lang-badge {
-  font-size: var(--t-xs);
-  font-weight: 700;
-  padding: var(--sp-0) 7px;
-  border-radius: var(--r-trait);
+  font-size: var(--pastille-taille);
+  font-weight: var(--pastille-graisse);
+  padding: var(--pastille-rembourrage);
+  border-radius: var(--pastille-rayon);
   background: var(--bg4);
   border: 1px solid var(--border);
   color: var(--text2);
@@ -241,7 +241,7 @@
      par titres : on neutralise la marge par defaut du h2. */
   margin: 0;
   font-size: var(--t-m);
-  font-weight: 700;
+  font-weight: var(--pastille-graisse);
 }
 .synopsis-spoiler-btn {
   font-size: var(--t-xs);
@@ -278,7 +278,7 @@
      par titres : on neutralise la marge par defaut du h2. */
   margin: 0;
   font-size: var(--t-m);
-  font-weight: 700;
+  font-weight: var(--pastille-graisse);
 }
 
 /* Contrôles de liste */
@@ -337,7 +337,7 @@
 
 .chapter-num {
   font-size: var(--t-s);
-  font-weight: 700;
+  font-weight: var(--pastille-graisse);
   color: var(--text2);
   min-width: 64px;
   flex-shrink: 0;
@@ -547,7 +547,7 @@
 .sidebar-progress-title {
   font-family: var(--font-head);
   font-size: var(--t-s);
-  font-weight: 700;
+  font-weight: var(--pastille-graisse);
 }
 .sidebar-resume-btn {
   width: 100%;
@@ -575,7 +575,7 @@
      par titres : on neutralise la marge par defaut du h2. */
   margin: 0;
   font-size: var(--t-s);
-  font-weight: 700;
+  font-weight: var(--pastille-graisse);
   color: var(--text2);
 }
 
@@ -776,7 +776,7 @@
 
 /* Portée : affichée seulement quand elle s'écarte du défaut. */
 .comment-vis {
-  font-size: var(--t-xs); border-radius: var(--r-controle); padding: 1px 7px;
+  font-size: var(--t-xs); border-radius: var(--r-controle); padding: var(--pastille-rembourrage);
   border: 1px solid var(--border2); color: var(--text3);
 }
 .comment-vis-private { color: var(--text2); border-style: dashed; }
@@ -822,7 +822,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
+  font-weight: var(--pastille-graisse);
   font-size: var(--t-m);
 }
 .comment-body { flex: 1; min-width: 0; }
@@ -917,7 +917,7 @@
 
 /* « Tu aimeras aussi » : une grille qui se replie, plus une rangée coupée
    au bord sans flèche ni indice qu'elle défile. */
-.sim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--sp-4) 6px; padding: var(--sp-1) var(--sp-0) var(--sp-2); }
+.sim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--grille-carte-dense), 1fr)); gap: var(--sp-4) var(--grille-gouttiere); padding: var(--sp-1) var(--sp-0) var(--sp-2); }
 /* Cette rangée était écrite ENTIÈREMENT en styles en ligne dans le JS,
    y compris une pastille de score en #3f7d4e codé en dur — aveugle au
    thème clair — posée sur la couverture avec son ombre, en 9 px.
