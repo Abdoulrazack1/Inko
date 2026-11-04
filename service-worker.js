@@ -15,7 +15,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
-const CACHE_VERSION = 'inko-2.8.2-14d249';
+const CACHE_VERSION = 'inko-2.8.2-f19055';
 =======
 const CACHE_VERSION = 'inko-2.8.2-4f6750';
 >>>>>>> bf66a68 (Accueil : les sections que je n'avais pas regardees)
