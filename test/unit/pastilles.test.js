@@ -105,6 +105,12 @@ test('les marques posées sur une couverture gardent leurs coins', () => {
         const h = /(?:^|;|\n)\s*(left|right)\s*:\s*([^;}]+)/.exec(corps);
         if (v && h) (coins[`${v[1]}-${h[1]}`] ||= []).push(sel);
     }
-    assert.ok(Object.keys(coins).length >= 3,
-        `les marques doivent occuper des coins distincts : ${JSON.stringify(coins)}`);
+    // Depuis la refonte de la bibliothèque, il n’y a PLUS de marque posée
+    // sur une couverture : la pastille de non-lus, l’étiquette de type,
+    // l’épingle et la croix sont toutes descendues dans la légende. Zéro
+    // marque est donc le meilleur résultat, pas un échec — ce qui reste
+    // interdit, c’est que deux marques se disputent le même coin.
+    const partages = Object.entries(coins).filter(([, sels]) => sels.length > 1);
+    assert.deepEqual(partages, [],
+        `deux marques au même coin : ${JSON.stringify(Object.fromEntries(partages))}`);
 });
