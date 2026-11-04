@@ -711,14 +711,14 @@
 .progress-bar-big {
   height: var(--jauge-epaisse);
   background: var(--jauge-piste);
-  border-radius: 999px;
+  border-radius: var(--r-pastille);
   overflow: hidden;
   margin: var(--sp-2) 0;
 }
 .progress-bar-big .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--jauge-couleur), var(--orange2, #ff8c42));
-  border-radius: 999px;
+  border-radius: var(--r-pastille);
   transition: width var(--jauge-duree) var(--ease-out);
 }
 

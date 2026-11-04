@@ -70,7 +70,10 @@ test('une jauge a les mêmes extrémités partout, piste comme remplissage', () 
     for (const sel of [...JAUGES, ...REMPLISSAGES]) {
         for (const [f, corps] of regles(sel)) {
             const r = /border-radius\s*:\s*([^;}]+)/.exec(corps);
-            if (r && r[1].trim() !== '999px') fautes.push(`${f} ${sel} — ${r[1].trim()}`);
+            // `--r-pastille` vaut 999px : c'est le MEME rayon, passé par
+            // l'échelle. Ce test a été écrit avant qu'elle existe.
+            const PASTILLE = ['999px', 'var(--r-pastille)'];
+            if (r && !PASTILLE.includes(r[1].trim())) fautes.push(`${f} ${sel} — ${r[1].trim()}`);
         }
     }
     assert.deepEqual(fautes, [],

@@ -1099,22 +1099,22 @@ body.incognito-on::before {
 .jauge {
   height: var(--jauge-epaisseur, var(--jauge-normale));
   background: var(--jauge-piste);
-  border-radius: 999px;
+  border-radius: var(--r-pastille);
   overflow: hidden;
 }
 .jauge > * {
   height: 100%;
   background: var(--jauge-couleur);
-  border-radius: 999px;
+  border-radius: var(--r-pastille);
   transition: width var(--jauge-duree) var(--ease-out);
 }
 
 .progress-bar {
-  height: var(--jauge-fine); background: var(--jauge-piste); border-radius: 999px;
+  height: var(--jauge-fine); background: var(--jauge-piste); border-radius: var(--r-pastille);
   overflow: hidden; margin-top: 6px;
 }
 .progress-fill {
-  height: 100%; background: var(--jauge-couleur); border-radius: 999px;
+  height: 100%; background: var(--jauge-couleur); border-radius: var(--r-pastille);
   transition: width var(--jauge-duree) var(--ease-out);
 }
 

@@ -741,14 +741,14 @@
 .progress-bar-big {
     height: var(--jauge-epaisse);
     background: var(--jauge-piste);
-    border-radius: 999px;
+    border-radius: var(--r-pastille);
     overflow: hidden;
     margin: var(--sp-2) 0;
 }
 .progress-bar-big .progress-fill {
     height: 100%;
     background: linear-gradient(90deg, var(--jauge-couleur), var(--orange2));
-    border-radius: 999px;
+    border-radius: var(--r-pastille);
     transition: width 0.5s ease;
 }
 
@@ -865,7 +865,7 @@
      zone de clic invisible au-dessus, sans changer la hauteur perçue au repos
      — la barre reste discrète tant qu'on ne s'en sert pas. */
   cursor: pointer;
-  transition: height .12s var(--ease-out); border-radius: 999px;}
+  transition: height .12s var(--ease-out); border-radius: var(--r-pastille);}
 .reader-progressbar::before {
   content: ''; position: absolute; left: 0; right: 0; top: -7px; height: 16px;
 }
@@ -874,7 +874,7 @@
 .reader-progressbar-fill {
   height: 100%; width: 0%;
   background: var(--orange);
-  transition: width .25s ease; border-radius: 999px;}
+  transition: width .25s ease; border-radius: var(--r-pastille);}
 
 /* Une planche en route se voit en route. Avant, elle restait à opacité 0
    jusqu'à son arrivée : sur une source qui met 4 à 20 s par page, un cadre
