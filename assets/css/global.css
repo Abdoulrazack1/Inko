@@ -932,7 +932,12 @@ body.incognito-on::before {
 /* Une petite capitale espacée est le signe le plus sûr d’un gabarit, et
    elle se lit moins bien que la même chose en bas de casse. Le titre de
    colonne garde son rôle par sa graisse et sa couleur. */
-.footer-col h4 {
+/* h2 et non h4 : le pied de page est au PREMIER niveau du plan de la
+   page, a cote de son titre. Mesure sur les 24 pages : chacune sautait
+   de h1 ou h2 directement a h4, un trou de deux ou trois niveaux qu'un
+   lecteur d'ecran annonce a chaque navigation par titre. La taille,
+   elle, ne bouge pas -- un niveau de titre n'est pas une taille. */
+.footer-col h2 {
   font-family: var(--font-head); font-size: var(--t-s);
   font-weight: 700; color: var(--text);
   margin-bottom: 14px;
@@ -2004,6 +2009,60 @@ a[data-nsfw] .manga-card-cover::after,
     content: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   La même chose à la SOURIS — 24 px (WCAG 2.2 AA, 2.5.8)
+   ───────────────────────────────────────────────────────────
+   Le bloc ci-dessus ne vise que « pointer: coarse » : il laissait la
+   souris sans rien. Or 2.5.8 demande 24x24 px CSS pour TOUT pointeur,
+   pas seulement pour le doigt.
+
+   Relevé sur l'application servie, à 1280 px, après la refonte :
+
+     .chapter-read-dot   15 x 15   — la pastille lu/non-lu, répétée
+                                     autant de fois qu'il y a de chapitres
+     .itr-astuce-x       14 x 17   — la croix qui ferme une astuce
+     .filters-reset      60 x 14   — « Réinitialiser » du catalogue
+     .se-hist-clear      57 x 14   — « Effacer » de l'historique
+     .chapter-bm         22 x 18   — le signet d'un chapitre
+     .section-link       67 x 18   — « Voir tout »
+     .filter-tag          ·  x 23  — un pixel de trop peu, quarante fois
+
+   Même principe qu'au doigt, et c'est ce qui le rend sûr : on agrandit
+   la ZONE, jamais le dessin. Rien ne bouge à l'écran.
+
+   24 px et non 44 : à la souris, 44 px ferait se chevaucher des contrôles
+   voisins dans les barres denses — et la norme ne le demande pas. Les
+   mêmes exceptions qu'au doigt s'appliquent, pour la même raison : un
+   lien dans un paragraphe volerait les clics de ses lignes voisines, et
+   une carte est déjà bien plus grande que 24 px.
+   ═══════════════════════════════════════════════════════════ */
+@media (pointer: fine) {
+  button, a[href], [role='button'], input[type='checkbox'], input[type='radio'], summary {
+    position: relative;
+  }
+  button::after, a[href]::after, [role='button']::after,
+  input[type='checkbox']::after, input[type='radio']::after, summary::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%; height: 100%;
+    min-width: 24px; min-height: 24px;
+    background: transparent;   /* la zone s'atteint, elle ne se voit pas */
+    pointer-events: auto;
+    z-index: 0;
+  }
+  button > *, a[href] > *, [role='button'] > * { position: relative; z-index: 1; }
+
+  p a[href]::after, li a[href]::after,
+  .manga-card::after, .lib2-card::after, .source-card::after,
+  .trending-card::after, .fav-item::after, .history-entry::after,
+  .nt-item::after, .migr-cand::after {
+    content: none;
+  }
+}
+
 
 
 /* ── P1.6 : états vides (voir MH.etatVide) ─────────────────── */

@@ -1163,7 +1163,7 @@
                 const chapsAncrables = (chapters || []).slice(0, 200);
                 formEl.innerHTML = `
                     <div class="comment-compose">
-                        <textarea id="commentInput" class="comment-textarea" rows="2" maxlength="1000" placeholder="Partage ton avis sur ${MH.esc(manga.title || 'cette série')}…"></textarea>
+                        <textarea id="commentInput" class="comment-textarea" rows="2" maxlength="1000" aria-label="Ton commentaire sur cette serie" placeholder="Partage ton avis sur ${MH.esc(manga.title || 'cette série')}…"></textarea>
                         <div class="comment-compose-opts">
                             <label class="comment-opt" title="Qui pourra lire ce commentaire">
                                 <span>Visible par</span>
@@ -1367,7 +1367,7 @@
         box.dataset.open = '1';
         box.innerHTML = `
             <div style="margin-top:8px">
-                <textarea class="comment-textarea" rows="2" maxlength="1000" placeholder="Répondre à @${MH.esc(replyUser)}…"></textarea>
+                <textarea class="comment-textarea" rows="2" maxlength="1000" aria-label="Ta réponse" placeholder="Répondre à @${MH.esc(replyUser)}…"></textarea>
                 <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;align-items:center">
                     <label class="comment-opt comment-opt-check" style="margin-right:auto">
                         <input type="checkbox" data-replyspoiler="${parentId}"> <span>Spoiler</span>
@@ -1781,7 +1781,7 @@
         <div class="sidebar-note card" id="noteCard" style="padding:14px">
             <div class="sidebar-block-header"><h2 class="sidebar-block-title">Ma note perso</h2>
                 <span id="noteStatus" style="font-size:11px;color:var(--text3)"></span></div>
-            <textarea id="noteArea" placeholder="Note privée : où j'en suis, mon avis, à retenir…"
+            <textarea id="noteArea" aria-label="Ta note privée sur cette série" placeholder="Note privée : où j'en suis, mon avis, à retenir…"
                 style="width:100%;margin-top:8px;min-height:78px;resize:vertical;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;color:var(--text);font-size:12.5px;padding:9px 11px;font-family:inherit;line-height:1.5"></textarea>
         </div>`;
 
@@ -1847,7 +1847,7 @@
             ${API.isLoggedIn() ? `
             <div class="my-review" style="margin-top:14px">
                 <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Mon avis</label>
-                <textarea id="reviewText" rows="4" maxlength="4000" placeholder="Qu'as-tu pensé de cette œuvre ? (ton avis reste privé pour l'instant)"
+                <textarea id="reviewText" rows="4" maxlength="4000" aria-label="Ton avis sur cette œuvre" placeholder="Qu'as-tu pensé de cette œuvre ? (ton avis reste privé pour l'instant)"
                     style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius2);padding:10px 12px;font-size:13px;line-height:1.5;resize:vertical;font-family:var(--font-read)">${MH.esc(myReview)}</textarea>
                 <div style="display:flex;justify-content:flex-end;margin-top:8px">
                     <button class="btn btn-primary btn-sm" id="btnSaveReview">Enregistrer mon avis</button>

@@ -1959,14 +1959,14 @@
                un tri. Un pied de page qui redit la navigation n’aide
                personne et allonge la page de trois lignes mortes. Restent
                les deux destinations qui ne sont nulle part ailleurs. -->
-          <h4>Tes fichiers</h4>
+          <h2>Tes fichiers</h2>
           <ul>
             <li><a href="import.html">Importer un fichier</a></li>
             <li><a href="downloads.html">Téléchargements</a></li>
           </ul>
         </div>
         <div class="footer-col">
-          <h4>Projet</h4>
+          <h2>Projet</h2>
           <ul>
             <!-- Audit UX-03 : « Forum », « Discord » et « Contact » pointaient
                  vers href="#" et affichaient « Bientôt disponible » — trois
@@ -1979,7 +1979,7 @@
           </ul>
         </div>
         <div class="footer-col">
-          <h4>Légal</h4>
+          <h2>Légal</h2>
           <ul>
             <!-- Audit UX-04 : « Conditions » pointait vers la politique de
                  confidentialité. Deux libellés, une seule page : la licence
@@ -2339,7 +2339,42 @@
         const marquer = (img, echec) => {
             if (!img || img.tagName !== 'IMG') return;
             img.classList.add(echec ? 'img-echec' : 'img-arrivee');
+            if (echec) poserSecours(img);
         };
+
+        /**
+         * Une couverture qui ne charge pas laissait un rectangle gris.
+         *
+         * `MH.placeholderCover` existait déjà, mais n'était appelé qu'au
+         * RENDU, par `MH.cover(...)`, c'est-à-dire quand l'URL est ABSENTE.
+         * Quand elle existe et échoue — source hors ligne, proxy qui refuse,
+         * fichier disparu chez l'hébergeur — personne ne reprenait la main.
+         * Mesuré sur le journal de lecture : une couverture sur onze.
+         *
+         * La graine est l'identifiant de l'œuvre quand la carte le pose,
+         * sinon le texte de remplacement, sinon l'adresse elle-même : dans
+         * les trois cas la même œuvre garde la même couleur et la même
+         * initiale d'une page à l'autre, ce qui est tout l'intérêt.
+         *
+         * Le drapeau évite la boucle : si le secours lui-même échouait, on
+         * n'en poserait pas un autre.
+         */
+        function poserSecours(img) {
+            if (img.dataset.secoursPose) return;
+            if ((img.currentSrc || img.src || '').startsWith('data:')) return;
+            if (typeof window.MH?.placeholderCover !== 'function') return;
+            // Hors des couvertures, un rectangle coloré serait un mensonge :
+            // on ne remplace que ce qui EST une couverture d'œuvre.
+            const dansUneCarte = img.closest('[data-id], .manga-card, .lib2-card,'
+                + ' .latte, .sim-card, .note-card, .nt-item, .history-entry');
+            if (!dansUneCarte && !/\/api\/img|covers?/.test(img.src || '')) return;
+            img.dataset.secoursPose = '1';
+            const graine = img.dataset.seed
+                || img.closest('[data-id]')?.dataset.id
+                || img.alt
+                || img.src;
+            img.src = window.MH.placeholderCover(graine);
+        }
         document.addEventListener('load', (e) => marquer(e.target, false), true);
         document.addEventListener('error', (e) => marquer(e.target, true), true);
 
