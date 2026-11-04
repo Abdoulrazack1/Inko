@@ -67,7 +67,7 @@
 .toolbar-back {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--sp-1);
     font-size: var(--t-s);
     font-weight: 600;
     color: var(--text2);
@@ -194,7 +194,7 @@
 
 .modebar-btn {
     height: 24px;
-    padding: 0 11px;
+    padding: 0 var(--sp-3);
     border-radius: var(--r-carte);
     background: transparent;
     border: 0;
@@ -374,9 +374,9 @@
     /* Une pilule bordée et floutée posée sur la planche, en bas au
        milieu : l’endroit exact où finit la dernière case. Le chiffre
        seul, avec une ombre portée, se lit aussi bien sans rien cacher. */
-    padding: 5px 10px;
-    font-size: var(--t-s);
-    font-weight: 600;
+    padding: var(--pastille-rembourrage);
+    font-size: var(--pastille-taille);
+    font-weight: var(--pastille-graisse);
     color: rgba(255,255,255,.72);
     text-shadow: 0 1px 4px rgba(0,0,0,.8);
     pointer-events: none;
@@ -538,7 +538,7 @@
     background: var(--bg4);
     border: 1px solid var(--border);
     border-radius: var(--r-trait);
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     font-size: var(--t-xs);
 }
 
@@ -733,7 +733,7 @@
 .casting-avatar {
     width: 44px; height: 44px;
     border-radius: 50%;
-    margin: 0 auto 4px;
+    margin: 0 auto var(--sp-1);
     background: var(--bg4);
     display: flex;
     align-items: center;
@@ -1182,7 +1182,7 @@ body.page-body { padding-top: 0; padding-bottom: 0; }
 .reader-pop {
     position: absolute; right: 0; top: calc(100% + 8px); z-index: 120; min-width: 250px; padding: 6px;
     background: rgba(18,18,22,.96); border: 1px solid rgba(255,255,255,.1); border-radius: var(--r-carte);
-    box-shadow: 0 16px 40px rgba(0,0,0,.5);
+    box-shadow: var(--e-flottant);
 }
 .reader-pop-item {
     display: flex; align-items: center; gap: 10px; width: 100%; padding: var(--sp-2) 10px;
