@@ -6,14 +6,14 @@
 .se-input:focus { outline: none; border-color: var(--orange); }
 /* Meme raison que dans music.css : « :focus » retire le contour au clavier
    aussi, et une bordure coloree ne se distingue pas d'un survol. */
-.se-input:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-.se-go { background: var(--orange); color: var(--sur-couleur); border: none; padding: 0 22px; border-radius:  var(--r-carte); font-weight: 600; font-size: 14px; cursor: pointer; }
-.se-sub { font-size: 12.5px; color: var(--text3); margin-bottom: 22px; }
+.se-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.se-go { background: var(--orange); color: var(--sur-couleur); border: none; padding: 0 22px; border-radius: var(--r-carte); font-weight: 600; font-size: var(--t-m); cursor: pointer; }
+.se-sub { font-size: var(--t-s); color: var(--text3); margin-bottom: 22px; }
 .se-group { margin-bottom: 30px; }
 .se-ghead { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-.se-gname { font-family: var(--font-head); font-size: 17px; font-weight: 700; }
+.se-gname { font-family: var(--font-head); font-size: var(--t-l); font-weight: 700; }
 .se-gtag { font-size: var(--pastille-taille); padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon); background: var(--bg3); color: var(--text2); text-transform: uppercase; font-weight: var(--pastille-graisse); }
-.se-gcount { font-size: 12px; color: var(--text3); margin-left: auto; }
+.se-gcount { font-size: var(--t-s); color: var(--text3); margin-left: auto; }
 .se-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--grille-carte), 1fr)); gap: var(--grille-gouttiere); }
 .se-card { cursor: pointer; position: relative; display: block; transition: transform var(--transition2); }
 .se-cover { aspect-ratio: var(--carte-ratio); border-radius: var(--carte-rayon); overflow: hidden; background: var(--bg4); position: relative; box-shadow: var(--shadow-1); transition: box-shadow var(--transition2); }
@@ -22,21 +22,21 @@
 .se-card:hover .se-cover { box-shadow: var(--shadow-3); }
 .se-card:hover .se-cover img { transform: scale(1.06); }
 .se-title { font-size: var(--carte-titre); font-weight: var(--carte-graisse); margin-top: var(--sp-2); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: var(--carte-lignes); -webkit-box-orient: vertical; overflow: hidden; }
-.se-empty { color: var(--text3); font-size: 13px; padding: 6px 0; }
+.se-empty { color: var(--text3); font-size: var(--t-s); padding: 6px 0; }
 /* « Voulais-tu dire … ? ». Le titre propose est un BOUTON : c'est une
    action (relancer la recherche), pas un lien vers une page. */
-.se-corr { font-size: 13.5px; color: var(--text2); padding: var(--sp-0) 0 var(--sp-2); }
+.se-corr { font-size: var(--t-s); color: var(--text2); padding: var(--sp-0) 0 var(--sp-2); }
 .se-corr-btn {
   background: none; border: none; padding: 0; font: inherit; cursor: pointer;
   color: var(--accent-text); font-weight: 600; text-decoration: underline;
   text-underline-offset: 2px;
 }
 .se-corr-btn:hover { text-decoration-thickness: 2px; }
-.se-corr-btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; border-radius:  var(--r-trait); }
-.se-err { color: #ef4444; font-size: 12.5px; }
+.se-corr-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-trait); }
+.se-err { color: #ef4444; font-size: var(--t-s); }
 .se-loading { text-align: center; padding: 60px; color: var(--text3); }
 .se-hist { display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap; margin-bottom:22px; }
-.se-hist-label { font-size:12px; color:var(--text3); margin-right:var(--sp-0); }
+.se-hist-label { font-size: var(--t-s); color:var(--text3); margin-right:var(--sp-0); }
 .se-chip { display:inline-flex; align-items:center; gap:6px; padding: var(--puce-rembourrage); border-radius: var(--puce-rayon); background:var(--bg3); border:1px solid var(--border2); color:var(--text2); font-size: var(--puce-taille); cursor:pointer; transition: var(--transition-etat); }
 .se-chip:hover, .se-chip.kbd { color:var(--text); border-color:var(--accent); }
 .se-chip.on { background:var(--accent); border-color:var(--accent); color:var(--sur-couleur); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 38%, transparent); }
@@ -46,15 +46,15 @@
    deux regles de meme specificite, la seconde gagnante, et un fond qui restait
    de la premiere. Les deux variables valent la meme couleur aujourd'hui — d'ou
    l'absence de symptome — mais en changer une seule aurait suffi. */
-.se-chip .x { opacity:.5; font-size: 14px; line-height:1; }
+.se-chip .x { opacity:.5; font-size: var(--t-m); line-height:1; }
 .se-chip .x:hover { opacity:1; color:#ef4444; }
-.se-hist-clear { font-size:11.5px; color:var(--text3); cursor:pointer; background:none; border:none; text-decoration:underline; }
+.se-hist-clear { font-size: var(--t-xs); color:var(--text3); cursor:pointer; background:none; border:none; text-decoration:underline; }
 
 /* ── §11 : carte fusionnée par titre (dédup multi-sources) ── */
-.se-status { position:absolute; top:8px; left:8px; font-size:9px; font-weight:700; padding:var(--sp-0) var(--sp-2); border-radius:var(--r-controle); text-transform:uppercase; letter-spacing:.03em; color:var(--sur-couleur); }
+.se-status { position:absolute; top:8px; left:8px; font-size: var(--t-xs); font-weight:700; padding:var(--sp-0) var(--sp-2); border-radius:var(--r-controle); text-transform:uppercase; letter-spacing:.03em; color:var(--sur-couleur); }
 .se-lib-badge { position:absolute; top:8px; right:8px; background:#22c55e; color:var(--sur-couleur); font-size: var(--pastille-taille); font-weight: var(--pastille-graisse); padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon); box-shadow:var(--e-detache); display:inline-flex; align-items:center; gap:var(--sp-1); }
-.se-multi { position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,.6); color:var(--sur-couleur); font-size:9.5px; font-weight:700; padding:var(--sp-0) var(--sp-2); border-radius:var(--r-feuille); backdrop-filter:blur(2px); }
-.se-meta { font-size:10.5px; color:var(--text3); margin-top:var(--sp-0); }
+.se-multi { position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,.6); color:var(--sur-couleur); font-size: var(--t-xs); font-weight:700; padding:var(--sp-0) var(--sp-2); border-radius:var(--r-feuille); backdrop-filter:blur(2px); }
+.se-meta { font-size: var(--t-xs); color:var(--text3); margin-top:var(--sp-0); }
 .se-sources { display:flex; flex-wrap:wrap; gap:var(--sp-1); margin-top:var(--sp-1); }
 .se-src-chip { font-size: var(--pastille-taille); padding: var(--pastille-rembourrage); border-radius: var(--pastille-rayon); background:var(--bg3); border:1px solid var(--border2); color:var(--text2); cursor:pointer; text-decoration:none; }
 .se-src-chip:hover { border-color:var(--orange); color:var(--text); background:color-mix(in srgb, var(--orange) 8%, transparent); }
@@ -68,7 +68,7 @@
 
 /* ── Résultats de la bibliothèque (audit AMEL-12) ── */
 .se-local { margin: var(--sp-3) 0 var(--sp-1); }
-.se-local-head { font-size: 12px; font-weight: 700; color: var(--accent-text);
+.se-local-head { font-size: var(--t-s); font-weight: 700; color: var(--accent-text);
   text-transform: uppercase; letter-spacing: .05em; margin-bottom: var(--sp-2); }
 .se-local-grid { display: flex; gap: 10px; overflow-x: auto; padding-bottom: var(--sp-1); }
 .se-local-item { flex: 0 0 auto; width: 96px; }
@@ -76,7 +76,7 @@
   border-radius:  var(--r-controle); background: var(--bg3); }
 /* `display` une seule fois : `block` etait ecrase deux lignes plus bas par le
    `-webkit-box` du clamp, dans la MEME regle. */
-.se-local-item span { margin-top: var(--sp-1); font-size: 11.5px;
+.se-local-item span { margin-top: var(--sp-1); font-size: var(--t-xs);
   color: var(--text2); line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
@@ -86,7 +86,7 @@
   margin: 10px 0 14px; padding: 10px var(--sp-3);
   border: 1px solid rgba(181,118,27,.32); border-radius:  var(--r-carte);
   background: rgba(181,118,27,.08);
-  font-size: 12.5px; color: var(--amber-text); line-height: 1.45;
+  font-size: var(--t-s); color: var(--amber-text); line-height: 1.45;
 }
 /* Relancer UNE source tombee. Refaire toute la recherche pour une
    source sur quatre ferait reattendre les trois qui avaient repondu. */
@@ -96,16 +96,16 @@
   border-radius:  var(--r-pastille);
   padding: var(--sp-1) var(--sp-3);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--t-s);
   color: inherit;
   cursor: pointer;
   min-height: 24px;
 }
 .se-fail-retry:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
 .se-fail-retry[disabled] { opacity: .55; cursor: default; }
-.se-fail-retry:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.se-fail-retry:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ── Recherche encore en cours (audit AMEL-10) ── */
-.se-partiel { margin-top: var(--sp-4); font-size: 12.5px; color: var(--text3); }
+.se-partiel { margin-top: var(--sp-4); font-size: var(--t-s); color: var(--text3); }
 /* Deuxième rangée de puces (statut) : légèrement en retrait de la première. */
 .se-statuts { margin-top: 6px; }

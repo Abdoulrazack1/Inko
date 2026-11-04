@@ -900,7 +900,8 @@
   width: 100%; padding: var(--sp-2) 10px; border: 0; border-radius:  var(--r-controle);
   background: none; color: var(--text); font-size: var(--t-s); text-align: left; cursor: pointer;
 }
-.serie-pop-item:hover, .serie-pop-item:focus-visible { background: var(--bg3); outline: none; }
+/* Troisième menu avec le même défaut — trouvé par le test, pas à l’œil. */
+.serie-pop-item:hover, .serie-pop-item:focus-visible { background: var(--bg3); }
 .serie-pop-val { color: var(--text3); font-size: var(--t-s); }
 .serie-pop-danger { color: var(--red, #c0392b); }
 .serie-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-1); padding: 0 var(--sp-1) var(--sp-1); }
