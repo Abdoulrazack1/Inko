@@ -157,7 +157,7 @@
                 <button id="mh-eula-yes" disabled
                         style="background:#ff6b1a;border:none;color:#fff;padding:12px 18px;border-radius:8px;min-height:44px;
                                font-size:13px;font-weight:600;cursor:pointer;opacity:.4;font-family:inherit;
-                               transition:opacity .2s">
+                               transition:opacity var(--transition)">
                     Continuer
                 </button>
             </div>

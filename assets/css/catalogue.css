@@ -214,7 +214,7 @@
 .team-pick-card {
   background: var(--bg3); border-radius: var(--radius); overflow: hidden;
   display: flex; flex-direction: column; position: relative;
-  min-height: 130px; cursor: pointer; transition: all var(--transition);
+  min-height: 130px; cursor: pointer; transition: var(--transition-etat);
 }
 .team-pick-card:hover { transform: translateY(-2px); }
 .team-pick-bg {
@@ -239,7 +239,7 @@
 .view-btn {
   width: 32px; height: 32px; border-radius: var(--radius2);
   border: 1px solid var(--border); background: var(--bg3);
-  color: var(--text2); font-size: var(--t-m); transition: all var(--transition);
+  color: var(--text2); font-size: var(--t-m); transition: var(--transition-etat);
 }
 .view-btn:first-child { border-radius: var(--radius2) 0 0 var(--radius2); }
 .view-btn:last-child { border-radius: 0 var(--radius2) var(--radius2) 0; border-left: none; }
@@ -275,7 +275,7 @@
 .page-btn {
   width: 34px; height: 34px; border-radius: var(--radius2);
   background: var(--bg3); border: 1px solid var(--border);
-  color: var(--text2); font-size: var(--t-s); transition: all var(--transition);
+  color: var(--text2); font-size: var(--t-s); transition: var(--transition-etat);
 }
 .page-btn:hover { border-color: var(--border2); color: var(--text); }
 /* .view-btn.active marque déjà l’actif par la clarté : c’est le bon
@@ -288,7 +288,7 @@
 .collection-mini-card {
   background: var(--bg3); border-radius: var(--radius); padding: 14px;
   display: flex; align-items: center; gap: var(--sp-3);
-  transition: all var(--transition); cursor: pointer;
+  transition: var(--transition-etat); cursor: pointer;
 }
 .collection-mini-card:hover { background: var(--bg4); }
 .collection-mini-cover {

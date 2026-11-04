@@ -47,7 +47,7 @@
         .migr-cible{display:flex;align-items:center;gap:10px;margin:14px 0;font-size:13.5px}
         .migr-cible select,.migr-ligne select{flex:1;min-width:0;height:34px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);padding:0 8px}
         .migr-barre{height:6px;border-radius:6px;background:var(--bg4);overflow:hidden;margin:12px 0 4px}
-        .migr-barre span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+        .migr-barre span{display:block;height:100%;width:0;background:var(--accent);transition:width var(--transition2)}
         .migr-revue{max-height:52vh;overflow:auto;margin:10px 0;border:1px solid var(--border);border-radius:10px}
         .migr-ligne{display:grid;grid-template-columns:22px minmax(0,1fr) minmax(0,1.3fr);gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border)}
         .migr-ligne:last-child{border-bottom:0}
