@@ -838,7 +838,7 @@ body.incognito-on::before {
 }
 /* Les deux boutons de langue portaient leur dessin en attribut `style`. */
 .footer-lang-btn { background: none; border: 1px solid var(--border2); color: var(--text2);
-  border-radius: var(--radius2); padding: 3px var(--sp-2); cursor: pointer; font: inherit; font-size: var(--t-s); }
+  border-radius: var(--radius2); padding: var(--sp-1) var(--sp-2); cursor: pointer; font: inherit; font-size: var(--t-s); }
 .footer-lang-btn:hover { color: var(--text); border-color: var(--text3); }
 .footer-inner {
   max-width: 1200px; margin: 0 auto; padding: 0 var(--sp-5);
@@ -1470,7 +1470,7 @@ img.img-echec { background: var(--bg3); animation: none; }
 /* La ligne du titre d’une carte de rayon : le titre prend la place, le
    cœur se range au bout. */
 .shelf-nom { display: flex; align-items: flex-start; gap: 6px;
-    margin-top: var(--carte-ecart, 8px); padding-right: 6px; }
+    margin-top: var(--carte-ecart); padding-right: 6px; }
 .shelf-nom .shelf-name { flex: 1 1 auto; min-width: 0; margin-top: 0; }
 .shelf-meta { padding-right: 6px; }
 .manga-card-info { position: relative; }
