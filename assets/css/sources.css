@@ -100,3 +100,17 @@
 }
 .source-active-badge { font-size: var(--t-xs); color: var(--accent-text); font-weight: 600; }
 .empty-state { text-align: center; padding: var(--sp-7) var(--sp-5); color: var(--text3); }
+
+/* ── Les hôtes qu'une source contacte ─────────────────────────
+   La carte n'affichait que le site. Les CDN qui servent les planches
+   sont pourtant déclarés par l'extension, et les activer élargit la
+   liste blanche du proxy d'images : ce sont les serveurs qui verront
+   passer la lecture. Ils se lisent donc AVANT le bouton « Activer ». */
+.source-hotes { display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--sp-1); margin-top: var(--sp-1); }
+.source-hote {
+  font-family: var(--font-mono); font-size: var(--t-xs); color: var(--text2);
+  background: var(--bg3); border-radius: var(--r-trait);
+  padding: 0 var(--sp-1);
+}
+.source-hotes-note { font-size: var(--t-xs); color: var(--text3); flex: 1 1 100%; }

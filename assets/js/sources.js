@@ -155,9 +155,7 @@
                 <div class="source-caps">
                     ${(s.capabilities || []).map(c => `<span class="source-cap">${MH.esc(c)}</span>`).join('')}
                 </div>
-                <div style="font-size:10.5px;color:var(--text3);margin-top:4px">
-                    ${MH.esc(s.baseUrl || '')}
-                </div>
+                ${hotesHTML(s)}
                 ${pastilleSante(santeParId.get(s.id))}
             </div>
             <div class="source-actions">
@@ -360,6 +358,43 @@
 
     // Audit AMEL-65 : etat de la source, en clair. `source-health.js`
     // collectait deja ces compteurs ; seul l'admin pouvait les voir.
+    /**
+     * Les hôtes qu'une source va contacter — AVANT de l'activer.
+     *
+     * La page n'affichait que `baseUrl`, le site lui-même. Or beaucoup de
+     * sources servent leurs planches depuis des CDN distincts, et elles
+     * les DÉCLARENT : `imageHosts`. WeebCentral en annonce quatre
+     * (planeptune.us, lastation.us, lowee.us, compsci88.com), SushiScan
+     * deux. Aucun n'apparaissait nulle part.
+     *
+     * Ce n'est pas de la curiosité : ces hôtes élargissent la liste
+     * blanche du proxy d'images. `image.controller.js` le dit —
+     * « ajouter une source n'ouvre que ce que cette source annonce », et
+     * sans le proxy le lecteur charge en direct, « exposant l'IP de
+     * l'utilisateur au site source à chaque page tournée ». Activer une
+     * source, c'est donc décider quels serveurs verront passer sa
+     * lecture. On ne décide pas d'une chose qu'on ne voit pas.
+     *
+     * La ligne d'explication ne sort que s'il Y A des hôtes en plus :
+     * sur une source qui se sert elle-même, elle n'apprendrait rien.
+     */
+    function hote(u) {
+        try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return String(u || '').trim(); }
+    }
+    function hotesHTML(s) {
+        const site = hote(s.baseUrl);
+        const images = (s.imageHosts || []).map(h => String(h || '').trim().toLowerCase())
+            .filter(h => h && h !== site);
+        const puce = (h, titre) => `<span class="source-hote" title="${MH.esc(titre)}">${MH.esc(h)}</span>`;
+        return `<div class="source-hotes">
+            ${site ? puce(site, 'Le site de la source') : ''}
+            ${images.map(h => puce(h, 'Sert les images de cette source')).join('')}
+            ${images.length ? `<span class="source-hotes-note">${images.length === 1
+        ? 'Les images viennent d’un autre serveur. L’activer l’autorise lui aussi.'
+        : `Les images viennent de ${images.length} autres serveurs. Les activer les autorise aussi.`}</span>` : ''}
+        </div>`;
+    }
+
     function pastilleSante(h) {
         if (!h || (!h.oks && !h.fails)) {
             return `<div class="src-sante" style="color:var(--text3)">Pas encore interrogée depuis le démarrage</div>`;
