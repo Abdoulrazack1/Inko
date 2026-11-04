@@ -2152,7 +2152,7 @@ html.inko-app main { animation: inko-app-entree .18s ease-out; }
 
 /* ══ REPLI aspect-ratio — GÉNÉRÉ par scripts-ci/gen-repli-aspect-ratio.js ══ */
 /* Ne pas modifier à la main : `npm run gen-repli-ar` régénère ce bloc.
-   17 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
+   14 déclaration(s) répliquée(s) pour les navigateurs sans aspect-ratio
    (WebView Android 8 = Chrome 61). Sur un navigateur récent, ce bloc
    entier est ignoré. */
 @supports not (aspect-ratio: 1 / 1) {
