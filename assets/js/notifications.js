@@ -137,7 +137,7 @@
         const m = Math.floor(s / 60); if (m < 60) return `il y a ${m} min`;
         const h = Math.floor(m / 60); if (h < 24) return `il y a ${h} h`;
         const j = Math.floor(h / 24); if (j < 30) return `il y a ${j} j`;
-        return new Date(d).toLocaleDateString('fr-FR');
+        return MH.date(d);
     }
 
     function render() {

@@ -62,7 +62,7 @@
         function notesVersion(notes) {
             if (!notes || !notes.length) return '<div class="maj-notes maj-notes-vide">Pas de notes publiées pour cette version.</div>';
             return `<details class="maj-notes"><summary>Ce qui change</summary>${notes.map(n => `
-                <div class="maj-version"><strong>v${MH.esc(n.version)}</strong>${n.date ? ` · ${MH.esc(new Date(n.date).toLocaleDateString('fr-FR'))}` : ''}
+                <div class="maj-version"><strong>v${MH.esc(n.version)}</strong>${n.date ? ` · ${MH.esc(MH.date(n.date))}` : ''}
                 <ul>${n.notes.map(x => `<li>${MH.esc(x)}</li>`).join('')}</ul></div>`).join('')}</details>`;
         }
         // Et ce qui sera vérifié : le code téléchargé doit avoir exactement
@@ -353,7 +353,7 @@
         if (s < 60) return "a l'instant";
         if (s < 3600) return `il y a ${Math.floor(s / 60)} min`;
         if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`;
-        return new Date(ts).toLocaleDateString('fr-FR');
+        return MH.date(ts);
     }
 
     // Audit AMEL-65 : etat de la source, en clair. `source-health.js`

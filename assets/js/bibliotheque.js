@@ -225,7 +225,7 @@
         // Bannière « hors connexion »
         const banner = document.createElement('div');
         banner.style.cssText = 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:10px;padding:11px 14px;margin-bottom:16px;font-size:13px;color:var(--text2)';
-        const when = cache.at ? new Date(cache.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+        const when = MH.date(cache.at, 'jourHeure');
         banner.innerHTML = `<span style="flex:1;min-width:200px">Aperçu local de ta bibliothèque${when ? ` (sauvegardé le ${when})` : ''}. Le serveur est injoignable : aperçu hors-ligne.</span>
             <button class="btn btn-primary btn-sm" onclick="location.reload()">Réessayer</button>`;
         document.getElementById('tabLibrary').prepend(banner);

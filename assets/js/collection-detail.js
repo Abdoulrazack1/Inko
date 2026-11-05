@@ -239,7 +239,7 @@
             </div>
             <div style="margin-top:12px;font-size:12px;color:var(--text3)">
                 ${list.isPublic ? 'Visible par tous' : 'Visible par toi seulement'}
-                ${list.createdAt ? ` · créée le ${new Date(list.createdAt).toLocaleDateString('fr-FR')}` : ''}
+                ${list.createdAt ? ` · créée le ${MH.date(list.createdAt)}` : ''}
             </div>
         </div>
         <div class="cd-sidebar-block">

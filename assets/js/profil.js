@@ -220,7 +220,7 @@
         // « John Doe » affichaient le même @john_doe). Suffixe #id = unique.
         if (handleEl) handleEl.textContent = '@' + u.username.toLowerCase().replace(/\s+/g, '_') + (u.id ? '#' + u.id : '');
         if (sinceEl)  sinceEl.textContent  = u.createdAt
-            ? 'Membre depuis ' + new Date(u.createdAt).toLocaleDateString('fr-FR', { month:'short', year:'numeric' })
+            ? 'Membre depuis ' + MH.date(u.createdAt, 'moisCourt')
             : '';
     }
 
@@ -460,7 +460,7 @@
                         <a href="serie.html?id=${encodeURIComponent(r.mangaId)}" style="font-weight:600;font-size:13.5px;color:var(--text);text-decoration:none">${MH.esc(m?.title || r.mangaId)}</a>
                         <div style="color:var(--amber-text);font-size:13px;margin:2px 0">${stars}</div>
                         ${r.review ? `<div style="font-size:12.5px;color:var(--text2);font-style:italic">« ${MH.esc(r.review)} »</div>` : ''}
-                        <div style="font-size:11px;color:var(--text3);margin-top:3px">${r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('fr-FR') : ''}</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:3px">${r.updatedAt ? MH.date(r.updatedAt) : ''}</div>
                     </div>
                 </div>`;
             }).join('');
@@ -1568,6 +1568,6 @@
         if (diff < 3600)   return `il y a ${Math.floor(diff / 60)} min`;
         if (diff < 86400)  return `il y a ${Math.floor(diff / 3600)}h`;
         if (diff < 604800) return `il y a ${Math.floor(diff / 86400)}j`;
-        return new Date(ts).toLocaleDateString('fr-FR');
+        return MH.date(ts);
     }
 })();

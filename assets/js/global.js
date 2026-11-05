@@ -296,12 +296,50 @@
     // Numéro de chapitre lisible (gère prologue/null sans afficher "null")
     window.MH.chapNum = (n) => (n != null && n !== '') ? n : '?';
 
+    /* ── Les dates ABSOLUES ont enfin leurs rôles ────────────
+     * `relTime` tenait le relatif (« il y a 3 j ») depuis longtemps. Les
+     * dates absolues, elles, s'écrivaient à la main : relevé sur
+     * `assets/js/`, HUIT formes distinctes réparties dans quatorze
+     * fichiers et vingt-quatre appels.
+     *
+     * Et deux de ces formes rendent la MÊME chaîne. `toLocaleDateString('fr-FR')`
+     * et `{ day:'2-digit', month:'2-digit', year:'numeric' }` donnent tous
+     * deux « 05/11/2026 » — dix-sept appels écrits de deux façons pour un
+     * résultat identique. Ce n'est pas une divergence encore visible,
+     * c'est une divergence qui n'attend qu'un changement d'avis.
+     *
+     * Même raisonnement que les échelles de l'étape 1 : ce qui n'a pas de
+     * nom se réinvente. Quatre rôles couvrent tout ce que l'application
+     * affiche, et `dateCourte`, dupliquée mot pour mot dans les deux
+     * lecteurs, disparaît dans le premier.
+     */
+    const FORMATS_DATE = {
+        courte:    { day: '2-digit', month: '2-digit', year: 'numeric' },  // 05/11/2026
+        longue:    { day: 'numeric', month: 'long', year: 'numeric' },     // 5 novembre 2026
+        mois:      { month: 'long', year: 'numeric' },                     // novembre 2026
+        moisCourt: { month: 'short', year: 'numeric' },                    // nov. 2026
+        jourHeure: { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' },
+    };
+    /**
+     * @param {string|number|Date} v
+     * @param {'courte'|'longue'|'mois'|'moisCourt'|'jourHeure'} role
+     * Une date absente ou illisible rend '' — jamais « Invalid Date »,
+     * qui s'est déjà affiché tel quel dans des interfaces.
+     */
+    window.MH.date = function (v, role = 'courte') {
+        if (v == null || v === '') return '';
+        const d = v instanceof Date ? v : new Date(v);
+        if (Number.isNaN(d.getTime())) return '';
+        return d.toLocaleDateString('fr-FR', FORMATS_DATE[role] || FORMATS_DATE.courte);
+    };
+    window.MH.formatsDate = Object.keys(FORMATS_DATE);
+
     // Date relative ("il y a 3 j", "il y a 2 mois") + titre = date complète
     window.MH.relTime = function (dateStr) {
         if (!dateStr) return '';
         const d = new Date(dateStr); if (isNaN(d)) return '';
         const s = Math.floor((Date.now() - d.getTime()) / 1000);
-        if (s < 0) return d.toLocaleDateString('fr-FR');
+        if (s < 0) return window.MH.date(d, 'courte');
         if (s < 60) return "à l'instant";
         if (s < 3600) return 'il y a ' + Math.floor(s / 60) + ' min';
         if (s < 86400) return 'il y a ' + Math.floor(s / 3600) + ' h';
@@ -314,7 +352,7 @@
     window.MH.fullDate = function (dateStr) {
         if (!dateStr) return '';
         const d = new Date(dateStr); if (isNaN(d)) return '';
-        return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+        return window.MH.date(d, 'longue');
     };
 
     /* ── Type de source (manga vs novel) ─────────────────────
@@ -2324,7 +2362,7 @@
         const m = Math.floor(s / 60); if (m < 60) return `${m} min`;
         const h = Math.floor(m / 60); if (h < 24) return `${h} h`;
         const j = Math.floor(h / 24); if (j < 30) return `${j} j`;
-        return new Date(d).toLocaleDateString('fr-FR');
+        return window.MH.date(d, 'courte');
     }
     function setNotifBadge(n) {
         const b = document.getElementById('notifBadge');

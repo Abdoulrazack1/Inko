@@ -283,7 +283,7 @@
                     : MH.icon(TYPE_ICON[it.type] || 'fileText', compact ? 20 : 26)}</div>
                 <div class="im-meta">
                     <div class="im-title">${MH.esc(compact && it.tome != null ? `Tome ${it.tome}` : it.title)}</div>
-                    <div class="im-sub"><span class="tag">${MH.esc(it.type)}</span> · ${fmtSize(it.size)} · importé le ${new Date(it.createdAt).toLocaleDateString('fr-FR')}</div>
+                    <div class="im-sub"><span class="tag">${MH.esc(it.type)}</span> · ${fmtSize(it.size)} · importé le ${MH.date(it.createdAt)}</div>
                 </div>
                 <a class="btn btn-primary btn-sm" href="localreader.html?id=${it.id}&type=${MH.esc(it.type)}">Lire</a>
                 <button class="btn btn-sm" data-del="${it.id}" style="color:var(--red-text)">Supprimer</button>

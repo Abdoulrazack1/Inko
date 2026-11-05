@@ -105,7 +105,7 @@
         el.innerHTML = `<h2 class="jr-moods-title">Humeurs au fil du temps</h2>
             <div class="jr-moods-row">${mois.map(([cle, compte]) => {
         const total = Object.values(compte).reduce((a, b) => a + b, 0);
-        const label = new Date(cle + '-01').toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+        const label = MH.date(cle + '-01', 'moisCourt');
         // Barre empilée : chaque humeur occupe sa part du mois. Les nombres
         // sont dans le title, la couleur ne portant pas seule l'information.
         const segments = Object.entries(compte).sort((a, b) => b[1] - a[1]).map(([m, n]) =>
@@ -135,11 +135,11 @@
         });
 
         const lignes = ['# Journal de lecture Inko', '',
-            `Export du ${new Date().toLocaleDateString('fr-FR')} — ${allNotes.length} note(s).`, ''];
+            `Export du ${MH.date()} — ${allNotes.length} note(s).`, ''];
         [...parSerie.entries()].sort((a, b) => a[0].localeCompare(b[0])).forEach(([serie, notes]) => {
             lignes.push(`## ${serie}`, '');
             notes.slice().sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).forEach(n => {
-                const d = new Date(n.createdAt).toLocaleDateString('fr-FR');
+                const d = MH.date(n.createdAt);
                 const contexte = [n.chapterNum != null ? `Ch. ${n.chapterNum}` : null,
                     MH.notePosLabel?.(n.source, n.page, { short: true }) || null]
                     .filter(Boolean).join(' · ');

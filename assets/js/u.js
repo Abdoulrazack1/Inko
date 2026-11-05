@@ -36,7 +36,7 @@
     }
 
     function render(body, p) {
-        const since = p.memberSince ? new Date(p.memberSince).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' }) : '';
+        const since = MH.date(p.memberSince, 'mois');
         const top = `
             <div class="up-top">
                 <div class="up-avatar">${avatarHtml(p)}</div>

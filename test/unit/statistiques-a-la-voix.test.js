@@ -26,7 +26,26 @@ const fn = (nom) => {
     assert.notEqual(i, -1, `${nom} doit rester repérable`);
     return SRC.slice(i, SRC.indexOf('\n    }\n', i) + 6);
 };
-const MH = { esc: (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;') };
+// Le harnais charge une fonction SEULE, hors de sa page : il doit donc
+// fournir les quelques aides partagées qu'elle appelle. `date` reproduit
+// `MH.date` à l'identique plutôt que de rendre une chaîne quelconque —
+// sinon l'assertion « 3 mai 2026 » ne vérifierait plus rien.
+const FORMATS_DATE = {
+    courte:    { day: '2-digit', month: '2-digit', year: 'numeric' },
+    longue:    { day: 'numeric', month: 'long', year: 'numeric' },
+    mois:      { month: 'long', year: 'numeric' },
+    moisCourt: { month: 'short', year: 'numeric' },
+    jourHeure: { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' },
+};
+const MH = {
+    esc: (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'),
+    date: (v, role = 'courte') => {
+        if (v == null || v === '') return '';
+        const d = v instanceof Date ? v : new Date(v);
+        if (Number.isNaN(d.getTime())) return '';
+        return d.toLocaleDateString('fr-FR', FORMATS_DATE[role] || FORMATS_DATE.courte);
+    },
+};
 // eslint-disable-next-line no-new-func
 const charger = (nom) => new Function('MH', `${fn(nom)}; return ${nom};`)(MH);
 

@@ -212,11 +212,12 @@
      * Vide si la source ne date pas ses chapitres : mieux vaut rien qu'une
      * date inventée, et toutes ne datent pas (Gutenberg rend un livre entier).
      */
+    // Elle etait dupliquee MOT POUR MOT dans les deux lecteurs : six lignes
+    // et un format de date qui pouvait deriver de l'un a l'autre sans que
+    // rien ne le dise. Le format porte desormais un nom (`MH.date`).
     function dateCourte(c) {
-        if (!c || !c.publishedAt) return '';
-        const d = new Date(c.publishedAt);
-        if (Number.isNaN(d.getTime())) return '';
-        return ' · ' + d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const s = window.MH.date(c && c.publishedAt, 'courte');
+        return s ? ' · ' + s : '';
     }
 
     // ── Toolbar ──

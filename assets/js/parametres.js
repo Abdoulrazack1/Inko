@@ -473,7 +473,7 @@
                 try {
                     const p = await API.me.backupPreview(file, phrase);
                     const ok = await MH.confirm(
-                        `Restaurer ta sauvegarde du ${new Date(p.createdAt || Date.now()).toLocaleDateString('fr-FR')} ?`,
+                        `Restaurer ta sauvegarde du ${MH.date(p.createdAt || Date.now())} ?`,
                         { okText: 'Restaurer',
                             message: `Elle contient ${p.mine.favorites} favori(s), ${p.mine.readChapters} chapitre(s) lu(s), `
                                 + `${p.mine.progress} progression(s), ${p.mine.ratings} note(s), ${p.mine.lists} liste(s). `
@@ -577,7 +577,7 @@
         if (s < 60) return "a l'instant";
         if (s < 3600) return `il y a ${Math.floor(s / 60)} min`;
         if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`;
-        return `le ${new Date(ts).toLocaleDateString('fr-FR')}`;
+        return `le ${MH.date(ts)}`;
     }
 
     // ── SEGMENTS (lecteur + thème) ──

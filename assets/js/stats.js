@@ -313,7 +313,7 @@
         if (!jours.length) return 'Activité sur l’année : aucun chapitre lu pour l’instant.';
         const total = jours.reduce((n, k) => n + map[k], 0);
         const meilleur = jours.reduce((a, k) => (map[k] > map[a] ? k : a), jours[0]);
-        const date = new Date(meilleur + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+        const date = MH.date(meilleur + 'T12:00:00', 'longue');
         return `Activité sur l’année : ${total} chapitre(s) lu(s) en ${jours.length} jour(s) de lecture. `
             + `Meilleur jour : ${date}, ${map[meilleur]} chapitre(s).`;
     }
@@ -584,6 +584,6 @@
         if (s < 3600) return Math.floor(s / 60) + ' min';
         if (s < 86400) return Math.floor(s / 3600) + ' h';
         if (s < 2592000) return Math.floor(s / 86400) + ' j';
-        return d.toLocaleDateString('fr-FR');
+        return MH.date(d, 'courte');
     }
 })();
