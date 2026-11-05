@@ -38,6 +38,14 @@ const ALWAYS = [
     '/assets/img/icon-192.png',
     '/assets/img/icon-512.png',
     '/assets/js/onboarding.js',   // chargé dynamiquement par global.js
+    // Même cas : chargés par `global.js` seulement sous `(hover: none)`,
+    // parce qu'ils ne servent qu'au doigt et rendaient la main aussitôt
+    // sur un bureau — 24 Ko inutiles sur vingt pages. Un scan du HTML ne
+    // les voit plus. Ce qui est conditionnel est le CHARGEMENT, pas la
+    // disponibilité hors ligne : un téléphone en a besoin, et il ne doit
+    // pas dépendre du réseau pour l'obtenir.
+    '/assets/js/une-main.js',
+    '/assets/js/tirer-rafraichir.js',
     // PERF-03 : la feuille était précachée et son script non — une asymétrie
     // qui ne produit pas « pas de musique » mais un état INTERMÉDIAIRE : les
     // styles du lecteur audio présents, le lecteur absent.

@@ -3459,6 +3459,45 @@
     /* ── Visite guidée (première ouverture) ─────────────────
        Chargée dynamiquement pour ne rien coûter aux lancements
        suivants. MH.startTour() la rejoue (Paramètres). */
+    /* ── Les deux modules du doigt, chargés s'il y a un doigt ──
+     * `une-main.js` et `tirer-rafraichir.js` commencent tous deux par
+     *
+     *     if (!matchMedia('(hover: none)').matches) return;
+     *
+     * — ils ne servent qu'au tactile. Le garde arrivait trop tard : sur
+     * un bureau le fichier était demandé, reçu, analysé et exécuté pour
+     * rendre la main aussitôt, et cela sur VINGT pages. 24 Ko payés à
+     * chaque visite pour deux modules qui ne feront jamais rien.
+     *
+     * La même condition décide maintenant du chargement.
+     *
+     * Deux autres modules ont le même garde — `cartes-gestes.js` (28 Ko,
+     * tactile) et `card-hover.js` (12 Ko, pointeur) — et ils RESTENT
+     * déclarés par les pages. La raison : ils ne concernent que les
+     * écrans à cartes, quatre ou cinq sur vingt-six. Les charger d'ici
+     * les poserait aussi sur les réglages ou la confidentialité, où il
+     * n'y a pas une carte à toucher. Mieux vaut un module en trop sur un
+     * bureau qu'un module de gestes sur une page sans geste.
+     *
+     * Les deux fichiers restent dans le précache — `gen-precache.js` les
+     * liste explicitement, comme `onboarding.js`. Ce qui est conditionnel
+     * est le chargement, pas la disponibilité hors ligne : un appareil
+     * qui en a besoin ne doit pas dépendre du réseau pour l'obtenir.
+     *
+     * Et les modules gardent leur garde interne. Elle protège d'une
+     * double exécution si une page les inclut aussi en dur.
+     */
+    (function modulesDuDoigt() {
+        if (!window.matchMedia || !matchMedia('(hover: none)').matches) return;
+        for (const f of ['une-main.js', 'tirer-rafraichir.js']) {
+            if (document.querySelector(`script[src$="${f}"]`)) continue;
+            const sc = document.createElement('script');
+            sc.src = 'assets/js/' + f;
+            sc.defer = true;
+            document.head.appendChild(sc);
+        }
+    })();
+
     function loadTour(autostart) {
         return new Promise((resolve) => {
             if (window.InkoTour) return resolve();
