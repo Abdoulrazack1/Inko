@@ -162,8 +162,15 @@
 .latest-mini-sub { font-size: var(--t-xs); color: var(--text3); }
 
 /* ── Catalogue header ───────────────────────────────────────── */
+/* UNE colonne, et c'est la seule declaration qui le dise desormais.
+   Trois se contredisaient : `1fr auto` ici, `1fr` dans une requete media
+   a 1024 px, et `1fr !important` sans condition 240 lignes plus bas. La
+   derniere gagnait partout, donc les deux premieres etaient mortes.
+   Mesure : le seul autre enfant de l'en-tete est le bouton « Filtres »,
+   masque au-dessus de 1024 px (0x0 a 1400 px de large) — il n'y a rien a
+   poser dans une seconde colonne. */
 .catalogue-header {
-  display: grid; grid-template-columns: 1fr auto;
+  display: grid; grid-template-columns: 1fr;
   gap: 20px; margin-bottom: var(--sp-5);
 }
 .catalogue-title {
@@ -337,7 +344,6 @@
   .team-picks-grid { grid-template-columns: repeat(2, 1fr); }
   .collections-mini-grid { grid-template-columns: repeat(2, 1fr); }
   .reviews-grid { grid-template-columns: repeat(2, 1fr); }
-  .catalogue-header { grid-template-columns: 1fr; }
   .catalogue-focus { width: auto; }
 }
 
@@ -406,4 +412,3 @@
 .cat-search input { width: 100%; height: 42px; padding: 0 14px 0 38px; border-radius:  var(--r-carte); border: 1px solid var(--border2);
   background: var(--bg2); color: var(--text); font-size: var(--t-m); }
 .cat-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
-.catalogue-header { grid-template-columns: 1fr !important; }

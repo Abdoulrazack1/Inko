@@ -811,11 +811,15 @@
   .modebar-info { display: none; }
   .reader-nav-row { padding: 10px var(--sp-3); gap: var(--sp-2); }
   .reader-nav-btn { height: 44px; padding: 0 14px; font-size: var(--t-s); }   /* cible tactile ≥44px (a11y, audit A13) */
-  .reader-page-wrapper { padding: var(--sp-2); min-height: 400px; }
+  /* `.reader-page-wrapper` est parti d'ici : il ne s'appliquait plus.
+     Une règle inconditionnelle de MÊME spécificité, écrite 340 lignes
+     plus bas, le réécrit en `padding: var(--sp-2) 0; min-height: 0`.
+     Mesuré à 454 px : le rembourrage valait bien `8px 0` et la hauteur
+     minimale `0` — pas les `8px` / `400px` déclarés ici. Une marge
+     mobile pensée puis tuée en silence par une édition ultérieure. */
   .reader-next-chapter { flex-wrap: wrap; gap: 10px; }
   .page-zone-arrow { width: 32px; height: 32px; font-size: var(--t-m); }
   .translator-note { padding: 0 var(--sp-3); }
-  .reader-settings-pop { top: 56px; right: 8px; width: 280px; }
 }
 
 /* ── Lecteur pro : ajustement des images ── */
@@ -835,6 +839,16 @@
   font-family: var(--font-body, -apple-system, sans-serif);
   animation: rsPop .16s ease;
 }
+/* Sur un petit ecran, le panneau se recolle au bord et se resserre.
+   Cette regle vivait 10 lignes PLUS HAUT, dans la requete media de
+   480 px — avant la regle de base, et de meme specificite. La base
+   la reecrivait donc toujours : mesure a 454 px, le panneau prenait
+   `top: 64px; right: 16px; width: 300px`, les valeurs du bureau.
+   Une regle mobile ecrite, jamais appliquee. */
+@media (max-width: 480px) {
+  .reader-settings-pop { top: 56px; right: 8px; width: 280px; }
+}
+
 /* Note d'un signet : même habillage que les réglages, ancrée sous la barre. */
 .signet-pop {
   position: fixed; top: 64px; right: 16px; z-index: 1000;
