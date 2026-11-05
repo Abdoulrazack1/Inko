@@ -215,6 +215,40 @@
     let aggOffset = 0;
     let aggSeen = new Map();
 
+    /**
+     * En mode « Toutes les sources », les résultats portent déjà leur
+     * origine — mais en petit, sur chaque carte, au bout de la ligne de
+     * méta. Avec neuf sources actives, savoir d'où vient une œuvre
+     * demandait de lire vingt-quatre fois la même micro-étiquette.
+     *
+     * Ils sont pourtant DÉJÀ groupés : la fusion les insère source par
+     * source dans une `Map`, qui garde l'ordre d'insertion. Il manquait
+     * seulement la frontière — on voyait un seul tas là où il y avait
+     * des paquets.
+     *
+     * Un titre par source, en pleine largeur de la grille. Pas de
+     * sous-grille : `grid-column: 1 / -1` garde une seule grille, donc
+     * les mêmes colonnes et les mêmes gouttières que partout ailleurs —
+     * et la densité d'affichage continue de les piloter.
+     *
+     * Avec une seule source qui répond, le titre n'apprendrait rien et
+     * ne s'affiche pas.
+     */
+    function grouperParSource(liste) {
+        const paquets = new Map();
+        for (const m of liste) {
+            const cle = m._source || '?';
+            if (!paquets.has(cle)) paquets.set(cle, { nom: m._sourceName || cle, items: [] });
+            paquets.get(cle).items.push(m);
+        }
+        const groupes = [...paquets.values()];
+        if (groupes.length < 2) return liste.map(mangaCardHTML).join('');
+        return groupes.map(g =>
+            `<h2 class="cat-src-groupe">${MH.esc(g.nom)}`
+            + `<span class="cat-src-compte">${g.items.length}</span></h2>`
+            + g.items.map(mangaCardHTML).join('')).join('');
+    }
+
     async function runSearchAggregate(myReq, more = false) {
         const grid = document.getElementById('resultsGrid');
         const count = document.getElementById('resultsCount');
@@ -264,7 +298,7 @@
             });
             grid.firstChild.style.gridColumn = '1/-1';
         } else {
-            grid.innerHTML = lastResults.map(m => mangaCardHTML(m)).join('');
+            grid.innerHTML = grouperParSource(lastResults);
             MH.markFavorites(grid);
         }
         // « Charger plus » tant qu'au moins une source a rempli sa page

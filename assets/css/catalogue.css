@@ -412,3 +412,27 @@
 .cat-search input { width: 100%; height: 42px; padding: 0 14px 0 38px; border-radius:  var(--r-carte); border: 1px solid var(--border2);
   background: var(--bg2); color: var(--text); font-size: var(--t-m); }
 .cat-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+
+/* ── Un titre par source, en mode « Toutes les sources » ──────
+   Les résultats étaient déjà groupés — la fusion les insère source par
+   source — mais rien ne marquait la frontière : un seul tas là où il y
+   avait des paquets, et l'origine d'une œuvre ne se lisait que sur une
+   micro-étiquette, vingt-quatre fois.
+
+   En pleine largeur DANS la grille (`grid-column: 1 / -1`) plutôt qu'une
+   sous-grille par source : une seule grille, donc les mêmes colonnes et
+   les mêmes gouttières que partout, et la densité d'affichage continue
+   de les piloter. */
+.cat-src-groupe {
+  grid-column: 1 / -1;
+  display: flex; align-items: baseline; gap: var(--sp-2);
+  margin: var(--sp-5) 0 0;
+  font-family: var(--font-head); font-size: var(--t-m); font-weight: 700;
+  color: var(--text);
+  padding-bottom: var(--sp-1); border-bottom: 1px solid var(--border);
+}
+.cat-src-groupe:first-child { margin-top: 0; }
+.cat-src-compte {
+  font-family: var(--font-mono); font-size: var(--t-xs); font-weight: 400;
+  color: var(--text3); font-variant-numeric: tabular-nums;
+}
