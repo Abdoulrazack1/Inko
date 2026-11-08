@@ -35,6 +35,7 @@
     "mobile:www": "node scripts-ci/build-mobile-www.js",
     "mobile:sync": "node scripts-ci/build-mobile-www.js && cap sync android",
     "verifier-apk": "node scripts-ci/verifier-apk.js",
+    "verifier-android8": "node scripts-ci/verifier-android8.js --check",
     "verif-java": "node scripts-ci/verifier-java-android.js"
   },
   "devDependencies": {
