@@ -61,6 +61,13 @@ jobs:
       - name: Préparer le contenu embarqué
         run: node scripts-ci/build-mobile-www.js
 
+      # Le paquet est relu APRES construction : la transpilation vers
+      # chrome61 ne voyait que des fichiers, donc tout bloc ecrit DANS une
+      # page y echappait. `offline.html` portait ainsi un `?.` — la page
+      # montree quand tout le reste a deja echoue.
+      - name: Verifier la compatibilite Android 8 du paquet
+        run: node scripts-ci/verifier-android8.js --check
+
       - name: Synchroniser Capacitor
         run: npx cap sync android
 
