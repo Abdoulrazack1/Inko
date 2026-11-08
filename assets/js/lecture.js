@@ -806,7 +806,67 @@
         if (!c) return;
         c.scrollBy({ left: sens * c.clientWidth, behavior: 'smooth' });
     }
+    /* ── Redimensionner ne doit pas perdre la page ───────────
+     * Ici la position de lecture est un POURCENTAGE : `scrollPct()` le
+     * calcule, `positionner()` le restitue, et c'est lui qu'on enregistre
+     * dans la progression. Le navigateur, lui, garde un `scrollTop` en
+     * PIXELS.
+     *
+     * Les deux ne survivent pas ensemble à une reflow. Élargir la
+     * fenêtre, tourner le téléphone, ou changer la largeur de lecture
+     * dans les réglages : le texte se recompose, `scrollHeight` change,
+     * le pixel ne bouge pas — et il désigne un autre endroit du livre.
+     *
+     * Un exemple vaut la démonstration : à 50 % d'un texte de 20 000 px
+     * on est à 10 000 px. La colonne se resserre, le texte fait
+     * maintenant 30 000 px — on est toujours à 10 000 px, c'est-à-dire
+     * à 33 %. On vient de reculer d'un sixième du livre sans rien
+     * toucher.
+     *
+     * En mode pages c'est pire : le conteneur se repagine et le
+     * `scrollLeft` en pixels tombe au milieu de nulle part.
+     *
+     * `chapitre.js` écoute `resize` et `orientationchange` depuis
+     * longtemps (et pose même un `ResizeObserver`). Le lecteur de texte
+     * n'écoutait rien — c'est l'asymétrie que ce correctif comble.
+     *
+     * Le principe : on retient le dernier pourcentage CONNU, et après la
+     * reflow on le repose. Le drapeau évite la boucle, car repositionner
+     * déclenche un `scroll` qui réécrirait le pourcentage qu'on vient
+     * tout juste de restaurer.
+     */
+    let dernierPct = 0;
+    let enRepositionnement = false;
+    function retenirPct(pct) { if (!enRepositionnement) dernierPct = pct; }
+
+    function surRedimensionnement() {
+        // Rien à retenir tant qu'on n'a pas lu : au tout début, `positionner`
+        // ramènerait en haut une page qui y est déjà.
+        if (dernierPct <= 0) return;
+        enRepositionnement = true;
+        positionner(dernierPct);
+        // Deux images : la reflow peut s'achever après le premier cadre,
+        // et une seule tentative retombe alors sur l'ancienne hauteur.
+        requestAnimationFrame(() => {
+            positionner(dernierPct);
+            setTimeout(() => { enRepositionnement = false; }, 120);
+        });
+    }
+
+    let tempoResize = null;
+    function brancherRedimensionnement() {
+        const differer = () => {
+            clearTimeout(tempoResize);
+            // Un redimensionnement à la souris émet des dizaines
+            // d'événements : on attend que ça se pose.
+            tempoResize = setTimeout(surRedimensionnement, 150);
+        };
+        window.addEventListener('resize', differer);
+        window.addEventListener('orientationchange', differer);
+    }
+
     function bindScrollProgress() {
+        brancherRedimensionnement();
         const fill = document.getElementById('novelProgressFill');
         // En mode pages, c'est le CONTENEUR qui défile, pas la fenêtre : sans
         // cet écouteur la barre de progression resterait figée à 0 %.
@@ -816,6 +876,7 @@
             c.addEventListener('scroll', () => {
                 if (!estPagine()) return;
                 const pct = scrollPct();
+                retenirPct(pct);
                 if (fill) fill.style.width = pct + '%';
                 majTempsRestant();
                 if (pct >= 96 && !readMarked) { readMarked = true; markChapterRead(); }
@@ -826,6 +887,7 @@
         window.addEventListener('scroll', () => {
             if (estPagine()) return;   // la fenêtre ne défile plus dans ce mode
             const pct = scrollPct();
+            retenirPct(pct);
             if (fill) fill.style.width = pct + '%';
             majTempsRestant();   // audit AMEL-23
             if (pct >= 96 && !readMarked) { readMarked = true; markChapterRead(); }
@@ -864,6 +926,11 @@
     // Extrait de restoreScroll : les deux chemins (URL, progression) doivent
     // positionner de la MEME facon, sinon ils finiront par diverger.
     function positionner(pct) {
+        // On retient AUSSI ici, pas seulement au defilement : une
+        // lecture reprise a 60 % puis redimensionnee sans toucher a la
+        // molette aurait sinon un dernier pourcentage de zero, et on
+        // perdrait la place qu'on venait tout juste de restaurer.
+        dernierPct = pct;
         if (estPagine()) {
             // Audit AMEL-21 : en mode pages la position vit sur l'axe
             // horizontal du conteneur. Sans ce cas, reprendre une
