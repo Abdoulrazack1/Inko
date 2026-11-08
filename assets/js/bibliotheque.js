@@ -1617,10 +1617,15 @@
     // par un clic ailleurs ou Échap.
     function wirePopovers() {
         const paires = [['btnLibFilters', 'libFilterPanel'], ['btnLibMore', 'libMoreMenu']];
-        const fermer = () => paires.forEach(([b, p]) => {
+        const fermerReel = () => paires.forEach(([b, p]) => {
             const pop = document.getElementById(p); if (pop) pop.hidden = true;
             document.getElementById(b)?.setAttribute('aria-expanded', 'false');
         });
+        // Un seul des deux est ouvert a la fois, donc une seule entree
+        // d'historique a la fois : le bouton retour d'Android referme le
+        // panneau au lieu de quitter la bibliotheque.
+        let rendre = () => {};
+        const fermer = () => { rendre(); fermerReel(); };
         paires.forEach(([b, p]) => {
             const btn = document.getElementById(b), pop = document.getElementById(p);
             if (!btn || !pop) return;
@@ -1628,7 +1633,11 @@
                 e.stopPropagation();
                 const ouvrir = pop.hidden;
                 fermer();
-                if (ouvrir) { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+                if (ouvrir) {
+                    pop.hidden = false;
+                    btn.setAttribute('aria-expanded', 'true');
+                    rendre = window.MH?.surcouche ? MH.surcouche(fermerReel) : fermerReel;
+                }
             });
             pop.addEventListener('click', (e) => e.stopPropagation());
         });

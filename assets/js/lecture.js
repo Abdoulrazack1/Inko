@@ -434,6 +434,9 @@
             <button type="button" class="nf-btn" id="nfFermer" aria-label="Fermer la recherche" title="Fermer (Échap)">✕</button>`;
         hote.appendChild(barre);
         rechercheOuverte = true;
+        // Elle n'existe que dans le DOM : sans entree d'historique, le bouton
+        // retour d'Android quitterait le chapitre en la laissant ouverte.
+        fermerBarre = window.MH?.surcouche ? MH.surcouche(fermerReel) : fermerReel;
 
         const champ = barre.querySelector('#nfChamp');
         let minuteur = null;
@@ -453,11 +456,13 @@
         champ.focus();
     }
 
-    function fermerRecherche() {
+    let fermerBarre = () => {};
+    function fermerReel() {
         retirerSurlignage();
         document.getElementById('novelFind')?.remove();
         rechercheOuverte = false;
     }
+    function fermerRecherche() { fermerBarre(); fermerReel(); }
 
     function basculerRecherche() {
         if (rechercheOuverte) fermerRecherche(); else ouvrirRecherche();

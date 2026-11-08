@@ -808,6 +808,25 @@
             taille() { return pile.length; },
         };
 
+        /**
+         * La même chose, en un seul geste — parce que `pousser` seul demande
+         * au site d'appel de garder la fonction rendue, de ne l'appeler
+         * qu'une fois, et de ne jamais fermer par un autre chemin. Mesuré :
+         * sur onze fermetures par Échap hors de ce fichier, ZÉRO poussait
+         * une entrée. Le mécanisme existait et personne ne s'en servait —
+         * c'est le défaut qui revient depuis l'étape 2, et la parade est
+         * toujours la même : rendre le bon geste plus court que le mauvais.
+         *
+         * @param {Function} fermerReel  ferme réellement (DOM, écouteurs)
+         * @returns {Function} à appeler pour fermer, d'où que vienne l'ordre
+         */
+        window.MH.surcouche = function (fermerReel) {
+            let vivant = true;
+            const reel = () => { if (!vivant) return; vivant = false; fermerReel(); };
+            const rendre = window.MH.retour ? window.MH.retour.pousser(reel) : reel;
+            return () => { if (vivant) rendre(); };
+        };
+
         window.addEventListener('popstate', () => {
             if (ignorerPop) { ignorerPop = false; return; }
             if (!pile.length) return;        // rien à nous : navigation normale

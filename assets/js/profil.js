@@ -804,11 +804,13 @@
         menu.style.top = `${Math.round(r.bottom + window.scrollY + 6)}px`;
         menu.style.left = `${Math.round(Math.min(r.left + window.scrollX, window.innerWidth - 240))}px`;
 
-        const fermer = () => {
+        const fermerReel = () => {
             menu.remove();
             document.removeEventListener('click', dehors, true);
             document.removeEventListener('keydown', echap, true);
         };
+        // Le bouton retour d'Android ferme le menu au lieu de quitter la page.
+        const fermer = window.MH?.surcouche ? MH.surcouche(fermerReel) : fermerReel;
         const dehors = (e) => { if (!menu.contains(e.target) && e.target !== pastille) fermer(); };
         const echap = (e) => { if (e.key === 'Escape') { e.preventDefault(); fermer(); pastille.focus(); } };
         setTimeout(() => {
