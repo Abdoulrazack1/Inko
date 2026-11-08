@@ -1634,6 +1634,59 @@
     };
 
     // Badge "nouveaux chapitres" sur les liens Bibliothèque (header + nav mobile)
+    /* ── Le réseau tombe en cours de route ───────────────────
+     * Trois modules écoutaient déjà `online` — la file hors-ligne de
+     * `api.js`, la synchro, la couche native. Pas un seul n'écoutait
+     * `offline`, et RIEN ne le disait à l'écran : vérifié en émettant
+     * l'événement dans une page de lecture, le document ne bougeait pas
+     * d'un caractère.
+     *
+     * Ce que ça donne en vrai : on perd le réseau au milieu d'un
+     * chapitre, les planches encore à charger échouent une par une, et
+     * chacune affiche son propre « page introuvable ». Dix échecs
+     * séparés là où il s'est passé UNE chose.
+     *
+     * Le bandeau dit donc la cause une fois — et surtout ce qui MARCHE
+     * ENCORE, parce que c'est la seule partie actionnable. Le message
+     * dépend de la page : dans un lecteur, les planches déjà reçues
+     * restent lisibles ; ailleurs, la bibliothèque et les chapitres
+     * téléchargés restent accessibles.
+     *
+     * Persistant tant que la condition dure : un bandeau de quatre
+     * secondes pour un état qui dure dix minutes se serait effacé avant
+     * d'avoir servi. On le ferme nous-mêmes au retour du réseau.
+     *
+     * Le chargement déjà hors ligne n'est pas concerné : `offline` ne se
+     * déclenche qu'à la TRANSITION, et ce cas-là est traité depuis
+     * longtemps par le repli des lecteurs (« Lecture hors-ligne »).
+     */
+    (function reseauPerdu() {
+        const TRES_LONG = 86400000;     // on ferme a la main, pas au minuteur
+        let bandeau = null;
+
+        const dansUnLecteur = () => !!document.querySelector(
+            '.reader-page-img, .novel-content, #readerPagesArea');
+
+        function surPerte() {
+            if (bandeau) return;
+            const message = dansUnLecteur()
+                ? 'Réseau perdu. Les planches déjà chargées restent lisibles.'
+                : 'Réseau perdu. Ta bibliothèque et tes chapitres téléchargés restent accessibles.';
+            bandeau = window.MH.bandeau(message, { duree: TRES_LONG });
+        }
+
+        function surRetour() {
+            if (bandeau) { bandeau.fermer(); bandeau = null; }
+            // Seulement si on avait prévenu : sinon, au premier chargement
+            // d'une session déjà en ligne, on annoncerait un retour qui
+            // n'a jamais eu lieu.
+            window.MH.toast?.('Réseau revenu', 2000);
+        }
+
+        window.addEventListener('offline', surPerte);
+        window.addEventListener('online', () => { if (bandeau) surRetour(); });
+    })();
+
     window.MH.updateLibBadge = function () {
         let n = 0; try { n = +localStorage.getItem('inko_lib_newcount') || 0; } catch (e) { window.MH?.err?.('global.js', e); }
         document.querySelectorAll('#navLibBadge, #navLibBadgeM').forEach(b => {
