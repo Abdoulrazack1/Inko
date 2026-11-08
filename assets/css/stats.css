@@ -30,3 +30,47 @@
 .act .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--orange); flex-shrink: 0; }
 .act .when { margin-left: auto; font-size: var(--t-xs); color: var(--text3); }
 .st-empty { text-align: center; padding: var(--sp-7) var(--sp-5); color: var(--text3); }
+
+/* ── Les chiffres derrière la couleur ─────────────────────────
+   Le tableau de la répartition existait déjà, complet et correct — mais
+   en `a11y-invisible`, c'est-à-dire réservé aux lecteurs d'écran. Un
+   lecteur daltonien, lui, voyait le graphique et la légende, et n'avait
+   aucun moyen d'associer un aplat à une source.
+
+   Mesuré : sur les trois palettes et les trois daltonismes, jusqu'à sept
+   paires de couleurs se confondent (distance CIE76 < 20), dont deux à
+   2,2 — c'est-à-dire identiques. Aucun ordre n'y change grand-chose
+   au-delà de trois sources : huit teintes discernables n'existent pas.
+   Ce sont donc les CHIFFRES qui portent l'information, et ils doivent
+   être atteignables sans lire une couleur.
+
+   Un bouton, pas un `<details>` : un `<details>` fermé retire son
+   contenu de l'arbre d'accessibilité (même raison que le commentaire de
+   `.a11y-invisible` dans global.css). Le tableau y était déjà exposé ;
+   le bouton l'ouvre aux yeux sans le fermer aux voix. */
+.st-chiffres-bouton {
+    display: block; margin-top: var(--sp-2);
+    background: none; border: 0; padding: var(--sp-1) 0;
+    font: inherit; font-size: var(--t-s);
+    color: var(--text2); cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px;
+    min-height: var(--carte-action);
+}
+.st-chiffres-bouton:hover { color: var(--text); }
+/* La boite porte la bascule : hors de l'ecran, elle reprend
+   `.a11y-invisible` sans que deux regles se disputent la largeur du
+   tableau. Visible, elle defile seule si les sources sont nombreuses. */
+.st-chiffres { margin-top: var(--sp-2); overflow-x: auto; }
+.st-chiffres-table {
+    width: 100%; border-collapse: collapse;
+    font-size: var(--t-xs);
+}
+.st-chiffres-table caption { text-align: left; color: var(--text3); padding-bottom: var(--sp-1); }
+.st-chiffres-table th, .st-chiffres-table td {
+    padding: var(--sp-1) var(--sp-2);
+    border-bottom: 1px solid var(--border);
+    text-align: right; font-variant-numeric: tabular-nums;
+}
+.st-chiffres-table th[scope="row"], .st-chiffres-table thead th:first-child { text-align: left; }
+.st-chiffres-table thead th { color: var(--text3); font-weight: 600; }
+.st-chiffres:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
