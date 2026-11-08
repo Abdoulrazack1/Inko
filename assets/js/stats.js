@@ -118,7 +118,7 @@
                 </div>
             </div>
             <div class="st-cards">
-                ${cards.map(([c, v, l]) => `<div class="st-card ${c}"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}
+                ${cards.map(([c, v, l]) => `<div class="st-card ${v === 0 ? '' : c}"><div class="v ${MH.classeChiffre(v)}">${v}</div><div class="l">${l}</div></div>`).join('')}
             </div>
             ${badgesPanel(t, streak, favs)}
             ${statusPanel(favs)}

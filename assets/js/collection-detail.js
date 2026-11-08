@@ -58,7 +58,7 @@
                 <h1 class="cd-title">${MH.esc(list.name)}</h1>
                 ${list.description ? `<p class="cd-desc">${MH.esc(list.description)}</p>` : ''}
                 <div class="cd-stats-row">
-                    <div class="cd-stat"><div class="cd-stat-num">${items.length}</div><div class="cd-stat-label">Séries</div></div>
+                    <div class="cd-stat"><div class="cd-stat-num ${MH.classeChiffre(items.length)}">${items.length}</div><div class="cd-stat-label">Séries</div></div>
                 </div>
                 <div class="cd-actions">
                     ${items.length ? `<a href="serie.html?id=${encodeURIComponent(items[0].id)}&source=${encodeURIComponent(srcOf(items[0]))}" class="btn btn-primary">Commencer</a>` : ''}

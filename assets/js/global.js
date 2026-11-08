@@ -51,6 +51,34 @@
     // MH.t / MH.loadI18n / MH.setLang sur window.MH (audit N40 v2).
     window.MH = Object.assign(window.MH || {}, { $, $$, fmt, esc, cover, proxify, BLANK_IMG });
 
+    // ── Un zéro n'est pas un résultat ────────────────────────
+    //
+    // Les tuiles de chiffres donnent le même poids à tout ce qu'elles
+    // affichent. Mesuré sur la page des statistiques : « 0 jour d'affilée »
+    // sortait en ACCENT — la couleur la plus forte de la page, celle du
+    // plus gros chiffre (117 chapitres) — parce que l'accent est posé par
+    // POSITION, pas par contenu. Le signal le plus appuyé de la page
+    // pointait une absence.
+    //
+    // Un zéro reste affiché : c'est une information, et le masquer ferait
+    // croire à une panne. Mais il passe à l'encre secondaire, celle du
+    // libellé — mesurée entre 5,6 et 9,7 sur le fond de carte dans les
+    // quatre éditions, donc bien au-dessus du seuil de lecture : atténué,
+    // jamais grisé-désactivé.
+    const estZero = (v) => {
+        const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'));
+        return Number.isFinite(n) && n === 0;
+    };
+    /** Classe à poser sur un chiffre construit en chaîne. */
+    window.MH.classeChiffre = (v) => (estZero(v) ? 'chiffre-zero' : '');
+    /** Même décision, pour un chiffre posé sur un élément existant. */
+    window.MH.chiffre = function (el, valeur, texte) {
+        if (!el) return el;
+        el.textContent = texte != null ? String(texte) : String(valeur);
+        el.classList.toggle('chiffre-zero', estZero(texte != null ? texte : valeur));
+        return el;
+    };
+
     // Une touche de lecteur ne doit agir que seule. Les lecteurs testaient
     // la cible mais pas les modificateurs : Ctrl+P (imprimer) changeait de
     // chapitre, Ctrl+F lançait le plein écran au lieu de la recherche du

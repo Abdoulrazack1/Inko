@@ -72,8 +72,8 @@
             const s = await API.me.notesStats();
             const topMood = Object.entries(s.moods || {}).sort((a, b) => b[1] - a[1])[0];
             document.getElementById('jrStats').innerHTML = `
-                <div class="jr-stat"><b>${s.total}</b><span>note${s.total > 1 ? 's' : ''}</span></div>
-                <div class="jr-stat"><b>${s.series}</b><span>série${s.series > 1 ? 's' : ''} annotée${s.series > 1 ? 's' : ''}</span></div>
+                <div class="jr-stat"><b class="${MH.classeChiffre(s.total)}">${s.total}</b><span>note${s.total > 1 ? 's' : ''}</span></div>
+                <div class="jr-stat"><b class="${MH.classeChiffre(s.series)}">${s.series}</b><span>série${s.series > 1 ? 's' : ''} annotée${s.series > 1 ? 's' : ''}</span></div>
                 ${topMood ? `<div class="jr-stat"><b style="color:${MOOD_COLOR[topMood[0]] || 'var(--accent)'};font-size:14px">${MOOD_LABEL[topMood[0]] || ''}</b><span>humeur dominante</span></div>` : ''}`;
         } catch (e) { window.MH?.err?.('notes.js', e); }
     }
