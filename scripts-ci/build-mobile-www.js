@@ -156,6 +156,80 @@ function copierDossier(src, dst) {
 let transpiles = 0;
 let transpilesCss = 0;
 
+// ── Ce qu'aucune page ne reclame ne part pas ───────────
+// Les dossiers sont copies en entier, donc le paquet emportait ce qui
+// avait cesse d'etre utilise. Mesure du 9 novembre, sur 5,3 Mo :
+// `hero3d.js` (10 Ko) n'est appele par aucune page depuis la refonte de
+// l'accueil, et il est le SEUL a charger `three.min.js` (594 Ko). Soit
+// 604 Ko — 11 % du paquet — pour un ornement qui n'existe plus.
+//
+// On ne SUPPRIME rien du depot : la question de savoir si le hero 3D
+// revient un jour n'est pas une question de build. On cesse seulement de
+// l'embarquer, et on le DIT — un build qui jette en silence est pire que
+// le poids qu'il economise.
+//
+// L'accessibilite se calcule depuis les pages, APRES l'injection des
+// modules du mode autonome (sinon on jetterait `hub.js` et ses voisins),
+// et de proche en proche : une page cite `hero3d.js`, qui cite
+// `three.min.js`. Le service worker compte comme une racine : il precache
+// par chemin, sans balise pour le dire.
+function ecarterLesOrphelins(dir) {
+    const RACINES = fs.readdirSync(dir).filter((f) => f.endsWith('.html'));
+    const sw = path.join(dir, 'service-worker.js');
+    const vus = new Set();
+    const aVoir = [];
+
+    const citer = (texte) => {
+        for (const m of texte.matchAll(/assets\/(?:js|vendor)\/[\w.-]+\.js/g)) {
+            if (!vus.has(m[0])) { vus.add(m[0]); aVoir.push(m[0]); }
+        }
+    };
+    for (const f of RACINES) citer(fs.readFileSync(path.join(dir, f), 'utf8'));
+    if (fs.existsSync(sw)) citer(fs.readFileSync(sw, 'utf8'));
+    while (aVoir.length) {
+        const rel = aVoir.pop();
+        const f = path.join(dir, rel);
+        if (fs.existsSync(f)) citer(fs.readFileSync(f, 'utf8'));
+    }
+
+    const ecartes = [];
+    for (const d of ['assets/js', 'assets/vendor']) {
+        const abs = path.join(dir, d);
+        if (!fs.existsSync(abs)) continue;
+        for (const f of fs.readdirSync(abs)) {
+            if (!f.endsWith('.js')) continue;
+            const rel = `${d}/${f}`;
+            if (vus.has(rel)) continue;
+            const poids = fs.statSync(path.join(abs, f)).size;
+            fs.unlinkSync(path.join(abs, f));
+            ecartes.push({ rel, poids });
+        }
+    }
+    // Le filet. `caches.addAll` rejette EN BLOC si un seul chemin rend 404 :
+    // ecarter par erreur un fichier precache ne couterait pas un module, ca
+    // couterait tout le mode hors ligne, a l'installation du worker, sans
+    // rien dans l'interface pour le dire. On refuse donc de finir le build.
+    if (fs.existsSync(sw)) {
+        const texte = fs.readFileSync(sw, 'utf8');
+        const manquants = ecartes.filter((e) => texte.includes('/' + e.rel));
+        if (manquants.length) {
+            console.error('::error::le service worker precache des fichiers qu’on vient d’ecarter :');
+            for (const m of manquants) console.error('         /' + m.rel);
+            console.error('         addAll rejette en bloc : ce serait tout le hors-ligne perdu.');
+            process.exit(1);
+        }
+    }
+
+    if (ecartes.length) {
+        const total = ecartes.reduce((n, e) => n + e.poids, 0);
+        console.log(`  ${ecartes.length} module(s) hors du paquet, ${Math.round(total / 1024)} Ko — aucune page ne les reclame :`);
+        for (const e of ecartes.sort((x, y) => y.poids - x.poids)) {
+            console.log(`      ${String(Math.round(e.poids / 1024)).padStart(5)} Ko  ${e.rel}`);
+        }
+    }
+    return ecartes;
+}
+
 function construire() {
     fs.rmSync(SORTIE, { recursive: true, force: true });
     fs.mkdirSync(SORTIE, { recursive: true });
@@ -199,8 +273,9 @@ function construire() {
     // Le script de configuration du hub doit être chargé AVANT `api.js` sur
     // chaque page : c'est lui qui décide vers quel serveur les appels partent.
     injecterHub(SORTIE);
+    const ecartes = ecarterLesOrphelins(SORTIE);
 
-    console.log(`✔ mobile/www : ${pages} page(s), ${actifs} fichier(s) d'actifs`);
+    console.log(`✔ mobile/www : ${pages} page(s), ${actifs - ecartes.length} fichier(s) d'actifs`);
     if (esbuild) console.log(`  ${transpiles} script(s) et ${transpilesCss} feuille(s) transpilé(s) vers ${CIBLE}`);
     else console.warn('  ⚠ esbuild absent : scripts copiés tels quels — l’app échouera sur un WebView ancien.');
 }
