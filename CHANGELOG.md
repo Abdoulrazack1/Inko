@@ -3,6 +3,71 @@
 Toutes les versions notables de l'application. Les installeurs Windows sont
 publiés sur [la page des releases](https://github.com/Abdoulrazack1/Inko/releases).
 
+## 2.9.0 — Des sources qui répondent, et une app qui dit ce qu'elle fait
+
+**Les sources.** Cinq des neuf fonctionnent désormais de bout en bout, contre deux
+avant cette version — mesuré en déroulant la chaîne complète sur chacune.
+
+- **Essayer une source avant de l'activer.** Un bouton « Essayer » dans Sources déroule
+  la chaîne entière sur une seule série — chercher, ouvrir la fiche, lister les
+  chapitres, récupérer les pages ou le texte — et rend chaque étape séparément, avec son
+  temps. Rien n'est activé, installé ni enregistré. « Tester » ne répondait qu'à « la
+  source répond-elle ? », ce qui ne suffit pas à décider.
+- **Les deux Project Gutenberg revivent.** Elles paraissaient tombées (« pas de réponse
+  en 20 s ») ; elles répondent en 80 ms. Une URL sans son slash final subit une
+  redirection qui, combinée à un paramètre, ne revient jamais. Et le tri, que Gutendex ne
+  sait plus servir avec un filtre de langue, est devenu facultatif : la liste sort sans
+  tri plutôt que pas du tout.
+- **NovelBin répare sa liste.** Le site a restructuré son balisage pour la seconde fois
+  en quatre mois. L'extension essaie les deux formes connues, puis retombe sur les liens
+  de fiche, qui ne bougent pas.
+- **Une page d'erreur n'est plus prise pour du contenu.** Trois extensions acceptaient un
+  « 429 Too Many Requests » comme une page valide, la mettaient en cache dix minutes et
+  accusaient ensuite leur propre analyseur. Elles lisent maintenant le code HTTP et
+  nomment la panne — limite, refus, page introuvable.
+- **MangaDex dit ce qu'il ne peut pas servir.** Il référence des chapitres hébergés chez
+  l'éditeur : One Piece rendait « 1 chapitre » sans un mot, là où vingt-neuf sont publiés
+  ailleurs. La fiche l'explique désormais en une phrase.
+
+**Les couvertures manquantes.** Le visuel de remplacement affichait une grande lettre —
+le premier caractère d'un identifiant, donc un « 0 » ou un « a » qui ne désigne rien. Il
+dessine maintenant un livre entrouvert, sur une teinte propre à l'œuvre. Et quand un
+hébergeur refuse tout (MangaDex a placé ses couvertures derrière un défi anti-bot),
+l'application cesse de le solliciter pendant deux minutes au lieu de lancer quarante-huit
+requêtes vouées à l'échec par page.
+
+**Nouveautés.**
+
+- **Mode invité** : prêter son appareil sans que la lecture entre dans l'historique. Ni
+  reprise, ni chapitres lus, ni statistiques — les favoris et les notes, eux, restent des
+  gestes décidés. Un bandeau rappelle que le mode est actif tant qu'il l'est.
+- **Emporter son apparence** : thème, accent, densité et typographie des romans dans un
+  fichier, relisible sur un autre appareil. Rien n'est envoyé nulle part, et un fichier
+  d'apparence ne peut rien faire que la page des réglages ne permette déjà.
+- **Le bouton retour d'Android ferme ce qui est ouvert** au lieu de quitter l'écran, sur
+  les six panneaux qui l'ignoraient.
+- **Les chiffres derrière les couleurs** : jusqu'à sept paires de la palette des
+  graphiques se confondent sous daltonisme. Un bouton ouvre le tableau des valeurs.
+- **Un zéro n'occupe plus la place d'un résultat** : « 0 jour d'affilée » sortait dans la
+  couleur de marque, celle du plus gros chiffre de la page.
+
+**Corrections et robustesse.**
+
+- Le proxy d'images servait des pages d'erreur étiquetées `image/jpeg`, et les mettait en
+  cache : il vérifie désormais les octets reçus.
+- La mise à jour de l'app de bureau reprend où elle s'est arrêtée. Elle ne pouvait pas
+  aboutir sur une ligne lente : le fichier partiel était effacé à chaque tentative.
+- Serveur éteint, la bibliothèque affiche son miroir local au lieu d'annoncer « la source
+  ne répond pas » — ce n'était pas la source.
+- Redimensionner la fenêtre ne tourne plus les pages à votre place.
+- Perdre le réseau en cours de chapitre est annoncé une fois, pas dix.
+- Le paquet mobile a maigri de 601 Ko : une bibliothèque 3D que plus aucune page ne
+  charge. Un contrôle vérifie désormais, après chaque construction, que tout le paquet est
+  lisible par le WebView d'Android 8 — il a trouvé deux trous en naissant, dont la page
+  hors-ligne elle-même.
+- Les migrations de base s'appliquent dans l'ordre de leurs numéros, et la mise à jour
+  depuis deux versions en arrière est vérifiée sur une base jetable.
+
 ## 2.8.2 — Inko se tient comme une app sur téléphone
 
 - **Sur téléphone, une vraie barre d'application** : le titre de l'écran, et un bouton retour sur les écrans secondaires ; la navigation passe par les onglets du bas. L'en-tête ne garde que musique, notifications et profil.

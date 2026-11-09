@@ -56,7 +56,19 @@ let changed = [];
 for (const [page, desc] of Object.entries(DESCRIPTIONS)) {
     const abs = path.join(ROOT, page);
     if (!fs.existsSync(abs)) { console.warn(`  ⚠ page absente : ${page}`); continue; }
-    let html = fs.readFileSync(abs, 'utf8');
+    // ── Comparer sur un texte NORMALISE ────────────────────
+    // Le bloc ci-dessous est assemble avec des `\n`. Les pages, elles,
+    // sont tenues en CRLF sous Windows : `next !== html` etait donc
+    // TOUJOURS vrai sur une copie de travail Windows, et toujours faux
+    // en CI (checkout Linux, LF). La porte etait rouge en permanence
+    // d'un cote, verte de l'autre, pour une difference que git ne voit
+    // meme pas — `git diff` ne montrait rien apres « correction ».
+    //
+    // On compare donc du LF avec du LF, et on rend au fichier la forme
+    // qu'il avait en arrivant.
+    const brut = fs.readFileSync(abs, 'utf8');
+    const crlf = brut.includes('\r\n');
+    let html = crlf ? brut.replace(/\r\n/g, '\n') : brut;
 
     const title = (html.match(/<title>([^<]*)<\/title>/) || [, SITE])[1].trim();
     const esc = s => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -86,7 +98,7 @@ for (const [page, desc] of Object.entries(DESCRIPTIONS)) {
 
     if (next !== html) {
         changed.push(page);
-        if (!CHECK) fs.writeFileSync(abs, next);
+        if (!CHECK) fs.writeFileSync(abs, crlf ? next.replace(/\n/g, '\r\n') : next);
     }
 }
 
