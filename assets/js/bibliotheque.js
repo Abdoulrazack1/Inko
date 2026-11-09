@@ -210,31 +210,52 @@
     // Déconnecté : on affiche le miroir local de la bibliothèque (lecture seule)
     // pour que les séries ne « disparaissent » jamais. La synchro revient au login.
     function showLoggedOutLibrary() {
-        const cache = window.Storage?.getCachedLibrary?.();
         // Onglets MAJ (nécessite le compte) masqués hors connexion ; Téléchargements reste local.
         document.querySelector('.lib2-tab[data-tab="updates"]')?.style.setProperty('display', 'none');
         document.getElementById('btnLibRefresh')?.style.setProperty('display', 'none');
         initTabs();
+        if (afficherMiroirLocal()) return;
+        // Audit N1 : message honnête (non connecté ≠ serveur en panne)
+        document.getElementById('tabLibrary').innerHTML = `<div class="lib2-empty">${MH.guestNotice()}</div>`;
+    }
 
-        if (!cache || !cache.favs.length) {
-            // Audit N1 : message honnête (non connecté ≠ serveur en panne)
-            document.getElementById('tabLibrary').innerHTML = `<div class="lib2-empty">${MH.guestNotice()}</div>`;
-            return;
-        }
+    // ── Le miroir local, et les DEUX cas qui en ont besoin ───
+    //
+    // Mesuré le 9 novembre, serveur arrêté, service worker en place : la
+    // coquille de la page revenait du cache — en-tête, onglets, pied — et
+    // la grille affichait « 🌐 La source ne répond pas / Changer de
+    // source ». Deux erreurs dans une seule phrase. Ce n'est pas la
+    // SOURCE qui manque, c'est le hub, et changer de source n'y peut
+    // rien. Pendant ce temps le miroir local des 495 favoris dormait dans
+    // `Storage`, prêt à être affiché.
+    //
+    // Le mécanisme existait : `showLoggedOutLibrary` le faisait déjà,
+    // avec la bonne bannière. Il n'était simplement pas appelé dans ce
+    // cas-là — le même défaut que l'étape 2, pour la sixième fois cette
+    // semaine. On le sort donc du cas « déconnecté », qui n'en était
+    // qu'un usage.
+    //
+    // @returns {boolean} vrai si le miroir a été affiché.
+    function afficherMiroirLocal() {
+        const cache = window.Storage?.getCachedLibrary?.();
+        if (!cache || !cache.favs.length) return false;
 
-        // Bannière « hors connexion »
         const banner = document.createElement('div');
-        banner.style.cssText = 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:10px;padding:11px 14px;margin-bottom:16px;font-size:13px;color:var(--text2)';
+        banner.className = 'lib2-miroir';
         const when = MH.date(cache.at, 'jourHeure');
-        banner.innerHTML = `<span style="flex:1;min-width:200px">Aperçu local de ta bibliothèque${when ? ` (sauvegardé le ${when})` : ''}. Le serveur est injoignable : aperçu hors-ligne.</span>
-            <button class="btn btn-primary btn-sm" onclick="location.reload()">Réessayer</button>`;
-        document.getElementById('tabLibrary').prepend(banner);
+        banner.innerHTML = `<span>Aperçu local de ta bibliothèque${when ? ` (sauvegardé le ${when})` : ''}. Le serveur est injoignable : aperçu hors-ligne.</span>
+            <button type="button" class="btn btn-primary btn-sm" id="libMiroirReessayer">Réessayer</button>`;
+        const hote = document.getElementById('tabLibrary');
+        hote.querySelector('.lib2-miroir')?.remove();
+        hote.prepend(banner);
+        banner.querySelector('#libMiroirReessayer').addEventListener('click', () => location.reload());
 
         favs = cache.favs.slice();
         renderSummary();
         renderFilters();
         render();
         wireLibExtras();
+        return true;
     }
 
     // Vérification automatique des nouveaux chapitres (au plus une fois / 6 h)
@@ -683,6 +704,11 @@
             const lc = reglages?.libCategories ?? reglages?.data?.libCategories;
             categoriesPerso = Array.isArray(lc) ? lc.filter(c => typeof c === 'string' && c.trim()) : [];
         } catch (e) {
+            // Le hub ne repond pas. Avant d'annoncer une panne, on regarde
+            // si on a de quoi montrer : une bibliotheque qui disparait
+            // parce que le serveur est eteint, c'est la panne qu'on croit
+            // avoir a la place de celle qu'on a.
+            if (afficherMiroirLocal()) return;
             MH.poserEtatErreur(grid, e, { onRetry: () => render() });
             if (grid.firstChild) grid.firstChild.style.gridColumn = '1/-1';
             return;

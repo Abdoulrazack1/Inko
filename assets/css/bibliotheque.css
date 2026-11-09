@@ -381,3 +381,15 @@
 
 /* Note d’un signet : la phrase qu’on a voulu retenir. */
 .bm-note { display: block; margin-top: var(--sp-1); font-size: var(--t-s); font-style: italic; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Le miroir local : la bibliotheque qu'on a, quand le serveur n'est pas la.
+   La bordure d'accent a gauche dit « ceci n'est pas l'etat courant » sans
+   prendre la place d'un message d'erreur, puisque rien n'est casse. */
+.lib2-miroir {
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-left: 3px solid var(--orange); border-radius: var(--r-carte);
+  padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-4);
+  font-size: var(--t-s); color: var(--text2);
+}
+.lib2-miroir > span { flex: 1 1 200px; min-width: 0; }
