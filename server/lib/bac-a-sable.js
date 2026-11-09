@@ -131,8 +131,18 @@ async function essayer(src, q) {
     // 4. Le contenu : des pages, ou du texte. C'est l'étape qu'un simple
     //    « la source répond » ne regardait jamais, et c'est la seule qui
     //    dise si on pourra LIRE.
+    // Le TYPE DECLARE par l'extension, pas une devinette sur ses methodes.
+    //
+    // Premiere version : « elle a getText et pas getPages, donc c'est du
+    // texte ». Faux pour Project Gutenberg, qui expose les deux — son
+    // `getPages` existe uniquement pour lever une erreur explicative. Le
+    // bac a sable appelait donc getPages sur une source de livres et
+    // rapportait l'echec comme un defaut de la source, alors qu'il
+    // s'etait trompe de porte. Les extensions declarent `type` :
+    // 'novel' ou 'book' pour du texte, autre chose pour des planches.
+    const type = String(src.type || src.format || '').toLowerCase();
     const roman = typeof src.getText === 'function'
-        && (typeof src.getPages !== 'function' || src.type === 'novel' || src.format === 'novel');
+        && (type === 'novel' || type === 'book' || typeof src.getPages !== 'function');
     const contenu = roman
         ? await etape('texte du chapitre',
             (t) => {

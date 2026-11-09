@@ -20,9 +20,12 @@ const UA   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 const PER  = 32;
 const LANG = 'fr';   // ← la seule différence de fond avec l'extension Gutenberg
 
-function curlGet(url, maxBuffer = 32 * 1024 * 1024, asBuffer = false) {
+function curlGet(url, maxBuffer = 32 * 1024 * 1024, asBuffer = false, delaiMs = 0) {
+    // `-m` en SECONDES, au minimum 1 : un appelant qui demande un delai
+    // court le fait pour pouvoir se rabattre, pas pour attendre.
+    const max = delaiMs ? String(Math.max(1, Math.round(delaiMs / 1000))) : '30';
     return new Promise((resolve, reject) => {
-        execFile('curl', ['-s', '-f', '-L', '--compressed', '-m', '30', '-A', UA, url],
+        execFile('curl', ['-s', '-f', '-L', '--compressed', '-m', max, '-A', UA, url],
             { maxBuffer, windowsHide: true, encoding: asBuffer ? 'buffer' : 'utf8' }, (err, stdout) => {
                 if (err) return reject(new Error('curl : ' + err.message));
                 if (!stdout || !stdout.length) return reject(new Error('réponse vide'));
@@ -33,14 +36,18 @@ function curlGet(url, maxBuffer = 32 * 1024 * 1024, asBuffer = false) {
 
 const cache = new Map();
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-async function getJson(url, ttl = 300_000) {
+async function getJson(url, ttl = 300_000, delaiMs = 0) {
     const hit = cache.get(url);
     if (hit && hit.exp > Date.now()) return hit.val;
     // Gutendex répond parfois lentement (throttling) : une 2e tentative suffit.
     let raw;
-    for (let attempt = 1; attempt <= 2; attempt++) {
-        try { raw = await curlGet(url); break; }
-        catch (e) { if (attempt === 2) throw e; await sleep(1200); }
+    // Un delai court demande par l'appelant (le tri, qui est facultatif)
+    // ne merite pas deux tentatives : on veut echouer VITE pour retomber
+    // sur la requete qui, elle, repond.
+    const essais = delaiMs ? 1 : 2;
+    for (let attempt = 1; attempt <= essais; attempt++) {
+        try { raw = await curlGet(url, undefined, false, delaiMs); break; }
+        catch (e) { if (attempt === essais) throw e; await sleep(1200); }
     }
     const val = JSON.parse(raw);
     cache.set(url, { val, exp: Date.now() + ttl });
@@ -67,6 +74,53 @@ function mapBook(b) {
 // Boucle sur les pages Gutendex (32/page) jusqu'à réunir `limit` résultats
 // (audit N-EXT-13 : un appel limit > 32, ex. le bouton « Aléatoire », ne
 // recevait qu'une page), garde-fou de 4 requêtes par appel.
+// ── Le slash final n'est pas cosmetique ─────────────────────
+// `/books?page=1` rend un 301 vers `/books/?page=1`. Suivre cette
+// redirection est gratuit... sauf avec un parametre de tri. Mesure du
+// 9 novembre, curl, meme machine, meme instant :
+//
+//   /books/?page=1&sort=popular     0,08 s
+//   /books/?page=1                  0,08 s
+//   /books/?page=1&sort=descending   15 s
+//   /books?page=1&sort=popular      PEND, delai de 30 s atteint
+//
+// L'extension demandait la derniere forme : la liste mise en avant ne
+// revenait jamais, et le bac a sable disait « pas de reponse en 20 s ».
+// On croyait la source lente ou tombee — elle repond en 80 ms.
+//
+// Le tri `descending` reste lent (15 s) cote Gutendex, slash ou pas :
+// ca, c'est leur affaire, et le delai de 30 s le couvre.
+// ── Le tri est une PREFERENCE, pas une exigence ─────────────
+// Mesure du 9 novembre, curl, meme machine, meme instant :
+//
+//   /books/?languages=fr&page=1                     0,11 s
+//   /books/?languages=fr&page=1&sort=popular        PEND (25 s)
+//   /books/?languages=fr&page=1&sort=descending     503 apres 15 s
+//
+// Gutendex ne sait plus servir un tri combine a un filtre de langue.
+// L'extension demandait le tri, attendait trente secondes, et rendait
+// une erreur : la source paraissait morte alors qu'elle repond en cent
+// millisecondes des qu'on ne trie pas.
+//
+// On essaie donc le tri avec un delai COURT, et on retombe sur la meme
+// requete sans tri. Une liste non triee vaut infiniment mieux qu'une
+// source absente — et le journal dit qu'on a du s'en passer, pour que
+// personne ne croie le tri actif.
+const DELAI_TRI_MS = 8000;
+let triAbandonne = false;
+
+async function getJsonOuSansTri(base, extra, ttl) {
+    if (!extra || triAbandonne) return getJson(base + (triAbandonne ? '' : extra), ttl);
+    try {
+        return await getJson(base + extra, ttl, DELAI_TRI_MS);
+    } catch (e) {
+        triAbandonne = true;
+        console.warn(`[gutenberg-fr] tri « ${extra.replace(/^&/, '')} » sans reponse `
+            + `(${e.message}) — liste rendue SANS tri pour cette session.`);
+        return getJson(base, ttl);
+    }
+}
+
 async function browse({ limit = PER, offset = 0 } = {}, extra = '') {
     const off = Math.max(0, +offset || 0);
     const lim = Math.max(1, +limit || PER);
@@ -75,7 +129,7 @@ async function browse({ limit = PER, offset = 0 } = {}, extra = '') {
     const acc = [];
     let total = 0, more = true;
     for (let n = 0; n < 4 && acc.length < lim && more; n++, page++) {
-        const data = await getJson(`${API}/books?languages=${LANG}&page=${page}${extra}`);
+        const data = await getJsonOuSansTri(`${API}/books/?languages=${LANG}&page=${page}`, extra);
         const results = (data.results || []).map(mapBook);
         total = data.count || total;
         acc.push(...results.slice(skip));
@@ -136,8 +190,11 @@ module.exports = {
         return browse({ limit, offset }, `&search=${encodeURIComponent(q)}`);
     },
 
+    // Le slash final, ici aussi : `/books/78027` PEND (22 s), `/books/78027/`
+    // repond en 0,08 s. Mesure du 9 novembre. Meme cause que pour les
+    // listes — la redirection de Gutendex est devenue un piege.
     async getManga(id) {
-        const b = await getJson(`${API}/books/${encodeURIComponent(id)}`);
+        const b = await getJson(`${API}/books/${encodeURIComponent(id)}/`);
         return mapBook(b);
     },
 
@@ -154,7 +211,7 @@ module.exports = {
 
     async getText(chapterId) {
         const id = String(chapterId).split(':')[0];
-        const b = await getJson(`${API}/books/${encodeURIComponent(id)}`);
+        const b = await getJson(`${API}/books/${encodeURIComponent(id)}/`);
         const f = b.formats || {};
         const candidates = [
             `https://www.gutenberg.org/cache/epub/${id}/pg${id}.txt`,

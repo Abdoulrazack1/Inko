@@ -941,3 +941,17 @@
 .dl-choix-poids { color: var(--text2); font-variant-numeric: tabular-nums; }
 .dl-choix-note { font-size: var(--t-s); color: var(--text3); margin: 0; }
 .dl-choix-alerte { font-size: var(--t-s); color: var(--hanko, #c0392b); margin: var(--sp-2) 0 0; }
+
+/* Les chapitres que la source reference sans les heberger. Un filet, pas
+   une alerte : ce n'est pas une panne, c'est l'editeur qui publie
+   ailleurs. Sans cette phrase, « 1 chapitre » sur One Piece se lit comme
+   une application cassee. */
+.chap-ailleurs {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-left: 3px solid var(--border2);
+  background: var(--bg2);
+  border-radius: var(--r-carte);
+  font-size: var(--t-s);
+  color: var(--text2);
+}

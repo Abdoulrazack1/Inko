@@ -123,11 +123,36 @@
         });
     }
 
+    // Chapitres references par la source mais publies ailleurs (lecteur
+    // officiel de l'editeur) : on ne peut pas les servir, et se taire
+    // ferait passer la source pour vide.
+    let chapitresAilleurs = 0;
+
+    /**
+     * La phrase qui explique un compte etonnamment bas. Elle ne s'affiche
+     * que s'il y a vraiment des chapitres ailleurs : une note qui
+     * apparait toujours ne se lit plus.
+     */
+    function noteAilleurs() {
+        if (!chapitresAilleurs) return '';
+        const s = chapitresAilleurs > 1 ? 's' : '';
+        return `<div class="chap-ailleurs">${chapitresAilleurs} chapitre${s} de plus `
+            + `${chapitresAilleurs > 1 ? 'sont référencés' : 'est référencé'} par cette source, `
+            + `mais publié${s} sur le lecteur officiel de l’éditeur — elle ne peut pas les servir ici.</div>`;
+    }
+
     async function loadChapters() {
         try {
             // Pas de limite : la liste complète, même pour les très longues séries
             const data = await API.mangas.chapters(manga.id, { lang: window.Storage?.getPref('readingLang') || 'fr,en' });
             chapters = data.results || [];
+            // Combien de chapitres la source REFERENCE sans les heberger.
+            // MangaDex pointe vers le lecteur officiel pour les series des
+            // gros editeurs : mesure du 9 novembre, One Piece rend UN
+            // chapitre lisible et vingt-neuf liens ailleurs. La fiche
+            // affichait « 1 chapitre » sans un mot, et on en conclut que
+            // l'application est cassee.
+            chapitresAilleurs = Number(data.externes) || 0;
             if (activeTab === 'chapitres') {
                 renderTab('chapitres');
             } else if (activeTab === 'apercu') {
@@ -135,9 +160,10 @@
                 // pour préserver les commentaires en cours de saisie et les similaires.
                 const cl = document.getElementById('apercuChapsList');
                 if (cl) {
-                    cl.innerHTML = chapters.length
+                    cl.innerHTML = (chapters.length
                         ? chapters.slice(0, 5).map(c => renderChapterRow(c)).join('')
-                        : `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Aucun chapitre disponible.</div>`;
+                        : `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Aucun chapitre disponible.</div>`)
+                        + noteAilleurs();
                 } else {
                     renderTab('apercu');
                 }
@@ -1612,6 +1638,7 @@
                 <button class="chap-filter ${readFilter === 'read' ? 'on' : ''}" data-rf="read">Lus</button>
             </div>
             <div class="chapters-list" id="chapsList"></div>
+            ${noteAilleurs()}
         </div>`;
 
         const input   = el.querySelector('#chapSearch');

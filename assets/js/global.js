@@ -1066,19 +1066,54 @@
     });
 
     // Placeholder local (SVG data URL) — pas de requête réseau, déterministe par seed
+    /* ── La couverture qu'on n'a pas ─────────────────────────
+     *
+     * Elle affichait une grande lettre : la premiere du « seed ». Or
+     * tous les appels passent un IDENTIFIANT, jamais un titre. La
+     * lettre etait donc le premier caractere de `01J76XY...` ou d'un
+     * UUID — un « 0 » ou un « a » geant, qui ne designe rien et qu'on
+     * lit comme un defaut d'affichage. Verifie sur les trente points
+     * d'appel : douze passent `f.mangaId`, quatre `m.id`, aucun un
+     * titre.
+     *
+     * On dessine donc une couverture, au lieu d'ecrire une initiale qui
+     * ment. Un livre entrouvert, trace au trait, sur un fond qui garde
+     * la teinte derivee de l'identifiant — cette teinte-la servait a
+     * distinguer les cartes entre elles, et elle fait bien ce travail.
+     * Plus sombre et moins saturee qu'avant : une couverture absente ne
+     * doit pas attirer l'oeil plus que les vraies.
+     *
+     * Aucun texte : le titre est deja sous la carte, partout. Le
+     * repeter en gros dans l'image serait le dire deux fois, et il
+     * deborderait.
+     *
+     * SVG en `data:` dans un `<img>` : pas de filtre, pas de masque,
+     * rien que des formes — le WebView d'Android 8 le rend tel quel.
+     */
     window.MH.placeholderCover = function (seed) {
         const s = String(seed || 'manga');
         let h = 0;
         for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i);
         const hue = Math.abs(h) % 360;
-        const c1 = `hsl(${hue}, 35%, 12%)`;
-        const c2 = `hsl(${(hue + 40) % 360}, 60%, 28%)`;
-        const initial = s[0].toUpperCase();
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420">
-            <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs>
-            <rect width="300" height="420" fill="url(#g)"/>
-            <text x="150" y="225" font-family="-apple-system,sans-serif" font-size="120" font-weight="800" fill="rgba(255,255,255,.85)" text-anchor="middle" dominant-baseline="middle">${initial}</text>
-        </svg>`;
+        const c1 = `hsl(${hue}, 24%, 14%)`;
+        const c2 = `hsl(${(hue + 32) % 360}, 30%, 23%)`;
+        const trait = 'rgba(255,255,255,.26)';
+        const plein = 'rgba(255,255,255,.07)';
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420">`
+            + `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">`
+            + `<stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/>`
+            + `</linearGradient></defs>`
+            + `<rect width="300" height="420" fill="url(#g)"/>`
+            // Un livre entrouvert, vu de face : deux pages et leur pli.
+            + `<g fill="none" stroke="${trait}" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">`
+            + `<path d="M150 150 C132 138 110 133 86 133 L86 268 C110 268 132 273 150 285" fill="${plein}"/>`
+            + `<path d="M150 150 C168 138 190 133 214 133 L214 268 C190 268 168 273 150 285" fill="${plein}"/>`
+            + `<path d="M150 150 L150 285"/>`
+            // Trois lignes de texte suggerees sur la page de droite.
+            + `<path d="M172 176 L198 176" stroke-width="4"/>`
+            + `<path d="M172 196 L202 196" stroke-width="4"/>`
+            + `<path d="M172 216 L192 216" stroke-width="4"/>`
+            + `</g></svg>`;
         return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     };
 
