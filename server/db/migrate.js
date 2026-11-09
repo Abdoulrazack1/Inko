@@ -897,7 +897,19 @@ async function ensureSchema() {
         const [rows] = await pool.query('SELECT version FROM schema_migrations');
         appliquees = new Set(rows.map(r => Number(r.version)));
     } catch (e) { /* table toute neuve */ }
-    for (const m of MIGRATIONS) {
+    // TRIEES PAR VERSION, pas dans l'ordre du tableau. Mesure du
+    // 9 novembre : le tableau se termine par 23, 24, 27, 26, 25 — deux
+    // branches developpees en parallele, fusionnees sans se relire. Sur
+    // une base neuve, la 27 s'appliquait donc AVANT la 26 et la 25.
+    //
+    // Ici, ca n'a rien casse : ces trois-la sont independantes, et
+    // l'essai sur base jetable rend le meme schema dans les deux sens.
+    // Mais le commentaire ci-dessus explique precisement le danger de
+    // l'ordre, et le tableau le contredisait. La premiere migration qui
+    // dependra d'une precedente echouera sur une installation NEUVE
+    // uniquement — le pire endroit pour trouver ca.
+    const ordonnees = [...MIGRATIONS].sort((x, y) => x.version - y.version);
+    for (const m of ordonnees) {
         if (appliquees.has(m.version)) continue;
         // Audit DB-05 : la version n'est enregistrée QUE si la migration a
         // réellement abouti. Avant, `run()` avalait l'échec et l'INSERT suivait
@@ -1033,4 +1045,4 @@ async function legacySchema() {
     ) ENGINE=InnoDB`);
 }
 
-module.exports = { ensureSchema };
+module.exports = { ensureSchema, MIGRATIONS };
