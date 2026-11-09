@@ -81,25 +81,6 @@ const SIGNALES_CSS = [
     [/backdrop-filter\s*:/g, 'backdrop-filter', 'Chrome 76'],
 ];
 
-// ── Une dette, relevée et bornée ────────────────────────────
-// Les extensions embarquées sont copiées telles quelles, et trois d'entre
-// elles portent de la syntaxe post-Chrome 61. Sur Android 8 en mode
-// autonome, ces trois sources ne se chargent donc pas.
-//
-// Elles ne sont PAS transpilées ici, et c'est délibéré : leur empreinte
-// est publiée dans `extensions/hashes.json` et vérifiée à l'exécution.
-// Réécrire le fichier change l'empreinte, donc casse la vérification
-// d'intégrité — c'est une chaîne à reprendre d'un bout à l'autre
-// (génération, publication, contrôle), pas une ligne à changer ici.
-//
-// En attendant, le compte est GELÉ : la dette ne peut pas grandir, et un
-// chiffre qui baisse fait échouer aussi, pour qu'on vienne le corriger.
-const DETTE = {
-    'extensions/mangadex/index.js': 15,
-    'extensions/novelbin/index.js': 2,
-    'extensions/novelfull/index.js': 1,
-};
-
 function chercher(texte, regles) {
     const out = [];
     for (const [re, nom, depuis] of regles) {
@@ -157,16 +138,7 @@ function principal() {
         const ext = path.extname(p).toLowerCase();
         if (ext === '.js') {
             scannes++;
-            const trouves = chercher(codeSeul(fs.readFileSync(p, 'utf8')), FATAL_JS);
-            if (rel in DETTE) {
-                const n = trouves.reduce((s, t) => s + t.n, 0);
-                if (n !== DETTE[rel]) {
-                    fatals.push({ rel, quoi: 'dette gelée', depuis: `${DETTE[rel]} relevé(s)`,
-                        nom: `${n} construction(s) au lieu de ${DETTE[rel]}`, n });
-                }
-                continue;
-            }
-            noter(trouves, rel, 'script');
+            noter(chercher(codeSeul(fs.readFileSync(p, 'utf8')), FATAL_JS), rel, 'script');
         } else if (ext === '.css') {
             scannes++;
             const css = cssSeul(fs.readFileSync(p, 'utf8'));
