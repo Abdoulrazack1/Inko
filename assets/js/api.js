@@ -199,7 +199,47 @@
         return ABSENT;
     }
 
+    // ── Mode invité : lire sans rien inscrire ───────────────
+    //
+    // On prête son téléphone. Sans ce mode, les chapitres que l'autre
+    // ouvre entrent dans l'historique, déplacent les reprises, comptent
+    // dans les statistiques et déclenchent des notifications — et rien
+    // ne permet de les démêler après coup.
+    //
+    // Le filtre est posé ICI, dans l'unique passage par lequel toutes
+    // les écritures sortent, et non à chaque appel. Trois endroits
+    // écrivent une progression (`chapitre.js`, `lecture.js`,
+    // `import-listes.js`) et quatre marquent des chapitres lus : les
+    // garder un par un, c'est se préparer à en oublier un au prochain
+    // ajout — le défaut de l'étape 2, encore.
+    //
+    // CE QUE LE MODE N'EMPÊCHE PAS, et c'est délibéré : les favoris,
+    // les notes, les réglages. Ce sont des gestes DÉCIDÉS. Ce qu'on
+    // bloque, c'est ce que la lecture écrit toute seule dans le dos de
+    // celui qui prête son appareil.
+    //
+    // Le refus est SILENCIEUX et RÉUSSI : l'appelant reçoit une réponse
+    // normale. Lever une erreur ferait apparaître « échec de
+    // l'enregistrement » à chaque page tournée, et l'invité se demanderait
+    // ce qu'il a cassé. Mais rien n'est perdu non plus : la mesure
+    // n'avait pas à être prise.
+    const ECRITURES_HISTORIQUE = [
+        /^\/me\/progress\//,              // reprise de lecture
+        /^\/me\/read-chapters/,            // chapitres lus, y compris en masse
+        /^\/me\/temps-lecture/,            // temps réellement mesuré
+    ];
+    function invite() {
+        try { return window.Storage?.getPref?.('modeInvite') === true; } catch (e) { return false; }
+    }
+    function ecritureDHistorique(method, path) {
+        if (method === 'GET') return false;
+        return ECRITURES_HISTORIQUE.some((re) => re.test(path));
+    }
+
     async function request(method, path, body, { timeout = DEFAULT_TIMEOUT, keepalive = false } = {}) {
+        if (ecritureDHistorique(method, path) && invite()) {
+            return { ok: true, invite: true, ignore: path };
+        }
         // Audit PERF-02 : toute écriture périme le cache de lectures partagées.
         // Sans ça, « ajouter aux favoris » puis relire la liste dans la seconde
         // qui suit renverrait l'ancienne. On vide tout plutôt que de raisonner
