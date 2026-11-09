@@ -121,6 +121,10 @@ router.get ('/extensions/health',   auth.authRequired, Ext.healthStatus);
 router.get ('/instance',            auth.authRequired, Ext.instanceStatus);
 router.get ('/extensions/:id/log',  auth.authRequired, Ext.sourceLog);
 router.get ('/extensions/:id/test', auth.authRequired, Ext.testSource);
+// Le bac a sable sort vers un site tiers a chaque appel : il passe par le
+// meme limiteur que les relais, pour qu'un clic repete ne devienne pas une
+// charge pour la source d'en face.
+router.post('/extensions/:id/bac-a-sable', auth.authRequired, relayLimiter, Ext.bacASable);
 // applyUpdates écrit des fichiers .js exécutés côté serveur pour toute l'instance :
 // exige un rôle admin, pas seulement une session valide (audit §7.3).
 router.post('/extensions/update',   auth.authRequired, adminRequired, Ext.applyUpdates);

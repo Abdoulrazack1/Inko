@@ -165,6 +165,7 @@
                         ? '<span class="source-active-badge">✓ ACTIVE</span>'
                         : `<button class="btn btn-primary btn-sm" data-activate="${MH.esc(s.id)}">Activer</button>`)}
                 <button class="btn btn-secondary btn-sm" data-test="${MH.esc(s.id)}" title="Vérifier que la source répond">Tester</button>
+                <button class="btn btn-secondary btn-sm" data-bac="${MH.esc(s.id)}" title="Dérouler la chaîne complète sur une série, sans activer la source">Essayer</button>
                 <button class="btn btn-secondary btn-sm" data-log="${MH.esc(s.id)}" title="Voir les derniers appels a cette source">Journal</button>
                 <button class="btn btn-ghost btn-sm" data-up="${MH.esc(s.id)}" title="Remonter dans mon ordre de preference" aria-label="Remonter ${MH.esc(s.name)}">▲</button>
                 <button class="btn btn-secondary btn-sm" data-toggle-src="${MH.esc(s.id)}" title="${disabled ? 'Réactiver cette source' : 'Ne plus utiliser cette source (masquée en recherche)'}">${disabled ? 'Réactiver' : 'Désactiver'}</button>
@@ -286,6 +287,38 @@
                     }
                 } catch (e) {
                     if (out) { out.style.color = '#ef4444'; out.textContent = '✗ ' + (e.message || 'échec'); }
+                } finally { btn.disabled = false; btn.textContent = prev; }
+            });
+        });
+
+        // ── Le bac a sable : essayer AVANT d'activer ────────────
+        //
+        // « Tester » ne repond qu'a « la source repond-elle ? ». Une
+        // source peut repondre a une recherche et ne jamais rendre de
+        // chapitres : on le decouvrait en l'activant. Ici on deroule la
+        // chaine entiere sur une serie, et chaque etape se lit
+        // separement — une source casse presque toujours a UNE etape.
+        el.querySelectorAll('[data-bac]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.bac;
+                const q = await MH.prompt(
+                    'Essayer « ' + id + ' » sur quelle série ?',
+                    { placeholder: 'laisse vide pour prendre ce que la source met en avant' });
+                if (q === null) return;            // annulé
+                const out = el.querySelector(`[data-test-result="${CSS.escape(id)}"]`);
+                btn.disabled = true; const prev = btn.textContent; btn.textContent = '…';
+                if (out) { out.style.color = 'var(--text3)'; out.textContent = 'essai en cours…'; }
+                try {
+                    const r = await API.sources.bacASable(id, q);
+                    if (!r.ok) throw new Error(r.error || 'essai impossible');
+                    if (out) { out.style.color = 'var(--text3)'; out.textContent = ''; }
+                    // En TEXTE, pas en HTML : ce rapport contient des
+                    // titres et des messages d'erreur venus d'un site
+                    // tiers. Les rendre en HTML ouvrirait une injection
+                    // dans la page des reglages, pour un gras.
+                    MH.alert(rapportBac(r), { title: 'Essai de « ' + id + ' »' });
+                } catch (e) {
+                    if (out) { out.style.color = 'var(--red-text)'; out.textContent = '✗ ' + (e.message || 'échec'); }
                 } finally { btn.disabled = false; btn.textContent = prev; }
             });
         });
@@ -427,6 +460,33 @@
     // Ce que l'état ne dit pas : la vitesse, et la part de requêtes perdues.
     // Mesuré sur les dernières requêtes réelles (au plus 40) ; en dessous de
     // trois, une moyenne ne voudrait rien dire.
+    // Le rapport du bac a sable, en TEXTE. Une etape par ligne, avec son
+    // temps : c'est la forme qui se colle dans un ticket.
+    //
+    // Pas de HTML, et ce n'est pas un detail : ces lignes contiennent des
+    // titres d'oeuvres et des messages d'erreur venus d'un SITE TIERS.
+    // Les rendre en HTML ouvrirait une injection dans la page des
+    // reglages, en echange d'un gras.
+    function rapportBac(r) {
+        const L = [];
+        if (r.titre) L.push('Série essayée : ' + r.titre);
+        L.push('');
+        for (const e of r.etapes || []) {
+            const marque = e.ok ? '✓' : '✗';
+            const quoi = e.ok ? (e.detail || '') : (e.erreur || e.detail || 'échec');
+            L.push(`${marque}  ${e.etape} — ${formaterMs(e.ms)}`);
+            // Un tiret, pas des espaces : la modale rend le texte en
+            // `pre-line`, qui COLLAPSE les espaces de debut de ligne.
+            // Verifie dans la page — l'indentation disparaissait.
+            if (quoi) L.push('— ' + quoi);
+        }
+        L.push('');
+        L.push(r.verdict || '');
+        L.push('');
+        L.push('Aucune source n’a été activée, et rien n’a été enregistré.');
+        return L.join('\n');
+    }
+
     function formaterMs(ms) { return ms >= 1000 ? `${(ms / 1000).toFixed(1).replace('.', ',')} s` : `${ms} ms`; }
     function mesuresSante(h) {
         if (!h || !(h.requetes >= 3)) return '';

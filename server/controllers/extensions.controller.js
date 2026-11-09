@@ -196,6 +196,33 @@ async function applyUpdates(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// POST /api/extensions/:id/bac-a-sable — essayer une source sur UNE série
+//
+// « Tester » ne répond qu'à « la source répond-elle ? ». Une source peut
+// très bien répondre à une recherche et ne jamais rendre de chapitres,
+// ou rendre des chapitres sans pages lisibles — et on le découvrait en
+// l'activant. Le bac à sable déroule la chaîne complète sur une seule
+// œuvre et rend CHAQUE étape, parce qu'une source casse presque toujours
+// à une étape précise.
+//
+// Rien n'est activé, installé, ni écrit. La requête est bornée à 200
+// caractères : ce champ part vers un site tiers.
+async function bacASable(req, res, next) {
+    try {
+        const src = extensions.get(req.params.id);
+        if (!src) return res.status(404).json({ ok: false, error: 'Source inconnue' });
+        const q = String((req.body && req.body.requete) || '').slice(0, 200);
+        try {
+            const r = await require('../lib/bac-a-sable').essayer(src, q);
+            res.json({ ok: true, source: src.id, ...r });
+        } catch (e) {
+            // Même choix que `testSource` : un échec attendu est un 200
+            // avec le message brut, pas une 5xx. Le front l'affiche tel quel.
+            res.json({ ok: false, error: e.message });
+        }
+    } catch (e) { next(e); }
+}
+
 // GET /api/extensions/:id/test — test de connectivité léger (audit §7.3 rec 2)
 async function testSource(req, res, next) {
     try {
@@ -356,5 +383,5 @@ function reinstall(req, res, next) {
 }
 
 module.exports = {
-    sourceLog, instanceStatus, checkUpdates, applyUpdates, testSource, healthStatus, uninstall, reinstall,
+    sourceLog, instanceStatus, checkUpdates, applyUpdates, testSource, bacASable, healthStatus, uninstall, reinstall,
     _internes: { notesEntre } };
