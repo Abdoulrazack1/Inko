@@ -96,8 +96,17 @@ test('un hôte hors liste blanche est refusé (403, domain-blocked)', async () =
     const res = await appeler('https://exemple-inconnu.test/a.png');
     assert.strictEqual(res.statut, 403);
     assert.strictEqual(res.entetes['X-Inko-Proxy'], 'domain-blocked');
-    assert.strictEqual(appelsCurl.length, 0);
-    assert.strictEqual(appelsDns.length, 0, 'le DNS ne doit pas être interrogé pour un hôte refusé');
+    // On compte les appels POUR CETTE URL, pas tous les appels.
+    // Le compteur global est remis a zero avant chaque test, mais des
+    // requetes lancees par un test precedent peuvent encore retomber
+    // dedans : la CI a vu 7 la ou le local voyait 0, parce que son cache
+    // disque est vide et que les memes tests y font donc des appels
+    // reseau. Une assertion qui depend de ce qui traine est une
+    // assertion qui echouera un jour, sur une machine ou l'autre.
+    const pourCetHote = (l) => l.filter((x) => JSON.stringify(x).includes('exemple-inconnu.test'));
+    assert.strictEqual(pourCetHote(appelsCurl).length, 0);
+    assert.strictEqual(pourCetHote(appelsDns).length, 0,
+        'le DNS ne doit pas être interrogé pour un hôte refusé');
 });
 
 test('un sous-domaine d’un domaine autorisé passe', async () => {

@@ -43,10 +43,16 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const RACINE = path.join(__dirname, '..', '..');
-const lire = (...p) => fs.readFileSync(path.join(RACINE, ...p), 'utf8').replace(/\r\n/g, '\n');
-const SRC = lire('server', 'controllers', 'update.controller.js');
-const M = require(path.join(RACINE, 'server', 'controllers', 'update.controller.js'));
+// Ce fichier vit dans `server/test` et non `test/unit`, et ce n'est pas
+// un detail de rangement : il CHARGE `update.controller.js`, qui tire
+// `axios`. Le job frontend de la CI n'installe que les dependances de la
+// racine — le test y echouait sur « Cannot find module 'axios' »,
+// invisible en local ou `server/node_modules` existe. Un test qui touche
+// au serveur appartient a la suite du serveur.
+const SERVEUR = path.join(__dirname, '..');
+const lire = (...p) => fs.readFileSync(path.join(SERVEUR, ...p), 'utf8').replace(/\r\n/g, '\n');
+const SRC = lire('controllers', 'update.controller.js');
+const M = require(path.join(SERVEUR, 'controllers', 'update.controller.js'));
 
 function bacASable(nom) {
     const d = fs.mkdtempSync(path.join(os.tmpdir(), 'inko-maj-'));
