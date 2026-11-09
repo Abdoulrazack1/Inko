@@ -118,8 +118,15 @@ test('les critères rejettent bien les couleurs remplacées', () => {
 // ── Les pages prennent les jetons ──
 test('stats.js ne porte plus sa propre palette', () => {
     const src = lire('assets', 'js', 'stats.js');
-    assert.match(src, /const PALETTE = \[1, 2, 3, 4, 5, 6, 7, 8\]\.map/,
-        'la palette des sources doit être dérivée des jetons');
+    // L'ORDRE d'attribution a été réglé sur la distinguabilité sous
+    // daltonisme (voir `signaux-non-colores.test.js`) ; ce qu'on exige ici
+    // c'est que les huit jetons y passent tous, une fois chacun, et que
+    // rien ne soit écrit en dur.
+    const m = /const PALETTE = \[([\d, ]+)\]\.map\(\(n\) => 'var\(--graph-' \+ n \+ '\)'\)/.exec(src);
+    assert.ok(m, 'la palette des sources doit être dérivée des jetons');
+    const rangs = m[1].split(',').map((n) => Number(n.trim()));
+    assert.deepEqual([...rangs].sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8],
+        'les huit jetons, une fois chacun : ' + rangs.join(' '));
     for (const statut of ['reading', 'completed', 'planned', 'paused', 'dropped']) {
         const m = new RegExp(statut + ": \\['[^']+', 'var\\(--graph-[1-8]\\)'\\]").exec(src);
         assert.ok(m, 'le statut « ' + statut + ' » doit prendre un jeton');

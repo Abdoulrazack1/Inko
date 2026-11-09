@@ -214,7 +214,19 @@
     //
     // Chargée après le rendu : la page ne doit pas attendre une requête de
     // plus pour s'afficher. Un échec laisse simplement le bloc absent.
-    const PALETTE = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => 'var(--graph-' + n + ')');
+    // L'ordre n'est pas 1..8, et c'est mesure. Les couleurs sont
+    // attribuees par volume decroissant : avec trois sources on n'utilise
+    // que les trois premieres. Simule sur les trois palettes (claire,
+    // sombre, contraste) et les trois daltonismes, la distance minimale
+    // entre les premieres couleurs passe de 66 a 91 a deux sources, et de
+    // 6 a 13 a trois. Au-dela, l'ordre n'y peut plus rien : aucune
+    // palette de huit teintes n'est discernable sous daltonisme, et c'est
+    // le tableau ci-dessous qui porte alors l'information.
+    //
+    // On reordonne l'ATTRIBUTION, jamais les jetons : `--graph-3` sert
+    // aussi a dire « en cours » plus bas, et le permuter changerait un
+    // sens, pas une apparence.
+    const PALETTE = [2, 6, 8, 4, 3, 5, 7, 1].map((n) => 'var(--graph-' + n + ')');
     async function chargerRepartition() {
         const hote = document.getElementById('stDistrib');
         if (!hote) return;
@@ -281,8 +293,10 @@
         hote.innerHTML = `<div class="st-panel">
             <h2>Répartition sur 12 mois <span style="font-size:12px;color:var(--text3);font-weight:400">${MH.fmt(d.total)} chapitres</span></h2>
             <div style="display:flex;align-items:flex-end;gap:4px;height:132px;margin:14px 0 4px" aria-hidden="true">${colonnes}</div>
-            ${tableauRepartition(d, sources)}
             <div style="display:flex;flex-wrap:wrap;gap:4px 0;margin-top:8px">${legende}</div>
+            <button type="button" class="st-chiffres-bouton" aria-expanded="false"
+                aria-controls="st-repartition-chiffres">Voir les chiffres</button>
+            ${tableauRepartition(d, sources, 'st-repartition-chiffres')}
             ${totalFormat ? `<div style="margin-top:14px;font-size:12px;color:var(--text2)">
                 Format : ${Math.round((parFormat.Scans / totalFormat) * 100)} % de scans, ${Math.round((parFormat.Romans / totalFormat) * 100)} % de romans</div>` : ''}
             <!-- Le genre n'est pas affiché parce qu'il n'est calculable :
@@ -290,19 +304,58 @@
             <div style="margin-top:6px;font-size:11px;color:var(--text3)">
                 Pas de répartition par genre : les tags des œuvres ne sont pas conservés en base.</div>
         </div>`;
+        brancherChiffres(hote);
     }
     const somme = (a) => a.reduce((n, v) => n + v, 0);
+
+    // ── Les chiffres derrière la couleur ────────────────────
+    //
+    // Mesuré : sur les trois palettes et les trois daltonismes, jusqu'à
+    // SEPT paires de `--graph-*` se confondent (CIE76 < 20), dont
+    // `--graph-1` et `--graph-5` à 2,2 en protanopie — identiques. On a
+    // réordonné l'attribution (gain réel jusqu'à trois sources, nul
+    // au-delà : huit teintes discernables n'existent pas), mais ça ne
+    // suffit pas. Un lecteur daltonien doit pouvoir lire les VALEURS.
+    //
+    // Le tableau existait déjà, complet, en `a11y-invisible` — donc
+    // réservé aux lecteurs d'écran. Le bouton le rend visible à tout le
+    // monde sans le retirer de personne : pas de `<details>`, parce qu'un
+    // `<details>` fermé sort son contenu de l'arbre d'accessibilité, et
+    // les lecteurs d'écran perdraient ce qu'ils avaient déjà.
+    function brancherChiffres(hote) {
+        const bouton = hote.querySelector('.st-chiffres-bouton');
+        const boite = bouton && hote.querySelector('.st-chiffres');
+        if (!boite) return;
+        bouton.addEventListener('click', () => {
+            const ouvert = bouton.getAttribute('aria-expanded') === 'true';
+            bouton.setAttribute('aria-expanded', String(!ouvert));
+            boite.classList.toggle('a11y-invisible', ouvert);
+            if (ouvert) boite.removeAttribute('tabindex');
+            else boite.setAttribute('tabindex', '0');
+            bouton.textContent = ouvert ? 'Voir les chiffres' : 'Masquer les chiffres';
+        });
+    }
 
     // Les colonnes ne portaient leurs valeurs que dans un `title` : à la voix,
     // douze <div> sans nom. Le même contenu, en vrai tableau, invisible à
     // l'écran et lu par les lecteurs d'écran (une ligne par mois).
-    function tableauRepartition(d, sources) {
-        const lignes = d.months.map((m, i) => `<tr><th scope="row">${MH.esc(m)}</th>`
+    function tableauRepartition(d, sources, id) {
+        // Le tableau se lit maintenant a l'ecran : « 2025-12 » etait une cle
+        // technique acceptable tant qu'elle restait dans l'arbre, elle ne
+        // l'est plus comme entete de ligne.
+        const mois = (m) => MH.date(m + '-01T12:00:00', 'moisCourt') || m;
+        const lignes = d.months.map((m, i) => `<tr><th scope="row">${MH.esc(mois(m))}</th>`
             + `<td>${sources.reduce((n, s) => n + d.bySource[s][i], 0)}</td>`
             + sources.map(s => `<td>${d.bySource[s][i]}</td>`).join('') + '</tr>').join('');
-        return `<table class="a11y-invisible"><caption>Chapitres lus par mois et par source</caption>
+        // `role`/`aria-label` en dur, `tabindex` seulement quand c'est
+        // ouvert : au clavier, une zone qui defile doit pouvoir prendre le
+        // focus pour qu'on y defile — mais un point de tabulation hors
+        // ecran enverrait le focus dans le vide tant que c'est replie.
+        return `<div id="${id}" class="a11y-invisible st-chiffres" role="group"
+            aria-label="Répartition par mois et par source, défilement horizontal"><table class="st-chiffres-table">
+            <caption>Chapitres lus par mois et par source</caption>
             <thead><tr><th scope="col">Mois</th><th scope="col">Total</th>${sources.map(s => `<th scope="col">${MH.esc(s)}</th>`).join('')}</tr></thead>
-            <tbody>${lignes}</tbody></table>`;
+            <tbody>${lignes}</tbody></table></div>`;
     }
 
     // La carte de l'année : 365 cases dont la valeur n'était que dans un
