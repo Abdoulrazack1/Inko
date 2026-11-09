@@ -27,8 +27,17 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 
+// Les fins de ligne sont NORMALISEES avant toute recherche. Ce fichier
+// cherche des motifs qui contiennent des sauts de ligne, et le
+// controleur est tenu en CRLF sous Windows : sans normalisation,
+// `indexOf` rendait -1, la tranche partait jusqu'a la fin du fichier, et
+// le test accusait `cache=seul` de telecharger — alors que le code
+// n'avait pas bouge d'une ligne. Un test qui depend des fins de ligne
+// finit par mentir, et c'est le reste du depot qui a raison : les
+// fichiers de `test/unit` normalisent tous.
 const SRC = fs.readFileSync(
-    path.join(__dirname, '..', 'controllers', 'image.controller.js'), 'utf8');
+    path.join(__dirname, '..', 'controllers', 'image.controller.js'), 'utf8')
+    .split('\r\n').join('\n');
 
 test('le cache disque ecrit de facon atomique', () => {
     const bloc = /async function poserSurDisque\([\s\S]*?\n\}/.exec(SRC);

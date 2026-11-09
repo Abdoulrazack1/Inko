@@ -25,9 +25,18 @@ const dns = require('dns');
 // Le contrôleur extrait `execFile` À SON CHARGEMENT : il faut donc le
 // remplacer avant le `require`.
 let appelsCurl = [];
+// Le corps rendu doit etre une VRAIE image : depuis que le proxy lit les
+// octets au lieu de croire l'extension de l'URL, un remplissage
+// quelconque est refuse (502) et les assertions de ce fichier portaient
+// alors sur le mauvais echec. Un en-tete PNG suffit — ce qu'on teste
+// ici, c'est le filtrage des hotes, pas le decodage.
+const PNG = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+    Buffer.alloc(120, 1),
+]);
 childProcess.execFile = (cmd, args, opts, cb) => {
     appelsCurl.push({ cmd, args });
-    cb(null, Buffer.alloc(128, 1));
+    cb(null, PNG);
 };
 
 // `dns.promises.lookup` est lu à chaque appel : on peut le piloter par test.
