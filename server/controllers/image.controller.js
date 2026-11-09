@@ -69,6 +69,7 @@ const crypto = require('crypto');
 // Le cache ne passe PAS par ici : une page deja lue ne touche pas la source,
 // et la faire attendre un jeton serait punir le cas rapide.
 const { creerJetons } = require('../lib/jetons');
+const { typeImage, apercu } = require('../lib/type-image');
 const AMONT = creerJetons(process.env.IMG_UPSTREAM_MAX || 4);
 
 const DISQUE_MAX_MO = parseInt(process.env.IMG_DISK_CACHE_MB || '512', 10);
@@ -216,11 +217,13 @@ function hostAllowed(host) {
     return false;
 }
 
-function contentTypeFor(url) {
-    const ext = (url.split('?')[0].match(/\.(\w{3,4})$/) || [])[1]?.toLowerCase();
-    return { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
-             gif: 'image/gif', avif: 'image/avif', bmp: 'image/bmp', svg: 'image/svg+xml' }[ext]
-        || 'image/jpeg';
+// L'extension de l'URL ne sert plus qu'a DOCUMENTER ce qu'on attendait :
+// le type servi vient des octets (`lib/type-image.js`). Mesure qui l'a
+// impose : une URL de couverture invalide rendait 200 + `image/jpeg` pour
+// un corps commencant par `<!doctype html>`, et cette page d'erreur
+// partait dans le cache disque pour tout le TTL.
+function extensionAnnoncee(url) {
+    return (url.split('?')[0].match(/\.(\w{3,4})$/) || [])[1]?.toLowerCase() || 'aucune';
 }
 
 // Vrai/Faux : cette IP (v4 ou v6) appartient-elle à une plage interne/réservée ?
@@ -334,7 +337,14 @@ function fetchImage(url, pinnedIp) {
             execFile('curl', args, { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
                 if (err) return reject(err);
                 if (!stdout || stdout.length < 64) return reject(new Error('image vide'));
-                resolve({ buf: stdout, type: contentTypeFor(url), expires: Date.now() + TTL });
+                // `curl -s -L` sans `-f` rend 0 sur un 404 : c'est le CORPS
+                // qui dit si la source a livre une image ou une excuse.
+                const type = typeImage(stdout);
+                if (!type) {
+                    return reject(new Error('reponse non-image (.' + extensionAnnoncee(url)
+                        + ' annoncee) : ' + apercu(stdout)));
+                }
+                resolve({ buf: stdout, type, expires: Date.now() + TTL });
             });
         });
     }).finally(() => { if (rendreJeton) rendreJeton(); inflight.delete(url); });
@@ -359,13 +369,22 @@ async function servirDepuisCache(url, res) {
     if (surD) {
         try {
             const buf = await fsp.readFile(surD.chemin);
-            res.set('Content-Type', surD.type);
+            // Le cache d'avant ce correctif peut contenir des pages
+            // d'erreur ecrites sous une extension d'image. On les refuse
+            // ici plutot que d'attendre l'expiration : sinon la couverture
+            // reste cassee une semaine apres le retour de la source.
+            const reel = typeImage(buf);
+            if (!reel) {
+                fsp.unlink(surD.chemin).catch(() => {});
+                return false;
+            }
+            res.set('Content-Type', reel);
             res.set('Cache-Control', 'public, max-age=604800, immutable');
             res.set('X-Inko-Cache', 'DISK');
             // Remonte en mémoire : relire le fichier à chaque page de la même
             // planche serait payer un accès disque pour rien.
             if (buf.length < MAX_BYTES) {
-                cache.set(url, { buf, type: surD.type, expires: Date.now() + TTL });
+                cache.set(url, { buf, type: reel, expires: Date.now() + TTL });
                 cacheBytes += buf.length;
             }
             res.end(buf);
@@ -427,6 +446,18 @@ async function proxy(req, res) {
         res.set('X-Inko-Cache', 'MISS');
         res.end(img.buf);
     } catch (e) {
+        // Une source qui repond par une page d'erreur et une source qui ne
+        // repond pas donnent le meme 502 au navigateur, et c'est voulu : le
+        // lecteur n'a qu'une chose a savoir. Mais c'est deux pannes
+        // differentes a reparer, alors on le dit ici — une fois par hote,
+        // comme pour un domaine refuse, pour ne pas noyer le journal.
+        if (/non-image/.test(e && e.message)) {
+            if (!proxy._nonImage) proxy._nonImage = new Set();
+            if (!proxy._nonImage.has(host)) {
+                proxy._nonImage.add(host);
+                console.warn(`[img] ${host} a repondu autre chose qu'une image : ${e.message}`);
+            }
+        }
         // Audit B-8 : on renvoyait un GIF 1×1 « valide » → le onerror des <img>
         // ne se déclenchait jamais, donc pas de placeholder thématique côté
         // front, juste une case vide indistincte d'une vraie image manquante.
