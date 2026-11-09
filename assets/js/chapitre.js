@@ -509,30 +509,43 @@
     // Menu « ⋯ » du lecteur : fermé au clic ailleurs, par Échap, ou après
     // une action (sauf le zoom, qu'on ajuste en plusieurs clics).
     let menuLecteurBranche = false;
+    // Un seul chemin de fermeture, passant par `MH.surcouche` : le menu
+    // pousse une entree d'historique a l'ouverture, donc le bouton retour
+    // d'Android le referme au lieu de quitter le chapitre.
+    let fermerMenuLecteur = () => {};
     function brancherMenuLecteur() {
         const btn = document.getElementById('btnReaderMore');
         const pop = document.getElementById('readerMoreMenu');
         if (!btn || !pop) return;
-        const fermer = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+        const fermerReel = () => {
+            const p = document.getElementById('readerMoreMenu');
+            if (p) p.hidden = true;
+            document.getElementById('btnReaderMore')?.setAttribute('aria-expanded', 'false');
+        };
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const ouvrir = pop.hidden;
-            pop.hidden = !ouvrir;
-            btn.setAttribute('aria-expanded', String(ouvrir));
+            if (!pop.hidden) { fermerMenuLecteur(); return; }
+            pop.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            fermerMenuLecteur = window.MH?.surcouche ? MH.surcouche(fermerReel) : fermerReel;
         });
         pop.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (e.target.closest('.reader-pop-item')) fermer();
+            if (e.target.closest('.reader-pop-item')) fermerMenuLecteur();
         });
         if (menuLecteurBranche) return;
         menuLecteurBranche = true;
         document.addEventListener('click', () => {
             const p = document.getElementById('readerMoreMenu');
-            if (p && !p.hidden) { p.hidden = true; document.getElementById('btnReaderMore')?.setAttribute('aria-expanded', 'false'); }
+            if (p && !p.hidden) fermerMenuLecteur();
         });
         document.addEventListener('keydown', (e) => {
             const p = document.getElementById('readerMoreMenu');
-            if (e.key === 'Escape' && p && !p.hidden) { e.stopImmediatePropagation(); p.hidden = true; document.getElementById('btnReaderMore')?.focus(); }
+            if (e.key === 'Escape' && p && !p.hidden) {
+                e.stopImmediatePropagation();
+                fermerMenuLecteur();
+                document.getElementById('btnReaderMore')?.focus();
+            }
         }, true);
     }
 
@@ -2715,7 +2728,8 @@
             </div>`;
         pop.querySelector('#signetNote').value = signet.note || '';
         document.body.appendChild(pop);
-        const fermer = () => { pop.remove(); document.removeEventListener('pointerdown', dehors, true); };
+        const fermerReel = () => { pop.remove(); document.removeEventListener('pointerdown', dehors, true); };
+        const fermer = window.MH?.surcouche ? MH.surcouche(fermerReel) : fermerReel;
         const dehors = (e) => { if (!pop.contains(e.target) && !e.target.closest?.('#btnBookmark')) fermer(); };
         document.addEventListener('pointerdown', dehors, true);
         pop.addEventListener('keydown', (e) => {

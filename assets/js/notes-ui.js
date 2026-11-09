@@ -237,13 +237,18 @@
         }
         root.classList.add('open');
         document.body.classList.add('notes-open');
+        // Le panneau n'existe que dans le DOM : sans entree d'historique, le
+        // bouton retour d'Android quitterait le chapitre en le laissant ouvert.
+        fermerPanneau = window.MH?.surcouche ? MH.surcouche(fermerReel) : fermerReel;
         loadList();
     }
-    function close() {
+    let fermerPanneau = () => {};
+    function fermerReel() {
         if (!root) return;
         root.classList.remove('open');
         document.body.classList.remove('notes-open');
     }
+    function close() { fermerPanneau(); fermerReel(); }
 
     // `MOODS`, `moodLabel` et `moodColor` sont EXPOSES : la page Journal en a
     // besoin pour filtrer, et les recopier la-bas ferait deux tables a tenir
