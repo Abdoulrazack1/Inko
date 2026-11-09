@@ -107,6 +107,35 @@ function transpilerCss(src, dst) {
     return true;
 }
 
+// ── Les blocs ECRITS DANS LA PAGE ───────────────────────────
+// Les deux fonctions ci-dessus ne voient que des FICHIERS. Les pages sont
+// copiees telles quelles, donc tout ce qu'elles portent en ligne echappait
+// a la transpilation.
+//
+// Mesure : `offline.html` porte un script en ligne avec un `?.`. C'est la
+// page montree quand tout le reste a deja echoue, et sur le WebView
+// d'Android 8 son script entier mourait sur « Unexpected token . » — donc
+// le bouton « Reessayer » ne faisait rien, et la page ne se rechargeait
+// pas au retour du reseau. Le commentaire DESK-02 juste au-dessus explique
+// que le gestionnaire est POSE en JavaScript parce que la CSP interdit
+// `onclick` : il n'y avait aucun recours.
+function transpilerEnLigne(html, nom) {
+    if (!esbuild) return html;
+    const abaisser = (code, loader) => {
+        try {
+            return esbuild.transformSync(code, { target: CIBLE, loader }).code;
+        } catch (e) {
+            console.error(`::error::${nom} : bloc <${loader}> illisible — ${e.message}`);
+            process.exit(1);
+        }
+    };
+    return html
+        .replace(/(<script(?![^>]*\ssrc=)[^>]*>)([\s\S]*?)(<\/script>)/gi,
+            (tout, ouv, code, fer) => (code.trim() ? ouv + abaisser(code, 'js') + fer : tout))
+        .replace(/(<style[^>]*>)([\s\S]*?)(<\/style>)/gi,
+            (tout, ouv, code, fer) => (code.trim() ? ouv + abaisser(code, 'css') + fer : tout));
+}
+
 function copierDossier(src, dst) {
     if (!fs.existsSync(src)) return 0;
     fs.mkdirSync(dst, { recursive: true });
@@ -134,7 +163,8 @@ function construire() {
     let pages = 0;
     for (const f of fs.readdirSync(RACINE)) {
         if (!f.endsWith('.html') || PAGES_EXCLUES.has(f)) continue;
-        fs.copyFileSync(path.join(RACINE, f), path.join(SORTIE, f));
+        const html = fs.readFileSync(path.join(RACINE, f), 'utf8');
+        fs.writeFileSync(path.join(SORTIE, f), transpilerEnLigne(html, f));
         pages++;
     }
     if (!fs.existsSync(path.join(SORTIE, 'index.html'))) {
