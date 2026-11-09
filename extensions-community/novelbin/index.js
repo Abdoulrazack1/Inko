@@ -67,10 +67,40 @@ const http = axios.create({
 // comme une source cassee. Deux tentatives, 800 ms d'attente. On ne reessaie
 // que le transitoire : une reponse vide (blocage anti-bot) ou une erreur curl,
 // jamais une reponse valide mais inattendue.
+// ── Lire le CODE HTTP, pas seulement le corps ───────────────
+//
+// `curl -s -L` sans `-f` sort avec 0 sur un 429, un 403 ou un 503 : la
+// page d'erreur devient du « contenu ». Mesure du 9 novembre, sur
+// novel-bin : un 429 de nginx fait 1 678 octets — au-dessus du seuil de
+// taille — donc il passait, il etait MIS EN CACHE pour dix minutes, et
+// l'analyseur annoncait « Contenu du chapitre introuvable ». Le
+// diagnostic accusait le balisage du site alors qu'on etait simplement
+// limite, et le cache rejouait l'erreur a chaque tentative.
+//
+// C'est la meme faute que le proxy d'images corrigeait la semaine
+// derniere : croire le corps sans regarder le statut.
+//
+// `-w` ecrit le code a la fin de la sortie ; on le detache et on decide.
+// Rien n'est mis en cache tant que le statut n'est pas bon : une erreur
+// mise en cache est une panne qui dure.
+const CODE_SEP = '\n@@INKO_HTTP@@';
+
+function messageHttp(code) {
+    if (code === 429 || code === 503) return 'Source momentanement limitee - reessaie dans un instant';
+    if (code === 403) return 'Source refusee (HTTP 403) - le site bloque les acces automatises';
+    if (code === 404) return 'Page introuvable sur la source (HTTP 404)';
+    return `Site source indisponible (HTTP ${code})`;
+}
+/** Vrai si une seconde tentative a une chance : un 404 n'en a aucune. */
+function vautLaPeineDeReessayer(code) {
+    return code === 429 || code === 408 || (code >= 500 && code <= 599);
+}
+
 function curlGetOnce(url) {
     return new Promise((resolve, reject) => {
         execFile('curl', [
             '-s', '-L', '--max-redirs', '5', '--compressed', '-m', '25',
+            '-w', CODE_SEP + '%{http_code}',
             '-A', UA,
             '-H', 'Accept: text/html,application/xhtml+xml,*/*;q=0.8',
             '-H', 'Accept-Language: en-US,en;q=0.9',
@@ -78,8 +108,18 @@ function curlGetOnce(url) {
             url,
         ], { maxBuffer: 48 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
             if (err) return reject(new Error('curl indisponible : ' + err.message));
-            if (!stdout || stdout.length < 500) return reject(new Error('réponse vide (blocage anti-bot ?)'));
-            resolve(stdout);
+            const brut = String(stdout || '');
+            const coupe = brut.lastIndexOf(CODE_SEP);
+            const code = coupe === -1 ? 0 : parseInt(brut.slice(coupe + CODE_SEP.length), 10) || 0;
+            const corps = coupe === -1 ? brut : brut.slice(0, coupe);
+            if (code && code >= 400) {
+                const e = new Error(messageHttp(code));
+                e.httpCode = code;
+                e.transitoire = vautLaPeineDeReessayer(code);
+                return reject(e);
+            }
+            if (!corps || corps.length < 500) return reject(new Error('réponse vide (blocage anti-bot ?)'));
+            resolve(corps);
         });
     });
 }
@@ -88,7 +128,13 @@ async function curlGet(url) {
     let last;
     for (let attempt = 1; attempt <= 2; attempt++) {
         try { return await curlGetOnce(url); }
-        catch (e) { last = e; if (attempt < 2) await sleepMs(800); }
+        catch (e) {
+            last = e;
+            // Un 404 ou un 403 ne changera pas en 800 ms : insister ne fait
+            // que doubler la charge sur un site qui nous repousse deja.
+            if (e && e.httpCode && !e.transitoire) break;
+            if (attempt < 2) await sleepMs(800);
+        }
     }
     throw last;
 }
@@ -117,6 +163,12 @@ async function fetchHtml(url, ttl = 120_000) {
     let data;
     try { data = await curlGet(full); }
     catch (e) {
+        // Le repli axios existe pour le cas « curl absent de la machine ».
+        // Quand curl a JOINT le site et rapporte un statut, refaire la
+        // meme requete par un autre client ne change rien : le site
+        // repondra la meme chose, et on aura double la charge sur un
+        // hote qui nous repousse deja. On remonte son verdict tel quel.
+        if (e && e.httpCode) throw e;
         try { ({ data } = await http.get(full, { responseType: 'text' })); }
         catch (e2) { throw friendlyHttpError(e2); }
     }
@@ -141,28 +193,83 @@ function chapterNumFromText(t) {
 }
 
 // Parse un listing (.list-novel .row → h3.novel-title a)
+// ── Deux balisages, et un repli qui ne depend d'aucun des deux ──
+//
+// Le site a restructure ses listes une SECONDE fois (releve le
+// 9 novembre 2026, sur /monthvisit/). Les classes `list-novel`, `row`,
+// `novel-title` ont disparu ; la liste est desormais :
+//
+//   <div class="almanac-results-list" data-almanac-results>
+//     <a href="/novel-bin/<slug>/" class="almanac-book-row"
+//        title="<Titre>" data-almanac-book-row>
+//       <span class="almanac-row-title">
+//         <img class="almanac-row-cover" src="/files/image/<slug>.jpg">
+//         <span class="almanac-row-copy"><h3>Titre</h3>
+//
+// `popular()` et `latest()` rendaient donc 0 resultat — exactement la
+// panne d'aout, au meme endroit, et le bac a sable l'a dite en une
+// ligne : « aucun resultat exploitable (pas d'id) ».
+//
+// La lecon de la premiere fois, c'est que ce scraper tombe a CHAQUE
+// refonte du site. On ne vise donc plus un balisage : on essaie les
+// deux connus, puis on retombe sur ce qui ne bouge jamais — un lien
+// vers /novel-bin/<slug>. Un titre se lit alors dans l'attribut
+// `title`, le `h3` ou le texte du lien, dans cet ordre. Tant que le
+// site garde des liens vers ses fiches, la liste sort.
+const SELECTEURS_LISTE = [
+    'a[data-almanac-book-row]',        // balisage de novembre 2026
+    '.list-novel .row, .archive .row', // balisage d'aout 2026
+];
+
+function unItem($, $el) {
+    // Le lien de la fiche : soit l'element lui-meme, soit le premier
+    // qu'il contient.
+    const $a = $el.is('a') ? $el : $el.find('a[href*="/novel-bin/"], h3.novel-title a, h3.title a').first();
+    const id = slugFromHref($a.attr('href'));
+    if (!id) return null;
+    const img = $el.find('img').first();
+    const cover = img.attr('data-src') || img.attr('src') || '';
+    const titre = ($a.attr('title')
+        || $el.find('h3').first().text()
+        || $a.text() || '').replace(/\s+/g, ' ').trim();
+    return {
+        id,
+        title: titre || id.replace(/-/g, ' '),
+        titleAlt: '',
+        author: $el.find('.author, .almanac-row-author').first().text().replace(/\s+/g, ' ').trim(),
+        description: '',
+        status: null,
+        year: null, demographic: null,
+        tags: [],
+        cover, coverLarge: cover, coverThumb: cover,
+        contentRating: 'safe', langs: ['en'],
+    };
+}
+
 function parseList($) {
-    const out = [];
-    $('.list-novel .row, .archive .row').each((_, el) => {
-        const $el = $(el);
-        const a   = $el.find('h3.novel-title a, h3.title a').first();
-        const id  = slugFromHref(a.attr('href'));
-        if (!id) return;
-        const img   = $el.find('img').first();
-        const cover = img.attr('data-src') || img.attr('src') || '';
-        out.push({
-            id,
-            title:  (a.attr('title') || a.text()).replace(/\s+/g, ' ').trim(),
-            titleAlt: '',
-            author: $el.find('.author').text().replace(/\s+/g, ' ').trim(),
-            description: '',
-            status: null,
-            year: null, demographic: null,
-            tags: [],
-            cover, coverLarge: cover, coverThumb: cover,
-            contentRating: 'safe', langs: ['en'],
+    for (const sel of SELECTEURS_LISTE) {
+        const out = [];
+        $(sel).each((_, el) => {
+            const item = unItem($, $(el));
+            if (item) out.push(item);
         });
+        if (out.length) return out;
+    }
+    // Dernier recours : tous les liens de fiche de la page, dedoublonnes.
+    // Moins precis — il attrape aussi les liens de la barre laterale —
+    // mais une liste approximative vaut mieux qu'une source morte, et le
+    // journal le dit pour qu'on vienne reparer le selecteur.
+    const vus = new Set();
+    const out = [];
+    $('a[href*="/novel-bin/"]').each((_, el) => {
+        const item = unItem($, $(el));
+        if (!item || vus.has(item.id)) return;
+        vus.add(item.id);
+        out.push(item);
     });
+    if (out.length) {
+        console.warn(`[novelbin] balisage inconnu : ${out.length} oeuvre(s) retrouvee(s) par les liens. Selecteurs a revoir.`);
+    }
     return out;
 }
 

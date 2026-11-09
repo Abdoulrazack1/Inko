@@ -44,10 +44,40 @@ const http = axios.create({
 // comme une source cassee. Deux tentatives, 800 ms d'attente. On ne reessaie
 // que le transitoire : une reponse vide (blocage anti-bot) ou une erreur curl,
 // jamais une reponse valide mais inattendue.
+// ── Lire le CODE HTTP, pas seulement le corps ───────────────
+//
+// `curl -s -L` sans `-f` sort avec 0 sur un 429, un 403 ou un 503 : la
+// page d'erreur devient du « contenu ». Mesure du 9 novembre, sur
+// novel-bin : un 429 de nginx fait 1 678 octets — au-dessus du seuil de
+// taille — donc il passait, il etait MIS EN CACHE pour dix minutes, et
+// l'analyseur annoncait « Contenu du chapitre introuvable ». Le
+// diagnostic accusait le balisage du site alors qu'on etait simplement
+// limite, et le cache rejouait l'erreur a chaque tentative.
+//
+// C'est la meme faute que le proxy d'images corrigeait la semaine
+// derniere : croire le corps sans regarder le statut.
+//
+// `-w` ecrit le code a la fin de la sortie ; on le detache et on decide.
+// Rien n'est mis en cache tant que le statut n'est pas bon : une erreur
+// mise en cache est une panne qui dure.
+const CODE_SEP = '\n@@INKO_HTTP@@';
+
+function messageHttp(code) {
+    if (code === 429 || code === 503) return 'Source momentanement limitee - reessaie dans un instant';
+    if (code === 403) return 'Source refusee (HTTP 403) - le site bloque les acces automatises';
+    if (code === 404) return 'Page introuvable sur la source (HTTP 404)';
+    return `Site source indisponible (HTTP ${code})`;
+}
+/** Vrai si une seconde tentative a une chance : un 404 n'en a aucune. */
+function vautLaPeineDeReessayer(code) {
+    return code === 429 || code === 408 || (code >= 500 && code <= 599);
+}
+
 function curlGetOnce(url) {
     return new Promise((resolve, reject) => {
         execFile('curl', [
             '-s', '-L', '--compressed', '-m', '25',
+            '-w', CODE_SEP + '%{http_code}',
             '-A', UA,
             '-H', 'Accept: text/html,application/xhtml+xml,*/*;q=0.8',
             '-H', 'Accept-Language: en-US,en;q=0.9',
@@ -55,8 +85,18 @@ function curlGetOnce(url) {
             BASE + url,
         ], { maxBuffer: 32 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
             if (err) return reject(new Error('curl indisponible : ' + err.message));
-            if (!stdout || stdout.length < 500) return reject(new Error('réponse vide (blocage anti-bot ?)'));
-            resolve(stdout);
+            const brut = String(stdout || '');
+            const coupe = brut.lastIndexOf(CODE_SEP);
+            const code = coupe === -1 ? 0 : parseInt(brut.slice(coupe + CODE_SEP.length), 10) || 0;
+            const corps = coupe === -1 ? brut : brut.slice(0, coupe);
+            if (code && code >= 400) {
+                const e = new Error(messageHttp(code));
+                e.httpCode = code;
+                e.transitoire = vautLaPeineDeReessayer(code);
+                return reject(e);
+            }
+            if (!corps || corps.length < 500) return reject(new Error('réponse vide (blocage anti-bot ?)'));
+            resolve(corps);
         });
     });
 }
@@ -65,7 +105,13 @@ async function curlGet(url) {
     let last;
     for (let attempt = 1; attempt <= 2; attempt++) {
         try { return await curlGetOnce(url); }
-        catch (e) { last = e; if (attempt < 2) await sleepMs(800); }
+        catch (e) {
+            last = e;
+            // Un 404 ou un 403 ne changera pas en 800 ms : insister ne fait
+            // que doubler la charge sur un site qui nous repousse deja.
+            if (e && e.httpCode && !e.transitoire) break;
+            if (attempt < 2) await sleepMs(800);
+        }
     }
     throw last;
 }
@@ -92,6 +138,12 @@ async function fetchHtml(url, ttl = 120_000) {
     let data;
     try { data = await curlGet(url); }
     catch (e) {
+        // Le repli axios existe pour le cas « curl absent de la machine ».
+        // Quand curl a JOINT le site et rapporte un statut, refaire la
+        // meme requete par un autre client ne change rien : le site
+        // repondra la meme chose, et on aura double la charge sur un
+        // hote qui nous repousse deja. On remonte son verdict tel quel.
+        if (e && e.httpCode) throw e;
         try { ({ data } = await http.get(url, { responseType: 'text' })); }
         catch (e2) { throw friendlyHttpError(e2); }
     }
