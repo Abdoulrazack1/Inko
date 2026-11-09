@@ -670,6 +670,43 @@
         }
       }
     },
+    "/extensions/{id}/bac-a-sable": {
+      "post": {
+        "summary": "Le bac a sable sort vers un site tiers a chaque appel : il passe par le meme limiteur que les relais, pour qu'un clic repete ne devienne pas une charge pour la source d'en face.",
+        "operationId": "Ext_bacASable",
+        "tags": [
+          "extensions"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": "session",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          },
+          "401": {
+            "description": "Non authentifié"
+          }
+        }
+      }
+    },
     "/extensions/update": {
       "post": {
         "summary": "applyUpdates écrit des fichiers .js exécutés côté serveur pour toute l'instance : exige un rôle admin, pas seulement une session valide (audit §7.3).",

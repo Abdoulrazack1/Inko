@@ -777,6 +777,10 @@
             update:       (ids)   => post('/extensions/update', { ids: ids || null }),
             // Test de connectivité d'une source + santé globale
             test:         (id)    => get('/extensions/' + encodeURIComponent(id) + '/test'),
+            // Essayer une source sur UNE serie, sans l'activer : la chaine
+            // complete, etape par etape. `test` ne dit que « ca repond ».
+            bacASable:    (id, requete = '') =>
+                post('/extensions/' + encodeURIComponent(id) + '/bac-a-sable', { requete }),
             // Journal des derniers appels d'une source (audit AMEL-68)
             log:          (id, limit = 20) =>
                 get('/extensions/' + encodeURIComponent(id) + '/log?limit=' + limit),
