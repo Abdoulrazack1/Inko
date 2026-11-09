@@ -14,16 +14,22 @@ const { ensureDatabase } = require('./lib/embedded-db');
 // mais rien ne le VÉRIFIAIT : sur un hôte Linux ou macOS minimal, ces sources
 // échouaient avec un « spawn curl ENOENT » incompréhensible. On le dit au
 // démarrage, une fois, sans bloquer (le reste de l'app fonctionne).
+//
+// Et il le dit SANS BLOQUER. Mesuré : `execFileSync` coûtait 44 ms sur
+// 590 de démarrage — 7 % — passés à attendre un sous-processus dont la
+// réponse ne sert qu'à imprimer un avertissement. Rien, au démarrage,
+// n'attend ce résultat : la première extension qui appellera `curl` est
+// à des secondes de là. `execFile` rend la main tout de suite et
+// l'avertissement sort quand il est prêt.
 (function checkCurl() {
-    try {
-        require('child_process').execFileSync('curl', ['--version'],
-            { stdio: 'ignore', timeout: 5000, windowsHide: true });
-    } catch (e) {
-        console.warn('[deps] ⚠ `curl` est introuvable sur cette machine.');
-        console.warn('       Les sources Gutenberg, NovelBin, NovelFull et SushiScan, ainsi que');
-        console.warn('       le proxy d\'images, en dépendent et échoueront.');
-        console.warn('       Installe-le :  apt install curl  /  brew install curl');
-    }
+    require('child_process').execFile('curl', ['--version'],
+        { timeout: 5000, windowsHide: true }, (e) => {
+            if (!e) return;
+            console.warn('[deps] ⚠ `curl` est introuvable sur cette machine.');
+            console.warn('       Les sources Gutenberg, NovelBin, NovelFull et SushiScan, ainsi que');
+            console.warn('       le proxy d\'images, en dépendent et échoueront.');
+            console.warn('       Installe-le :  apt install curl  /  brew install curl');
+        });
 })();
 
 ensureDatabase()
