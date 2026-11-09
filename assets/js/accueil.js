@@ -97,7 +97,12 @@
             MH.poserEtatErreur?.(zone, e, { onRetry: chargerReprise });
             return;
         }
-        if (!entrees.length) { rendreAccueilVide(zone); return; }
+        // L'etat vide EST le contenu utile pour qui n'a rien commence :
+        // marquer seulement l'etagere ferait disparaitre la mesure
+        // exactement pour les comptes neufs, les plus interessants a
+        // mesurer. Verifie dans le navigateur : sans reprise, l'accueil
+        // ne relevait rien du tout.
+        if (!entrees.length) { rendreAccueilVide(zone); accueilPret(); return; }
 
         // Titre et couverture : d'abord ceux de la bibliothèque (aucun appel
         // réseau), la source seulement pour ce qui manque.
@@ -152,6 +157,7 @@
                 <button class="etagere-retirer" type="button" data-retirer="${MH.esc(une.mangaId)}"
                     title="Retirer de \u00ab\u00a0Reprendre\u00a0\u00bb" aria-label="Retirer \u00ab\u00a0${MH.esc(une.title)}\u00a0\u00bb de \u00ab\u00a0Reprendre\u00a0\u00bb">Retirer</button>
             </div>`;
+        accueilPret();
 
         /* \u2500\u2500 Le pied suit la latte qu'on regarde \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
          * Les trois contr\u00f4les pointaient la PREMI\u00c8RE latte, quelle que
@@ -519,6 +525,12 @@
     // Le squelette d'un rayon passe par le système : il y gagne l'`aria-busy`
     // et sa levée automatique, qu'une copie locale n'avait pas.
     function squelette(id) { MH.squelette(id, { n: 8, type: 'rayon' }); }
+
+    // Le contenu utile de l'accueil, c'est l'étagère de reprise — pas la
+    // ligne de chiffres du salut, qui arrive avant et ne fait pas la page.
+    // `largest-contentful-paint` aurait désigné une couverture ; ce n'est
+    // pas la même question.
+    function accueilPret() { window.MH?.contenuPret?.('accueil'); }
 
     // Flèches de défilement : ajoutées à chaque rayon, visibles au survol, et
     // masquées aux extrémités.

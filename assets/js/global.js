@@ -1577,6 +1577,57 @@
         return el;
     };
 
+    /* ── Le premier contenu UTILE ────────────────────────────
+     *
+     * `load` ne dit rien de ce qu'on attendait. Il se déclenche quand la
+     * dernière image décorative est arrivée, et il s'est déjà déclenché
+     * sur une page qui n'affiche qu'un squelette. Entre les deux, il y a
+     * le seul instant qui compte : celui où la page montre ENFIN ce
+     * qu'on est venu voir — les 495 cartes de la bibliothèque, la
+     * première planche du chapitre, les résultats de la recherche.
+     *
+     * Aucune mesure automatique ne sait lequel c'est. `largest-
+     * contentful-paint` désigne le plus GROS élément peint, pas le plus
+     * utile : sur l'accueil, c'est la couverture de l'étagère, qui
+     * arrive avant la liste des chapitres. C'est donc la page qui le
+     * déclare, en une ligne, à l'endroit exact où son contenu est posé.
+     *
+     * Deux précautions tirées de cette semaine. D'abord le PREMIER appel
+     * gagne : une page qui se re-rend trois fois ne doit pas écraser sa
+     * mesure par la dernière. Ensuite on mesure avec `performance.now()`
+     * DANS la page — les temps de navigation relevés depuis l'extérieur
+     * se sont montrés faux d'un facteur mille (2 376 ms annoncés pour un
+     * aller-retour de 3 ms).
+     *
+     * Le relevé va dans le diagnostic copiable des réglages : un « c'est
+     * lent chez moi » accompagné de dix chiffres se répare, pas l'autre.
+     */
+    const CLE_CONTENU = 'mesuresContenu';
+    let contenuDeja = null;
+
+    window.MH.contenuPret = function (quoi) {
+        if (contenuDeja) return contenuDeja;            // le premier appel gagne
+        let ms;
+        try { ms = Math.round(performance.now()); } catch (e) { return null; }
+        contenuDeja = { page: String(quoi || document.title || '?'), ms, le: Date.now() };
+        // Visible aussi dans l'onglet Performance du navigateur, sans
+        // avoir à lire le stockage.
+        try { performance.measure('inko:contenu-utile:' + contenuDeja.page, { start: 0, end: performance.now() }); }
+        catch (e) { /* API absente ou refusée : la mesure vit quand même */ }
+        try {
+            const l = JSON.parse(localStorage.getItem(CLE_CONTENU) || '[]');
+            l.push(contenuDeja);
+            localStorage.setItem(CLE_CONTENU, JSON.stringify(l.slice(-20)));
+        } catch (e) { /* stockage refusé : on ne perd qu'un historique */ }
+        return contenuDeja;
+    };
+
+    /** Les vingt derniers relevés, du plus ancien au plus récent. */
+    window.MH.mesuresContenu = function () {
+        try { return JSON.parse(localStorage.getItem(CLE_CONTENU) || '[]'); }
+        catch (e) { return []; }
+    };
+
     /* ── P1.6 : squelettes AUX DIMENSIONS FINALES ────────────
      * Un tourniquet centré occupe une hauteur qui n'est pas celle du contenu :
      * à l'arrivée des données, tout saute. Le squelette occupe la place exacte

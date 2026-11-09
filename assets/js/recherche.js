@@ -485,6 +485,7 @@
                        <button type="button" class="se-corr-btn" data-corr="${MH.esc(correction)}">${MH.esc(correction)}</button> ?
                    </div>`
                 : '';
+            MH.contenuPret?.('recherche');
             out.innerHTML = chips + bandeauEchec + bandeauEnCours
                 + (opts.enCours ? '' : `<div class="se-empty">Aucun résultat ${filtres ? 'avec ces filtres' : '. Essaie un autre titre ou vérifie tes sources'}.</div>${htmlCorr}`);
         } else {
