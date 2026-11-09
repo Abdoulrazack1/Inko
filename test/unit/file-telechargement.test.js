@@ -31,12 +31,18 @@ const attendre = (ms) => new Promise(r => setTimeout(r, ms));
  * source, et c'est ce qui permet d'éprouver la branche d'échec sans dépendre
  * d'un site réel.
  */
-function monter({ pagesDe, lent = 0, etatInitial = null } = {}) {
+function monter({ pagesDe, lent = 0, etatInitial = null, verrouInitial = null } = {}) {
     const dom = new JSDOM('<!doctype html><html><body></body></html>',
         { url: 'http://localhost/downloads.html', runScripts: 'outside-only' });
     const w = dom.window;
 
     if (etatInitial) w.localStorage.setItem('inko_dl_file_v1', JSON.stringify(etatInitial));
+    // Le verrou se pose AVANT que le module tourne. C'est ce qui se passe
+    // en vrai — une seconde page s'ouvre alors que la premiere tient deja
+    // la marque — et le poser apres `monter()` laissait une course : le
+    // module avait le temps de demarrer. Le test echouait alors une fois
+    // sur deux, sans qu'aucun code de production ait bouge.
+    if (verrouInitial) w.localStorage.setItem('inko_dl_verrou_v1', verrouInitial);
 
     const telecharges = [];
     w.MH = { err() {}, toast() {} };
@@ -207,8 +213,8 @@ test('une page qui travaille empêche une autre de refaire le même travail', as
     const b = monter({
         pagesDe: () => ['p1', 'p2', 'p3'], lent: 20,
         etatInitial: JSON.parse(a.w.localStorage.getItem('inko_dl_file_v1')),
+        verrouInitial: verrou,
     });
-    b.w.localStorage.setItem('inko_dl_verrou_v1', verrou);
     await attendre(80);
 
     assert.deepEqual(b.telecharges, [],
