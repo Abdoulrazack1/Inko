@@ -246,21 +246,56 @@ module.exports = {
             offset += batch.length;
         }
 
-        // Déduplique par numéro de chapitre (préférence fr > en > autre)
+        // ── Les chapitres qu'on met de cote, et pourquoi ──
+        //
+        // MangaDex n'heberge pas tout ce qu'il reference. Pour les series
+        // des gros editeurs, il pointe vers le lecteur officiel par un
+        // `externalUrl` : on ne peut pas en servir les pages, donc on les
+        // ecarte. C'est juste, et c'etait SILENCIEUX.
+        //
+        // Mesure du 9 novembre, One Piece en anglais : le flux rend 17
+        // chapitres, dont SEIZE avec un `externalUrl` vers MangaPlus. La
+        // fiche affichait donc « 1 chapitre » pour la serie la plus connue
+        // du catalogue, sans un mot — et on en conclut que l'application
+        // est cassee, pas que l'editeur publie ailleurs.
+        //
+        // On compte donc ce qu'on ecarte et on le remonte. L'interface
+        // peut le dire ; au minimum, le chiffre existe quelque part.
         const byNum = new Map();
+        let externes = 0;
         entries.forEach(c => {
             const m = mapChapter(c);
-            if (m.chapter === null || m.externalUrl) return;
+            if (m.chapter === null) return;
+            if (m.externalUrl) { externes++; return; }
             const cur = byNum.get(m.chapter);
             const score = (x) => x.lang === 'fr' ? 2 : x.lang === 'en' ? 1 : 0;
             if (!cur || score(m) > score(cur)) byNum.set(m.chapter, m);
         });
         const results = [...byNum.values()].sort((a, b) => b.chapter - a.chapter);
-        return { total: results.length, results };
+        return { total: results.length, results, externes };
     },
 
     async getPages(chapterId) {
-        const data = await call(`/at-home/server/${chapterId}`, {}, 5 * 60_000);
+        // `at-home/server` rend 404 pour un chapitre que le flux annonce
+        // pourtant lisible. Mesure du 9 novembre : le chapitre 1191 de One
+        // Piece se declare `isUnavailable: false`, `pages: 14`, sans
+        // `externalUrl` — et son serveur de pages rend 404. Les
+        // metadonnees de MangaDex et son serveur ne disent pas la meme
+        // chose, et nous n'avons aucun moyen de le prevoir avant de
+        // demander.
+        //
+        // Ce qu'on peut faire, c'est ne pas remonter « Request failed with
+        // status code 404 » : ca se lit comme un bug de l'application.
+        let data;
+        try {
+            data = await call(`/at-home/server/${chapterId}`, {}, 5 * 60_000);
+        } catch (e) {
+            if (e && e.response && e.response.status === 404) {
+                throw new Error('MangaDex ne sert plus les pages de ce chapitre '
+                    + '(il est reference, mais son serveur d’images ne le connait pas).');
+            }
+            throw e;
+        }
         const baseUrl   = data.baseUrl;
         const hash      = data.chapter?.hash;
         const dataPages = data.chapter?.data || [];
