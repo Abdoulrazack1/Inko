@@ -394,6 +394,52 @@ async function servirDepuisCache(url, res) {
     return false;
 }
 
+// ── Un hote qui refuse tout : on arrete de frapper ──────────
+//
+// Mesure du 9 novembre, une page de bibliotheque : 48 requetes de
+// couverture vers uploads.mangadex.org, 48 echecs. MangaDex a place son
+// CDN de couvertures derriere un defi anti-bot — toute requete est
+// redirigee vers une page HTML `edge/challenge`, que le controle des
+// octets refuse (a juste titre : ce n'est pas une image).
+//
+// Ce n'est pas reparable de notre cote, et ca ne doit pas l'etre : un
+// defi anti-automatisation est une decision du site. Ce qui EST de
+// notre ressort, c'est de ne pas le frapper quarante-huit fois pour
+// apprendre quarante-huit fois la meme chose. Chaque tentative coute
+// 191 ms, un processus curl et un jeton de concurrence — pris a des
+// images qui, elles, pourraient arriver.
+//
+// Donc : apres SEUIL echecs consecutifs sur un hote, on rend l'echec
+// sans ouvrir de connexion, pendant REPOS. Le premier succes remet le
+// compteur a zero — un hote qui revient est aussitot reessaye.
+//
+// Le compteur est en memoire et par hote : il disparait au
+// redemarrage, et c'est voulu. Ce n'est pas une liste noire, c'est une
+// pause.
+const ECHECS_SEUIL = parseInt(process.env.IMG_HOTE_SEUIL || '6', 10);
+const ECHECS_REPOS = parseInt(process.env.IMG_HOTE_REPOS_MS || '120000', 10);
+const hotesEnPanne = new Map();   // hote -> { echecs, jusqua }
+
+function hoteEnPause(host) {
+    const e = hotesEnPanne.get(host);
+    if (!e || !e.jusqua) return false;
+    if (Date.now() >= e.jusqua) { hotesEnPanne.delete(host); return false; }
+    return true;
+}
+function noterEchecHote(host) {
+    const e = hotesEnPanne.get(host) || { echecs: 0, jusqua: 0 };
+    e.echecs++;
+    if (e.echecs >= ECHECS_SEUIL && !e.jusqua) {
+        e.jusqua = Date.now() + ECHECS_REPOS;
+        console.warn(`[img] ${host} : ${e.echecs} echecs d'affilee — pause de `
+            + `${Math.round(ECHECS_REPOS / 1000)} s, les images de cet hote rendront 502 sans appel.`);
+    }
+    hotesEnPanne.set(host, e);
+}
+function noterSuccesHote(host) {
+    if (hotesEnPanne.has(host)) hotesEnPanne.delete(host);
+}
+
 async function proxy(req, res) {
     const url = req.query.u || req.query.url;
     if (!url || !/^https?:\/\//i.test(url)) return res.status(400).end();
@@ -423,10 +469,20 @@ async function proxy(req, res) {
         return res.status(404).set('Cache-Control', 'no-store').set('X-Inko-Cache', 'ABSENT').end();
     }
 
+    // Le cache d'abord : une image deja sur disque n'a pas a souffrir de
+    // la pause d'un hote. La pause ne concerne que ce qui demanderait
+    // une connexion.
+    if (await servirDepuisCache(url, res)) return;
+
+    if (hoteEnPause(host)) {
+        return res.status(502)
+            .set('Cache-Control', 'no-store')
+            .set('X-Inko-Proxy', 'host-paused')
+            .end();
+    }
+
     const safe = await resolveSafeHost(host);
     if (!safe.ok) return res.status(403).end();
-
-    if (await servirDepuisCache(url, res)) return;
 
     try {
         const img = await fetchImage(url, safe.ip);
@@ -441,6 +497,7 @@ async function proxy(req, res) {
         }
         cache.set(url, img);
         cacheBytes += img.buf.length;
+        noterSuccesHote(host);
         res.set('Content-Type', img.type);
         res.set('Cache-Control', 'public, max-age=604800, immutable');
         res.set('X-Inko-Cache', 'MISS');
@@ -463,6 +520,7 @@ async function proxy(req, res) {
         // front, juste une case vide indistincte d'une vraie image manquante.
         // On renvoie désormais un vrai échec sans corps image : le onerror des
         // cartes (this.src = placeholderCover) prend le relais proprement.
+        noterEchecHote(host);
         res.status(502)
            .set('Cache-Control', 'no-store')
            .set('X-Inko-Proxy', 'source-error')
