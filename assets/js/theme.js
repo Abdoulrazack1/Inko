@@ -122,8 +122,94 @@
         });
     } catch (e) { window.MH?.err?.('theme.js', e); }
 
+    // ── L'apparence, emportable ─────────────────────────────
+    //
+    // Trois réglages d'apparence vivent dans `Storage` — le thème, la
+    // couleur d'accent, la densité — et six de plus pour la typographie
+    // des romans. Les régler prend du temps, et ce temps était perdu à
+    // chaque nouvel appareil : rien ne permettait de les emporter.
+    //
+    // CE QU'ON N'IMPORTE PAS, et c'est le cœur de la décision. Un
+    // « thème personnalisé » pourrait vouloir dire un fichier qui pose
+    // des variables CSS arbitraires. On s'y refuse : un fichier qui
+    // s'échange pourrait alors rendre un texte invisible, ou repeindre
+    // un bouton de suppression en bouton anodin. Ce qui passe est une
+    // LISTE FERMÉE de réglages, chacun validé contre son domaine. Un
+    // fichier de thème ne peut donc rien faire que l'interface des
+    // réglages ne permette déjà.
+    //
+    // Et rien ne part nulle part : un fichier sur l'appareil, lu par
+    // l'appareil. L'application promet de ne rien envoyer.
+    const HEX = /^#[0-9a-f]{6}$/i;
+    const CHAMPS = {
+        theme:       (v) => ['light', 'dark', 'amoled', 'contrast', 'auto'].includes(v),
+        accent:      (v) => typeof v === 'string' && HEX.test(v),
+        densite:     (v) => DENSITES.includes(v),
+        novel_size:  (v) => Number.isFinite(+v) && +v >= 12 && +v <= 32,
+        novel_lh:    (v) => Number.isFinite(+v) && +v >= 1.2 && +v <= 2.6,
+        novel_width: (v) => Number.isFinite(+v) && +v >= 40 && +v <= 100,
+        novel_font:  (v) => ['serif', 'sans', 'mono'].includes(v),
+        novel_theme: (v) => ['dark', 'black', 'sepia', 'light'].includes(v),
+        novel_mode:  (v) => ['scroll', 'pages'].includes(v),
+    };
+
+    function exporterApparence() {
+        const out = {};
+        for (const cle of Object.keys(CHAMPS)) {
+            const v = window.Storage?.getPref?.(cle);
+            if (v !== undefined && v !== null && v !== '') out[cle] = v;
+        }
+        // `format` pour qu'un fichier d'une version future soit reconnu
+        // comme tel au lieu d'être appliqué de travers.
+        return { format: 'inko-apparence', version: 1, reglages: out };
+    }
+
+    /**
+     * @returns {{appliques: string[], refuses: string[], erreur?: string}}
+     * Les refus sont RENDUS, pas avalés : un réglage qui ne passe pas doit
+     * se dire, sinon on cherche pourquoi la couleur n'a pas changé.
+     *
+     * L'import FUSIONNE, il ne remplace pas. Un fichier qui ne dit rien
+     * de la typographie des romans laisse la sienne : importer l'apparence
+     * de quelqu'un ne doit pas effacer en silence un réglage dont ce
+     * fichier n'a jamais parlé. Un export complet, lui, porte tout ce qui
+     * est posé — alors un aller-retour rend bien l'état d'origine.
+     */
+    function importerApparence(donnees) {
+        if (!donnees || typeof donnees !== 'object' || Array.isArray(donnees)) {
+            return { appliques: [], refuses: [], erreur: 'Ce fichier n’est pas une apparence Inko.' };
+        }
+        if (donnees.format !== 'inko-apparence') {
+            return { appliques: [], refuses: [], erreur: 'Ce fichier n’est pas une apparence Inko.' };
+        }
+        if (donnees.version !== 1) {
+            return { appliques: [], refuses: [], erreur: `Apparence en version ${donnees.version}, cette app lit la 1.` };
+        }
+        const r = donnees.reglages;
+        if (!r || typeof r !== 'object' || Array.isArray(r)) {
+            return { appliques: [], refuses: [], erreur: 'Le fichier ne contient aucun réglage.' };
+        }
+        const appliques = [], refuses = [];
+        for (const [cle, val] of Object.entries(r)) {
+            const valide = CHAMPS[cle];
+            if (!valide || !valide(val)) { refuses.push(cle); continue; }
+            window.Storage?.setPref?.(cle, val);
+            appliques.push(cle);
+        }
+        // Les trois réglages de l'interface se voient tout de suite ; la
+        // typographie des romans s'applique à l'ouverture d'un chapitre,
+        // puisque c'est là qu'elle est lue.
+        if (appliques.includes('theme')) apply(r.theme);
+        if (appliques.includes('accent')) applyAccent(r.accent);
+        if (appliques.includes('densite')) applyDensite(r.densite);
+        return { appliques, refuses };
+    }
+
     window.Theme = {
         apply,
+        exporterApparence,
+        importerApparence,
+        champsApparence: Object.keys(CHAMPS),
         applyAccent,
         setAccent(hex) {
             window.Storage?.setPref('accent', hex || '#c1531b');
