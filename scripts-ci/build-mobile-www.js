@@ -23,6 +23,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const RACINE = path.join(__dirname, '..');
 const SORTIE = path.join(RACINE, 'mobile', 'www');
@@ -230,6 +231,89 @@ function ecarterLesOrphelins(dir) {
     return ecartes;
 }
 
+const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
+
+// ── Les extensions embarquees ───────────────────────────────
+// Elles etaient copiees telles quelles, et `hashes.json` avec. Mesure :
+// trois d'entre elles portent de la syntaxe posterieure a Chrome 61 —
+// mangadex (15 constructions), novelbin (2), novelfull (1). Sur le WebView
+// d'Android 8, leur fichier ne se parse pas : en mode autonome, ces trois
+// sources n'existaient tout simplement pas, sans rien pour le dire.
+//
+// Les transpiler change leur contenu, donc leur empreinte — et c'est bien
+// une empreinte qui est verifiee AVANT execution, cote telephone comme
+// cote serveur (audit S-2). D'ou la chaine, en trois temps, qui garde la
+// propriete au lieu de la contourner :
+//
+//   1. la SOURCE est verifiee contre `extensions-community/hashes.json`,
+//      la reference publiee. Une source qui ne correspond pas arrete le
+//      build — c'est le controle d'integrite d'origine, et il n'existait
+//      pas ici ;
+//   2. seulement ensuite, elle est abaissee vers chrome61 ;
+//   3. le `hashes.json` du paquet porte l'empreinte du fichier ABAISSE,
+//      c'est-a-dire de celui qui sera reellement execute.
+//
+// Ce que le telephone verifie a donc toujours un sens : il execute
+// exactement ce que le build a produit, et le build n'a produit que ce
+// qui correspondait a la reference publiee. Recopier la reference sans
+// transpiler, comme avant, aurait l'air plus sur et laisserait trois
+// sources mortes.
+function embarquerExtensions(src, dest) {
+    const refChemin = path.join(src, 'hashes.json');
+    const reference = fs.existsSync(refChemin)
+        ? JSON.parse(fs.readFileSync(refChemin, 'utf8')) : null;
+    if (!reference) {
+        console.error('::error::extensions-community/hashes.json manquant — rien a verifier.');
+        process.exit(1);
+    }
+
+    const empreintes = {};
+    let n = 0, abaissees = 0;
+    for (const nom of fs.readdirSync(src)) {
+        const idx = path.join(src, nom, 'index.js');
+        if (!fs.existsSync(idx)) continue;
+        const brut = fs.readFileSync(idx);
+
+        // 1. La source correspond-elle a la reference publiee ?
+        const attendu = reference[nom];
+        if (!attendu) {
+            console.error(`::error::${nom} : aucune empreinte publiee — lancer npm run gen-ext-hashes.`);
+            process.exit(1);
+        }
+        const vu = sha256(brut);
+        if (vu !== attendu) {
+            console.error(`::error::${nom} : la source ne correspond pas a hashes.json.`);
+            console.error(`         attendu ${attendu}`);
+            console.error(`         vu      ${vu}`);
+            console.error('         Si le changement est voulu : npm run gen-ext-hashes.');
+            process.exit(1);
+        }
+
+        // 2. Puis on abaisse, comme pour le reste du paquet.
+        let sortie = brut;
+        if (esbuild) {
+            try {
+                sortie = Buffer.from(esbuild.transformSync(brut.toString('utf8'), {
+                    target: CIBLE, loader: 'js', legalComments: 'inline',
+                }).code, 'utf8');
+                abaissees++;
+            } catch (e) {
+                console.error(`::error::${nom} : transpilation impossible — ${e.message}`);
+                process.exit(1);
+            }
+        }
+
+        // 3. Et l'empreinte du paquet porte sur ce qui sera execute.
+        fs.mkdirSync(path.join(dest, nom), { recursive: true });
+        fs.writeFileSync(path.join(dest, nom, 'index.js'), sortie);
+        empreintes[nom] = sha256(sortie);
+        n++;
+    }
+    fs.writeFileSync(path.join(dest, 'hashes.json'), JSON.stringify(empreintes, null, 2) + '\n');
+    console.log(`  ${n} extension(s) embarquee(s), ${abaissees} abaissee(s), empreintes recalculees`);
+    return n;
+}
+
 function construire() {
     fs.rmSync(SORTIE, { recursive: true, force: true });
     fs.mkdirSync(SORTIE, { recursive: true });
@@ -253,16 +337,7 @@ function construire() {
     if (fs.existsSync(EXTENSIONS_SRC)) {
         const dest = path.join(SORTIE, 'extensions');
         fs.mkdirSync(dest, { recursive: true });
-        for (const nom of fs.readdirSync(EXTENSIONS_SRC)) {
-            const idx = path.join(EXTENSIONS_SRC, nom, 'index.js');
-            if (!fs.existsSync(idx)) continue;
-            fs.mkdirSync(path.join(dest, nom), { recursive: true });
-            fs.copyFileSync(idx, path.join(dest, nom, 'index.js'));
-            nbExt++;
-        }
-        const h = path.join(EXTENSIONS_SRC, 'hashes.json');
-        if (fs.existsSync(h)) fs.copyFileSync(h, path.join(dest, 'hashes.json'));
-        console.log(`  ${nbExt} extension(s) embarquee(s) + leurs empreintes`);
+        nbExt = embarquerExtensions(EXTENSIONS_SRC, dest);
     }
 
     for (const f of FICHIERS_RACINE) {
