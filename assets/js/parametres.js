@@ -662,6 +662,31 @@
 
         // Contenu adulte (audit N20) — stocké à part (MH.nsfwAllowed, lu par
         // les cartes de l'accueil/catalogue/recherche), pas dans les prefs lecteur
+        // ── Mode invité ──
+        // Le seul réglage de cette page dont l'oubli coûte des données :
+        // on le dit au moment de l'activer, pas seulement dans le bandeau.
+        const segInvite = document.getElementById('segInvite');
+        if (segInvite) {
+            const peindre = () => {
+                let on = false;
+                try { on = window.Storage?.getPref?.('modeInvite') === true; } catch (e) { /* defaut */ }
+                segInvite.querySelectorAll('button').forEach((b) =>
+                    b.classList.toggle('active', b.dataset.val === (on ? '1' : '0')));
+            };
+            peindre();
+            segInvite.querySelectorAll('button').forEach((b) => {
+                b.onclick = () => {
+                    const on = b.dataset.val === '1';
+                    try { window.Storage?.setPref?.('modeInvite', on); } catch (e) { /* rien */ }
+                    peindre();
+                    window.MH?.bandeauInvite?.();
+                    toast(on
+                        ? 'Mode invité : plus rien n’est inscrit dans l’historique'
+                        : 'Mode normal : tes lectures sont de nouveau enregistrées', 2200);
+                };
+            });
+        }
+
         const segNsfw = document.getElementById('segNsfw');
         if (segNsfw) {
             const cur = window.MH.nsfwAllowed() ? '1' : '0';

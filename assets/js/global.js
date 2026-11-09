@@ -2450,6 +2450,45 @@
         });
     }
 
+    /* ── Le bandeau du mode invité ───────────────────────────
+     *
+     * Ce mode a un mode de panne, et il est plus grave que le problème
+     * qu'il résout : OUBLIER qu'il est actif. On lit sa propre série
+     * pendant une semaine, et rien n'est enregistré — pas de reprise,
+     * pas de statistiques, pas de chapitres marqués, et aucun message
+     * puisque le refus est silencieux par conception.
+     *
+     * D'où un bandeau PERMANENT, sur chaque page, qu'on ne peut pas
+     * masquer — seulement désactiver le mode. Un bandeau qu'on peut
+     * fermer serait fermé le premier jour.
+     *
+     * Et il reste posé entre deux démarrages : si on prête son téléphone
+     * et que l'autre relance l'application, le mode doit toujours être
+     * là. Un mode qui s'oublie tout seul protège exactement quand on n'en
+     * a plus besoin.
+     */
+    function bandeauInvite() {
+        const actif = (() => {
+            try { return window.Storage?.getPref?.('modeInvite') === true; } catch (e) { return false; }
+        })();
+        document.getElementById('mhBandeauInvite')?.remove();
+        document.documentElement.classList.toggle('mode-invite', actif);
+        if (!actif) return;
+        const b = document.createElement('div');
+        b.id = 'mhBandeauInvite';
+        b.className = 'mh-invite';
+        b.setAttribute('role', 'status');
+        b.innerHTML = '<span>Mode invité : cette lecture n’est pas enregistrée.</span>'
+            + '<button type="button" class="btn btn-sm" id="mhInviteFin">Quitter le mode invité</button>';
+        document.body.prepend(b);
+        b.querySelector('#mhInviteFin').addEventListener('click', () => {
+            try { window.Storage?.setPref?.('modeInvite', false); } catch (e) { /* rien */ }
+            bandeauInvite();
+            window.MH?.toast?.('Mode invité quitté — tes lectures sont de nouveau enregistrées.');
+        });
+    }
+    window.MH.bandeauInvite = bandeauInvite;
+
     window.MH.initPage = function (activePage) {
         injectTitlebar();
         const headerSlot = document.getElementById('header-slot');
@@ -2468,6 +2507,7 @@
         initFooterButtons();
         initHeaderButtons();
         initNotifications();
+        bandeauInvite();
         showConsentBanner();
         if (window.MH.lang && window.MH.lang !== 'fr') window.MH.loadI18n();  // applique la traduction si ≠ FR
         bindGlobalShortcuts();
