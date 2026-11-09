@@ -10,6 +10,7 @@
         renderAccount();
         initSegments();
         initAccent();
+        brancherApparence();
         brancherRechercheReglages();
         bindData();
         bindConnections();
@@ -112,6 +113,56 @@
             if (e.key === 'Escape' && champ.value) { e.preventDefault(); champ.value = ''; filtrer(); }
         });
         croix?.addEventListener('click', () => { champ.value = ''; filtrer(); champ.focus(); });
+    }
+
+    // ── Emporter son apparence ────────────────────
+    //
+    // Regler theme, accent, densite et typographie prend du temps, et ce
+    // temps etait perdu a chaque nouvel appareil. Un fichier le porte.
+    //
+    // Ce qui ENTRE est valide champ par champ par `Theme.importerApparence`
+    // contre une liste fermee : un fichier d'apparence ne peut rien faire
+    // que cette page ne permette deja. Et ce qui est refuse est DIT, sinon
+    // on cherche pourquoi la couleur n'a pas change.
+    function brancherApparence() {
+        const bX = document.getElementById('btnApparenceExport');
+        const bI = document.getElementById('btnApparenceImport');
+        const champ = document.getElementById('apparenceFichier');
+        if (!bX || !bI || !champ || !window.Theme) return;
+
+        bX.addEventListener('click', () => {
+            const data = window.Theme.exporterApparence();
+            const n = Object.keys(data.reglages).length;
+            if (!n) { MH.toast?.("Aucun réglage d’apparence à exporter"); return; }
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `inko-apparence-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            MH.toast?.(`Apparence exportée — ${n} réglage(s)`);
+        });
+
+        bI.addEventListener('click', () => champ.click());
+        champ.addEventListener('change', async () => {
+            const f = champ.files && champ.files[0];
+            champ.value = '';                 // re-choisir le meme fichier doit remarcher
+            if (!f) return;
+            let donnees;
+            try { donnees = JSON.parse(await f.text()); }
+            catch (e) { MH.toast?.("Fichier illisible : ce n’est pas du JSON"); return; }
+            const r = window.Theme.importerApparence(donnees);
+            if (r.erreur) { MH.toast?.(r.erreur); return; }
+            if (!r.appliques.length) { MH.toast?.('Aucun réglage reconnu dans ce fichier'); return; }
+            // Les segments affichent l'ancien choix tant qu'on ne les
+            // resynchronise pas : la page mentirait sur son propre etat.
+            initSegments();
+            initAccent();
+            MH.toast?.(r.refuses.length
+                ? `${r.appliques.length} réglage(s) appliqué(s), ${r.refuses.length} refusé(s) : ${r.refuses.join(', ')}`
+                : `Apparence importée — ${r.appliques.length} réglage(s)`);
+        });
     }
 
     // ── COULEUR D'ACCENT ──

@@ -220,6 +220,21 @@
         </div>
         <div class="accent-swatches" id="accentSwatches" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
       </div>
+      <!-- Emporter son apparence : le temps passé à régler thème, accent,
+           densité et typographie était perdu au prochain appareil. Un
+           fichier, lu sur l'appareil, rien d'envoyé nulle part. -->
+      <div class="set-row">
+        <div>
+          <div class="set-row-label">Emporter mon apparence</div>
+          <div class="set-row-desc">Thème, accent, densité et typographie des romans, dans un fichier</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button type="button" class="btn btn-sm" id="btnApparenceExport">Exporter</button>
+          <button type="button" class="btn btn-sm" id="btnApparenceImport">Importer</button>
+          <input type="file" id="apparenceFichier" accept="application/json,.json"
+                 aria-label="Fichier d'apparence à importer" hidden>
+        </div>
+      </div>
     </div>
 
     <!-- CONTENU ADULTE (audit N20) -->
