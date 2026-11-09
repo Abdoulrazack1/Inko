@@ -602,6 +602,21 @@ ul, ol { list-style: none; }
     white-space: nowrap;
 }
 
+/* Un chiffre qui vaut zero prend l'encre du libelle : il reste lisible
+   (5,6 a 9,7 sur le fond de carte selon l'edition), il cesse d'occuper le
+   meme poids qu'un resultat. Pose par `MH.classeChiffre` / `MH.chiffre`,
+   jamais a la main, pour que la decision reste a un seul endroit.
+
+   La classe est DOUBLEE pour peser 0,2,0. Mesure : deux feuilles de page
+   colorent deja leur chiffre — `.cd-stat-num` (meme poids, mais chargee
+   apres global.css, donc elle gagnait a l'ordre) et `.jr-stat b` (0,1,1,
+   elle gagnait a la specificite). Sans le doublement la classe etait
+   posee et sans effet : verifie dans le navigateur, le « 0 note » du
+   journal restait en orange de marque. L'autre issue — une regle de
+   rattrapage dans chaque feuille — est exactement le defaut qu'on
+   corrige. */
+.chiffre-zero.chiffre-zero { color: var(--text3); }
+
 body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
 :focus { outline: none; }

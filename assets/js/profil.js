@@ -231,9 +231,9 @@
             const t = stats.totals || {};
             const heat = stats.heatmap || {};
             const statsEls = document.querySelectorAll('.profil-stat .profil-stat-num');
-            if (statsEls[0]) statsEls[0].textContent = MH.fmt(t.chapters_read || 0);
-            if (statsEls[1]) statsEls[1].textContent = MH.fmt(t.series_read || 0);
-            if (statsEls[2]) statsEls[2].textContent = MH.fmt(t.favorites || 0);
+            MH.chiffre(statsEls[0], t.chapters_read || 0, MH.fmt(t.chapters_read || 0));
+            MH.chiffre(statsEls[1], t.series_read || 0, MH.fmt(t.series_read || 0));
+            MH.chiffre(statsEls[2], t.favorites || 0, MH.fmt(t.favorites || 0));
 
             // Niveau : progression douce basée sur les chapitres réellement lus
             const lvl = 1 + Math.floor(Math.sqrt(t.chapters_read || 0));
@@ -241,7 +241,7 @@
             if (lvlEl) lvlEl.textContent = 'NIVEAU ' + lvl;
 
             const statCards = document.querySelectorAll('.stat-mini-card');
-            if (statCards[0]) statCards[0].querySelector('.stat-mini-num').textContent = t.chapters_this_month || 0;
+            if (statCards[0]) MH.chiffre(statCards[0].querySelector('.stat-mini-num'), t.chapters_this_month || 0);
             // ── Temps de lecture : le MESURE quand il existe ──
             //
             // Le lecteur compte le temps par tranches de 30 s, en ne creditant
@@ -266,19 +266,19 @@
                 // L'estimation reste affichee tant que la mesure n'a rien :
                 // une carte vide n'apprendrait rien de plus qu'un ordre de
                 // grandeur annonce comme tel.
-                num.textContent = duree((t.chapters_read || 0) * 8 * 60);
+                MH.chiffre(num, null, duree((t.chapters_read || 0) * 8 * 60));
                 if (lib) lib.textContent = 'Temps de lecture estimé';
                 statCards[1].title = 'Estimation : 8 minutes par chapitre lu.';
                 API.me.tempsLecture?.(365).then((r) => {
                     if (!r || !r.mesure || !r.totalSecondes) return;
-                    num.textContent = duree(r.totalSecondes);
+                    MH.chiffre(num, null, duree(r.totalSecondes));
                     if (lib) lib.textContent = 'Temps de lecture';
                     statCards[1].title = 'Mesuré dans le lecteur, par tranches de 30 secondes,'
                         + ' et seulement quand l’onglet est visible.';
                 }).catch(() => { /* mesure indisponible : l'estimation reste */ });
             }
-            if (statCards[2]) statCards[2].querySelector('.stat-mini-num').textContent = t.favorites || 0;
-            if (statCards[3]) statCards[3].querySelector('.stat-mini-num').textContent = Object.keys(heat).length;
+            if (statCards[2]) MH.chiffre(statCards[2].querySelector('.stat-mini-num'), t.favorites || 0);
+            if (statCards[3]) MH.chiffre(statCards[3].querySelector('.stat-mini-num'), Object.keys(heat).length);
 
             // Tendance réelle : ce mois vs mois précédent (heatmap)
             const badge = document.getElementById('statTrendBadge');
