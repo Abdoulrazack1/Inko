@@ -611,6 +611,8 @@
         if (!el) return;
         const title = textData.title || currentChap.title || ('Chapitre ' + currentChap.chapter);
         el.innerHTML = `<h1 class="novel-chap-title">${MH.esc(title)}</h1>` + (textData.content || '');
+        // Le contenu utile d'un lecteur de romans, c'est le texte.
+        MH.contenuPret?.('lecture');
         // Sécurité : retire tout script résiduel (le serveur assainit déjà)
         el.querySelectorAll('script, iframe, object, embed, base, form').forEach(n => n.remove());
         // Audit S4 (défense en profondeur, en plus du serveur) : neutralise

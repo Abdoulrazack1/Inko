@@ -1002,6 +1002,21 @@
             ajout('À lire ensuite', `${n} entrée(s)`);
         } catch (e) { /* UserData absent sur les pages sans global.js */ }
 
+        // ── Le temps au premier contenu UTILE ──
+        //
+        // Pas `load`, qui se déclenche sur une page encore vide de ce
+        // qu'on venait y voir : l'instant que CHAQUE page déclare quand
+        // son contenu est posé. Un « c'est lent chez moi » accompagné de
+        // dix chiffres se répare ; l'autre, non.
+        const mes = (window.MH?.mesuresContenu?.() || []).slice(-10).reverse();
+        L.push('');
+        L.push(`── temps au premier contenu utile (${mes.length} dernier(s) relevé(s)) ──`);
+        if (!mes.length) L.push('(aucun — les pages visitées n’en ont pas encore posé)');
+        for (const m of mes) {
+            const quand = new Date(m.le || Date.now()).toISOString().slice(11, 19);
+            L.push(`${quand}  ${String(m.page).padEnd(14)} ${String(m.ms).padStart(6)} ms`);
+        }
+
         // ── Les erreurs, de la plus récente à la plus ancienne ──
         const err = (window.MH?.errors || []).slice(-15).reverse();
         L.push('');

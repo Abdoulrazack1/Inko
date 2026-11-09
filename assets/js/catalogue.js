@@ -572,6 +572,7 @@
                 }
             } else {
                 grid.innerHTML = lastResults.map(m => mangaCardHTML(m)).join('');
+                MH.contenuPret?.('catalogue');
                 MH.markFavorites(grid);
                 enrichSparseCards(lastResults, myReq);   // complète auteur/statut si la liste est pauvre
             }

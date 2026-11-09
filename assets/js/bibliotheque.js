@@ -736,6 +736,8 @@
         renderCatTabs();
         renderFilters();
         render();
+        // Le contenu utile de cette page, c'est la grille des favoris.
+        MH.contenuPret?.('bibliotheque');
         mesurerRythme();
         // La même œuvre suivie sur deux sources : signalée, fusion proposée.
         window.MH?.doublons?.signaler(document.getElementById('libDoublons'), favs, progressByManga);
