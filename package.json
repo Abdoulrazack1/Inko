@@ -39,17 +39,17 @@
     "verif-java": "node scripts-ci/verifier-java-android.js"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.6.0",
+    "@capacitor/cli": "^8.6.2",
     "@playwright/test": "^1.65.0",
     "axe-core": "^4.14.0",
     "esbuild": "^0.28.2",
     "eslint": "^10.14.0",
-    "jsdom": "^31.0.0"
+    "jsdom": "^31.0.1"
   },
   "dependencies": {
-    "@capacitor/android": "^8.6.0",
+    "@capacitor/android": "^8.6.2",
     "@capacitor/app": "^8.1.2",
-    "@capacitor/core": "^8.5.3",
+    "@capacitor/core": "^8.6.2",
     "@capacitor/device": "^8.0.3",
     "@capacitor/filesystem": "^8.1.5",
     "@capacitor/haptics": "^8.0.2",
