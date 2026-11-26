@@ -66,7 +66,9 @@ test('un appareil révoqué n’est pas envoyé à l’écran de connexion', () 
     assert.match(revoque.actions[0].libelle, /appairer/i);
 
     const session = MH.messageErreur(err({ status: 401, message: 'Session fermée — reconnecte-toi' }));
-    assert.match(session.actions[0].href, /login/);
+    // FON-03 : la page de connexion existe désormais, sous ce nom (`login.html`
+    // n'a jamais existé — le lien menait à une page introuvable).
+    assert.match(session.actions[0].href, /^connexion\.html/);
 });
 
 test('hors ligne : la sortie proposée est ce qui MARCHE encore', () => {

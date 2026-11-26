@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inko — Connexion</title>
+  <meta name="description" content="Se connecter à un hub Inko, créer un compte ou retrouver son mot de passe.">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0d0d0f">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/icon.svg">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <link rel="stylesheet" href="assets/css/connexion.css">
+</head>
+<body class="page-body">
+  <div id="header-slot"></div>
+  <main id="main" tabindex="-1">
+    <div class="cx">
+      <h1 id="cxTitre">Connexion</h1>
+      <p class="cx-chapeau" id="cxChapeau">Sur l’ordinateur qui héberge Inko, la connexion est automatique. Depuis un autre appareil, connecte-toi avec ton compte, ou appaire l’application mobile depuis les Paramètres de l’ordinateur.</p>
+
+      <div class="cx-onglets" role="tablist" aria-label="Connexion ou création de compte">
+        <button type="button" role="tab" id="cxOngletConnexion" aria-selected="true" aria-controls="cxConnexion">Se connecter</button>
+        <button type="button" role="tab" id="cxOngletInscription" aria-selected="false" aria-controls="cxInscription">Créer un compte</button>
+      </div>
+
+      <form class="cx-form" id="cxConnexion" role="tabpanel" aria-labelledby="cxOngletConnexion" novalidate>
+        <label>Adresse e-mail<input type="email" name="email" autocomplete="username" required></label>
+        <label>Mot de passe<input type="password" name="password" autocomplete="current-password" required></label>
+        <p class="cx-erreur" role="alert" hidden></p>
+        <p class="cx-ok" role="status" hidden></p>
+        <button type="submit" class="btn btn-primary">Se connecter</button>
+        <button type="button" class="cx-lien" id="cxVersOubli">Mot de passe oublié ?</button>
+      </form>
+
+      <form class="cx-form" id="cxInscription" role="tabpanel" aria-labelledby="cxOngletInscription" novalidate hidden>
+        <label>Nom d’utilisateur<input type="text" name="username" autocomplete="nickname" maxlength="32" required></label>
+        <label>Adresse e-mail<input type="email" name="email" autocomplete="email" required></label>
+        <label>Mot de passe<input type="password" name="password" autocomplete="new-password" required aria-describedby="cxForce"></label>
+        <p class="cx-aide" id="cxForce">Au moins 8 caractères, et pas un mot de passe courant.</p>
+        <p class="cx-erreur" role="alert" hidden></p>
+        <button type="submit" class="btn btn-primary">Créer mon compte</button>
+      </form>
+
+      <form class="cx-form" id="cxOubli" novalidate hidden>
+        <p class="cx-aide">Indique l’adresse de ton compte. Si le hub sait envoyer des e-mails, tu recevras un lien ; sinon, demande à la personne qui l’administre.</p>
+        <label>Adresse e-mail<input type="email" name="email" autocomplete="email" required></label>
+        <p class="cx-erreur" role="alert" hidden></p>
+        <p class="cx-ok" role="status" hidden></p>
+        <button type="submit" class="btn btn-primary">Recevoir un lien</button>
+        <button type="button" class="cx-lien" data-retour>Retour à la connexion</button>
+      </form>
+
+      <form class="cx-form" id="cxReinit" novalidate hidden>
+        <label>Adresse e-mail<input type="email" name="email" autocomplete="username" required></label>
+        <label id="cxCodeLigne">Code reçu<input type="text" name="token" autocomplete="one-time-code" required></label>
+        <label>Nouveau mot de passe<input type="password" name="newPassword" autocomplete="new-password" required></label>
+        <p class="cx-erreur" role="alert" hidden></p>
+        <button type="submit" class="btn btn-primary">Changer le mot de passe</button>
+        <button type="button" class="cx-lien" data-retour>Retour à la connexion</button>
+      </form>
+
+      <div class="cx-connecte" id="cxConnecte" hidden>
+        <p id="cxConnecteTexte"></p>
+        <a class="btn btn-primary" id="cxContinuer" href="accueil.html">Continuer</a>
+      </div>
+    </div>
+  </main>
+  <div id="footer-slot"></div>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/global.js"></script>
+  <script src="assets/js/connexion.js"></script>
+  <script src="assets/js/pwa.js"></script>
+</body>
+</html>

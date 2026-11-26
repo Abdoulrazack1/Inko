@@ -175,6 +175,13 @@ async function sessionVivante(token, owner) {
 async function register(req, res, next) {
     try {
         const { username, email, password } = req.body || {};
+        // OPS-01 : sur un hub exposé, n'importe qui pouvait créer un compte.
+        // INSCRIPTIONS=fermees les ferme — sauf pour le tout premier compte,
+        // sans lequel personne ne pourrait jamais entrer.
+        if (/^ferm/i.test(process.env.INSCRIPTIONS || '')) {
+            const [[n]] = await pool.query('SELECT COUNT(*) AS n FROM users');
+            if (n.n > 0) return res.status(403).json({ error: 'Les inscriptions sont fermées sur ce hub. Demande un compte à la personne qui l’administre.', code: 'INSCRIPTIONS_FERMEES' });
+        }
         if (!username || username.trim().length < 2)
             return res.status(400).json({ error: "Nom d'utilisateur trop court (2 caractères min)" });
         // Audit S3 (défense en profondeur) : pseudo = lettres/chiffres/espaces
@@ -216,6 +223,13 @@ async function register(req, res, next) {
             }
             throw e;
         }
+        // OPS-09 : sur une instance neuve, personne n'était administrateur — et
+        // aucun écran ne permettait d'en nommer un. Le premier compte créé
+        // alors qu'aucun administrateur n'existe le devient.
+        await pool.query(
+            `UPDATE users SET role = 'admin' WHERE id = ?
+               AND NOT EXISTS (SELECT 1 FROM (SELECT id FROM users WHERE role = 'admin') AS a)`,
+            [result.insertId]);
         const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [result.insertId]);
 
         const token = await sign(user, req);

@@ -45,7 +45,7 @@ function getTransport() {
  */
 async function sendPasswordReset(email, token) {
     const base = (process.env.APP_URL || '').trim().replace(/\/+$/, '');
-    const link = base ? `${base}/parametres.html?resetToken=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}` : null;
+    const link = base ? `${base}/connexion.html?reset=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}` : null;
     const from = process.env.MAIL_FROM || 'Inko <no-reply@localhost>';
 
     const textLines = [
