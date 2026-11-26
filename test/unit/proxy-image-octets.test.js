@@ -91,7 +91,8 @@ test('le proxy ne deduit plus le type de l’URL', () => {
         'la deduction par extension ne doit plus exister');
     assert.match(src, /const type = typeImage\(stdout\);/,
         'le type vient des octets recus');
-    assert.match(src, /if \(!type\) \{[\s\S]{0,200}reject\(new Error\('reponse non-image/,
+    // (SEC-18 : le téléchargement est devenu asynchrone — l'échec est levé)
+    assert.match(src, /if \(!type\) \{[\s\S]{0,200}(reject\(new Error|throw new Error)\('reponse non-image/,
         'une reponse non-image doit echouer, pas etre servie ni mise en cache');
     // L'extension reste lue, mais seulement pour le message : savoir ce
     // qu'on attendait aide a comprendre ce qu'on a eu.
