@@ -103,12 +103,53 @@ async function secureEmbedded(conn) {
         } catch (e1) {
             await conn.query(`SET PASSWORD = PASSWORD(${esc})`);
         }
+        await fermerLesAutresComptes(conn, esc);
         if (!existing) writeDbPassword(pw);   // n'écrit le fichier qu'après un succès RÉEL
         log('mot de passe root de la base embarquée posé ✓ (audit S12)');
         return pw;
     } catch (e) {
         log(`⚠ mot de passe embarqué non posé (${e.code || e.message}) — démarrage en mot de passe vide, bind 127.0.0.1 conservé`);
         return '';   // le backend démarre quand même
+    }
+}
+
+// ── DSK-11 / SEC-33 : le mot de passe ne protégeait PERSONNE ─────────
+// `mariadb-install-db` crée quatre comptes root : localhost, 127.0.0.1, ::1
+// et le nom de la machine. Seul `root@localhost` recevait le mot de passe.
+// Or le serveur tourne avec `--skip-name-resolve` et l'application s'y
+// connecte en TCP sur 127.0.0.1 : elle arrive comme `root@127.0.0.1`, resté
+// SANS mot de passe. Deux conséquences, rejouées sur une installation neuve :
+//   · tout programme de la machine entrait sans mot de passe ;
+//   · l'application, elle, se présentait AVEC le mot de passe qu'elle venait
+//     de poser — et se voyait refuser l'entrée au démarrage suivant.
+// On pose donc le même mot de passe sur tous les comptes root, et on retire
+// les comptes anonymes. Les installations existantes sont réparées au
+// démarrage suivant : `connectEmbedded` y retombe sur le mot de passe vide,
+// puis repasse ici.
+async function fermerLesAutresComptes(conn, esc) {
+    try {
+        const [roots] = await conn.query("SELECT Host AS h FROM mysql.user WHERE User = 'root'");
+        for (const r of Array.isArray(roots) ? roots : []) {
+            if (!r || !r.h || r.h === 'localhost') continue;
+            const compte = `'root'@${conn.escape(r.h)}`;
+            try { await conn.query(`ALTER USER ${compte} IDENTIFIED BY ${esc}`); }
+            catch (e) {
+                // Le compte au nom de la machine refuse ALTER USER (ER_CANNOT_USER,
+                // constaté sur MariaDB 11.8). Il ne sert à rien : la résolution
+                // de noms est désactivée, aucune connexion ne peut le désigner.
+                // On le retire ; une adresse de boucle locale, elle, DOIT passer.
+                if (/^(127\.0\.0\.1|::1)$/.test(r.h)) throw e;
+                await conn.query(`DROP USER ${compte}`).catch(() => {});
+            }
+        }
+        const [anonymes] = await conn.query("SELECT Host AS h FROM mysql.user WHERE User = ''");
+        for (const a of Array.isArray(anonymes) ? anonymes : []) {
+            if (a && a.h) await conn.query(`DROP USER ''@${conn.escape(a.h)}`);
+        }
+        // Base d'exemple ouverte à tous par défaut : elle n'a rien à faire ici.
+        await conn.query('DROP DATABASE IF EXISTS `test`');
+    } catch (e) {
+        log(`⚠ comptes root secondaires non protégés (${e.code || e.message})`);
     }
 }
 
@@ -135,7 +176,7 @@ async function tryConnect({ host, port, user, password, timeout = 2500 }) {
     return conn;
 }
 
-async function ensureSchemaOn(conn) {
+async function ensureSchemaOn(conn, motDePasse) {
     await conn.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     const [[t]] = await conn.query(
         'SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema = ? AND table_name = ?',
@@ -145,9 +186,15 @@ async function ensureSchemaOn(conn) {
     log('base vierge : application du schéma complet…');
     const sqlPath = path.join(__dirname, '..', 'db', 'schema.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');
+    // DSK-10 : `schema.sql` ne choisit plus de base depuis la 2.5.0 (c'est
+    // voulu : il visait « inko » en dur). La connexion qui le joue doit donc
+    // la choisir elle-même — sans quoi « No database selected », et une
+    // installation neuve sans MySQL ne démarrait JAMAIS.
     const multi = await mysql.createConnection({
         host: conn.config.host, port: conn.config.port,
-        user: conn.config.user, password: conn.config.password,
+        // le mot de passe vient d'être posé : celui de `conn` est l'ancien
+        user: conn.config.user, password: motDePasse !== undefined ? motDePasse : conn.config.password,
+        database: DB_NAME,
         multipleStatements: true,
     });
     try { await multi.query(sql); } finally { await multi.end(); }
@@ -243,14 +290,14 @@ async function ensureDatabase() {
     try {
         const { conn, password } = await connectEmbedded(1200);
         embeddedPassword = password;
-        await ensureSchemaOn(conn);
+        await ensureSchemaOn(conn, password);
         await conn.end();
         log(`MariaDB embarquée déjà active (port ${EMBEDDED_PORT})`);
     } catch (e) {
         // 3. Démarrage de l'embarquée
         const { conn, password } = await startEmbedded();
         embeddedPassword = password;
-        await ensureSchemaOn(conn);
+        await ensureSchemaOn(conn, password);
         await conn.end();
         log('MariaDB embarquée prête ✓');
     }
@@ -269,4 +316,4 @@ async function ensureDatabase() {
     return { mode: 'embedded' };
 }
 
-module.exports = { ensureDatabase, secureEmbedded, __test: { secureEmbedded } };
+module.exports = { ensureDatabase, secureEmbedded, __test: { secureEmbedded, ensureSchemaOn } };
