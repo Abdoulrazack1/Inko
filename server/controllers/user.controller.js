@@ -1461,8 +1461,13 @@ async function exportData(req, res, next) {
             : [[]];
         const [notifications] = await pool.query('SELECT type, title, body, link, is_read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 500', [uid]).catch(() => [[]]);
         const [[settingsRow]] = await pool.query('SELECT data FROM user_settings WHERE user_id = ?', [uid]);
+        // DAT-16 : `tables` porte TOUT le compte (signets, notes, liens AniList,
+        // temps de lecture, historique…), et l'import le relit. Les clés
+        // ci-dessous restent pour les versions antérieures.
+        const complet = await require('../lib/compte-donnees').exporter(uid);
         res.json({
-            inkoVersion: 3,
+            inkoVersion: 4,
+            ...complet,
             // Audit AMEL-47 : sans ce marqueur, une note « 4 » est ambiguë —
             // 4/5 dans un fichier d'avant la bascule, 4/10 après. L'import
             // doublerait les unes ou laisserait les autres divisées par deux.
@@ -1492,6 +1497,28 @@ async function importData(req, res, next) {
         }
         if (d.settings !== undefined && d.settings !== null && (typeof d.settings !== 'object' || Array.isArray(d.settings))) {
             return res.status(400).json({ error: 'Fichier d’import illisible : « settings » doit être un objet.', champ: 'settings' });
+        }
+        // DAT-16 : un export récent porte `tables`, la photographie complète
+        // du compte. L'ancien import ignorait listes, réglages, signets et
+        // notes pourtant présents dans le fichier.
+        if (d.tables !== undefined) {
+            if (!d.tables || typeof d.tables !== 'object' || Array.isArray(d.tables)) {
+                return res.status(400).json({ error: 'Fichier d’import illisible : « tables » doit être un objet.', champ: 'tables' });
+            }
+            for (const [t, lignes] of Object.entries(d.tables)) {
+                if (!Array.isArray(lignes)) return res.status(400).json({ error: `Fichier d’import illisible : « tables.${t} » doit être une liste.`, champ: 'tables.' + t });
+            }
+            // Mêmes garde-fous qu'à l'écriture une par une : identifiants et
+            // couvertures passent par les règles du serveur.
+            for (const t of ['favorites', 'progress', 'read_chapters', 'bookmarks', 'ratings', 'reading_notes', 'progress_history', 'list_items']) {
+                if (Array.isArray(d.tables[t])) d.tables[t] = d.tables[t].filter(l => l && idOeuvreValide(l.manga_id));
+            }
+            for (const t of ['favorites', 'bookmarks', 'list_items', 'reading_notes']) {
+                if (Array.isArray(d.tables[t])) d.tables[t] = d.tables[t].map(l => ('cover' in l ? { ...l, cover: couverture.brute(l.cover) } : l));
+            }
+            // Échelle des notes (AMEL-47) : un fichier récent est déjà sur 10.
+            const imported = await require('../lib/compte-donnees').importer(uid, d);
+            return res.json({ ok: true, imported, fichiersNonInclus: Array.isArray(d.fichiersImportes) ? d.fichiersImportes.length : 0 });
         }
         const counts = { favorites: 0, library: 0, progress: 0, readChapters: 0, ratings: 0 };
 
