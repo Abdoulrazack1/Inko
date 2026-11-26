@@ -446,7 +446,7 @@
             <button class="reader-icon-btn" ${!prevChap ? 'disabled' : ''} id="btnPrevChap" title="Chapitre précédent (←)" aria-label="Chapitre précédent">‹</button>
             <select class="reader-chap-select" id="chapSelect">
                 ${asc.slice().reverse().map(c =>
-                    `<option value="${c.id}" ${c.id === currentChap.id ? 'selected' : ''}>${MH.unitLabel(API.sources.current, { short: true })} ${c.chapter}${c.title ? ' — ' + c.title : ''}${dateCourte(c)}</option>`
+                    `<option value="${MH.esc(c.id)}" ${c.id === currentChap.id ? 'selected' : ''}>${MH.unitLabel(API.sources.current, { short: true })} ${MH.esc(c.chapter)}${c.title ? ' — ' + MH.esc(c.title) : ''}${dateCourte(c)}</option>`
                 ).join('')}
             </select>
             <button class="reader-icon-btn" ${!nextChap ? 'disabled' : ''} id="btnNextChap" title="Chapitre suivant (→)" aria-label="Chapitre suivant">›</button>
