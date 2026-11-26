@@ -3,8 +3,9 @@ name: CI
 on:
   push:
     branches: [ main ]
+  # Toutes les pull requests, pas seulement celles qui visent main : une PR
+  # empilée sur une autre doit être vérifiée avant d'y être fusionnée.
   pull_request:
-    branches: [ main ]
 
 jobs:
   backend:
