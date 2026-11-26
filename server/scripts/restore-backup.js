@@ -92,6 +92,20 @@ async function restoreAccount(acc, targetUserId) {
     const uid = targetUserId;
     const counts = {};
 
+    // DAT-15 : une sauvegarde récente porte `tables`, la photographie COMPLÈTE
+    // du compte (lib/compte-donnees.js). Elle est rendue telle quelle ; le
+    // chemin ci-dessous ne sert plus qu'aux sauvegardes d'avant.
+    if (acc.tables && typeof acc.tables === 'object') {
+        if (REPLACE) {
+            const { tablesDuCompte } = require('../lib/compte-donnees');
+            await pool.query('DELETE FROM list_items WHERE list_id IN (SELECT id FROM lists WHERE user_id = ?)', [uid]);
+            const [cols] = await pool.query("SELECT DISTINCT table_name AS t FROM information_schema.columns WHERE table_schema = DATABASE() AND column_name = 'user_id'");
+            const s = { tables: Object.fromEntries(cols.map(c => [c.t, { colonnes: ['user_id'] }])) };
+            for (const t of tablesDuCompte(s)) await pool.query(`DELETE FROM \`${t}\` WHERE user_id = ?`, [uid]);
+        }
+        return require('../lib/compte-donnees').importer(uid, acc);
+    }
+
     if (REPLACE) {
         // `library` a fusionné dans `favorites` (migration 7, audit DB-02) :
         // vider `favorites` efface aussi les statuts, il n'y a plus de seconde

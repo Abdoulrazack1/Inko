@@ -1561,7 +1561,9 @@
     "Adresse e-mail": "E-mail address",
     "Nom d’utilisateur": "Username",
     "Adresse e-mail invalide.": "Invalid e-mail address.",
-    "Mot de passe requis.": "Password required."
+    "Mot de passe requis.": "Password required.",
+    "Les fichiers que tu as importés (EPUB, CBZ, PDF) ne sont pas dans ces sauvegardes : ils restent sur le disque du hub, dans le dossier": "Files you imported (EPUB, CBZ, PDF) are not in these backups: they stay on the hub’s disk, in the folder",
+    ". Copie-le à part pour les garder.": ". Copy it separately to keep them."
   },
   "patterns": [
     [

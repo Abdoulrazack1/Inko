@@ -418,15 +418,16 @@ async function resetPassword(req, res, next) {
         const polReset = politique.verifier(newPassword);
         if (!polReset.ok) return res.status(400).json({ error: polReset.error });
 
-        const [[reset]] = await pool.query(
-            'SELECT * FROM password_resets WHERE email = ? AND token = ? AND used = 0 AND expires_at > NOW()',
+        // Le lien est CONSOMMÉ d'abord, en une seule écriture : lu puis marqué
+        // en deux temps, il a servi six fois sur six envois simultanés (rejoué).
+        const [pris] = await pool.query(
+            'UPDATE password_resets SET used = 1 WHERE email = ? AND token = ? AND used = 0 AND expires_at > NOW()',
             [email.toLowerCase(), token]
         );
-        if (!reset) return res.status(400).json({ error: 'Lien expiré ou invalide' });
+        if (!pris.affectedRows) return res.status(400).json({ error: 'Lien expiré ou invalide' });
 
         const hash = await bcrypt.hash(newPassword, 10);
         await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [hash, email.toLowerCase()]);
-        await pool.query('UPDATE password_resets SET used = 1 WHERE email = ? AND token = ?', [email.toLowerCase(), token]);
         // Audit SEC-05 : c'est LE cas d'usage de la révocation — réinitialiser
         // son mot de passe doit déconnecter l'intrus, pas seulement changer le
         // secret. Sans cela, un jeton volé restait valide 30 jours.

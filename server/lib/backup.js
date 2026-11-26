@@ -94,8 +94,11 @@ async function buildUserExport(u) {
     const [[settingsRow]] = await pool.query('SELECT data FROM user_settings WHERE user_id = ?', [uid]);
     return {
         user: { id: uid, username: u.username, email: u.email },
+        // Les clés historiques restent : une version antérieure doit pouvoir
+        // relire ce fichier. `tables` (DAT-15) est la photographie complète.
         favorites, library, progress, readChapters, ratings, lists, listItems,
         settings: settingsRow ? (typeof settingsRow.data === 'string' ? JSON.parse(settingsRow.data) : settingsRow.data) : {},
+        ...(await require('./compte-donnees').exporter(uid)),
     };
 }
 
