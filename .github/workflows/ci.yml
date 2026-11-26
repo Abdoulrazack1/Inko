@@ -199,6 +199,18 @@ jobs:
       - name: Dépendances du frontend
         run: npm install --no-audit --no-fund
 
+      # DSK-10 : le chemin d'installation que suit le serveur au démarrage
+      # (lib/embedded-db.js) n'était jamais exercé. Il jouait schema.sql sans
+      # choisir de base, et une installation neuve ne démarrait pas — pendant
+      # que la CI, elle, préparait sa base par db/init.js. On le rejoue ici sur
+      # une base vierge, avant toute publication.
+      - name: Installation neuve (chemin réel du serveur)
+        working-directory: server
+        env:
+          DB_NAME: inko_installation_neuve
+        run: |
+          node -e "require('./lib/embedded-db').ensureDatabase().then(async () => { const c = await require('mysql2/promise').createConnection({ host: '127.0.0.1', user: 'root', database: process.env.DB_NAME }); const [[r]] = await c.query('SELECT COUNT(*) AS n FROM users'); console.log('installation neuve : base créée, users =', r.n); await c.end(); }).catch((e) => { console.error(e); process.exit(1); })"
+
       - name: Préparer la base
         working-directory: server
         run: node db/init.js
