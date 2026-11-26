@@ -259,7 +259,10 @@
     // ── CBZ / CBR : images empilées ──
     async function renderImages(zip) {
         const names = Object.keys(zip.files)
-            .filter(n => !zip.files[n].dir && IMG_RE.test(n))
+            // Les archives faites sur Mac embarquent `__MACOSX/._page.jpg` : des
+            // fichiers de métadonnées qui portent une extension d'image et
+            // comptaient comme des planches vides (5 pages pour 3, relevé).
+            .filter(n => !zip.files[n].dir && IMG_RE.test(n) && !/(^|\/)(__MACOSX\/|\._|\.)/.test(n))
             .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
         if (!names.length) return fail('Aucune image trouvée dans cette archive.');
         titleEl.textContent = `${names.length} page(s)`;
@@ -408,7 +411,7 @@
             const path = normalize(opfDir + spine[i].href);
             let html = '';
             try { html = await readText(zip, path); } catch (e) { html = '<p>Chapitre illisible.</p>'; }
-            document.getElementById('lrText').innerHTML = sanitizeChapter(html, path, imgMap);
+            document.getElementById('lrText').replaceChildren(sanitizeChapter(html, path, imgMap));
             window.scrollTo(0, 0);
             document.getElementById('lrPrev').disabled = i === 0;
             document.getElementById('lrNext').disabled = i === spine.length - 1;
@@ -488,32 +491,96 @@
     }
 
     // Nettoie le XHTML d'un chapitre : garde le body, retire scripts, recâble les images
+    // ── SEC-24 / SEC-25 : un livre est une donnée, pas une page ──
+    // L'ancien nettoyage retirait une liste de balises dangereuses dans le XML,
+    // puis réinjectait le résultat par innerHTML — qui le relit comme du HTML.
+    // Quatre constructions changent de sens entre les deux lectures (section
+    // CDATA, commentaire, instruction de traitement, animation SVG) : un EPUB
+    // préparé pour l'essai exécutait du code par chacune d'elles. Un chapitre
+    // pouvait aussi rediriger la page et contacter six adresses extérieures
+    // (images de fond, vidéos, liens suivis) à la seule ouverture.
+    //
+    // On ne retire plus ce qui est interdit : on RECOPIE ce qui est permis,
+    // nœud par nœud, dans un fragment qui n'est jamais relu comme du texte.
+    // Ce qui n'est pas dans la liste n'existe pas : ni script, ni SVG, ni
+    // média, ni formulaire, ni ressource extérieure.
+    const BALISES_LIVRE = new Set(['p', 'div', 'span', 'section', 'article', 'aside', 'header', 'footer', 'main', 'nav',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'hr', 'em', 'strong', 'i', 'b', 'u', 's', 'small', 'big', 'sub', 'sup',
+        'mark', 'cite', 'q', 'abbr', 'dfn', 'kbd', 'code', 'pre', 'samp', 'var', 'blockquote', 'center',
+        'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption', 'colgroup', 'col',
+        'figure', 'figcaption', 'img', 'a', 'ruby', 'rt', 'rp', 'rb', 'del', 'ins', 'bdi', 'bdo', 'wbr', 'time']);
+    // Sans « class » ni « id » bruts : ils rencontreraient ceux de l'interface
+    // (un livre avec id="lrNext" aurait pris la place du bouton « Suivant »).
+    const ATTRIBUTS_LIVRE = new Set(['title', 'lang', 'dir', 'colspan', 'rowspan', 'alt', 'start', 'reversed', 'scope', 'headers', 'datetime', 'width', 'height']);
+    // Déclarations de style qui ne chargent rien et ne recouvrent rien.
+    const STYLE_PERMIS = /^(text-align|text-indent|font-style|font-weight|font-variant|text-decoration|vertical-align|white-space|margin(-(top|bottom|left|right))?|padding(-(top|bottom|left|right))?|line-height|letter-spacing|word-spacing|text-transform|font-size|width|max-width|float|clear|display|list-style-type|border(-(top|bottom|left|right))?(-(width|style|color))?|color|background-color)$/i;
+
+    function styleSur(brut) {
+        return String(brut || '').split(';').map(d => d.trim()).filter(Boolean).filter(d => {
+            const i = d.indexOf(':'); if (i < 1) return false;
+            const prop = d.slice(0, i).trim(), val = d.slice(i + 1).trim();
+            if (!STYLE_PERMIS.test(prop)) return false;
+            if (/^display$/i.test(prop) && !/^(block|inline|inline-block|none|list-item|table|table-row|table-cell)$/i.test(val)) return false;
+            return !/url\s*\(|expression|@import|\\|javascript:|var\s*\(/i.test(val);
+        }).join('; ');
+    }
+
     function sanitizeChapter(html, chapterPath, imgMap) {
         const dir = chapterPath.includes('/') ? chapterPath.slice(0, chapterPath.lastIndexOf('/') + 1) : '';
-        const doc = new DOMParser().parseFromString(html, 'application/xhtml+xml');
-        const root = doc.body || doc.documentElement;
-        if (!root) return '<p>(vide)</p>';
-        root.querySelectorAll('script, style, link, iframe, base, object, embed, form').forEach(n => n.remove());
-        root.querySelectorAll('img, image').forEach(img => {
-            const src = img.getAttribute('src') || img.getAttribute('xlink:href') || '';
-            const resolved = normalize(dir + src);
-            if (imgMap[resolved]) img.setAttribute('src', imgMap[resolved]);
-            else img.remove();
-        });
-        root.querySelectorAll('*').forEach(el => {
-            [...el.attributes].forEach(a => {
-                if (/^on/i.test(a.name)) { el.removeAttribute(a.name); return; }
-                // Audit S5 : un EPUB piégé (téléchargé hors source officielle)
-                // pouvait exécuter du JS via href="javascript:…" au clic sur
-                // un lien interne du livre.
-                const an = a.name.toLowerCase();
-                if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(an)) {
-                    const v = String(a.value).split('').filter(ch => ch.charCodeAt(0) > 32).join('');
-                    if (/^(javascript|data|vbscript):/i.test(v)) el.removeAttribute(a.name);
+        let source = new DOMParser().parseFromString(html, 'application/xhtml+xml');
+        // XHTML mal formé : le navigateur rend un document d'erreur. On relit
+        // alors en HTML — le résultat passe par la même recopie.
+        if (source.getElementsByTagName('parsererror').length) source = new DOMParser().parseFromString(html, 'text/html');
+        const racine = source.body || source.documentElement;
+        const sortie = document.createDocumentFragment();
+        if (!racine) { sortie.append(Object.assign(document.createElement('p'), { textContent: '(vide)' })); return sortie; }
+
+        const recopier = (noeud, parent, profondeur) => {
+            if (profondeur > 60) return;
+            for (const n of noeud.childNodes) {
+                // texte et CDATA deviennent du TEXTE : rien n'y est interprété
+                if (n.nodeType === 3 || n.nodeType === 4) { parent.append(document.createTextNode(n.nodeValue)); continue; }
+                if (n.nodeType !== 1) continue;                         // commentaires, instructions : ignorés
+                const nom = (n.localName || n.nodeName || '').toLowerCase();
+                if (nom === 'image' && n.namespaceURI === 'http://www.w3.org/2000/svg') {
+                    // couverture en SVG : on n'en garde que l'image
+                    const src = n.getAttribute('href') || n.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || '';
+                    const url = imgMap[normalize(dir + src)];
+                    if (url) { const img = document.createElement('img'); img.src = url; img.alt = ''; parent.append(img); }
+                    continue;
                 }
-            });
-        });
-        return root.innerHTML;
+                if (nom === 'svg') { recopier(n, parent, profondeur + 1); continue; }
+                if (!BALISES_LIVRE.has(nom)) {
+                    // une balise inconnue garde son texte, sauf celles dont le contenu n'est pas du texte lisible
+                    if (!/^(script|style|title|head|noscript|template|iframe|object|embed|audio|video|source|track|math|select|textarea|button|input|form|meta|link|base)$/.test(nom)) recopier(n, parent, profondeur + 1);
+                    continue;
+                }
+                const el = document.createElement(nom);
+                for (const a of n.attributes) {
+                    const an = a.localName.toLowerCase();
+                    if (ATTRIBUTS_LIVRE.has(an)) el.setAttribute(an, a.value);
+                    else if (an === 'style') { const st = styleSur(a.value); if (st) el.setAttribute('style', st); }
+                    else if (an === 'id') el.setAttribute('id', 'livre-' + a.value);
+                }
+                if (nom === 'img') {
+                    const src = n.getAttribute('src') || '';
+                    const url = imgMap[normalize(dir + src)];
+                    if (!url) continue;                                 // image hors du livre : jamais chargée
+                    el.src = url;
+                }
+                if (nom === 'a') {
+                    const href = (n.getAttribute('href') || '').trim();
+                    // Seuls les renvois DANS le chapitre restent des liens. Un lien
+                    // vers l'extérieur reste lisible mais ne part nulle part.
+                    if (/^#[\w\-.:]+$/.test(href)) el.setAttribute('href', '#livre-' + href.slice(1));
+                    else if (/^https?:\/\//i.test(href)) el.setAttribute('title', href);
+                }
+                parent.append(el);
+                recopier(n, el, profondeur + 1);
+            }
+        };
+        recopier(racine, sortie, 0);
+        return sortie;
     }
 
     async function readText(zip, path) {

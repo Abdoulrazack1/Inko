@@ -1748,7 +1748,11 @@ async function exportHistory(req, res, next) {
             // Séparateur ; et BOM : Excel en locale française lit le CSV
             // virgule comme une seule colonne, et l'UTF-8 sans BOM en mojibake.
             const esc = (v) => {
-                const s = v == null ? '' : String(v);
+                let s = v == null ? '' : String(v);
+                // SEC-26 : « =… », « +… », « -… », « @… » sont des formules
+                // pour un tableur. Les titres viennent des sources : une
+                // apostrophe en tête les neutralise.
+                if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
                 return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
             };
             const lignes = [['Titre', 'Chapitre', 'Source', 'Lu le', 'Identifiant', 'Chapitre (id)'].join(';')];
