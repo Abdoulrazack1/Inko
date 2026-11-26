@@ -225,10 +225,16 @@ async function revokeTokens(userId) {
 // La définition de « local » vit dans `lib/reseau.js` : le limiteur de relais
 // (BUG-13) s'appuie sur la MÊME, et deux copies auraient fini par diverger.
 const { estLocale } = require('../lib/reseau');
+const { origineAdmiseEnLocal } = require('./security');
 
 function localOnly(req, res, next) {
     if (process.env.INKO_LOCAL_ANY_HOST === '1') return next();
-    if (estLocale(req)) return next();
+    // « Depuis la machine » ne suffit pas (audit SEC-01) : une page web
+    // quelconque ouverte dans un navigateur de CETTE machine vient aussi de la
+    // boucle locale. On vérifie donc qui parle : un navigateur annonce
+    // toujours l'origine d'une requête POST venue d'ailleurs.
+    const origine = req.headers && req.headers.origin;
+    if (estLocale(req) && origineAdmiseEnLocal(origine)) return next();
     return res.status(403).json({
         error: 'La connexion automatique n’est possible que depuis cet ordinateur.',
         code: 'LOCAL_ONLY',

@@ -62,7 +62,9 @@ app.use((req, res, next) => {
     if (BLOCKED_DIRS.test(req.path)) return res.status(404).json({ error: 'Not found' });
     next();
 });
-app.use(express.static(FRONTEND_DIR, {
+const { estPublic, pagesDe } = require('./lib/fichiers-publics');
+const PAGES = pagesDe(FRONTEND_DIR);
+const servirPublic = express.static(FRONTEND_DIR, {
     extensions: ['html'],
     index: 'accueil.html',
     etag: true,
@@ -80,7 +82,10 @@ app.use(express.static(FRONTEND_DIR, {
             res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
         }
     },
-}));
+});
+// Liste BLANCHE (audit SEC-02) : tout le reste tombe dans le repli ci-dessous
+// (page d'accueil pour une adresse sans extension, 404 pour un fichier).
+app.use((req, res, next) => (estPublic(req.path, PAGES) ? servirPublic(req, res, next) : next()));
 
 // Fallback : si la requête n'est pas /api/* et que le fichier n'existe pas → accueil
 app.get(/^(?!\/api).*$/, (req, res, next) => {
@@ -140,6 +145,8 @@ app.use(errorHandler);
         try {
             await pool.query('DELETE FROM password_resets WHERE expires_at < NOW() - INTERVAL 1 DAY');
             await pool.query('DELETE FROM events WHERE created_at < NOW() - INTERVAL 400 DAY');
+            // La corbeille de la bibliothèque garde 30 jours (audit DAT-01).
+            await require('./lib/corbeille').purger(pool);
         } catch (e) { /* DB down : réessaiera au prochain cycle */ }
     }
     housekeeping();
