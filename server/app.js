@@ -183,7 +183,17 @@ app.use(errorHandler);
     // créer une par page, et ce passage quotidien emporte ce qui a expiré.
     require('./lib/sessions').planifier();
 
-    const serveur = app.listen(PORT, async () => {
+    // OPS-10 : avec Express 5, cette fonction est AUSSI appelée en cas
+    // d'erreur d'écoute, avec l'erreur en argument. Elle l'ignorait : sur un
+    // port déjà pris, le serveur annonçait « Inko backend → … » et restait en
+    // vie sans rien écouter. Rejoué.
+    const serveur = app.listen(PORT, async (erreur) => {
+        if (erreur) {
+            console.error(erreur.code === 'EADDRINUSE'
+                ? `[inko] ✖ le port ${PORT} est déjà utilisé — une autre copie d'Inko tourne peut-être. Ferme-la, ou choisis un autre PORT.`
+                : `[inko] ✖ impossible d'écouter sur le port ${PORT} : ${erreur.message}`);
+            process.exit(1);
+        }
         console.log(`Inko backend → http://localhost:${PORT}`);
         console.log(`   API base  → http://localhost:${PORT}/api`);
         console.log(`   Frontend  → http://localhost:${PORT}/accueil.html`);

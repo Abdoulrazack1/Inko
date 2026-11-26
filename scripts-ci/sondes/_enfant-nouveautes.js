@@ -9,7 +9,12 @@ const E = require('./_enfant').preparer();
     const fausse = { id: 'fausse', name: 'Source simulée', getChapters: async () => ({ results: chapitres(11) }) };
     loader.get = (id) => (id === 'fausse' ? fausse : null);
     const maj = E.srv('lib', 'updates');
-    const compter = async () => (await pool.query("SELECT COUNT(DISTINCT group_key) AS n FROM notifications WHERE type = 'new_chapter'"))[0][0].n;
+    // séries annoncées : une notification chacune, ou comptées dans un résumé « N autres séries… »
+    const compter = async () => {
+        const [[a]] = await pool.query("SELECT COUNT(DISTINCT group_key) AS n FROM notifications WHERE type = 'new_chapter'");
+        const [resumes] = await pool.query("SELECT title FROM notifications WHERE type = 'new_chapter_resume'");
+        return Number(a.n) + resumes.reduce((s, r) => s + (parseInt(r.title, 10) || 0), 0);
+    };
     const passages = [];
     for (let i = 0; i < 3; i++) {
         await pool.query('UPDATE users SET last_notif_scan = NULL');

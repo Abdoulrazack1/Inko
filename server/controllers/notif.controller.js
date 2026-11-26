@@ -3,6 +3,17 @@ const { pool } = require('../config/db');
 const { publicKey } = require('../lib/push');
 const { RETENTION_JOURS } = require('../lib/notify');
 
+// Services de notification des navigateurs (Chrome/Edge, Firefox, Windows, Safari).
+const SERVICES_PUSH = ['googleapis.com', 'mozilla.com', 'mozaws.net', 'notify.windows.com', 'push.apple.com'];
+function pushAutorise(endpoint) {
+    let u;
+    try { u = new URL(String(endpoint)); } catch (e) { return false; }
+    if (u.protocol !== 'https:') return false;
+    const hote = u.hostname.toLowerCase();
+    const admis = SERVICES_PUSH.concat((process.env.PUSH_HOTES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+    return admis.some(d => hote === d || hote.endsWith('.' + d));
+}
+
 // Clé publique VAPID (nécessaire au navigateur pour s'abonner)
 function vapid(_req, res) {
     res.json({ publicKey: publicKey() });
@@ -68,6 +79,11 @@ async function subscribe(req, res, next) {
     try {
         const { endpoint, keys } = req.body || {};
         if (!endpoint) return res.status(400).json({ error: 'endpoint requis' });
+        // SEC-34 : n'importe quelle adresse était acceptée, et le serveur s'y
+        // connectait à chaque nouveau chapitre — y compris une adresse de la
+        // machine ou du réseau interne (rejoué). Seuls les services de
+        // notification des navigateurs sont admis (PUSH_HOTES pour en ajouter).
+        if (!pushAutorise(endpoint)) return res.status(400).json({ error: 'Adresse de notification refusée : elle doit appartenir à un service de notification de navigateur.', code: 'PUSH_REFUSE' });
         await pool.query(
             `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth = VALUES(auth)`,

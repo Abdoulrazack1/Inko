@@ -770,7 +770,7 @@
         });
 
         document.getElementById('btnDeleteAccount')?.addEventListener('click', async () => {
-            const password = await MH.prompt('Supprimer le compte', { message: 'Action irréversible. Entre ton mot de passe pour confirmer.', placeholder: 'Mot de passe', okText: 'Supprimer' });
+            const password = await MH.prompt('Supprimer le compte', { message: 'Action irréversible. Entre ton mot de passe pour confirmer — ou, sur l’ordinateur qui héberge Inko, tape SUPPRIMER.', placeholder: 'Mot de passe ou SUPPRIMER', okText: 'Supprimer' });
             if (password === null) return;
             try {
                 await API.auth.deleteAccount(password);

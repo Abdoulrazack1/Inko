@@ -140,18 +140,35 @@ async function authRequired(req, res, next) {
         req.user = user;
         next();
     } catch (e) {
-        return res.status(401).json({ error: 'Token invalide ou expiré' });
+        // ROB-05 : la vérification du jeton ET la lecture en base partageaient
+        // ce `catch`. Base indisponible = « jeton invalide » (401), et le
+        // client effaçait la session : une panne de MySQL déconnectait tout le
+        // monde. Rejoué. Seul un jeton refusé répond 401 désormais.
+        if (e && /^(JsonWebTokenError|TokenExpiredError|NotBeforeError)$/.test(e.name)) {
+            return res.status(401).json({ error: 'Token invalide ou expiré' });
+        }
+        return res.status(503).json({ error: 'Le serveur ne joint pas sa base de données. Réessaie dans un instant.', code: 'BASE_INDISPONIBLE' });
     }
 }
 
+// FON-06 : cette fonction ne posait que `req.userId`, alors que les contrôleurs
+// lisent `req.user` (rôle, identifiant). Tout lecteur connecté était donc pris
+// pour un visiteur : il ne voyait ni les commentaires « réservés à l'instance »
+// — la portée par défaut — ni les siens. Rejoué sur une instance à trois
+// comptes. On applique désormais EXACTEMENT la vérification d'`authRequired`
+// (révocation, appareil, bannissement), mais un refus ne bloque pas : il fait
+// de la requête celle d'un visiteur.
 function authOptional(req, _res, next) {
-    const token = readToken(req);
-    if (!token) return next();
-    try {
-        const payload = jwt.verify(token, SECRET);
-        req.userId = payload.uid;
-    } catch (e) { /* ignore */ }
-    next();
+    if (!readToken(req)) return next();
+    let suivi = false;
+    const commeVisiteur = () => { if (suivi) return; suivi = true; req.user = undefined; next(); };
+    const refus = { status() { return { json: commeVisiteur, end: commeVisiteur }; }, set() { return refus; } };
+    authRequired(req, refus, () => {
+        if (suivi) return;
+        suivi = true;
+        req.userId = req.user && req.user.id;
+        next();
+    }).catch(commeVisiteur);
 }
 
 // Cache d'anti-martelage pour `last_seen_at` (audit AMEL-69).

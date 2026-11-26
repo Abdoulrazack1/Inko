@@ -349,6 +349,20 @@
         } finally {
             clearTimeout(timer);
         }
+        // ROB-01 : un portail Wi-Fi d'hôtel ou un proxy répond 200 avec sa
+        // propre page HTML. Le corps illisible devenait `null`, rendu comme un
+        // SUCCÈS : sept pages plantaient alors sur « Cannot read properties of
+        // null ». Une réponse réussie qui n'est pas du JSON est une erreur de
+        // réseau, et se traite comme telle (file hors ligne comprise).
+        if (res.ok && res.status !== 204 && res.headers && typeof res.headers.get === 'function'
+            && !/json/i.test(res.headers.get('content-type') || '')) {
+            const err = new Error('Réponse inattendue : un portail Wi-Fi ou un proxy s’interpose peut-être. Ouvre une page web pour te connecter au réseau, puis réessaie.');
+            err.status = 0; err.network = true; err.portail = true;
+            try { (window.MH = window.MH || {}).lastApiError = err; } catch (_) { /* noop */ }
+            queueOffline(method, path, body);
+            try { window.dispatchEvent(new CustomEvent('api:error', { detail: err })); } catch (_) { window.MH?.err?.('api.js', _); }
+            throw err;
+        }
         let data = null;
         try { data = await res.json(); } catch (e) { data = null; }
 

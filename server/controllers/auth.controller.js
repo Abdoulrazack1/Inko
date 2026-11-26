@@ -250,6 +250,9 @@ async function login(req, res, next) {
 
         const ok = await bcrypt.compare(password, user.password_hash);
         if (!ok) return res.status(401).json({ error: 'Identifiants incorrects' });
+        // OPS-09 : un compte suspendu recevait encore un jeton à la connexion
+        // (inutilisable ensuite, mais la porte devait rester fermée d'emblée).
+        if (user.banned) return res.status(403).json({ error: 'Compte suspendu', code: 'BANNED' });
 
         const token = await sign(user, req);
         res.cookie(COOKIE_NAME, token, cookieOpts(req));
@@ -524,8 +527,23 @@ async function deleteAccount(req, res, next) {
             return res.status(403).json({ error: 'Le compte démo ne peut pas être supprimé sur cette instance' });
 
         if (!password) return res.status(400).json({ error: 'Mot de passe requis pour confirmer' });
-        const ok = await bcrypt.compare(password, user.password_hash);
-        if (!ok) return res.status(401).json({ error: 'Mot de passe incorrect' });
+        // FON-04 : le compte propriétaire du mode local est créé avec un mot de
+        // passe tiré au sort, que personne ne connaît : il ne pouvait JAMAIS
+        // être supprimé. Sur l'ordinateur lui-même, taper « SUPPRIMER » suffit.
+        const { estLocale } = require('../lib/reseau');
+        const { origineAdmiseEnLocal } = require('../middleware/security');
+        const surPlace = localModeEnabled() && estLocale(req) && origineAdmiseEnLocal(req.headers && req.headers.origin);
+        const ok = (surPlace && password === 'SUPPRIMER') || await bcrypt.compare(password, user.password_hash);
+        if (!ok) return res.status(401).json({ error: surPlace ? 'Tape SUPPRIMER, ou ton mot de passe, pour confirmer' : 'Mot de passe incorrect' });
+
+        // OPS-09 : le dernier administrateur pouvait disparaître, laissant une
+        // instance que plus personne ne peut gérer.
+        if (user.role === 'admin') {
+            const [[r]] = await pool.query("SELECT SUM(role = 'admin') AS admins, COUNT(*) AS comptes FROM users WHERE id <> ?", [user.id]);
+            if (Number(r.comptes) > 0 && Number(r.admins) === 0) {
+                return res.status(409).json({ error: 'Tu es le dernier administrateur : nomme d’abord un autre administrateur.', code: 'DERNIER_ADMIN' });
+            }
+        }
 
         // Purge complète (RGPD art. 17, audit P2) : la cascade FK nettoie les
         // tables liées, mais pas les resets (clé email) ni les fichiers disque.

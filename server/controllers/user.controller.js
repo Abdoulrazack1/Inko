@@ -23,6 +23,14 @@ function idOeuvreValide(v) {
     return !/^\[object /.test(t) && t !== 'undefined' && t !== 'null';
 }
 
+// DAT-26 : `chapter || null` effaçait le chapitre 0 (prologue). Seul ce qui
+// n'est pas un nombre devient « sans numéro ».
+function numeroChapitre(v) {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+}
+
 // ── helper events ───────────────────────────────────────────────
 // Audit AMEL-107 : le mode « lecture privée » ne couvrait que la progression,
 // parce qu'il vivait entièrement côté client — le serveur n'en savait rien et
@@ -416,8 +424,13 @@ async function setProgress(req, res, next) {
         // 69 lectures pour une semaine de 19 chapitres.
         const [[avant]] = await pool.query(
             'SELECT chapter_id FROM progress WHERE user_id = ? AND manga_id = ?', [req.user.id, mangaId]);
+        // DAT-21 : une date venue du FUTUR (horloge d'appareil déréglée) gagnait
+        // contre toutes les suivantes : la position restait figée sur tous les
+        // appareils, et chaque enregistrement répondait pourtant « réussi ».
+        // Une date lointaine (2150) faisait même échouer la requête. La date
+        // du client est donc bornée par celle du serveur.
         const clientAt = Number.isFinite(Date.parse(req.body.clientAt || ''))
-            ? new Date(req.body.clientAt) : null;
+            ? new Date(Math.min(Date.parse(req.body.clientAt), Date.now())) : null;
         await pool.query(
             `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, total_pages, source, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
@@ -428,7 +441,7 @@ async function setProgress(req, res, next) {
                 total_pages    = IF(VALUES(updated_at) >= updated_at, VALUES(total_pages),    total_pages),
                 source         = IF(VALUES(updated_at) >= updated_at, COALESCE(VALUES(source), source), source),
                 updated_at     = GREATEST(updated_at, VALUES(updated_at))`,
-            [req.user.id, mangaId, chapterId || null, chapter || null, page || 1, tp, source || null, clientAt]
+            [req.user.id, mangaId, chapterId || null, numeroChapitre(chapter), page || 1, tp, source || null, clientAt]
         );
         await noterPositionAppareil(req, mangaId, { chapterId, chapter, page, tp, source, clientAt });
         await enregistrerHistorique(req.user.id, mangaId, chapterId, chapter, page, source);
@@ -461,7 +474,7 @@ async function enregistrerHistorique(userId, mangaId, chapterId, chapter, page, 
         await pool.query(
             `INSERT INTO progress_history (user_id, manga_id, chapter_id, chapter_number, page, source)
              VALUES (?, ?, ?, ?, ?, ?)`,
-            [userId, mangaId, chapterId, chapter || null, page || 1, source || null]);
+            [userId, mangaId, chapterId, numeroChapitre(chapter), page || 1, source || null]);
 
         // Purge bornée : sans elle, une longue série accumulerait indéfiniment.
         // On garde les 20 dernières positions, ce qui couvre largement le
@@ -515,7 +528,7 @@ async function noterPositionAppareil(req, mangaId, { chapterId, chapter, page, t
             total_pages    = IF(VALUES(updated_at) >= updated_at, VALUES(total_pages),    total_pages),
             source         = IF(VALUES(updated_at) >= updated_at, COALESCE(VALUES(source), source), source),
             updated_at     = GREATEST(updated_at, VALUES(updated_at))`,
-        [req.user.id, mangaId, a.id, a.nom, chapterId || null, chapter || null, page || 1, tp, source || null, clientAt]);
+        [req.user.id, mangaId, a.id, a.nom, chapterId || null, numeroChapitre(chapter), page || 1, tp, source || null, clientAt]);
 }
 
 // GET /me/progress/:mangaId/appareils — où en est chaque appareil sur cette série.
@@ -594,7 +607,7 @@ async function markChapter(req, res, next) {
             const [r] = await pool.query(
                 `INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number)
                  VALUES (?, ?, ?, ?)`,
-                [req.user.id, mangaId, chapterId, chapter || null]
+                [req.user.id, mangaId, chapterId, numeroChapitre(chapter)]
             );
             if (r.affectedRows) {
                 // `pushEvent` ne lit que `mangaId`, `chapterId`, `source` et

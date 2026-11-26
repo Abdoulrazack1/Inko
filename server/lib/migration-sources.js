@@ -59,7 +59,35 @@ async function etatDe(userId, mangaId) {
         'SELECT * FROM ratings WHERE user_id = ? AND manga_id = ?', [userId, mangaId]);
     const [signets] = await pool.query(
         'SELECT * FROM bookmarks WHERE user_id = ? AND manga_id = ?', [userId, mangaId]);
-    return { favori: favori || null, progression: progression || null, chapitresLus, notes, notation: notation || null, signets };
+    // DAT-22 : la place dans les listes, l'historique des positions, l'activité
+    // et les commentaires restaient attachés à l'ancienne série : elle
+    // disparaissait de ses listes. Ils suivent désormais, et sont photographiés
+    // pour l'annulation (des identifiants suffisent pour les trois derniers).
+    const [elements] = await pool.query(
+        'SELECT li.* FROM list_items li JOIN lists l ON l.id = li.list_id WHERE l.user_id = ? AND li.manga_id = ?', [userId, mangaId]);
+    const ids = async (table) => (await pool.query(`SELECT id FROM \`${table}\` WHERE user_id = ? AND manga_id = ?`, [userId, mangaId]))[0].map(r => r.id);
+    return {
+        favori: favori || null, progression: progression || null, chapitresLus, notes, notation: notation || null, signets,
+        elements, historique: await ids('progress_history'), activite: await ids('events'), commentaires: await ids('comments'),
+    };
+}
+
+// DAT-23 : l'annulation réécrivait une poignée de colonnes choisies. Le reste
+// (note d'un signet, sourdine d'une série, date d'ajout, dates de lecture)
+// était perdu ou remplacé par l'heure de l'annulation. Une ligne
+// photographiée est désormais réécrite EN ENTIER.
+function valeurSql(v) {
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(v)) return new Date(v);
+    if (v !== null && typeof v === 'object' && !(v instanceof Date)) return JSON.stringify(v);
+    return v;
+}
+async function reecrire(conn, table, ligne, remplacements = {}) {
+    const l = { ...ligne, ...remplacements };
+    const cols = Object.keys(l).filter(c => l[c] !== undefined);
+    await conn.query(
+        `INSERT INTO \`${table}\` (${cols.map(c => `\`${c}\``).join(', ')}) VALUES (${cols.map(() => '?').join(', ')})
+         ON DUPLICATE KEY UPDATE ${cols.map(c => `\`${c}\` = VALUES(\`${c}\`)`).join(', ')}`,
+        cols.map(c => valeurSql(l[c])));
 }
 
 /**
@@ -123,7 +151,19 @@ async function migrer(userId, de, vers, conserver, chapitresCible) {
 
         const memeId = de.mangaId === vers.mangaId;
 
-        if (garder.has('favori') && avant.favori) {
+        if (garder.has('favori') && avant.favori && !(cible && cible.favori)) {
+            // Cas courant : la série n'est pas encore suivie à l'arrivée. Le
+            // favori est COPIÉ en entier (date d'ajout, sourdine, catégorie,
+            // statut…) ; seuls changent l'identifiant, la source et ce que la
+            // source d'arrivée sait mieux (titre, couverture). Les compteurs
+            // propres à l'ancienne source repartent de zéro.
+            await reecrire(conn, 'favorites', avant.favori, {
+                manga_id: vers.mangaId, source: vers.source,
+                title: vers.titre || avant.favori.title, cover: vers.cover || avant.favori.cover,
+                unread_count: null, latest_at: null, checked_at: null,
+            });
+            if (!memeId) await conn.query('DELETE FROM favorites WHERE user_id = ? AND manga_id = ?', [userId, de.mangaId]);
+        } else if (garder.has('favori') && avant.favori) {
             // Le favori porte l'identifiant ET la source : les deux changent.
             // `INSERT … ON DUPLICATE` plutôt qu'un UPDATE, car l'utilisateur
             // peut déjà avoir la série en favori sur la source d'arrivée.
@@ -232,6 +272,23 @@ async function migrer(userId, de, vers, conserver, chapitresCible) {
             }
         }
 
+        // DAT-22 : la série garde sa place dans les listes, son historique de
+        // positions, son activité et ses commentaires.
+        if (!memeId) {
+            for (const e of avant.elements) {
+                await conn.query(
+                    `INSERT INTO list_items (list_id, manga_id, source, title, cover, position) VALUES (?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE list_id = list_id`,
+                    [e.list_id, vers.mangaId, vers.source, vers.titre || e.title, vers.cover || e.cover, e.position]);
+                await conn.query('DELETE FROM list_items WHERE list_id = ? AND manga_id = ?', [e.list_id, de.mangaId]);
+            }
+            for (const [table, liste] of [['progress_history', avant.historique], ['events', avant.activite], ['comments', avant.commentaires]]) {
+                if (liste.length) {
+                    await conn.query(`UPDATE \`${table}\` SET manga_id = ? WHERE user_id = ? AND id IN (?)`, [vers.mangaId, userId, liste]);
+                }
+            }
+        }
+
         await conn.commit();
         return {
             id: ins.insertId,
@@ -289,6 +346,15 @@ async function annuler(userId, migrationId) {
             }
             await conn.query('DELETE FROM ratings WHERE user_id = ? AND manga_id = ?', [userId, m.id_apres]);
             await conn.query('DELETE FROM bookmarks WHERE user_id = ? AND manga_id = ?', [userId, m.id_apres]);
+            // Ce qui avait suivi la série (DAT-22) revient à l'ancienne. La
+            // place de la cible dans ses listes est rendue par sa photographie.
+            await conn.query(
+                'DELETE li FROM list_items li JOIN lists l ON l.id = li.list_id WHERE l.user_id = ? AND li.manga_id = ?', [userId, m.id_apres]);
+            for (const [table, liste] of [['progress_history', avant.historique], ['events', avant.activite], ['comments', avant.commentaires]]) {
+                if (Array.isArray(liste) && liste.length) {
+                    await conn.query(`UPDATE \`${table}\` SET manga_id = ? WHERE user_id = ? AND id IN (?)`, [m.id_avant, userId, liste]);
+                }
+            }
         }
 
         await restaurerEtat(conn, userId, avant);
@@ -311,44 +377,13 @@ async function annuler(userId, migrationId) {
  * chapitres lus, signets). Sert à l'annulation, pour la source ET la cible.
  */
 async function restaurerEtat(conn, userId, etat) {
-    if (etat.favori) {
-        const f = etat.favori;
-        await conn.query(
-            `INSERT INTO favorites (user_id, manga_id, source, title, cover, category, status, status_updated_at, last_chapter)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE source = VALUES(source), title = VALUES(title), cover = VALUES(cover),
-                 category = VALUES(category), status = VALUES(status)`,
-            [userId, f.manga_id, f.source, f.title, f.cover, f.category, f.status,
-                dateOuNull(f.status_updated_at), f.last_chapter]);
-    }
-    if (etat.progression) {
-        const p = etat.progression;
-        await conn.query(
-            `INSERT INTO progress (user_id, manga_id, chapter_id, chapter_number, page, total_pages, source, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE chapter_id = VALUES(chapter_id), chapter_number = VALUES(chapter_number),
-                 page = VALUES(page), total_pages = VALUES(total_pages), source = VALUES(source), updated_at = VALUES(updated_at)`,
-            [userId, p.manga_id, p.chapter_id, p.chapter_number, p.page, p.total_pages, p.source,
-                dateOuNull(p.updated_at) || new Date()]);
-    }
-    if (etat.notation) {
-        await conn.query(
-            `INSERT INTO ratings (user_id, manga_id, rating, review) VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE rating = VALUES(rating), review = VALUES(review)`,
-            [userId, etat.notation.manga_id, etat.notation.rating, etat.notation.review]);
-    }
-    for (const c of etat.chapitresLus || []) {
-        await conn.query(
-            'INSERT IGNORE INTO read_chapters (user_id, manga_id, chapter_id, chapter_number) VALUES (?, ?, ?, ?)',
-            [userId, c.manga_id, c.chapter_id, c.chapter_number]);
-    }
-    for (const s of etat.signets || []) {
-        await conn.query(
-            `INSERT IGNORE INTO bookmarks
-                (user_id, manga_id, chapter_id, source, title, cover, chapter_num, page, label)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [userId, s.manga_id, s.chapter_id, s.source, s.title, s.cover, s.chapter_num, s.page, s.label]);
-    }
+    // Chaque ligne photographiée est réécrite en entier (DAT-23).
+    if (etat.favori) await reecrire(conn, 'favorites', etat.favori, { user_id: userId });
+    if (etat.progression) await reecrire(conn, 'progress', etat.progression, { user_id: userId });
+    if (etat.notation) await reecrire(conn, 'ratings', etat.notation, { user_id: userId });
+    for (const c of etat.chapitresLus || []) await reecrire(conn, 'read_chapters', c, { user_id: userId });
+    for (const s of etat.signets || []) await reecrire(conn, 'bookmarks', s, { user_id: userId });
+    for (const e of etat.elements || []) await reecrire(conn, 'list_items', e);
 }
 
 /** Migrations encore annulables, les plus récentes d'abord. */
