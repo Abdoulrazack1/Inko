@@ -1566,7 +1566,10 @@
     ". Copie-le à part pour les garder.": ". Copy it separately to keep them.",
     "Action irréversible. Entre ton mot de passe pour confirmer — ou, sur l’ordinateur qui héberge Inko, tape SUPPRIMER.": "This cannot be undone. Enter your password to confirm — or, on the computer that hosts Inko, type SUPPRIMER.",
     "Mot de passe ou SUPPRIMER": "Password or SUPPRIMER",
-    "Réponse inattendue : un portail Wi-Fi ou un proxy s’interpose peut-être. Ouvre une page web pour te connecter au réseau, puis réessaie.": "Unexpected response: a Wi-Fi portal or a proxy may be in the way. Open a web page to sign in to the network, then try again."
+    "Réponse inattendue : un portail Wi-Fi ou un proxy s’interpose peut-être. Ouvre une page web pour te connecter au réseau, puis réessaie.": "Unexpected response: a Wi-Fi portal or a proxy may be in the way. Open a web page to sign in to the network, then try again.",
+    "Commentaires": "Comments",
+    "Retirer ce chapitre des téléchargements ? Il ne sera plus lisible sans réseau.": "Remove this chapter from downloads? It will no longer be readable offline.",
+    "Téléchargé — retirer des téléchargements": "Downloaded — remove from downloads"
   },
   "patterns": [
     [

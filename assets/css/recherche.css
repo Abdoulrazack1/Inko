@@ -109,3 +109,12 @@
 .se-partiel { margin-top: var(--sp-4); font-size: var(--t-s); color: var(--text3); }
 /* Deuxième rangée de puces (statut) : légèrement en retrait de la première. */
 .se-statuts { margin-top: 6px; }
+
+/* A11Y-14 : les résultats étaient des <div> à écouteur de clic — impossibles à
+   ouvrir au clavier, dans un nouvel onglet, ou à annoncer comme liens. Le
+   titre est désormais un vrai lien, étendu à toute la carte ; les puces de
+   source sont des liens posés au-dessus. */
+.se-card-lien { color: inherit; text-decoration: none; }
+.se-card-lien::after { content: ""; position: absolute; inset: 0; }
+.se-card:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--radius2); }
+.se-sources { position: relative; z-index: 1; }

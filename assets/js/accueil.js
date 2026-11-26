@@ -448,9 +448,13 @@
     // Recommandation nommée : « Parce que tu as lu X ». Même source que X,
     // pour que la recherche par genre porte sur le bon catalogue.
     async function rendreReco(populaires) {
-        const section = document.getElementById('shelfReco');
+        // FON-02 : « Pour toi » n'apparaissait jamais. La fonction cherchait
+        // `#shelfReco`, une section qui n'existe plus depuis que les trois
+        // rayons sont devenus les onglets de « Découvrir » : elle s'arrêtait
+        // à la première ligne. L'onglet et sa piste suffisent.
+        const section = document.getElementById('shelfDecouvrir');
         const track = document.getElementById('shelfRecoTrack');
-        const sub = document.getElementById('shelfRecoSub');
+        const sub = document.getElementById('shelfDecouvrirSub');
         if (!section || !track || !API.isLoggedIn()) return;
         try {
             const prog = await API.me.progress();

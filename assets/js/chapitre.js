@@ -2795,6 +2795,9 @@
             if (st === 'running') { window.Downloads.pause(currentChap.id); btn.title = 'Reprendre le téléchargement'; MH.toast?.('Téléchargement en pause'); return; }
             if (st === 'paused')  { window.Downloads.resume(currentChap.id); btn.title = 'Mettre en pause'; MH.toast?.('Téléchargement repris'); return; }
             if (await window.Downloads.has(currentChap.id)) {
+                // UX-08 : un appui effaçait le chapitre gardé, sans demander —
+                // alors que le bouton annonçait encore « Télécharger ».
+                if (!await MH.confirm('Retirer ce chapitre des téléchargements ? Il ne sera plus lisible sans réseau.', { danger: true, okText: 'Retirer' })) return;
                 await window.Downloads.remove(currentChap.id);
                 setDlIcon(false); MH.toast?.('Téléchargement supprimé');
                 return;
@@ -2815,7 +2818,8 @@
                 setDlIcon(false);
                 MH.toast?.(e.message === '__cancelled__' ? 'Téléchargement annulé' : 'Erreur : ' + e.message);
             }
-            finally { btn.title = 'Télécharger pour lire hors-ligne'; }
+            // UX-08 : le libellé revenait à « Télécharger » même après un succès.
+            finally { btn.title = await window.Downloads.has(currentChap.id) ? 'Téléchargé — retirer des téléchargements' : 'Télécharger pour lire hors-ligne'; }
         };
         // Appui long / clic droit sur le bouton = annuler le téléchargement en cours
         btn.oncontextmenu = (e) => {
