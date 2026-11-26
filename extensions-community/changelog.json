@@ -64,6 +64,13 @@
   ],
   "sushiscan": [
     {
+      "version": "1.2.1",
+      "date": "2026-11-26",
+      "notes": [
+        "Le filtre des contenus pour adultes ne se désactive plus quand le site répond mal : tant que la liste des titres à masquer n'est pas complète, le catalogue tout public n'est pas servi."
+      ]
+    },
+    {
       "version": "1.2.0",
       "date": "2026-11-25",
       "notes": [

@@ -32,7 +32,10 @@ enfants.execFile = (_c, args, _o, suite) => {
 (async () => {
   const s = require(${JSON.stringify(fichier)});
   await new Promise((ok) => setTimeout(ok, 1500));
-  const enPanne = (await s.popular({ limit: 10 })).results.map((m) => m.id);
+  let enPanne;
+  try { enPanne = (await s.popular({ limit: 10 })).results.map((m) => m.id); }
+  catch (e) { enPanne = ['(refusé : ' + e.message.slice(0, 60) + ')']; }
+  await new Promise((ok) => setTimeout(ok, 61000));   // l'index incomplet n'est gardé qu'une minute
   const cache = path.join(require('os').tmpdir(), 'inko-sushiscan-adult-v1.json');
   const ecrit = fs.existsSync(cache) ? JSON.parse(fs.readFileSync(cache, 'utf8')) : null;
   panne = false;                         // la source repond de nouveau
@@ -42,7 +45,7 @@ enfants.execFile = (_c, args, _o, suite) => {
 })().catch((e) => { process.stdout.write('@@' + JSON.stringify({ erreur: e.message })); process.exit(0); });
 `);
         try {
-            const r = await new Promise((ok) => cp.execFile(process.execPath, [script], { env: { ...process.env, TEMP: dossier, TMP: dossier, TMPDIR: dossier }, timeout: 60000, windowsHide: true }, (e, out) => { const i = String(out).lastIndexOf('@@{'); ok(i >= 0 ? JSON.parse(String(out).slice(i + 2)) : { erreur: e ? e.message : 'sortie illisible' }); }));
+            const r = await new Promise((ok) => cp.execFile(process.execPath, [script], { env: { ...process.env, TEMP: dossier, TMP: dossier, TMPDIR: dossier }, timeout: 180000, windowsHide: true }, (e, out) => { const i = String(out).lastIndexOf('@@{'); ok(i >= 0 ? JSON.parse(String(out).slice(i + 2)) : { erreur: e ? e.message : 'sortie illisible' }); }));
             ctx.mesure('filtre_adulte', r);
             if (r.erreur) { ctx.trouver({ gravite: 'info', id: 'ADULTE-NON-EPROUVE', titre: 'Filtre +18 : essai impossible', detail: r.erreur, fichier: 'extensions-community/sushiscan/index.js' }); return; }
             if (r.enPanne.includes('titre-pour-adultes') || r.apres.includes('titre-pour-adultes')) ctx.trouver({
@@ -50,6 +53,12 @@ enfants.execFile = (_c, args, _o, suite) => {
                 titre: 'SushiScan : quand les pages de genres ne répondent pas, le filtre des contenus pour adultes se désactive, et le reste désactivé',
                 detail: `Pages de genres refusées, catalogue disponible : titres servis dans le catalogue normal = ${r.enPanne.join(', ')}.\nSource rétablie, même serveur : ${r.apres.join(', ')}.\nListe écrite sur disque : ${r.cache ? `${r.cache.titres} titre(s), gardée ${r.cache.heures} h, relue au redémarrage` : 'aucune'}.`,
                 correctif: 'Ne jamais garder un index vide ou incomplet ; tant qu\'il n\'est pas complet, refuser le catalogue (ou n\'afficher que ce qui est vérifié).',
+            });
+            else if (!r.apres.includes('titre-tout-public')) ctx.trouver({
+                gravite: 'haute', id: 'ADULTE-CATALOGUE-BLOQUE', categorie: 'bug', effort: 'S', fichier: 'extensions-community/sushiscan/index.js',
+                titre: 'SushiScan : une fois la source rétablie, le catalogue reste suspendu',
+                detail: `Pendant la panne : ${r.enPanne.join(', ')}. Après : ${r.apres.join(', ') || '(rien)'}.`,
+                correctif: 'Reconstruire l’index à la demande suivante.',
             });
         } finally { fs.rmSync(dossier, { recursive: true, force: true }); }
     },

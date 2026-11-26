@@ -363,7 +363,13 @@ async function fetchGenrePage(g, p) {
     try {
         const html = await fetchHtml(url, 6 * 3600_000);
         return parseMangaList(cheerio.load(html));
-    } catch (e) { return null; } // 404 → fin du genre
+    } catch (e) {
+        // SEC-28 : seul un 404 veut dire « fin du genre ». Un refus, une limite,
+        // une panne étaient lus pareil, et l'index des titres adultes restait
+        // vide sans que rien ne le dise.
+        if (e && e.httpCode === 404) return null;
+        throw e;
+    }
 }
 
 // Audit EXT-03 : cet index conditionne TOUT le parcours du catalogue — tant
@@ -383,8 +389,10 @@ function readAdultCacheFile() {
     try {
         const fs = require('fs');
         const raw = JSON.parse(fs.readFileSync(ADULT_CACHE_FILE, 'utf8'));
-        if (!raw || !Array.isArray(raw.list) || !(raw.expires > Date.now())) return null;
-        return { set: new Set(raw.list.map(m => m.id)), list: raw.list, expires: raw.expires };
+        // Une liste vide n'est jamais un index valable (SEC-28) : c'est la trace
+        // d'une construction ratée par une version précédente.
+        if (!raw || !Array.isArray(raw.list) || !raw.list.length || !(raw.expires > Date.now())) return null;
+        return { set: new Set(raw.list.map(m => m.id)), list: raw.list, complet: true, expires: raw.expires };
     } catch (e) { return null; }   // absent, illisible ou périmé → on reconstruit
 }
 function writeAdultCacheFile(cache) {
@@ -413,6 +421,15 @@ async function collectGenre(g, add) {
     }
 }
 
+/** Index complet, ou erreur : jamais de catalogue « tout public » sans filtre. */
+async function exigerIndexComplet() {
+    const idx = await buildAdultIndex();
+    if (!idx.complet) {
+        throw new Error('Filtre des contenus adultes indisponible : SushiScan ne répond pas entièrement. Réessaie dans une minute.');
+    }
+    return idx;
+}
+
 async function buildAdultIndex() {
     if (_adultCache.set && _adultCache.expires > Date.now()) return _adultCache;
     if (_building) return _building;
@@ -435,10 +452,19 @@ async function buildAdultIndex() {
         // Les genres sont indépendants : rien ne justifiait de les enchaîner.
         // allSettled et non all — un genre qui échoue ne doit pas vider
         // l'index et faire disparaître le filtrage pour tous les autres.
-        await Promise.allSettled(ADULT_GENRES.map(g => collectGenre(g, add)));
+        const issues = await Promise.allSettled(ADULT_GENRES.map(g => collectGenre(g, add)));
 
-        _adultCache = { set, list, expires: Date.now() + ADULT_TTL_MS };
-        writeAdultCacheFile(_adultCache);
+        // SEC-28 : un genre en échec rendait l'index incomplet — souvent VIDE —
+        // et il était gardé six heures, écrit sur disque, relu au redémarrage.
+        // Le catalogue « normal » servait alors tout, contenu pour adultes
+        // compris, et continuait après le retour de la source. Rejoué sur une
+        // source simulée. Un index incomplet n'est plus ni écrit ni gardé : il
+        // sera reconstruit à la demande suivante, et d'ici là le catalogue
+        // normal refuse de servir (voir exigerIndexComplet).
+        const complet = issues.every(r => r.status === 'fulfilled') && list.length > 0;
+        _adultCache = { set, list, complet, expires: complet ? Date.now() + ADULT_TTL_MS : Date.now() + 60_000 };
+        if (complet) writeAdultCacheFile(_adultCache);
+        else console.warn(`[sushiscan] index des titres adultes incomplet (${issues.filter(r => r.status === 'rejected').length} genre(s) en échec, ${list.length} titre(s)) : catalogue suspendu`);
         _building = null;
         return _adultCache;
     })();
@@ -509,7 +535,7 @@ async function parGenres(genres, { limit, offset, exclureAdulte }) {
     let res = [...listes[0].values()];
     for (const autre of listes.slice(1)) res = res.filter(m => autre.has(m.id));
     if (exclureAdulte) {
-        const idx = await buildAdultIndex();
+        const idx = await exigerIndexComplet();
         res = res.filter(m => !idx.set.has(m.id));
     }
     // `exhaustif` : on a vu la fin du genre (une page vide ou courte). Sinon il
@@ -594,7 +620,7 @@ module.exports = {
     // Le site reste scrapé derrière Cloudflare : la source dépend d'un HTML
     // tiers qui peut changer sans préavis. C'est la nature de la source, pas un
     // défaut à corriger.
-    version:      '1.2.0',
+    version:      '1.2.1',
     unit:      'chapter',
     // Audit PERF-08 : SushiScan sert ses PLANCHES depuis un CDN distinct.
     // Sans cette déclaration, le proxy d'images refuse ces hôtes (403) et le
@@ -644,7 +670,7 @@ module.exports = {
         // L'attente est donc conservée, et c'est le COÛT de l'index qui a été
         // traité : genres construits en parallèle et cache persisté sur disque
         // (voir buildAdultIndex).
-        const idx = await buildAdultIndex();
+        const idx = await exigerIndexComplet();
         const isAdultItem = (m) => idx.set.has(m.id);
         const lim = +limit || 24;
         const off = +offset || 0;
@@ -774,7 +800,7 @@ module.exports = {
             // borné : il est désormais construit en parallèle et persisté sur
             // disque, donc payé une fois toutes les 6 h et non à chaque
             // démarrage. La recherche à chaud reste à ~250 ms.
-            const idx = await buildAdultIndex();
+            const idx = await exigerIndexComplet();
             list = list.filter(m => !idx.set.has(m.id));
         }
         // Genre + texte : le moteur du site ne croise pas les deux, on restreint
