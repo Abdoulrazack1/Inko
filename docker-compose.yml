@@ -61,6 +61,11 @@ services:
       TRUST_PROXY: 1
     ports:
       - "8088:8080"
+    # DAT-25 : fichiers importés et sauvegardes vivaient DANS le conteneur, que
+    # `docker compose up --build` remplace : tout partait à chaque mise à jour.
+    volumes:
+      - inko-uploads:/app/server/uploads
+      - inko-backups:/app/server/backups
     networks: [inko]
 
   # (audit B-5) inko-cache/REDIS_URL retirés : aucun code serveur n'utilise
@@ -88,6 +93,8 @@ services:
 
 volumes:
   inko-db-data:
+  inko-uploads:
+  inko-backups:
 
 networks:
   inko:

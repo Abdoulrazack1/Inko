@@ -71,6 +71,13 @@ const cspDirectives = {
     objectSrc: ["'none'"],
     baseUri: ["'self'"],
     frameAncestors: ["'self'"],
+    // OPS-06 : helmet ajoute par défaut `upgrade-insecure-requests`. Sur un
+    // hub joint en http depuis le réseau (téléphone, autre PC), le navigateur
+    // réclamait alors chaque fichier en https, que le hub ne sert pas :
+    // aucune page ne fonctionnait, alors que tout marchait sur la machine
+    // elle-même. Le passage en https est l'affaire du relais qui le fournit
+    // (Caddyfile), pas de l'application.
+    upgradeInsecureRequests: null,
 };
 
 // En-têtes de sécurité sûrs (noSniff, frameguard, referrerPolicy, etc.)

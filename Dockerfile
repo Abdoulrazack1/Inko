@@ -30,9 +30,16 @@ COPY server/ ./
 # apparait ou disparait (c'est ce qui cassait le build Docker du CI)
 COPY *.html manifest.webmanifest service-worker.js /app/frontend/
 COPY assets/ /app/frontend/assets/
+# OPS-07 : les sources. `server/extensions/*/` est ignoré par git (ce sont les
+# copies INSTALLÉES) : une image construite depuis un dépôt propre n'en avait
+# donc aucune — zéro source, catalogue vide. Le chargeur installe au démarrage
+# celles qui manquent depuis extensions-community/, à côté de server/.
+COPY extensions-community/ /app/extensions-community/
 
-# Dossier d'uploads inscriptible + droits au user non-root « node »
-RUN mkdir -p uploads && chown -R node:node /app
+# Dossiers inscriptibles (fichiers importés, sauvegardes, sources installées)
+# + droits au user non-root « node ». uploads et backups sont des VOLUMES dans
+# docker-compose.yml : sans eux, ils disparaissaient à chaque mise à jour.
+RUN mkdir -p uploads backups extensions && chown -R node:node /app
 USER node
 
 EXPOSE 8080
