@@ -22,15 +22,31 @@
 const RE_PROXY = /\/api\/img\?u=([^&]+)/;
 
 /**
- * Rend l'URL de la source à partir d'une URL éventuellement proxifiée.
- * Toute autre valeur est rendue telle quelle : ce module normalise, il ne
- * valide pas.
+ * Une adresse qu'on accepte de CONSERVER (audit SEC-04) : web (`http`,
+ * `https`, ou relative), image embarquée (`data:image/…`, `blob:`). Tout autre
+ * schéma — `javascript:`, `vbscript:`, `data:text/html` — est refusé : la
+ * valeur voyage (export, listes partagées) et finira un jour dans un `href`.
+ * Les caractères de contrôle sont retirés avant le test, comme le fait un
+ * navigateur : `java\tscript:` en est un.
+ */
+function adresseSure(url) {
+    const v = String(url).replace(/[\u0000- ]+/g, '');
+    const schema = /^([a-z][a-z0-9+.-]*):/i.exec(v);
+    if (!schema) return true;                                   // relative
+    const s = schema[1].toLowerCase();
+    return s === 'http' || s === 'https' || s === 'blob' || /^data:image\//i.test(v);
+}
+
+/**
+ * Rend l'URL de la source à partir d'une URL éventuellement proxifiée, ou
+ * `null` si l'adresse ne doit pas être conservée.
  */
 function brute(url) {
     if (!url || typeof url !== 'string') return null;
     const m = RE_PROXY.exec(url);
-    if (!m) return url;
-    try { return decodeURIComponent(m[1]); } catch (e) { return url; }
+    let source = url;
+    if (m) { try { source = decodeURIComponent(m[1]); } catch (e) { source = url; } }
+    return adresseSure(source) ? source : null;
 }
 
-module.exports = { brute };
+module.exports = { brute, adresseSure };

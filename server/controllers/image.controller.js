@@ -528,4 +528,31 @@ async function proxy(req, res) {
     }
 }
 
-module.exports = { proxy };
+/**
+ * Cette adresse donne-t-elle VRAIMENT une image ? Mêmes gardes que le proxy
+ * (hôtes autorisés, anti-SSRF, disjoncteur, contrôle des octets), et ce qui est
+ * téléchargé rejoint le cache : la vérification ne coûte pas un second appel.
+ * Sert à la réparation des couvertures (`lib/reparation-couvertures.js`).
+ */
+async function verifierImage(url) {
+    if (!url || !/^https?:\/\//i.test(url)) return false;
+    let host;
+    try { host = new URL(url).hostname; } catch (e) { return false; }
+    if (!hostAllowed(host)) return false;
+    if (await surDisque(url)) return true;
+    if (cache.has(url)) return true;
+    if (hoteEnPause(host)) return false;
+    const safe = await resolveSafeHost(host);
+    if (!safe.ok) return false;
+    try {
+        const img = await fetchImage(url, safe.ip);
+        poserSurDisque(url, img.buf, img.type).then(evincer).catch(() => {});
+        noterSuccesHote(host);
+        return true;
+    } catch (e) {
+        noterEchecHote(host);
+        return false;
+    }
+}
+
+module.exports = { proxy, verifierImage };

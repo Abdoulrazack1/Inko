@@ -669,6 +669,31 @@ const MIGRATIONS = [
             await run('ALTER TABLE bookmarks ADD COLUMN note VARCHAR(500) DEFAULT NULL');
         }
     } },
+
+    // ── La corbeille de la bibliothèque (audit DAT-01 / DAT-02) ──
+    // Le 9 novembre, 993 retraits en deux minutes ont vidé une bibliothèque de
+    // 495 séries : le serveur n'avait aucune raison de refuser, aucun retour
+    // arrière, et rien pour dire d'où venait la demande. Chaque retrait passe
+    // désormais par une corbeille de 30 jours (la ligne ENTIÈRE, en JSON : une
+    // colonne ajoutée plus tard y sera conservée sans nouvelle migration), et
+    // chaque événement note son origine.
+    { version: 28, name: 'favoris : corbeille de 30 jours et origine des événements', apply: async () => {
+        await run(`CREATE TABLE IF NOT EXISTS favorites_corbeille (
+            id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+            user_id     INT NOT NULL,
+            manga_id    VARCHAR(191) NOT NULL,
+            donnees     LONGTEXT NOT NULL,
+            lot         CHAR(36) NOT NULL,
+            origine     VARCHAR(96) DEFAULT NULL,
+            supprime_le TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_corbeille_user (user_id, supprime_le),
+            INDEX idx_corbeille_lot (user_id, lot),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+        if (!(await columnExists('events', 'origine'))) {
+            await run('ALTER TABLE events ADD COLUMN origine VARCHAR(96) DEFAULT NULL');
+        }
+    } },
 ];
 
 // ── Migration 10 : sortir les signets des réglages (audit AMEL-41) ──

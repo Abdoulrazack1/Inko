@@ -193,7 +193,11 @@
 
         initTabs();
         try { viewMode = window.Storage?.getPref?.('libView') === 'list' ? 'list' : 'grid'; } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
-        await loadLibrary();
+        // ── Brancher D'ABORD, charger ENSUITE (audit UPD-01) ──
+        // Les écouteurs ne dépendent que du HTML. Branchés après le chargement,
+        // ils manquaient tant que le réseau n'avait pas répondu : « Mettre à
+        // jour » restait sans effet de 7 à 20 s après l'ouverture de la page
+        // (quatre essais mesurés), et tous les autres boutons avec lui.
         bindUpdates();
         wireNotifyButton();
         wireLibRefresh();
@@ -204,8 +208,44 @@
         wireGridDelegation();
         wirePopovers();
         document.getElementById('btnLibCats')?.addEventListener('click', ouvrirGestionCategories);
+        chargement = loadLibrary();
+        await chargement;
         maybeAutoCheck();
     });
+
+    // ── Les couvertures mortes se réparent (audit COV-01/02) ──
+    // Le navigateur signale celles qu'il n'a pas pu afficher ; on les envoie au
+    // serveur par petits paquets, une fois chacune, et l'on repeint avec ce
+    // qu'il a trouvé et enregistré.
+    const aReparer = new Set(), dejaSignalees = new Set();
+    let reparationPrevue = null;
+    document.addEventListener('mh:couverture-absente', (e) => {
+        const id = String(e.detail?.mangaId || '');
+        if (!id || dejaSignalees.has(id)) return;
+        dejaSignalees.add(id); aReparer.add(id);
+        if (!reparationPrevue) reparationPrevue = setTimeout(reparerSignalees, 1500);
+    });
+    async function reparerSignalees() {
+        reparationPrevue = null;
+        await chargement;
+        const lot = [...aReparer].slice(0, 20);
+        lot.forEach(id => aReparer.delete(id));
+        if (!lot.length || !API.me.reparerCouvertures) return;
+        try {
+            const r = await API.me.reparerCouvertures(lot);
+            const neuves = r?.couvertures || {};
+            let n = 0;
+            favs.forEach(f => { if (neuves[f.mangaId]) { f.cover = proxyCouverture(neuves[f.mangaId]); n++; } });
+            if (n) { window.Storage?.cacheLibrary?.(favs); render(); }
+        } catch (e) { window.MH?.err?.('bibliotheque.js', e); return; }   // hub ancien ou limite atteinte : on s'arrête
+        if (aReparer.size && !reparationPrevue) reparationPrevue = setTimeout(reparerSignalees, 4000);
+    }
+    const proxyCouverture = (u) => (API.img ? API.img(u) : u);
+
+    // Promesse du premier chargement : « Aléatoire » l'attend au lieu de
+    // conclure à une bibliothèque vide.
+    let chargement = Promise.resolve();
+    let seriesConnues = false;   // avant cela, « aucune série » voudrait seulement dire « pas encore »
 
     // Déconnecté : on affiche le miroir local de la bibliothèque (lecture seule)
     // pour que les séries ne « disparaissent » jamais. La synchro revient au login.
@@ -251,6 +291,7 @@
         banner.querySelector('#libMiroirReessayer').addEventListener('click', () => location.reload());
 
         favs = cache.favs.slice();
+        seriesConnues = true;
         renderSummary();
         renderFilters();
         render();
@@ -264,14 +305,15 @@
         const KEY = 'inko_lib_lastcheck';
         let last = 0; try { last = +localStorage.getItem(KEY) || 0; } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
         if (Date.now() - last < 6 * 3600 * 1000) return;
-        const status = document.getElementById('libRefreshStatus');
-        if (status) status.innerHTML = '<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span> Recherche de nouveautés…';
+        // En silence (audit UPD-09) : personne n'a rien demandé, aucun texte ne
+        // doit surgir ni se disputer la barre avec une vérification lancée au clic.
         try {
-            await fetchUpdates(undefined, { statusEl: status });
+            const data = await fetchUpdates();
             render();
             try { localStorage.setItem(KEY, String(Date.now())); } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
-            if (status) status.textContent = `À jour · ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
-        } catch (e) { if (status) status.textContent = ''; }
+            const nouveaux = (data.updates || []).filter(u => u.hasNew).length;
+            if (nouveaux) MH.toast?.(`${nouveaux} série(s) avec de nouveaux chapitres`);
+        } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
     }
 
     // ── Mise à jour des chapitres depuis l'onglet Bibliothèque (§15) ──
@@ -285,12 +327,12 @@
             <span class="lib-scan-bar" aria-hidden="true"><span style="width:${pct}%"></span></span>`;
     }
 
-    async function fetchUpdates(scope, { force = false, statusEl = null } = {}) {
+    async function fetchUpdates(scope, { force = false, statusEl = null, onProgress = null } = {}) {
         const data = await API.me.scanUpdates({
             lang: window.Storage?.getPref('readingLang') || 'fr,en',
             scope: scope || (includeFinished() ? 'all' : 'active'),
             force,
-        }, (p) => afficherAvancement(statusEl, p));
+        }, onProgress || ((p) => afficherAvancement(statusEl, p)));
         (data.updates || []).forEach(u => {
             updatesByManga[u.mangaId] = { unreadCount: u.unreadCount, latest: u.latest, hasNew: u.hasNew };
             const f = favs.find(x => x.mangaId === u.mangaId);
@@ -371,6 +413,10 @@
 
     // Densité d'affichage (compact/confort) + Export de la bibliothèque
     function wireLibExtras() {
+        // appelé à l'ouverture ET par le miroir local : une seule fois, sinon
+        // chaque bouton agirait en double
+        if (wireLibExtras.fait) return;
+        wireLibExtras.fait = true;
         const grid = document.getElementById('libGrid');
         const dBtn = document.getElementById('btnLibDensity');
         const gridIcon = MH.icon('grid', 15);
@@ -547,7 +593,8 @@
     function wireLibRandom() {
         const btn = document.getElementById('btnLibRandom');
         if (!btn) return;
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
+            await chargement;   // cliqué pendant le chargement : on attend les séries
             const pool = favsOfKind();
             if (!pool.length) { MH.toast?.('Ta bibliothèque est vide'); return; }
             const f = pool[Math.floor(Math.random() * pool.length)];
@@ -559,25 +606,48 @@
             setTimeout(() => { window.location.href = href; }, 400);
         });
     }
+    // ── « Vérifier les chapitres » (audit UPD-03 à UPD-06) ──
+    // Le retour est immédiat et vit DANS le bouton : plus rien ne surgit dans
+    // la barre pour pousser la page (208 px de décalage mesurés). Le résultat
+    // dit aussi ce qui n'a PAS pu être vérifié, au lieu d'annoncer « à jour »
+    // quand un quart des sources ne répond pas.
     function wireLibRefresh() {
         const btn = document.getElementById('btnLibRefresh');
         const status = document.getElementById('libRefreshStatus');
         if (!btn) return;
+        const texte = btn.querySelector('.lib-maj-texte');
+        const repos = texte ? texte.textContent : '';
+        const dire = (t) => { if (texte) texte.textContent = t; };
         btn.addEventListener('click', async () => {
+            if (btn.classList.contains('en-cours')) return;
+            btn.classList.add('en-cours');
+            btn.setAttribute('aria-busy', 'true');
             btn.disabled = true;
-            if (status) status.innerHTML = '<span class="spinner-inline" style="width:12px;height:12px;border-width:1px"></span> Vérification…';
+            dire('Vérification…');
+            if (status) status.textContent = '';
             try {
-                const data = await fetchUpdates(undefined, { force: true, statusEl: status });
+                const data = await fetchUpdates(undefined, {
+                    force: true,
+                    onProgress: ({ faits, total }) => { if (total) dire(`${faits} / ${total}`); },
+                });
                 const ups = data.updates || [];
                 const totalNew = ups.reduce((n, u) => n + (u.hasNew ? 1 : 0), 0);
                 const totalUnread = ups.reduce((n, u) => n + (u.unreadCount || 0), 0);
+                const echecs = (data.failures || []).length;
                 render();
-                if (status) status.textContent = `À jour · ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
-                MH.toast(totalNew ? `${totalNew} série(s) avec de nouveaux chapitres` : (totalUnread ? `${totalUnread} chapitre(s) non lu(s)` : 'Bibliothèque à jour'));
+                const heure = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                if (status) status.textContent = echecs ? `Vérifié à ${heure} · ${echecs} injoignable(s)` : `Vérifié à ${heure}`;
+                const bilan = totalNew ? `${totalNew} série(s) avec de nouveaux chapitres`
+                    : (totalUnread ? `${totalUnread} chapitre(s) non lu(s)` : (echecs ? 'Aucun nouveau chapitre trouvé' : 'Bibliothèque à jour'));
+                MH.toast(echecs ? `${bilan} — ${echecs} série(s) injoignable(s)` : bilan);
             } catch (e) {
-                if (status) status.textContent = '';
                 MH.toastErreur(e);
-            } finally { btn.disabled = false; }
+            } finally {
+                btn.classList.remove('en-cours');
+                btn.removeAttribute('aria-busy');
+                btn.disabled = false;
+                dire(repos);
+            }
         });
     }
 
@@ -699,6 +769,7 @@
                 API.me.settings().catch(() => ({})),
             ]);
             favs = favoris;
+            seriesConnues = true;
             readByManga = allRead;
             progressByManga = allProg;
             const lc = reglages?.libCategories ?? reglages?.data?.libCategories;
@@ -709,7 +780,7 @@
             // parce que le serveur est eteint, c'est la panne qu'on croit
             // avoir a la place de celle qu'on a.
             if (afficherMiroirLocal()) return;
-            MH.poserEtatErreur(grid, e, { onRetry: () => render() });
+            MH.poserEtatErreur(grid, e, { onRetry: () => { chargement = loadLibrary(); } });
             if (grid.firstChild) grid.firstChild.style.gridColumn = '1/-1';
             return;
         }
@@ -742,24 +813,49 @@
         // La même œuvre suivie sur deux sources : signalée, fusion proposée.
         window.MH?.doublons?.signaler(document.getElementById('libDoublons'), favs, progressByManga);
 
-        const missing = favs.filter(f => !f.title || !f.cover);
-        if (missing.length) {
-            await Promise.allSettled(missing.slice(0, 40).map(async f => {
+        // Sans `await` : la page est prête, la suite se fait derrière.
+        completerFiches(favs.filter(f => !f.title || !f.cover));
+    }
+
+    // ── Compléter les fiches sans titre ni couverture ───────
+    //
+    // Quatre à la fois, quarante au plus, et surtout : ce qu'on trouve est
+    // ENREGISTRÉ (audit UPD-02 / COV-02). Avant, la même recherche repartait à
+    // chaque ouverture de la bibliothèque, et la page l'attendait.
+    async function completerFiches(manquantes) {
+        const file = manquantes.slice(0, 40);
+        if (!file.length) return;
+        let trouvees = 0;
+        const travailler = async () => {
+            while (file.length) {
+                const f = file.shift();
                 try {
                     // BUG-01 : le repli « best-effort » interrogeait la source
                     // COURANTE. Il ne complétait donc pas la fiche, il y
                     // recopiait le titre et la couverture d'une AUTRE œuvre,
                     // sans que rien ne le signale. Un favori sans source reste
                     // affiché tel quel — incomplet et visiblement incomplet.
-                    if (!f.source) return;
+                    if (!f.source) continue;
                     const m = await API.mangas.getFrom(f.source, f.mangaId);
-                    f.title = f.title || m.title;
-                    f.cover = f.cover || m.cover || m.coverThumb;
+                    const ajout = {};
+                    if (!f.title && m.title) { f.title = m.title; ajout.title = m.title; }
+                    const image = m.cover || m.coverThumb;
+                    if (!f.cover && image) { f.cover = image; ajout.cover = image; }
+                    if (ajout.title || ajout.cover) {
+                        trouvees++;
+                        await API.me.completerFavori(f.mangaId, ajout).catch(e => window.MH?.err?.('bibliotheque.js', e));
+                    }
                 } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
-            }));
+            }
+        };
+        await Promise.all([travailler(), travailler(), travailler(), travailler()]);
+        if (trouvees) {
             window.Storage?.cacheLibrary?.(favs);
             render();
         }
+        // La source n'avait pas d'image : le serveur cherchera ailleurs (COV-01).
+        manquantes.slice(0, 40).filter(f => !f.cover && f.title).forEach(f =>
+            document.dispatchEvent(new CustomEvent('mh:couverture-absente', { detail: { mangaId: f.mangaId } })));
     }
 
     // Non-lus EXACTS uniquement : ceux du scan en cours, sinon ceux que le
@@ -1031,6 +1127,8 @@
 
     function render() {
         const grid = document.getElementById('libGrid');
+        // un clic pendant le chargement laisse le squelette en place
+        if (!seriesConnues && !favs.length) return;
         grid.classList.toggle('lib2-grid', viewMode !== 'list');
         grid.classList.toggle('lib2-list', viewMode === 'list');
         // Le résumé des filtres se rafraîchit ICI, et non dans `renderFilters`
@@ -1406,21 +1504,55 @@
         const c = document.getElementById('bulkCount');
         if (c) c.textContent = `${done} / ${total}…`;
     }
+    // Retrait en lot (audit DAT-03, incident du 9 novembre) : un seul appel,
+    // tout ou rien, et un « Annuler ». La question dit quand TOUTE la
+    // bibliothèque est visée — « retirer 497 série(s) » ne le disait pas.
     async function bulkDelete() {
         if (!selected.size) { MH.toast?.('Rien de sélectionné'); return; }
-        if (!await MH.confirm(`Retirer ${selected.size} série(s) de ta bibliothèque ?`, { danger: true, okText: 'Retirer' })) return;
         const ids = [...selected];
-        let done = 0;
-        for (const id of ids) {
-            bulkProgress(++done, ids.length);   // retour visuel (audit N50)
-            try { await API.me.removeFavorite(id); favs = favs.filter(f => f.mangaId !== id); }
-            catch (e) { /* on continue */ }
+        const tout = ids.length > 1 && ids.length >= favs.length;
+        const ok = await MH.confirm(
+            tout ? `Retirer TOUTE ta bibliothèque (${ids.length} séries sur ${favs.length}) ?`
+                : `Retirer ${ids.length} série(s) de ta bibliothèque ?`,
+            { title: 'Retirer de la bibliothèque', danger: true, okText: tout ? `Retirer les ${ids.length}` : 'Retirer' });
+        if (!ok) return;
+        const compte = document.getElementById('bulkCount');
+        if (compte) compte.textContent = `Retrait de ${ids.length}…`;
+        let lot = null;
+        let retires = ids;
+        try {
+            const r = await API.me.removeFavorites(ids);
+            lot = r && r.lot;
+        } catch (e) {
+            if (e.status !== 404) { MH.toastErreur(e); renderSummary(); return; }
+            // un PC pas encore mis à jour n'a pas le retrait en lot : un par un,
+            // en ne comptant que ce qui a réellement été retiré
+            retires = [];
+            let done = 0;
+            for (const id of ids) {
+                bulkProgress(++done, ids.length);
+                try { await API.me.removeFavorite(id); retires.push(id); }
+                catch (x) { window.MH?.err?.('bibliotheque.js', x); }
+            }
         }
-        try { const set = await MH.getFavSet?.(); ids.forEach(id => set?.delete(String(id))); } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
+        const partis = new Set(retires.map(String));
+        favs = favs.filter(f => !partis.has(String(f.mangaId)));
+        try { const set = await MH.getFavSet?.(); partis.forEach(id => set?.delete(id)); } catch (e) { window.MH?.err?.('bibliotheque.js', e); }
         window.Storage?.cacheLibrary?.(favs);
-        MH.toast?.(`${ids.length} série(s) retirée(s)`);
+        if (!favs.length) window.Storage?.clearLibraryCache?.();   // vidée à la demande : le miroir suit
         setSelectMode(false);
         renderSummary(); renderFilters(); render();
+        const message = `${partis.size} série(s) retirée(s)` + (partis.size < ids.length ? ` — ${ids.length - partis.size} en échec` : '');
+        if (lot && MH.annuler) {
+            MH.annuler(message, {
+                surAnnulation: async () => {
+                    const r = await API.me.restaurerCorbeille({ lot });
+                    await loadLibrary();
+                    renderSummary(); renderFilters(); render();
+                    MH.toast?.(`${r.restaures} série(s) remise(s) dans ta bibliothèque`);
+                },
+            });
+        } else MH.toast?.(message);
     }
     async function bulkStatus() {
         if (!selected.size) { MH.toast?.('Rien de sélectionné'); return; }

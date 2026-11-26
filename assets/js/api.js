@@ -881,6 +881,16 @@
                 cover:  meta.cover || null,
             }),
             removeFavorite:   (mangaId)    => del('/me/favorites/' + encodeURIComponent(mangaId)),
+            // Retrait en lot : atomique et annulable (corbeille de 30 jours,
+            // audit DAT-03). `confirmer` redit le nombre attendu. La sauvegarde
+            // préalable peut prendre du temps sur une grosse instance.
+            removeFavorites:  (mangaIds)   => request('POST', '/me/favorites/bulk-remove',
+                { mangaIds, confirmer: new Set(mangaIds.map(String)).size }, { timeout: 120000 }),
+            corbeille:        ()           => get('/me/favorites/corbeille'),
+            restaurerCorbeille: (corps)    => post('/me/favorites/corbeille/restaurer', corps),
+            // Complète le titre ou la couverture MANQUANTS d'un favori (COV-02).
+            completerFavori:  (mangaId, fiche) => put('/me/favorites/' + encodeURIComponent(mangaId) + '/meta', fiche),
+            reparerCouvertures: (mangaIds) => request('POST', '/me/favorites/reparer-couvertures', { mangaIds }, { timeout: 90000 }),
             setCategory:      (mangaId, payload) => put('/me/favorites/' + encodeURIComponent(mangaId) + '/category', payload),
             // opts : string (lang, rétro-compat) ou { lang, scope: 'active'|'all', manga }
             updates: (opts) => {

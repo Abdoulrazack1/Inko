@@ -64,6 +64,13 @@
   ],
   "sushiscan": [
     {
+      "version": "1.2.0",
+      "date": "2026-11-25",
+      "notes": [
+        "Le site passe à sushiscan.net : le certificat de sushiscan.fr a expiré le 21 novembre (plus de recherche ni de couvertures). Favoris et progression conservés."
+      ]
+    },
+    {
       "version": "1.1.0",
       "date": "2026-10-20",
       "notes": [

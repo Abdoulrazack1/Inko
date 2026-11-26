@@ -328,7 +328,17 @@
 .lib-menu-item:hover, .lib-menu-item:focus-visible { background: var(--bg3); }
 .lib-menu-item svg { flex: 0 0 auto; color: var(--text3); }
 .lib-menu-sep { height: 1px; background: var(--border); margin: 6px var(--sp-1); }
-.lib-refresh-status { font-size: var(--t-s); color: var(--text3); display: inline-flex; align-items: center; gap: 6px; }
+/* Le bouton de vérification et son bilan (audit UPD-04). Le bilan est posé
+   SOUS le bouton, hors du flux : il apparaît sans rien déplacer. La largeur
+   minimale et les chiffres tabulaires évitent que le compteur fasse respirer
+   la barre à chaque pas. */
+.lib-maj { position: relative; display: inline-flex; }
+#btnLibRefresh { min-width: 15.5em; justify-content: center; font-variant-numeric: tabular-nums; }
+#btnLibRefresh.en-cours { cursor: progress; }
+#btnLibRefresh.en-cours svg { animation: lib-maj-tourne 0.9s linear infinite; }
+@keyframes lib-maj-tourne { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #btnLibRefresh.en-cours svg { animation: none; } }
+.lib-refresh-status { position: absolute; top: 100%; right: 0; white-space: nowrap; line-height: 1.2; font-size: var(--t-s); color: var(--text3); display: inline-flex; align-items: center; gap: 6px; }
 
 /* ── Gestion des catégories (feuille) ───────────────────────────────── */
 .lib-catmgr-add { display: flex; gap: var(--sp-2); margin-bottom: 14px; }

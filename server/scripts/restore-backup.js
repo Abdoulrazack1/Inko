@@ -61,7 +61,7 @@ function listBackups() {
         return;
     }
     const files = fs.readdirSync(BACKUP_DIR)
-        .filter(f => /^inko-backup-.*\.json(\.enc)?$/.test(f))
+        .filter(f => /^inko-(backup|avant)-.*\.json(\.enc)?$/.test(f))
         .sort().reverse();
     if (!files.length) { console.log('Aucune sauvegarde trouvée.'); return; }
     console.log(`Sauvegardes dans ${BACKUP_DIR} :\n`);

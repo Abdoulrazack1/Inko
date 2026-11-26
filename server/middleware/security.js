@@ -124,16 +124,19 @@ const ORIGINES_MOBILE = new Set([
 function corsOptions() {
     const allow = (process.env.CORS_ORIGINS || '')
         .split(',').map(s => s.trim()).filter(Boolean);
-    // En prod sans liste blanche : permissif UNIQUEMENT si CORS_ALLOW_ANY=1
-    // (audit S-1). Sinon on n'autorise que les requêtes sans Origin (apps
-    // natives, curl, same-origin) et on bloque tout site tiers.
-    // Audit SEC-09 : IS_DESKTOP manquait ici. Le sidecar desktop tourne sans
-    // NODE_ENV=production — c'est précisément pour ça que IS_DESKTOP existe
-    // deux dizaines de lignes plus haut, pour la CSP. Sans lui, n'importe quelle
-    // page web visitée pouvait interroger http://127.0.0.1:8088 et lister les
-    // sources installées (le cookie SameSite=Lax protégeait les endpoints
-    // authentifiés, pas les publics).
-    const permissiveOk = !(IS_PROD || IS_DESKTOP) || CORS_ALLOW_ANY;
+    // Fermé par défaut, PARTOUT (audit SEC-01, 24 novembre).
+    //
+    // SEC-09 avait fermé le mode permissif en production et en desktop ; il
+    // restait ouvert « en développement », c'est-à-dire sur tout serveur lancé
+    // à la main. Il réfléchissait alors n'importe quelle origine AVEC les
+    // identifiants — et `/auth/local` rend le jeton du propriétaire à qui
+    // appelle depuis la machine : une page web quelconque, ouverte pendant que
+    // le serveur tournait, pouvait le lire. Démontré.
+    //
+    // Hors production et desktop, seule la boucle locale reste admise (un front
+    // servi par un autre serveur de la machine). `CORS_ALLOW_ANY=1` est
+    // l'unique échappatoire, et elle est explicite.
+    const boucleAdmise = !(IS_PROD || IS_DESKTOP);
     return {
         credentials: true,
         origin(origin, cb) {
@@ -154,9 +157,26 @@ function corsOptions() {
             if (IS_DESKTOP && ORIGINES_WEBVIEW.has(origin)) return cb(null, true);
             if (ORIGINES_MOBILE.has(origin)) return cb(null, true);   // P2.1 : l'app Android
             if (allow.length) return cb(null, allow.includes(origin));   // liste blanche stricte
-            return cb(null, permissiveOk);               // permissif seulement hors prod ou opt-in
+            if (CORS_ALLOW_ANY) return cb(null, true);                   // opt-in explicite
+            return cb(null, boucleAdmise && ORIGINE_BOUCLE.test(origin));
         },
     };
+}
+
+/** `http://localhost`, `127.0.0.1` ou `[::1]`, avec ou sans port. */
+const ORIGINE_BOUCLE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/i;
+
+/**
+ * Qui peut demander la connexion automatique (`/auth/local`) ? Une page de la
+ * machine, l'application (webview de bureau, Android) ou une origine déclarée.
+ * Un appel sans en-tête `Origin` vient d'un client natif ou d'un outil local.
+ * Volontairement PAS « même hôte » : une page tierce dont le nom de domaine
+ * pointe vers 127.0.0.1 (DNS rebinding) aurait le même hôte que le serveur.
+ */
+function origineAdmiseEnLocal(origin) {
+    if (!origin) return true;
+    const declarees = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+    return ORIGINE_BOUCLE.test(origin) || ORIGINES_WEBVIEW.has(origin) || ORIGINES_MOBILE.has(origin) || declarees.includes(origin);
 }
 
 // Anti brute-force sur l'authentification (login/register/reset).
@@ -242,4 +262,4 @@ const relayLimiter = rateLimit({
     message: { error: 'Trop de requêtes vers les sources. Patiente quelques secondes.' },
 });
 
-module.exports = { securityHeaders, corsOptions, authLimiter, writeLimiter, searchLimiter, imgLimiter, relayLimiter, plafond };
+module.exports = { securityHeaders, corsOptions, origineAdmiseEnLocal, authLimiter, writeLimiter, searchLimiter, imgLimiter, relayLimiter, plafond };

@@ -70,9 +70,10 @@ const RACINE = path.join(__dirname, '..', '..');
 const PAQUET = path.join(RACINE, 'mobile', 'www');
 const PORT = 8612;
 let BASE_STATIQUE = 'http://127.0.0.1:' + PORT;   // reaffectee si le port est pris
-// L'adresse du hub de developpement. `.claude/launch.json` et le serveur
-// s'accordent sur 8088.
-const BASE_HUB = process.env.INKO_HUB_AUDIT || 'http://127.0.0.1:8088';
+// Le hub audite est celui que la configuration e2e demarre (base d'essai),
+// jamais le serveur de developpement et sa vraie bibliotheque (DAT-04) :
+// ce parcours CLIQUE des controles, donc il ecrit.
+const BASE_HUB = process.env.INKO_HUB_AUDIT || `http://127.0.0.1:${process.env.E2E_PORT || 8088}`;
 // `BASE` designe le mode en cours d'audit. Les deux passes partagent tout le
 // reste du code : c'est la seule chose qui les distingue.
 let BASE = BASE_STATIQUE;
