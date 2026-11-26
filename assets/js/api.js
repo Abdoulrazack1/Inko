@@ -1254,6 +1254,23 @@
             await API.auth.local();
             try { window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: _user } })); } catch (e) { window.MH?.err?.('api.js', e); }
             return true;
-        } catch (e) { return false; }   // serveur down / mode local désactivé
+        } catch (e) {
+            // FON-03 / OPS-08 : la connexion automatique est refusée (instance à
+            // plusieurs comptes, ou appareil qui n'est pas l'ordinateur) et il
+            // n'y a pas de session. On mène à l'écran de connexion, plutôt que
+            // de laisser chaque page dire « connexion requise » sans issue.
+            // Pas en mode autonome (aucun hub par conception), ni depuis les
+            // pages qui se lisent sans compte.
+            if (e && e.status === 403 && !window.INKO_AUTONOME) {
+                // Le jeton n'est pas gardé dans la page (SEC-06) : une session
+                // ouverte vit dans le cookie. On la demande avant de conclure.
+                if (await API.auth.me()) return true;
+                const page = (location.pathname.split('/').pop() || '').toLowerCase();
+                if (!/^(connexion|confidentialite|offline|index|u)\.html$/.test(page)) {
+                    location.replace('connexion.html?retour=' + encodeURIComponent(page + location.search));
+                }
+            }
+            return false;   // serveur down / mode local désactivé
+        }
     })();
 })();

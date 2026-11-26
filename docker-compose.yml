@@ -59,6 +59,12 @@ services:
       # CORS_ORIGINS: "https://inko.exemple.com"
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       TRUST_PROXY: 1
+      # OPS-08 : dans un conteneur, aucune requête ne vient de « la machine » :
+      # la connexion automatique n'entrait donc jamais. Instance à comptes :
+      # le premier compte créé sur connexion.html devient administrateur.
+      LOCAL_MODE: '0'
+      # Une fois les comptes de la maison créés : INSCRIPTIONS=fermees
+      INSCRIPTIONS: ${INSCRIPTIONS:-ouvertes}
     ports:
       - "8088:8080"
     # DAT-25 : fichiers importés et sauvegardes vivaient DANS le conteneur, que

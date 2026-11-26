@@ -1489,7 +1489,7 @@
                 icone: '🔑', code: e.data?.code || 'SESSION',
                 titre: 'Session terminée',
                 texte: duServeur || 'Reconnecte-toi pour continuer.',
-                actions: [{ libelle: 'Se connecter', href: 'login.html' }],
+                actions: [{ libelle: 'Se connecter', href: 'connexion.html?retour=' + encodeURIComponent(location.pathname.replace(/^.*\//, '') + location.search) }],
             };
         }
         // SOURCE_LIMITEE — attendre suffit, ne pas proposer de réessayer tout de suite
