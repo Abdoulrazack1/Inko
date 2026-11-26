@@ -485,7 +485,11 @@
         // en plus de la sauvegarde JSON complète. BOM + « ; » pour Excel FR.
         document.getElementById('btnLibExportCsv')?.addEventListener('click', () => {
             if (!favs.length) { MH.toast?.('Ta bibliothèque est vide'); return; }
-            const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+            // SEC-26 : un titre qui commence par = + - @ est lu comme une
+            // FORMULE par le tableur. Les titres viennent des sources et des
+            // fichiers importés : une apostrophe en tête les neutralise, et
+            // l'import ci-dessous la retire.
+            const esc = v => { const s = String(v ?? ''); return `"${(/^[=+\-@\t\r]/.test(s) ? "'" + s : s).replace(/"/g, '""')}"`; };
             // Audit AMEL-34 : deux colonnes étaient MORTES. `f.rating` n'existe
             // plus (la note vit dans la table `ratings` depuis la migration 5)
             // et `f.last_chapter` n'a jamais été le bon nom — l'API renvoie
@@ -533,7 +537,10 @@
             else if (c !== '\r') champ += c;
         }
         if (champ || ligne.length) { ligne.push(champ); lignes.push(ligne); }
-        return lignes.filter(l => l.some(v => String(v).trim()));
+        // L'apostrophe posée à l'export devant une valeur qui ressemble à une
+        // formule (SEC-26) n'appartient pas au titre : l'aller-retour la retire.
+        return lignes.filter(l => l.some(v => String(v).trim()))
+            .map(l => l.map(v => (/^'[=+\-@\t\r]/.test(v) ? v.slice(1) : v)));
     }
 
     async function importerCsv(texte) {
