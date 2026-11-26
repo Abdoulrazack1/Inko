@@ -179,6 +179,28 @@ function origineAdmiseEnLocal(origin) {
     return ORIGINE_BOUCLE.test(origin) || ORIGINES_WEBVIEW.has(origin) || ORIGINES_MOBILE.has(origin) || declarees.includes(origin);
 }
 
+/**
+ * SEC-32 — une écriture authentifiée par COOKIE doit venir de l'application.
+ *
+ * Le cookie est « SameSite=Lax », et les ports ne comptent pas pour « même
+ * site » : une page servie par un autre programme local (http://127.0.0.1:8162)
+ * envoyait un formulaire à /api/me/clear-history, le cookie partait avec, et
+ * tout l'historique de lecture était effacé. Rejoué.
+ *
+ * Volontairement plus strict qu'`origineAdmiseEnLocal` : la boucle locale à
+ * N'IMPORTE QUEL port n'est pas une garantie ici. Sont admis : la même origine
+ * que le serveur, la webview et l'application mobile, les origines déclarées.
+ * Sans en-tête Origin (client natif, outil), seul un corps JSON passe : un
+ * formulaire HTML ne peut pas en envoyer d'un autre site.
+ */
+function ecritureDeLApplication(req) {
+    const origine = req.headers && req.headers.origin;
+    if (!origine) return /application\/json/i.test((req.headers && req.headers['content-type']) || '');
+    try { if (new URL(origine).host === String(req.headers.host || '').toLowerCase()) return true; } catch (e) { return false; }
+    const declarees = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+    return ORIGINES_WEBVIEW.has(origine) || ORIGINES_MOBILE.has(origine) || declarees.includes(origine);
+}
+
 // Anti brute-force sur l'authentification (login/register/reset).
 // Plus strict par défaut (audit S3) ; ajustable via AUTH_RATE_MAX.
 const authLimiter = rateLimit({
@@ -262,4 +284,4 @@ const relayLimiter = rateLimit({
     message: { error: 'Trop de requêtes vers les sources. Patiente quelques secondes.' },
 });
 
-module.exports = { securityHeaders, corsOptions, origineAdmiseEnLocal, authLimiter, writeLimiter, searchLimiter, imgLimiter, relayLimiter, plafond };
+module.exports = { securityHeaders, corsOptions, origineAdmiseEnLocal, ecritureDeLApplication, authLimiter, writeLimiter, searchLimiter, imgLimiter, relayLimiter, plafond };

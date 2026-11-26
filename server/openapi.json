@@ -61,7 +61,7 @@
             "bearerAuth": []
           }
         ],
-        "x-auth": "session",
+        "x-auth": "admin",
         "parameters": [],
         "responses": {
           "200": {
@@ -69,6 +69,9 @@
           },
           "401": {
             "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
           }
         }
       }
@@ -139,7 +142,7 @@
             "bearerAuth": []
           }
         ],
-        "x-auth": "session",
+        "x-auth": "admin",
         "parameters": [],
         "responses": {
           "200": {
@@ -147,6 +150,9 @@
           },
           "401": {
             "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
           }
         }
       },
@@ -164,7 +170,7 @@
             "bearerAuth": []
           }
         ],
-        "x-auth": "session",
+        "x-auth": "admin",
         "parameters": [],
         "responses": {
           "200": {
@@ -172,6 +178,9 @@
           },
           "401": {
             "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
           }
         }
       }
@@ -907,7 +916,7 @@
             "bearerAuth": []
           }
         ],
-        "x-auth": "session",
+        "x-auth": "admin",
         "parameters": [],
         "responses": {
           "200": {
@@ -915,6 +924,9 @@
           },
           "401": {
             "description": "Non authentifié"
+          },
+          "403": {
+            "description": "Réservé à l’administrateur"
           }
         }
       }

@@ -7,7 +7,8 @@
 //      garde toujours la main.
 //   2. Absent, mais on tourne en desktop → un secret est TIRÉ AU SORT au
 //      premier démarrage et conservé dans le profil de l'utilisateur.
-//   3. Absent en développement → secret de repli, avec un avertissement.
+//   3. Absent en développement → même secret propre à la machine (SEC-16) ;
+//      la constante de repli ne sert que si le disque refuse l'écriture.
 //
 // En PRODUCTION sans secret : refus de démarrer. Un serveur public avec un
 // secret devinable, c'est la forge de jetons en une ligne.
@@ -63,8 +64,15 @@ function resoudre() {
         return 'inko-dev-secret-change-me';
     }
 
-    console.warn('[secret] ⚠ JWT_SECRET faible ou non défini — secret de développement utilisé.');
-    console.warn('         Ne JAMAIS exposer en ligne sans définir un JWT_SECRET fort.');
+    // SEC-16 : une installation depuis les sources (et la CI) retombait sur la
+    // constante, lisible dans ce fichier : un jeton s'y forgeait hors ligne,
+    // et le serveur écoute sur tout le réseau. Le secret de la machine est tiré
+    // au sort comme en desktop ; la constante ne reste qu'en dernier recours,
+    // disque en lecture seule.
+    const local = secretsLocaux.obtenir('jwt-secret', 48);
+    if (local) return local;
+    console.warn('[secret] ⚠ JWT_SECRET faible ou non défini, et aucun secret propre à cette machine ne peut être écrit.');
+    console.warn('         Secret de développement utilisé : ne JAMAIS exposer ce serveur sans définir un JWT_SECRET fort.');
     return 'inko-dev-secret-change-me';
 }
 

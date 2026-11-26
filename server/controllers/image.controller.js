@@ -294,8 +294,15 @@ async function resolveSafeHost(host) {
     }
 }
 
-function fetchImage(url, pinnedIp) {
-    if (inflight.has(url)) return inflight.get(url);
+// SEC-18 — `curl -L` suivait les redirections lui-même : seul le PREMIER hôte
+// passait par la liste blanche et la vérification d'adresse (`--resolve` ne
+// vaut que pour lui). Un domaine autorisé qui redirige vers 169.254.169.254 ou
+// le réseau interne emmenait le proxy où il voulait. Les sauts sont désormais
+// suivis ICI, chacun revérifié comme une demande neuve.
+const MARQUE = Buffer.from('\n@@INKO-PROXY@@');
+const MAX_SAUTS = 4;
+
+function curlUneFois(url, pinnedIp) {
     let origin = '', host = '', port = '';
     try { const u = new URL(url); origin = u.origin + '/'; host = u.hostname; port = u.port || (u.protocol === 'https:' ? '443' : '80'); } catch { /* laissé vide */ }
     // --resolve host:port:ip force curl à taper l'IP vérifiée par Node, tout en
@@ -320,33 +327,61 @@ function fetchImage(url, pinnedIp) {
     // La variance mesurée du CDN atteint 3× d'un moment à l'autre : un plafond
     // calé au plus juste redeviendrait trop court à la première mauvaise heure.
     const MAX_TRANSFERT = process.env.IMG_TIMEOUT_S || '60';
-    const args = ['-s', '-L', '--max-redirs', '4', '--compressed',
+    const args = ['-s', '--compressed',
         '--connect-timeout', '10', '-m', MAX_TRANSFERT, '-A', UA, '-e', origin,
-        '-H', 'Accept: image/avif,image/webp,image/*,*/*;q=0.8'];
+        '-H', 'Accept: image/avif,image/webp,image/*,*/*;q=0.8',
+        '-w', MARQUE.toString() + '%{http_code} %{redirect_url}'];
     if (pinnedIp && host && port) args.push('--resolve', `${host}:${port}:${pinnedIp}`);
     args.push(url);
+    return new Promise((resolve, reject) => {
+        execFile('curl', args, { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
+            if (err) return reject(err);
+            const i = stdout ? stdout.lastIndexOf(MARQUE) : -1;
+            if (i < 0) return resolve({ corps: stdout, code: 200, vers: '' });
+            const [code, ...reste] = stdout.slice(i + MARQUE.length).toString('utf8').trim().split(' ');
+            resolve({ corps: stdout.slice(0, i), code: parseInt(code, 10) || 0, vers: reste.join(' ').trim() });
+        });
+    });
+}
+
+async function telecharger(url, pinnedIp) {
+    let courant = url, ip = pinnedIp;
+    for (let saut = 0; ; saut++) {
+        const r = await curlUneFois(courant, ip);
+        if (r.code >= 300 && r.code < 400 && r.vers) {
+            if (saut >= MAX_SAUTS) throw new Error('trop de redirections');
+            let suivant;
+            try { suivant = new URL(r.vers, courant); } catch (e) { throw new Error('redirection illisible'); }
+            if (!/^https?:$/.test(suivant.protocol)) throw new Error('redirection refusée : ' + suivant.protocol);
+            if (!hostAllowed(suivant.hostname)) throw new Error('redirection refusée : ' + suivant.hostname);
+            const sur = await resolveSafeHost(suivant.hostname);
+            if (!sur.ok) throw new Error('redirection refusée : adresse interne');
+            courant = suivant.href; ip = sur.ip;
+            continue;
+        }
+        return r.corps;
+    }
+}
+
+
+function fetchImage(url, pinnedIp) {
+    if (inflight.has(url)) return inflight.get(url);
     // Le jeton est pris AVANT de lancer curl, et rendu quoi qu'il arrive.
     // `inflight` dedoublonne deja les URL identiques en amont : ce qui attend
     // ici, ce sont des images reellement differentes.
     let rendreJeton = null;
-    const p = AMONT.prendre().then((rendre) => {
+    const p = AMONT.prendre().then(async (rendre) => {
         rendreJeton = rendre;
-        return new Promise((resolve, reject) => {
-            // 10 Mo suffisent largement pour une couverture/page (audit S6 : 25 Mo
-            // × 500 entrées = pire cas mémoire intenable sur NAS/Raspberry Pi).
-            execFile('curl', args, { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
-                if (err) return reject(err);
-                if (!stdout || stdout.length < 64) return reject(new Error('image vide'));
-                // `curl -s -L` sans `-f` rend 0 sur un 404 : c'est le CORPS
-                // qui dit si la source a livre une image ou une excuse.
-                const type = typeImage(stdout);
-                if (!type) {
-                    return reject(new Error('reponse non-image (.' + extensionAnnoncee(url)
-                        + ' annoncee) : ' + apercu(stdout)));
-                }
-                resolve({ buf: stdout, type, expires: Date.now() + TTL });
-            });
-        });
+        const stdout = await telecharger(url, pinnedIp);
+        if (!stdout || stdout.length < 64) throw new Error('image vide');
+        // `curl -s` sans `-f` rend 0 sur un 404 : c'est le CORPS qui dit si
+        // la source a livre une image ou une excuse.
+        const type = typeImage(stdout);
+        if (!type) {
+            throw new Error('reponse non-image (.' + extensionAnnoncee(url)
+                + ' annoncee) : ' + apercu(stdout));
+        }
+        return { buf: stdout, type, expires: Date.now() + TTL };
     }).finally(() => { if (rendreJeton) rendreJeton(); inflight.delete(url); });
     inflight.set(url, p);
     return p;

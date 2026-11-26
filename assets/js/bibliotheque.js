@@ -742,7 +742,7 @@
                     <a class="upd-name upd-lien" href="${readHref}">${MH.esc(g.title || g.mangaId)}</a>
                     <div class="upd-meta">${g.chapters.length} chapitre(s) · ${g.chapters.slice(0, 5).map(c => 'Ch.' + c.chapterNum).join(', ')}${g.chapters.length > 5 ? '…' : ''}</div>
                 </div>
-                <button class="btn btn-sm upd-danger" data-dlmanga="${g.mangaId}">Supprimer</button>
+                <button class="btn btn-sm upd-danger" data-dlmanga="${MH.esc(g.mangaId)}">Supprimer</button>
             </div>`;
         }).join('');
         listEl.querySelectorAll('[data-dlmanga]').forEach(b => b.addEventListener('click', async () => {
@@ -1358,7 +1358,7 @@
             // (Le commentaire reste ici : dans le gabarit, il partait 500 fois
             // dans le DOM.)
             return `
-            <a class="lib2-card ${selectMode ? 'selectable' : ''} ${isSel ? 'selected' : ''}" href="${href}" data-manga-id="${f.mangaId}" data-src="${MH.esc(f.source || '')}">
+            <a class="lib2-card ${selectMode ? 'selectable' : ''} ${isSel ? 'selected' : ''}" href="${MH.esc(href)}" data-manga-id="${MH.esc(f.mangaId)}" data-src="${MH.esc(f.source || '')}">
                 <div class="lib2-cover">
                     <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="${MH.esc(f.title || '')}" loading="lazy"
                          onerror="this.src='${MH.placeholderCover(f.mangaId)}'">

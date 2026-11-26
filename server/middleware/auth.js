@@ -21,6 +21,14 @@ function readToken(req) {
 async function authRequired(req, res, next) {
     const token = readToken(req);
     if (!token) return res.status(401).json({ error: 'Non authentifié' });
+    // SEC-32 : sans en-tête Authorization, seul le cookie authentifie — et un
+    // cookie part aussi avec un formulaire envoyé par une autre page. Une
+    // écriture doit alors prouver qu'elle vient de l'application.
+    const bearer = String(req.headers.authorization || '').startsWith('Bearer ');
+    if (!bearer && !/^(GET|HEAD|OPTIONS)$/.test(req.method || 'GET')
+        && !require('./security').ecritureDeLApplication(req)) {
+        return res.status(403).json({ error: 'Requête refusée : elle ne vient pas de l’application.', code: 'ORIGINE_REFUSEE' });
+    }
     try {
         const payload = jwt.verify(token, SECRET);
         const [[user]] = await pool.query(

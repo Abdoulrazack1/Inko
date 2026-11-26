@@ -23,6 +23,18 @@ if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PRO
 // chapitre/serie ~64 Ko) tombent à ~1/4 sur le réseau. Gain direct au 1er
 // chargement et sur mobile/hub distant.
 app.use(compression());
+// SEC-31 : seule une connexion de la machine elle-même peut venir d'une page
+// dont le domaine a été redirigé vers 127.0.0.1. Ses noms d'hôte sont donc
+// vérifiés ; un appareil du réseau ou un relais déclaré n'est pas concerné.
+{
+    const { IP_LOCALES, estRelayee, hoteAdmis } = require('./lib/reseau');
+    app.use((req, res, next) => {
+        const socket = (req.socket && req.socket.remoteAddress) || '';
+        if (!IP_LOCALES.has(socket) || estRelayee(req) || hoteAdmis(req.headers.host)) return next();
+        res.status(421).type('text/plain; charset=utf-8')
+            .send('Nom d’hôte non reconnu. Ouvre Inko par http://127.0.0.1, ou déclare ce nom dans INKO_HOTES.');
+    });
+}
 app.use(securityHeaders);
 app.use(cors(corsOptions()));
 app.use(express.json({ limit: '12mb' }));   // import de sauvegarde possible

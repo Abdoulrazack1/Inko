@@ -16,6 +16,10 @@ function idOeuvreValide(v) {
     if (typeof v !== 'string') return false;
     const t = v.trim();
     if (!t || t.length > 191) return false;
+    // SEC-15 : un identifiant d'œuvre finit dans des attributs HTML. Aucune
+    // source n'en produit avec ces caractères (vérifié sur une base réelle de
+    // 521 favoris) : les refuser ferme la porte à une sauvegarde piégée.
+    if (/[<>"'`\u0000-\u001f]/.test(t)) return false;
     return !/^\[object /.test(t) && t !== 'undefined' && t !== 'null';
 }
 
@@ -1511,7 +1515,7 @@ async function importData(req, res, next) {
         }
 
         const favRows = (d.favorites || [])
-            .filter(f => f.manga_id || f.mangaId)
+            .filter(f => idOeuvreValide(f.manga_id || f.mangaId))
             .map(f => [uid, f.manga_id || f.mangaId, f.source || null, f.title || null,
                        couverture.brute(f.cover), f.category || null, f.last_chapter ?? null]);
         await bulk(
