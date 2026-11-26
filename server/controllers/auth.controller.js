@@ -313,7 +313,17 @@ async function me(req, res) {
     res.json({ user: publicUser(req.user) });
 }
 
-async function logout(_req, res) {
+async function logout(req, res) {
+    // SEC-17 : se déconnecter n'effaçait que le cookie. Le jeton restait
+    // accepté trente jours, par exemple s'il avait été copié. La session est
+    // désormais fermée côté serveur.
+    try {
+        const jeton = jetonPresente(req);
+        const p = jeton ? jwt.verify(jeton, SECRET) : null;
+        if (p && p.jti) {
+            await pool.query('UPDATE sessions SET revoked_at = NOW() WHERE id = ? AND user_id = ? AND revoked_at IS NULL', [p.jti, p.uid]);
+        }
+    } catch (e) { /* jeton déjà invalide : rien à fermer */ }
     res.clearCookie(COOKIE_NAME, { path: '/' });
         res.clearCookie(LEGACY_COOKIE_NAME, { path: '/' });   // audit SEC-11 : purge l'ancien nom
     res.json({ ok: true });
@@ -332,7 +342,20 @@ async function requestReset(req, res, next) {
         // On répond désormais honnêtement, AVANT toute consultation du compte
         // (donc sans révéler son existence). Le recours reste la CLI
         // `npm run reset-password` côté serveur.
-        if (process.env.NODE_ENV === 'production' && !mailer.isConfigured()) {
+        // SEC-14 : sans serveur de messagerie, le jeton était rendu DANS LA
+        // RÉPONSE à quiconque le demandait, dès que NODE_ENV n'était pas
+        // « production » — c'est-à-dire sur l'application installée. Depuis un
+        // autre appareil du réseau : trois requêtes et le compte propriétaire,
+        // administrateur, changeait de mot de passe. Rejoué.
+        // Le jeton n'est plus rendu qu'à la machine elle-même, par une page de
+        // l'application ; ailleurs, la réponse est celle de la production.
+        const { estLocale } = require('../lib/reseau');
+        const { origineAdmiseEnLocal } = require('../middleware/security');
+        // Et seulement en mode local, où l'ordinateur appartient au seul
+        // propriétaire : sur une instance à plusieurs comptes, un programme de
+        // la machine pourrait réinitialiser le compte de n'importe qui.
+        const surPlace = localModeEnabled() && estLocale(req) && origineAdmiseEnLocal(req.headers && req.headers.origin);
+        if (!mailer.isConfigured() && (process.env.NODE_ENV === 'production' || !surPlace)) {
             return res.status(503).json({
                 error: 'La réinitialisation par email n\'est pas configurée sur ce serveur. Contacte l\'administrateur (commande : npm run reset-password).',
             });

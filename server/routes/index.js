@@ -1,7 +1,7 @@
 // routes/index.js — assemble toutes les routes
 const router  = require('express').Router();
 const auth    = require('../middleware/auth');
-const { adminRequired } = require('../middleware/admin');
+const { adminRequired, pasDepuisUnAppareil } = require('../middleware/admin');
 const { authLimiter, writeLimiter, searchLimiter, imgLimiter, relayLimiter } = require('../middleware/security');
 const Auth    = require('../controllers/auth.controller');
 const Update  = require('../controllers/update.controller');
@@ -62,7 +62,7 @@ router.get('/health', async (_req, res) => {
 // MAJ intégrée (app desktop). authRequired (audit S2) : sans lui, n'importe
 // quelle page web ouverte pendant que l'app tourne pouvait POST ici (CSRF
 // simple request) et déclencher fermeture + réinstallation silencieuse.
-router.post('/app/update', auth.authRequired, Update.runUpdate);
+router.post('/app/update', auth.authRequired, adminRequired, Update.runUpdate);   // SEC-19
 
 // ── Reference de l'API (audit AMEL-119) ──────────
 // Generee depuis CE fichier par scripts-ci/gen-openapi.js, et verifiee en CI :
@@ -86,8 +86,8 @@ router.get ('/auth/providers',      Auth.providers);
 // serveur avec des jetons bidons. `skipSuccessfulRequests` ne compte que les
 // echecs : une connexion Google valide n'est jamais penalisee.
 router.post('/auth/google',         authLimiter, Auth.googleAuth);
-router.get ('/auth/google-config',  auth.authRequired, Auth.getGoogleConfig);
-router.put ('/auth/google-config',  auth.authRequired, Auth.setGoogleConfig);
+router.get ('/auth/google-config',  auth.authRequired, adminRequired, Auth.getGoogleConfig);   // SEC-19 : réglage de toute l'instance
+router.put ('/auth/google-config',  auth.authRequired, adminRequired, Auth.setGoogleConfig);
 router.post('/auth/local',          auth.localOnly, authLimiter, Auth.localAuth);   // SEC-01 : boucle locale uniquement
 router.post('/auth/register',       authLimiter, Auth.register);
 router.post('/auth/login',          authLimiter, Auth.login);
@@ -143,7 +143,7 @@ router.get('/artwork',              relayLimiter, Artwork.artwork);
 
 // ── AniList (suivi : config OAuth implicite) ──────
 router.get('/anilist/config',       AniList.config);
-router.put('/anilist/config',       auth.authRequired, AniList.setConfig);
+router.put('/anilist/config',       auth.authRequired, adminRequired, AniList.setConfig);   // SEC-19
 router.get('/anilist/similar',      relayLimiter, AniList.similar);
 
 // ── Mangas (relais vers source active, ?source=<id> pour cibler) ──
@@ -229,7 +229,7 @@ router.delete('/me/bookmarks/:mangaId/:chapterId', auth.authRequired, User.remov
 // émis par un compte authentifié. `authLimiter` la protège du balayage —
 // 31^8 combinaisons, mais un attaquant sur le réseau ne doit pas pouvoir
 // essayer sans fin.
-router.post  ('/devices/pair-code',       auth.authRequired, writeLimiter, Devices.emettreCode);
+router.post  ('/devices/pair-code',       auth.authRequired, pasDepuisUnAppareil, writeLimiter, Devices.emettreCode);   // SEC-27
 router.post  ('/devices/pair',            authLimiter,       Devices.appairer);
 router.get   ('/devices',                 auth.authRequired, Devices.lister);
 router.delete('/devices/:id',             auth.authRequired, Devices.revoquer);
@@ -335,9 +335,9 @@ router.post  ('/me/clear-history',        auth.authRequired, User.clearHistory);
 // Historique : suppression ciblee et export dedie (audit AMEL-112/113)
 router.get   ('/me/history/export',       auth.authRequired, User.exportHistory);
 // Sauvegardes : lister, previsualiser, restaurer SON compte (audit AMEL-73)
-router.get   ('/me/backups',              auth.authRequired, User.listBackups);
-router.post  ('/me/backups/:file/preview', auth.authRequired, User.previewBackup);
-router.post  ('/me/backups/:file/restore', auth.authRequired, writeLimiter, User.restoreBackup);
+router.get   ('/me/backups',              auth.authRequired, pasDepuisUnAppareil, User.listBackups);   // SEC-27
+router.post  ('/me/backups/:file/preview', auth.authRequired, pasDepuisUnAppareil, User.previewBackup);
+router.post  ('/me/backups/:file/restore', auth.authRequired, pasDepuisUnAppareil, writeLimiter, User.restoreBackup);
 router.delete('/me/history/:mangaId',     auth.authRequired, User.deleteHistoryEntry);
 
 router.get   ('/me/events',               auth.authRequired, User.getEvents);

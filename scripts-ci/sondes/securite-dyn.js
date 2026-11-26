@@ -115,7 +115,8 @@ module.exports = {
                     // jamais jouées (effets sur la machine) : on vérifie seulement le refus sans session
                     const r = await appel(null, m, c, corps); essai(`${m} ${c} exige une session`, r.statut === 401 || r.statut === 403, r.statut);
                     if (![401, 403].includes(r.statut)) T('haute', 'SD-SANS-SESSION', `${m} /api${c} répond sans session`, String(r.statut), 'authRequired + adminRequired.');
-                    T('haute', 'SD-ROLE-CONFIG', `${m} /api${c} n'exige qu'une session, pas le rôle administrateur`, 'Lu dans routes/index.js : authRequired sans adminRequired sur une route qui agit sur toute l\'instance.', 'Ajouter adminRequired.', { fichier: 'server/routes/index.js' });
+                    const ligneRoute = ctx.lire(ctx.abs('server', 'routes', 'index.js')).split(/\r?\n/).find(l => l.includes(`router.${m.toLowerCase()}`) && l.includes(`'${c}'`)) || '';
+                    if (!/adminRequired/.test(ligneRoute)) T('haute', 'SD-ROLE-CONFIG', `${m} /api${c} n'exige qu'une session, pas le rôle administrateur`, 'Lu dans routes/index.js : authRequired sans adminRequired sur une route qui agit sur toute l\'instance.', 'Ajouter adminRequired.', { fichier: 'server/routes/index.js' });
                     continue;
                 }
                 const r = await appel(k, m, c, corps); const ok = r.statut === 403 || r.statut === 401;
