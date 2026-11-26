@@ -2,7 +2,7 @@
 // SushiScan — extension Inko (modèle Mihon)
 // ============================================================
 // ⚠ Extension communautaire, fournie sans garantie. Scrape l'HTML
-// de sushiscan.fr (thème Madara/TS). Le site change régulièrement,
+// de sushiscan.net (thème Madara/TS). Le site change régulièrement,
 // utilise Cloudflare et peut bloquer les requêtes serveur.
 //
 // Pré-requis : `npm install cheerio` dans le dossier server/
@@ -16,7 +16,11 @@ catch (e) {
     console.warn('[sushiscan] cheerio manquant — installer avec `cd server && npm install cheerio`');
 }
 
-const BASE = 'https://sushiscan.fr';
+// Le 25 novembre, le certificat de sushiscan.fr était expiré depuis quatre
+// jours : plus une recherche, plus une couverture. Le même site répond sur
+// sushiscan.net (mêmes pages, mêmes adresses de séries et de chapitres : les
+// favoris et la progression restent valables).
+const BASE = 'https://sushiscan.net';
 const UA   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 const http = axios.create({
@@ -218,7 +222,7 @@ function parseChapterDate(s) {
 }
 
 function chapterIdFromUrl(url) {
-    // URL chapitre SushiScan : https://sushiscan.fr/<slug>-chapitre-N/
+    // URL chapitre SushiScan : https://sushiscan.net/<slug>-chapitre-N/
     if (!url) return '';
     return url.replace(BASE, '').replace(/^\/+|\/+$/g, '');
 }
@@ -590,14 +594,14 @@ module.exports = {
     // Le site reste scrapé derrière Cloudflare : la source dépend d'un HTML
     // tiers qui peut changer sans préavis. C'est la nature de la source, pas un
     // défaut à corriger.
-    version:      '1.1.0',
+    version:      '1.2.0',
     unit:      'chapter',
-    // Audit PERF-08 : sushiscan.fr sert ses PLANCHES depuis un CDN distinct.
+    // Audit PERF-08 : SushiScan sert ses PLANCHES depuis un CDN distinct.
     // Sans cette déclaration, le proxy d'images refuse ces hôtes (403) et le
     // lecteur charge en direct — exposant l'adresse IP de l'utilisateur au
     // site source à chaque page tournée.
-    imageHosts: ['anime-sama.me', 'sushiscan.fr'],
-    description:  '⚠ Expérimental — scrape sushiscan.fr (Madara/TS). Populaires & dernières sorties distinctes, dates de sortie des chapitres, recherche sur tout le catalogue, contenu adulte filtré hors espace +18.',
+    imageHosts: ['anime-sama.me', 'sushiscan.net', 'sushiscan.fr'],
+    description:  '⚠ Expérimental — scrape sushiscan.net (Madara/TS). Populaires & dernières sorties distinctes, dates de sortie des chapitres, recherche sur tout le catalogue, contenu adulte filtré hors espace +18.',
     capabilities: ['popular', 'latest', 'search', 'manga', 'chapters', 'pages', 'tags'],
     // Audit BUG-06 : tris REELLEMENT honores. Le site accepte ?order=popular,
     // update et title ; il n'expose aucune note. Sans cette declaration
@@ -884,7 +888,7 @@ module.exports = {
         const html = await fetchHtml(url, 5 * 60_000);
 
         // Ignore les images d'UI/branding qui peuvent traîner dans la page
-        const isJunk = (u) => !u || /(\/social\.|logo|placeholder|loading|banner|sushiscan\.fr\/wp-content\/uploads\/\d{4}\/\d{2}\/social)/i.test(u);
+        const isJunk = (u) => !u || /(\/social\.|logo|placeholder|loading|banner|sushiscan\.(?:net|fr)\/wp-content\/uploads\/(?:\d{4}\/\d{2}\/)?social)/i.test(u);
 
         let pages = [];
 
