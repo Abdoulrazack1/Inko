@@ -38,7 +38,7 @@ module.exports = {
             if (restees.length) T('haute', 'MIG-LAISSE-DERRIERE', `Changer de source laisse derrière : ${Object.keys(r.avant).filter(t => lignes(r.migre, t, 'ancien').length).map(t => NOMS[t] || t).join(', ')}`, restees.join('\n') + '\nLa série disparaît donc de ses listes, ou y reste sous une source morte.', 'Déplacer aussi les listes, l\'historique, l\'activité et les commentaires.');
             const comparer = (t, avant, apres) => Object.keys(avant).filter(k => !VOLATILES.has(k) && k !== 'manga_id' && String(avant[k]) !== String(apres[k])).map(k => `${NOMS[t] || t}.${k} : ${JSON.stringify(avant[k])} → ${JSON.stringify(apres[k])}`);
             const f0 = lignes(r.avant, 'favorites', 'ancien')[0], f1 = lignes(r.migre, 'favorites', 'nouveau')[0];
-            const changes = f0 && f1 ? comparer('favorites', f0, f1).filter(x => /\.(added_at|notify|category|status|unread_count|status_updated_at)/.test(x)) : [];
+            const changes = f0 && f1 ? comparer('favorites', f0, f1).filter(x => /\.(added_at|notify|category|status|status_updated_at)/.test(x)) : [];   // les compteurs propres à l'ancienne source (non lus…) repartent de zéro, à dessein
             if (changes.length) T('moyenne', 'MIG-REGLAGES-PERDUS', 'La série migrée perd ses réglages : date d\'ajout, notifications coupées…', changes.join('\n'), 'Copier toutes les colonnes du favori.');
             // chapitres lus et signets sans équivalent
             const absents = lignes(r.avant, 'read_chapters', 'ancien').length - lignes(r.migre, 'read_chapters', 'nouveau').length - lignes(r.migre, 'read_chapters', 'ancien').length;

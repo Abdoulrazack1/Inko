@@ -35,7 +35,7 @@ async function remplir(appel) {
     await f('temps de lecture', 'POST', '/me/temps-lecture', { secondes: 600 });
     await f('fréquence', 'PUT', '/me/notif-prefs', { everyHours: 24 });
     await f('surveillance', 'PUT', '/me/notif-watch/o-3', { notify: false });
-    await f('push', 'POST', '/me/push/subscribe', { endpoint: 'https://push.exemple.test/abc', keys: { p256dh: 'p', auth: 'a' } });
+    await f('push', 'POST', '/me/push/subscribe', { endpoint: 'https://fcm.googleapis.com/fcm/send/essai-inko', keys: { p256dh: 'p', auth: 'a' } });
     await appel('DELETE', '/me/favorites/o-5');
     return rep;
 }

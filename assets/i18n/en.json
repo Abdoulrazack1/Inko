@@ -1563,7 +1563,10 @@
     "Adresse e-mail invalide.": "Invalid e-mail address.",
     "Mot de passe requis.": "Password required.",
     "Les fichiers que tu as importés (EPUB, CBZ, PDF) ne sont pas dans ces sauvegardes : ils restent sur le disque du hub, dans le dossier": "Files you imported (EPUB, CBZ, PDF) are not in these backups: they stay on the hub’s disk, in the folder",
-    ". Copie-le à part pour les garder.": ". Copy it separately to keep them."
+    ". Copie-le à part pour les garder.": ". Copy it separately to keep them.",
+    "Action irréversible. Entre ton mot de passe pour confirmer — ou, sur l’ordinateur qui héberge Inko, tape SUPPRIMER.": "This cannot be undone. Enter your password to confirm — or, on the computer that hosts Inko, type SUPPRIMER.",
+    "Mot de passe ou SUPPRIMER": "Password or SUPPRIMER",
+    "Réponse inattendue : un portail Wi-Fi ou un proxy s’interpose peut-être. Ouvre une page web pour te connecter au réseau, puis réessaie.": "Unexpected response: a Wi-Fi portal or a proxy may be in the way. Open a web page to sign in to the network, then try again."
   },
   "patterns": [
     [

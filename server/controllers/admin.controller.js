@@ -30,7 +30,9 @@ async function setUserRole(req, res, next) {
         const id = parseInt(req.params.id, 10);
         if (id === req.user.id && role !== 'admin')
             return res.status(400).json({ error: 'Tu ne peux pas retirer ton propre rôle admin' });
-        await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, id]);
+        const [maj] = await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, id]);
+        // OPS-09 : un compte inexistant répondait « réussi ».
+        if (!maj.affectedRows) return res.status(404).json({ error: 'Compte introuvable' });
         res.json({ ok: true, role });
     } catch (e) { next(e); }
 }

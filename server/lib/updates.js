@@ -426,9 +426,14 @@ async function backgroundScan() {
                 // on notifie jusqu'à 5 NOUVELLES séries, et le surplus reste
                 // non-notifié → il sera repris au cycle suivant (le chapitre
                 // reste « nouveau » tant qu'il n'est pas lu).
-                let sent = 0;
+                // FON-07 : « le reste au cycle suivant » n'arrivait jamais. Le
+                // même scan enregistre le dernier chapitre de TOUTES les séries :
+                // au cycle suivant, aucune n'était plus « nouvelle ». Rejoué :
+                // douze séries à jour, cinq annonces, puis plus aucune.
+                // On garde la limite de cinq notifications distinctes, et le
+                // reste part dans UNE notification qui les résume.
+                const aAnnoncer = [];
                 for (const f of fresh) {
-                    if (sent >= 5) break;   // au plus 5 notifs par cycle, le reste au cycle suivant
                     // Audit AMEL-55 : on ouvre le premier chapitre NON LU, pas
                     // le dernier paru — sinon trois chapitres de retard font
                     // sauter les deux du milieu.
@@ -442,6 +447,9 @@ async function backgroundScan() {
                         );
                         if (dup) continue;
                     } catch (e) { /* table absente : createNotification l'ignorera aussi */ }
+                    aAnnoncer.push({ f, cible, link });
+                }
+                for (const { f, cible, link } of aAnnoncer.slice(0, 5)) {
                     await createNotification(u.user_id, {
                         type: 'new_chapter',
                         ...contenuNotification(f, cible),
@@ -449,7 +457,16 @@ async function backgroundScan() {
                         image: f.cover || null,
                         groupKey: f.mangaId,
                     });
-                    sent++;
+                }
+                const reste = aAnnoncer.slice(5);
+                if (reste.length) {
+                    const titres = reste.map(x => x.f.title).filter(Boolean);
+                    await createNotification(u.user_id, {
+                        type: 'new_chapter_resume',
+                        title: `${reste.length} autres séries ont de nouveaux chapitres`,
+                        body: titres.slice(0, 6).join(', ') + (titres.length > 6 ? `… (+${titres.length - 6})` : ''),
+                        link: '/bibliotheque.html',
+                    });
                 }
             } catch (e) { /* utilisateur suivant */ }
         }
