@@ -2,6 +2,7 @@
 const { pool } = require('../config/db');
 const { notifyMentions, createNotification } = require('../lib/notify');
 const couverture = require('../lib/couverture');
+const corbeille = require('../lib/corbeille');   // retraits annulables (audit DAT-01)
 const Auth = require('./auth.controller');   // decrireAppareil : le nom lisible d'un navigateur
 
 // Identifiant d'œuvre plausible. Les routes se contentaient d'un `if
@@ -64,9 +65,37 @@ async function pushEvent(userId, type, payload = {}, req = null) {
     const { mangaId, chapterId, metadata } = payload;
     const source = await sourceConnue(userId, mangaId, payload.source);
     await pool.query(
-        'INSERT INTO events (user_id, type, manga_id, source, chapter_id, metadata) VALUES (?, ?, ?, ?, ?, ?)',
-        [userId, type, mangaId || null, source, chapterId || null, metadata ? JSON.stringify(metadata) : null]
+        'INSERT INTO events (user_id, type, manga_id, source, chapter_id, metadata, origine) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        // `origine` (audit DAT-02) : le 9 novembre, 993 retraits sans la
+        // moindre indication de qui les demandait.
+        [userId, type, mangaId || null, source, chapterId || null, metadata ? JSON.stringify(metadata) : null, corbeille.origineDe(req)]
     );
+}
+
+/** Exécute `f(connexion)` dans une transaction ; tout ou rien. */
+async function enTransaction(f) {
+    const cx = await pool.getConnection();
+    try {
+        await cx.beginTransaction();
+        const r = await f(cx);
+        await cx.commit();
+        return r;
+    } catch (e) {
+        try { await cx.rollback(); } catch (x) { /* connexion déjà perdue */ }
+        throw e;
+    } finally { cx.release(); }
+}
+
+/** Un événement par œuvre, en une seule requête. */
+async function pushEvents(userId, type, mangaIds, metadata, req) {
+    if (!mangaIds.length || (req && lecturePrivee(req))) return;
+    const meta = metadata ? JSON.stringify(metadata) : null;
+    const origine = corbeille.origineDe(req);
+    for (let i = 0; i < mangaIds.length; i += 500) {
+        await pool.query(
+            'INSERT INTO events (user_id, type, manga_id, source, chapter_id, metadata, origine) VALUES ?',
+            [mangaIds.slice(i, i + 500).map(id => [userId, type, id, null, null, meta, origine])]);
+    }
 }
 
 // ── Pagination homogene (audit AMEL-121) ────────────────────
@@ -153,12 +182,103 @@ async function addFavorite(req, res, next) {
 
 async function removeFavorite(req, res, next) {
     try {
-        await pool.query(
-            'DELETE FROM favorites WHERE user_id = ? AND manga_id = ?',
-            [req.user.id, req.params.mangaId]
-        );
-        await pushEvent(req.user.id, 'unfavorite', { mangaId: req.params.mangaId }, req);
-        res.json({ ok: true });
+        // Au rythme d'une main, personne n'atteint ce plafond. Une boucle, si :
+        // elle doit passer par le retrait en lot, qui exige de dire COMBIEN.
+        const p = corbeille.plafondUnitaire(req.user.id);
+        if (!p.ok) {
+            if (res.set) res.set('Retry-After', String(p.attendreS));
+            return res.status(429).json({
+                error: `Trop de retraits d'affilée. Pour en retirer beaucoup, utilise « Sélectionner ». Réessaie dans ${p.attendreS} s.`,
+                code: 'SUPPRESSION_EN_RAFALE', retryAfter: p.attendreS,
+            });
+        }
+        const r = await enTransaction(cx => corbeille.retirer(cx, req.user.id, [req.params.mangaId], corbeille.origineDe(req)));
+        await pushEvent(req.user.id, 'unfavorite', { mangaId: req.params.mangaId, metadata: r.retires.length ? { lot: r.lot } : undefined }, req);
+        res.json({ ok: true, lot: r.retires.length ? r.lot : null });
+    } catch (e) { next(e); }
+}
+
+// POST /me/favorites/bulk-remove — retrait en lot : atomique, annulable (DAT-03)
+// `confirmer` doit valoir le nombre d'œuvres visées : le client dit ce qu'il
+// croit retirer, et un écart (sélection qui a changé, boucle fautive) arrête tout.
+async function removeFavoritesBulk(req, res, next) {
+    try {
+        const { mangaIds, confirmer } = req.body || {};
+        if (!Array.isArray(mangaIds) || !mangaIds.length) return res.status(400).json({ error: 'mangaIds[] requis' });
+        if (mangaIds.some(id => !idOeuvreValide(id))) return res.status(400).json({ error: 'mangaId invalide dans la liste' });
+        const ids = [...new Set(mangaIds.map(String))];
+        if (ids.length > corbeille.LOT_MAX) return res.status(400).json({ error: `Au plus ${corbeille.LOT_MAX} séries à la fois` });
+        if (Number(confirmer) !== ids.length) {
+            return res.status(400).json({ error: `Confirme le nombre exact de séries à retirer (${ids.length}).`, code: 'CONFIRMATION_REQUISE', nombre: ids.length });
+        }
+        // Avant un retrait massif, une photographie complète. Sans elle, on ne
+        // retire rien : un filet qui n'a pas pu être tendu n'en est pas un.
+        let sauvegarde = null;
+        if (ids.length >= corbeille.SEUIL_SAUVEGARDE) {
+            try { sauvegarde = require('path').basename((await require('../lib/backup').runBackup({ etiquette: 'retrait' })).file); }
+            catch (e) {
+                console.error('[corbeille] sauvegarde préalable impossible :', e.message);
+                return res.status(503).json({ error: 'La sauvegarde préalable a échoué : rien n’a été retiré.', code: 'SAUVEGARDE_IMPOSSIBLE' });
+            }
+        }
+        const r = await enTransaction(cx => corbeille.retirer(cx, req.user.id, ids, corbeille.origineDe(req)));
+        await pushEvents(req.user.id, 'unfavorite', r.retires, { lot: r.lot, enLot: r.retires.length }, req);
+        res.json({ ok: true, retires: r.retires.length, nonTrouves: ids.length - r.retires.length, lot: r.retires.length ? r.lot : null, sauvegarde });
+    } catch (e) { next(e); }
+}
+
+// GET /me/favorites/corbeille — ce qui a été retiré depuis 30 jours
+async function getCorbeille(req, res, next) {
+    try {
+        res.json({ dureeJours: corbeille.DUREE_JOURS, lots: await corbeille.lister(pool, req.user.id) });
+    } catch (e) { next(e); }
+}
+
+// POST /me/favorites/corbeille/restaurer { lot? , mangaIds? }
+async function restaurerCorbeille(req, res, next) {
+    try {
+        const { lot, mangaIds } = req.body || {};
+        if (!lot && !(Array.isArray(mangaIds) && mangaIds.length)) return res.status(400).json({ error: 'lot ou mangaIds[] requis' });
+        if (lot && !/^[0-9a-f-]{36}$/i.test(String(lot))) return res.status(400).json({ error: 'lot invalide' });
+        if (mangaIds && (!Array.isArray(mangaIds) || mangaIds.length > corbeille.LOT_MAX)) return res.status(400).json({ error: 'mangaIds invalide' });
+        const r = await enTransaction(cx => corbeille.restaurer(cx, req.user.id, { lot, mangaIds }));
+        res.json({ ok: true, ...r });
+    } catch (e) { next(e); }
+}
+
+// PUT /me/favorites/:mangaId/meta — complète ce qui MANQUE (audit COV-02)
+// Jamais d'écrasement : un titre ou une couverture déjà présents restent, et
+// une série absente de la bibliothèque n'y est pas ajoutée.
+async function completerFavori(req, res, next) {
+    try {
+        const { title, cover } = req.body || {};
+        const titre = typeof title === 'string' ? title.trim().slice(0, 512) : '';
+        const brute = couverture.brute(cover);
+        const image = brute && brute.length <= 512 ? brute : null;   // tronquée, une adresse ne vaut plus rien
+        if (!titre && !image) return res.status(400).json({ error: 'title ou cover requis' });
+        const [r] = await pool.query(
+            `UPDATE favorites SET title = COALESCE(NULLIF(title, ''), ?), cover = COALESCE(NULLIF(cover, ''), ?)
+             WHERE user_id = ? AND manga_id = ?`,
+            [titre || null, image, req.user.id, req.params.mangaId]);
+        res.json({ ok: true, modifie: r.changedRows > 0 });
+    } catch (e) { next(e); }
+}
+
+// POST /me/favorites/reparer-couvertures { mangaIds } — les couvertures que le
+// navigateur n'a pas pu afficher (audit COV-01) : redemandées à la source puis
+// à AniList, vérifiées, enregistrées. Rend les nouvelles adresses.
+async function reparerCouvertures(req, res, next) {
+    try {
+        const { mangaIds } = req.body || {};
+        if (!Array.isArray(mangaIds) || !mangaIds.length || mangaIds.some(id => !idOeuvreValide(id))) {
+            return res.status(400).json({ error: 'mangaIds[] requis' });
+        }
+        const reparation = require('../lib/reparation-couvertures');
+        const r = await reparation.reparer(pool, req.user.id, mangaIds, {
+            source: (id) => require('../extensions/loader').get(id),
+            verifierImage: require('./image.controller').verifierImage,
+        });
+        res.json({ ok: true, ...r });
     } catch (e) { next(e); }
 }
 
@@ -171,7 +291,7 @@ async function setFavoriteCategory(req, res, next) {
              VALUES (?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE category = VALUES(category),
                 title = COALESCE(title, VALUES(title)), cover = COALESCE(cover, VALUES(cover))`,
-            [req.user.id, req.params.mangaId, category || null, title || null, cover || null, source || 'mangadex']
+            [req.user.id, req.params.mangaId, category || null, title || null, couverture.brute(cover), source || 'mangadex']
         );
         res.json({ ok: true });
     } catch (e) { next(e); }
@@ -719,7 +839,7 @@ async function addBookmark(req, res, next) {
                 source = VALUES(source), title = VALUES(title), cover = VALUES(cover),
                 chapter_num = VALUES(chapter_num), page = VALUES(page), label = VALUES(label),
                 note = VALUES(note), created_at = CURRENT_TIMESTAMP`,
-            [req.user.id, mangaId, chapterId, source || null, title || null, cover || null,
+            [req.user.id, mangaId, chapterId, source || null, title || null, couverture.brute(cover),
                 Number.isFinite(+chapterNum) ? +chapterNum : null,
                 Number.isFinite(+page) ? +page : 1, label || null, note || null]);
         res.json({ ok: true });
@@ -772,7 +892,7 @@ async function addToList(req, res, next) {
         await pool.query(
             `INSERT INTO list_items (list_id, manga_id, source, title, cover) VALUES (?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE source=VALUES(source), title=VALUES(title), cover=VALUES(cover)`,
-            [req.params.id, mangaId, source || null, title || null, cover || null]
+            [req.params.id, mangaId, source || null, title || null, couverture.brute(cover)]
         );
         res.json({ ok: true });
     } catch (e) { next(e); }
@@ -1356,7 +1476,19 @@ async function exportData(req, res, next) {
 async function importData(req, res, next) {
     try {
         const uid = req.user.id;
-        const d = req.body || {};
+        // Un fichier d'import abîmé doit répondre 400 et dire quel champ, pas
+        // planter (audit API-01 : `(d.favorites || []).filter is not a function`
+        // → 500, sur la route qu'on utilise justement en cas de sinistre).
+        const d = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? { ...req.body } : null;
+        if (!d) return res.status(400).json({ error: 'Fichier d’import illisible : un objet est attendu.' });
+        for (const champ of ['favorites', 'library', 'progress', 'readChapters', 'ratings', 'lists', 'listItems', 'bookmarks', 'notes']) {
+            if (d[champ] === undefined || d[champ] === null) continue;
+            if (!Array.isArray(d[champ])) return res.status(400).json({ error: `Fichier d’import illisible : « ${champ} » doit être une liste.`, champ });
+            d[champ] = d[champ].filter(x => x && typeof x === 'object');   // une entrée vide ne fait pas tout échouer
+        }
+        if (d.settings !== undefined && d.settings !== null && (typeof d.settings !== 'object' || Array.isArray(d.settings))) {
+            return res.status(400).json({ error: 'Fichier d’import illisible : « settings » doit être un objet.', champ: 'settings' });
+        }
         const counts = { favorites: 0, library: 0, progress: 0, readChapters: 0, ratings: 0 };
 
         // Audit B3 : import batché (INSERT ... VALUES ? multi-lignes, par
@@ -1381,7 +1513,7 @@ async function importData(req, res, next) {
         const favRows = (d.favorites || [])
             .filter(f => f.manga_id || f.mangaId)
             .map(f => [uid, f.manga_id || f.mangaId, f.source || null, f.title || null,
-                       f.cover || null, f.category || null, f.last_chapter ?? null]);
+                       couverture.brute(f.cover), f.category || null, f.last_chapter ?? null]);
         await bulk(
             `INSERT INTO favorites (user_id, manga_id, source, title, cover, category, last_chapter)
              VALUES ?
@@ -1812,6 +1944,7 @@ async function getTempsLecture(req, res, next) {
 module.exports = {
     startUpdatesScan, getUpdatesScan, renameCategory, deleteCategory, setCategoryBulk,
     getFavorites, addFavorite, removeFavorite, setFavoriteCategory,
+    removeFavoritesBulk, getCorbeille, restaurerCorbeille, completerFavori, reparerCouvertures,
     getAnilistLinks, setAnilistLinks,
     getLibrary, setLibraryStatus,
     getAllProgress, setProgress, deleteProgress, getProgressHistory,

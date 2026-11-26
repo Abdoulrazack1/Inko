@@ -14,6 +14,7 @@ const { pool } = require('../config/db');
 
 const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, '..', 'backups');
 const KEEP = Math.max(2, parseInt(process.env.BACKUP_KEEP || '14', 10) || 14);
+const KEEP_AVANT = 10;   // instantanés pris avant une action destructrice (DAT-06)
 
 // ── Audit SEC-15 : chiffrement des sauvegardes ───────────────
 // Le dump contient l'email et TOUTE la bibliothèque de chaque compte, en clair
@@ -98,7 +99,10 @@ async function buildUserExport(u) {
     };
 }
 
-async function runBackup() {
+// `etiquette` : instantané pris AVANT une action destructrice (audit DAT-06).
+// Il a son propre nom et sa propre rotation : dix retraits en lot ne doivent
+// pas chasser deux semaines de sauvegardes quotidiennes.
+async function runBackup({ etiquette } = {}) {
     const [users] = await pool.query('SELECT id, username, email FROM users');
     const accounts = [];
     for (const u of users) {
@@ -115,17 +119,24 @@ async function runBackup() {
     // Extension distincte : on voit d'un coup d'œil ce qui est chiffré, et le
     // script de restauration sait quoi faire sans deviner (audit SEC-15).
     const ext = PASSPHRASE ? 'json.enc' : 'json';
-    const file = path.join(BACKUP_DIR, `inko-backup-${day}.${ext}`);
+    const marque = etiquette ? String(etiquette).replace(/[^a-z0-9-]/gi, '').slice(0, 24) : '';
+    const file = path.join(BACKUP_DIR, marque
+        ? `inko-avant-${marque}-${new Date().toISOString().replace(/[:.]/g, '-')}.${ext}`
+        : `inko-backup-${day}.${ext}`);
     const json = JSON.stringify(payload);
     fs.writeFileSync(file, PASSPHRASE ? encrypt(json, PASSPHRASE) : json);   // écrase le dump du jour si relancé
     // Le dump reste lisible par le seul propriétaire (POSIX ; sans effet sur
     // Windows, où le dossier de l'app fait déjà la séparation).
     try { fs.chmodSync(file, 0o600); } catch (e) { /* système de fichiers sans permissions */ }
-    // Rotation : garde les KEEP plus récents (les deux formats confondus)
-    const all = fs.readdirSync(BACKUP_DIR).filter(f => /^inko-backup-.*\.json(\.enc)?$/.test(f)).sort();
-    all.slice(0, Math.max(0, all.length - KEEP)).forEach(f => {
-        try { fs.unlinkSync(path.join(BACKUP_DIR, f)); } catch (e) { /* déjà supprimé */ }
-    });
+    // Rotation : garde les KEEP quotidiennes les plus récentes (les deux formats
+    // confondus) ; les instantanés « avant … » ont leur propre quota.
+    const effacer = (f) => { try { fs.unlinkSync(path.join(BACKUP_DIR, f)); } catch (e) { /* déjà supprimé */ } };
+    const quotidiennes = fs.readdirSync(BACKUP_DIR).filter(f => /^inko-backup-.*\.json(\.enc)?$/.test(f)).sort();
+    quotidiennes.slice(0, Math.max(0, quotidiennes.length - KEEP)).forEach(effacer);
+    const instantanes = fs.readdirSync(BACKUP_DIR).filter(f => /^inko-avant-.*\.json(\.enc)?$/.test(f))
+        .map(f => ({ f, t: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
+        .sort((a, b) => a.t - b.t || a.f.localeCompare(b.f));
+    instantanes.slice(0, Math.max(0, instantanes.length - KEEP_AVANT)).forEach(x => effacer(x.f));
     return { file, accounts: accounts.length, encrypted: !!PASSPHRASE };
 }
 
@@ -164,12 +175,12 @@ function scheduleBackups() {
 function listerSauvegardes() {
     try {
         return fs.readdirSync(BACKUP_DIR)
-            .filter(f => /^inko-backup-.*\.json(\.enc)?$/.test(f))
-            .sort().reverse()
+            .filter(f => /^inko-(backup|avant)-.*\.json(\.enc)?$/.test(f))
             .map(f => {
                 const st = fs.statSync(path.join(BACKUP_DIR, f));
                 return { file: f, size: st.size, at: st.mtime, encrypted: f.endsWith('.enc') };
-            });
+            })
+            .sort((a, b) => b.at - a.at || b.file.localeCompare(a.file));
     } catch (e) { return []; }
 }
 

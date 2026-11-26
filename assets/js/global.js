@@ -2816,6 +2816,12 @@
                 + ' .latte, .sim-card, .note-card, .nt-item, .history-entry');
             if (!dansUneCarte && !/\/api\/img|covers?/.test(img.src || '')) return;
             img.dataset.secoursPose = '1';
+            // La page qui sait réparer (la bibliothèque) est prévenue : le
+            // dessin n'est que l'attente d'une vraie couverture (audit COV-01).
+            const carte = img.closest('[data-manga-id]');
+            if (carte && /\/api\/img|^https?:/.test(img.getAttribute('src') || '')) {
+                document.dispatchEvent(new CustomEvent('mh:couverture-absente', { detail: { mangaId: carte.dataset.mangaId } }));
+            }
             const graine = img.dataset.seed
                 || img.closest('[data-id]')?.dataset.id
                 || img.alt

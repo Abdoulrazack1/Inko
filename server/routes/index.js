@@ -171,7 +171,15 @@ router.get('/sources/:sourceId/chapters/:id/text',   relayLimiter, Manga.text);
 router.get   ('/me/favorites',            auth.authRequired, User.getFavorites);
 router.post  ('/me/favorites',            auth.authRequired, User.addFavorite);
 router.delete('/me/favorites/:mangaId',   auth.authRequired, User.removeFavorite);
+// Retrait en lot (atomique, précédé d'une sauvegarde) et corbeille de 30 jours
+// (audit DAT-01 / DAT-03, incident du 9 novembre).
+router.post  ('/me/favorites/bulk-remove',          auth.authRequired, writeLimiter, User.removeFavoritesBulk);
+router.get   ('/me/favorites/corbeille',            auth.authRequired, User.getCorbeille);
+router.post  ('/me/favorites/corbeille/restaurer',  auth.authRequired, writeLimiter, User.restaurerCorbeille);
+// Chaque appel peut sortir vers une source et AniList : même limiteur que les relais.
+router.post  ('/me/favorites/reparer-couvertures',  auth.authRequired, relayLimiter, User.reparerCouvertures);
 router.put   ('/me/favorites/:mangaId/category', auth.authRequired, User.setFavoriteCategory);
+router.put   ('/me/favorites/:mangaId/meta',     auth.authRequired, User.completerFavori);
 
 router.get   ('/me/library',              auth.authRequired, User.getLibrary);
 router.put   ('/me/library/:mangaId',     auth.authRequired, User.setLibraryStatus);

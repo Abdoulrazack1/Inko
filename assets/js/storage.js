@@ -59,6 +59,24 @@
         getPref(k)       { return window.Storage.getPrefs()[k]; },
 
         // ── Cache bibliothèque (favoris) ──
+        // Un miroir NE SE VIDE PAS tout seul.
+        //
+        // Ce cache existe pour que la bibliothèque ne disparaisse jamais :
+        // serveur éteint, session perdue, réseau coupé, on affiche la
+        // dernière copie connue. Or il était réécrit avec TOUT ce que le
+        // serveur renvoyait — y compris une liste vide.
+        //
+        // Le 9 novembre, le serveur a répondu 200 avec zéro favori. La
+        // bibliothèque s'est affichée vide, et dans la foulée le miroir
+        // de 495 entrées a été remplacé par une liste vide : le filet de
+        // sécurité s'est effacé au moment précis où il servait. Les
+        // favoris ont été retrouvés dans la sauvegarde de la veille,
+        // mais le miroir, lui, n'était récupérable nulle part.
+        //
+        // Donc : on n'écrase jamais un miroir garni par du vide. Vider
+        // vraiment sa bibliothèque reste possible — `clearLibraryCache`
+        // existe pour ça, et la déconnexion l'appelle. Ce qu'on refuse,
+        // c'est de le faire SANS QUE PERSONNE NE L'AIT DEMANDÉ.
         cacheLibrary(favs) {
             try {
                 const slim = (favs || []).map(f => ({
@@ -66,6 +84,14 @@
                     source: f.source, status: f.status, category: f.category,
                     lastChapter: f.lastChapter,
                 }));
+                if (!slim.length) {
+                    const avant = this.getCachedLibrary();
+                    if (avant && avant.favs.length) {
+                        window.MH?.err?.('storage.js',
+                            new Error(`miroir conservé : réponse vide contre ${avant.favs.length} entrée(s) gardées`));
+                        return;
+                    }
+                }
                 set(LIB_KEY, { at: Date.now(), favs: slim });
             } catch (e) { window.MH?.err?.('storage.js', e); }
         },

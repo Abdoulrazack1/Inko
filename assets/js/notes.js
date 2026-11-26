@@ -18,27 +18,8 @@
         MH.initPage('notes');
         await (window.API?.ready || Promise.resolve());   // session locale auto
         if (!API.isLoggedIn()) { showLoggedOut(); return; }
-        await MH.loadSourceTypes?.();
-        await loadStats();
-        API.me.journalActivite(90).then(async r => {
-            activiteJours = r.jours || [];
-            if (vue === 'carnet') render(requete());
-            // Séries lues mais absentes de la bibliothèque : titre et couverture
-            // demandés à leur source, une fois (10 au plus).
-            const manquantes = new Map();
-            activiteJours.forEach(j => j.series.forEach(s => { if (!s.titre && s.source) manquantes.set(s.mangaId, s); }));
-            const liste = [...manquantes.values()].slice(0, 10);
-            if (!liste.length) return;
-            const res = await Promise.allSettled(liste.map(s => API.mangas.getFrom(s.source, s.mangaId)));
-            const infos = new Map();
-            res.forEach((x, i) => { if (x.status === 'fulfilled' && x.value?.title) infos.set(liste[i].mangaId, x.value); });
-            activiteJours.forEach(j => j.series.forEach(s => {
-                const m = infos.get(s.mangaId);
-                if (m) { s.titre = m.title; s.cover = s.cover || m.coverThumb || m.cover; }
-            }));
-            if (vue === 'carnet') render(requete());
-        }).catch(e => window.MH?.err?.('notes.js', e));
-        await loadNotes();
+        // Brancher d'abord, charger ensuite (audit UPD-01) : filtres, export et
+        // « Récit » ne dépendent que du HTML ; ils répondaient après les chiffres.
         brancherJournal();
         document.getElementById('jrExportMd')?.addEventListener('click', exporterMarkdown);
         brancherFiltres();
@@ -60,6 +41,27 @@
             clearTimeout(searchTimer);
             searchTimer = setTimeout(() => render(e.target.value.trim().toLowerCase()), 200);
         });
+        await MH.loadSourceTypes?.();
+        await loadStats();
+        API.me.journalActivite(90).then(async r => {
+            activiteJours = r.jours || [];
+            if (vue === 'carnet') render(requete());
+            // Séries lues mais absentes de la bibliothèque : titre et couverture
+            // demandés à leur source, une fois (10 au plus).
+            const manquantes = new Map();
+            activiteJours.forEach(j => j.series.forEach(s => { if (!s.titre && s.source) manquantes.set(s.mangaId, s); }));
+            const liste = [...manquantes.values()].slice(0, 10);
+            if (!liste.length) return;
+            const res = await Promise.allSettled(liste.map(s => API.mangas.getFrom(s.source, s.mangaId)));
+            const infos = new Map();
+            res.forEach((x, i) => { if (x.status === 'fulfilled' && x.value?.title) infos.set(liste[i].mangaId, x.value); });
+            activiteJours.forEach(j => j.series.forEach(s => {
+                const m = infos.get(s.mangaId);
+                if (m) { s.titre = m.title; s.cover = s.cover || m.coverThumb || m.cover; }
+            }));
+            if (vue === 'carnet') render(requete());
+        }).catch(e => window.MH?.err?.('notes.js', e));
+        await loadNotes();
     });
 
     function showLoggedOut() {

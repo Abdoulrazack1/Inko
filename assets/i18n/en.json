@@ -20,6 +20,9 @@
     "footer.legal": "Legal"
   },
   "strings": {
+    "Vérifier les chapitres": "Check for chapters",
+    "Filtre par statut, catégorie ou source. « Vérifier les chapitres » cherche les nouveautés de tout ce que tu suis.": "Filter by status, category or source. “Check for chapters” looks for new releases in everything you follow.",
+    "Aucun nouveau chapitre trouvé": "No new chapters found",
     "(défini par variable d’environnement)": "(set by environment variable)",
     "(développement)": "(development)",
     "(export JSON).": "(JSON export).",

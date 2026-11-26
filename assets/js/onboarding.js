@@ -259,7 +259,7 @@
     // les avoir vues n'empeche pas de rejouer la visite.
     const ASTUCES = {
         catalogue:    'Choisis une source dans la barre du haut, ou « Toutes les sources » pour chercher partout à la fois.',
-        bibliotheque: 'Filtre par statut, catégorie ou source. « Mettre à jour » vérifie les nouveaux chapitres de tout ce que tu suis.',
+        bibliotheque: 'Filtre par statut, catégorie ou source. « Vérifier les chapitres » cherche les nouveautés de tout ce que tu suis.',
         serie:        'Le bouton de bibliothèque range la série (statut, catégories, alertes) ; « ⋯ » regroupe le reste.',
         chapitre:     'Clique à gauche ou à droite pour tourner les pages. « M » ouvre les réglages, « F » passe en plein écran.',
         stats:        'Ton objectif hebdomadaire peut se caler sur ton rythme réel — le lien est sous la barre de progression.',

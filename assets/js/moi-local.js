@@ -169,7 +169,52 @@
 
         // ── Favoris ────────────────────────────────────────
         case 'favorites': {
+            // La corbeille vit aussi sur le téléphone (audit DAT-01) : mêmes
+            // routes, mêmes réponses que le PC.
+            const nouveauLot = () => 'local-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+            const jeter = (ids, lot) => {
+                const cibles = new Set(ids.map(String));
+                const partis = s.favorites.filter((x) => cibles.has(String(x.mangaId)));
+                const limite = Date.now() - 30 * 86400000;
+                s.corbeille = (s.corbeille || []).filter((c) => c.at > limite)
+                    .concat(partis.map((f) => ({ lot, at: Date.now(), favori: f })));
+                s.favorites = s.favorites.filter((x) => !cibles.has(String(x.mangaId)));
+                return partis.length;
+            };
+            if (arg === 'corbeille') {
+                if (method === 'GET') {
+                    const lots = new Map();
+                    (s.corbeille || []).slice().reverse().forEach((c) => {
+                        if (!lots.has(c.lot)) lots.set(c.lot, { lot: c.lot, supprimeLe: new Date(c.at).toISOString(), nombre: 0, apercu: [], mangaIds: [] });
+                        const l = lots.get(c.lot);
+                        l.nombre++; l.mangaIds.push(c.favori.mangaId);
+                        if (l.apercu.length < 5) l.apercu.push(c.favori.title || c.favori.mangaId);
+                    });
+                    return { dureeJours: 30, lots: [...lots.values()] };
+                }
+                if (method === 'POST' && sous === 'restaurer') {
+                    const { lot, mangaIds } = corps || {};
+                    const veux = (c) => (lot && c.lot === lot) || (Array.isArray(mangaIds) && mangaIds.map(String).includes(String(c.favori.mangaId)));
+                    let restaures = 0, dejaPresents = 0;
+                    (s.corbeille || []).filter(veux).forEach((c) => {
+                        if (s.favorites.some((x) => String(x.mangaId) === String(c.favori.mangaId))) dejaPresents++;
+                        else { s.favorites.push(c.favori); restaures++; }
+                    });
+                    s.corbeille = (s.corbeille || []).filter((c) => !veux(c));
+                    ecrire();
+                    return { ok: true, restaures, dejaPresents };
+                }
+                return ABSENT;
+            }
             if (method === 'GET') return s.favorites.slice();
+            if (method === 'POST' && arg === 'bulk-remove') {
+                const ids = [...new Set(((corps || {}).mangaIds || []).map(String))];
+                if (!ids.length || Number((corps || {}).confirmer) !== ids.length) return { ok: false };
+                const lot = nouveauLot();
+                const retires = jeter(ids, lot);
+                ecrire();
+                return { ok: true, retires, nonTrouves: ids.length - retires, lot: retires ? lot : null };
+            }
             if (method === 'POST') {
                 const f = corps || {};
                 if (!f.mangaId) return { ok: false };
@@ -181,9 +226,19 @@
                 return { ok: true };
             }
             if (method === 'DELETE' && arg) {
-                s.favorites = s.favorites.filter((x) => String(x.mangaId) !== String(arg));
+                const lot = nouveauLot();
+                const retires = jeter([arg], lot);
                 ecrire();
-                return { ok: true };
+                return { ok: true, lot: retires ? lot : null };
+            }
+            if (method === 'PUT' && sous === 'meta') {
+                const f = s.favorites.find((x) => String(x.mangaId) === String(arg));
+                if (f) {
+                    if (!f.title && (corps || {}).title) f.title = corps.title;
+                    if (!f.cover && (corps || {}).cover) f.cover = corps.cover;
+                    ecrire();
+                }
+                return { ok: true, modifie: !!f };
             }
             if (method === 'PUT' && sous === 'category') {
                 const f = s.favorites.find((x) => String(x.mangaId) === String(arg));
