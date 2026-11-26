@@ -15,10 +15,25 @@
 
 const { defineConfig, devices } = require('@playwright/test');
 
-const PORT = process.env.E2E_PORT || 8088;
+// ── La suite écrit : jamais dans la base de l'utilisateur (audit DAT-04) ──
+//
+// Elle reprenait tout serveur répondant sur 8088 (`reuseExistingServer`), avec
+// LOCAL_MODE=1 : sur un poste de développement, c'était la base `inko` RÉELLE,
+// et les favoris qu'elle ajoutait ou retirait étaient ceux de l'utilisateur.
+//
+// Hors CI : une base `inko_e2e` préparée à la volée, un port à elle (8187), et
+// aucun serveur repris. En CI, la base du job est jetable : rien ne change.
+const EN_CI = !!process.env.CI;
+const BASE_DE_DONNEES = process.env.DB_NAME || (EN_CI ? 'inko' : 'inko_e2e');
+if (!EN_CI && !/^inko_e2e/.test(BASE_DE_DONNEES) && process.env.E2E_BASE_REELLE !== '1') {
+    throw new Error(`e2e : refus d'écrire dans la base « ${BASE_DE_DONNEES} ». `
+        + 'Utilise une base inko_e2e* (défaut), ou E2E_BASE_REELLE=1 en connaissance de cause.');
+}
+const PORT = process.env.E2E_PORT || (EN_CI ? 8088 : 8187);
 // Second port : serveur en mode desktop, CSP active (cf. le bloc webServer).
 const PORT_CSP = process.env.E2E_PORT_CSP || 8188;
 const BASE = `http://127.0.0.1:${PORT}`;
+process.env.E2E_PORT = String(PORT);
 
 module.exports = defineConfig({
     testDir: './test/e2e',
@@ -76,10 +91,12 @@ module.exports = defineConfig({
     // un défaut de contraste de cette bannière — un vrai défaut, mais qui n'a
     // rien à voir avec les tests qui échouaient.
     webServer: [{
-        command: 'node server/server.js',
+        // la base d'essai est préparée avant que le serveur ne l'ouvre
+        command: 'node scripts-ci/preparer-base-e2e.js && node server/server.js',
         url: `${BASE}/api/health`,
-        reuseExistingServer: !process.env.CI,
-        timeout: 60_000,
+        // jamais de serveur repris : on ne sait pas quelle base il sert
+        reuseExistingServer: false,
+        timeout: 120_000,
         env: {
             PORT: String(PORT),
             LOCAL_MODE: '1',
@@ -96,12 +113,12 @@ module.exports = defineConfig({
             //   DB_NAME=inko_e2e_vide npx playwright test
             // C'est ainsi qu'on reproduit localement les echecs qui ne se
             // voyaient qu'en integration continue.
-            ...(process.env.DB_NAME ? { DB_NAME: process.env.DB_NAME } : {}),
+            DB_NAME: BASE_DE_DONNEES,
         },
     }, {
         command: 'node server/server.js',
         url: `http://127.0.0.1:${PORT_CSP}/api/health`,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,
         timeout: 60_000,
         env: {
             PORT: String(PORT_CSP),
@@ -109,7 +126,7 @@ module.exports = defineConfig({
             APP_VERSION: 'test-csp',    // → IS_DESKTOP → CSP active
             IMG_RATE_MAX: '5000',
             SEARCH_RATE_MAX: '500',
-            ...(process.env.DB_NAME ? { DB_NAME: process.env.DB_NAME } : {}),
+            DB_NAME: BASE_DE_DONNEES,
         },
     }],
 });
