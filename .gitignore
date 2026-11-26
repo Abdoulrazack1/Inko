@@ -93,3 +93,9 @@ android/app/google-services.json
 # Produits par scripts-ci/notes-release.js pendant une publication
 RELEASE_NOTES.md
 RELEASE_TITLE.txt
+
+# Résultats intermédiaires des sondes (la campagne les régénère ; seul
+# docs/audit/sondes.json fait foi)
+docs/audit/sondes-partiel.json
+docs/audit/sondes-precedente.json
+docs/audit/sondes-boutons.json
