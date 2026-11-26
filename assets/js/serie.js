@@ -829,7 +829,17 @@
                 <h2 class="chapters-block-title">Explorer</h2>
             </div>
             <div id="lieesRow" style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 2px 8px"></div>
-        </div>`;
+        </div>
+        <!-- FON-01 : publier, répondre, signaler, supprimer et paginer étaient
+             écrits (ici et côté serveur), mais aucun élément ne les accueillait
+             et rien ne lançait le chargement : la section n'existait sur aucune page. -->
+        <section class="chapters-block" id="commentsBlock" aria-labelledby="commentsTitre">
+            <div class="chapters-block-header">
+                <h2 class="chapters-block-title" id="commentsTitre">Commentaires <span class="comment-count-badge" id="commentCount"></span></h2>
+            </div>
+            <div id="commentForm"></div>
+            <div id="commentsList"></div>
+        </section>`;
         el.querySelectorAll('[data-goto="chapitres"]').forEach(btn => {
             btn.addEventListener('click', e => {
                 e.preventDefault();
@@ -841,6 +851,7 @@
         loadSimilar();
         chargerAutresSources();
         rendreLiees();
+        loadComments().catch(e => window.MH?.err?.('serie.js', e));
     }
 
     // ── Comparaison avec AniList (audit AMEL-49) ─────────────

@@ -536,6 +536,9 @@
             const chip = e.target.closest('.se-src-chip');
             const href = chip ? chip.dataset.href : card.dataset.href;
             if (!href) return;
+            // Ouvrir dans un nouvel onglet (Ctrl, Maj, clic du milieu) reste au
+            // navigateur : c'est ce que les vrais liens rendent possible.
+            if (!card.dataset.nsfw && (e.ctrlKey || e.metaKey || e.shiftKey || e.button > 0)) return;
             e.preventDefault();
             // Confirmation contenu adulte (audit N20)
             if (card.dataset.nsfw && !MH.nsfwAllowed?.()) {
@@ -561,7 +564,7 @@
         const multi = w.sources.length > 1 ? `<div class="se-multi">${w.sources.length} sources</div>` : '';
         const meta = [w.year, w.status && STATUS_LABEL[w.status]].filter(Boolean).join(' · ');
         const srcChips = w.sources.map(s =>
-            `<span class="se-src-chip ${s.isNovel ? 'novel' : ''}" data-href="${serieHref(s.source, s.id)}">${MH.esc(s.sourceName || s.source)}</span>`).join('');
+            `<a class="se-src-chip ${s.isNovel ? 'novel' : ''}" href="${serieHref(s.source, s.id)}" data-href="${serieHref(s.source, s.id)}">${MH.esc(s.sourceName || s.source)}</a>`).join('');
         const nsfw = w.adult && !MH.nsfwAllowed?.() ? ' data-nsfw="1"' : '';
         return `
         <div class="se-card" data-href="${primaryHref}"${nsfw}>
@@ -569,7 +572,7 @@
                 <img src="${MH.cover(w.cover, MH.placeholderCover(primary.id))}" alt="${MH.esc(w.title || '')}" loading="lazy" onerror="this.src='${MH.placeholderCover(primary.id)}'">
                 ${st}${lib}${multi}
             </div>
-            <div class="se-title">${MH.esc(w.title || primary.id)}</div>
+            <div class="se-title"><a class="se-card-lien" href="${primaryHref}">${MH.esc(w.title || primary.id)}</a></div>
             ${meta ? `<div class="se-meta">${MH.esc(meta)}</div>` : ''}
             <div class="se-sources">${srcChips}</div>
         </div>`;
