@@ -269,3 +269,12 @@ jobs:
       - uses: actions/checkout@v7
       - name: Build Docker image
         run: docker build -t inko:ci .
+
+      # OPS-07 : une image construite depuis un dépôt propre n'embarquait
+      # AUCUNE source (les copies installées sont ignorées par git) : le
+      # catalogue était vide. On vérifie qu'elles sont bien dans l'image.
+      - name: L'image contient les sources de référence
+        run: |
+          n=$(docker run --rm --entrypoint sh inko:ci -c 'ls -d /app/extensions-community/*/ | wc -l')
+          echo "sources dans l'image : $n"
+          test "$n" -ge 5

@@ -33,13 +33,19 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 // Secure empêcherait de le poser — COOKIE_SECURE=0 permet aussi de forcer
 // le mode non-Secure pour un hub LAN en http pur.
 // L'auth repose de toute façon aussi sur le token Bearer (localStorage).
-const COOKIE_OPTS = {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure:   process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== '0',
-    maxAge:   30 * 24 * 3600 * 1000,
-    path:     '/',
-};
+//
+// Rejoué sur la configuration Docker : depuis le réseau en http, le cookie
+// « Secure » était refusé par le navigateur et la session ne tenait pas.
+// « Secure » suit donc le protocole RÉEL de la requête (`req.secure`, fiable
+// derrière un relais avec TRUST_PROXY) ; COOKIE_SECURE=1 ou 0 force l'un ou
+// l'autre.
+function cookieOpts(req) {
+    const force = process.env.COOKIE_SECURE;
+    const secure = force === '1' ? true
+        : force === '0' ? false
+        : process.env.NODE_ENV === 'production' && !!(req && req.secure);
+    return { httpOnly: true, sameSite: 'lax', secure, maxAge: 30 * 24 * 3600 * 1000, path: '/' };
+}
 // Audit SEC-11 : les cookies ne sont PAS isolés par port. Sur une machine de
 // développement, tous les projets servis depuis localhost partagent le même
 // jar : un cookie générique nommé « token » posé par un autre projet écrasait
@@ -128,7 +134,7 @@ async function localAuth(req, res, next) {
         }
 
         const token = await sign(owner, req);
-        res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
+        res.cookie(COOKIE_NAME, token, cookieOpts(req));
         res.json({ user: publicUser(owner), token, localMode: true });
     } catch (e) { next(e); }
 }
@@ -213,7 +219,7 @@ async function register(req, res, next) {
         const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [result.insertId]);
 
         const token = await sign(user, req);
-        res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
+        res.cookie(COOKIE_NAME, token, cookieOpts(req));
         res.json({ user: publicUser(user), token });
     } catch (e) { next(e); }
 }
@@ -232,7 +238,7 @@ async function login(req, res, next) {
         if (!ok) return res.status(401).json({ error: 'Identifiants incorrects' });
 
         const token = await sign(user, req);
-        res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
+        res.cookie(COOKIE_NAME, token, cookieOpts(req));
         res.json({ user: publicUser(user), token });
     } catch (e) { next(e); }
 }
@@ -304,7 +310,7 @@ async function googleAuth(req, res, next) {
             [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [r.insertId]);
         }
         const token = await sign(user, req);
-        res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
+        res.cookie(COOKIE_NAME, token, cookieOpts(req));
         res.json({ user: publicUser(user), token });
     } catch (e) { next(e); }
 }
@@ -442,7 +448,7 @@ async function changePassword(req, res, next) {
         // l'utilisateur qui vient légitimement de changer son mot de passe.
         const tv = await revokeTokens(req.user.id);
         const fresh = await sign({ id: req.user.id, email: req.user.email, token_version: tv }, req);
-        res.cookie(COOKIE_NAME, fresh, COOKIE_OPTS);
+        res.cookie(COOKIE_NAME, fresh, cookieOpts(req));
         res.json({ ok: true, token: fresh });
     } catch (e) { next(e); }
 }
