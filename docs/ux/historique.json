@@ -1,0 +1,104 @@
+[
+ {
+  "date": "2026-11-25T22:38:19.330Z",
+  "globale": 44,
+  "notes": {
+   "efficacite": 44,
+   "retour": 9,
+   "navigation": 67,
+   "accessibilite": 19,
+   "adaptation": 26,
+   "hierarchie": 81,
+   "redaction": 63,
+   "coherence": 52,
+   "fluidite": 41,
+   "rendu": 99
+  },
+  "familles": 109
+ },
+ {
+  "date": "2026-11-25T22:45:27.532Z",
+  "globale": 45,
+  "notes": {
+   "efficacite": 47,
+   "retour": 9,
+   "navigation": 67,
+   "accessibilite": 18,
+   "adaptation": 26,
+   "hierarchie": 81,
+   "redaction": 63,
+   "coherence": 52,
+   "fluidite": 41,
+   "rendu": 99
+  },
+  "familles": 110
+ },
+ {
+  "date": "2026-11-25T22:47:22.903Z",
+  "globale": 45,
+  "notes": {
+   "efficacite": 50,
+   "retour": 9,
+   "navigation": 67,
+   "accessibilite": 17,
+   "adaptation": 26,
+   "hierarchie": 81,
+   "redaction": 63,
+   "coherence": 52,
+   "fluidite": 41,
+   "rendu": 99
+  },
+  "familles": 111
+ },
+ {
+  "date": "2026-11-25T23:21:49.169Z",
+  "globale": 45,
+  "notes": {
+   "efficacite": 50,
+   "retour": 9,
+   "navigation": 65,
+   "accessibilite": 17,
+   "adaptation": 26,
+   "hierarchie": 81,
+   "redaction": 63,
+   "coherence": 52,
+   "fluidite": 41,
+   "rendu": 99
+  },
+  "familles": 112
+ },
+ {
+  "date": "2026-11-25T23:28:32.974Z",
+  "globale": 45,
+  "notes": {
+   "efficacite": 50,
+   "retour": 9,
+   "navigation": 65,
+   "accessibilite": 17,
+   "adaptation": 26,
+   "hierarchie": 81,
+   "redaction": 63,
+   "coherence": 52,
+   "fluidite": 41,
+   "rendu": 99
+  },
+  "familles": 112
+ },
+ {
+  "date": "2026-11-26T14:59:41.186Z",
+  "globale": 45,
+  "notes": {
+   "efficacite": 50,
+   "retour": 9,
+   "navigation": 65,
+   "accessibilite": 17,
+   "adaptation": 26,
+   "hierarchie": 81,
+   "redaction": 63,
+   "coherence": 52,
+   "fluidite": 41,
+   "rendu": 99
+  },
+  "familles": 112
+ }
+]

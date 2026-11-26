@@ -1,0 +1,4380 @@
+{
+ "sondes": {
+  "ux-coherence": {
+   "description": "Respect à l'écran des échelles de design et nombre de variantes d'un même composant",
+   "ms": 281464,
+   "mesures": {
+    "coherence_echelles": {
+     "textes": [
+      11,
+      13,
+      15,
+      18,
+      22,
+      28,
+      38
+     ],
+     "rayons": [
+      0,
+      3,
+      8,
+      12,
+      20,
+      999
+     ],
+     "espaces": [
+      0,
+      1,
+      2,
+      4,
+      8,
+      12,
+      16,
+      24,
+      32,
+      48,
+      72
+     ],
+     "durees": [
+      0,
+      150,
+      280,
+      500
+     ],
+     "polices": [
+      "archivo narrow",
+      "ibm plex sans",
+      "bitter",
+      "ui-monospace"
+     ]
+    },
+    "coherence_variantes": {
+     "boutons": 53,
+     "champs": 15,
+     "couleursDeTexte": 23,
+     "ombres": 14,
+     "polices": [
+      "archivo narrow",
+      "ibm plex sans",
+      "segoe ui",
+      "monospace",
+      "-apple-system",
+      "bitter",
+      "ui-monospace"
+     ],
+     "espacementsHorsEchelle": 18,
+     "taillesHorsEchelle": 15
+    },
+    "coherence_par_page": {
+     "accueil.html (bureau)": {
+      "textesHorsEchelle": "3 %",
+      "rayonsHorsEchelle": "2 %",
+      "espacements": 66
+     },
+     "anilist.html (bureau)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "100 %",
+      "espacements": 2
+     },
+     "bibliotheque.html (bureau)": {
+      "textesHorsEchelle": "3 %",
+      "rayonsHorsEchelle": "3 %",
+      "espacements": 62
+     },
+     "catalogue.html (bureau)": {
+      "textesHorsEchelle": "53 %",
+      "rayonsHorsEchelle": "1 %",
+      "espacements": 115
+     },
+     "chapitre.html (bureau)": {
+      "textesHorsEchelle": "6 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 8
+     },
+     "collection-detail.html (bureau)": {
+      "textesHorsEchelle": "14 %",
+      "rayonsHorsEchelle": "5 %",
+      "espacements": 33
+     },
+     "collections.html (bureau)": {
+      "textesHorsEchelle": "6 %",
+      "rayonsHorsEchelle": "7 %",
+      "espacements": 20
+     },
+     "comparer.html (bureau)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "11 %",
+      "espacements": 16
+     },
+     "confidentialite.html (bureau)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 0
+     },
+     "downloads.html (bureau)": {
+      "textesHorsEchelle": "6 %",
+      "rayonsHorsEchelle": "8 %",
+      "espacements": 13
+     },
+     "import.html (bureau)": {
+      "textesHorsEchelle": "5 %",
+      "rayonsHorsEchelle": "6 %",
+      "espacements": 16
+     },
+     "lecture.html (bureau)": {
+      "textesHorsEchelle": "4 %",
+      "rayonsHorsEchelle": "6 %",
+      "espacements": 19
+     },
+     "liste.html (bureau)": {
+      "textesHorsEchelle": "3 %",
+      "rayonsHorsEchelle": "20 %",
+      "espacements": 13
+     },
+     "localreader.html (bureau)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 0
+     },
+     "notes.html (bureau)": {
+      "textesHorsEchelle": "19 %",
+      "rayonsHorsEchelle": "5 %",
+      "espacements": 27
+     },
+     "notifications.html (bureau)": {
+      "textesHorsEchelle": "2 %",
+      "rayonsHorsEchelle": "5 %",
+      "espacements": 19
+     },
+     "parametres.html (bureau)": {
+      "textesHorsEchelle": "1 %",
+      "rayonsHorsEchelle": "1 %",
+      "espacements": 64
+     },
+     "profil.html (bureau)": {
+      "textesHorsEchelle": "4 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 81
+     },
+     "recherche.html (bureau)": {
+      "textesHorsEchelle": "3 %",
+      "rayonsHorsEchelle": "14 %",
+      "espacements": 18
+     },
+     "serie.html (bureau)": {
+      "textesHorsEchelle": "15 %",
+      "rayonsHorsEchelle": "4 %",
+      "espacements": 100
+     },
+     "sources.html (bureau)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "1 %",
+      "espacements": 16
+     },
+     "stats.html (bureau)": {
+      "textesHorsEchelle": "24 %",
+      "rayonsHorsEchelle": "4 %",
+      "espacements": 62
+     },
+     "systeme.html (bureau)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 0
+     },
+     "u.html (bureau)": {
+      "textesHorsEchelle": "9 %",
+      "rayonsHorsEchelle": "10 %",
+      "espacements": 15
+     },
+     "accueil.html (mobile)": {
+      "textesHorsEchelle": "4 %",
+      "rayonsHorsEchelle": "2 %",
+      "espacements": 14
+     },
+     "anilist.html (mobile)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "100 %",
+      "espacements": 2
+     },
+     "bibliotheque.html (mobile)": {
+      "textesHorsEchelle": "1 %",
+      "rayonsHorsEchelle": "3 %",
+      "espacements": 20
+     },
+     "catalogue.html (mobile)": {
+      "textesHorsEchelle": "37 %",
+      "rayonsHorsEchelle": "2 %",
+      "espacements": 51
+     },
+     "chapitre.html (mobile)": {
+      "textesHorsEchelle": "5 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 14
+     },
+     "collection-detail.html (mobile)": {
+      "textesHorsEchelle": "15 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 22
+     },
+     "collections.html (mobile)": {
+      "textesHorsEchelle": "10 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 8
+     },
+     "comparer.html (mobile)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 10
+     },
+     "confidentialite.html (mobile)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 0
+     },
+     "downloads.html (mobile)": {
+      "textesHorsEchelle": "6 %",
+      "rayonsHorsEchelle": "8 %",
+      "espacements": 6
+     },
+     "import.html (mobile)": {
+      "textesHorsEchelle": "5 %",
+      "rayonsHorsEchelle": "7 %",
+      "espacements": 6
+     },
+     "lecture.html (mobile)": {
+      "textesHorsEchelle": "73 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 16
+     },
+     "liste.html (mobile)": {
+      "textesHorsEchelle": "3 %",
+      "rayonsHorsEchelle": "10 %",
+      "espacements": 4
+     },
+     "localreader.html (mobile)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 2
+     },
+     "notes.html (mobile)": {
+      "textesHorsEchelle": "20 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 17
+     },
+     "notifications.html (mobile)": {
+      "textesHorsEchelle": "3 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 6
+     },
+     "parametres.html (mobile)": {
+      "textesHorsEchelle": "1 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 56
+     },
+     "profil.html (mobile)": {
+      "textesHorsEchelle": "4 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 62
+     },
+     "recherche.html (mobile)": {
+      "textesHorsEchelle": "26 %",
+      "rayonsHorsEchelle": "24 %",
+      "espacements": 121
+     },
+     "serie.html (mobile)": {
+      "textesHorsEchelle": "10 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 77
+     },
+     "sources.html (mobile)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 6
+     },
+     "stats.html (mobile)": {
+      "textesHorsEchelle": "24 %",
+      "rayonsHorsEchelle": "4 %",
+      "espacements": 53
+     },
+     "systeme.html (mobile)": {
+      "textesHorsEchelle": "0 %",
+      "rayonsHorsEchelle": "0 %",
+      "espacements": 0
+     },
+     "u.html (mobile)": {
+      "textesHorsEchelle": "9 %",
+      "rayonsHorsEchelle": "5 %",
+      "espacements": 6
+     }
+    }
+   },
+   "nombre": 19,
+   "parGravite": {
+    "haute": 5,
+    "moyenne": 11,
+    "basse": 3
+   }
+  },
+  "ux-ecrans": {
+   "description": "Premier écran de chaque page : titre, action principale, place avant le contenu, lisibilité, images, densité, mouvement",
+   "ms": 281721,
+   "mesures": {
+    "ecrans_releves": {
+     "accueil.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Reprendre One-Punch Man"
+      ],
+      "debut": 170.5,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [
+       "400 px affichés sur 889 — img.latte-couv.img-arrivee"
+      ],
+      "tailles": [
+       11,
+       13,
+       15,
+       22,
+       24,
+       29
+      ],
+      "interactifs": 25,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1671
+     },
+     "anilist.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 284.875,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       14,
+       18
+      ],
+      "interactifs": 2,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 800
+     },
+     "bibliotheque.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Vérifier les chapitres"
+      ],
+      "debut": 176.5,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15,
+       28
+      ],
+      "interactifs": 27,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1375
+     },
+     "catalogue.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Lecture aléatoire"
+      ],
+      "debut": 152.5,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       14,
+       15,
+       28
+      ],
+      "interactifs": 72,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 2894
+     },
+     "chapitre.html (bureau)": {
+      "h1": 0,
+      "h1Visible": false,
+      "principales": [
+       "Lire →"
+      ],
+      "debut": 113.5,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       10,
+       11,
+       13,
+       15
+      ],
+      "interactifs": 21,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1584
+     },
+     "collection-detail.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Commencer"
+      ],
+      "debut": 222.09375,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       10,
+       11,
+       12,
+       13,
+       14,
+       15,
+       34
+      ],
+      "interactifs": 23,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1183
+     },
+     "collections.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "+ Nouvelle liste"
+      ],
+      "debut": 156.5,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       14,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 27,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 929
+     },
+     "comparer.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 100,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       14,
+       15
+      ],
+      "interactifs": 18,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 823
+     },
+     "confidentialite.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 175.5,
+      "H": 800,
+      "longues": [
+       "98 signes — p",
+       "98 signes — p",
+       "98 signes — p",
+       "98 signes — p",
+       "98 signes — p"
+      ],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       13,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 0,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 2111
+     },
+     "downloads.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 196.5,
+      "H": 800,
+      "longues": [
+       "128 signes — label.dl-budget"
+      ],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15,
+       18,
+       27
+      ],
+      "interactifs": 18,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1056
+     },
+     "import.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Choisir un fichier"
+      ],
+      "debut": 149,
+      "H": 800,
+      "longues": [
+       "128 signes — p"
+      ],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       14,
+       15,
+       18,
+       27,
+       38
+      ],
+      "interactifs": 16,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1276
+     },
+     "lecture.html (bureau)": {
+      "h1": 0,
+      "h1Visible": false,
+      "principales": [],
+      "debut": 140.5,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15
+      ],
+      "interactifs": 15,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1184
+     },
+     "liste.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 175,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 20,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 988
+     },
+     "localreader.html (bureau)": {
+      "h1": 0,
+      "h1Visible": false,
+      "principales": [
+       "Importer un fichier"
+      ],
+      "debut": null,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       13,
+       15,
+       18,
+       38
+      ],
+      "interactifs": 3,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 800
+     },
+     "notes.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "＋ Nouvelle entrée"
+      ],
+      "debut": 237,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       14,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 33,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 963
+     },
+     "notifications.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": null,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       14,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 35,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 815
+     },
+     "parametres.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Afficher le code"
+      ],
+      "debut": 150.5,
+      "H": 800,
+      "longues": [
+       "111 signes — div.sub",
+       "111 signes — div.sub",
+       "111 signes — div.sub",
+       "108 signes — div#cacheStatus"
+      ],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15,
+       28
+      ],
+      "interactifs": 20,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 5490
+     },
+     "profil.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "▶ Reprendre"
+      ],
+      "debut": 322,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       15,
+       18,
+       22,
+       28,
+       34
+      ],
+      "interactifs": 28,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 2486
+     },
+     "recherche.html (bureau)": {
+      "h1": 0,
+      "h1Visible": false,
+      "principales": [],
+      "debut": 104.5,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       15
+      ],
+      "interactifs": 21,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 13626
+     },
+     "serie.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Reprendre Ch.1\n             ",
+       "▶ Commencer"
+      ],
+      "debut": 116.5,
+      "H": 800,
+      "longues": [
+       "120 signes — div.synopsis-text"
+      ],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       10,
+       11,
+       12,
+       13,
+       14,
+       15,
+       46
+      ],
+      "interactifs": 27,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 2126
+     },
+     "sources.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Vérifier les mises à jour",
+       "Activer"
+      ],
+      "debut": 154.5,
+      "H": 800,
+      "longues": [
+       "108 signes — p",
+       "143 signes — div.sources-warning"
+      ],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 23,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 3459
+     },
+     "stats.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Définir",
+       "Définir"
+      ],
+      "debut": 149,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       10,
+       11,
+       12,
+       13,
+       15,
+       26,
+       27,
+       28
+      ],
+      "interactifs": 19,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 4157
+     },
+     "systeme.html (bureau)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 132,
+      "H": 800,
+      "longues": [
+       "150 signes — p#sy-source"
+      ],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 0,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 9700
+     },
+     "u.html (bureau)": {
+      "h1": 0,
+      "h1Visible": false,
+      "principales": [],
+      "debut": null,
+      "H": 800,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       14,
+       15,
+       28
+      ],
+      "interactifs": 17,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1195
+     },
+     "accueil.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Reprendre One-Punch Man"
+      ],
+      "debut": 190,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       18,
+       20,
+       22
+      ],
+      "interactifs": 20,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 2487
+     },
+     "anilist.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 306.875,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       14,
+       18
+      ],
+      "interactifs": 2,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 844
+     },
+     "bibliotheque.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Vérifier les chapitres"
+      ],
+      "debut": 279.25,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 31,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 4895
+     },
+     "catalogue.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Lecture aléatoire"
+      ],
+      "debut": 201.5,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       14,
+       18,
+       22
+      ],
+      "interactifs": 30,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 3807
+     },
+     "chapitre.html (mobile)": {
+      "h1": 0,
+      "h1Visible": false,
+      "principales": [
+       "Lire →"
+      ],
+      "debut": 105.5,
+      "H": 983,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       10,
+       11,
+       13,
+       14,
+       15
+      ],
+      "interactifs": 20,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 2365
+     },
+     "collection-detail.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Commencer"
+      ],
+      "debut": 192,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       10,
+       11,
+       12,
+       13,
+       18,
+       20
+      ],
+      "interactifs": 18,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1854
+     },
+     "collections.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "+ Nouvelle liste"
+      ],
+      "debut": 143,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       14,
+       15,
+       18,
+       23
+      ],
+      "interactifs": 16,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1490
+     },
+     "comparer.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 167.5,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       14,
+       15,
+       18
+      ],
+      "interactifs": 13,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 929
+     },
+     "confidentialite.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 169.5,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       13,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 0,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 3198
+     },
+     "downloads.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 229.5,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       18,
+       27
+      ],
+      "interactifs": 12,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1704
+     },
+     "import.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Choisir un fichier"
+      ],
+      "debut": 143,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       14,
+       15,
+       18,
+       27,
+       38
+      ],
+      "interactifs": 12,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1905
+     },
+     "lecture.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 231,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       12,
+       13,
+       15,
+       17,
+       18,
+       25
+      ],
+      "interactifs": 14,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 9053
+     },
+     "liste.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 160,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15,
+       18,
+       22
+      ],
+      "interactifs": 12,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1550
+     },
+     "localreader.html (mobile)": {
+      "h1": 0,
+      "h1Visible": false,
+      "principales": [
+       "Importer un fichier"
+      ],
+      "debut": null,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       13,
+       15,
+       18,
+       38
+      ],
+      "interactifs": 3,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 844
+     },
+     "notes.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "＋ Nouvelle entrée"
+      ],
+      "debut": 294.5,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       14,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 22,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1686
+     },
+     "notifications.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": null,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       18,
+       28
+      ],
+      "interactifs": 19,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1613
+     },
+     "parametres.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Afficher le code"
+      ],
+      "debut": 144.5,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       14,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 15,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 8369
+     },
+     "profil.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "▶ Reprendre"
+      ],
+      "debut": 530.296875,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       18,
+       26
+      ],
+      "interactifs": 22,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 4209
+     },
+     "recherche.html (mobile)": {
+      "h1": 0,
+      "h1Visible": false,
+      "principales": [],
+      "debut": 98.5,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       14,
+       15,
+       18
+      ],
+      "interactifs": 23,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 9924
+     },
+     "serie.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Reprendre Ch.1\n             "
+      ],
+      "debut": 88.5,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       10,
+       11,
+       12,
+       13,
+       15,
+       18,
+       22
+      ],
+      "interactifs": 20,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 4386
+     },
+     "sources.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Vérifier les mises à jour"
+      ],
+      "debut": 148.5,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 11,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 5621
+     },
+     "stats.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [
+       "Définir",
+       "Définir"
+      ],
+      "debut": 143,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15,
+       18,
+       27,
+       28
+      ],
+      "interactifs": 14,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 5447
+     },
+     "systeme.html (mobile)": {
+      "h1": 1,
+      "h1Visible": true,
+      "principales": [],
+      "debut": 126,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       13,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 0,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 17303
+     },
+     "u.html (mobile)": {
+      "h1": 0,
+      "h1Visible": false,
+      "principales": [],
+      "debut": null,
+      "H": 844,
+      "longues": [],
+      "serrees": [],
+      "deformees": [],
+      "floues": [],
+      "tailles": [
+       11,
+       12,
+       13,
+       14,
+       15,
+       18,
+       28
+      ],
+      "interactifs": 11,
+      "mouvement": [],
+      "tronques": 0,
+      "hauteur": 1982
+     }
+    }
+   },
+   "nombre": 19,
+   "parGravite": {
+    "basse": 10,
+    "moyenne": 9
+   }
+  },
+  "ux-redaction": {
+   "description": "Tutoiement et vouvoiement, vocabulaire, jargon, messages d'erreur, typographie française — à l'écran et dans les messages",
+   "ms": 77612,
+   "mesures": {
+    "redaction_textes_examines": 394,
+    "redaction_adresse": {
+     "tutoiement": 52,
+     "vouvoiement": 0
+    },
+    "redaction_vocabulaire": {
+     "retirer une chose": {
+      "retirer": 3,
+      "supprimer": 10,
+      "effacer": 4,
+      "enlever": 0
+     },
+     "une œuvre": {
+      "série": 23,
+      "œuvre": 3,
+      "manga": 4,
+      "titre": 1
+     },
+     "sa collection": {
+      "bibliothèque": 17,
+      "étagère": 0
+     },
+     "un regroupement": {
+      "liste": 23,
+      "collection": 1,
+      "catégorie": 2
+     },
+     "garder un endroit": {
+      "signet": 3,
+      "marque-page": 0
+     },
+     "la machine hôte": {
+      "serveur": 2,
+      "hub": 0,
+      "PC": 0,
+      "instance": 0
+     },
+     "un fournisseur": {
+      "source": 11,
+      "extension": 4,
+      "catalogue": 2
+     },
+     "vérifier les nouveautés": {
+      "actualiser": 2,
+      "rafraîchir": 0,
+      "vérifier": 1,
+      "mettre à jour": 0
+     }
+    }
+   },
+   "nombre": 5,
+   "parGravite": {
+    "basse": 4,
+    "moyenne": 1
+   }
+  },
+  "ux-navigation": {
+   "description": "Atteignabilité et profondeur des pages, repères, titres, retour (position et filtres), bouton Retour du téléphone",
+   "ms": 192067,
+   "mesures": {
+    "navigation_profondeur": {
+     "accueil.html": 0,
+     "catalogue.html": 1,
+     "bibliotheque.html": 1,
+     "notes.html": 1,
+     "sources.html": 1,
+     "parametres.html": 1,
+     "profil.html": 1,
+     "serie.html": 2,
+     "chapitre.html": 2
+    },
+    "navigation_orphelines": [
+     "anilist.html",
+     "collection-detail.html",
+     "collections.html",
+     "comparer.html",
+     "confidentialite.html",
+     "downloads.html",
+     "import.html",
+     "lecture.html",
+     "liste.html",
+     "localreader.html",
+     "notifications.html",
+     "recherche.html",
+     "stats.html",
+     "systeme.html",
+     "u.html"
+    ],
+    "navigation_retour": {
+     "bibliotheque.html": "1400 → 1400",
+     "catalogue.html": "non éprouvé (page courte ou aucune carte)",
+     "accueil.html": "non éprouvé (page courte ou aucune carte)",
+     "recherche.html": "non éprouvé (page courte ou aucune carte)",
+     "profil.html": "non éprouvé (page courte ou aucune carte)"
+    },
+    "navigation_pages_sans_barre_fenetre": [
+     "anilist.html",
+     "confidentialite.html",
+     "localreader.html",
+     "systeme.html (aucun lien de sortie)"
+    ],
+    "navigation_bouton_retour": {
+     "bibliotheque.html": "le panneau se ferme",
+     "catalogue.html": "le panneau se ferme",
+     "chapitre.html": "la page est quittée",
+     "serie.html": "la page est quittée"
+    }
+   },
+   "nombre": 28,
+   "parGravite": {
+    "moyenne": 9,
+    "basse": 16,
+    "haute": 3
+   }
+  },
+  "ux-visuel": {
+   "description": "Capture de chaque page (2 formats × 2 thèmes), comparaison point à point avec la référence, écrans vides",
+   "ms": 267511,
+   "mesures": {
+    "visuel_captures": 88,
+    "visuel_avec_reference": 0,
+    "visuel_releves": {
+     "accueil--bureau-sombre.jpg": {
+      "uniforme": 52,
+      "ecart": null
+     },
+     "anilist--bureau-sombre.jpg": {
+      "uniforme": 97,
+      "ecart": null
+     },
+     "bibliotheque--bureau-sombre.jpg": {
+      "uniforme": 48,
+      "ecart": null
+     },
+     "catalogue--bureau-sombre.jpg": {
+      "uniforme": 64,
+      "ecart": null
+     },
+     "collection-detail--bureau-sombre.jpg": {
+      "uniforme": 88,
+      "ecart": null
+     },
+     "collections--bureau-sombre.jpg": {
+      "uniforme": 89,
+      "ecart": null
+     },
+     "comparer--bureau-sombre.jpg": {
+      "uniforme": 96,
+      "ecart": null
+     },
+     "confidentialite--bureau-sombre.jpg": {
+      "uniforme": 90,
+      "ecart": null
+     },
+     "downloads--bureau-sombre.jpg": {
+      "uniforme": 92,
+      "ecart": null
+     },
+     "import--bureau-sombre.jpg": {
+      "uniforme": 92,
+      "ecart": null
+     },
+     "liste--bureau-sombre.jpg": {
+      "uniforme": 92,
+      "ecart": null
+     },
+     "localreader--bureau-sombre.jpg": {
+      "uniforme": 97,
+      "ecart": null
+     },
+     "notes--bureau-sombre.jpg": {
+      "uniforme": 90,
+      "ecart": null
+     },
+     "notifications--bureau-sombre.jpg": {
+      "uniforme": 91,
+      "ecart": null
+     },
+     "parametres--bureau-sombre.jpg": {
+      "uniforme": 87,
+      "ecart": null
+     },
+     "profil--bureau-sombre.jpg": {
+      "uniforme": 82,
+      "ecart": null
+     },
+     "recherche--bureau-sombre.jpg": {
+      "uniforme": 60,
+      "ecart": null
+     },
+     "serie--bureau-sombre.jpg": {
+      "uniforme": 87,
+      "ecart": null
+     },
+     "sources--bureau-sombre.jpg": {
+      "uniforme": 80,
+      "ecart": null
+     },
+     "stats--bureau-sombre.jpg": {
+      "uniforme": 84,
+      "ecart": null
+     },
+     "systeme--bureau-sombre.jpg": {
+      "uniforme": 83,
+      "ecart": null
+     },
+     "u--bureau-sombre.jpg": {
+      "uniforme": 88,
+      "ecart": null
+     },
+     "accueil--bureau-clair.jpg": {
+      "uniforme": 45,
+      "ecart": null
+     },
+     "anilist--bureau-clair.jpg": {
+      "uniforme": 97,
+      "ecart": null
+     },
+     "bibliotheque--bureau-clair.jpg": {
+      "uniforme": 40,
+      "ecart": null
+     },
+     "catalogue--bureau-clair.jpg": {
+      "uniforme": 46,
+      "ecart": null
+     },
+     "collection-detail--bureau-clair.jpg": {
+      "uniforme": 44,
+      "ecart": null
+     },
+     "collections--bureau-clair.jpg": {
+      "uniforme": 80,
+      "ecart": null
+     },
+     "comparer--bureau-clair.jpg": {
+      "uniforme": 89,
+      "ecart": null
+     },
+     "confidentialite--bureau-clair.jpg": {
+      "uniforme": 86,
+      "ecart": null
+     },
+     "downloads--bureau-clair.jpg": {
+      "uniforme": 84,
+      "ecart": null
+     },
+     "import--bureau-clair.jpg": {
+      "uniforme": 69,
+      "ecart": null
+     },
+     "liste--bureau-clair.jpg": {
+      "uniforme": 85,
+      "ecart": null
+     },
+     "localreader--bureau-clair.jpg": {
+      "uniforme": 91,
+      "ecart": null
+     },
+     "notes--bureau-clair.jpg": {
+      "uniforme": 76,
+      "ecart": null
+     },
+     "notifications--bureau-clair.jpg": {
+      "uniforme": 80,
+      "ecart": null
+     },
+     "parametres--bureau-clair.jpg": {
+      "uniforme": 50,
+      "ecart": null
+     },
+     "profil--bureau-clair.jpg": {
+      "uniforme": 43,
+      "ecart": null
+     },
+     "recherche--bureau-clair.jpg": {
+      "uniforme": 49,
+      "ecart": null
+     },
+     "serie--bureau-clair.jpg": {
+      "uniforme": 80,
+      "ecart": null
+     },
+     "sources--bureau-clair.jpg": {
+      "uniforme": 51,
+      "ecart": null
+     },
+     "stats--bureau-clair.jpg": {
+      "uniforme": 40,
+      "ecart": null
+     },
+     "systeme--bureau-clair.jpg": {
+      "uniforme": 66,
+      "ecart": null
+     },
+     "u--bureau-clair.jpg": {
+      "uniforme": 56,
+      "ecart": null
+     },
+     "accueil--mobile-sombre.jpg": {
+      "uniforme": 53,
+      "ecart": null
+     },
+     "anilist--mobile-sombre.jpg": {
+      "uniforme": 90,
+      "ecart": null
+     },
+     "bibliotheque--mobile-sombre.jpg": {
+      "uniforme": 56,
+      "ecart": null
+     },
+     "catalogue--mobile-sombre.jpg": {
+      "uniforme": 58,
+      "ecart": null
+     },
+     "collection-detail--mobile-sombre.jpg": {
+      "uniforme": 75,
+      "ecart": null
+     },
+     "collections--mobile-sombre.jpg": {
+      "uniforme": 82,
+      "ecart": null
+     },
+     "comparer--mobile-sombre.jpg": {
+      "uniforme": 91,
+      "ecart": null
+     },
+     "confidentialite--mobile-sombre.jpg": {
+      "uniforme": 73,
+      "ecart": null
+     },
+     "downloads--mobile-sombre.jpg": {
+      "uniforme": 81,
+      "ecart": null
+     },
+     "import--mobile-sombre.jpg": {
+      "uniforme": 81,
+      "ecart": null
+     },
+     "liste--mobile-sombre.jpg": {
+      "uniforme": 79,
+      "ecart": null
+     },
+     "localreader--mobile-sombre.jpg": {
+      "uniforme": 91,
+      "ecart": null
+     },
+     "notes--mobile-sombre.jpg": {
+      "uniforme": 82,
+      "ecart": null
+     },
+     "notifications--mobile-sombre.jpg": {
+      "uniforme": 85,
+      "ecart": null
+     },
+     "parametres--mobile-sombre.jpg": {
+      "uniforme": 75,
+      "ecart": null
+     },
+     "profil--mobile-sombre.jpg": {
+      "uniforme": 82,
+      "ecart": null
+     },
+     "recherche--mobile-sombre.jpg": {
+      "uniforme": 46,
+      "ecart": null
+     },
+     "serie--mobile-sombre.jpg": {
+      "uniforme": 83,
+      "ecart": null
+     },
+     "sources--mobile-sombre.jpg": {
+      "uniforme": 64,
+      "ecart": null
+     },
+     "stats--mobile-sombre.jpg": {
+      "uniforme": 80,
+      "ecart": null
+     },
+     "systeme--mobile-sombre.jpg": {
+      "uniforme": 72,
+      "ecart": null
+     },
+     "u--mobile-sombre.jpg": {
+      "uniforme": 81,
+      "ecart": null
+     },
+     "accueil--mobile-clair.jpg": {
+      "uniforme": 38,
+      "ecart": null
+     },
+     "anilist--mobile-clair.jpg": {
+      "uniforme": 90,
+      "ecart": null
+     },
+     "bibliotheque--mobile-clair.jpg": {
+      "uniforme": 40,
+      "ecart": null
+     },
+     "catalogue--mobile-clair.jpg": {
+      "uniforme": 37,
+      "ecart": null
+     },
+     "collection-detail--mobile-clair.jpg": {
+      "uniforme": 39,
+      "ecart": null
+     },
+     "collections--mobile-clair.jpg": {
+      "uniforme": 65,
+      "ecart": null
+     },
+     "comparer--mobile-clair.jpg": {
+      "uniforme": 77,
+      "ecart": null
+     },
+     "confidentialite--mobile-clair.jpg": {
+      "uniforme": 63,
+      "ecart": null
+     },
+     "downloads--mobile-clair.jpg": {
+      "uniforme": 64,
+      "ecart": null
+     },
+     "import--mobile-clair.jpg": {
+      "uniforme": 46,
+      "ecart": null
+     },
+     "liste--mobile-clair.jpg": {
+      "uniforme": 67,
+      "ecart": null
+     },
+     "localreader--mobile-clair.jpg": {
+      "uniforme": 85,
+      "ecart": null
+     },
+     "notes--mobile-clair.jpg": {
+      "uniforme": 59,
+      "ecart": null
+     },
+     "notifications--mobile-clair.jpg": {
+      "uniforme": 65,
+      "ecart": null
+     },
+     "parametres--mobile-clair.jpg": {
+      "uniforme": 49,
+      "ecart": null
+     },
+     "profil--mobile-clair.jpg": {
+      "uniforme": 43,
+      "ecart": null
+     },
+     "recherche--mobile-clair.jpg": {
+      "uniforme": 27,
+      "ecart": null
+     },
+     "serie--mobile-clair.jpg": {
+      "uniforme": 68,
+      "ecart": null
+     },
+     "sources--mobile-clair.jpg": {
+      "uniforme": 41,
+      "ecart": null
+     },
+     "stats--mobile-clair.jpg": {
+      "uniforme": 51,
+      "ecart": null
+     },
+     "systeme--mobile-clair.jpg": {
+      "uniforme": 51,
+      "ecart": null
+     },
+     "u--mobile-clair.jpg": {
+      "uniforme": 49,
+      "ecart": null
+     }
+    }
+   },
+   "nombre": 0,
+   "parGravite": {}
+  },
+  "ux-parcours": {
+   "description": "Dix tâches quotidiennes jouées au bureau et au téléphone : réussite, nombre d'appuis, durée",
+   "ms": 98843,
+   "mesures": {
+    "parcours_taches": [
+     {
+      "id": "reprendre",
+      "nom": "Reprendre sa lecture depuis l'accueil",
+      "profil": "bureau",
+      "etat": "réussi",
+      "appuis": 1,
+      "budget": 1,
+      "ms": 218,
+      "note": ""
+     },
+     {
+      "id": "trouver",
+      "nom": "Retrouver une série dans sa bibliothèque",
+      "profil": "bureau",
+      "etat": "réussi",
+      "appuis": 2,
+      "budget": 2,
+      "ms": 734,
+      "note": ""
+     },
+     {
+      "id": "ajouter",
+      "nom": "Chercher une œuvre et l'ajouter",
+      "profil": "bureau",
+      "etat": "réussi",
+      "appuis": 3,
+      "budget": 4,
+      "ms": 3397,
+      "note": ""
+     },
+     {
+      "id": "retirer",
+      "nom": "Retirer une série puis se raviser",
+      "profil": "bureau",
+      "etat": "échoué",
+      "appuis": 2,
+      "budget": 4,
+      "ms": 0,
+      "note": "introuvable à l'écran : .undo-bar-action"
+     },
+     {
+      "id": "theme",
+      "nom": "Passer en thème clair",
+      "profil": "bureau",
+      "etat": "réussi",
+      "appuis": 2,
+      "budget": 3,
+      "ms": 400,
+      "note": ""
+     },
+     {
+      "id": "liste",
+      "nom": "Créer une liste",
+      "profil": "bureau",
+      "etat": "réussi",
+      "appuis": 3,
+      "budget": 3,
+      "ms": 531,
+      "note": ""
+     },
+     {
+      "id": "lu",
+      "nom": "Marquer un chapitre lu depuis la fiche",
+      "profil": "bureau",
+      "etat": "réussi",
+      "appuis": 1,
+      "budget": 1,
+      "ms": 92,
+      "note": ""
+     },
+     {
+      "id": "sens",
+      "nom": "Trouver le réglage du sens de lecture",
+      "profil": "bureau",
+      "etat": "réussi",
+      "appuis": 1,
+      "budget": 2,
+      "ms": 219,
+      "note": ""
+     },
+     {
+      "id": "signet",
+      "nom": "Poser un signet en lisant",
+      "profil": "bureau",
+      "etat": "réussi",
+      "appuis": 2,
+      "budget": 2,
+      "ms": 16323,
+      "note": ""
+     },
+     {
+      "id": "hors-ligne",
+      "nom": "Garder un chapitre pour le hors-ligne",
+      "profil": "bureau",
+      "etat": "réussi",
+      "appuis": 1,
+      "budget": 1,
+      "ms": 1564,
+      "note": ""
+     },
+     {
+      "id": "reprendre",
+      "nom": "Reprendre sa lecture depuis l'accueil",
+      "profil": "mobile",
+      "etat": "réussi",
+      "appuis": 1,
+      "budget": 1,
+      "ms": 186,
+      "note": ""
+     },
+     {
+      "id": "trouver",
+      "nom": "Retrouver une série dans sa bibliothèque",
+      "profil": "mobile",
+      "etat": "réussi",
+      "appuis": 2,
+      "budget": 2,
+      "ms": 1055,
+      "note": ""
+     },
+     {
+      "id": "ajouter",
+      "nom": "Chercher une œuvre et l'ajouter",
+      "profil": "mobile",
+      "etat": "réussi",
+      "appuis": 4,
+      "budget": 4,
+      "ms": 4916,
+      "note": ""
+     },
+     {
+      "id": "retirer",
+      "nom": "Retirer une série puis se raviser",
+      "profil": "mobile",
+      "etat": "échoué",
+      "appuis": 2,
+      "budget": 4,
+      "ms": 0,
+      "note": "introuvable à l'écran : .undo-bar-action"
+     },
+     {
+      "id": "theme",
+      "nom": "Passer en thème clair",
+      "profil": "mobile",
+      "etat": "réussi",
+      "appuis": 3,
+      "budget": 3,
+      "ms": 2145,
+      "note": ""
+     },
+     {
+      "id": "liste",
+      "nom": "Créer une liste",
+      "profil": "mobile",
+      "etat": "réussi",
+      "appuis": 3,
+      "budget": 3,
+      "ms": 485,
+      "note": ""
+     },
+     {
+      "id": "lu",
+      "nom": "Marquer un chapitre lu depuis la fiche",
+      "profil": "mobile",
+      "etat": "réussi",
+      "appuis": 1,
+      "budget": 1,
+      "ms": 120,
+      "note": ""
+     },
+     {
+      "id": "sens",
+      "nom": "Trouver le réglage du sens de lecture",
+      "profil": "mobile",
+      "etat": "réussi",
+      "appuis": 1,
+      "budget": 2,
+      "ms": 191,
+      "note": ""
+     },
+     {
+      "id": "signet",
+      "nom": "Poser un signet en lisant",
+      "profil": "mobile",
+      "etat": "réussi",
+      "appuis": 2,
+      "budget": 2,
+      "ms": 6748,
+      "note": ""
+     },
+     {
+      "id": "hors-ligne",
+      "nom": "Garder un chapitre pour le hors-ligne",
+      "profil": "mobile",
+      "etat": "réussi",
+      "appuis": 1,
+      "budget": 1,
+      "ms": 1582,
+      "note": ""
+     }
+    ],
+    "parcours_reussite_pct": 90
+   },
+   "nombre": 5,
+   "parGravite": {
+    "haute": 4,
+    "moyenne": 1
+   }
+  },
+  "ux-retour": {
+   "description": "Délai du premier retour visuel, attente annoncée serveur lent, double envoi, filet des actions destructrices",
+   "ms": 291438,
+   "mesures": {
+    "retour_boutons_essayes": 132,
+    "retour_delai_ms": {
+     "median": 2,
+     "p95": 4
+    },
+    "retour_releves": [
+     {
+      "page": "accueil.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "accueil.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "accueil.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 0,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "accueil.html",
+      "bouton": "Populaire",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "accueil.html",
+      "bouton": "Dernières sorties",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 1,
+      "envois": 2,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Bibliothèque",
+      "delai": 0,
+      "envois": 2,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Mises à jour",
+      "delai": 1,
+      "envois": 2,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Signets",
+      "delai": 0,
+      "envois": 2,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Téléchargements",
+      "delai": 0,
+      "envois": 2,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Filtres",
+      "delai": 0,
+      "envois": 2,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Vue grille",
+      "delai": 0,
+      "envois": 2,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Vue liste",
+      "delai": 0,
+      "envois": 2,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Sélectionner",
+      "delai": 0,
+      "envois": 2,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Plus d'actions",
+      "delai": 0,
+      "envois": 2,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "bibliotheque.html",
+      "bouton": "Vérifier les chapitres",
+      "delai": 0,
+      "envois": 2,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 1,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Réinitialiser",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Action",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Adventure",
+      "delai": 2,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Comedy",
+      "delai": 2,
+      "envois": 0,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Doujinshi",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Drama",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Ecchi",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Fantasy",
+      "delai": 2,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Gender Bender",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Harem",
+      "delai": 2,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Historical",
+      "delai": 1,
+      "envois": 0,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Horror",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Isekai",
+      "delai": 2,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Josei",
+      "delai": 2,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Martial Arts",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Mature",
+      "delai": 2,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Mecha",
+      "delai": 1,
+      "envois": 0,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Mystery",
+      "delai": 1,
+      "envois": 0,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "catalogue.html",
+      "bouton": "Psychological",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "collection-detail.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "collection-detail.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "collection-detail.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 0,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "collections.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "collections.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "collections.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 0,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "collections.html",
+      "bouton": "+ Nouvelle liste",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "downloads.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "downloads.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "downloads.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 0,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notes.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notes.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notes.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 0,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notes.html",
+      "bouton": "＋ Nouvelle entrée",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notes.html",
+      "bouton": "Carnet",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notes.html",
+      "bouton": "Par série",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": true,
+      "annulable": false
+     },
+     {
+      "page": "notes.html",
+      "bouton": "Mode récit",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notes.html",
+      "bouton": "Export Markdown",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notifications.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notifications.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notifications.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 0,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notifications.html",
+      "bouton": "Actualiser les notifications",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notifications.html",
+      "bouton": "🔔 Activer le push",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notifications.html",
+      "bouton": "Tout marquer lu",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notifications.html",
+      "bouton": "Toutes",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notifications.html",
+      "bouton": "Non lues",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notifications.html",
+      "bouton": "Réponses",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notifications.html",
+      "bouton": "Mentions",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "notifications.html",
+      "bouton": "Chapitres",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 0,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Afficher le code",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Gérer",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "← RTL",
+      "delai": 3,
+      "envois": 1,
+      "occupe": false,
+      "confirme": true,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "LTR →",
+      "delai": 2,
+      "envois": 0,
+      "occupe": false,
+      "confirme": true,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "↕ Webtoon",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Page",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Double",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Défilement",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Haute",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Éco",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "FR + EN",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "+ JA",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Sombre",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "AMOLED",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Clair",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Contraste",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "parametres.html",
+      "bouton": "Auto",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "profil.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "profil.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "profil.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 0,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "profil.html",
+      "bouton": "Éditer",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "profil.html",
+      "bouton": "↗ Partager",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "profil.html",
+      "bouton": "✎",
+      "delai": 23,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Reprendre ma dernière lecture",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 3,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Notifications — aucune non lue",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Rechercher",
+      "delai": 2,
+      "envois": 0,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "tout effacer",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Tout · 47",
+      "delai": 4,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Mangas · 44",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Romans · 3",
+      "delai": 3,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Tous statuts · 47",
+      "delai": 3,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Terminé · 36",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "En cours · 6",
+      "delai": 1,
+      "envois": 0,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "recherche.html",
+      "bouton": "Réessayer Royal Road",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "serie.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "serie.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "serie.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 0,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "serie.html",
+      "bouton": "Réessayer",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 0,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Activer",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": true,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Tester",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Essayer",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Journal",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Remonter MangaDex",
+      "delai": 1,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Désactiver",
+      "delai": 4,
+      "envois": 0,
+      "occupe": false,
+      "confirme": true,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Remonter SushiScan",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Remonter Weeb Central",
+      "delai": 4,
+      "envois": 0,
+      "occupe": false,
+      "confirme": true,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Remonter Chireads",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Remonter Project Gutenberg",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Remonter Livres en français",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Remonter NovelBin",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Remonter NovelFull",
+      "delai": 6,
+      "envois": 0,
+      "occupe": false,
+      "confirme": true,
+      "annulable": false
+     },
+     {
+      "page": "sources.html",
+      "bouton": "Remonter Royal Road",
+      "delai": 1,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "stats.html",
+      "bouton": "Mode incognito (lecture privée)",
+      "delai": 0,
+      "envois": 0,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "stats.html",
+      "bouton": "Actualiser mes séries (nouveaux chapitres) —",
+      "delai": null,
+      "envois": 1,
+      "occupe": true,
+      "confirme": false,
+      "annulable": false
+     },
+     {
+      "page": "stats.html",
+      "bouton": "Musique (s'ouvre dans une fenêtre qui reste ",
+      "delai": 0,
+      "envois": 1,
+      "occupe": false,
+      "confirme": false,
+      "annulable": false
+     }
+    ]
+   },
+   "nombre": 7,
+   "parGravite": {
+    "moyenne": 7
+   }
+  }
+ },
+ "trouvailles": [
+  {
+   "sonde": "ux-coherence",
+   "gravite": "haute",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "catalogue.html (bureau) : 53 % des textes hors de l'échelle typographique",
+   "detail": "12px — button.filter-tag\n12px — button.filter-status-btn\n12px — button.quick-filter-btn\n12px — button.quick-filter-btn.active\n12px — span\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "catalogue.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "haute",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "catalogue.html (mobile) : 37 % des textes hors de l'échelle typographique",
+   "detail": "12px — button.quick-filter-btn\n12px — button.quick-filter-btn.active\n12px — div.manga-card-title\n12px — span\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "catalogue.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "haute",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "lecture.html (mobile) : 73 % des textes hors de l'échelle typographique",
+   "detail": "24.7px — h1.novel-chap-title\n17px — p\n17px — div\n12px — span\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "lecture.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "haute",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "recherche.html (mobile) : 26 % des textes hors de l'échelle typographique",
+   "detail": "12px — span.se-chip\n12px — button.se-chip.on\n12px — button.se-chip\n10px — span.se-src-chip\n10px — span.se-src-chip.novel\n12px — span\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "recherche.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "haute",
+   "effort": "L",
+   "id": "UX-COH-BOUTONS",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "Les boutons prennent 53 formes différentes",
+   "detail": "32 px · rayon 20px · 13 px/600 · bas de casse — 112 fois, 12 page(s) · ex. button#btnLibFilters « Filtres » ; button#btnLibSelect « Sélectionner »\n30 px · rayon 8px · 13 px/400 · bas de casse — 79 fois, 19 page(s) · ex. button.footer-lang-btn « FR » ; button.footer-lang-btn « EN »\n44 px · rayon 20px · 13 px/600 · bas de casse — 71 fois, 6 page(s) · ex. button#btnFiltresFeuille « Filtres » ; button.reader-nav-btn « ← Précédent »\n23 px · rayon 999px · 12 px/400 · bas de casse — 54 fois, 1 page(s) · ex. button.filter-tag « Action » ; button.filter-tag « Adventure »\n34 px · rayon 20px · 13 px/600 · bas de casse — 54 fois, 13 page(s) · ex. a.btn.btn-primary « Reprendre One-Punch  » ; a.btn.btn-ghost « Voir la fiche »\n24 px · rayon 0px · 13 px/400 · bas de casse — 37 fois, 1 page(s) · ex. button.lib2-del « × »\n58 px · rayon 0px · 11 px/600 · bas de casse — 18 fois, 18 page(s) · ex. button#mnavMore « Plus »\n44 px · rayon 8px · 13 px/400 · bas de casse — 16 fois, 1 page(s) · ex. button « LTR → » ; button « ↕ Webtoon »\n33 px · rayon 8px · 13 px/400 · bas de casse — 14 fois, 1 page(s) · ex. button « Double » ; button « Défilement »\n35 px · rayon 999px · 13 px/400 · bas de casse — 8 fois, 1 page(s) · ex. button.nt-pill « Non lues » ; button.nt-pill « Réponses »\n44 px · rayon 8px · 13 px/600 · bas de casse — 8 fois, 1 page(s) · ex. button.active « ← RTL » ; button.active « Page »\n38 px · rayon 20px · 13 px/600 · bas de casse — 7 fois, 4 page(s) · ex. a.btn.btn-primary « Reprendre One-Punch  » ; a.btn.btn-ghost « Voir la fiche »\n17 px · rayon 0px · 17 px/400 · bas de casse — 7 fois, 6 page(s) · ex. button.itr-astuce-x « × »\n33 px · rayon 8px · 13 px/600 · bas de casse — 7 fois, 1 page(s) · ex. button.active « Page » ; button.active « Haute »\n25 px · rayon 999px · 12 px/400 · bas de casse — 6 fois, 1 page(s) · ex. button.se-chip.on « Tout · 83 » ; button.se-chip « Mangas · 44 »\n32 px · rayon 8px · 15 px/400 · bas de casse — 5 fois, 2 page(s) · ex. button.view-btn.active « ⊞ » ; button#btnPrevChap « ‹ »\n31 px · rayon 0px · 15 px/600 · bas de casse — 4 fois, 1 page(s) · ex. button#ongletPopular « Populaire » ; button#ongletLatest « Dernières sorties »\n37 px · rayon 0px · 15 px/600 · bas de casse — 4 fois, 1 page(s) · ex. button.lib2-tab.active « Bibliothèque » ; button.lib2-tab « Mises à jour »\n27 px · rayon 8px · 13 px/600 · bas de casse — 4 fois, 1 page(s) · ex. button.pref-btn.active « Sombre » ; button.pref-btn.active « Vertical »\n27 px · rayon 8px · 13 px/400 · bas de casse — 4 fois, 1 page(s) · ex. button.pref-btn « Clair » ; button.pref-btn « Horizontal »\n46 px · rayon 0px · 13 px/500 · bas de casse — 4 fois, 1 page(s) · ex. button.serie-tab.active « Aperçu » ; button.serie-tab « Chapitres (270) »\n44 px · rayon 0px · 15 px/600 · bas de casse — 4 fois, 1 page(s) · ex. button.lib2-tab.active « Bibliothèque » ; button.lib2-tab « Mises à jour »\n37 px · rayon 0px · 13 px/600 · bas de casse — 3 fois, 1 page(s) · ex. button.lib-cat.on « Tout37 » ; button.lib-cat « À relire1 »\n32 px · rayon 0px · 13 px/400 · bas de casse — 2 fois, 1 page(s) · ex. button.etagere-retirer « Retirer »",
+   "correctif": "Trois tailles et quatre variantes, un seul composant."
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "collection-detail.html (bureau) : 14 % des textes hors de l'échelle typographique",
+   "detail": "12px — a\n12px — span\n34px — h1.cd-title\n10px — div.cd-stat-label\n12px — div\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "collection-detail.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "notes.html (bureau) : 19 % des textes hors de l'échelle typographique",
+   "detail": "12px — span\n12px — b\n14px — div.jr-note-body\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "notes.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "serie.html (bureau) : 15 % des textes hors de l'échelle typographique",
+   "detail": "12px — a.tag.tag-link\n46px — h1.serie-title\n10px — span.status-badge.status-ongoing\n10px — span.lang-badge\n12px — span\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "serie.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "stats.html (bureau) : 24 % des textes hors de l'échelle typographique",
+   "detail": "27px — h1\n12px — span\n12px — div\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "stats.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "collection-detail.html (mobile) : 15 % des textes hors de l'échelle typographique",
+   "detail": "12px — a\n12px — span\n20px — h1.cd-title\n10px — div.cd-stat-label\n12px — div\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "collection-detail.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "notes.html (mobile) : 20 % des textes hors de l'échelle typographique",
+   "detail": "12px — span\n12px — b\n14px — div.jr-note-body\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "notes.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "serie.html (mobile) : 10 % des textes hors de l'échelle typographique",
+   "detail": "12px — a.tag.tag-link\n10px — span.status-badge.status-ongoing\n12px — div#similarSub\n12px — div\n12px — span\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "serie.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-COH-TEXTE",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "stats.html (mobile) : 24 % des textes hors de l'échelle typographique",
+   "detail": "27px — h1\n12px — span\n12px — div\n\nÉchelle : 11, 13, 15, 18, 22, 28, 38 px",
+   "correctif": "Utiliser les jetons --t-*.",
+   "fichier": "stats.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "moyenne",
+   "effort": "L",
+   "id": "UX-COH-ESPACEMENT",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "18 valeurs d'espacement hors de l'échelle",
+   "detail": "6px — 393 fois, 19 page(s) · ex. a.active ; a\n10px — 305 fois, 16 page(s) · ex. div.etagere-pied ; div.lib2-toolbar\n14px — 173 fois, 20 page(s) · ex. ul#homeStats ; span.latte-dos\n7px — 138 fois, 15 page(s) · ex. span#navLibBadge ; span#conn-al-pill\n20px — 80 fois, 19 page(s) · ex. div.decouvrir-onglets ; div.footer-bottom\n28px — 56 fois, 19 page(s) · ex. header.site-header ; div.home.container\n5px — 48 fois, 1 page(s) · ex. div\n40px — 39 fois, 19 page(s) · ex. div.footer-inner ; div.profil-hero-inner\n22px — 33 fois, 3 page(s) · ex. div#accountCard ; div#cardAppareils\n18px — 31 fois, 13 page(s) · ex. div#listsGrid ; div.toast\n36px — 25 fois, 20 page(s) · ex. input#headerSearch ; div#novelWrap\n13px — 22 fois, 3 page(s) · ex. input#libSearch ; a.tag.tag-link\n9px — 11 fois, 4 page(s) · ex. a.primary ; a\n11px — 3 fois, 2 page(s) · ex. textarea#noteArea ; a\n64px — 2 fois, 1 page(s) · ex. span.latte-dos\n38px — 2 fois, 1 page(s) · ex. input#catSearch\n80px — 2 fois, 2 page(s) · ex. div.reader-loading ; div.novel-loading\n56px — 1 fois, 1 page(s) · ex. span.latte-dos\n\nÉchelle : 0, 1, 2, 4, 8, 12, 16, 24, 32, 48, 72 px",
+   "correctif": "Ramener chaque valeur au jeton --sp-* le plus proche."
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "moyenne",
+   "effort": "M",
+   "id": "UX-COH-CHAMPS",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "Les champs de saisie prennent 15 formes différentes",
+   "detail": "34 px · rayon 8px · 13 px — 19 fois, 19 page(s) · ex. input#headerSearch\n30 px · rayon 8px · 13 px — 4 fois, 2 page(s) · ex. select#cmpSourceB ; select#dlBudget\n19 px · rayon 8px · 12 px — 4 fois, 1 page(s) · ex. select.champ.champ--compact\n33 px · rayon 8px · 13 px — 4 fois, 1 page(s) · ex. input#goalInput ; input#yearInput\n32 px · rayon 8px · 12 px — 3 fois, 2 page(s) · ex. select#sortSelect ; select#chapSelect\n37 px · rayon 9px · 13 px — 2 fois, 1 page(s) · ex. input#libSearch\n37 px · rayon 8px · 13 px — 2 fois, 1 page(s) · ex. select#libSort\n35 px · rayon 8px · 13 px — 2 fois, 2 page(s) · ex. input#filterGenreSearch ; input#inpUsername\n42 px · rayon 12px · 15 px — 2 fois, 1 page(s) · ex. input#catSearch\n39 px · rayon 8px · 13 px — 2 fois, 1 page(s) · ex. input#jrSearch\n29 px · rayon 8px · 13 px — 2 fois, 1 page(s) · ex. select#ntFreq\n40 px · rayon 0px · 13 px — 2 fois, 1 page(s) · ex. input#setSearch\n45 px · rayon 11px · 15 px — 2 fois, 1 page(s) · ex. input#seInput\n78 px · rayon 9px · 13 px — 1 fois, 1 page(s) · ex. textarea#noteArea\n44 px · rayon 8px · 13 px — 1 fois, 1 page(s) · ex. input#inpUsername",
+   "correctif": "Deux tailles de champ."
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-COH-TITRES",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "Le titre principal change de taille ou de graisse selon la page (13 formes)",
+   "detail": "H2 13px 700 — 120 fois, 19 page(s) · ex. h2 ; h2.mh-vide-titre\nH2 18px 700 — 74 fois, 6 page(s) · ex. h2.section-title ; h2\nH2 15px 600 — 48 fois, 3 page(s) · ex. h2\nH1 28px 700 — 15 fois, 8 page(s) · ex. h1 ; h1.pl-name\nH2 15px 700 — 11 fois, 3 page(s) · ex. h2.jr-day-title ; h2.synopsis-block-title\nH3 15px 700 — 8 fois, 1 page(s) · ex. h3\nH1 27px 700 — 6 fois, 3 page(s) · ex. h1\nH2 22px 700 — 4 fois, 1 page(s) · ex. h2.shelf-title\nH1 28px 800 — 3 fois, 3 page(s) · ex. h1.catalogue-title ; h1.lists-title\nH1 18px 700 — 2 fois, 1 page(s) · ex. h1#t\nH1 15px 700 — 2 fois, 1 page(s) · ex. h1#cmpTitre\nH1 22px 800 — 2 fois, 2 page(s) · ex. h1.catalogue-title ; h1.serie-title\nH1 34px 800 — 1 fois, 1 page(s) · ex. h1.cd-title\nH1 46px 800 — 1 fois, 1 page(s) · ex. h1.serie-title\nH1 20px 800 — 1 fois, 1 page(s) · ex. h1.cd-title\nH1 23px 800 — 1 fois, 1 page(s) · ex. h1.lists-title\nH1 25px 700 — 1 fois, 1 page(s) · ex. h1.novel-chap-title\nH1 22px 700 — 1 fois, 1 page(s) · ex. h1.pl-name",
+   "correctif": "Un seul style de titre de page."
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-COH-RAYON",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "recherche.html (mobile) : 24 % des rayons hors de l'échelle",
+   "detail": "7px — img.logo-icon.img-arrivee\n11px — input#seInput\n10px — div.se-cover\n\nÉchelle : 0, 3, 8, 12, 20, 999 px",
+   "correctif": "Utiliser les jetons --r-*.",
+   "fichier": "recherche.html"
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "basse",
+   "effort": "M",
+   "id": "UX-COH-COULEURS",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "23 couleurs de texte différentes à l'écran",
+   "detail": "rgb(233, 233, 236) — 1434 fois, 23 page(s)\nrgb(178, 175, 165) — 1243 fois, 22 page(s)\nrgb(157, 153, 144) — 1226 fois, 21 page(s)\nrgb(255, 255, 255) — 258 fois, 19 page(s)\nrgb(216, 216, 222) — 65 fois, 1 page(s)\nrgb(126, 226, 160) — 39 fois, 4 page(s)\nrgb(176, 176, 184) — 36 fois, 1 page(s)\nrgb(240, 138, 75) — 32 fois, 8 page(s)\nrgb(255, 157, 157) — 23 fois, 2 page(s)\nrgb(193, 83, 27) — 18 fois, 6 page(s)\nrgb(134, 134, 143) — 8 fois, 1 page(s)\nrgb(147, 189, 255) — 8 fois, 1 page(s)\ncolor(srgb 0.816471 0.54902 0.417333) — 7 fois, 7 page(s)\nrgb(240, 240, 242) — 6 fois, 1 page(s)\nrgb(245, 158, 11) — 6 fois, 1 page(s)\nrgb(255, 199, 102) — 3 fois, 1 page(s)\nrgba(255, 255, 255, 0.76) — 2 fois, 1 page(s)\nrgb(168, 168, 179) — 2 fois, 1 page(s)\nrgb(236, 72, 153) — 2 fois, 1 page(s)\nrgb(181, 118, 27) — 2 fois, 1 page(s)\nrgb(29, 78, 216) — 1 fois, 1 page(s)\nrgb(21, 112, 58) — 1 fois, 1 page(s)\nrgba(255, 255, 255, 0.72) — 1 fois, 1 page(s)",
+   "correctif": "Se limiter aux encres du thème et aux accents."
+  },
+  {
+   "sonde": "ux-coherence",
+   "gravite": "basse",
+   "effort": "M",
+   "id": "UX-COH-OMBRES",
+   "dimension": "coherence",
+   "categorie": "ux",
+   "titre": "14 ombres différentes (le projet en définit cinq)",
+   "detail": "· 0px 1px 2px 0px — 140 fois, 15 page(s)\n· 0px 1px 4px 0px — 16 fois, 1 page(s)\n· 0px 8px 28px 0px — 7 fois, 6 page(s)\n· 0px 4px 16px 0px — 6 fois, 6 page(s)\n· 3px 0px 0px 0px inset — 6 fois, 2 page(s)\n· 2px 0px 0px 0px inset — 4 fois, 2 page(s)\n· 0px 6px 18px 0px, · 0px 2px 6px 0px — 3 fois, 2 page(s)\n· 0px 0px 0px 3px — 2 fois, 1 page(s)\n· 0px 0px 0px 1px inset — 2 fois, 1 page(s)\n· 0px 2px 8px 0px — 2 fois, 1 page(s)\n· 0px 20px 48px 0px, · 0px 8px 20px 0px — 2 fois, 1 page(s)\n· 0px 32px 80px 0px, · 0px 12px 32px 0px — 2 fois, 1 page(s)\n· 0px 1px 0px 0px inset, · 0px -1px 0px 0px inset — 2 fois, 1 page(s)\n· 0px 1px 3px 0px — 2 fois, 1 page(s)",
+   "correctif": "Utiliser les jetons --e-*."
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-ECR-SANS-TITRE",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "recherche.html (bureau) : aucun titre de page visible à l'arrivée",
+   "detail": "0 titre(s) de niveau 1 dans la page",
+   "correctif": "Un h1 visible qui dit où l'on est.",
+   "fichier": "recherche.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-ECR-ACTIONS",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "serie.html (bureau) : 2 actions « principales » se disputent le premier écran",
+   "detail": "Reprendre Ch.1\n             \n▶ Commencer",
+   "correctif": "Une seule action pleine par écran ; les autres en secondaire.",
+   "fichier": "serie.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-ECR-ACTIONS",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "sources.html (bureau) : 2 actions « principales » se disputent le premier écran",
+   "detail": "Vérifier les mises à jour\nActiver",
+   "correctif": "Une seule action pleine par écran ; les autres en secondaire.",
+   "fichier": "sources.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-ECR-ACTIONS",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "stats.html (bureau) : 2 actions « principales » se disputent le premier écran",
+   "detail": "Définir\nDéfinir",
+   "correctif": "Une seule action pleine par écran ; les autres en secondaire.",
+   "fichier": "stats.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-ECR-SANS-TITRE",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "u.html (bureau) : aucun titre de page visible à l'arrivée",
+   "detail": "0 titre(s) de niveau 1 dans la page",
+   "correctif": "Un h1 visible qui dit où l'on est.",
+   "fichier": "u.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "moyenne",
+   "effort": "M",
+   "id": "UX-ECR-CONTENU-BAS",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "profil.html (mobile) : le contenu commence à 530 px, soit 63 % de l'écran",
+   "detail": "",
+   "correctif": "Réduire les en-têtes, regrouper les filtres, faire remonter le contenu.",
+   "fichier": "profil.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-ECR-SANS-TITRE",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "recherche.html (mobile) : aucun titre de page visible à l'arrivée",
+   "detail": "0 titre(s) de niveau 1 dans la page",
+   "correctif": "Un h1 visible qui dit où l'on est.",
+   "fichier": "recherche.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-ECR-ACTIONS",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "stats.html (mobile) : 2 actions « principales » se disputent le premier écran",
+   "detail": "Définir\nDéfinir",
+   "correctif": "Une seule action pleine par écran ; les autres en secondaire.",
+   "fichier": "stats.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-ECR-SANS-TITRE",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "u.html (mobile) : aucun titre de page visible à l'arrivée",
+   "detail": "0 titre(s) de niveau 1 dans la page",
+   "correctif": "Un h1 visible qui dit où l'on est.",
+   "fichier": "u.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-ECR-IMAGE-FLOUE",
+   "dimension": "rendu",
+   "categorie": "ux",
+   "titre": "accueil.html (bureau) : image(s) affichée(s) plus grande(s) que leur définition",
+   "detail": "400 px affichés sur 889 — img.latte-couv.img-arrivee",
+   "correctif": "Demander la bonne taille de couverture.",
+   "fichier": "accueil.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-ECR-LIGNE-LONGUE",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "confidentialite.html (bureau) : lignes de plus de 95 signes",
+   "detail": "98 signes — p\n98 signes — p\n98 signes — p\n98 signes — p\n98 signes — p",
+   "correctif": "max-width: 70ch sur le texte courant.",
+   "fichier": "confidentialite.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-ECR-LIGNE-LONGUE",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "downloads.html (bureau) : lignes de plus de 95 signes",
+   "detail": "128 signes — label.dl-budget",
+   "correctif": "max-width: 70ch sur le texte courant.",
+   "fichier": "downloads.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-ECR-LIGNE-LONGUE",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "import.html (bureau) : lignes de plus de 95 signes",
+   "detail": "128 signes — p",
+   "correctif": "max-width: 70ch sur le texte courant.",
+   "fichier": "import.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-ECR-LIGNE-LONGUE",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "parametres.html (bureau) : lignes de plus de 95 signes",
+   "detail": "111 signes — div.sub\n111 signes — div.sub\n111 signes — div.sub\n108 signes — div#cacheStatus",
+   "correctif": "max-width: 70ch sur le texte courant.",
+   "fichier": "parametres.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-ECR-TAILLES",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "profil.html (bureau) : 8 tailles de texte sur un seul écran",
+   "detail": "11, 12, 13, 15, 18, 22, 28, 34 px",
+   "correctif": "Quatre ou cinq niveaux suffisent.",
+   "fichier": "profil.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-ECR-LIGNE-LONGUE",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "serie.html (bureau) : lignes de plus de 95 signes",
+   "detail": "120 signes — div.synopsis-text",
+   "correctif": "max-width: 70ch sur le texte courant.",
+   "fichier": "serie.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-ECR-LIGNE-LONGUE",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "sources.html (bureau) : lignes de plus de 95 signes",
+   "detail": "108 signes — p\n143 signes — div.sources-warning",
+   "correctif": "max-width: 70ch sur le texte courant.",
+   "fichier": "sources.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-ECR-TAILLES",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "stats.html (bureau) : 8 tailles de texte sur un seul écran",
+   "detail": "10, 11, 12, 13, 15, 26, 27, 28 px",
+   "correctif": "Quatre ou cinq niveaux suffisent.",
+   "fichier": "stats.html"
+  },
+  {
+   "sonde": "ux-ecrans",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-ECR-LIGNE-LONGUE",
+   "dimension": "hierarchie",
+   "categorie": "ux",
+   "titre": "systeme.html (bureau) : lignes de plus de 95 signes",
+   "detail": "150 signes — p#sy-source",
+   "correctif": "max-width: 70ch sur le texte courant.",
+   "fichier": "systeme.html"
+  },
+  {
+   "sonde": "ux-redaction",
+   "gravite": "moyenne",
+   "effort": "M",
+   "id": "UX-RED-ERREUR-BRUTE",
+   "dimension": "redaction",
+   "categorie": "ux",
+   "titre": "30 message(s) collent l'erreur technique derrière « Erreur : »",
+   "detail": "« Erreur :  » — assets/js/bibliotheque.js:480\n« Erreur :  » — assets/js/bibliotheque.js:1422\n« Impossible de marquer la série :  » — assets/js/cartes-gestes.js:177\n« Erreur :  » — assets/js/catalogue.js:1263\n« Erreur :  » — assets/js/chapitre.js:2642\n« Erreur :  » — assets/js/chapitre.js:2816\n« Erreur :  » — assets/js/collection-detail.js:17\n« Erreur :  » — assets/js/collection-detail.js:107\n« Erreur :  » — assets/js/collection-detail.js:213\n« Erreur :  » — assets/js/collections.js:108\n« Erreur :  » — assets/js/collections.js:189\n« Erreur :  » — assets/js/downloads-page.js:411\n« Erreur :  » — assets/js/global.js:1540\n« Erreur :  » — assets/js/import.js:341\n« Erreur :  » — assets/js/lecture.js:978\n« Erreur :  » — assets/js/lecture.js:1011\n« Erreur :  » — assets/js/notes-ui.js:195\n« Erreur :  » — assets/js/notes-ui.js:202\n« Erreur :  » — assets/js/notes.js:195\n« Erreur :  » — assets/js/notes.js:588\n… et 10 autres",
+   "correctif": "MH.toastErreur : dire ce qui s'est passé, ce que ça change et quoi faire."
+  },
+  {
+   "sonde": "ux-redaction",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-RED-JARGON",
+   "dimension": "redaction",
+   "categorie": "ux",
+   "titre": "Jargon à l'écran : « JSON » (1)",
+   "detail": "« Fichier illisible : ce n’est pas du JSON » — assets/js/parametres.js:154",
+   "correctif": "Dire ce que cela change pour le lecteur ; garder le terme technique pour la page Système."
+  },
+  {
+   "sonde": "ux-redaction",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-RED-JARGON",
+   "dimension": "redaction",
+   "categorie": "ux",
+   "titre": "Jargon à l'écran : « cache » (2)",
+   "detail": "« Cache vidé ✓ » — assets/js/parametres.js:823\n« Impossible de vider le cache » — assets/js/parametres.js:829",
+   "correctif": "Dire ce que cela change pour le lecteur ; garder le terme technique pour la page Système."
+  },
+  {
+   "sonde": "ux-redaction",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-RED-APOSTROPHE",
+   "dimension": "redaction",
+   "categorie": "ux",
+   "titre": "Deux apostrophes se mélangent : 9 droites, 34 typographiques",
+   "detail": "« Actualiser mes séries (nouveaux chapitres) — dernière recherche à l'instant » — parametres.html\n« Musique (s'ouvre dans une fenêtre qui reste en lecture) » — u.html\n« Cette page reçoit la réponse d'AniList après une autorisation. La liaison se lance depuis les paramètres d'Ink » — anilist.html\n« Lecture d'un fichier importé » — localreader.html\n« Stockage presque plein (… Mo utilisés) — supprime d'anciens téléchargements. » — assets/js/downloads.js:117\n« … série… n'ont pas pu être vérifiée… (source indisponible) — détail dans Bibliothèque › Mises à jour » — assets/js/global.js:1932\n« L'app va se recharger à neuf. Ton compte, ta bibliothèque, ta progression et tes chapitres téléchargés hors-li » — assets/js/parametres.js:800\n« … chapitre(s) retiré(s) de l'historique » — assets/js/profil.js:1495\n« Désinstaller l'extension « … » ? » — assets/js/sources.js:231",
+   "correctif": "Choisir « ’ »."
+  },
+  {
+   "sonde": "ux-redaction",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-RED-ERREUR-SANS-ISSUE",
+   "dimension": "redaction",
+   "categorie": "ux",
+   "titre": "3 message(s) d'erreur sans geste proposé",
+   "detail": "« Impossible de relancer ce chapitre » — assets/js/downloads-page.js:399\n« Erreur de chargement » — assets/js/global.js:3223\n« Impossible de vider le cache » — assets/js/parametres.js:829",
+   "correctif": "Terminer chaque erreur par ce que le lecteur peut faire."
+  },
+  {
+   "sonde": "ux-retour",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-RET-DOUBLE-ENVOI",
+   "dimension": "retour",
+   "categorie": "ux",
+   "titre": "notifications.html : deux appuis sur « Non lues » envoient deux fois la même demande",
+   "detail": "POST /api/me/notifications/read-all × 2",
+   "correctif": "Désactiver le contrôle tant que la réponse n'est pas arrivée.",
+   "fichier": "notifications.html"
+  },
+  {
+   "sonde": "ux-retour",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-RET-DOUBLE-ENVOI",
+   "dimension": "retour",
+   "categorie": "ux",
+   "titre": "parametres.html : deux appuis sur « Page » envoient deux fois la même demande",
+   "detail": "PUT /api/me/settings × 2",
+   "correctif": "Désactiver le contrôle tant que la réponse n'est pas arrivée.",
+   "fichier": "parametres.html"
+  },
+  {
+   "sonde": "ux-retour",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-RET-DOUBLE-ENVOI",
+   "dimension": "retour",
+   "categorie": "ux",
+   "titre": "parametres.html : deux appuis sur « Défilement » envoient deux fois la même demande",
+   "detail": "PUT /api/me/settings × 2",
+   "correctif": "Désactiver le contrôle tant que la réponse n'est pas arrivée.",
+   "fichier": "parametres.html"
+  },
+  {
+   "sonde": "ux-retour",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-RET-DOUBLE-ENVOI",
+   "dimension": "retour",
+   "categorie": "ux",
+   "titre": "parametres.html : deux appuis sur « Éco » envoient deux fois la même demande",
+   "detail": "PUT /api/me/settings × 2",
+   "correctif": "Désactiver le contrôle tant que la réponse n'est pas arrivée.",
+   "fichier": "parametres.html"
+  },
+  {
+   "sonde": "ux-retour",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-RET-DOUBLE-ENVOI",
+   "dimension": "retour",
+   "categorie": "ux",
+   "titre": "parametres.html : deux appuis sur « + JA » envoient deux fois la même demande",
+   "detail": "PUT /api/me/settings × 2",
+   "correctif": "Désactiver le contrôle tant que la réponse n'est pas arrivée.",
+   "fichier": "parametres.html"
+  },
+  {
+   "sonde": "ux-retour",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-RET-DOUBLE-ENVOI",
+   "dimension": "retour",
+   "categorie": "ux",
+   "titre": "parametres.html : deux appuis sur « AMOLED » envoient deux fois la même demande",
+   "detail": "PUT /api/me/settings × 2",
+   "correctif": "Désactiver le contrôle tant que la réponse n'est pas arrivée.",
+   "fichier": "parametres.html"
+  },
+  {
+   "sonde": "ux-retour",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-RET-DOUBLE-ENVOI",
+   "dimension": "retour",
+   "categorie": "ux",
+   "titre": "parametres.html : deux appuis sur « Contraste » envoient deux fois la même demande",
+   "detail": "PUT /api/me/settings × 2",
+   "correctif": "Désactiver le contrôle tant que la réponse n'est pas arrivée.",
+   "fichier": "parametres.html"
+  },
+  {
+   "sonde": "ux-parcours",
+   "gravite": "haute",
+   "effort": "S",
+   "id": "UX-RESULTATS-SANS-LIEN",
+   "dimension": "accessibilite",
+   "categorie": "ux",
+   "titre": "Les résultats de recherche ne sont pas des liens : impossibles à ouvrir au clavier ou dans un nouvel onglet",
+   "detail": "recherche.js : <div class=\"se-card\" data-href=…> avec un seul écouteur de clic, sans tabindex ni rôle.",
+   "correctif": "Un <a href> couvrant la carte, les puces de sources en liens séparés.",
+   "fichier": "assets/js/recherche.js"
+  },
+  {
+   "sonde": "ux-parcours",
+   "gravite": "haute",
+   "effort": "M",
+   "id": "UX-PARCOURS-ECHEC",
+   "dimension": "efficacite",
+   "categorie": "ux",
+   "titre": "« Retirer une série puis se raviser » n'aboutit pas au bureau",
+   "detail": "introuvable à l'écran : .undo-bar-action\nParti de bibliotheque.html, 2 appui(s) avant l'échec.",
+   "correctif": "Rejouer à la main, puis rendre le contrôle visible et son effet immédiat.",
+   "fichier": "bibliotheque.html"
+  },
+  {
+   "sonde": "ux-parcours",
+   "gravite": "haute",
+   "effort": "S",
+   "id": "UX-RESULTATS-SANS-LIEN",
+   "dimension": "accessibilite",
+   "categorie": "ux",
+   "titre": "Les résultats de recherche ne sont pas des liens : impossibles à ouvrir au clavier ou dans un nouvel onglet",
+   "detail": "recherche.js : <div class=\"se-card\" data-href=…> avec un seul écouteur de clic, sans tabindex ni rôle.",
+   "correctif": "Un <a href> couvrant la carte, les puces de sources en liens séparés.",
+   "fichier": "assets/js/recherche.js"
+  },
+  {
+   "sonde": "ux-parcours",
+   "gravite": "haute",
+   "effort": "M",
+   "id": "UX-PARCOURS-ECHEC",
+   "dimension": "efficacite",
+   "categorie": "ux",
+   "titre": "« Retirer une série puis se raviser » n'aboutit pas au téléphone",
+   "detail": "introuvable à l'écran : .undo-bar-action\nParti de bibliotheque.html, 2 appui(s) avant l'échec.",
+   "correctif": "Rejouer à la main, puis rendre le contrôle visible et son effet immédiat.",
+   "fichier": "bibliotheque.html"
+  },
+  {
+   "sonde": "ux-parcours",
+   "gravite": "moyenne",
+   "effort": "M",
+   "id": "UX-PALETTE-SANS-ROLE",
+   "dimension": "accessibilite",
+   "categorie": "ux",
+   "titre": "Au téléphone, « Plus » ouvre une palette de commandes dont les lignes ne sont ni des liens ni des boutons",
+   "detail": "global.js : <div class=\"cmd-row\"> avec écouteur de clic, sans rôle ; un lecteur d'écran ne les annonce pas comme activables.",
+   "correctif": "Une feuille de navigation avec de vrais liens au téléphone ; role=\"option\" dans la palette.",
+   "fichier": "assets/js/global.js"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "haute",
+   "effort": "S",
+   "id": "DSK-FENETRE-SANS-BARRE",
+   "dimension": "navigation",
+   "categorie": "application de bureau",
+   "titre": "Application Windows : 4 page(s) sans boutons de fenêtre (ni réduire, ni fermer, ni déplacer)",
+   "detail": "anilist.html\nconfidentialite.html\nlocalreader.html\nsysteme.html (aucun lien de sortie)\n\nLa fenêtre est configurée sans cadre et la barre n'est ajoutée que par MH.initPage. Constaté en simulant l'environnement Tauri dans un navigateur.",
+   "correctif": "Injecter la barre depuis un script commun à toutes les pages.",
+   "fichier": "assets/js/global.js"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "haute",
+   "effort": "M",
+   "id": "UX-NAV-RETOUR-PANNEAU",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "chapitre.html (téléphone) : le bouton Retour quitte la page au lieu de fermer le panneau ouvert",
+   "detail": "Panneau ouvert par #btnReaderSettings.",
+   "correctif": "history.pushState à l'ouverture, fermeture sur popstate — dans le composant commun.",
+   "fichier": "chapitre.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "haute",
+   "effort": "M",
+   "id": "UX-NAV-RETOUR-PANNEAU",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "serie.html (téléphone) : le bouton Retour quitte la page au lieu de fermer le panneau ouvert",
+   "detail": "Panneau ouvert par main [aria-haspopup].",
+   "correctif": "history.pushState à l'ouverture, fermeture sur popstate — dans le composant commun.",
+   "fichier": "serie.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-NAV-REPERE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "accueil.html : la navigation n'indique pas qu'on est sur cette page",
+   "detail": "",
+   "correctif": "aria-current=\"page\" et style actif.",
+   "fichier": "accueil.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-NAV-REPERE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "bibliotheque.html : la navigation n'indique pas qu'on est sur cette page",
+   "detail": "",
+   "correctif": "aria-current=\"page\" et style actif.",
+   "fichier": "bibliotheque.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-NAV-SANS-RETOUR",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "confidentialite.html : aucun moyen visible de revenir au niveau supérieur",
+   "detail": "",
+   "correctif": "Lien « ← … » ou fil d'Ariane.",
+   "fichier": "confidentialite.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-NAV-REPERE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "notes.html : la navigation n'indique pas qu'on est sur cette page",
+   "detail": "",
+   "correctif": "aria-current=\"page\" et style actif.",
+   "fichier": "notes.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-NAV-REPERE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "parametres.html : la navigation n'indique pas qu'on est sur cette page",
+   "detail": "",
+   "correctif": "aria-current=\"page\" et style actif.",
+   "fichier": "parametres.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-NAV-REPERE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "profil.html : la navigation n'indique pas qu'on est sur cette page",
+   "detail": "",
+   "correctif": "aria-current=\"page\" et style actif.",
+   "fichier": "profil.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-NAV-REPERE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "sources.html : la navigation n'indique pas qu'on est sur cette page",
+   "detail": "",
+   "correctif": "aria-current=\"page\" et style actif.",
+   "fichier": "sources.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-NAV-ETAT-PERDU",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "bibliotheque.html : l'onglet « Signets » est oubliée au rechargement",
+   "detail": "",
+   "correctif": "Garder le choix dans l'adresse (partageable) ou les préférences.",
+   "fichier": "bibliotheque.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "moyenne",
+   "effort": "S",
+   "id": "UX-NAV-ETAT-PERDU",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "catalogue.html : la recherche saisie est oubliée au rechargement",
+   "detail": "",
+   "correctif": "Garder le choix dans l'adresse (partageable) ou les préférences.",
+   "fichier": "catalogue.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-TITRES-DOUBLES",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "3 titre(s) d'onglet partagés par plusieurs pages",
+   "detail": "« Inko — Lecture » : accueil.html, localreader.html\n« One-Punch Man — Chap. 244 » : bibliotheque.html, catalogue.html\n« One-Punch Man — Chap. 1 » : chapitre.html, collection-detail.html, collections.html, comparer.html, downloads.html, import.html, lecture.html, liste.html, notes.html, notifications.html, parametres.html, profil.html, recherche.html, serie.html, sources.html, stats.html, u.html",
+   "correctif": "Un titre propre à chaque page."
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "anilist.html : aucun lien permanent (seulement atteinte par une action)",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "anilist.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "collection-detail.html : aucun lien permanent (seulement atteinte par une action)",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "collection-detail.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "collections.html : aucun lien permanent (seulement atteinte par une action)",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "collections.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "comparer.html : aucun lien permanent (seulement atteinte par une action)",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "comparer.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "confidentialite.html : accessible seulement par le pied de page",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "confidentialite.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "downloads.html : accessible seulement par le pied de page",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "downloads.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "import.html : accessible seulement par le pied de page",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "import.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "lecture.html : aucun lien permanent (seulement atteinte par une action)",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "lecture.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "liste.html : aucun lien permanent (seulement atteinte par une action)",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "liste.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "localreader.html : aucun lien permanent (seulement atteinte par une action)",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "localreader.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "notifications.html : aucun lien permanent (seulement atteinte par une action)",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "notifications.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "recherche.html : aucun lien permanent (seulement atteinte par une action)",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "recherche.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "stats.html : aucun lien permanent (seulement atteinte par une action)",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "stats.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "systeme.html : accessible seulement par le pied de page",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "systeme.html"
+  },
+  {
+   "sonde": "ux-navigation",
+   "gravite": "basse",
+   "effort": "S",
+   "id": "UX-NAV-ORPHELINE",
+   "dimension": "navigation",
+   "categorie": "ux",
+   "titre": "u.html : aucun lien permanent (seulement atteinte par une action)",
+   "detail": "",
+   "correctif": "Lui donner une place dans la navigation, ou la retirer.",
+   "fichier": "u.html"
+  }
+ ],
+ "date": "2026-11-25T23:18:37.012Z"
+}

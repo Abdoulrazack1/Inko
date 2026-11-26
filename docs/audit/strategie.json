@@ -1,0 +1,240 @@
+{
+ "debut": "2026-11-24T20:03:29.979Z",
+ "options": [
+  "--sondes=structure,ecouteurs,securite,routes,sql,erreurs,a11y-html,css,i18n,perf-statique,code-mort,dependances,tests,plateformes,docs,ci,extensions,donnees,couvertures,api-acces,api-contrat,flux-ecriture,pages"
+ ],
+ "phases": {
+  "sonder": {
+   "sondes": [
+    "structure",
+    "ecouteurs",
+    "securite",
+    "routes",
+    "sql",
+    "erreurs",
+    "a11y-html",
+    "css",
+    "i18n",
+    "perf-statique",
+    "code-mort",
+    "dependances",
+    "tests",
+    "plateformes",
+    "docs",
+    "ci",
+    "extensions",
+    "donnees",
+    "couvertures",
+    "api-acces",
+    "api-contrat",
+    "flux-ecriture",
+    "pages"
+   ],
+   "total": 362,
+   "parGravite": {
+    "critique": 2,
+    "haute": 52,
+    "moyenne": 167,
+    "basse": 138,
+    "info": 3
+   },
+   "parId": {
+    "COUV-HOTE-EN-PANNE": 2,
+    "STR-GROS": 13,
+    "ECOUTEURS-APRES-ATTENTE": 5,
+    "SEC-XSS-CANDIDAT": 30,
+    "SEC-SQL-INTERPOLE": 6,
+    "SEC-SECRET-EN-DUR": 1,
+    "RTE-MUTATION-OUVERTE": 1,
+    "EXT-VERSIONS-JSON-PERIME": 6,
+    "EXT-CATALOGUE-MANGA": 1,
+    "EXT-CHAINE-CASSEE": 7,
+    "DATA-COUVERTURES-VIDES": 1,
+    "DATA-SUPPRESSION-MASSE": 1,
+    "ACCES-CORS-OUVERT": 1,
+    "ACCES-CORS-PREFLIGHT": 1,
+    "FLUX-SUPPRESSION-MASSE": 1,
+    "FLUX-ETAPE-KO": 3,
+    "PAGE-CLS": 12,
+    "AXE-LINK-NAME": 2,
+    "AXE-COLOR-CONTRAST": 9,
+    "AXE-LINK-IN-TEXT-BLOCK": 1,
+    "AXE-SCROLLABLE-REGION-FOCUSABLE": 1,
+    "STR-FONCTION": 10,
+    "SEC-COOKIE": 5,
+    "SEC-FUITE-ERREUR": 6,
+    "RTE-SORTIE-SANS-LIMITEUR": 3,
+    "RTE-CORPS-12MO": 1,
+    "SQL-SANS-LIMITE": 6,
+    "SQL-N-PLUS-1": 1,
+    "SQL-SANS-TRANSACTION": 3,
+    "SQL-MIGRATION-DESTRUCTRICE": 2,
+    "ERR--COUTEUR-GLOBAL-SANS-PASSIVE-THROTTLE": 1,
+    "ERR-SETINTERVAL-SANS-CLEARINTERVAL": 2,
+    "A11Y-BOUTON-MUET": 1,
+    "A11Y-TITRE": 4,
+    "A11Y-CHAMP-SANS-LABEL": 5,
+    "A11Y-DIV-CLIQUABLE-JS": 1,
+    "CSS-LOURDE": 1,
+    "CSS-100VH": 1,
+    "CSS-VAR-INDEFINIE": 1,
+    "CSS-SELECTEURS-RECENTS": 1,
+    "PERF-SCRIPTS-BLOQUANTS": 23,
+    "PERF-PAS-MINIFIE": 1,
+    "DEP-VERSION-DERIVE": 1,
+    "TEST-SOURCE-GREP": 1,
+    "TEST-SERVEUR-NON-TESTE": 2,
+    "TEST-ROUTES-NON-APPELEES": 1,
+    "PLT-ALLOWBACKUP": 1,
+    "PLT-CSP-UNSAFE-INLINE": 1,
+    "CI-PERMISSIONS": 1,
+    "ACCES-FICHIER-EXPOSE": 6,
+    "FLUX-JOURNAL-ERREURS": 1,
+    "PAGE-ERREUR-CONSOLE": 15,
+    "PAGE-LCP": 2,
+    "PAGE-TACHES-LONGUES": 1,
+    "PAGE-RESEAU-KO": 4,
+    "PAGE-DOM-LOURD": 1,
+    "STR-DOUBLON": 2,
+    "STR-MARQUEURS": 1,
+    "SEC-SQL-DYNAMIQUE": 11,
+    "SEC-NOOPENER": 2,
+    "RTE-SANS-LIMITEUR": 1,
+    "RTE-EXPORT-ORPHELIN": 1,
+    "RTE-PARAMS-NON-VALIDES": 1,
+    "SQL-LIKE-PREFIXE-JOKER": 3,
+    "SQL-SELECT-ETOILE": 1,
+    "SQL-MIGRATIONS-TROUS": 1,
+    "ERR-FETCH-JSON-SANS-TEST-DE-RES-OK": 1,
+    "ERR-CONSOLE-LOG-SERVEUR": 3,
+    "A11Y-LIEN-EVITEMENT": 24,
+    "A11Y-H1": 4,
+    "CSS-COULEURS-LITTERALES": 1,
+    "CSS-ZINDEX": 1,
+    "CSS-FONT-PX": 1,
+    "CSS-CLASSES-MORTES": 7,
+    "I18N-IDENTIQUES": 1,
+    "PERF-IMG-SANS-DIM": 3,
+    "PERF-POLICES": 1,
+    "PERF-IMAGE-LOURDE": 10,
+    "MORT-MH-INUTILISE": 1,
+    "MORT-SERVEUR-ORPHELIN": 1,
+    "MORT-RESIDU-RACINE": 8,
+    "MORT-AUDITS-EMPILES": 1,
+    "DEP-ENGINES-DIVERGENT": 1,
+    "DEP-INUTILISEE": 10,
+    "DEP-MAJEURES": 1,
+    "TEST-IGNORE": 2,
+    "PLT-CLEARTEXT": 1,
+    "PLT-MIXED-CONTENT": 1,
+    "PLT-DOCKER-TAG-FLOTTANT": 1,
+    "DOC-CAPTURES-ORPHELINES": 1,
+    "DOC-COMMUNAUTE": 3,
+    "CI-ACTION-NON-EPINGLEE": 4,
+    "CI-TIMEOUT": 6,
+    "CI-CACHE": 1,
+    "CI-DEPENDABOT-ECOSYSTEME": 2,
+    "EXT-GROSSE": 1,
+    "ACCES-DEPOT-SERVI": 1,
+    "ACCES-ENTETES": 1,
+    "ACCES-SANS-COMPRESSION": 1,
+    "CONTRAT-SANS-CACHE": 6,
+    "PAGE-CIBLES-PETITES": 2,
+    "I18N-LANGUES": 1,
+    "DOC-LANGUE": 1
+   }
+  },
+  "planifier": [
+   {
+    "correcteur": "noopener",
+    "risque": "nul",
+    "fichiers": [
+     "assets/js/eula.js"
+    ],
+    "permis": true
+   },
+   {
+    "correcteur": "lang",
+    "risque": "nul",
+    "fichiers": [],
+    "permis": true
+   },
+   {
+    "correcteur": "openapi",
+    "risque": "nul",
+    "fichiers": [],
+    "permis": true
+   },
+   {
+    "correcteur": "precache",
+    "risque": "nul",
+    "fichiers": [
+     "service-worker.js"
+    ],
+    "permis": true
+   },
+   {
+    "correcteur": "meta",
+    "risque": "nul",
+    "fichiers": [],
+    "permis": true
+   },
+   {
+    "correcteur": "mouvement-reduit",
+    "risque": "faible",
+    "fichiers": [],
+    "permis": false
+   },
+   {
+    "correcteur": "vh-dvh",
+    "risque": "faible",
+    "fichiers": [
+     "assets/css/chapitre.css",
+     "assets/css/global.css"
+    ],
+    "permis": false
+   },
+   {
+    "correcteur": "versions",
+    "risque": "faible",
+    "fichiers": [
+     "server/package.json",
+     "server/package-lock.json"
+    ],
+    "permis": false
+   },
+   {
+    "correcteur": "versions-extensions",
+    "risque": "faible",
+    "fichiers": [
+     "extensions-community/versions.json"
+    ],
+    "permis": false
+   },
+   {
+    "correcteur": "allowbackup",
+    "risque": "moyen",
+    "fichiers": [
+     "android/app/src/main/AndroidManifest.xml"
+    ],
+    "permis": false
+   },
+   {
+    "correcteur": "ci-permissions",
+    "risque": "moyen",
+    "fichiers": [
+     ".github/workflows/ci.yml"
+    ],
+    "permis": false
+   },
+   {
+    "correcteur": "catch-muet",
+    "risque": "moyen",
+    "fichiers": [],
+    "permis": false
+   }
+  ]
+ },
+ "fin": "2026-11-24T20:08:22.199Z",
+ "duree_s": 292
+}

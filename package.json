@@ -36,7 +36,12 @@
     "mobile:sync": "node scripts-ci/build-mobile-www.js && cap sync android",
     "verifier-apk": "node scripts-ci/verifier-apk.js",
     "verifier-android8": "node scripts-ci/verifier-android8.js --check",
-    "verif-java": "node scripts-ci/verifier-java-android.js"
+    "verif-java": "node scripts-ci/verifier-java-android.js",
+    "sondes": "node scripts-ci/sondes/strategie.js",
+    "sondes:campagne": "node scripts-ci/sondes/campagne.js",
+    "ux": "node scripts-ci/sondes/strategie-ux.js",
+    "ux:barriere": "node scripts-ci/sondes/strategie-ux.js --sans-sonder --seuil=3",
+    "sondes:statique": "node scripts-ci/sondes/strategie.js --sans-dynamiques"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.0",
