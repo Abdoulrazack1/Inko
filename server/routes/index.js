@@ -340,7 +340,7 @@ router.put   ('/me/anilist-links',        auth.authRequired, User.setAnilistLink
 
 // ── Données ─────────────────────────────────────
 router.get   ('/me/export',               auth.authRequired, User.exportData);
-router.post  ('/me/import',               auth.authRequired, User.importData);
+router.post  ('/me/import',               auth.authRequired, require('express').json({ limit: '12mb' }), User.importData);   // SEC-21
 router.post  ('/me/clear-history',        auth.authRequired, User.clearHistory);
 // Historique : suppression ciblee et export dedie (audit AMEL-112/113)
 router.get   ('/me/history/export',       auth.authRequired, User.exportHistory);

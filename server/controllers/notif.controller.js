@@ -21,10 +21,10 @@ function vapid(_req, res) {
 
 async function list(req, res, next) {
     try {
-        const limit  = Math.min(parseInt(req.query.limit || '30', 10), 100);
+        const limit  = Math.min(Math.max(parseInt(req.query.limit || '30', 10) || 30, 1), 100);   // API-14
         // Pagination (audit N3) : offset + total pour un « charger plus » —
         // avant, tout au-delà des 100 plus récentes était inaccessible.
-        const offset = Math.max(0, parseInt(req.query.offset || '0', 10));
+        const offset = Math.max(0, parseInt(req.query.offset || '0', 10) || 0);
         const [rows] = await pool.query(
             `SELECT id, type, title, body, link, actor, image, is_read, created_at, group_count
              FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,

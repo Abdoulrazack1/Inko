@@ -4064,8 +4064,7 @@
     },
     "/me/import": {
       "post": {
-        "summary": "User.importData",
-        "operationId": "User_importData",
+        "summary": "POST /me/import",
         "tags": [
           "me"
         ],
