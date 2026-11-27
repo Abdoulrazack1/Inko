@@ -166,9 +166,10 @@ test('sans MH.retour, la surcouche se ferme quand meme', () => {
 });
 
 // ── L'inventaire : les six converties, et les cinq qui ne doivent pas l'etre ──
-test('les six vraies surcouches passent par MH.surcouche', () => {
+test('les vraies surcouches passent par MH.surcouche', () => {
     const ATTENDU = {
-        'chapitre.js': 2,       // le menu « ... » et la note de signet
+        'chapitre.js': 3,       // le menu « ... », la note de signet, les réglages (UX-10)
+        'serie.js': 1,          // les menus de la fiche (UX-10)
         'profil.js': 1,         // le menu de filtre de l'historique
         'notes-ui.js': 1,       // le panneau des notes
         'lecture.js': 1,        // la barre de recherche du lecteur de romans

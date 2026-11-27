@@ -15,4 +15,4 @@
 .pp ul { padding-left: var(--sp-5); }
 .pp li { margin-bottom: var(--sp-2); }
 .pp strong { color: var(--text); }
-.pp a { color: var(--orange); }
+.pp a { color: var(--accent-text, var(--orange)); }   /* A11Y-15 */

@@ -209,12 +209,20 @@
     // Menus déroulants de la fiche : un seul ouvert à la fois, fermés par un
     // clic ailleurs ou Échap, focus rendu au bouton qui les a ouverts.
     let menusBranches = false;
+    // UX-10 : un menu ouvert est une surcouche — le bouton Retour du
+    // téléphone le ferme au lieu de quitter la fiche. Une seule à la fois,
+    // partagée par toutes les passes de `renderHero`.
+    let rendreMenu = null;
     function brancherMenus(root) {
-        const fermerTout = (sauf) => root.querySelectorAll('.serie-pop').forEach(pop => {
+        const masquerTout = (sauf) => root.querySelectorAll('.serie-pop').forEach(pop => {
             if (pop === sauf) return;
             pop.hidden = true;
             pop.closest('[data-pop-wrap]')?.querySelector('[aria-haspopup]')?.setAttribute('aria-expanded', 'false');
         });
+        const fermerTout = (sauf) => {
+            if (rendreMenu && !sauf) { const r = rendreMenu; rendreMenu = null; r(); }
+            masquerTout(sauf);
+        };
         const ouvrir = (btn, pop) => {
             if (!btn || !pop) return;
             const deja = !pop.hidden;
@@ -222,6 +230,8 @@
             if (deja) return;
             pop.hidden = false;
             btn.setAttribute('aria-expanded', 'true');
+            const fermerReel = () => { rendreMenu = null; masquerTout(); };
+            rendreMenu = window.MH?.surcouche ? MH.surcouche(fermerReel) : fermerReel;
             pop.querySelector('button:not([hidden])')?.focus({ preventScroll: true });
         };
         root.querySelector('#btnMore')?.addEventListener('click', (e) => { e.stopPropagation(); ouvrir(e.currentTarget, root.querySelector('#moreMenu')); });
@@ -424,7 +434,7 @@
                 renderHero();   // fait apparaître alertes, épingle, changement de source
                 const b2 = document.getElementById('btnFavorite');
                 const m2 = document.getElementById('libMenu');
-                if (b2 && m2) { m2.hidden = false; b2.setAttribute('aria-expanded', 'true'); }
+                if (b2 && m2) menus.ouvrir(b2, m2);   // UX-10 : même chemin, donc fermable par Retour
             } catch (err) { MH.toastErreur(err); btn.disabled = false; }
         });
 
@@ -433,10 +443,15 @@
                 { okText: 'Retirer', title: 'Retirer de la bibliothèque' });
             if (!ok) return;
             try {
-                await API.me.removeFavorite(manga.id);
+                const r = await API.me.removeFavorite(manga.id);
+                const statutAvant = libStatus;
                 favorited = false; libStatus = null;
-                MH.toast('Retirée de ta bibliothèque');
                 renderHero();
+                // UX-09 : annulable, comme le retrait en lot de la bibliothèque.
+                MH.annulerRetrait(r && r.lot, 'Retirée de ta bibliothèque', () => {
+                    favorited = true; libStatus = statutAvant;
+                    renderHero();
+                });
             } catch (err) { MH.toastErreur(err); }
         });
 

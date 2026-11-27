@@ -391,7 +391,9 @@
     }
 
     const STATUS_LABEL = { ongoing: 'En cours', completed: 'Terminé', hiatus: 'En pause', cancelled: 'Annulé' };
-    const STATUS_COLOR = { ongoing: '#22c55e', completed: '#3b82f6', hiatus: '#f59e0b', cancelled: '#ef4444' };
+    // A11Y-15 : ces pastilles portent du texte blanc. Les teintes « 500 »
+    // tombaient entre 2,2:1 et 3,8:1 ; les « 700 » tiennent toutes 4,5:1.
+    const STATUS_COLOR = { ongoing: '#15803d', completed: '#1d4ed8', hiatus: '#b45309', cancelled: '#b91c1c' };
 
     function renderResults(q, opts = {}) {
         const out = document.getElementById('seResults');

@@ -1383,6 +1383,20 @@
         _barreAnnulation?.fermer();
     };
 
+    /** UX-09 : un retrait de la bibliothèque, même à l'unité, s'annule.
+     *  Le serveur range la série dans la corbeille et renvoie son `lot` ;
+     *  sans lot (serveur ancien, rien retiré), on se contente du message. */
+    window.MH.annulerRetrait = function (lot, message, apres) {
+        if (!lot || !window.API?.me?.restaurerCorbeille) { window.MH.toast?.(message); return; }
+        window.MH.annuler(message, {
+            surAnnulation: async () => {
+                await window.API.me.restaurerCorbeille({ lot });
+                if (typeof apres === 'function') await apres();
+                window.MH.toast?.('Remise dans ta bibliothèque');
+            },
+        });
+    };
+
     /* ── Le catalogue des gestes sur les cartes ──────────────
      * Les deux balayages étaient écrits en dur dans `cartes-gestes.js` —
      * droite marquait la série lue, gauche téléchargeait, et l'icône du
@@ -3284,12 +3298,16 @@
                 btn.setAttribute('aria-pressed', String(willFav));
             }
             try {
-                if (willFav) await API.me.addFavorite(id, meta);
-                else         await API.me.removeFavorite(id);
+                const r = willFav ? await API.me.addFavorite(id, meta) : await API.me.removeFavorite(id);
                 // Met à jour le cache partagé
                 const set = await MH.getFavSet();
                 if (willFav) set.add(String(id)); else set.delete(String(id));
-                MH.toast(willFav ? 'Ajouté aux favoris' : 'Retiré des favoris');
+                if (willFav) MH.toast('Ajouté aux favoris');
+                else MH.annulerRetrait(r && r.lot, 'Retiré des favoris', async () => {   // UX-09
+                    (await MH.getFavSet()).add(String(id));
+                    if (isIcon) MH.setFavButtonState(btn, true);
+                    else { btn.classList.add('is-fav'); btn.textContent = 'Suivi'; btn.setAttribute('aria-pressed', 'true'); }
+                });
             } catch (err) {
                 // Rollback visuel en cas d'échec
                 btn.classList.toggle('is-fav', !willFav);

@@ -124,7 +124,7 @@
             <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
                 ${lists.map(l => `<a href="liste.html?id=${encodeURIComponent(l.id)}"
                     style="display:flex;justify-content:space-between;gap:12px;padding:11px 13px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;text-decoration:none;color:inherit">
-                    <div style="min-width:0">
+                    <div style="min-width:0;overflow-wrap:anywhere">
                         <div style="font-size:13.5px;font-weight:600">${MH.esc(l.name)}</div>
                         ${l.description ? `<div style="font-size:12px;color:var(--text3);margin-top:2px">${MH.esc(l.description)}</div>` : ''}
                     </div>

@@ -169,6 +169,10 @@
     let selectMode = false;    // mode sélection multiple (audit §10.3)
     const selected = new Set(); // mangaIds sélectionnés
 
+    // ADA-TITRE-VIDE : un titre fait d'espaces (source mal renseignée)
+    // donnait une carte muette. `||` ne le rattrapait pas : " " est vrai.
+    const titreLisible = (f) => String(f.title || '').trim() || f.mangaId || 'Sans titre';
+
     // Audit A11Y-02 : ces pastilles portent du texte BLANC en 9px sur un aplat
     // plein — le contraste dépend donc entièrement du fond. Les teintes vives
     // d'origine donnaient 2.28:1 (vert), 2.15:1 (ambre) et 3.68:1 (bleu), pour
@@ -609,7 +613,7 @@
             const href = prog?.chapterId
                 ? MH.readerHref(f.mangaId, prog.chapterId, f.source || prog.source)
                 : `serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}`;
-            MH.toast?.(`Au hasard : ${f.title || f.mangaId}`);
+            MH.toast?.(`Au hasard : ${titreLisible(f)}`);
             setTimeout(() => { window.location.href = href; }, 400);
         });
     }
@@ -930,7 +934,7 @@
                     const unit = MH.unitLabel(f.source, { short: true });
                     return `<a class="upd-chrono-ligne" href="serie.html?id=${encodeURIComponent(f.mangaId)}&source=${encodeURIComponent(f.source || '')}">
                         <img src="${MH.cover(f.cover, MH.placeholderCover(f.mangaId))}" alt="" loading="lazy">
-                        <span class="upd-chrono-nom">${MH.esc(f.title || f.mangaId)}</span>
+                        <span class="upd-chrono-nom">${MH.esc(titreLisible(f))}</span>
                         <span class="upd-chrono-meta">${f.lastChapter != null ? `${MH.esc(unit)} ${MH.esc(String(f.lastChapter))}` : ''}${u > 0 ? ` · <strong>${u} non lu${u > 1 ? 's' : ''}</strong>` : ''} · ${MH.esc(MH.relTime(f.latestAt))}</span>
                     </a>`;
                 }).join('')}
@@ -1118,7 +1122,7 @@
                              onerror="this.src='${MH.placeholderCover(f.mangaId)}'">
                     </div>
                     <div class="lib2-info">
-                        <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
+                        <div class="lib2-title">${MH.esc(titreLisible(f))}</div>
                         <div class="lib2-sub">${u > 0 ? `<b class="lib2-nonlus">${u} à lire</b> · ` : ''}${unit} ${MH.chapNum(prog.chapter)}</div>
                     </div>
                 </a>`;
@@ -1375,7 +1379,7 @@
                 </div>
                 <div class="lib2-info">
                     <div class="lib2-ligne">
-                        <div class="lib2-title">${MH.esc(f.title || f.mangaId)}</div>
+                        <div class="lib2-title">${MH.esc(titreLisible(f))}</div>
                         <button class="lib2-pin ${isPin ? 'on' : ''}" data-pin="${MH.esc(f.mangaId)}" data-src="${MH.esc(f.source || '')}"
                         title="${isPin ? 'Désépingler' : 'Épingler en haut'}" aria-label="Épingler">${MH.icon('pin', 15)}</button>
                         <button class="lib2-del" data-del="${MH.esc(f.mangaId)}" data-title="${MH.esc(f.title || '')}"
@@ -1420,13 +1424,17 @@
                 const id = del.dataset.del;
                 if (!await MH.confirm(`Retirer « ${del.dataset.title || id} » de ta bibliothèque ?`, { danger: true, okText: 'Retirer' })) return;
                 try {
-                    await API.me.removeFavorite(id);
+                    const r = await API.me.removeFavorite(id);
                     favs = favs.filter(f => f.mangaId !== id);
                     try { const set = await MH.getFavSet?.(); set?.delete(String(id)); } catch (er) { window.MH?.err?.('bibliotheque.js', er); }
                     window.Storage?.cacheLibrary?.(favs);
-                    MH.toast?.('Retiré de ta bibliothèque');
                     renderSummary(); renderFilters(); render();
-                } catch (err) { MH.toast?.('Erreur : ' + err.message); }
+                    // UX-09 : le retrait à l'unité s'annule comme le retrait en lot.
+                    MH.annulerRetrait(r && r.lot, 'Retiré de ta bibliothèque', async () => {
+                        await loadLibrary();
+                        renderSummary(); renderFilters(); render();
+                    });
+                } catch (err) { MH.toastErreur ? MH.toastErreur(err) : MH.toast?.('Erreur : ' + err.message); }
                 return;
             }
 

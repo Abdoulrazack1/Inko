@@ -530,8 +530,8 @@
             const part = Math.min(1, d.val / d.goal);
             const manque = Math.max(0, d.goal - d.val);
             return `<div class="st-badge ${d.ok ? 'on' : ''}" title="${MH.esc(d.desc)}${d.ok ? ' ✓' : ` · plus que ${manque}`}"
-            style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 6px;border-radius:12px;background:var(--bg3);border:1px solid ${!d.ok && d === prochain ? 'var(--orange)' : 'var(--border2)'};text-align:center;${d.ok ? '' : 'opacity:.62'}">
-            <span style="font-size:26px;line-height:1;${d.ok ? '' : 'filter:grayscale(1)'}">${d.ico}</span>
+            style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 6px;border-radius:12px;background:var(--bg3);border:1px solid ${!d.ok && d === prochain ? 'var(--orange)' : 'var(--border2)'};text-align:center">
+            <span style="font-size:26px;line-height:1;${d.ok ? '' : 'filter:grayscale(1);opacity:.62'}">${d.ico}</span>
             <span style="font-size:11.5px;font-weight:600;color:var(--text)">${MH.esc(d.name)}</span>
             <span style="font-size:10px;color:var(--text3)">${MH.esc(d.desc)}</span>
             ${d.ok
