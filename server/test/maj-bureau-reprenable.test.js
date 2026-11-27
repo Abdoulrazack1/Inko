@@ -153,6 +153,7 @@ test('le repli PowerShell ne pretend pas reprendre', () => {
     // deplacerait un fichier que personne n’a verifie.
     const i = SRC.indexOf('Invoke-WebRequest');
     const b = SRC.slice(i - 400, i + 400);
-    assert.match(b, /'-o', part\]/, 'le repli ecrit dans le morceau');
-    assert.ok(!/'-o', dest\]/.test(b), 'jamais directement dans le fichier final');
+    // DSK-07 : la destination passe désormais par l'environnement (INKO_SORTIE).
+    assert.match(b, /INKO_SORTIE: part\b/, 'le repli ecrit dans le morceau');
+    assert.ok(!/'-o', dest\]|INKO_SORTIE: dest\b/.test(b), 'jamais directement dans le fichier final');
 });

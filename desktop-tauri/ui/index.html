@@ -197,12 +197,47 @@
   const DELAI_SONDE = 6000;
   function sonder() {
     if (typeof AbortController !== 'function') {
-      return fetch(APP + '/api/health', { cache: 'no-store' });
+      return jetonPret.then(() => fetch(urlSante(), { cache: 'no-store' }));
     }
     const ctrl = new AbortController();
     const minuteur = setTimeout(() => ctrl.abort(), DELAI_SONDE);
-    return fetch(APP + '/api/health', { cache: 'no-store', signal: ctrl.signal })
+    return jetonPret.then(() => fetch(urlSante(), { cache: 'no-store', signal: ctrl.signal }))
       .finally(() => clearTimeout(minuteur));
+  }
+  function urlSante() {
+    return APP + '/api/health' + (jeton ? '?lancement=' + encodeURIComponent(jeton) : '');
+  }
+
+  // ── DSK-12 : « quelque chose répond » n'est pas « Inko répond » ──
+  // N'importe quel 200 sur 127.0.0.1:8088 ouvrait l'app : un autre programme
+  // installé sur ce port (serveur de dev, autre logiciel), ou une ancienne
+  // instance d'Inko restée en mémoire après une mise à jour, recevait la
+  // fenêtre — et les cookies de session avec. On exige désormais la réponse
+  // d'Inko (`ok: true`) et, quand l'app connaît sa version, la MÊME version.
+  // Le contrôle fort est un secret tiré à chaque lancement par l'app
+  // (commande `jeton_lancement`) et remis au seul serveur qu'elle démarre.
+  let versionApp = null;
+  let jeton = null;
+  const jetonPret = (async () => {
+    try {
+      const T = window.__TAURI__;
+      if (T && T.app && typeof T.app.getVersion === 'function') versionApp = await T.app.getVersion().catch(() => null);
+      if (T && T.core && typeof T.core.invoke === 'function') jeton = await T.core.invoke('jeton_lancement').catch(() => null);
+    } catch (e) { /* hors de l'app : pas de contrôle */ }
+  })();
+  let intrus = 0;            // réponses 200 qui ne sont pas celles d'Inko
+  let dernierIntrus = '';
+  async function estInko(r) {
+    if (!r.ok) return false;
+    const corps = await r.json().catch(() => null);
+    if (!corps || corps.ok !== true) { intrus++; dernierIntrus = 'un autre programme'; return false; }
+    if (versionApp && corps.version && corps.version !== versionApp) {
+      intrus++; dernierIntrus = `Inko ${corps.version} (une ancienne instance)`; return false;
+    }
+    if (jeton && corps.lancement !== 'ok') {
+      intrus++; dernierIntrus = corps.version ? `un autre serveur Inko (${corps.version})` : 'un autre serveur Inko'; return false;
+    }
+    return true;
   }
 
   let tries = 0;
@@ -212,7 +247,7 @@
       // `retry` n'est appelé QUE sur l'échec de la sonde. Avant, un `.catch`
       // unique couvrait aussi `done()` : la moindre erreur pendant la bascule
       // relançait l'attente en silence, au lieu de la signaler.
-      .then(r => { if (r.ok) done(); else retry(); }, retry);
+      .then(r => estInko(r).then(oui => { if (oui) done(); else retry(); }, retry), retry);
     function done() {
       if (fini) return;
       fini = true;
@@ -231,6 +266,19 @@
       } catch (e) { /* l'ouverture est déjà programmée */ }
     }
     function retry() {
+      // Un intrus ne s'en va pas tout seul : inutile d'attendre 150 s.
+      if (intrus >= 20) {
+        clearInterval(clock);
+        txt.textContent = 'Le port d’Inko est occupé';
+        sub.textContent = '';
+        pct.textContent = '';
+        document.getElementById('err').style.display = 'block';
+        document.getElementById('diag').innerHTML = '';
+        document.getElementById('errAide').innerHTML = 'L’adresse 127.0.0.1:8088 répond, mais c’est '
+          + dernierIntrus.replace(/[<>&]/g, '') + ' et pas cette version d’Inko. '
+          + 'Ferme le programme qui utilise ce port (ou redémarre l’ordinateur), puis relance Inko.';
+        return;
+      }
       if (++tries > 300) {   // ~150 s : marge large pour les PC lents
         clearInterval(clock);
         txt.textContent = 'Impossible de démarrer';

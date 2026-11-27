@@ -11,7 +11,7 @@ const fs     = require('fs');
 const multer = require('multer');
 const { pool } = require('../config/db');
 
-const UPLOAD_ROOT = path.join(__dirname, '..', 'uploads');
+const UPLOAD_ROOT = require('../lib/dossiers').dossierImports();   // DAT-24 : hors du dossier d'installation
 // .cbr retiré (audit N9) : le lecteur intégré ne lit pas le RAR — refuser à
 // l'upload avec un message clair plutôt que de laisser découvrir à la lecture.
 const ALLOWED = { '.cbz': 'cbz', '.epub': 'epub', '.zip': 'cbz', '.pdf': 'pdf' };

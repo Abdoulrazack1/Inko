@@ -45,3 +45,26 @@ test('checkUpdates : notes et empreinte attendue pour chaque mise à jour', asyn
         fs.writeFileSync(fichierNotes, notesAvant);
     }
 });
+
+// DSK-08 : l'application installée comparait sa version… à la copie livrée
+// avec elle. Installée (APP_VERSION), elle interroge d'abord la dernière
+// version publiée, et ne retombe sur sa copie que hors ligne.
+test('application installée : la version publiée passe avant la copie embarquée', async () => {
+    const axios = require('axios');
+    const { lireCommunaute } = Ext._internes;
+    const avantGet = axios.get, avantVersion = process.env.APP_VERSION, avantRef = process.env.EXT_UPDATE_REF;
+    process.env.APP_VERSION = '9.9.9'; process.env.EXT_UPDATE_REF = 'v-essai';
+    const demandes = [];
+    try {
+        axios.get = async (url) => { demandes.push(url); return { data: JSON.stringify({ sushiscan: '7.7.7' }) }; };
+        assert.deepStrictEqual(await lireCommunaute('versions.json'), { sushiscan: '7.7.7' });
+        assert.match(demandes[0], /\/v-essai\/extensions-community\/versions\.json$/);
+        axios.get = async () => { throw new Error('hors ligne'); };
+        const local = JSON.parse(fs.readFileSync(path.join(DIR, 'versions.json'), 'utf8'));
+        assert.deepStrictEqual(await lireCommunaute('versions.json'), local, 'hors ligne : la copie embarquée');
+    } finally {
+        axios.get = avantGet;
+        if (avantVersion === undefined) delete process.env.APP_VERSION; else process.env.APP_VERSION = avantVersion;
+        if (avantRef === undefined) delete process.env.EXT_UPDATE_REF; else process.env.EXT_UPDATE_REF = avantRef;
+    }
+});

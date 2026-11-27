@@ -12,7 +12,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { pool } = require('../config/db');
 
-const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, '..', 'backups');
+const BACKUP_DIR = require('./dossiers').dossierSauvegardes();   // DAT-24 : hors du dossier d'installation
 const KEEP = Math.max(2, parseInt(process.env.BACKUP_KEEP || '14', 10) || 14);
 const KEEP_AVANT = 10;   // instantanés pris avant une action destructrice (DAT-06)
 

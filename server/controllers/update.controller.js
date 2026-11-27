@@ -122,10 +122,14 @@ function download(url, dest) {
             //
             // Ce repli ne sait pas reprendre : il repart du début, dans le
             // même morceau, qu'il écrase.
+            //
+            // DSK-07 : avec -Command, PowerShell RECOLLE les arguments au texte
+            // du script au lieu de les passer à param() : la commande échouait
+            // toujours à l'analyse (rejoué). Les valeurs passent désormais par
+            // l'environnement, qui n'est jamais interprété comme du code.
             execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command',
-                'param($u,$o) Invoke-WebRequest -Uri $u -OutFile $o -UseBasicParsing',
-                '-u', url, '-o', part],
-                { windowsHide: true, timeout: 0 }, (e2) => (e2 ? reject(e2) : fini(resolve, reject)));
+                'Invoke-WebRequest -Uri $env:INKO_URL -OutFile $env:INKO_SORTIE -UseBasicParsing'],
+                { windowsHide: true, timeout: 0, env: { ...process.env, INKO_URL: url, INKO_SORTIE: part } }, (e2) => (e2 ? reject(e2) : fini(resolve, reject)));
         });
     });
 }
@@ -171,9 +175,11 @@ async function expectedSha(assets, assetName) {
 // chaîne de certification est de confiance sur cette machine.
 function authenticodeValid(file) {
     return new Promise((resolve) => {
+        // DSK-07 : même défaut que le téléchargement de secours — la valeur
+        // passe par l'environnement (vérifié : « Valid » sur un binaire signé).
         execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command',
-            'param($p) (Get-AuthenticodeSignature -LiteralPath $p).Status', '-p', file],
-            { windowsHide: true, timeout: 30000 }, (err, stdout) => {
+            '(Get-AuthenticodeSignature -LiteralPath $env:INKO_FICHIER).Status'],
+            { windowsHide: true, timeout: 30000, env: { ...process.env, INKO_FICHIER: file } }, (err, stdout) => {
                 if (err) return resolve({ ok: false, status: 'erreur de vérification' });
                 const status = String(stdout || '').trim();
                 resolve({ ok: status === 'Valid', status: status || 'inconnu' });

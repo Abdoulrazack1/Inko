@@ -2524,7 +2524,21 @@
     }
     window.MH.bandeauInvite = bandeauInvite;
 
+    // UX-12 / DSK-09 : « Confidentialité » et « Système » chargent global.js et
+    // portent l'emplacement de l'en-tête, mais n'appelaient jamais initPage :
+    // pas de navigation (aucun lien du tout sur « Système ») et, dans
+    // l'application Windows, aucun bouton pour fermer ou déplacer la fenêtre.
+    // Une page qui ne l'a pas appelé une fois ses propres scripts passés
+    // reçoit donc l'en-tête commun.
+    let _pageInitialisee = false;
+    document.addEventListener('DOMContentLoaded', () => setTimeout(() => {
+        if (_pageInitialisee) return;
+        if (document.getElementById('header-slot')) window.MH.initPage('');
+        else injectTitlebar();
+    }, 0));
+
     window.MH.initPage = function (activePage) {
+        _pageInitialisee = true;
         injectTitlebar();
         const headerSlot = document.getElementById('header-slot');
         const footerSlot = document.getElementById('footer-slot');
