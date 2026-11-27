@@ -7,9 +7,14 @@ on:
   # empilée sur une autre doit être vérifiée avant d'y être fusionnée.
   pull_request:
 
+# CI-02 : GITHUB_TOKEN en lecture seule (il avait l'écriture par défaut).
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # CI-03 : un job bloqué consommait 6 h
     defaults:
       run:
         working-directory: server
@@ -84,6 +89,7 @@ jobs:
   # garde-fou, la dérive revient au premier correctif appliqué à une source.
   ext-hashes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # CI-03 : un job bloqué consommait 6 h
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -138,6 +144,7 @@ jobs:
 
   frontend-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # CI-03 : un job bloqué consommait 6 h
     steps:
       - uses: actions/checkout@v7
       - name: Setup Node 22
@@ -166,6 +173,7 @@ jobs:
   # peut les voir. Chromium uniquement : l'app est distribuée en WebView2.
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # CI-03 : un job bloqué consommait 6 h
     services:
       mysql:
         image: mysql:8
@@ -264,6 +272,7 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # CI-03 : un job bloqué consommait 6 h
     needs: backend
     steps:
       - uses: actions/checkout@v7
