@@ -551,7 +551,7 @@ async function deleteAccount(req, res, next) {
         await pool.query('DELETE FROM password_resets WHERE email = ?', [user.email]).catch(() => {});
         try {
             const fs = require('fs'), path = require('path');
-            fs.rmSync(path.join(__dirname, '..', 'uploads', String(req.user.id)), { recursive: true, force: true });
+            fs.rmSync(path.join(require('../lib/dossiers').dossierImports(), String(req.user.id)), { recursive: true, force: true });
         } catch (e) { /* pas d'uploads */ }
         res.clearCookie(COOKIE_NAME, { path: '/' });
         res.clearCookie(LEGACY_COOKIE_NAME, { path: '/' });   // audit SEC-11 : purge l'ancien nom

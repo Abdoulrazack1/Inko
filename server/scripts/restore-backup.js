@@ -30,15 +30,25 @@ const { pool } = require('../config/db');
 
 const { decrypt, isEncrypted } = require('../lib/backup');
 
-const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, '..', 'backups');
+const BACKUP_DIR = require('../lib/dossiers').dossierSauvegardes();
 
 // Audit SEC-15 : les dumps peuvent être chiffrés (BACKUP_PASSPHRASE). On lit
 // les deux formats — sinon activer le chiffrement rendrait les sauvegardes
 // aussi irrécupérables qu'avant l'écriture de ce script.
+// DAT-27 : l'application de bureau tire sa phrase au sort et la range dans
+// %APPDATA%\Inko ; la restauration en ligne de commande la lit là sans rien
+// créer (obtenir() en fabriquerait une nouvelle, qui ne déchiffrerait rien).
+function phraseDuBureau() {
+    try {
+        const f = path.join(require('../lib/secrets-locaux').dossier(), 'backup-passphrase.json');
+        const v = JSON.parse(fs.readFileSync(f, 'utf8')).valeur;
+        return typeof v === 'string' && v.length >= 32 ? v : null;
+    } catch (e) { return null; }
+}
 function readDump(file) {
     const raw = fs.readFileSync(file);
     if (!isEncrypted(raw)) return raw.toString('utf8');
-    const pass = process.env.BACKUP_PASSPHRASE;
+    const pass = process.env.BACKUP_PASSPHRASE || phraseDuBureau();
     if (!pass) {
         throw new Error('sauvegarde chiffrée — définis BACKUP_PASSPHRASE pour la lire');
     }
@@ -73,6 +83,11 @@ function listBackups() {
         console.log(`  ${f}   ${String(size).padStart(5)} Ko   ${n} compte(s)`);
     }
     console.log('\nRestaurer :  node scripts/restore-backup.js <fichier> --user <id>');
+    // DAT-27 : depuis les sources, le dossier de l'app Windows n'est pas celui-ci.
+    const bureau = path.join(require('../lib/secrets-locaux').dossier(), 'backups');
+    if (path.resolve(bureau) !== path.resolve(BACKUP_DIR) && fs.existsSync(bureau)) {
+        console.log(`Sauvegardes de l'application Windows : ${bureau} (donne le chemin complet du fichier).`);
+    }
 }
 
 // Insertion par paquets — même approche que importData (audit B3) : une requête

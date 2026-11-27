@@ -51,6 +51,32 @@ fn definir_autostart(app: tauri::AppHandle, actif: bool) -> Result<bool, String>
     Ok(m.is_enabled().unwrap_or(actif))
 }
 
+// DSK-12 : un secret propre à CE lancement. Le sidecar le reçoit par son
+// environnement ; l'écran de démarrage le demande ici et n'ouvre la fenêtre
+// que si le serveur qui répond sur 127.0.0.1:8088 le connaît. Sans lui,
+// n'importe quel programme installé sur ce port (ou une ancienne instance)
+// recevait la fenêtre et ses droits.
+// Pas de dépendance ajoutée : les RandomState de std sont graines par l'OS.
+fn jeton_aleatoire() -> String {
+    use std::collections::hash_map::RandomState;
+    use std::hash::{BuildHasher, Hasher};
+    let mut sortie = String::new();
+    for i in 0..4u64 {
+        let mut h = RandomState::new().build_hasher();
+        h.write_u64(i);
+        h.write_u128(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0));
+        h.write_u32(std::process::id());
+        sortie.push_str(&format!("{:016x}", h.finish()));
+    }
+    sortie
+}
+struct JetonLancement(String);
+
+#[tauri::command]
+fn jeton_lancement(etat: tauri::State<JetonLancement>) -> String {
+    etat.0.clone()
+}
+
 fn main() {
     tauri::Builder::default()
         // Doit etre enregistre EN PREMIER : c'est lui qui decide si ce
@@ -76,7 +102,7 @@ fn main() {
         // decider tout seul qu'un logiciel se lance a l'ouverture de session
         // n'est pas une amelioration, c'est une intrusion.
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![autostart_actif, definir_autostart])
+        .invoke_handler(tauri::generate_handler![autostart_actif, definir_autostart, jeton_lancement])
         .setup(|app| {
             let resource_dir = app.path().resource_dir()?;
             // resource_dir() renvoie un chemin « extended-length » (\\?\C:\…) que
@@ -89,6 +115,9 @@ fn main() {
             let frontend  = strip(resource_dir.join("resources").join("frontend"));
             log(&format!("[inko] server.js={}", server_js));
 
+            let jeton = jeton_aleatoire();
+            app.manage(JetonLancement(jeton.clone()));
+
             // Lance le backend Node (sidecar) avec l'environnement de l'app.
             let sidecar = app
                 .shell()
@@ -96,6 +125,7 @@ fn main() {
                 .map_err(|e| { log(&format!("[inko] sidecar() error: {e}")); e })?
                 .args([server_js])
                 .env("APP_VERSION", env!("CARGO_PKG_VERSION"))
+                .env("INKO_LANCEMENT", jeton)
                 .env("PORT", PORT.to_string())
                 .env("LOCAL_MODE", "1")
                 .env("FRONTEND_DIR", frontend)

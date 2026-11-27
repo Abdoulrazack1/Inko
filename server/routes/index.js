@@ -41,7 +41,11 @@ async function dbHealthy() {
     _healthCache = { at: Date.now(), dbOk: ok };
     return ok;
 }
-router.get('/health', async (_req, res) => {
+function memeSecret(a, b) {
+    const A = Buffer.from(a), B = Buffer.from(b);
+    return A.length === B.length && require('crypto').timingSafeEqual(A, B);
+}
+router.get('/health', async (req, res) => {
     const dbOk = await dbHealthy();
     // VIII.44 / P2.8 : l'identité du hub voyage avec sa santé, parce que c'est
     // le seul appel qu'un appareil fait AVANT de faire confiance à une adresse.
@@ -57,6 +61,11 @@ router.get('/health', async (_req, res) => {
         ...(dbOk ? {} : { error: 'Base de données injoignable' }),
         ...(process.env.APP_VERSION ? { version: process.env.APP_VERSION } : {}),
         ...(process.env.INKO_DB_FALLBACK === '1' ? { dbFallback: true } : {}),
+        // DSK-12 : l'écran de démarrage prouve qu'il parle au serveur qu'il a
+        // lancé. Le secret n'est jamais renvoyé, seulement « ok » ou « autre ».
+        ...(process.env.INKO_LANCEMENT && req.query.lancement
+            ? { lancement: memeSecret(String(req.query.lancement), process.env.INKO_LANCEMENT) ? 'ok' : 'autre' }
+            : {}),
     });
 });
 // MAJ intégrée (app desktop). authRequired (audit S2) : sans lui, n'importe

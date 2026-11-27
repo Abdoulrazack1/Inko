@@ -55,42 +55,50 @@ function cmpVer(a, b) {
     return 0;
 }
 
-async function getLatestManifest() {
-    const local = path.join(COMMUNITY_DIR, 'versions.json');
-    if (fs.existsSync(local)) {
-        try { return JSON.parse(fs.readFileSync(local, 'utf8')); } catch (e) {}
-    }
-    try {
+// ── DSK-08 : d'où viennent les dernières versions ──────────
+// L'application installée EMBARQUE extensions-community/ (pour installer ses
+// sources au premier démarrage). Lu en premier, ce dossier faisait comparer
+// la version installée… à la copie livrée avec elle : « tout est à jour »,
+// toujours, et aucun correctif de source n'arrivait entre deux versions de
+// l'application (la réparation de SushiScan en aurait exigé une).
+// Installée, l'application interroge donc d'abord la dernière version publiée,
+// et ne retombe sur sa copie que hors ligne. Depuis les sources, le dossier
+// local reste la référence (c'est là qu'on développe les extensions).
+const distantDAbord = () => !!process.env.APP_VERSION || process.env.EXT_SOURCE === 'distant';
+
+async function lireCommunaute(chemin, enTexte = false) {
+    const local = async () => {
+        const p = path.join(COMMUNITY_DIR, ...chemin.split('/'));
+        const t = fs.readFileSync(p, 'utf8');
+        return enTexte ? t : JSON.parse(t);
+    };
+    const distant = async () => {
         const ref = await resolveRef();
-        const r = await axios.get(rawUrl(ref, 'extensions-community/versions.json'), { timeout: 10000 });
-        return typeof r.data === 'object' ? r.data : JSON.parse(r.data);
-    } catch (e) { return {}; }
+        const r = await axios.get(rawUrl(ref, 'extensions-community/' + chemin.split('/').map(encodeURIComponent).join('/')),
+            { timeout: enTexte ? 20000 : 10000, responseType: 'text', transformResponse: [(d) => d] });
+        const t = typeof r.data === 'string' ? r.data : String(r.data);
+        return enTexte ? t : JSON.parse(t);
+    };
+    const ordre = distantDAbord() ? [distant, local] : [local, distant];
+    let derniere;
+    for (const essai of ordre) {
+        try { return await essai(); } catch (e) { derniere = e; }
+    }
+    throw derniere;
+}
+
+async function getLatestManifest() {
+    try { return await lireCommunaute('versions.json'); } catch (e) { return {}; }
 }
 
 // Empreintes SHA-256 attendues (audit S-2), depuis le même tag que les sources.
 async function getExpectedHashes() {
-    const local = path.join(COMMUNITY_DIR, 'hashes.json');
-    if (fs.existsSync(local)) {
-        try { return JSON.parse(fs.readFileSync(local, 'utf8')); } catch (e) {}
-    }
-    try {
-        const ref = await resolveRef();
-        const r = await axios.get(rawUrl(ref, 'extensions-community/hashes.json'), { timeout: 10000 });
-        return typeof r.data === 'object' ? r.data : JSON.parse(r.data);
-    } catch (e) { return {}; }
+    try { return await lireCommunaute('hashes.json'); } catch (e) { return {}; }
 }
 
 // Notes de version (changelog.json), depuis le même endroit que les empreintes.
 async function getChangelog() {
-    const local = path.join(COMMUNITY_DIR, 'changelog.json');
-    if (fs.existsSync(local)) {
-        try { return JSON.parse(fs.readFileSync(local, 'utf8')); } catch (e) {}
-    }
-    try {
-        const ref = await resolveRef();
-        const r = await axios.get(rawUrl(ref, 'extensions-community/changelog.json'), { timeout: 10000 });
-        return typeof r.data === 'object' ? r.data : JSON.parse(r.data);
-    } catch (e) { return {}; }
+    try { return await lireCommunaute('changelog.json'); } catch (e) { return {}; }
 }
 /** Les notes des versions entre l'installée (exclue) et la dernière (incluse), la plus récente d'abord. */
 function notesEntre(entrees, actuelle, derniere) {
@@ -109,16 +117,9 @@ const ALLOW_UNVERIFIED = process.env.ALLOW_UNVERIFIED_EXTENSIONS === '1';
 
 // Récupère la source d'une extension et VÉRIFIE son empreinte.
 async function getLatestSource(id, expectedHash) {
-    const local = path.join(COMMUNITY_DIR, id, 'index.js');
-    let src;
-    if (fs.existsSync(local)) {
-        src = fs.readFileSync(local, 'utf8');
-    } else {
-        const ref = await resolveRef();
-        const r = await axios.get(rawUrl(ref, `extensions-community/${encodeURIComponent(id)}/index.js`),
-            { timeout: 20000, responseType: 'text', transformResponse: [(d) => d] });
-        src = typeof r.data === 'string' ? r.data : String(r.data);
-    }
+    // Même ordre que le manifeste et les empreintes : une source prise ailleurs
+    // que son empreinte serait refusée, ce qui est le comportement voulu.
+    const src = await lireCommunaute(id + '/index.js', true);
     if (!expectedHash) {
         if (!ALLOW_UNVERIFIED) {
             throw new Error(
@@ -384,4 +385,4 @@ function reinstall(req, res, next) {
 
 module.exports = {
     sourceLog, instanceStatus, checkUpdates, applyUpdates, testSource, bacASable, healthStatus, uninstall, reinstall,
-    _internes: { notesEntre } };
+    _internes: { notesEntre, lireCommunaute } };
