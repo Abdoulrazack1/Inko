@@ -6,6 +6,7 @@
 // favoris et la progression.
 // ============================================================
 const { pool } = require('../config/db');
+const couverture = require('../lib/couverture');   // SEC-22
 
 const MOODS = ['love', 'wow', 'laugh', 'cry', 'angry', 'think', 'fear', 'meh'];
 
@@ -15,7 +16,7 @@ function mapNote(r) {
         mangaId: r.manga_id,
         source: r.source || null,
         mangaTitle: r.manga_title || null,
-        cover: r.cover || null,
+        cover: couverture.brute(r.cover),   // SEC-22 : même filtre en lecture (notes déjà enregistrées)
         chapterId: r.chapter_id || null,
         chapterNum: r.chapter_num != null ? Number(r.chapter_num) : null,
         page: r.page != null ? r.page : null,
@@ -38,11 +39,11 @@ async function listNotes(req, res, next) {
         const uid = req.user.id;
         const manga = req.query.manga;
         const q = (req.query.q || '').trim();
-        const limit  = Math.min(parseInt(req.query.limit || '500', 10), 1000);
+        const limit  = Math.min(Math.max(parseInt(req.query.limit || '500', 10) || 500, 1), 1000);   // API-14 : ?limit=abc
         // Audit J2/J3 : offset + total — au-delà de la limite, les notes les
         // plus anciennes disparaissaient silencieusement du Journal (et de sa
         // recherche), sans indicateur ni « charger plus ».
-        const offset = Math.max(0, parseInt(req.query.offset || '0', 10));
+        const offset = Math.max(0, parseInt(req.query.offset || '0', 10) || 0);
         const where = ['user_id = ?'];
         const params = [uid];
         if (manga) { where.push('manga_id = ?'); params.push(manga); }
@@ -88,7 +89,7 @@ async function createNote(req, res, next) {
             `INSERT INTO reading_notes
                 (user_id, manga_id, source, manga_title, cover, chapter_id, chapter_num, page, body, mood, kind)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [req.user.id, b.mangaId, b.source || null, b.mangaTitle || null, b.cover || null,
+            [req.user.id, b.mangaId, b.source || null, b.mangaTitle || null, couverture.brute(b.cover),
              b.chapterId || null, b.chapterNum != null && b.chapterNum !== '' ? b.chapterNum : null,
              b.page != null ? parseInt(b.page, 10) : null, body, mood, kind]
         );

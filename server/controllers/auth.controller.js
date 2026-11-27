@@ -175,6 +175,10 @@ async function sessionVivante(token, owner) {
 async function register(req, res, next) {
     try {
         const { username, email, password } = req.body || {};
+        // API-14 : un nombre ou un tableau à la place d'un texte levait
+        // « .trim is not a function » (500). Refus net, avant tout.
+        if ([username, email, password].some(v => v != null && typeof v !== 'string'))
+            return res.status(400).json({ error: 'Saisie invalide', code: 'SAISIE_INVALIDE' });
         // OPS-01 : sur un hub exposé, n'importe qui pouvait créer un compte.
         // INSCRIPTIONS=fermees les ferme — sauf pour le tout premier compte,
         // sans lequel personne ne pourrait jamais entrer.
@@ -475,6 +479,8 @@ async function changePassword(req, res, next) {
 async function updateProfile(req, res, next) {
     try {
         const { username, avatar } = req.body || {};
+        if ((username != null && typeof username !== 'string') || (avatar != null && typeof avatar !== 'string'))
+            return res.status(400).json({ error: 'Saisie invalide', code: 'SAISIE_INVALIDE' });   // API-14
         const sets = [], vals = [];
         if (username !== undefined) {
             if (!username || username.trim().length < 2)

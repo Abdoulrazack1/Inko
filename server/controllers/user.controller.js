@@ -776,7 +776,9 @@ async function getLists(req, res, next) {
 
 async function createList(req, res, next) {
     try {
-        const { name, description, isPublic, rules } = req.body;
+        const { name, description, isPublic, rules } = req.body || {};
+        if ((name != null && typeof name !== 'string') || (description != null && typeof description !== 'string'))
+            return res.status(400).json({ error: 'Saisie invalide', code: 'SAISIE_INVALIDE' });   // API-14
         if (!name || name.trim().length < 1)
             return res.status(400).json({ error: 'Nom requis' });
         // Audit AMEL-38 : les regles sont NORMALISEES avant stockage. On
@@ -793,7 +795,9 @@ async function createList(req, res, next) {
 
 async function updateList(req, res, next) {
     try {
-        const { name, description, isPublic, rules } = req.body;
+        const { name, description, isPublic, rules } = req.body || {};
+        if ((name != null && typeof name !== 'string') || (description != null && typeof description !== 'string'))
+            return res.status(400).json({ error: 'Saisie invalide', code: 'SAISIE_INVALIDE' });   // API-14
         const fields = [];
         const params = [];
         if (name)        { fields.push('name = ?');        params.push(name.trim()); }
@@ -1021,7 +1025,7 @@ async function getComments(req, res, next) {
 // Derniers commentaires toutes séries confondues (vitrine catalogue)
 async function getRecentComments(req, res, next) {
     try {
-        const limit = Math.min(parseInt(req.query.limit || '6', 10), 20);
+        const limit = Math.min(Math.max(parseInt(req.query.limit || '6', 10) || 6, 1), 20);   // API-14
         const [rows] = await pool.query(
             `SELECT c.id, c.text, c.manga_id, c.created_at, c.spoiler,
                     u.username, u.avatar,
@@ -1143,7 +1147,7 @@ async function deleteComment(req, res, next) {
 // ──────────────────────────────────────────────────────────────
 async function getEvents(req, res, next) {
     try {
-        const limit = Math.min(parseInt(req.query.limit || '200', 10), 500);
+        const limit = Math.min(Math.max(parseInt(req.query.limit || '200', 10) || 200, 1), 500);   // API-14
         // Les evenements deja ecrits sans numero ne sont pas perdus : le
         // meme chapitre est dans `read_chapters` avec le sien. On le joint
         // plutot que de reecrire la table — la donnee est deja juste, c'est

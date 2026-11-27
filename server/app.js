@@ -37,7 +37,14 @@ app.use(compression());
 }
 app.use(securityHeaders);
 app.use(cors(corsOptions()));
-app.use(express.json({ limit: '12mb' }));   // import de sauvegarde possible
+// SEC-21 : la limite de 12 Mo, posée pour l'import, valait pour TOUTES les
+// routes et s'appliquait avant toute authentification : n'importe qui pouvait
+// faire lire 11 Mo au serveur par requête. 2 Mo partout (réglages et
+// bibliothèques volumineuses compris) ; l'import lit son corps lui-même,
+// une fois le compte vérifié (routes/index.js).
+const LIMITE_JSON = express.json({ limit: '2mb' });
+const ROUTE_IMPORT = /^\/api(\/v1)?\/me\/import\/?$/;
+app.use((req, res, next) => (req.method === 'POST' && ROUTE_IMPORT.test(req.path) ? next() : LIMITE_JSON(req, res, next)));
 app.use(cookieParser());
 
 // Logger minimal
