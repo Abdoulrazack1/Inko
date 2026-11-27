@@ -38,6 +38,7 @@ permissions:
 jobs:
   demarrage:
     runs-on: ubuntu-latest
+    timeout-minutes: 45   # CI-03 : un job bloqué consommait 6 h
     steps:
       - uses: actions/checkout@v7
 
@@ -83,7 +84,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Démarrer l'app sur un émulateur
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           # API 26 : le plancher que l'app déclare. Vérifier là où ça casse en
           # premier a plus de valeur que sur la dernière version d'Android.

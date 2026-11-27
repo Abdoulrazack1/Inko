@@ -16,6 +16,7 @@ permissions:
 jobs:
   check-sources:
     runs-on: ubuntu-latest
+    timeout-minutes: 20   # CI-03 : un job bloqué consommait 6 h
     steps:
       - uses: actions/checkout@v7
 

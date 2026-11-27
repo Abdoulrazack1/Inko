@@ -15,7 +15,7 @@
     "url": "https://github.com/Abdoulrazack1/Inko/issues"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.22.2"
   },
   "scripts": {
     "start": "node server.js",

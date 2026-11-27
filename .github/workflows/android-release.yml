@@ -49,6 +49,7 @@ permissions:
 jobs:
   publication:
     runs-on: ubuntu-latest
+    timeout-minutes: 45   # CI-03 : un job bloqué consommait 6 h
     steps:
       - uses: actions/checkout@v7
 
@@ -65,7 +66,7 @@ jobs:
           java-version: '21'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
 
       - name: Dépendances
         run: npm ci || npm install

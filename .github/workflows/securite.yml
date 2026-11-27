@@ -1,0 +1,89 @@
+name: Sécurité
+
+# CI-01 : aucun audit de dépendances ni analyse de code ne tournait. Les
+# sondes de l'audit comptaient 0 vulnérabilité connue : ce workflow est là
+# pour que cela reste vrai, sans dépendre d'une campagne manuelle.
+#   · npm audit (dépendances de production, seuil « high »)
+#   · cargo audit (application Windows)
+#   · CodeQL JavaScript
+#   · dependency-review sur chaque pull request (dépôt public : gratuit)
+#   · gitleaks : secret committé par erreur
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  schedule:
+    - cron: '23 4 * * 1'   # chaque lundi : une faille publiée sans qu'on touche au code
+
+permissions:
+  contents: read
+
+concurrency:
+  group: securite-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Serveur (production)
+        working-directory: server
+        run: npm audit --omit=dev --audit-level=high
+      - name: Racine (production)
+        run: npm audit --omit=dev --audit-level=high
+
+  cargo-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: desktop-tauri/src-tauri
+
+  codeql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          # Les extensions de la communauté et le code vendorisé sont analysés
+          # à part (ou pas du tout) : ce sont des copies, pas notre code.
+          config: |
+            paths-ignore:
+              - assets/vendor
+              - '**/node_modules'
+              - android/app/src/main/assets
+      - uses: github/codeql-action/analyze@v4
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/dependency-review-action@v5.0.1
+        with:
+          fail-on-severity: high
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -13,6 +13,7 @@ permissions:
 jobs:
   windows-installer:
     runs-on: windows-latest
+    timeout-minutes: 60   # CI-03 : un job bloqué consommait 6 h
     steps:
       - uses: actions/checkout@v7
 
@@ -22,7 +23,11 @@ jobs:
           node-version: 22
 
       - name: Setup Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        # Épinglée par SHA, l'action ne peut plus lire la chaîne dans le nom
+        # de la référence : on la nomme.
+        with:
+          toolchain: stable
 
       - name: Cache cargo
         uses: actions/cache@v6
@@ -91,7 +96,7 @@ jobs:
           echo "titre=$(cat RELEASE_TITLE.txt)" >> "$GITHUB_OUTPUT"
 
       - name: Upload installers to the release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
         with:
           name: ${{ steps.notes.outputs.titre }}
           body_path: RELEASE_NOTES.md
