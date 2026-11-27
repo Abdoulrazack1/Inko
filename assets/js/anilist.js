@@ -64,6 +64,29 @@
         return j.data;
     }
 
+    // SEC-29 : les requêtes PUBLIQUES (recherche, note moyenne, fiche) passent
+    // par le serveur, qui les relaie : AniList ne voit plus l'adresse de
+    // chaque lecteur qui ouvre une fiche. Seuls les appels d'un compte lié
+    // (jeton personnel, choisi par l'utilisateur) restent directs. Sans
+    // serveur (APK autonome), il n'y a pas de relais : appel direct, comme
+    // le dit la page Confidentialité.
+    // Résolu à l'appel : SEARCH_Q et SCORE_Q sont déclarées plus bas.
+    const requete = (nom) => ({ recherche: SEARCH_Q, note: SCORE_Q, fiche: FICHE_Q })[nom];
+    async function publique(nom, variables) {
+        if (window.INKO_AUTONOME || !window.API?.base) return gql(requete(nom), variables, false);
+        const qs = new URLSearchParams(Object.entries(variables).map(([k, v]) => [k, String(v)])).toString();
+        const r = await fetch(API.base + '/anilist/public/' + nom + '?' + qs, { headers: { Accept: 'application/json' }, credentials: 'include' });
+        let j = null;
+        try { j = await r.json(); } catch (e) { j = {}; }
+        if (!r.ok || !j.data) {
+            const err = new Error(j.error || 'AniList indisponible');
+            err.status = r.status;
+            err.retryAfter = parseInt(r.headers.get('Retry-After') || '0', 10) || (r.status === 429 ? 60 : 0);
+            throw err;
+        }
+        return j.data;
+    }
+
     async function me() {
         const d = await gql('query { Viewer { id name avatar { medium } } }', {}, true);
         const v = d.Viewer;
@@ -117,7 +140,7 @@
     }`;
     async function searchMedia(term) {
         try {
-            const d = await gql(SEARCH_Q, { s: term }, false);
+            const d = await publique('recherche', { s: term });
             return d?.Page?.media || [];
         } catch (e) { return []; }
     }
@@ -141,7 +164,7 @@
         try {
             const id = await mediaId(title);
             if (!id) { scoreCache[title] = null; return null; }
-            const d = await gql(SCORE_Q, { id }, false);
+            const d = await publique('note', { id });
             const m = d?.Media;
             // AniList note sur 100 ; on rend la valeur brute et laisse
             // l'appelant décider de l'échelle d'affichage.
@@ -198,11 +221,12 @@
         idCache[title] = id;
         await persistLink(title, id, true);
     }
+    const FICHE_Q = 'query ($id:Int){ Media(id:$id){ id siteUrl title { romaji english native } } }';
     // Détail d'une fiche (pour afficher « liée à … » dans l'UI)
     async function mediaInfo(id) {
         if (!id) return null;
         try {
-            const d = await gql('query ($id:Int){ Media(id:$id){ id siteUrl title { romaji english native } } }', { id }, false);
+            const d = await publique('fiche', { id });
             return d?.Media || null;
         } catch (e) { return null; }
     }

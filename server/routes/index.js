@@ -154,6 +154,7 @@ router.get('/artwork',              relayLimiter, Artwork.artwork);
 router.get('/anilist/config',       AniList.config);
 router.put('/anilist/config',       auth.authRequired, adminRequired, AniList.setConfig);   // SEC-19
 router.get('/anilist/similar',      relayLimiter, AniList.similar);
+router.get('/anilist/public/:nom',  relayLimiter, AniList.publique);   // SEC-29
 
 // ── Mangas (relais vers source active, ?source=<id> pour cibler) ──
 router.get('/mangas/search',        relayLimiter, Manga.search);

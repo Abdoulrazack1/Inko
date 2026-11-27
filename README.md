@@ -881,7 +881,7 @@ règles pensées pour le doigt restent enfermées dans `hover: none`.
 | Bureau | Tauri 2, WebView2, sidecar Node, MariaDB embarquée |
 | Mobile | Capacitor 8, cinq greffons Java maison (volume, raccourcis, veille, widget, découverte réseau) |
 | Qualité | `node:test`, jsdom, Playwright, axe-core, ESLint |
-| Bibliothèques locales | jszip, pdf.js, QR code, GSAP — tout en local, **CSP stricte** |
+| Bibliothèques locales | jszip, pdf.js, QR code, three.js, GSAP — tout en local, **CSP stricte** (licences : [NOTICE.md](./NOTICE.md)) |
 
 ### Organisation du dépôt
 

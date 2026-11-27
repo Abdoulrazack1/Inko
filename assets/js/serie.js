@@ -1482,7 +1482,7 @@
         row.innerHTML = items.map((m, i) => `
             <a class="sim-card" data-idx="${i}" href="recherche.html?q=${encodeURIComponent(m.title)}">
                 <div class="sim-vignette">
-                    <img src="${MH.esc(m.cover || '')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+                    <img src="${MH.esc(MH.proxify(m.cover || ''))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
                 </div>
                 <div class="sim-nom">${MH.esc(m.title)}</div>
                 <div class="sim-badge" data-badge="${i}"></div>

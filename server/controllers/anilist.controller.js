@@ -73,6 +73,59 @@ async function similar(req, res, next) {
     } catch (e) { next(e); }
 }
 
+// ── SEC-29 : requêtes PUBLIQUES relayées par le serveur ─────────
+// La fiche série demandait la note moyenne et l'identifiant AniList d'une
+// œuvre directement depuis le navigateur, même sans compte AniList lié :
+// AniList voyait l'adresse de chaque lecteur qui ouvrait une fiche. Les
+// requêtes sont fixées ICI, par nom — le client ne fournit que des
+// variables bornées, jamais du GraphQL. Seule la synchronisation d'un
+// compte lié (choisie par l'utilisateur, jeton personnel) reste directe.
+const PUBLIQUES = {
+    recherche: {
+        query: 'query ($s: String) { Page(perPage: 6) { media(search: $s, type: MANGA) { id title { romaji english native } synonyms } } }',
+        variables: (v) => ({ s: String(v.s || '').slice(0, 200) }),
+        valide: (v) => !!v.s,
+    },
+    note: {
+        query: 'query ($id: Int) { Media(id: $id, type: MANGA) { id averageScore meanScore popularity } }',
+        variables: (v) => ({ id: Number(v.id) }),
+        valide: (v) => Number.isInteger(v.id) && v.id > 0,
+    },
+    fiche: {
+        query: 'query ($id: Int) { Media(id: $id) { id siteUrl title { romaji english native } } }',
+        variables: (v) => ({ id: Number(v.id) }),
+        valide: (v) => Number.isInteger(v.id) && v.id > 0,
+    },
+};
+const _pubCache = new BoundedCache({ max: 2000, ttl: 6 * 3600 * 1000 });
+
+async function publique(req, res, next) {
+    try {
+        const def = PUBLIQUES[req.params.nom];
+        if (!def) return res.status(404).json({ error: 'Requête inconnue' });
+        const variables = def.variables(req.query || {});
+        if (!def.valide(variables)) return res.status(400).json({ error: 'Paramètres invalides' });
+        const cle = req.params.nom + ':' + JSON.stringify(variables).toLowerCase();
+        const hit = _pubCache.get(cle);
+        if (hit) return res.json(hit);
+        let r;
+        try {
+            r = await axios.post('https://graphql.anilist.co', { query: def.query, variables },
+                { headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, timeout: 12000, validateStatus: () => true });
+        } catch (e) {
+            return res.status(502).json({ error: 'AniList injoignable' });
+        }
+        if (r.status === 429) {
+            if (res.set) res.set('Retry-After', String(r.headers?.['retry-after'] || 60));
+            return res.status(429).json({ error: 'Limite AniList atteinte' });
+        }
+        const data = r.data && r.data.data;
+        if (!data) return res.status(502).json({ error: (r.data?.errors?.[0]?.message) || 'Erreur AniList' });
+        _pubCache.set(cle, { data });
+        res.json({ data });
+    } catch (e) { next(e); }
+}
+
 function config(_req, res) {
     const clientId = getAnilistClientId();
     const redirectUri = process.env.ANILIST_REDIRECT_URI ||
@@ -100,4 +153,4 @@ function setConfig(req, res, next) {
     } catch (e) { next(e); }
 }
 
-module.exports = { config, similar, setConfig };
+module.exports = { config, similar, setConfig, publique, _internes: { PUBLIQUES } };

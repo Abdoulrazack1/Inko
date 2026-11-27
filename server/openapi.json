@@ -949,6 +949,33 @@
         }
       }
     },
+    "/anilist/public/{nom}": {
+      "get": {
+        "summary": "AniList.publique",
+        "operationId": "AniList_publique",
+        "tags": [
+          "anilist"
+        ],
+        "security": [],
+        "x-auth": "aucune",
+        "x-rate-limit": "relayLimiter",
+        "parameters": [
+          {
+            "name": "nom",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès"
+          }
+        }
+      }
+    },
     "/mangas/search": {
       "get": {
         "summary": "── Mangas (relais vers source active, ?source=<id> pour cibler) ──",

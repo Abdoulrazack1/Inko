@@ -55,6 +55,13 @@
     <ul>
       <li><strong>Sources de contenu</strong> : les images/chapitres proviennent des sources que tu actives ; Inko agit comme client personnel.</li>
       <li><strong>Google / services externes / AniList</strong> : seulement si tu les relies, selon leurs propres politiques.</li>
+      <li><strong>AniList sans compte lié</strong> : la note moyenne d'une série, ses séries proches et leurs couvertures
+        sont demandées <em>par le serveur</em> (<code>graphql.anilist.co</code>, <code>s4.anilist.co</code>) : AniList voit
+        l'adresse du serveur et le titre de l'œuvre, jamais la tienne. Si tu relies ton compte AniList, la synchronisation
+        se fait, elle, directement depuis ton navigateur, avec ton jeton.</li>
+      <li><strong>Hôtes d'images des sources</strong> : outre le site de chaque source, le serveur charge des images depuis
+        leurs hôtes dédiés — pour Weeb Central : <code>planeptune.us</code> (dont <code>hot.planeptune.us</code>),
+        <code>lastation.us</code>, <code>lowee.us</code>, <code>compsci88.com</code>.</li>
       <li><strong>Stations de musique</strong> (seulement si tu lances une station) : le flux audio est lu directement depuis la radio choisie —
         listen.reyfm.de, listen.moe, ilm.stream12.radiohost.de, jazz-wr04.ice.infomaniak.ch, stream.nightride.fm,
         maggie.torontocast.com, stream.epic-piano.com — et, en secours, depuis YouTube.</li>
