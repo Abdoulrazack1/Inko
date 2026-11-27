@@ -8,7 +8,7 @@
 // l'« écran noir après mise à jour » qui a motivé le bouton « Vider le cache ».
 // Bump obligatoire à chaque changement d'asset ; la liste STATIC_ASSETS est
 // désormais générée (npm run gen-precache) et vérifiée en CI.
-const CACHE_VERSION = 'inko-2.9.0-31c84e';
+const CACHE_VERSION = 'inko-2.9.0-bed7a0';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const COVERS_CACHE  = `${CACHE_VERSION}-covers`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -248,7 +248,8 @@ async function networkFirst(req, cacheName, event) {
             const off = await caches.match(OFFLINE_FALLBACK);
             if (off) return off;
         }
-        return Response.json({ error: 'Hors ligne' }, { status: 503 });
+        // horsLigne : api.js y reconnaît une coupure, pas une panne du serveur.
+        return Response.json({ error: 'Hors ligne', horsLigne: true }, { status: 503 });
     }
 }
 

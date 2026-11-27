@@ -236,7 +236,8 @@
         return ECRITURES_HISTORIQUE.some((re) => re.test(path));
     }
 
-    async function request(method, path, body, { timeout = DEFAULT_TIMEOUT, keepalive = false } = {}) {
+    let _reseauEnPanne = false;
+    async function request(method, path, body, { timeout = DEFAULT_TIMEOUT, keepalive = false, sansFile = false } = {}) {
         if (ecritureDHistorique(method, path) && invite()) {
             return { ok: true, invite: true, ignore: path };
         }
@@ -336,14 +337,17 @@
             const err = new Error(e && e.name === 'AbortError'
                 ? 'Délai dépassé — le serveur met trop de temps à répondre.'
                 : 'Connexion impossible — vérifie ta connexion réseau.');
-            err.status = 0; err.network = true;
+            err.status = 0; err.network = true; _reseauEnPanne = true;
             // Audit BUG-04 : mémorise la dernière erreur pour que l'UI puisse
             // distinguer « pas de session » de « serveur/base en panne ».
             try { (window.MH = window.MH || {}).lastApiError = err; } catch (_) { /* noop */ }
             // Audit M8 : les écritures de lecture faites hors-ligne (marquer
             // lu, progression) étaient simplement perdues — elles sont
             // désormais mises en file et rejouées au retour du réseau.
-            queueOffline(method, path, body);
+            // sansFile : la rejouée de la file elle-même — elle doit échouer
+            // franchement pour que l'entrée reste en file, pas s'y remettre.
+            const gardee = sansFile ? null : queueOffline(method, path, body);
+            if (gardee && gardee.resout) return enAttente();   // DAT-20
             try { window.dispatchEvent(new CustomEvent('api:error', { detail: err })); } catch (_) { window.MH?.err?.('api.js', _); }
             throw err;
         } finally {
@@ -357,11 +361,21 @@
         if (res.ok && res.status !== 204 && res.headers && typeof res.headers.get === 'function'
             && !/json/i.test(res.headers.get('content-type') || '')) {
             const err = new Error('Réponse inattendue : un portail Wi-Fi ou un proxy s’interpose peut-être. Ouvre une page web pour te connecter au réseau, puis réessaie.');
-            err.status = 0; err.network = true; err.portail = true;
+            err.status = 0; err.network = true; _reseauEnPanne = true; err.portail = true;
             try { (window.MH = window.MH || {}).lastApiError = err; } catch (_) { /* noop */ }
-            queueOffline(method, path, body);
+            // sansFile : la rejouée de la file elle-même — elle doit échouer
+            // franchement pour que l'entrée reste en file, pas s'y remettre.
+            const gardee = sansFile ? null : queueOffline(method, path, body);
+            if (gardee && gardee.resout) return enAttente();   // DAT-20
             try { window.dispatchEvent(new CustomEvent('api:error', { detail: err })); } catch (_) { window.MH?.err?.('api.js', _); }
             throw err;
+        }
+        // Le serveur répond de nouveau après une panne réseau : l'écran peut
+        // retirer son bandeau (HL-SILENCE), la file repart.
+        if (_reseauEnPanne) {
+            _reseauEnPanne = false;
+            try { window.dispatchEvent(new CustomEvent('api:retour')); } catch (_) { /* noop */ }
+            setTimeout(flushOfflineQueue, 500);
         }
         let data = null;
         try { data = await res.json(); } catch (e) { data = null; }
@@ -370,6 +384,9 @@
             const err = new Error(data?.error || `HTTP ${res.status}`);
             err.status = res.status;
             err.data = data;
+            // Réponse du service worker quand le réseau manque : c'est une
+            // coupure, à traiter comme telle (bandeau, réessai, retour).
+            if (res.status === 503 && data && data.horsLigne) { err.network = true; _reseauEnPanne = true; }
             // Audit BUG-04 : un 5xx (base morte) ne doit pas être présenté
             // comme une session expirée.
             try { (window.MH = window.MH || {}).lastApiError = err; } catch (_) { /* noop */ }
@@ -476,9 +493,27 @@
     // (INSERT IGNORE côté serveur). Rejouées dans l'ordre au retour du
     // réseau ; entrées > 7 jours abandonnées ; file bornée à 200.
     const OFFLINE_KEY = 'inko_offline_queue_v1';
+    // DAT-20 : réseau coupé, cinq gestes — seuls progression et chapitres lus
+    // revenaient. Suivre, retirer, classer, poser un signet ou écrire une
+    // note étaient perdus, et l'écran affichait une erreur (le cœur se
+    // dé-cochait). Ces écritures sont désormais gardées elles aussi :
+    // chacune est rejouable (PUT écrase ; ajout et retrait d'un favori ou
+    // d'un signet sont idempotents côté serveur). `resout` : l'appel rend
+    // `{ ok: true, enAttente: true }` au lieu d'échouer, pour que l'écran
+    // garde le geste au lieu de l'annuler. La progression et les chapitres
+    // lus gardent leur comportement d'origine (l'appelant gère déjà l'échec).
     const OFFLINE_OK = [
-        { method: 'PUT',  re: /^\/me\/progress\// },
-        { method: 'POST', re: /^\/me\/read-chapters(\/bulk)?$/ },
+        { method: 'PUT',    re: /^\/me\/progress\// },
+        { method: 'POST',   re: /^\/me\/read-chapters(\/bulk)?$/ },
+        { method: 'POST',   re: /^\/me\/favorites$/, resout: true },
+        { method: 'DELETE', re: /^\/me\/favorites\/[^/]+$/, resout: true },
+        { method: 'PUT',    re: /^\/me\/favorites\/[^/]+\/category$/, resout: true },
+        { method: 'PUT',    re: /^\/me\/library\/[^/]+$/, resout: true },
+        { method: 'POST',   re: /^\/me\/bookmarks$/, resout: true },
+        { method: 'DELETE', re: /^\/me\/bookmarks\/[^/]+\/[^/]+$/, resout: true },
+        { method: 'POST',   re: /^\/me\/notes$/, resout: true },
+        { method: 'PUT',    re: /^\/me\/notes\/[^/]+$/, resout: true },
+        { method: 'DELETE', re: /^\/me\/notes\/[^/]+$/, resout: true },
     ];
     function readQueue() {
         try { return JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]'); }
@@ -488,15 +523,40 @@
         try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(q.slice(-200))); }
         catch (e) { window.MH?.err?.('api.js', e); }
     }
+    // Œuvre visée par un ajout / retrait de favori : le retrait la porte dans
+    // l'adresse, l'ajout dans le corps.
+    const favoriVise = (e) => e.method === 'POST' && e.path === '/me/favorites'
+        ? String(e.body?.mangaId ?? '')
+        : (e.method === 'DELETE' && /^\/me\/favorites\/[^/]+$/.test(e.path) ? decodeURIComponent(e.path.split('/')[3]) : null);
+    /** @returns {null|{resout:boolean}} la règle appliquée, ou null si rien n'est gardé */
     function queueOffline(method, path, body) {
-        if (!OFFLINE_OK.some(r => r.method === method && r.re.test(path))) return;
+        const regle = OFFLINE_OK.find(r => r.method === method && r.re.test(path));
+        if (!regle) return null;
         const q = readQueue();
-        // Dédoublonne la progression : une seule entrée par œuvre (la dernière gagne)
-        const filtered = method === 'PUT' ? q.filter(e => !(e.method === 'PUT' && e.path === path)) : q;
-        filtered.push({ method, path, body, at: Date.now() });
+        const entree = { method, path, body, at: Date.now() };
+        const cible = favoriVise(entree);
+        // Une seule entrée par adresse écrasée (PUT, DELETE : la dernière
+        // gagne) ; pour un favori, le geste contraire encore en attente
+        // s'efface — suivre puis retirer hors ligne ne rejoue que le retrait.
+        const filtered = q.filter(e => {
+            if ((method === 'PUT' || method === 'DELETE') && e.method === method && e.path === path) return false;
+            if (cible != null && favoriVise(e) === cible) return false;
+            return true;
+        });
+        filtered.push(entree);
         writeQueue(filtered);
         // Dès qu'il y a quelque chose à envoyer, on surveille le retour du hub.
         surveillerFile();
+        return { resout: !!regle.resout };
+    }
+    /** Ce que rend un appel gardé pour plus tard — et ce que l'écran en dit. */
+    let _dernierAvisFile = 0;
+    function enAttente() {
+        if (Date.now() - _dernierAvisFile > 8000) {
+            _dernierAvisFile = Date.now();
+            try { window.MH?.toast?.('Hors ligne : c’est noté, ce sera envoyé au retour du réseau.'); } catch (_) { /* noop */ }
+        }
+        return { ok: true, enAttente: true };
     }
     let _flushing = false;
     async function flushOfflineQueue() {
@@ -507,14 +567,14 @@
         //
         // Il reste utile dans un sens : `false` signifie vraiment hors ligne.
         // On garde donc ce court-circuit, et on ajoute le nôtre.
-        if (_flushing || !navigator.onLine || !_token) return;
+        if (_flushing || !navigator.onLine || (!_token && !_user)) return;   // session par cookie aussi
         if (window.INKO_HORS_LIGNE) return;
         const q = readQueue().filter(e => Date.now() - e.at < 7 * 86400000);
         if (!q.length) { writeQueue([]); return; }
         _flushing = true;
         const remaining = [];
         for (const e of q) {
-            try { await request(e.method, e.path, e.body); }
+            try { await request(e.method, e.path, e.body, { sansFile: true }); }
             catch (err) {
                 if (err.network) { remaining.push(e); }   // toujours hors-ligne : on garde
                 // erreur applicative (4xx/5xx) : on abandonne l'entrée (pas de boucle)

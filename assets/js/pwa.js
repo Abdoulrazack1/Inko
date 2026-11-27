@@ -3,6 +3,22 @@
     'use strict';
     if (!('serviceWorker' in navigator)) return;
 
+    // HL-MAJ-SILENCIEUSE : le worker prend la main dès qu'une nouvelle version
+    // est installée (skipWaiting), mais la page ouverte garde l'ancien code
+    // jusqu'au prochain chargement — sans que rien ne le dise. Seulement quand
+    // un worker en REMPLACE un autre : la toute première installation n'est
+    // pas une mise à jour.
+    const avaitUnWorker = !!navigator.serviceWorker.controller;
+    let prevenu = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!avaitUnWorker || prevenu) return;
+        prevenu = true;
+        const dire = window.MH?.bandeau;
+        if (typeof dire === 'function') {
+            dire('Une nouvelle version d’Inko est installée.', { action: 'Recharger', onAction: () => location.reload(), duree: 15000 });
+        }
+    });
+
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/service-worker.js')
             .then(reg => {

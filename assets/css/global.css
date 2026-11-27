@@ -2317,6 +2317,14 @@ a[data-nsfw] .manga-card-cover::after,
 /* ROB-03 : attente écrite en dur dans les pages qui dépendent d'un seul
    appel. Le rendu la remplace ; sans réponse, elle dit au moins ce qui se
    passe au lieu d'une page blanche. */
+/* HL-SILENCE / DAT-20 : état hors ligne, persistant tant qu'il dure, sous
+   l'en-tête. Discret : il informe, il ne bloque rien. */
+.mh-hors-ligne { position: fixed; z-index: 1001; left: 50%; transform: translateX(-50%);
+  top: calc(var(--header-h, 58px) + 8px); max-width: calc(100vw - 32px);
+  padding: var(--sp-1) var(--sp-3); border-radius: var(--r-controle, 8px);
+  background: var(--bg3); color: var(--amber-text); border: 1px solid var(--border2);
+  font-size: var(--t-s); text-align: center; box-shadow: var(--shadow-1); }
+
 .mh-attente { display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
   padding: var(--sp-7) var(--sp-4); color: var(--text2); font-size: var(--t-s); margin: 0; }
 
