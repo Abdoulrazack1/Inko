@@ -72,6 +72,9 @@
     async function loadStats() {
         try {
             const s = await API.me.notesStats();
+            // ROB-03 : une réponse vide affichait « undefined note ».
+            if (!s || typeof s.total !== "number") return;
+            s.series = Number(s.series) || 0;
             const topMood = Object.entries(s.moods || {}).sort((a, b) => b[1] - a[1])[0];
             document.getElementById('jrStats').innerHTML = `
                 <div class="jr-stat"><b class="${MH.classeChiffre(s.total)}">${s.total}</b><span>note${s.total > 1 ? 's' : ''}</span></div>

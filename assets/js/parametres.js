@@ -274,6 +274,9 @@
         if (!carte || !liste) return;
         let d;
         try { d = await API.instance(); } catch (e) { return; }
+        // ROB-03 : une réponse vide (proxy, serveur ancien) levait une exception
+        // et affichait « Node undefined ». Carte masquée plutôt que fausse.
+        if (!d || !d.base || !d.sauvegardes || !d.extensions) return;
         carte.style.display = '';
 
         const mo = (o) => (o == null ? '—' : (o / 1073741824 >= 1
@@ -284,8 +287,10 @@
             return Math.round(s / 86400) + ' j';
         };
         if (sous) {
-            sous.textContent = `Version ${d.version || 'dev'} · Node ${d.node} · en ligne depuis ${duree(d.uptimeSec)}`
-                + ` · ${d.memoireMo} Mo de memoire`;
+            sous.textContent = [`Version ${d.version || 'dev'}`,
+                d.node && `Node ${d.node}`,
+                Number.isFinite(d.uptimeSec) && `en ligne depuis ${duree(d.uptimeSec)}`,
+                Number.isFinite(d.memoireMo) && `${d.memoireMo} Mo de memoire`].filter(Boolean).join(' · ');
         }
 
         // La sauvegarde est le seul poste ou l'AGE compte plus que l'etat :
@@ -495,7 +500,7 @@
         if (!carte || !liste) return;
         let d;
         try { d = await API.me.backups(); } catch (e) { return; }
-        if (!d.items.length) return;   // rien a montrer : une section vide n'informe pas
+        if (!d || !Array.isArray(d.items) || !d.items.length) return;   // ROB-03   // rien a montrer : une section vide n'informe pas
         carte.style.display = '';
 
         if (sous) {
