@@ -70,18 +70,19 @@
         if (!bloc || !sel) return;
         let p;
         try { p = await API.notifications.prefs(); } catch (e) { return; }   // bloc masqué : mieux qu'un réglage inopérant
+        if (!p || !Number.isFinite(p.everyHours)) return;   // ROB-03 : réponse vide = pas de réglage
         sel.value = String(p.everyHours);
         bloc.hidden = false;
 
         const note = document.getElementById('ntWatched');
-        if (note) {
+        if (note && Number.isFinite(p.followed) && Number.isFinite(p.watched)) {
             const horsSuivi = p.followed - p.watched;
             note.textContent = [
                 p.watched === p.followed
                     ? `${p.followed} série${p.followed > 1 ? 's' : ''} surveillée${p.followed > 1 ? 's' : ''}`
                     : `${p.watched} série${p.watched > 1 ? 's' : ''} surveillée${p.watched > 1 ? 's' : ''} sur ${p.followed} (${horsSuivi} en sourdine)`,
-                `les notifications lues sont effacées après ${p.retentionDays} jours`,
-            ].join(' · ');
+                Number.isFinite(p.retentionDays) && `les notifications lues sont effacées après ${p.retentionDays} jours`,
+            ].filter(Boolean).join(' · ');
         }
 
         sel.addEventListener('change', async () => {

@@ -11,9 +11,20 @@
         // ?preview=1 : voir son propre profil comme un inconnu (audit AMEL-62)
         const apercu = new URLSearchParams(location.search).get('preview') === '1';
         let p;
-        try { p = await API.users.profile(username, { preview: apercu }); }
-        catch (e) {
-            body.innerHTML = msg('Profil introuvable', `Aucun utilisateur nommé « ${MH.esc(username)} ».`);
+        try {
+            p = await API.users.profile(username, { preview: apercu });
+            // ROB-03 : une réponse vide affichait une page « Profil de … ? » muette.
+            if (!p || !p.username) throw Object.assign(new Error('Réponse du serveur incomplète'), { status: 502 });
+        } catch (e) {
+            // Seul un 404 dit que le profil n'existe pas. Réseau coupé ou
+            // serveur en panne : le dire, avec « Réessayer ».
+            if (e && e.status === 404) {
+                body.innerHTML = msg('Profil introuvable', `Aucun utilisateur nommé « ${MH.esc(username)} ».`);
+            } else if (MH.poserEtatErreur) {
+                MH.poserEtatErreur(body, e, { onRetry: () => location.reload() });
+            } else {
+                body.innerHTML = msg('Profil indisponible', MH.esc((e && e.message) || 'Le serveur ne répond pas.'));
+            }
             return;
         }
         // A11Y-01 : le titre lu porte le pseudo. Sans ca, tous les profils

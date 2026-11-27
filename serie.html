@@ -16,7 +16,9 @@
   <main id="main" tabindex="-1">
 
   <!-- ══ HERO SERIE ════════════════════════════════════════ -->
-  <div class="serie-hero" id="serieHero"></div>
+  <!-- ROB-03 : avec une API lente, la fiche restait blanche plusieurs
+       secondes sans rien dire. renderHero() remplace ce message. -->
+  <div class="serie-hero" id="serieHero"><div class="container"><p class="mh-attente" role="status"><span class="spinner-inline" aria-hidden="true"></span> Chargement de la série…</p></div></div>
 
   <!-- ══ ONGLETS ════════════════════════════════════════════ -->
   <div class="serie-tabs-bar sticky-tabs" id="serieTabsBar">

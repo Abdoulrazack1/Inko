@@ -85,6 +85,10 @@
      * chapitre » — reste dans sa colonne, elle : là, l'autre a du contenu.
      */
     function panneDePage(message) {
+        // ROB-03 : le sélecteur gardait « Recherche des autres sources… »
+        // alors que plus rien ne cherchait.
+        const sel = $('cmpSourceB');
+        if (sel) { sel.disabled = true; sel.innerHTML = '<option>Aucune comparaison possible</option>'; }
         $('cmpB').hidden = true;
         document.querySelector('.cmp-colonnes')?.classList.add('cmp-colonnes--seule');
         colonne($('cmpA'), { message });

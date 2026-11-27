@@ -2314,6 +2314,12 @@ a[data-nsfw] .manga-card-cover::after,
 
 
 
+/* ROB-03 : attente écrite en dur dans les pages qui dépendent d'un seul
+   appel. Le rendu la remplace ; sans réponse, elle dit au moins ce qui se
+   passe au lieu d'une page blanche. */
+.mh-attente { display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  padding: var(--sp-7) var(--sp-4); color: var(--text2); font-size: var(--t-s); margin: 0; }
+
 /* ── P1.6 : états vides (voir MH.etatVide) ─────────────────── */
 .mh-etat-vide {
     display: flex; flex-direction: column; align-items: center; justify-content: center;

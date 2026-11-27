@@ -52,6 +52,17 @@
         });
         input.focus();
 
+        // ROB-02 : la recherche demandée par l'adresse partait APRÈS les
+        // réglages, les signets et les favoris, chargés l'un après l'autre.
+        // Serveur en panne, chacun réessayait : 3 à 4 s de squelettes avant
+        // même de chercher, et autant avant le message d'erreur. Elle part
+        // désormais tout de suite ; favoris et historique se raccrochent
+        // quand ils arrivent (le cœur « déjà suivie » est un décor, pas un
+        // préalable).
+        const q = qInitial;
+        const lancee = !!(q && input.value === '');
+        if (lancee) { input.value = q; run(q); }
+
         await window.UserData?.ready?.();
         try { favSet = await MH.getFavSet(); } catch (e) { window.MH?.err?.('recherche.js', e); }
 
@@ -59,8 +70,14 @@
         // taper pendant que les donnees arrivent. Reposer `?q=` par-dessus
         // effacerait cette saisie — on ne le fait donc que si le champ est
         // reste intact.
-        const q = qInitial;
-        if (q && (input.value === '' || input.value === q)) { input.value = q; submit(q); }
+        if (lancee) {
+            window.UserData?.pushSearch?.(q);
+            renderHistory();
+            if (dernierRendu && groupesRecus.length) {
+                lastMerged = mergeByTitle(groupesRecus, dernierRendu.q);
+                renderResults(dernierRendu.q, dernierRendu.opts);
+            }
+        } else if (q && (input.value === '' || input.value === q)) { input.value = q; submit(q); }
         else if (!input.value.trim()) { renderHistory(); renderSuggestions(); }
     });
 
@@ -395,7 +412,9 @@
     // tombaient entre 2,2:1 et 3,8:1 ; les « 700 » tiennent toutes 4,5:1.
     const STATUS_COLOR = { ongoing: '#15803d', completed: '#1d4ed8', hiatus: '#b45309', cancelled: '#b91c1c' };
 
+    let dernierRendu = null;   // ROB-02 : pour re-rendre quand les favoris arrivent
     function renderResults(q, opts = {}) {
+        dernierRendu = { q, opts };
         const out = document.getElementById('seResults');
         const sub = document.getElementById('seSub');
         // Filtrage par type (une œuvre matche si au moins une de ses sources correspond)

@@ -27,3 +27,6 @@
 .cx-connecte { display: flex; flex-direction: column; gap: var(--sp-3); }
 /* `display: flex` l'emporte sur l'attribut hidden : on le rétablit. */
 .cx [hidden] { display: none !important; }
+
+/* ROB-03 : serveur injoignable alors que le compte est mémorisé. */
+.cx-note { color: var(--amber-text); font-size: var(--t-s); margin: 0; }

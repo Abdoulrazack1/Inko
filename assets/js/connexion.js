@@ -134,6 +134,18 @@
             $('cxConnecteTexte').textContent = `Compte : ${u.username}.`;
             $('cxContinuer').href = destination();
             $('cxConnecte').hidden = false;
+            // ROB-03 : le compte affiché vient de la mémoire du navigateur.
+            // Si le serveur ne répond pas, le dire : « Continuer » mènerait
+            // sinon à des pages qui échouent sans qu'on sache pourquoi.
+            // `me()` rend null sur tout échec ; un vrai 401 purge la session
+            // (request()), donc un compte encore là signifie « injoignable ».
+            if (!(await API.auth.me()) && API.user) {
+                const p = document.createElement('p');
+                p.className = 'cx-note';
+                p.setAttribute('role', 'status');
+                p.textContent = 'Le serveur ne répond pas pour l’instant : tes pages s’ouvriront dès qu’il sera de retour.';
+                $('cxConnecteTexte').after(p);
+            }
         }
     }
 

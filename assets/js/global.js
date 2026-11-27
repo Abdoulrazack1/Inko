@@ -2544,6 +2544,19 @@
     // l'application Windows, aucun bouton pour fermer ou déplacer la fenêtre.
     // Une page qui ne l'a pas appelé une fois ses propres scripts passés
     // reçoit donc l'en-tête commun.
+    // ROB-03 : une attente écrite dans la page (`.mh-attente`) qui dure encore
+    // après 5 s n'est plus un chargement ordinaire. On le dit, plutôt que de
+    // laisser croire que la page est figée.
+    document.addEventListener('DOMContentLoaded', () => setTimeout(() => {
+        document.querySelectorAll('.mh-attente').forEach(el => {
+            if (!el.isConnected || el.querySelector('.mh-attente-lent')) return;
+            const s = document.createElement('span');
+            s.className = 'mh-attente-lent';
+            s.textContent = ' Le serveur met du temps à répondre…';
+            el.appendChild(s);
+        });
+    }, 5000));
+
     let _pageInitialisee = false;
     document.addEventListener('DOMContentLoaded', () => setTimeout(() => {
         if (_pageInitialisee) return;
