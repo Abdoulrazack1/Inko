@@ -2470,10 +2470,20 @@
         rerender();
     }
 
+    // UX-10 : le panneau passe par `MH.surcouche`, comme le menu du lecteur.
+    // Sans elle, le bouton Retour du téléphone quittait le chapitre en
+    // laissant les réglages ouverts.
+    let rendreReglages = null;
     function toggleReaderSettings() {
         const ex = document.getElementById('readerSettings');
-        if (ex) { ex.remove(); return; }
+        if (ex) {
+            if (rendreReglages) { const r = rendreReglages; rendreReglages = null; r(); }
+            else ex.remove();
+            return;
+        }
         const panel = document.createElement('div');
+        const fermerReel = () => { rendreReglages = null; panel.remove(); };
+        rendreReglages = window.MH?.surcouche ? MH.surcouche(fermerReel) : fermerReel;
         panel.id = 'readerSettings';
         panel.className = 'reader-settings-pop';
         const seg = (key, opts, cur) => `<div class="rs-seg" data-key="${key}">` +

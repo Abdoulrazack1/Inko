@@ -60,7 +60,7 @@
 .maj-empreinte-absente { color: #f59e0b; }
 .src-mesures { flex-basis: 100%; color: var(--text2); font-variant-numeric: tabular-nums; }
 .src-mesures-base { color: var(--text3); }
-.src-mesure-alerte { color: #f59e0b; font-weight: 600; }
+.src-mesure-alerte { color: var(--amber-text, #f59e0b); font-weight: 600; }   /* A11Y-15 */
 .source-icon {
   width: 48px; height: 48px; border-radius: var(--r-carte);
   display: flex; align-items: center; justify-content: center;

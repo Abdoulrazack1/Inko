@@ -617,6 +617,10 @@ ul, ol { list-style: none; }
    corrige. */
 .chiffre-zero.chiffre-zero { color: var(--text3); }
 
+/* UX-11 : un mot sans espace (titre de source, description collée) se coupe
+   quand il dépasse au lieu d'élargir la page. break-word ne change pas la
+   largeur minimale des boîtes : rien ne bouge tant que rien ne déborde. */
+body { overflow-wrap: break-word; }
 body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
 :focus { outline: none; }
@@ -1024,7 +1028,7 @@ body.incognito-on::before {
 .badge-pause  { background: rgba(245,158,11,.1); color: var(--amber); }
 
 /* Rating stars */
-.stars { display: inline-flex; gap: 1px; color: var(--amber); font-size: var(--t-s); }
+.stars { display: inline-flex; gap: 1px; color: var(--amber-text, var(--amber)); font-size: var(--t-s); }   /* A11Y-15 */
 .stars-score { font-size: var(--t-s); font-weight: 600; color: var(--text); }
 .stars-count { font-size: var(--t-xs); color: var(--text2); }
 
@@ -1929,10 +1933,31 @@ a[data-nsfw] .manga-card-cover::after,
   .mnav-icon { position: relative; display: flex; }
   .mnav-icon svg { width: 21px; height: 21px; }
   .mnav-icon .nav-badge { top: -5px; right: -10px; }
-  /* Laisse la place à la barre (contenu + dock musique) */
-  body.page-body { padding-bottom: 62px; }
+  /* Laisse la place à la barre (contenu + dock musique).
+     MOB-10 : 62 px, quand la barre en mesure 64 plus l'encoche, laissait les
+     derniers contrôles d'une page (cartes, « Gérer », « Importer ») sous
+     elle. La réserve suit la hauteur annoncée, plus une respiration.
+     Doublée, comme `#btnBackTop` : le WebView d'Android 8 jette env(). */
+  body.page-body { padding-bottom: 80px; padding-bottom: calc(var(--mh-barre-onglets, 64px) + env(safe-area-inset-bottom, 0px) + 16px); }
   #inko-music { bottom: 58px !important; }
   .im-pill { bottom: 76px !important; }
+}
+
+/* MOB-ZOOM-SAISIE : sous 16 px, Safari iOS zoome toute la page à chaque
+   champ touché. Plancher de 16 px pour la saisie, au téléphone seulement. */
+@media (max-width: 600px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']), select, textarea { font-size: max(16px, 1em); }
+}
+
+/* MOB-11 : téléphone en paysage. En-tête et barre d'onglets prenaient
+   194 px sur 390 — la moitié de l'écran pour lire. La barre passe sur une
+   ligne (icône à côté du libellé) et l'en-tête s'affine. */
+@media (max-width: 1024px) and (max-height: 480px) and (orientation: landscape) {
+  :root { --header-h: 44px; --mh-barre-onglets: 40px; }
+  .mnav-item { flex-direction: row; justify-content: center; gap: 6px; padding: var(--sp-1) 0; }
+  .mnav-icon svg { width: 18px; height: 18px; }
+  #inko-music { bottom: 42px !important; }
+  .im-pill { bottom: 56px !important; }
 }
 
 /* ── Tablet (≤ 1024px) ──────────────────────────────────── */
@@ -2216,6 +2241,11 @@ a[data-nsfw] .manga-card-cover::after,
      icône ou un dégradé passerait derrière et disparaîtrait. */
   button > *, a[href] > *, [role='button'] > * { position: relative; z-index: 1; }
 
+  /* MOB-09 : un champ n'a pas de ::after. Pour une case à cocher, c'est son
+     libellé qui sert de cible : il atteint au moins 24 px. Un curseur aussi. */
+  label:has(> input[type='checkbox']), label:has(> input[type='radio']) { min-height: 24px; }
+  input[type='range'] { min-height: 24px; }
+
   /* Exceptions — là où l'extension nuirait plus qu'elle n'aiderait :
      · un lien DANS un paragraphe : la zone déborderait sur les lignes
        voisines et leur volerait leurs clics ;
@@ -2477,6 +2507,32 @@ html.inko-app main { animation: inko-app-entree .18s ease-out; }
   .site-header #btnContinue,
   .site-header #btnRefresh,
   .site-header a[href="parametres.html"] { display: none !important; }
+}
+
+/* ══ Contraste forcé (A11Y-16) ══════════════════════════════════════════
+   En « Contraste élevé » de Windows, le navigateur remplace nos couleurs :
+   les soulignés transparents des onglets deviennent tous visibles, les pas
+   de clarté qui marquent l'actif disparaissent, et une puce active perdait
+   même son libellé. L'état actif y est donc porté par un CONTOUR en couleur
+   système, sans aplat posé sur le texte. Les !important sont voulus : les
+   feuilles de page, chargées après, redonneraient sinon leurs couleurs. */
+@media (forced-colors: active) {
+  .lib2-tab, .decouvrir-onglet, .serie-tab, .lib-cat {
+    forced-color-adjust: none; color: CanvasText !important; background: Canvas !important; border-bottom-color: Canvas !important;
+  }
+  .lib2-kind, .lib2-chip, .view-btn, .page-btn, .tag, .rs-seg button {
+    forced-color-adjust: none; color: ButtonText !important; background: ButtonFace !important; box-shadow: none !important;
+  }
+  .lib2-tab.active, .decouvrir-onglet.on, .serie-tab.on, .serie-tab.active, .lib-cat.on,
+  .lib2-kind.on, .lib2-kind.active, .lib2-chip.on, .lib2-chip.active,
+  .view-btn.active, .page-btn.active, .tag.active, .rs-seg button.on,
+  .header-nav a.active, .mnav-item.active,
+  [role="tab"][aria-selected="true"], button[aria-pressed="true"] {
+    outline: 2px solid Highlight; outline-offset: -2px;
+  }
+  .lib2-tab.active, .decouvrir-onglet.on, .serie-tab.on, .serie-tab.active { border-bottom-color: Highlight !important; }
+  .lib-cat.on::after { background: Highlight; }
+  .lib-cat .cnt, .lib2-chip .cnt, .lib2-kind .cnt, .lib2-tab .tab-count { color: inherit; background: transparent; }
 }
 
 /* ══ REPLI aspect-ratio — GÉNÉRÉ par scripts-ci/gen-repli-aspect-ratio.js ══ */

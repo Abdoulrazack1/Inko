@@ -28,7 +28,16 @@ module.exports = {
                         // le dock musical et les astuces flottantes sont mesurés à part (boutons.js)
                         const cibles = [...document.querySelectorAll('button,a[href],input,select,[role=button],[role=tab],summary')].filter(vis).filter(e => !e.closest('#inko-music,[class*=astuce]'));
                         const dansTexte = (e) => e.tagName === 'A' && e.parentElement && /^(P|LI|SPAN|SMALL|TD)$/.test(e.parentElement.tagName) && e.parentElement.textContent.trim().length > e.textContent.trim().length + 12;
-                        const tailles = cibles.filter(e => !dansTexte(e)).map(e => { const z = e.type === 'checkbox' || e.type === 'radio' ? (e.closest('label') || e) : e; const r = z.getBoundingClientRect(); return { n: nom(e), w: Math.round(r.width), h: Math.round(r.height) }; }).filter(r => r.w > 0);
+                        // MOB-09 : global.css étend la zone d'appui par un ::after invisible
+                        // (« agrandir la zone, pas le dessin »). C'est cette zone que le doigt
+                        // atteint : la mesurer, et pas seulement le dessin.
+                        const zone = (z, r) => {
+                            if (z.tagName === 'INPUT') return { w: r.width, h: r.height };   // pas de ::after sur un champ
+                            const a = getComputedStyle(z, '::after');
+                            if (!a || a.content === 'none' || a.position !== 'absolute' || a.pointerEvents === 'none') return { w: r.width, h: r.height };
+                            return { w: Math.max(r.width, parseFloat(a.minWidth) || 0, parseFloat(a.width) || 0), h: Math.max(r.height, parseFloat(a.minHeight) || 0, parseFloat(a.height) || 0) };
+                        };
+                        const tailles = cibles.filter(e => !dansTexte(e)).map(e => { const z = e.type === 'checkbox' || e.type === 'radio' ? (e.closest('label') || e) : e; const r = zone(z, z.getBoundingClientRect()); return { n: nom(e), w: Math.round(r.w), h: Math.round(r.h) }; }).filter(r => r.w > 0);
                         const police = [...document.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea')].filter(vis).filter(e => parseFloat(getComputedStyle(e).fontSize) < 16).map(e => nom(e) + ' ' + getComputedStyle(e).fontSize);
                         const petits = [...document.querySelectorAll('body *')].filter(e => e.childElementCount === 0 && e.textContent.trim().length > 3 && vis(e) && parseFloat(getComputedStyle(e).fontSize) < 11).map(e => e.textContent.trim().slice(0, 24) + ' ' + getComputedStyle(e).fontSize);
                         window.scrollTo(0, document.body.scrollHeight);

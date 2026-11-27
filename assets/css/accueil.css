@@ -108,7 +108,9 @@
 .latte-jauge > span { display: block; height: 100%; background: var(--accent); }
 
 .etagere-pied { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
-.etagere-cta { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.etagere-cta { display: inline-flex; align-items: center; gap: var(--sp-2); max-width: 100%; min-width: 0; }
+/* UX-11 : « Reprendre <titre> » tient sur une ligne, quel que soit le titre. */
+.etagere-cta-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .etagere-retirer { margin-left: auto; border: 0; background: none; cursor: pointer;
     color: var(--text3); font: inherit; font-size: var(--t-s); padding: 6px var(--sp-0); }
 .etagere-retirer:hover { color: var(--text2); text-decoration: underline; text-underline-offset: 3px; }

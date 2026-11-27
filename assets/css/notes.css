@@ -105,7 +105,7 @@
   border-radius: var(--radius2); }
 .jr-note::before { content: ''; position: absolute; left: -17px; top: 16px; width: 9px; height: 9px; border-radius: 50%;
   background: var(--accent); box-shadow: 0 0 0 3px var(--bg); }
-.jr-note-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: 6px; }
+.jr-note-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: 6px; min-width: 0; }
 .jr-note-mood { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .jr-note-loc { font-size: 11.5px; font-weight: 600; color: var(--accent); }
 .jr-note-tool svg, .note-tool svg { display: block; }
@@ -193,7 +193,8 @@
 .jr-note-kind { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: var(--sp-0) var(--sp-2); border-radius:  var(--r-controle); background: var(--bg3); color: var(--text2); }
 .jr-kind-citation { background: color-mix(in srgb, var(--ai, #3d5170) 25%, var(--bg3)); color: var(--text); }
 .jr-kind-reflexion { background: color-mix(in srgb, #3f7d4e 25%, var(--bg3)); color: var(--text); }
-.jr-note-serie { font-weight: 600; font-size: 12.5px; color: var(--text); text-decoration: none; }
+.jr-note-serie { font-weight: 600; font-size: 12.5px; color: var(--text); text-decoration: none;
+    min-width: 0; overflow-wrap: anywhere; }   /* UX-11 */
 .jr-note-serie:hover { text-decoration: underline; }
 .jr-citation { font-family: var(--font-read, Georgia, serif); font-style: italic; border-left: 3px solid var(--accent); padding-left: var(--sp-3); }
 .jr-note.is-pinned { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
