@@ -81,3 +81,17 @@ Inko**.
 ## Licence
 
 Voir [LICENSE](./LICENSE) — MIT License.
+
+### Bibliothèques tierces copiées dans le dépôt
+
+Servies depuis `assets/vendor/` (la CSP de l'application interdit les scripts externes,
+et l'APK doit fonctionner sans réseau). Chacune garde sa licence, dont l'en-tête est
+conservé dans le fichier.
+
+| Fichier | Bibliothèque | Licence |
+|---|---|---|
+| `qrcode.min.js` | qrcode-generator 2.0.4 — Kazuhiko Arase | MIT |
+| `three.min.js` | three.js r147 — Three.js Authors | MIT |
+| `jszip.min.js` | JSZip 3.10.1 — Stuart Knightley | MIT ou GPLv3 (au choix ; utilisée sous MIT) |
+| `pdf.min.js`, `pdf.worker.min.js` | PDF.js — Mozilla Foundation | Apache 2.0 |
+| `gsap.min.js`, `ScrollTrigger.min.js` | GSAP 3.13.0 — GreenSock | licence standard GreenSock (gratuite, non libre) — https://gsap.com/standard-license |

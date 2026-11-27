@@ -2197,6 +2197,20 @@
         // (B bibliothèque, H accueil, ? aide…) ne doivent pas partir en même temps.
         window.MH?.reserverTouches?.(['n', 'N', 'p', 'P', 'b', 'B', 'h', 'H', 's', 'S', '?', 'a', 'A',
             'j', 'J', 'i', 'I', 'f', 'F', '+', '-', '=', '[', ']', ' ']);
+        // LEC-01 : une case ou un curseur des réglages a le focus après un
+        // clic — et `toucheIgnoree` écarte tout INPUT. Échap ne fermait donc
+        // plus le panneau. Dans le panneau, Échap le ferme toujours (aucun de
+        // ses champs n'a d'usage propre de cette touche). Écouteur à part,
+        // posé AVANT le principal : celui-ci garde sa règle en première ligne.
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape' || e.ctrlKey || e.metaKey || e.altKey) return;
+            const panneau = document.getElementById('readerSettings');
+            if (!panneau || !panneau.contains(e.target)) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();   // le principal ne doit pas traiter ce même Échap
+            toggleReaderSettings();
+            document.getElementById('btnReaderSettings')?.focus({ preventScroll: true });
+        });
         document.addEventListener('keydown', e => {
             if (MH.toucheIgnoree(e)) return;
             const rtl = rs.direction === 'rtl';
