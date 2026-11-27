@@ -1808,8 +1808,23 @@
      * longtemps par le repli des lecteurs (« Lecture hors-ligne »).
      */
     (function reseauPerdu() {
-        const TRES_LONG = 86400000;     // on ferme a la main, pas au minuteur
         let bandeau = null;
+
+        // Son propre bandeau, et pas MH.bandeau : celui-là n'en garde qu'un
+        // à la fois, et le premier message passager (« action impossible »…)
+        // effaçait l'état hors ligne alors qu'il durait encore.
+        function poser(message) {
+            let el = document.getElementById('mh-hors-ligne');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'mh-hors-ligne';
+                el.className = 'mh-hors-ligne';
+                el.setAttribute('role', 'status');
+                (document.body || document.documentElement).appendChild(el);
+            }
+            el.textContent = message;
+            return { fermer: () => el.remove() };
+        }
 
         const dansUnLecteur = () => !!document.querySelector(
             '.reader-page-img, .novel-content, #readerPagesArea');
@@ -1819,7 +1834,7 @@
             const message = dansUnLecteur()
                 ? 'Réseau perdu. Les planches déjà chargées restent lisibles.'
                 : 'Réseau perdu. Ta bibliothèque et tes chapitres téléchargés restent accessibles.';
-            bandeau = window.MH.bandeau(message, { duree: TRES_LONG });
+            bandeau = poser(message);
         }
 
         function surRetour() {
@@ -1832,6 +1847,30 @@
 
         window.addEventListener('offline', surPerte);
         window.addEventListener('online', () => { if (bandeau) surRetour(); });
+
+        // HL-SILENCE : deux cas restaient muets. Une page ouverte DÉJÀ hors
+        // ligne (pas de transition, donc pas d'`offline`), et le hub seul
+        // injoignable — Wi-Fi présent, `navigator.onLine` vrai, mais rien au
+        // bout. api.js signale l'un (`api:error` réseau) et le retour
+        // (`api:retour`) ; les gestes faits entre-temps sont en file.
+        // Les lecteurs ont leur propre repli au démarrage sans réseau
+        // (« Lecture hors-ligne ») : ce bandeau ne s'y superpose pas.
+        const pageDeLecture = /\/(chapitre|lecture)\.html$/.test(location.pathname);
+        const surPanneServeur = (e) => {
+            if (pageDeLecture || !e.detail || !e.detail.network || bandeau) return;
+            bandeau = poser(navigator.onLine === false
+                ? 'Hors ligne. Tes gestes sont gardés et seront envoyés au retour du réseau.'
+                : 'Serveur injoignable. Tes gestes sont gardés et seront envoyés dès qu’il répondra.');
+        };
+        window.addEventListener('api:error', surPanneServeur);
+        window.addEventListener('api:retour', () => { if (bandeau) surRetour(); });
+        if (navigator.onLine === false && !pageDeLecture) {
+            // Ce bloc peut tourner après DOMContentLoaded (script en fin de
+            // page, ou appelé depuis initPage) : ne pas attendre un événement
+            // déjà passé.
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => surPerte());
+            else surPerte();
+        }
     })();
 
     window.MH.updateLibBadge = function () {

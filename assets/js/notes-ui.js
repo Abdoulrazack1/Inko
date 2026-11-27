@@ -182,11 +182,15 @@
                 await API.me.updateNote(editingId, { body, mood: selectedMood });
                 MH.toast?.('Note mise à jour');
             } else {
-                await API.me.addNote({
+                const r = await API.me.addNote({
                     mangaId: ctx.mangaId, source: ctx.source, mangaTitle: ctx.mangaTitle, cover: ctx.cover,
                     chapterId: ctx.chapterId, chapterNum: ctx.chapterNum, page: ctx.page,
                     body, mood: selectedMood,
                 });
+                // DAT-20 : hors ligne, la note est gardée en file (api.js l'a
+                // dit). Relire la liste au serveur échouerait et afficherait
+                // une erreur par-dessus.
+                if (r && r.enAttente) { resetComposer(); return; }
                 MH.toast?.('Note enregistrée dans ton journal');
             }
             resetComposer();

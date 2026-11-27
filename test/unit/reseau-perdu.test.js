@@ -50,8 +50,11 @@ test('le message dit ce qui marche ENCORE', () => {
 test('il dure aussi longtemps que la panne', () => {
     // Un bandeau ordinaire s'efface à 4 s. Pour un état qui dure dix
     // minutes, il aurait disparu avant d'avoir servi.
-    assert.match(BLOC[1], /const TRES_LONG = 86400000;/);
-    assert.match(BLOC[1], /duree: TRES_LONG/);
+    // Son propre élément (pas MH.bandeau, qui n'en garde qu'un et qu'un
+    // message passager remplaçait), sans minuteur.
+    assert.match(BLOC[1], /function poser\(message\)/);
+    assert.match(BLOC[1], /el\.id = 'mh-hors-ligne'/);
+    assert.ok(!/setTimeout\([^)]*fermer/.test(BLOC[1]), 'aucun minuteur ne le ferme');
     // Et c'est le retour du réseau qui le ferme, pas un minuteur.
     assert.match(BLOC[1], /bandeau\.fermer\(\); bandeau = null;/);
 });
@@ -71,4 +74,6 @@ test('le chargement déjà hors ligne garde son propre traitement', () => {
     // sans réseau » est traité depuis longtemps par le repli des
     // lecteurs, et ce bandeau ne doit pas s'y superposer.
     assert.match(lire('assets', 'js', 'chapitre.js'), /Lecture hors-ligne/);
+    assert.match(BLOC[1], /pageDeLecture = /);
+    assert.match(BLOC[1], /navigator\.onLine === false && !pageDeLecture/);
 });
